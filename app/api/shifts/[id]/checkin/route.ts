@@ -5,9 +5,9 @@ import { checkInSchema } from '@/lib/validations';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: shiftId } = await params;
-  const userId = req.headers.get('x-mock-user-id'); // TODO: Replace with real Auth
+  const guardId = req.headers.get('x-mock-guard-id'); // TODO: Replace with real Auth
 
-  if (!userId) {
+  if (!guardId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -19,15 +19,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // 1. Fetch Shift
     const shift = await prisma.shift.findUnique({
       where: { id: shiftId },
-      include: { post: true },
+      include: { site: true, shiftType: true, guard: true },
     });
 
     if (!shift) {
       return NextResponse.json({ error: 'Shift not found' }, { status: 404 });
     }
 
-    // 2. Validate User and Time
-    if (shift.userId !== userId) {
+    // 2. Validate Guard and Time
+    if (shift.guardId !== guardId) {
       return NextResponse.json({ error: 'Not assigned to this shift' }, { status: 403 });
     }
 
@@ -51,8 +51,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const checkin = await tx.checkin.create({
         data: {
           shiftId: shift.id,
-          userId: userId,
-          status: status === 'on_time' ? 'on_time' : 'late',
+          guardId: guardId, // Use guardId instead of userId
+          status: status, // Directly use the calculated status
           source: body.source || 'api',
           metadata: body.location as any,
           at: now,
@@ -61,7 +61,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
       const updateData: any = {
         lastHeartbeatAt: now,
+        checkInStatus: status, // Set the shift's latest check-in status
       };
+
+      if (shift.status === 'scheduled') { // If it's the first check-in, set shift to in_progress
+        updateData.status = 'in_progress';
+      }
 
       if (status === 'on_time') {
         updateData.missedCount = 0;
@@ -99,17 +104,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         }
       }
 
-      return { checkin, resolvedAlert };
+      return { checkin, resolvedAlert: null }; // Removed alert resolution by guard
     });
 
     // 5. Publish Realtime Events
-    if (result.resolvedAlert) {
-      const payload = {
-        type: 'alert_updated',
-        alert: result.resolvedAlert,
-      };
-      await redis.publish(`alerts:site:${shift.post.siteId}`, JSON.stringify(payload));
-    }
+    // Removed alert resolution publishing here, as guards no longer resolve alerts
 
     // Calculate next due for response
     const nextDueAfterCheckin = new Date(now.getTime() + shift.requiredCheckinIntervalMins * 60000);

@@ -125,10 +125,10 @@ export default function AdminDashboard() {
                     <span className="text-xs bg-gray-200 px-2 py-0.5 rounded">{alert.severity}</span>
                   </div>
                   <p className="mt-1 font-medium">
-                    Shift: {alert.shift?.post?.name} ({alert.shift?.post?.site?.name})
+                    Shift Type: {alert.shift?.shiftType?.name} (Site: {alert.site?.name})
                   </p>
                   <p className="text-sm text-gray-500">
-                    Guard: {alert.shift?.user?.name || 'Unassigned'}
+                    Guard: {alert.shift?.guard?.name || 'Unassigned'}
                   </p>
                   <p className="text-xs text-gray-400 mt-1">
                     Window: {new Date(alert.windowStart).toLocaleString()}

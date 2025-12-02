@@ -3,18 +3,18 @@ import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  // TODO: Auth Check
+  // TODO: Auth Check (ensure admin role)
   const { id } = await params;
-  const userId = 'admin-user-id'; // Mock
+  const adminId = 'mock-admin-id'; // TODO: Replace with real Admin Auth ID
 
   try {
     const alert = await prisma.alert.update({
       where: { id },
       data: {
         resolvedAt: new Date(),
-        resolvedBy: userId,
+        resolvedById: adminId, // Use resolvedById
       },
-      include: { shift: { include: { post: true } } },
+      include: { shift: true }, // Include shift to get necessary data for SSE payload
     });
 
     // Publish update
@@ -26,6 +26,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     return NextResponse.json(alert);
   } catch (error) {
+    console.error('Error resolving alert:', error);
     return NextResponse.json({ error: 'Error resolving alert' }, { status: 500 });
   }
 }

@@ -12,16 +12,18 @@ export async function GET(req: Request) {
 
     const where: any = {};
     if (siteId) {
-      where.post = { siteId };
+      where.siteId = siteId;
     }
     if (from && to) {
-      where.startsAt = { gte: new Date(from) };
-      where.endsAt = { lte: new Date(to) };
+      where.date = {
+        gte: new Date(from),
+        lte: new Date(to),
+      };
     }
 
     const shifts = await prisma.shift.findMany({
       where,
-      include: { post: true, user: true },
+      include: { shiftType: true, guard: true },
       orderBy: { startsAt: 'asc' },
     });
     return NextResponse.json(shifts);
@@ -37,56 +39,54 @@ export async function POST(req: Request) {
     const json = await req.json();
     const body = createShiftSchema.parse(json);
 
-    const startsAt = new Date(body.startsAt);
-    const endsAt = new Date(body.endsAt);
-
-    // 1. Check Post existence and headcount
-    const post = await prisma.post.findUnique({
-      where: { id: body.postId },
+    // 1. Fetch Shift Type to calculate actual times
+    const shiftType = await prisma.shiftType.findUnique({
+      where: { id: body.shiftTypeId },
     });
 
-    if (!post) {
-      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
+    if (!shiftType) {
+      return NextResponse.json({ error: 'Shift Type not found' }, { status: 404 });
     }
 
-    // 2. Check Post Overlap if headcount == 1
-    if (post.requiredHeadcount === 1) {
-      const overlap = await prisma.shift.findFirst({
+    // 2. Calculate startsAt and endsAt
+    // Format: "2023-12-01T08:00:00.000Z" (ISO) constructed from date and HH:mm
+    const dateStr = body.date; // "YYYY-MM-DD"
+    const startsAt = new Date(`${dateStr}T${shiftType.startTime}:00`);
+    let endsAt = new Date(`${dateStr}T${shiftType.endTime}:00`);
+
+    // Handle Overnight Shifts: If end time is before start time, it means it ends the next day
+    if (endsAt <= startsAt) {
+      endsAt.setDate(endsAt.getDate() + 1);
+    }
+
+    // 3. Check Guard Overlap (if guard assigned)
+    if (body.guardId) {
+      const guardOverlap = await prisma.shift.findFirst({
         where: {
-          postId: body.postId,
-          status: { not: 'canceled' },
+          guardId: body.guardId,
+          status: { not: 'missed' }, // Assuming 'missed' doesn't block future assignments, or maybe it should?
+          // Check time overlap: (StartA < EndB) and (EndA > StartB)
           startsAt: { lt: endsAt },
           endsAt: { gt: startsAt },
         },
       });
 
-      if (overlap) {
-        return NextResponse.json({ error: 'Overlapping shift for this post (headcount limit)' }, { status: 409 });
-      }
-    }
-
-    // 3. Check User Overlap (if user assigned)
-    if (body.userId) {
-      const userOverlap = await prisma.shift.findFirst({
-        where: {
-          userId: body.userId,
-          status: { not: 'canceled' },
-          startsAt: { lt: endsAt },
-          endsAt: { gt: startsAt },
-        },
-      });
-
-      if (userOverlap) {
-        return NextResponse.json({ error: 'User has an overlapping shift' }, { status: 409 });
+      if (guardOverlap) {
+        return NextResponse.json({ error: 'Guard has an overlapping shift' }, { status: 409 });
       }
     }
 
     const shift = await prisma.shift.create({
       data: {
-        ...body,
+        siteId: body.siteId,
+        shiftTypeId: body.shiftTypeId,
+        guardId: body.guardId,
+        date: new Date(body.date),
         startsAt,
         endsAt,
-        status: body.userId ? 'assigned' : 'unassigned',
+        requiredCheckinIntervalMins: body.requiredCheckinIntervalMins,
+        graceMinutes: body.graceMinutes,
+        status: 'scheduled', // Default status
       },
     });
 
