@@ -12,8 +12,8 @@ export default function AdminDashboard() {
   // Fetch Sites
   useEffect(() => {
     fetch('/api/admin/sites')
-      .then((res) => res.json())
-      .then((data) => {
+      .then(res => res.json())
+      .then(data => {
         if (Array.isArray(data)) setSites(data);
       });
   }, []);
@@ -30,7 +30,7 @@ export default function AdminDashboard() {
     setConnectionStatus('Connecting...');
 
     es.onopen = () => setConnectionStatus('Connected');
-    
+
     es.onerror = () => {
       setConnectionStatus('Error/Disconnected');
       // es.close(); // Optional: let it retry or close
@@ -53,13 +53,11 @@ export default function AdminDashboard() {
         // Check if payload is { type: '...', alert: ... } or just alert
         // My API implementation sent message as string.
         // Worker sends: JSON.stringify({ type: "alert_created", alert })
-        
+
         if (data.type === 'alert_created') {
-          setAlerts((prev) => [data.alert, ...prev]);
+          setAlerts(prev => [data.alert, ...prev]);
         } else if (data.type === 'alert_updated') {
-          setAlerts((prev) =>
-            prev.map((a) => (a.id === data.alert.id ? data.alert : a))
-          );
+          setAlerts(prev => prev.map(a => (a.id === data.alert.id ? data.alert : a)));
         }
       } catch (err) {
         console.error('Error parsing alert', err);
@@ -83,20 +81,24 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="p-8 font-sans bg-gray-100 min-h-screen">
+    <div>
       <header className="mb-8 flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800">Admin Dashboard</h1>
         <div className="flex items-center gap-4">
-          <span className={`px-3 py-1 rounded text-sm font-mono ${connectionStatus === 'Connected' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'}`}>
+          <span
+            className={`px-3 py-1 rounded text-sm font-mono ${
+              connectionStatus === 'Connected' ? 'bg-green-200 text-green-800' : 'bg-red-200 text-red-800'
+            }`}
+          >
             {connectionStatus}
           </span>
           <select
             className="border p-2 rounded"
             value={selectedSiteId}
-            onChange={(e) => setSelectedSiteId(e.target.value)}
+            onChange={e => setSelectedSiteId(e.target.value)}
           >
             <option value="">Select Site...</option>
-            {sites.map((s) => (
+            {sites.map(s => (
               <option key={s.id} value={s.id}>
                 {s.name}
               </option>
@@ -110,8 +112,8 @@ export default function AdminDashboard() {
         <div className="col-span-2 space-y-4">
           <h2 className="text-xl font-semibold mb-4">Realtime Alerts</h2>
           {alerts.length === 0 && <p className="text-gray-500 italic">No active alerts.</p>}
-          
-          {alerts.map((alert) => (
+
+          {alerts.map(alert => (
             <div
               key={alert.id}
               className={`p-4 rounded-lg shadow bg-white border-l-4 ${
@@ -127,14 +129,10 @@ export default function AdminDashboard() {
                   <p className="mt-1 font-medium">
                     Shift Type: {alert.shift?.shiftType?.name} (Site: {alert.site?.name})
                   </p>
-                  <p className="text-sm text-gray-500">
-                    Guard: {alert.shift?.guard?.name || 'Unassigned'}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    Window: {new Date(alert.windowStart).toLocaleString()}
-                  </p>
+                  <p className="text-sm text-gray-500">Guard: {alert.shift?.guard?.name || 'Unassigned'}</p>
+                  <p className="text-xs text-gray-400 mt-1">Window: {new Date(alert.windowStart).toLocaleString()}</p>
                 </div>
-                
+
                 <div className="flex flex-col gap-2">
                   {!alert.acknowledgedAt && !alert.resolvedAt && (
                     <button
@@ -152,9 +150,7 @@ export default function AdminDashboard() {
                       Resolve
                     </button>
                   )}
-                  {alert.resolvedAt && (
-                    <span className="text-green-600 font-bold text-sm">RESOLVED</span>
-                  )}
+                  {alert.resolvedAt && <span className="text-green-600 font-bold text-sm">RESOLVED</span>}
                   {alert.acknowledgedAt && !alert.resolvedAt && (
                     <span className="text-blue-600 font-bold text-xs text-right">ACKNOWLEDGED</span>
                   )}
