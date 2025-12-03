@@ -4,6 +4,126 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id                 String   @id @default(uuid())
+  name               String
+  email              String   @unique
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  acknowledgedAlerts Alert[]  @relation("AcknowledgedBy")
+  resolvedAlerts     Alert[]  @relation("ResolvedBy")
+
+  @@map("admins")
+}
+
+model Guard {
+  id        String    @id @default(uuid())
+  name      String
+  phone     String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  checkins  Checkin[]
+  shifts    Shift[]
+
+  @@map("guards")
+}
+
+model Site {
+  id         String      @id @default(uuid())
+  name       String
+  timeZone   String      @map("time_zone")
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  alerts     Alert[]
+  shiftTypes ShiftType[]
+  shifts     Shift[]
+
+  @@map("sites")
+}
+
+model ShiftType {
+  id        String   @id @default(uuid())
+  siteId    String   @map("site_id")
+  name      String
+  startTime String   @map("start_time")
+  endTime   String   @map("end_time")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  site      Site     @relation(fields: [siteId], references: [id])
+  shifts    Shift[]
+
+  @@map("shift_types")
+}
+
+model Shift {
+  id                          String         @id @default(uuid())
+  siteId                      String         @map("site_id")
+  shiftTypeId                 String         @map("shift_type_id")
+  guardId                     String?        @map("guard_id")
+  date                        DateTime       @db.Date
+  startsAt                    DateTime       @map("starts_at")
+  endsAt                      DateTime       @map("ends_at")
+  status                      ShiftStatus    @default(scheduled)
+  checkInStatus               CheckInStatus? @map("check_in_status")
+  requiredCheckinIntervalMins Int            @default(60) @map("required_checkin_interval_minutes")
+  graceMinutes                Int            @default(15) @map("grace_minutes")
+  lastHeartbeatAt             DateTime?      @map("last_heartbeat_at") @db.Timestamptz(6)
+  missedCount                 Int            @default(0) @map("missed_count")
+  createdBy                   String?        @map("created_by")
+  createdAt                   DateTime       @default(now()) @map("created_at")
+  updatedAt                   DateTime       @updatedAt
+  alerts                      Alert[]
+  checkins                    Checkin[]
+  guard                       Guard?         @relation(fields: [guardId], references: [id])
+  shiftType                   ShiftType      @relation(fields: [shiftTypeId], references: [id])
+  site                        Site           @relation(fields: [siteId], references: [id])
+
+  @@index([siteId, date])
+  @@index([guardId, date])
+  @@index([guardId, startsAt])
+  @@index([startsAt, endsAt])
+  @@map("shifts")
+}
+
+model Checkin {
+  id        String        @id @default(uuid())
+  shiftId   String        @map("shift_id")
+  guardId   String        @map("guard_id")
+  at        DateTime      @default(now()) @db.Timestamptz(6)
+  source    String?
+  status    CheckInStatus
+  metadata  Json?
+  createdAt DateTime      @default(now()) @map("created_at")
+  guard     Guard         @relation(fields: [guardId], references: [id])
+  shift     Shift         @relation(fields: [shiftId], references: [id])
+
+  @@unique([shiftId, at])
+  @@map("checkins")
+}
+
+model Alert {
+  id               String        @id @default(uuid())
+  shiftId          String        @map("shift_id")
+  siteId           String        @map("site_id")
+  reason           AlertReason
+  severity         AlertSeverity
+  windowStart      DateTime      @map("window_start") @db.Timestamptz(6)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  acknowledgedAt   DateTime?     @map("acknowledged_at") @db.Timestamptz(6)
+  acknowledgedById String?       @map("acknowledged_by_id")
+  resolvedAt       DateTime?     @map("resolved_at") @db.Timestamptz(6)
+  resolvedById     String?       @map("resolved_by_id")
+  ackAdmin         Admin?        @relation("AcknowledgedBy", fields: [acknowledgedById], references: [id])
+  resolverAdmin    Admin?        @relation("ResolvedBy", fields: [resolvedById], references: [id])
+  shift            Shift         @relation(fields: [shiftId], references: [id])
+  site             Site          @relation(fields: [siteId], references: [id])
+
+  @@unique([shiftId, reason, windowStart])
+  @@index([siteId, createdAt])
+  @@map("alerts")
 }
 
 enum ShiftStatus {
@@ -26,130 +146,4 @@ enum AlertReason {
 enum AlertSeverity {
   warning
   critical
-}
-
-model Admin {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  acknowledgedAlerts Alert[] @relation("AcknowledgedBy")
-  resolvedAlerts     Alert[] @relation("ResolvedBy")
-
-  @@map("admins")
-}
-
-model Guard {
-  id        String   @id @default(uuid())
-  name      String
-  phone     String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  shifts   Shift[]
-  checkins Checkin[]
-
-  @@map("guards")
-}
-
-model Site {
-  id        String   @id @default(uuid())
-  name      String
-  timeZone  String   @map("time_zone")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  shifts     Shift[]
-  alerts     Alert[]
-  shiftTypes ShiftType[]
-
-  @@map("sites")
-}
-
-model ShiftType {
-  id        String   @id @default(uuid())
-  siteId    String   @map("site_id")
-  name      String
-  startTime String   @map("start_time") // Format: "HH:mm"
-  endTime   String   @map("end_time")   // Format: "HH:mm"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  site   Site    @relation(fields: [siteId], references: [id])
-  shifts Shift[]
-
-  @@map("shift_types")
-}
-
-model Shift {
-  id                          String         @id @default(uuid())
-  siteId                      String         @map("site_id")
-  shiftTypeId                 String         @map("shift_type_id")
-  guardId                     String?        @map("guard_id")
-  date                        DateTime       @db.Date
-  startsAt                    DateTime       @map("starts_at") // Cached calculated start time
-  endsAt                      DateTime       @map("ends_at")   // Cached calculated end time
-  status                      ShiftStatus    @default(scheduled)
-  checkInStatus               CheckInStatus? @map("check_in_status") // Records the last check-in status
-  requiredCheckinIntervalMins Int            @default(60) @map("required_checkin_interval_minutes")
-  graceMinutes                Int            @default(15) @map("grace_minutes")
-  lastHeartbeatAt             DateTime?      @map("last_heartbeat_at") @db.Timestamptz
-  missedCount                 Int            @default(0) @map("missed_count")
-  createdBy                   String?        @map("created_by")
-  createdAt                   DateTime       @default(now()) @map("created_at")
-  updatedAt                   DateTime       @updatedAt
-
-  site      Site      @relation(fields: [siteId], references: [id])
-  shiftType ShiftType @relation(fields: [shiftTypeId], references: [id])
-  guard     Guard?    @relation(fields: [guardId], references: [id])
-  checkins  Checkin[]
-  alerts    Alert[]
-
-  @@index([siteId, date])
-  @@index([guardId, date])
-  @@index([guardId, startsAt])
-  @@index([startsAt, endsAt]) // Efficient for time-range queries
-  @@map("shifts")
-}
-
-model Checkin {
-  id        String        @id @default(uuid())
-  shiftId   String        @map("shift_id")
-  guardId   String        @map("guard_id")
-  at        DateTime      @default(now()) @db.Timestamptz
-  source    String?
-  status    CheckInStatus
-  metadata  Json?
-  createdAt DateTime      @default(now()) @map("created_at")
-
-  shift Shift @relation(fields: [shiftId], references: [id])
-  guard Guard @relation(fields: [guardId], references: [id])
-
-  @@unique([shiftId, at])
-  @@map("checkins")
-}
-
-model Alert {
-  id             String        @id @default(uuid())
-  shiftId        String        @map("shift_id")
-  siteId         String        @map("site_id")
-  reason         AlertReason
-  severity       AlertSeverity
-  windowStart    DateTime      @map("window_start") @db.Timestamptz
-  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
-  acknowledgedAt DateTime?     @map("acknowledged_at") @db.Timestamptz
-  acknowledgedById String?     @map("acknowledged_by_id")
-  resolvedAt     DateTime?     @map("resolved_at") @db.Timestamptz
-  resolvedById   String?       @map("resolved_by_id")
-
-  shift         Shift  @relation(fields: [shiftId], references: [id])
-  site          Site   @relation(fields: [siteId], references: [id])
-  resolverAdmin Admin? @relation("ResolvedBy", fields: [resolvedById], references: [id])
-  ackAdmin      Admin? @relation("AcknowledgedBy", fields: [acknowledgedById], references: [id])
-
-  @@unique([shiftId, reason, windowStart])
-  @@index([siteId, createdAt])
-  @@map("alerts")
 }

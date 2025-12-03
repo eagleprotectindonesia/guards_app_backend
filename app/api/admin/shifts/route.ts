@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createShiftSchema } from '@/lib/validations';
+import { fromZonedTime } from 'date-fns-tz';
 
 export async function GET(req: Request) {
   // TODO: Auth check (Admin only)
@@ -42,21 +43,34 @@ export async function POST(req: Request) {
     // 1. Fetch Shift Type to calculate actual times
     const shiftType = await prisma.shiftType.findUnique({
       where: { id: body.shiftTypeId },
+      include: { site: true },
     });
 
     if (!shiftType) {
       return NextResponse.json({ error: 'Shift Type not found' }, { status: 404 });
     }
 
-    // 2. Calculate startsAt and endsAt
-    // Format: "2023-12-01T08:00:00.000Z" (ISO) constructed from date and HH:mm
+    const timeZone = shiftType.site.timeZone;
     const dateStr = body.date; // "YYYY-MM-DD"
-    const startsAt = new Date(`${dateStr}T${shiftType.startTime}:00`);
-    let endsAt = new Date(`${dateStr}T${shiftType.endTime}:00`);
+
+    // 2. Calculate startsAt and endsAt using Site Timezone
+    // Construct ISO-like strings without Z to imply local time
+    const startDateTimeStr = `${dateStr} ${shiftType.startTime}`; // "2023-12-01 08:00"
+    const endDateTimeStr = `${dateStr} ${shiftType.endTime}`;     // "2023-12-01 17:00"
+
+    // Convert site-local time to UTC
+    const startsAt = fromZonedTime(startDateTimeStr, timeZone);
+    let endsAt = fromZonedTime(endDateTimeStr, timeZone);
 
     // Handle Overnight Shifts: If end time is before start time, it means it ends the next day
     if (endsAt <= startsAt) {
-      endsAt.setDate(endsAt.getDate() + 1);
+            // Helper to add 1 day to YYYY-MM-DD
+      const d = new Date(dateStr);
+      d.setDate(d.getDate() + 1);
+      const nextDayStr = d.toISOString().split('T')[0];
+      
+      const nextDayEndStr = `${nextDayStr} ${shiftType.endTime}`;
+      endsAt = fromZonedTime(nextDayEndStr, timeZone);
     }
 
     // 3. Check Guard Overlap (if guard assigned)

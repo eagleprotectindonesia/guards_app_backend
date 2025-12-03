@@ -69,7 +69,7 @@ CREATE TABLE "shifts" (
     "check_in_status" "CheckInStatus",
     "required_checkin_interval_minutes" INTEGER NOT NULL DEFAULT 60,
     "grace_minutes" INTEGER NOT NULL DEFAULT 15,
-    "last_heartbeat_at" TIMESTAMPTZ,
+    "last_heartbeat_at" TIMESTAMPTZ(6),
     "missed_count" INTEGER NOT NULL DEFAULT 0,
     "created_by" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -83,7 +83,7 @@ CREATE TABLE "checkins" (
     "id" TEXT NOT NULL,
     "shift_id" TEXT NOT NULL,
     "guard_id" TEXT NOT NULL,
-    "at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "source" TEXT,
     "status" "CheckInStatus" NOT NULL,
     "metadata" JSONB,
@@ -99,11 +99,11 @@ CREATE TABLE "alerts" (
     "site_id" TEXT NOT NULL,
     "reason" "AlertReason" NOT NULL,
     "severity" "AlertSeverity" NOT NULL,
-    "window_start" TIMESTAMPTZ NOT NULL,
-    "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "acknowledged_at" TIMESTAMPTZ,
+    "window_start" TIMESTAMPTZ(6) NOT NULL,
+    "created_at" TIMESTAMPTZ(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "acknowledged_at" TIMESTAMPTZ(6),
     "acknowledged_by_id" TEXT,
-    "resolved_at" TIMESTAMPTZ,
+    "resolved_at" TIMESTAMPTZ(6),
     "resolved_by_id" TEXT,
 
     CONSTRAINT "alerts_pkey" PRIMARY KEY ("id")
@@ -140,28 +140,28 @@ CREATE UNIQUE INDEX "alerts_shift_id_reason_window_start_key" ON "alerts"("shift
 ALTER TABLE "shift_types" ADD CONSTRAINT "shift_types_site_id_fkey" FOREIGN KEY ("site_id") REFERENCES "sites"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "shifts" ADD CONSTRAINT "shifts_site_id_fkey" FOREIGN KEY ("site_id") REFERENCES "sites"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "shifts" ADD CONSTRAINT "shifts_guard_id_fkey" FOREIGN KEY ("guard_id") REFERENCES "guards"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "shifts" ADD CONSTRAINT "shifts_shift_type_id_fkey" FOREIGN KEY ("shift_type_id") REFERENCES "shift_types"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "shifts" ADD CONSTRAINT "shifts_guard_id_fkey" FOREIGN KEY ("guard_id") REFERENCES "guards"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "shifts" ADD CONSTRAINT "shifts_site_id_fkey" FOREIGN KEY ("site_id") REFERENCES "sites"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "checkins" ADD CONSTRAINT "checkins_guard_id_fkey" FOREIGN KEY ("guard_id") REFERENCES "guards"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "checkins" ADD CONSTRAINT "checkins_shift_id_fkey" FOREIGN KEY ("shift_id") REFERENCES "shifts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "checkins" ADD CONSTRAINT "checkins_guard_id_fkey" FOREIGN KEY ("guard_id") REFERENCES "guards"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "alerts" ADD CONSTRAINT "alerts_acknowledged_by_id_fkey" FOREIGN KEY ("acknowledged_by_id") REFERENCES "admins"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "alerts" ADD CONSTRAINT "alerts_resolved_by_id_fkey" FOREIGN KEY ("resolved_by_id") REFERENCES "admins"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "alerts" ADD CONSTRAINT "alerts_shift_id_fkey" FOREIGN KEY ("shift_id") REFERENCES "shifts"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "alerts" ADD CONSTRAINT "alerts_site_id_fkey" FOREIGN KEY ("site_id") REFERENCES "sites"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "alerts" ADD CONSTRAINT "alerts_resolved_by_id_fkey" FOREIGN KEY ("resolved_by_id") REFERENCES "admins"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "alerts" ADD CONSTRAINT "alerts_acknowledged_by_id_fkey" FOREIGN KEY ("acknowledged_by_id") REFERENCES "admins"("id") ON DELETE SET NULL ON UPDATE CASCADE;

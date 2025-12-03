@@ -98,7 +98,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             where: { id: openAlert.id },
             data: {
               resolvedAt: now,
-              resolvedBy: userId, // Auto-resolved by guard action
+              resolvedById: guardId, // Auto-resolved by guard action
             },
           });
         }

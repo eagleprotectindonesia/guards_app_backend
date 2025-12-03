@@ -24,14 +24,15 @@ export async function GET(req: Request) {
           resolvedAt: null,
         },
         orderBy: { createdAt: 'desc' },
-        include: { shift: { include: { user: true, post: true } } },
+        include: { shift: { include: {  site: true } } },
       });
 
       const backfillEvent = `event: backfill\ndata: ${JSON.stringify(openAlerts)}\n\n`;
       controller.enqueue(encoder.encode(backfillEvent));
 
       // 2. Subscribe to Redis
-      await subscriber.subscribe(`alerts:site:${siteId}`);
+      const channel = `alerts:site:${siteId}`;
+      await subscriber.subscribe(channel);
 
       subscriber.on('message', (channel, message) => {
         const event = `event: alert\ndata: ${message}\n\n`;
