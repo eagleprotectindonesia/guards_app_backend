@@ -2,48 +2,25 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-type ActiveSiteData = {
-  site: { id: string; name: string };
-  shifts: any[];
-};
-
-export default function AdminDashboard() {
-  const [sites, setSites] = useState<any[]>([]);
-  const [activeSites, setActiveSites] = useState<ActiveSiteData[]>([]);
-  const [selectedSiteId, setSelectedSiteId] = useState(''); // Empty string = All Sites
+export default function AdminAlertsPage() {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [connectionStatus, setConnectionStatus] = useState('Disconnected');
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  // Fetch all sites for the dropdown (static list)
-  useEffect(() => {
-    fetch('/api/admin/sites')
-      .then(res => res.json())
-      .then(data => {
-        if (Array.isArray(data)) setSites(data);
-      });
-  }, []);
-
-  // Connect SSE
+  // Connect SSE for global alerts
   useEffect(() => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
     }
 
-    // Construct URL: if selectedSiteId is empty, it hits the global stream
-    const url = selectedSiteId 
-      ? `/api/admin/alerts/stream?siteId=${selectedSiteId}`
-      : '/api/admin/alerts/stream';
-
-    const es = new EventSource(url);
+    // Connect to the global alerts stream (no siteId parameter)
+    const es = new EventSource('/api/admin/alerts/stream');
     setConnectionStatus('Connecting...');
 
     es.onopen = () => setConnectionStatus('Connected');
 
     es.onerror = () => {
       setConnectionStatus('Reconnecting...'); 
-      // Browser native EventSource automatically retries on error, 
-      // but we update UI to reflect potential temporary disconnect.
     };
 
     es.addEventListener('backfill', (e: any) => {
@@ -55,33 +32,18 @@ export default function AdminDashboard() {
       }
     });
 
-    es.addEventListener('active_shifts', (e: any) => {
-        try {
-            const data = JSON.parse(e.data);
-            // Expecting array of { site: {...}, shifts: [...] }
-            setActiveSites(data);
-        } catch (err) {
-            console.error('Error parsing active_shifts', err);
-        }
-    });
-
     es.addEventListener('alert', (e: any) => {
       try {
         const data = JSON.parse(e.data);
         
-        // Worker sends: { type: "alert_created", alert: {...} }
-        // Or potentially just the alert object in older versions/direct updates
-        
         if (data.type === 'alert_created') {
           setAlerts(prev => {
-             // Avoid duplicates just in case
              if (prev.find(a => a.id === data.alert.id)) return prev;
              return [data.alert, ...prev];
           });
         } else if (data.type === 'alert_updated') {
           setAlerts(prev => prev.map(a => (a.id === data.alert.id ? data.alert : a)));
         } else if (data.id) { 
-             // Fallback if raw alert object sent
              setAlerts(prev => [data, ...prev]);
         }
       } catch (err) {
@@ -94,12 +56,11 @@ export default function AdminDashboard() {
     return () => {
       es.close();
     };
-  }, [selectedSiteId]);
+  }, []);
 
   const handleAction = async (alertId: string, action: 'acknowledge' | 'resolve') => {
     try {
       await fetch(`/api/admin/alerts/${alertId}/${action}`, { method: 'POST' });
-      // Optimistic update: update local state immediately
       setAlerts(prev => 
         prev.map(a => {
            if (a.id !== alertId) return a;
@@ -114,17 +75,12 @@ export default function AdminDashboard() {
     }
   };
 
-  // Filter active sites based on selection if needed, 
-  // but usually we want to see ALL active sites in the sidebar regardless of filter?
-  // Or if we filter main view, maybe sidebar should reflect that?
-  // Let's show ALL active sites in sidebar always for context.
-  
   return (
     <div className="h-full flex flex-col">
       <header className="mb-6 flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
         <div>
-            <h1 className="text-2xl font-bold text-gray-900">Live Dashboard</h1>
-            <p className="text-sm text-gray-500">Real-time monitoring of guards and alerts</p>
+            <h1 className="text-2xl font-bold text-gray-900">All Alerts</h1>
+            <p className="text-sm text-gray-500">Comprehensive view of all system alerts</p>
         </div>
         <div className="flex items-center gap-4">
           <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${
@@ -135,92 +91,10 @@ export default function AdminDashboard() {
             <div className={`w-2 h-2 rounded-full ${connectionStatus === 'Connected' ? 'bg-green-500 animate-pulse' : 'bg-amber-500'}`} />
             {connectionStatus}
           </div>
-          
-          <select
-            className="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 min-w-[200px]"
-            value={selectedSiteId}
-            onChange={e => setSelectedSiteId(e.target.value)}
-          >
-            <option value="">All Sites</option>
-            {sites.map(s => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
         </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 flex-1">
-        
-        {/* Left Column: Active Sites / Stats */}
-        <div className="space-y-6">
-            {/* Stats Card */}
-            <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-              <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Overview</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-red-50 p-3 rounded-lg border border-red-100">
-                  <div className="text-2xl font-bold text-red-700">{alerts.filter(a => !a.resolvedAt).length}</div>
-                  <div className="text-xs text-red-600 font-medium">Active Alerts</div>
-                </div>
-                <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                  <div className="text-2xl font-bold text-blue-700">{activeSites.length}</div>
-                  <div className="text-xs text-blue-600 font-medium">Active Sites</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Active Sites List */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-                    <h3 className="font-semibold text-gray-900">Active Shifts</h3>
-                </div>
-                <div className="divide-y divide-gray-100 max-h-[calc(100vh-400px)] overflow-y-auto">
-                    {activeSites.length === 0 ? (
-                        <div className="p-8 text-center">
-                            <p className="text-sm text-gray-500">No active shifts right now.</p>
-                        </div>
-                    ) : (
-                        activeSites.map(({ site, shifts }) => (
-                            <div key={site.id} className="p-4 hover:bg-gray-50 transition-colors">
-                                <div className="flex items-center justify-between mb-2">
-                                    <span className="font-medium text-gray-900">{site.name}</span>
-                                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
-                                        {shifts.length} Active
-                                    </span>
-                                </div>
-                                <div className="space-y-2">
-                                    {shifts.map((shift: any) => (
-                                        <div key={shift.id} className="text-xs text-gray-600 flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>
-                                            <span className="truncate">
-                                                {shift.guard?.name || 'Unassigned'} 
-                                                <span className="text-gray-400"> ({shift.shiftType?.name})</span>
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))
-                    )}
-                </div>
-            </div>
-        </div>
-
-        {/* Main Column: Alerts Feed */}
-        <div className="col-span-1 lg:col-span-3 space-y-4">
-          <div className="flex items-center justify-between">
-             <h2 className="text-xl font-bold text-gray-900">Alert Feed</h2>
-             {selectedSiteId && (
-                 <button 
-                    onClick={() => setSelectedSiteId('')}
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                 >
-                     View All Sites
-                 </button>
-             )}
-          </div>
-          
+      <div className="flex-1">
           {alerts.length === 0 ? (
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
                 <div className="mx-auto w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mb-4">
@@ -318,7 +192,6 @@ export default function AdminDashboard() {
                 ))}
             </div>
           )}
-        </div>
       </div>
     </div>
   );

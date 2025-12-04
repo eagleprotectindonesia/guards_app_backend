@@ -33,10 +33,14 @@ async function runWorker() {
           endsAt: { gte: now },
           guardId: { not: null }, // Only monitor if a guard is assigned
         },
-        include: { shiftType: true, guard: true },
+        include: { shiftType: true, guard: true, site: true },
       });
 
+      // Group active shifts by site for dashboard broadcasting
+      const activeSitesMap = new Map<string, { site: any; shifts: any[] }>();
+
       for (const shift of shifts) {
+        // --- ALERT LOGIC START ---
         // last = COALESCE(last_heartbeat_at, starts_at)
         const lastHeartbeat = shift.lastHeartbeatAt || shift.startsAt;
         const intervalMs = shift.requiredCheckinIntervalMins * 60000;
@@ -62,7 +66,7 @@ async function runWorker() {
 
             // Create Alert & Update Shift
             await prisma.$transaction(async tx => {
-              const alert = await tx.alert.create({
+              const newAlert = await tx.alert.create({
                 data: {
                   shiftId: shift.id,
                   siteId: shift.siteId,
@@ -72,19 +76,25 @@ async function runWorker() {
                 },
               });
 
-              // We might NOT want to set the WHOLE shift to 'missed' just for one missing check-in?
-              // But the user requirement implied status lifecycle updates.
-              // For now, let's just increment the counter.
-              // If the requirement is "Mark Shift as Missed" (meaning the whole shift is blown), we do that.
-              // Usually "Missed Checkin" is just a warning event.
-              // However, let's stick to the previous logic of updating stats.
-
               await tx.shift.update({
                 where: { id: shift.id },
                 data: {
                   missedCount: { increment: 1 },
-                  // status: 'missed' // Optional: Do we mark the shift as failed? Maybe not yet.
                 },
+              });
+
+              // Fetch full alert data for broadcast
+              const alert = await tx.alert.findUnique({
+                where: { id: newAlert.id },
+                include: {
+                  site: true,
+                  shift: {
+                    include: {
+                      guard: true,
+                      shiftType: true,
+                    }
+                  }
+                }
               });
 
               // Publish Event
@@ -95,11 +105,34 @@ async function runWorker() {
               await redis.publish(`alerts:site:${shift.siteId}`, JSON.stringify(payload));
 
               // TODO: Send Notifications (SES/SNS/Slack)
-              console.log(`[MOCK] Sending notification for alert ${alert.id}`);
+              console.log(`[MOCK] Sending notification for alert ${newAlert.id}`);
             });
           }
         }
+        // --- ALERT LOGIC END ---
+
+        // Aggregate for Dashboard
+        if (!activeSitesMap.has(shift.siteId)) {
+            activeSitesMap.set(shift.siteId, {
+                site: shift.site,
+                shifts: []
+            });
+        }
+        activeSitesMap.get(shift.siteId)?.shifts.push({
+            id: shift.id,
+            guard: shift.guard,
+            shiftType: shift.shiftType,
+            startsAt: shift.startsAt,
+            endsAt: shift.endsAt,
+            status: shift.status,
+            checkInCount: shift.checkInCount,
+            missedCount: shift.missedCount,
+        });
       }
+
+      // Publish Active Shifts Broadcast
+      const activeSitesPayload = Array.from(activeSitesMap.values());
+      await redis.publish('dashboard:active-shifts', JSON.stringify(activeSitesPayload));
 
       // Unlock? No, pg_try_advisory_lock holds until session end or explicit unlock.
       // Since we use prisma client which might pool, we should probably UNLOCK if we want to be nice,
