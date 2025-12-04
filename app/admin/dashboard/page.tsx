@@ -1,17 +1,43 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Site, Guard, Shift, ShiftType, Alert } from '@prisma/client';
+import { Serialized } from '@/lib/utils';
 
-type ActiveSiteData = {
-  site: { id: string; name: string };
-  shifts: any[];
+type GuardWithOptionalRelations = Serialized<Guard>;
+type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
+type SiteWithOptionalRelations = Serialized<Site>;
+
+type ShiftWithOptionalRelations = Serialized<Shift> & {
+  guard?: GuardWithOptionalRelations | null;
+  shiftType?: ShiftTypeWithOptionalRelations;
 };
 
+type ActiveShiftInDashboard = Serialized<Shift> & {
+  guard: GuardWithOptionalRelations | null;
+  shiftType: ShiftTypeWithOptionalRelations;
+}
+
+type ActiveSiteData = {
+  site: SiteWithOptionalRelations;
+  shifts: ActiveShiftInDashboard[];
+};
+
+type AlertWithRelations = Serialized<Alert> & {
+  site?: SiteWithOptionalRelations;
+  shift?: ShiftWithOptionalRelations;
+};
+
+type SSEAlertData = {
+  type: 'alert_created' | 'alert_updated';
+  alert: AlertWithRelations;
+} | AlertWithRelations;
+
 export default function AdminDashboard() {
-  const [sites, setSites] = useState<any[]>([]);
+  const [sites, setSites] = useState<SiteWithOptionalRelations[]>([]);
   const [activeSites, setActiveSites] = useState<ActiveSiteData[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState(''); // Empty string = All Sites
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<AlertWithRelations[]>([]);
   const [connectionStatus, setConnectionStatus] = useState('Disconnected');
   const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -19,7 +45,7 @@ export default function AdminDashboard() {
   useEffect(() => {
     fetch('/api/admin/sites')
       .then(res => res.json())
-      .then(data => {
+      .then((data: SiteWithOptionalRelations[]) => {
         if (Array.isArray(data)) setSites(data);
       });
   }, []);
@@ -36,6 +62,7 @@ export default function AdminDashboard() {
       : '/api/admin/alerts/stream';
 
     const es = new EventSource(url);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setConnectionStatus('Connecting...');
 
     es.onopen = () => setConnectionStatus('Connected');
@@ -46,18 +73,18 @@ export default function AdminDashboard() {
       // but we update UI to reflect potential temporary disconnect.
     };
 
-    es.addEventListener('backfill', (e: any) => {
+    es.addEventListener('backfill', (e: MessageEvent) => {
       try {
-        const data = JSON.parse(e.data);
+        const data: AlertWithRelations[] = JSON.parse(e.data);
         setAlerts(data);
       } catch (err) {
         console.error('Error parsing backfill', err);
       }
     });
 
-    es.addEventListener('active_shifts', (e: any) => {
+    es.addEventListener('active_shifts', (e: MessageEvent) => {
         try {
-            const data = JSON.parse(e.data);
+            const data: ActiveSiteData[] = JSON.parse(e.data);
             // Expecting array of { site: {...}, shifts: [...] }
             setActiveSites(data);
         } catch (err) {
@@ -65,23 +92,19 @@ export default function AdminDashboard() {
         }
     });
 
-    es.addEventListener('alert', (e: any) => {
+    es.addEventListener('alert', (e: MessageEvent) => {
       try {
-        const data = JSON.parse(e.data);
+        const data: SSEAlertData = JSON.parse(e.data);
         
-        // Worker sends: { type: "alert_created", alert: {...} }
-        // Or potentially just the alert object in older versions/direct updates
-        
-        if (data.type === 'alert_created') {
+        if ('type' in data && data.type === 'alert_created') {
           setAlerts(prev => {
              // Avoid duplicates just in case
              if (prev.find(a => a.id === data.alert.id)) return prev;
              return [data.alert, ...prev];
           });
-        } else if (data.type === 'alert_updated') {
+        } else if ('type' in data && data.type === 'alert_updated') {
           setAlerts(prev => prev.map(a => (a.id === data.alert.id ? data.alert : a)));
-        } else if (data.id) { 
-             // Fallback if raw alert object sent
+        } else if ('id' in data) { 
              setAlerts(prev => [data, ...prev]);
         }
       } catch (err) {
@@ -190,7 +213,7 @@ export default function AdminDashboard() {
                                     </span>
                                 </div>
                                 <div className="space-y-2">
-                                    {shifts.map((shift: any) => (
+                                    {shifts.map((shift: ActiveShiftInDashboard) => (
                                         <div key={shift.id} className="text-xs text-gray-600 flex items-center gap-2">
                                             <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>
                                             <span className="truncate">

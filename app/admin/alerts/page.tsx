@@ -1,9 +1,31 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { Alert, Shift, Site, Guard, ShiftType } from '@prisma/client';
+import { Serialized } from '@/lib/utils';
+
+type GuardWithOptionalRelations = Serialized<Guard>;
+type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
+type SiteWithOptionalRelations = Serialized<Site>;
+
+type ShiftWithOptionalRelations = Serialized<Shift> & {
+  guard?: GuardWithOptionalRelations | null;
+  shiftType?: ShiftTypeWithOptionalRelations;
+};
+
+type AlertWithRelations = Serialized<Alert> & {
+  site?: SiteWithOptionalRelations;
+  shift?: ShiftWithOptionalRelations;
+};
+
+type SSEAlertData = {
+  type: 'alert_created' | 'alert_updated';
+  alert: AlertWithRelations;
+} | AlertWithRelations;
+
 
 export default function AdminAlertsPage() {
-  const [alerts, setAlerts] = useState<any[]>([]);
+  const [alerts, setAlerts] = useState<AlertWithRelations[]>([]);
   const [connectionStatus, setConnectionStatus] = useState('Disconnected');
   const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -15,6 +37,7 @@ export default function AdminAlertsPage() {
 
     // Connect to the global alerts stream (no siteId parameter)
     const es = new EventSource('/api/admin/alerts/stream');
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setConnectionStatus('Connecting...');
 
     es.onopen = () => setConnectionStatus('Connected');
@@ -23,27 +46,27 @@ export default function AdminAlertsPage() {
       setConnectionStatus('Reconnecting...'); 
     };
 
-    es.addEventListener('backfill', (e: any) => {
+    es.addEventListener('backfill', (e: MessageEvent) => {
       try {
-        const data = JSON.parse(e.data);
+        const data: AlertWithRelations[] = JSON.parse(e.data);
         setAlerts(data);
       } catch (err) {
         console.error('Error parsing backfill', err);
       }
     });
 
-    es.addEventListener('alert', (e: any) => {
+    es.addEventListener('alert', (e: MessageEvent) => {
       try {
-        const data = JSON.parse(e.data);
+        const data: SSEAlertData = JSON.parse(e.data);
         
-        if (data.type === 'alert_created') {
+        if ('type' in data && data.type === 'alert_created') {
           setAlerts(prev => {
              if (prev.find(a => a.id === data.alert.id)) return prev;
              return [data.alert, ...prev];
           });
-        } else if (data.type === 'alert_updated') {
+        } else if ('type' in data && data.type === 'alert_updated') {
           setAlerts(prev => prev.map(a => (a.id === data.alert.id ? data.alert : a)));
-        } else if (data.id) { 
+        } else if ('id' in data) { 
              setAlerts(prev => [data, ...prev]);
         }
       } catch (err) {
