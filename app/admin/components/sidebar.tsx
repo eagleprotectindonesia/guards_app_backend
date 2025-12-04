@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MapPin, Users, Calendar, Bell, Settings, LogOut, Shield } from 'lucide-react';
+import { LayoutDashboard, MapPin, Users, Calendar, Bell, Settings, LogOut, Shield, Layers } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Sites', href: '/admin/sites', icon: MapPin },
   { name: 'Guards', href: '/admin/guards', icon: Users },
   { name: 'Shifts', href: '/admin/shifts', icon: Calendar },
+  { name: 'Shift Types', href: '/admin/shift-types', icon: Layers },
   { name: 'Alerts', href: '/admin/alerts', icon: Bell },
 ];
 

@@ -44,7 +44,6 @@ model Site {
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
   alerts     Alert[]
-  shiftTypes ShiftType[]
   shifts     Shift[]
 
   @@map("sites")
@@ -52,13 +51,11 @@ model Site {
 
 model ShiftType {
   id        String   @id @default(uuid())
-  siteId    String   @map("site_id")
   name      String
   startTime String   @map("start_time")
   endTime   String   @map("end_time")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  site      Site     @relation(fields: [siteId], references: [id])
   shifts    Shift[]
 
   @@map("shift_types")

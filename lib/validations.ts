@@ -29,7 +29,6 @@ export const createGuardSchema = z.object({
 const timeFormat = z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Time must be in HH:mm format");
 
 export const createShiftTypeSchema = z.object({
-  siteId: z.string().uuid(),
   name: z.string().min(1),
   startTime: timeFormat,
   endTime: timeFormat,
