@@ -9,6 +9,7 @@ async function main() {
   const site = await prisma.site.create({
     data: {
       name: 'Headquarters',
+      clientName: 'Headquarters Owner',
       timeZone: 'America/New_York',
     },
   });
@@ -35,7 +36,6 @@ async function main() {
   // 4. Create Shift Types
   const morningShiftType = await prisma.shiftType.create({
     data: {
-      siteId: site.id,
       name: 'Morning Shift',
       startTime: '08:00',
       endTime: '16:00',
@@ -45,7 +45,6 @@ async function main() {
 
   const nightShiftType = await prisma.shiftType.create({
     data: {
-      siteId: site.id,
       name: 'Night Shift',
       startTime: '22:00',
       endTime: '06:00', // Overnight shift
@@ -112,7 +111,7 @@ main()
   .then(async () => {
     await prisma.$disconnect();
   })
-  .catch(async (e) => {
+  .catch(async e => {
     console.error(e);
     await prisma.$disconnect();
     process.exit(1);

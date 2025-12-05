@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { Shift, Site, ShiftType, Guard } from '@prisma/client';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import Select from 'react-select';
 
 type Props = {
   shift?: Serialized<Shift>;
@@ -26,7 +27,8 @@ export default function ShiftFormDialog({ shift, sites, shiftTypes, guards, isOp
 
   const [date, setDate] = useState<Date | null>(shift?.date ? new Date(shift.date) : new Date());
   const [selectedShiftTypeId, setSelectedShiftTypeId] = useState<string>(shift?.shiftTypeId || '');
-  const [selectedSiteId, setSelectedSiteId] = useState<string>(shift?.siteId || ''); // Still need to track selected site
+  const [selectedSiteId, setSelectedSiteId] = useState<string>(shift?.siteId || '');
+  const [selectedGuardId, setSelectedGuardId] = useState<string>(shift?.guardId || '');
 
   useEffect(() => {
     if (state.success) {
@@ -37,6 +39,9 @@ export default function ShiftFormDialog({ shift, sites, shiftTypes, guards, isOp
     }
   }, [state, onClose, shift]);
 
+  const siteOptions = sites.map(site => ({ value: site.id, label: site.name }));
+  const guardOptions = guards.map(guard => ({ value: guard.id, label: guard.name }));
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={shift ? 'Edit Shift' : 'Schedule New Shift'}>
       <form action={formAction} className="space-y-4 p-4">
@@ -45,22 +50,24 @@ export default function ShiftFormDialog({ shift, sites, shiftTypes, guards, isOp
           <label htmlFor="siteId" className="block text-sm font-medium text-gray-700 mb-1">
             Site
           </label>
-          <select
-            name="siteId"
-            id="siteId"
-            value={selectedSiteId}
-            onChange={e => setSelectedSiteId(e.target.value)}
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all bg-white"
-          >
-            <option value="" disabled>
-              Select a site
-            </option>
-            {sites.map(site => (
-              <option key={site.id} value={site.id}>
-                {site.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            id="site-select"
+            instanceId="site-select"
+            options={siteOptions}
+            value={siteOptions.find(opt => opt.value === selectedSiteId) || null}
+            onChange={(option) => setSelectedSiteId(option?.value || '')}
+            placeholder="Select a site..."
+            isClearable
+            classNames={{
+              control: (state) =>
+                `!rounded-lg !border-gray-200 !min-h-[40px] ${
+                  state.isFocused ? '!border-red-500 !ring-2 !ring-red-500/20' : ''
+                }`,
+              singleValue: () => '!text-gray-900',
+              input: () => '!text-gray-900',
+            }}
+          />
+          <input type="hidden" name="siteId" value={selectedSiteId} />
           {state.errors?.siteId && <p className="text-red-500 text-xs mt-1">{state.errors.siteId[0]}</p>}
         </div>
 
@@ -93,19 +100,22 @@ export default function ShiftFormDialog({ shift, sites, shiftTypes, guards, isOp
           <label htmlFor="guardId" className="block text-sm font-medium text-gray-700 mb-1">
             Guard (Optional)
           </label>
-          <select
-            name="guardId"
-            id="guardId"
-            defaultValue={shift?.guardId || ''}
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all bg-white"
-          >
-            <option value="">Unassigned</option>
-            {guards.map(guard => (
-              <option key={guard.id} value={guard.id}>
-                {guard.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            id="guard-select"
+            instanceId="guard-select"
+            options={guardOptions}
+            value={guardOptions.find(opt => opt.value === selectedGuardId) || null}
+            onChange={(option) => setSelectedGuardId(option?.value || '')}
+            placeholder="Unassigned"
+            isClearable
+            classNames={{
+              control: (state) =>
+                `!rounded-lg !border-gray-200 !min-h-[40px] ${
+                  state.isFocused ? '!border-red-500 !ring-2 !ring-red-500/20' : ''
+                }`,
+            }}
+          />
+          <input type="hidden" name="guardId" value={selectedGuardId} />
         </div>
 
         {/* Date Field */}

@@ -39,7 +39,7 @@ model Guard {
 model Site {
   id         String      @id @default(uuid())
   name       String
-  clientName String      @map("client_name")
+  clientName String?     @map("client_name")
   timeZone   String      @map("time_zone")
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
