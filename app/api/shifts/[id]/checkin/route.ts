@@ -1,13 +1,26 @@
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { checkInSchema } from '@/lib/validations';
 
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: shiftId } = await params;
-  const guardId = req.headers.get('x-mock-guard-id'); // TODO: Replace with real Auth
 
-  if (!guardId) {
+  const tokenCookie = (await cookies()).get('guard_token');
+  if (!tokenCookie) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  let guardId: string;
+  try {
+    const decoded = jwt.verify(tokenCookie.value, JWT_SECRET) as { guardId: string };
+    guardId = decoded.guardId;
+  } catch (error) {
+    console.error('Guard token verification failed:', error);
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
@@ -47,7 +60,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     // 4. Transaction: Insert Checkin, Update Shift, Resolve Alerts
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async tx => {
       const checkin = await tx.checkin.create({
         data: {
           shiftId: shift.id,
@@ -64,15 +77,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         checkInStatus: status, // Set the shift's latest check-in status
       };
 
-      if (shift.status === 'scheduled') { // If it's the first check-in, set shift to in_progress
+      if (shift.status === 'scheduled') {
+        // If it's the first check-in, set shift to in_progress
         updateData.status = 'in_progress';
       }
 
       if (status === 'on_time') {
         updateData.missedCount = 0;
       }
-      // If late, we don't increment missedCount here per se, the worker handles misses. 
-      // But the text says "If on_time: reset shifts.missed_count = 0". 
+      // If late, we don't increment missedCount here per se, the worker handles misses.
+      // But the text says "If on_time: reset shifts.missed_count = 0".
       // It implies missed_count is tracked by the worker.
 
       await tx.shift.update({
@@ -118,7 +132,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       next_due_at: nextDueAfterCheckin,
       status,
     });
-
   } catch (error: any) {
     console.error('Error checking in:', error);
     if (error.name === 'ZodError') {

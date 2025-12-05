@@ -17,10 +17,14 @@ async function main() {
   console.log('Created Site:', site.id);
 
   // 2. Create Guard
+  const guardPassword = 'password123'; // Default password for the seeded admin
+  const hashedGuardPassword = await bcrypt.hash(guardPassword, 10); // Hash the password
+
   const guard = await prisma.guard.create({
     data: {
       name: 'John Guard',
       phone: '+15551234567', // Ensure unique phone number
+      hashedPassword: hashedGuardPassword,
     },
   });
   console.log('Created Guard:', guard.id);
