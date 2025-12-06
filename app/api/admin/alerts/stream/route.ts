@@ -12,6 +12,7 @@ export async function GET(req: Request) {
 
   const encoder = new TextEncoder();
   const subscriber = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+  let interval: NodeJS.Timeout;
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -104,16 +105,17 @@ export async function GET(req: Request) {
       }
 
       // 3. Keepalive (every 30s)
-      const interval = setInterval(() => {
-        const ping = `: ping\n\n`;
-        controller.enqueue(encoder.encode(ping));
+      interval = setInterval(() => {
+        try {
+            const ping = `: ping\n\n`;
+            controller.enqueue(encoder.encode(ping));
+        } catch (e) {
+            clearInterval(interval);
+        }
       }, 30000);
-
-      // Handle cleanup
-      (controller as any)._interval = interval;
     },
-    async cancel(controller) {
-      if ((controller as any)._interval) clearInterval((controller as any)._interval);
+    async cancel(reason) {
+      if (interval) clearInterval(interval);
       await subscriber.quit();
     },
   });

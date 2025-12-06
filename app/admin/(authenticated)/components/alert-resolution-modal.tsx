@@ -50,7 +50,7 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm }: Ale
             >
               <span className="font-semibold mb-1">Standard Resolve</span>
               <span className="text-xs text-center opacity-80">
-                Mark as resolved but keep "Missed" count.
+                Mark as resolved but keep &quot;Missed&quot; count.
               </span>
             </button>
 
@@ -65,7 +65,7 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm }: Ale
             >
               <span className="font-semibold mb-1">Forgive</span>
               <span className="text-xs text-center opacity-80">
-                Mark as resolved and remove "Missed" count.
+                Mark as resolved and remove &quot;Missed&quot; count.
               </span>
             </button>
           </div>
@@ -81,7 +81,7 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm }: Ale
             className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
             placeholder="Explain why this alert is being resolved..."
             value={note}
-            onChange={(e) => setNote(e.target.value)}
+            onChange={e => setNote(e.target.value)}
           />
         </div>
 
@@ -96,9 +96,9 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm }: Ale
             onClick={handleSubmit}
             disabled={!note.trim() || isSubmitting}
             className={`px-6 py-2 text-sm font-medium text-white rounded-lg transition-all shadow-sm ${
-                outcome === 'resolve'
-                 ? 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400'
-                 : 'bg-green-600 hover:bg-green-700 disabled:bg-green-400'
+              outcome === 'resolve'
+                ? 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400'
+                : 'bg-green-600 hover:bg-green-700 disabled:bg-green-400'
             }`}
           >
             {isSubmitting ? 'Saving...' : 'Confirm Resolution'}

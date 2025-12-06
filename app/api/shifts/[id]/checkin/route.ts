@@ -102,51 +102,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         data: updateData,
       });
 
-      let resolvedAlert = null;
-      if (status === 'on_time') {
-        // Auto-resolve open alert
-        // Find latest open alert for this shift
-        const openAlert = await tx.alert.findFirst({
-          where: {
-            shiftId: shift.id,
-            reason: 'missed_checkin',
-            resolvedAt: null,
-          },
-          orderBy: { createdAt: 'desc' },
-        });
+      // Alert resolution by guard check-in is removed. Alerts are handled by admin.
 
-        if (openAlert) {
-          resolvedAlert = await tx.alert.update({
-            where: { id: openAlert.id },
-            data: {
-              resolvedAt: now,
-              resolvedById: guardId, // Auto-resolved by guard action
-            },
-            include: {
-                site: true,
-                shift: {
-                    include: {
-                        guard: true,
-                        shiftType: true
-                    }
-                }
-            }
-          });
-        }
-      }
-
-      return { checkin, resolvedAlert };
+      return { checkin };
     });
 
     // 5. Publish Realtime Events
-    if (result.resolvedAlert) {
-         const payload = {
-            type: 'alert_updated',
-            alert: result.resolvedAlert,
-         };
-         await redis.publish(`alerts:site:${shift.siteId}`, JSON.stringify(payload));
-    }
-
+    // No alert resolution by guard check-in. Alerts are handled by admin.
+    
     // Calculate next due for response
     // Next due is the START of the NEXT slot
     const nextDueAfterCheckin = new Date(startMs + (currentSlotIndex + 1) * intervalMs);

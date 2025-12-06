@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Alert, Shift, Site, Guard, ShiftType } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import AlertItem from '../components/alert-item';
 import AlertResolutionModal from '../components/alert-resolution-modal';
+import PaginationNav from '../components/pagination-nav';
 
 type GuardWithOptionalRelations = Serialized<Guard>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
@@ -26,21 +28,41 @@ type SSEAlertData =
   | AlertWithRelations;
 
 export default function AdminAlertsPage() {
+  const searchParams = useSearchParams();
+  const page = parseInt(searchParams.get('page') || '1', 10);
+  const perPage = parseInt(searchParams.get('per_page') || '10', 10);
+
   const [alerts, setAlerts] = useState<AlertWithRelations[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [connectionStatus, setConnectionStatus] = useState('Disconnected');
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
 
-  // Connect SSE for global alerts
+  // Fetch alerts with pagination
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const res = await fetch(`/api/admin/alerts?page=${page}&per_page=${perPage}`);
+        if (!res.ok) throw new Error('Failed to fetch alerts');
+        const data = await res.json();
+        setAlerts(data.data);
+        setTotalCount(data.meta.total);
+      } catch (err) {
+        console.error('Error fetching alerts:', err);
+      }
+    };
+    fetchAlerts();
+  }, [page, perPage]);
+
+  // Connect SSE for global alerts (real-time updates)
   useEffect(() => {
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
     }
 
-    // Connect to the global alerts stream (no siteId parameter)
+    // Connect to the global alerts stream
     const es = new EventSource('/api/admin/alerts/stream');
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setConnectionStatus('Connecting...');
 
     es.onopen = () => setConnectionStatus('Connected');
@@ -49,13 +71,8 @@ export default function AdminAlertsPage() {
       setConnectionStatus('Reconnecting...');
     };
 
-    es.addEventListener('backfill', (e: MessageEvent) => {
-      try {
-        const data: AlertWithRelations[] = JSON.parse(e.data);
-        setAlerts(data);
-      } catch (err) {
-        console.error('Error parsing backfill', err);
-      }
+    es.addEventListener('backfill', () => {
+      // no-op
     });
 
     es.addEventListener('alert', (e: MessageEvent) => {
@@ -64,18 +81,32 @@ export default function AdminAlertsPage() {
 
         if ('type' in data) {
           if (data.type === 'alert_created') {
-            setAlerts(prev => {
-              if (prev.find(a => a.id === data.alert.id)) return prev;
-              return [data.alert, ...prev];
-            });
+            // Only prepend if we are on the first page
+            if (page === 1) {
+              setAlerts(prev => {
+                if (prev.find(a => a.id === data.alert.id)) return prev;
+                const newAlerts = [data.alert, ...prev];
+                // Optional: Truncate to perPage to keep page size consistent? 
+                // Or just let it grow until refresh? Let's let it grow for now.
+                return newAlerts;
+              });
+              setTotalCount(prev => prev + 1);
+            } else {
+              // If not on page 1, just increment total count
+              setTotalCount(prev => prev + 1);
+            }
           } else if (data.type === 'alert_updated') {
             setAlerts(prev => prev.map(a => (a.id === data.alert.id ? data.alert : a)));
           } else if (data.type === 'alert_deleted') {
             setAlerts(prev => prev.filter(a => a.id !== data.alertId));
+            setTotalCount(prev => Math.max(0, prev - 1));
           }
         } else if ('id' in data) {
-          // Fallback for raw alert object (legacy?)
-          setAlerts(prev => [data, ...prev]);
+          // Fallback logic
+           if (page === 1) {
+              setAlerts(prev => [data, ...prev]);
+              setTotalCount(prev => prev + 1);
+           }
         }
       } catch (err) {
         console.error('Error parsing alert', err);
@@ -87,7 +118,7 @@ export default function AdminAlertsPage() {
     return () => {
       es.close();
     };
-  }, []);
+  }, [page]); // Re-run if page changes to update the closure
 
   const handleResolve = (alertId: string) => {
     setSelectedAlertId(alertId);
@@ -163,7 +194,7 @@ export default function AdminAlertsPage() {
         </div>
       </header>
 
-      <div className="flex-1">
+      <div className="flex-1 flex flex-col">
         {alerts.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
             <div className="mx-auto w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mb-4">
@@ -186,6 +217,8 @@ export default function AdminAlertsPage() {
             ))}
           </div>
         )}
+
+        <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
       </div>
 
       <AlertResolutionModal

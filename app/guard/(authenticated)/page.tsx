@@ -61,7 +61,6 @@ export default function GuardPage() {
   const [activeShift, setActiveShift] = useState<ShiftWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
-  const [nextDue, setNextDue] = useState<Date | null>(null);
   const [guardDetails, setGuardDetails] = useState<{ name: string; guardCode?: string } | null>(null); // New state for guard details
   const [guardName, setGuardName] = useState('Guard');
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -110,10 +109,6 @@ export default function GuardPage() {
         if (!guardDetails) {
           setGuardName(data.activeShift.guard?.name || 'Guard');
         }
-
-        const last = data.activeShift.lastHeartbeatAt || data.activeShift.startsAt;
-        const interval = data.activeShift.requiredCheckinIntervalMins * 60000;
-        setNextDue(new Date(new Date(last).getTime() + interval));
       } else {
         setActiveShift(null);
       }
@@ -145,7 +140,6 @@ export default function GuardPage() {
         setStatus(`Error: ${data.message || data.error || 'Check-in failed.'}`);
       } else {
         setStatus(`Checked in! Status: ${data.status}`);
-        setNextDue(new Date(data.next_due_at));
         fetchShift();
       }
     } catch (err) {
@@ -167,19 +161,54 @@ export default function GuardPage() {
     }
   };
 
-  // Calculate Check-in Window Status
+  // Calculate Next Due & Window Status based on Worker Logic (Fixed Intervals)
+  let nextDue: Date | null = null;
   let canCheckIn = false;
   let windowMessage = '';
 
   if (activeShift) {
-    const lastHeartbeat = new Date(activeShift.lastHeartbeatAt || activeShift.startsAt);
-    const nextDueTime = new Date(lastHeartbeat.getTime() + activeShift.requiredCheckinIntervalMins * 60000);
-    const graceEndTime = new Date(nextDueTime.getTime() + activeShift.graceMinutes * 60000);
+    const startMs = new Date(activeShift.startsAt).getTime();
+    const intervalMs = activeShift.requiredCheckinIntervalMins * 60000;
+    const graceMs = activeShift.graceMinutes * 60000;
+    const nowMs = currentTime.getTime();
+    
+    if (nowMs < startMs) {
+      nextDue = new Date(startMs);
+    } else {
+      const elapsed = nowMs - startMs;
+      const currentSlotIndex = Math.floor(elapsed / intervalMs);
+      const currentSlotStartMs = startMs + (currentSlotIndex * intervalMs);
+      const currentSlotEndMs = currentSlotStartMs + graceMs;
 
-    canCheckIn = currentTime >= nextDueTime && currentTime <= graceEndTime;
+      let isCurrentCompleted = false;
+      if (activeShift.lastHeartbeatAt) {
+        const lastHeartbeatMs = new Date(activeShift.lastHeartbeatAt).getTime();
+        if (lastHeartbeatMs >= currentSlotStartMs) {
+          isCurrentCompleted = true;
+        }
+      }
 
-    if (currentTime < nextDueTime) {
-      const diffSec = Math.ceil((nextDueTime.getTime() - currentTime.getTime()) / 1000);
+      if (nowMs > currentSlotEndMs) {
+        // Missed current window, move to next
+        nextDue = new Date(currentSlotStartMs + intervalMs);
+      } else {
+        // In current window
+        if (isCurrentCompleted) {
+          // Already checked in, move to next
+          nextDue = new Date(currentSlotStartMs + intervalMs);
+        } else {
+          // Check in now
+          nextDue = new Date(currentSlotStartMs);
+        }
+      }
+    }
+
+    const graceEndTime = new Date(nextDue.getTime() + graceMs);
+
+    canCheckIn = currentTime >= nextDue && currentTime <= graceEndTime;
+
+    if (currentTime < nextDue) {
+      const diffSec = Math.ceil((nextDue.getTime() - currentTime.getTime()) / 1000);
       if (diffSec > 60) {
         windowMessage = `Opens in ${Math.ceil(diffSec / 60)} min`;
       } else {

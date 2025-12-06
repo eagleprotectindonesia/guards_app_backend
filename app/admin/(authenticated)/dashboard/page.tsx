@@ -80,7 +80,7 @@ export default function AdminDashboard() {
     es.addEventListener('backfill', (e: MessageEvent) => {
       try {
         const data: AlertWithRelations[] = JSON.parse(e.data);
-        setAlerts(data);
+        setAlerts(data.filter(alert => !alert.resolvedAt));
       } catch (err) {
         console.error('Error parsing backfill', err);
       }
@@ -102,13 +102,21 @@ export default function AdminDashboard() {
         
         if ('type' in data && data.type === 'alert_created') {
           setAlerts(prev => {
-             // Avoid duplicates just in case
-             if (prev.find(a => a.id === data.alert.id)) return prev;
+             // Avoid duplicates just in case, and only add if not resolved
+             if (data.alert.resolvedAt || prev.find(a => a.id === data.alert.id)) return prev;
              return [data.alert, ...prev];
           });
         } else if ('type' in data && data.type === 'alert_updated') {
-          setAlerts(prev => prev.map(a => (a.id === data.alert.id ? data.alert : a)));
-        } else if ('id' in data) { 
+          setAlerts(prev => {
+            // If the updated alert is resolved, remove it from the list
+            if (data.alert.resolvedAt) {
+              return prev.filter(a => a.id !== data.alert.id);
+            }
+            // Otherwise, update the alert
+            return prev.map(a => (a.id === data.alert.id ? data.alert : a));
+          });
+        } else if ('id' in data && !data.resolvedAt) { 
+             // Fallback for raw alert object (legacy?) - only add if not resolved
              setAlerts(prev => [data, ...prev]);
         }
       } catch (err) {
@@ -138,16 +146,8 @@ export default function AdminDashboard() {
         body: JSON.stringify(body),
       });
 
-      // Optimistic Update
-      setAlerts(prev => {
-        return prev.map(a => {
-          if (a.id !== selectedAlertId) return a;
-          return {
-            ...a,
-            resolvedAt: new Date().toISOString(),
-          };
-        });
-      });
+      // Optimistic Update: remove the resolved alert from the list
+      setAlerts(prev => prev.filter(a => a.id !== selectedAlertId));
 
       setSelectedAlertId(null);
     } catch (err) {
@@ -219,7 +219,7 @@ export default function AdminDashboard() {
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Overview</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="bg-red-50 p-3 rounded-lg border border-red-100">
-                  <div className="text-2xl font-bold text-red-700">{alerts.filter(a => !a.resolvedAt).length}</div>
+                  <div className="text-2xl font-bold text-red-700">{alerts.length}</div>
                   <div className="text-xs text-red-600 font-medium">Active Alerts</div>
                 </div>
                 <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">

@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
+import { getAdminIdFromToken } from '@/lib/admin-auth';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  // TODO: Auth Check (ensure admin role)
   const { id } = await params;
-  const adminId = 'mock-admin-id'; // TODO: Replace with real Admin Auth ID
+  
+  const adminId = await getAdminIdFromToken();
+
+  if (!adminId) {
+      return NextResponse.json({ error: 'Unauthorized: No admin found' }, { status: 401 });
+  }
 
   let outcome = 'resolve';
   let note = '';
