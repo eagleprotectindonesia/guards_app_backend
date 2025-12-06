@@ -145,6 +145,24 @@ export default function GuardFormDialog({ guard, isOpen, onClose }: Props) {
           />
         </div>
 
+        {/* Password Field - Only show for creation, not editing */}
+        {!guard && (
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              Password
+            </label>
+            <input
+              type="password"
+              name="password"
+              id="password"
+              required={!guard} // Only required when creating
+              className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+              placeholder="Enter password (at least 6 characters)"
+            />
+            {state.errors?.password && <p className="text-red-500 text-xs mt-1">{state.errors.password[0]}</p>}
+          </div>
+        )}
+
         {/* Note Field */}
         <div>
           <label htmlFor="note" className="block text-sm font-medium text-gray-700 mb-1">

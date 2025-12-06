@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -16,6 +17,14 @@ export type Serialized<T> = T extends Date
 
 export function serialize<T>(data: T): Serialized<T> {
   return JSON.parse(JSON.stringify(data));
+}
+
+export function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 10);
+}
+
+export function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  return bcrypt.compare(password, hashedPassword);
 }
 
 export function getPaginationParams(

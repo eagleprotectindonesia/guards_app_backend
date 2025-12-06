@@ -1,25 +1,15 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
+import { getAuthenticatedGuard } from '@/lib/guard-auth';
 import { prisma } from '@/lib/prisma';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
-
 export async function GET(req: Request) {
-  const tokenCookie = (await cookies()).get('guard_token');
+  const guard = await getAuthenticatedGuard();
 
-  if (!tokenCookie) {
+  if (!guard) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  let guardId: string;
-  try {
-    const decoded = jwt.verify(tokenCookie.value, JWT_SECRET) as { guardId: string };
-    guardId = decoded.guardId;
-  } catch (error) {
-    console.error('Guard token verification failed:', error);
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const guardId = guard.id;
 
   const now = new Date();
 

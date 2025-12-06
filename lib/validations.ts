@@ -23,10 +23,22 @@ export const createGuardSchema = z.object({
   joinDate: z.string().datetime().optional(),
   leftDate: z.string().datetime().optional(),
   note: z.string().optional(),
+  password: z.string().min(6, 'Password must be at least 6 characters long'), // Required for creation
+});
+
+export const updateGuardSchema = z.object({
+  name: z.string().min(1),
+  phone: z.string().min(1), // Simple validation, can be enhanced with regex
+  guardCode: z.string().max(10).optional(),
+  status: z.boolean().optional(),
+  joinDate: z.string().datetime().optional(),
+  leftDate: z.string().datetime().optional(),
+  note: z.string().optional(),
+  password: z.string().min(6, 'Password must be at least 6 characters long').optional(), // Optional for updates
 });
 
 // --- Shift Type ---
-const timeFormat = z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Time must be in HH:mm format");
+const timeFormat = z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:mm format');
 
 export const createShiftTypeSchema = z.object({
   name: z.string().min(1),
@@ -46,10 +58,12 @@ export const createShiftSchema = z.object({
 
 // --- Checkin ---
 export const checkInSchema = z.object({
-  location: z.object({
-    lat: z.number(),
-    lng: z.number(),
-  }).optional(), // Example metadata
+  location: z
+    .object({
+      lat: z.number(),
+      lng: z.number(),
+    })
+    .optional(), // Example metadata
   source: z.string().optional(),
 });
 

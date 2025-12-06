@@ -25,6 +25,7 @@ model Guard {
   name        String
   phone       String    @unique
   hashedPassword String @map("hashed_password") // Added password field
+  tokenVersion   Int       @default(0) @map("token_version")
   guardCode   String?   @map("guard_code") @db.VarChar(10)
   status      Boolean?  @default(true)
   joinDate    DateTime? @map("join_date")

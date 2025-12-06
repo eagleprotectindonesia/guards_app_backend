@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useActionState } from 'react';
 import { ShiftWithRelations } from '@/app/admin/(authenticated)/shifts/components/shift-list';
 import { useRouter } from 'next/navigation'; // Import useRouter
+import { useGuardApi } from './hooks/use-guard-api';
 
 // Type for password change form state
 type PasswordChangeState = {
@@ -56,6 +57,7 @@ async function changeGuardPasswordAction(
 
 export default function GuardPage() {
   const router = useRouter(); // Initialize router
+  const { fetchWithAuth } = useGuardApi();
   const [activeShift, setActiveShift] = useState<ShiftWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('');
@@ -74,7 +76,7 @@ export default function GuardPage() {
 
   const fetchGuardDetails = async () => {
     try {
-      const res = await fetch('/api/my/profile');
+      const res = await fetchWithAuth('/api/my/profile');
       if (res.ok) {
         const data = await res.json();
         setGuardDetails(data.guard);
@@ -94,7 +96,7 @@ export default function GuardPage() {
     // This prevents showing a loader when only guard details are being fetched
     setLoading(true);
     try {
-      const res = await fetch('/api/my/active-shift');
+      const res = await fetchWithAuth('/api/my/active-shift');
       if (!res.ok) {
         const errorData = await res.json();
         console.error('Error fetching active shift:', errorData.message || res.statusText);
@@ -131,7 +133,7 @@ export default function GuardPage() {
     if (!activeShift) return;
     setStatus('Checking in...');
     try {
-      const res = await fetch(`/api/shifts/${activeShift.id}/checkin`, {
+      const res = await fetchWithAuth(`/api/shifts/${activeShift.id}/checkin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -154,7 +156,7 @@ export default function GuardPage() {
 
   const handleLogout = async () => {
     try {
-      const res = await fetch('/api/auth/guard/logout', { method: 'POST' });
+      const res = await fetchWithAuth('/api/auth/guard/logout', { method: 'POST' });
       if (res.ok) {
         router.push('/guard/login');
       } else {
@@ -168,20 +170,20 @@ export default function GuardPage() {
   // Calculate Check-in Window Status
   let canCheckIn = false;
   let windowMessage = '';
-  
+
   if (activeShift) {
     const lastHeartbeat = new Date(activeShift.lastHeartbeatAt || activeShift.startsAt);
     const nextDueTime = new Date(lastHeartbeat.getTime() + activeShift.requiredCheckinIntervalMins * 60000);
     const graceEndTime = new Date(nextDueTime.getTime() + activeShift.graceMinutes * 60000);
-    
+
     canCheckIn = currentTime >= nextDueTime && currentTime <= graceEndTime;
 
     if (currentTime < nextDueTime) {
       const diffSec = Math.ceil((nextDueTime.getTime() - currentTime.getTime()) / 1000);
       if (diffSec > 60) {
-         windowMessage = `Opens in ${Math.ceil(diffSec / 60)} min`;
+        windowMessage = `Opens in ${Math.ceil(diffSec / 60)} min`;
       } else {
-         windowMessage = `Opens in ${diffSec} sec`;
+        windowMessage = `Opens in ${diffSec} sec`;
       }
     } else if (currentTime > graceEndTime) {
       windowMessage = 'Window missed';
@@ -227,9 +229,7 @@ export default function GuardPage() {
             onClick={handleCheckIn}
             disabled={!canCheckIn}
             className={`w-full text-lg font-bold py-4 rounded-lg shadow transition-all active:scale-95 ${
-              canCheckIn
-                ? 'bg-green-600 hover:bg-green-700 text-white'
-                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              canCheckIn ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }`}
           >
             {canCheckIn ? 'CHECK IN NOW' : 'LOCKED'}

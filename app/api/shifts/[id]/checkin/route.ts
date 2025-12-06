@@ -1,28 +1,17 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { checkInSchema } from '@/lib/validations';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+import { getAuthenticatedGuard } from '@/lib/guard-auth';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: shiftId } = await params;
 
-  const tokenCookie = (await cookies()).get('guard_token');
-  if (!tokenCookie) {
+  const guard = await getAuthenticatedGuard();
+  if (!guard) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-
-  let guardId: string;
-  try {
-    const decoded = jwt.verify(tokenCookie.value, JWT_SECRET) as { guardId: string };
-    guardId = decoded.guardId;
-  } catch (error) {
-    console.error('Guard token verification failed:', error);
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const guardId = guard.id;
 
   try {
     const json = await req.json();
@@ -63,7 +52,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     let status: 'on_time' | 'late' = 'on_time';
-    if (now > nextDue) { // If check-in is after nextDue, it's late within the grace period
+    if (now > nextDue) {
+      // If check-in is after nextDue, it's late within the grace period
       status = 'late';
     }
 

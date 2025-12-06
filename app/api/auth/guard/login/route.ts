@@ -36,8 +36,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Invalid credentials', data: guard }, { status: 401 });
     }
 
-    // Generate JWT token
-    const token = jwt.sign({ guardId: guard.id }, JWT_SECRET, { expiresIn: '1d' });
+    // Increment token version to invalidate other sessions
+    const updatedGuard = await prisma.guard.update({
+      where: { id: guard.id },
+      data: { tokenVersion: { increment: 1 } },
+    });
+
+    // Generate JWT token with token version
+    const token = jwt.sign({ guardId: guard.id, tokenVersion: updatedGuard.tokenVersion }, JWT_SECRET, {
+      expiresIn: '1d',
+    });
 
     // Set HTTP-only cookie
     (await cookies()).set('guard_token', token, {
@@ -50,7 +58,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'Login successful' }, { status: 200 });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      return NextResponse.json({ message: 'Validation error', errors: error.errors }, { status: 400 });
+      return NextResponse.json({ message: 'Validation error', errors: error.issues }, { status: 400 });
     }
     console.error('Guard login error:', error);
     return NextResponse.json({ message: 'Internal server error' }, { status: 500 });

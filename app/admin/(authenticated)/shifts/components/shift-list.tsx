@@ -239,10 +239,7 @@ export default function ShiftList({
                         return (
                           <div className="flex items-center justify-end gap-2 opacity-100">
                             <EditButton onClick={() => handleEdit(shift)} disabled={isPending || isPastOrOngoing} />
-                            <DeleteButton
-                              onClick={() => handleDeleteClick(shift.id)}
-                              disabled={isPending || isPastOrOngoing}
-                            />
+                            <DeleteButton onClick={() => handleDeleteClick(shift.id)} />
                           </div>
                         );
                       })()}

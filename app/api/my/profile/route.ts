@@ -1,45 +1,23 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
-import jwt from 'jsonwebtoken';
-import { prisma } from '@/lib/prisma';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+import { getAuthenticatedGuard } from '@/lib/guard-auth';
 
 export async function GET(req: Request) {
-  const tokenCookie = (await cookies()).get('guard_token');
+  const guardAuth = await getAuthenticatedGuard();
 
-  if (!tokenCookie) {
+  if (!guardAuth) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  let guardId: string;
-  try {
-    const decoded = jwt.verify(tokenCookie.value, JWT_SECRET) as { guardId: string };
-    guardId = decoded.guardId;
-  } catch (error) {
-    console.error('Guard token verification failed:', error);
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  // guardAuth contains the full guard object (including hashed password if not selected otherwise in guard-auth,
+  // but let's just return safe fields)
 
-  try {
-    const guard = await prisma.guard.findUnique({
-      where: { id: guardId },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        guardCode: true,
-        // Add other fields you want to expose, but be careful not to expose hashedPassword
-      },
-    });
+  const safeGuard = {
+    id: guardAuth.id,
+    name: guardAuth.name,
+    phone: guardAuth.phone,
+    guardCode: guardAuth.guardCode,
+    // Add other fields you want to expose
+  };
 
-    if (!guard) {
-      return NextResponse.json({ error: 'Guard not found' }, { status: 404 });
-    }
-
-    return NextResponse.json({ guard });
-  } catch (error) {
-    console.error('Error fetching guard profile:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
+  return NextResponse.json({ guard: safeGuard });
 }

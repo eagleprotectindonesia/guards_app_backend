@@ -1,7 +1,8 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { createGuardSchema } from '@/lib/validations';
+import { createGuardSchema, updateGuardSchema } from '@/lib/validations';
+import { hashPassword } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 
 export type ActionState = {
@@ -9,6 +10,7 @@ export type ActionState = {
   errors?: {
     name?: string[];
     phone?: string[];
+    password?: string[];
   };
   success?: boolean;
 };
@@ -22,6 +24,7 @@ export async function createGuard(prevState: ActionState, formData: FormData): P
     joinDate: formData.get('joinDate')?.toString() || undefined,
     leftDate: formData.get('leftDate')?.toString() || undefined,
     note: formData.get('note')?.toString() || undefined,
+    password: formData.get('password')?.toString(),
   });
 
   if (!validatedFields.success) {
@@ -32,9 +35,17 @@ export async function createGuard(prevState: ActionState, formData: FormData): P
     };
   }
 
+  const { password, ...restData } = validatedFields.data;
+
   try {
+    // Hash the password if provided
+    const dataToCreate = {
+      ...restData,
+      hashedPassword: await hashPassword(password),
+    };
+
     await prisma.guard.create({
-      data: validatedFields.data,
+      data: dataToCreate,
     });
   } catch (error) {
     // Check for unique constraint violation on phone
@@ -58,7 +69,7 @@ export async function createGuard(prevState: ActionState, formData: FormData): P
 }
 
 export async function updateGuard(id: string, prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const validatedFields = createGuardSchema.safeParse({
+  const validatedFields = updateGuardSchema.safeParse({
     name: formData.get('name'),
     phone: formData.get('phone'),
     guardCode: formData.get('guardCode')?.toString() || undefined,
