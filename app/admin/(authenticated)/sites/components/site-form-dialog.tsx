@@ -4,11 +4,11 @@ import Modal from '../../components/modal';
 import { createSite, updateSite, ActionState } from '../actions';
 import { useActionState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import Select from '../../components/select'; // Import the custom Select component
 
 type Site = {
   id: string;
   name: string;
+  clientName: string | null;
   timeZone: string;
 };
 
@@ -17,15 +17,6 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
 };
-
-const timeZoneOptions = [
-  { value: 'UTC', label: 'UTC' },
-  { value: 'America/New_York', label: 'America/New_York' },
-  { value: 'America/Los_Angeles', label: 'America/Los_Angeles' },
-  { value: 'Europe/London', label: 'Europe/London' },
-  { value: 'Asia/Tokyo', label: 'Asia/Tokyo' },
-  // Add more as needed, or use a full list
-];
 
 export default function SiteFormDialog({ site, isOpen, onClose }: Props) {
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
@@ -61,24 +52,20 @@ export default function SiteFormDialog({ site, isOpen, onClose }: Props) {
           {state.errors?.name && <p className="text-red-500 text-xs mt-1">{state.errors.name[0]}</p>}
         </div>
 
-        {/* TimeZone Field */}
+        {/* Client Name Field */}
         <div>
-          <label htmlFor="timeZone" className="block text-sm font-medium text-gray-700 mb-1">
-            Time Zone
+          <label htmlFor="clientName" className="block text-sm font-medium text-gray-700 mb-1">
+            Client Name
           </label>
-          <Select
-            id="timeZone"
-            instanceId="timeZone"
-            name="timeZone" // Important for form submission
-            options={timeZoneOptions}
-            defaultValue={timeZoneOptions.find(option => option.value === (site?.timeZone || 'UTC'))}
-            isClearable={false}
-            isSearchable={false}
-            // react-select's onChange provides the selected option object, not just the value.
-            // For form submission, we need the value to be passed as part of the FormData.
-            // The `name` prop will handle this automatically for simple value selects.
+          <input
+            type="text"
+            name="clientName"
+            id="clientName"
+            defaultValue={site?.clientName || ''}
+            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+            placeholder="e.g. Acme Corp"
           />
-          {state.errors?.timeZone && <p className="text-red-500 text-xs mt-1">{state.errors.timeZone[0]}</p>}
+          {state.errors?.clientName && <p className="text-red-500 text-xs mt-1">{state.errors.clientName[0]}</p>}
         </div>
 
         {/* Error Message */}

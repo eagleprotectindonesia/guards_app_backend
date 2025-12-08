@@ -53,7 +53,7 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Sites</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage your locations and timezones.</p>
+          <p className="text-sm text-gray-500 mt-1">Manage your locations and clients.</p>
         </div>
         <button
           onClick={() => setIsCreateOpen(true)}
@@ -71,7 +71,7 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Time Zone</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Client Name</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Created At</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
                   Actions
@@ -90,7 +90,7 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
                   <tr key={site.id} className="hover:bg-gray-50/50 transition-colors group">
                     <td className="py-4 px-6 text-sm font-medium text-gray-900">{site.name}</td>
                     <td className="py-4 px-6 text-sm text-gray-600 font-mono bg-gray-50/50 rounded px-2 py-1 w-fit">
-                      {site.timeZone}
+                      {site.clientName || 'N/A'}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
                       {new Date(site.createdAt).toLocaleDateString(undefined, {

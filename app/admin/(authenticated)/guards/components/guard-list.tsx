@@ -79,8 +79,8 @@ export default function GuardList({ guards, page, perPage, totalCount }: GuardLi
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Phone</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Guard Code</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Left Date</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Joined Date</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Left Date</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
                   Actions
                 </th>
@@ -119,14 +119,14 @@ export default function GuardList({ guards, page, perPage, totalCount }: GuardLi
                       )}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
-                      {guard.leftDate ? new Date(guard.leftDate).toLocaleDateString() : '-'}
-                    </td>
-                    <td className="py-4 px-6 text-sm text-gray-500">
                       {new Date(guard.joinDate || guard.createdAt).toLocaleDateString(undefined, {
                         year: 'numeric',
                         month: 'short',
                         day: 'numeric',
                       })}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-500">
+                      {guard.leftDate ? new Date(guard.leftDate).toLocaleDateString() : '-'}
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-100">

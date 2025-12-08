@@ -8,6 +8,7 @@ export type ActionState = {
   message?: string;
   errors?: {
     name?: string[];
+    clientName?: string[];
     timeZone?: string[];
   };
   success?: boolean;
@@ -16,6 +17,7 @@ export type ActionState = {
 export async function createSite(prevState: ActionState, formData: FormData): Promise<ActionState> {
   const validatedFields = createSiteSchema.safeParse({
     name: formData.get('name'),
+    clientName: formData.get('clientName'),
     timeZone: formData.get('timeZone'),
   });
 
@@ -29,7 +31,10 @@ export async function createSite(prevState: ActionState, formData: FormData): Pr
 
   try {
     await prisma.site.create({
-      data: validatedFields.data,
+      data: {
+        ...validatedFields.data,
+        timeZone: validatedFields.data.timeZone || 'UTC',
+      },
     });
   } catch (error) {
     console.error('Database Error:', error);
@@ -46,6 +51,7 @@ export async function createSite(prevState: ActionState, formData: FormData): Pr
 export async function updateSite(id: string, prevState: ActionState, formData: FormData): Promise<ActionState> {
   const validatedFields = createSiteSchema.safeParse({
     name: formData.get('name'),
+    clientName: formData.get('clientName'),
     timeZone: formData.get('timeZone'),
   });
 
