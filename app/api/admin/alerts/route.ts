@@ -18,6 +18,7 @@ export async function GET(req: Request) {
         take: perPage,
         include: {
           site: true,
+          resolverAdmin: true,
           shift: {
             include: {
               guard: true,

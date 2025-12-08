@@ -4,11 +4,12 @@ import { useState, useTransition } from 'react';
 import { ShiftType } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { deleteShiftType } from '../actions';
-import ShiftTypeFormDialog from './shift-type-form-dialog';
 import ConfirmDialog from '../../components/confirm-dialog';
-import { EditButton, DeleteButton } from '../../components/action-buttons';
+import { DeleteButton } from '../../components/action-buttons';
 import toast from 'react-hot-toast';
 import PaginationNav from '../../components/pagination-nav';
+import Link from 'next/link';
+import { Pencil } from 'lucide-react';
 
 type ShiftTypeOnly = ShiftType; // Renamed type, no longer includes Site
 
@@ -20,8 +21,6 @@ type ShiftTypeListProps = {
 };
 
 export default function ShiftTypeList({ shiftTypes, page, perPage, totalCount }: ShiftTypeListProps) {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingShiftType, setEditingShiftType] = useState<Serialized<ShiftTypeOnly> | undefined>(undefined);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -43,17 +42,6 @@ export default function ShiftTypeList({ shiftTypes, page, perPage, totalCount }:
     });
   };
 
-  const handleEdit = (shiftType: Serialized<ShiftTypeOnly>) => {
-    setEditingShiftType(shiftType);
-  };
-
-  const closeDialog = () => {
-    setIsCreateOpen(false);
-    setEditingShiftType(undefined);
-  };
-
-  const showDialog = isCreateOpen || !!editingShiftType;
-
   return (
     <div>
       {/* Header Section */}
@@ -62,13 +50,13 @@ export default function ShiftTypeList({ shiftTypes, page, perPage, totalCount }:
           <h1 className="text-2xl font-bold text-gray-900">Shift Types</h1>
           <p className="text-sm text-gray-500 mt-1">Manage standard shift templates.</p>
         </div>
-        <button
-          onClick={() => setIsCreateOpen(true)}
+        <Link
+          href="/admin/shift-types/create"
           className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
         >
           <span className="mr-2 text-lg leading-none">+</span>
           Add Shift Type
-        </button>
+        </Link>
       </div>
 
       {/* Table Section */}
@@ -100,7 +88,14 @@ export default function ShiftTypeList({ shiftTypes, page, perPage, totalCount }:
                     <td className="py-4 px-6 text-sm text-gray-600 font-mono">{shiftType.endTime}</td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-100">
-                        <EditButton onClick={() => handleEdit(shiftType)} disabled={isPending} />
+                        <Link
+                          href={`/admin/shift-types/${shiftType.id}/edit`}
+                          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          <span className="sr-only">Edit</span>
+                        </Link>
                         <DeleteButton onClick={() => handleDeleteClick(shiftType.id)} disabled={isPending} />
                       </div>
                     </td>
@@ -114,16 +109,6 @@ export default function ShiftTypeList({ shiftTypes, page, perPage, totalCount }:
 
       {/* Pagination */}
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
-
-      {/* Dialogs */}
-      {showDialog && (
-        <ShiftTypeFormDialog
-          key={editingShiftType?.id || 'new-shift-type'}
-          isOpen={true}
-          onClose={closeDialog}
-          shiftType={editingShiftType}
-        />
-      )}
 
       <ConfirmDialog
         isOpen={!!deleteId}

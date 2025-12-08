@@ -4,14 +4,15 @@ import { useState, useTransition } from 'react';
 import { Shift, Site, ShiftType, Guard } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { deleteShift } from '../actions';
-import ShiftFormDialog from './shift-form-dialog';
 import ShiftFilterModal from './shift-filter-modal';
 import ConfirmDialog from '../../components/confirm-dialog';
-import { EditButton, DeleteButton } from '../../components/action-buttons';
+import { DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { Pencil } from 'lucide-react';
 
 export type ShiftWithRelations = Shift & { site: Site; shiftType: ShiftType; guard: Guard | null };
 
@@ -45,10 +46,7 @@ export default function ShiftList({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const [dialogKey, setDialogKey] = useState(0);
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [editingShift, setEditingShift] = useState<Serialized<ShiftWithRelations> | undefined>(undefined);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -68,21 +66,6 @@ export default function ShiftList({
         toast.error(result.message || 'Failed to delete shift.');
       }
     });
-  };
-
-  const handleEdit = (shift: Serialized<ShiftWithRelations>) => {
-    setEditingShift(shift);
-    setDialogKey(prev => prev + 1);
-  };
-
-  const handleCreate = () => {
-    setIsCreateOpen(true);
-    setDialogKey(prev => prev + 1);
-  };
-
-  const closeDialog = () => {
-    setIsCreateOpen(false);
-    setEditingShift(undefined);
   };
 
   const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date; siteId: string; guardId: string }) => {
@@ -115,8 +98,6 @@ export default function ShiftList({
     params.set('page', '1'); // Reset to page 1 when filtering
     router.push(`/admin/shifts?${params.toString()}`);
   };
-
-  const showDialog = isCreateOpen || !!editingShift;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -165,13 +146,13 @@ export default function ShiftList({
               </span>
             )}
           </button>
-          <button
-            onClick={handleCreate}
+          <Link
+            href="/admin/shifts/create"
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
           >
             <span className="mr-2 text-lg leading-none">+</span>
             Schedule Shift
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -238,7 +219,25 @@ export default function ShiftList({
                         const isPastOrOngoing = shiftEndsAt < now || (shiftStartsAt < now && shiftEndsAt > now);
                         return (
                           <div className="flex items-center justify-end gap-2 opacity-100">
-                            <EditButton onClick={() => handleEdit(shift)} disabled={isPending || isPastOrOngoing} />
+                            {isPastOrOngoing ? (
+                              <button
+                                disabled
+                                className="p-2 text-gray-300 cursor-not-allowed rounded-lg"
+                                title="Cannot edit past or ongoing shifts"
+                              >
+                                <Pencil className="w-4 h-4" />
+                                <span className="sr-only">Edit</span>
+                              </button>
+                            ) : (
+                              <Link
+                                href={`/admin/shifts/${shift.id}/edit`}
+                                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                                title="Edit"
+                              >
+                                <Pencil className="w-4 h-4" />
+                                <span className="sr-only">Edit</span>
+                              </Link>
+                            )}
                             <DeleteButton onClick={() => handleDeleteClick(shift.id)} />
                           </div>
                         );
@@ -267,18 +266,6 @@ export default function ShiftList({
             guardId,
           }}
           sites={sites}
-          guards={guards}
-        />
-      )}
-
-      {showDialog && (
-        <ShiftFormDialog
-          key={`${editingShift?.id || 'new-shift'}-${dialogKey}`}
-          isOpen={true}
-          onClose={closeDialog}
-          shift={editingShift}
-          sites={sites}
-          shiftTypes={shiftTypes}
           guards={guards}
         />
       )}

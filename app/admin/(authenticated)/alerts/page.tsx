@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Alert, Shift, Site, Guard, ShiftType } from '@prisma/client';
+import { Alert, Shift, Site, Guard, ShiftType, Admin } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import AlertItem from '../components/alert-item';
 import AlertResolutionModal from '../components/alert-resolution-modal';
@@ -11,6 +11,7 @@ import PaginationNav from '../components/pagination-nav';
 type GuardWithOptionalRelations = Serialized<Guard>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
 type SiteWithOptionalRelations = Serialized<Site>;
+type AdminWithOptionalRelations = Serialized<Admin>;
 
 type ShiftWithOptionalRelations = Serialized<Shift> & {
   guard?: GuardWithOptionalRelations | null;
@@ -20,6 +21,7 @@ type ShiftWithOptionalRelations = Serialized<Shift> & {
 type AlertWithRelations = Serialized<Alert> & {
   site?: SiteWithOptionalRelations;
   shift?: ShiftWithOptionalRelations;
+  resolverAdmin?: AdminWithOptionalRelations | null;
 };
 
 type SSEAlertData =
@@ -213,6 +215,7 @@ export default function AdminAlertsPage() {
                 alert={alert}
                 onAcknowledge={handleAcknowledge}
                 onResolve={handleResolve}
+                showResolutionDetails={true}
               />
             ))}
           </div>

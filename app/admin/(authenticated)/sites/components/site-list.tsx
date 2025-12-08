@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useTransition } from 'react';
 import { Site } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { deleteSite } from '../actions';
-import SiteFormDialog from './site-form-dialog';
-import { EditButton, DeleteButton } from '../../components/action-buttons';
+import { DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
+import Link from 'next/link';
+import { Pencil } from 'lucide-react';
 
 type SiteListProps = {
   sites: Serialized<Site>[];
@@ -17,8 +18,6 @@ type SiteListProps = {
 };
 
 export default function SiteList({ sites, page, perPage, totalCount }: SiteListProps) {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingSite, setEditingSite] = useState<Serialized<Site> | undefined>(undefined);
   const [isPending, startTransition] = useTransition();
 
   const handleDelete = async (id: string) => {
@@ -36,17 +35,6 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
     });
   };
 
-  const handleEdit = (site: Serialized<Site>) => {
-    setEditingSite(site);
-  };
-
-  const closeDialog = () => {
-    setIsCreateOpen(false);
-    setEditingSite(undefined);
-  };
-
-  const showDialog = isCreateOpen || !!editingSite;
-
   return (
     <div>
       {/* Header Section */}
@@ -55,13 +43,13 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
           <h1 className="text-2xl font-bold text-gray-900">Sites</h1>
           <p className="text-sm text-gray-500 mt-1">Manage your locations and clients.</p>
         </div>
-        <button
-          onClick={() => setIsCreateOpen(true)}
+        <Link
+          href="/admin/sites/create"
           className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
         >
           <span className="mr-2 text-lg leading-none">+</span>
           Create Site
-        </button>
+        </Link>
       </div>
 
       {/* Table Section */}
@@ -101,7 +89,14 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-100">
-                        <EditButton onClick={() => handleEdit(site)} disabled={isPending} />
+                        <Link
+                          href={`/admin/sites/${site.id}/edit`}
+                          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          <span className="sr-only">Edit</span>
+                        </Link>
                         <DeleteButton onClick={() => handleDelete(site.id)} disabled={isPending} />
                       </div>
                     </td>
@@ -114,9 +109,6 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
       </div>
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
-
-      {/* Dialogs */}
-      {showDialog && <SiteFormDialog isOpen={true} onClose={closeDialog} site={editingSite} />}
     </div>
   );
 }

@@ -1,0 +1,4 @@
+DATABASE_URL="postgresql://user:password@localhost:5432/guard_scheduling?schema=public"
+REDIS_URL="redis://localhost:6379"
+JWT_SECRET=
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=

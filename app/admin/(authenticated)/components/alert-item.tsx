@@ -1,12 +1,13 @@
 'use client';
 
-import { Alert, Shift, Site, Guard, ShiftType } from '@prisma/client';
+import { Alert, Shift, Site, Guard, ShiftType, Admin } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 
 // Define types locally or import if shared (duplicating for now to ensure self-containment)
 type GuardWithOptionalRelations = Serialized<Guard>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
 type SiteWithOptionalRelations = Serialized<Site>;
+type AdminWithOptionalRelations = Serialized<Admin>;
 
 type ShiftWithOptionalRelations = Serialized<Shift> & {
   guard?: GuardWithOptionalRelations | null;
@@ -16,15 +17,17 @@ type ShiftWithOptionalRelations = Serialized<Shift> & {
 type AlertWithRelations = Serialized<Alert> & {
   site?: SiteWithOptionalRelations;
   shift?: ShiftWithOptionalRelations;
+  resolverAdmin?: AdminWithOptionalRelations | null;
 };
 
 interface AlertItemProps {
   alert: AlertWithRelations;
   onAcknowledge: (id: string) => void;
   onResolve: (id: string) => void;
+  showResolutionDetails?: boolean;
 }
 
-export default function AlertItem({ alert, onAcknowledge, onResolve }: AlertItemProps) {
+export default function AlertItem({ alert, onAcknowledge, onResolve, showResolutionDetails = false }: AlertItemProps) {
   const isResolved = !!alert.resolvedAt;
   const isAcknowledged = !!alert.acknowledgedAt;
   const isCritical = alert.severity === 'critical';
@@ -80,6 +83,41 @@ export default function AlertItem({ alert, onAcknowledge, onResolve }: AlertItem
                 {alert.shift?.shiftType?.name}
               </span>
             </div>
+
+            {isResolved && showResolutionDetails && (
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                <h5 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  Resolution Details
+                </h5>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>
+                    <span className="font-medium text-gray-700">Outcome:</span>{' '}
+                    <span className="capitalize">{alert.resolutionType || 'Standard'}</span>
+                  </p>
+                  {alert.resolutionNote && (
+                    <p>
+                      <span className="font-medium text-gray-700">Note:</span> {alert.resolutionNote}
+                    </p>
+                  )}
+                  {alert.resolverAdmin && (
+                     <p>
+                        <span className="font-medium text-gray-700">Resolved by:</span> {alert.resolverAdmin.name}
+                     </p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-200">
+                    Resolved on {new Date(alert.resolvedAt!).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3 self-start">

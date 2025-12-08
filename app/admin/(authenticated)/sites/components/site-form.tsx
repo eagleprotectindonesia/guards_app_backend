@@ -1,24 +1,15 @@
 'use client';
 
-import Modal from '../../components/modal';
+import { Serialized } from '@/lib/utils';
 import { createSite, updateSite, ActionState } from '../actions';
 import { useActionState, useEffect, useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { APIProvider, Map, AdvancedMarker, Pin, useMapsLibrary } from '@vis.gl/react-google-maps';
-
-type Site = {
-  id: string;
-  name: string;
-  clientName: string | null;
-  address: string | null;
-  latitude: number | null;
-  longitude: number | null;
-};
+import { Site } from '@prisma/client';
+import { useRouter } from 'next/navigation';
 
 type Props = {
-  site?: Site; // If provided, it's an edit form
-  isOpen: boolean;
-  onClose: () => void;
+  site?: Serialized<Site>; // If provided, it's an edit form
 };
 
 // MapComponent handles the Google Map rendering and interactions
@@ -61,7 +52,7 @@ function MapComponent({ initialPosition, onPlaceSelect, initialAddress }: { init
   }, [geocodeLatLng]);
 
   return (
-    <div className="h-80 w-full relative mb-4">
+    <div className="h-96 w-full relative mb-4 rounded-lg overflow-hidden border border-gray-200">
       <Map
         ref={mapRef}
         center={markerPosition}
@@ -82,7 +73,8 @@ function MapComponent({ initialPosition, onPlaceSelect, initialAddress }: { init
 }
 
 
-export default function SiteFormDialog({ site, isOpen, onClose }: Props) {
+export default function SiteForm({ site }: Props) {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     site ? updateSite.bind(null, site.id) : createSite,
     { success: false }
@@ -96,11 +88,11 @@ export default function SiteFormDialog({ site, isOpen, onClose }: Props) {
   useEffect(() => {
     if (state.success) {
       toast.success(state.message || (site ? 'Site updated successfully!' : 'Site created successfully!'));
-      onClose();
+      router.push('/admin/sites');
     } else if (state.message && !state.success) {
       toast.error(state.message);
     }
-  }, [state, onClose, site]);
+  }, [state, site, router]);
 
   const handlePlaceSelect = useCallback((address: string, lat: number, lng: number) => {
     setCurrentAddress(address);
@@ -109,43 +101,46 @@ export default function SiteFormDialog({ site, isOpen, onClose }: Props) {
   }, []);
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={site ? 'Edit Site' : 'Create New Site'}>
-      <form action={formAction} className="space-y-4 p-4">
-        {/* Name Field */}
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-            Site Name
-          </label>
-          <input
-            type="text"
-            name="name"
-            id="name"
-            defaultValue={site?.name || ''}
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
-            placeholder="e.g. Warehouse A"
-          />
-          {state.errors?.name && <p className="text-red-500 text-xs mt-1">{state.errors.name[0]}</p>}
-        </div>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">{site ? 'Edit Site' : 'Create New Site'}</h1>
+      <form action={formAction} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Name Field */}
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              Site Name
+            </label>
+            <input
+              type="text"
+              name="name"
+              id="name"
+              defaultValue={site?.name || ''}
+              className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+              placeholder="e.g. Warehouse A"
+            />
+            {state.errors?.name && <p className="text-red-500 text-xs mt-1">{state.errors.name[0]}</p>}
+          </div>
 
-        {/* Client Name Field */}
-        <div>
-          <label htmlFor="clientName" className="block text-sm font-medium text-gray-700 mb-1">
-            Client Name
-          </label>
-          <input
-            type="text"
-            name="clientName"
-            id="clientName"
-            defaultValue={site?.clientName || ''}
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
-            placeholder="e.g. Acme Corp"
-          />
-          {state.errors?.clientName && <p className="text-red-500 text-xs mt-1">{state.errors.clientName[0]}</p>}
+          {/* Client Name Field */}
+          <div>
+            <label htmlFor="clientName" className="block text-sm font-medium text-gray-700 mb-1">
+              Client Name
+            </label>
+            <input
+              type="text"
+              name="clientName"
+              id="clientName"
+              defaultValue={site?.clientName || ''}
+              className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+              placeholder="e.g. Acme Corp"
+            />
+            {state.errors?.clientName && <p className="text-red-500 text-xs mt-1">{state.errors.clientName[0]}</p>}
+          </div>
         </div>
 
         {/* Map Integration */}
-        <div className="pt-4">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Site Location
           </label>
           <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -161,7 +156,7 @@ export default function SiteFormDialog({ site, isOpen, onClose }: Props) {
           {state.errors?.latitude && <p className="text-red-500 text-xs mt-1">{state.errors.latitude[0]}</p>}
           {state.errors?.longitude && <p className="text-red-500 text-xs mt-1">{state.errors.longitude[0]}</p>}
           <div className="mt-2 text-sm text-gray-600">
-            Selected Address: {currentAddress || 'None'}
+            Selected Address: <span className="font-medium text-gray-900">{currentAddress || 'None'}</span>
           </div>
         </div>
 
@@ -171,23 +166,23 @@ export default function SiteFormDialog({ site, isOpen, onClose }: Props) {
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4"> {/* Adjusted padding-top here */}
+        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors"
+            onClick={() => router.push('/admin/sites')}
+            className="px-6 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isPending}
-            className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold text-sm hover:bg-red-600 active:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
+            className="px-6 py-2.5 rounded-lg bg-red-500 text-white font-semibold text-sm hover:bg-red-600 active:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
           >
             {isPending ? 'Saving...' : site ? 'Save Changes' : 'Create Site'}
           </button>
         </div>
       </form>
-    </Modal>
+    </div>
   );
 }

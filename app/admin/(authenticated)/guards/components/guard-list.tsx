@@ -4,11 +4,12 @@ import { useState, useTransition } from 'react';
 import { Guard } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { deleteGuard } from '../actions';
-import GuardFormDialog from './guard-form-dialog';
 import ConfirmDialog from '../../components/confirm-dialog';
-import { EditButton, DeleteButton } from '../../components/action-buttons';
+import { DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
+import Link from 'next/link';
+import { Pencil } from 'lucide-react';
 
 type GuardListProps = {
   guards: Serialized<Guard>[];
@@ -18,8 +19,6 @@ type GuardListProps = {
 };
 
 export default function GuardList({ guards, page, perPage, totalCount }: GuardListProps) {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [editingGuard, setEditingGuard] = useState<Serialized<Guard> | undefined>(undefined);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -41,17 +40,6 @@ export default function GuardList({ guards, page, perPage, totalCount }: GuardLi
     });
   };
 
-  const handleEdit = (guard: Serialized<Guard>) => {
-    setEditingGuard(guard);
-  };
-
-  const closeDialog = () => {
-    setIsCreateOpen(false);
-    setEditingGuard(undefined);
-  };
-
-  const showDialog = isCreateOpen || !!editingGuard;
-
   return (
     <div>
       {/* Header Section */}
@@ -60,13 +48,13 @@ export default function GuardList({ guards, page, perPage, totalCount }: GuardLi
           <h1 className="text-2xl font-bold text-gray-900">Guards</h1>
           <p className="text-sm text-gray-500 mt-1">Manage security personnel and contact info.</p>
         </div>
-        <button
-          onClick={() => setIsCreateOpen(true)}
+        <Link
+          href="/admin/guards/create"
           className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
         >
           <span className="mr-2 text-lg leading-none">+</span>
           Add Guard
-        </button>
+        </Link>
       </div>
 
       {/* Table Section */}
@@ -130,10 +118,14 @@ export default function GuardList({ guards, page, perPage, totalCount }: GuardLi
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-100">
-                        <EditButton
-                          onClick={() => handleEdit(guard)}
-                          disabled={isPending}
-                        />
+                        <Link
+                          href={`/admin/guards/${guard.id}/edit`}
+                          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          <span className="sr-only">Edit</span>
+                        </Link>
                         <DeleteButton
                           onClick={() => handleDeleteClick(guard.id)}
                           disabled={isPending}
@@ -149,16 +141,6 @@ export default function GuardList({ guards, page, perPage, totalCount }: GuardLi
       </div>
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
-
-      {/* Dialogs */}
-      {showDialog && (
-        <GuardFormDialog
-          key={editingGuard?.id || 'new-guard'}
-          isOpen={true}
-          onClose={closeDialog}
-          guard={editingGuard}
-        />
-      )}
 
       <ConfirmDialog
         isOpen={!!deleteId}

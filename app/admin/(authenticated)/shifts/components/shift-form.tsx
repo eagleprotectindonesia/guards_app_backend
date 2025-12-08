@@ -1,7 +1,6 @@
 'use client';
 
 import { Serialized } from '@/lib/utils';
-import Modal from '../../components/modal';
 import { createShift, updateShift, ActionState } from '../actions';
 import { useActionState, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -9,17 +8,17 @@ import { Shift, Site, ShiftType, Guard } from '@prisma/client';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Select from '../../components/select';
+import { useRouter } from 'next/navigation';
 
 type Props = {
   shift?: Serialized<Shift>;
   sites: Serialized<Site>[];
   shiftTypes: Serialized<ShiftType>[];
   guards: Serialized<Guard>[];
-  isOpen: boolean;
-  onClose: () => void;
 };
 
-export default function ShiftFormDialog({ shift, sites, shiftTypes, guards, isOpen, onClose }: Props) {
+export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState<ActionState, FormData>(
     shift ? updateShift.bind(null, shift.id) : createShift,
     { success: false }
@@ -33,19 +32,20 @@ export default function ShiftFormDialog({ shift, sites, shiftTypes, guards, isOp
   useEffect(() => {
     if (state.success) {
       toast.success(state.message || (shift ? 'Shift updated successfully!' : 'Shift created successfully!'));
-      onClose();
+      router.push('/admin/shifts');
     } else if (state.message && !state.success) {
       toast.error(state.message);
     }
-  }, [state, onClose, shift]);
+  }, [state, shift, router]);
 
   const siteOptions = sites.map(site => ({ value: site.id, label: site.name }));
   const guardOptions = guards.map(guard => ({ value: guard.id, label: guard.name }));
   const shiftTypeOptions = shiftTypes.map(st => ({ value: st.id, label: `${st.name} (${st.startTime} - ${st.endTime})` }));
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={shift ? 'Edit Shift' : 'Schedule New Shift'}>
-      <form action={formAction} className="space-y-4 p-4">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">{shift ? 'Edit Shift' : 'Schedule New Shift'}</h1>
+      <form action={formAction} className="space-y-6">
         {/* Site Field */}
         <div>
           <label htmlFor="siteId" className="block text-sm font-medium text-gray-700 mb-1">
@@ -158,23 +158,23 @@ export default function ShiftFormDialog({ shift, sites, shiftTypes, guards, isOp
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
           <button
             type="button"
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors"
+            onClick={() => router.push('/admin/shifts')}
+            className="px-6 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-semibold text-sm hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isPending}
-            className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold text-sm hover:bg-red-600 active:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
+            className="px-6 py-2.5 rounded-lg bg-red-500 text-white font-semibold text-sm hover:bg-red-600 active:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
           >
             {isPending ? 'Saving...' : shift ? 'Save Changes' : 'Schedule Shift'}
           </button>
         </div>
       </form>
-    </Modal>
+    </div>
   );
 }
