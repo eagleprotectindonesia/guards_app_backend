@@ -1,0 +1,34 @@
+import { prisma } from '@/lib/prisma';
+import { serialize, getPaginationParams } from '@/lib/utils';
+import AdminList from './components/admin-list';
+import { Suspense } from 'react';
+
+export const dynamic = 'force-dynamic';
+
+type AdminsPageProps = {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+};
+
+export default async function AdminsPage(props: AdminsPageProps) {
+  const searchParams = await props.searchParams;
+  const { page, perPage, skip } = getPaginationParams(searchParams);
+
+  const [admins, totalCount] = await prisma.$transaction([
+    prisma.admin.findMany({
+      orderBy: { name: 'asc' },
+      skip,
+      take: perPage,
+    }),
+    prisma.admin.count(),
+  ]);
+
+  const serializedAdmins = serialize(admins);
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <Suspense fallback={<div>Loading admins...</div>}>
+        <AdminList admins={serializedAdmins} page={page} perPage={perPage} totalCount={totalCount} />
+      </Suspense>
+    </div>
+  );
+}

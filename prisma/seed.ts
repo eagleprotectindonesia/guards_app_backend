@@ -71,6 +71,7 @@ async function main() {
       name: 'Admin User',
       email: 'admin@example.com',
       hashedPassword: hashedAdminPassword,
+      role: 'superadmin',
     },
   });
   console.log('Created Admin:', admin.id);

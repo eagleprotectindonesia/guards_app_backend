@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
@@ -12,8 +12,26 @@ const guardLoginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+function isMobileUserAgent(userAgent: string | null): boolean {
+  if (!userAgent) return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+}
+
 export async function POST(req: Request) {
   try {
+    // Check for mobile device restriction
+    if (process.env.REQUIRE_MOBILE_GUARD_LOGIN === 'true') {
+      const headersList = await headers();
+      const userAgent = headersList.get('user-agent');
+      
+      if (!isMobileUserAgent(userAgent)) {
+        return NextResponse.json(
+          { message: 'Login restricted to mobile devices only.' },
+          { status: 403 }
+        );
+      }
+    }
+
     const body = await req.json();
     const { phone, password } = guardLoginSchema.parse(body);
 

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { redis } from '@/lib/redis';
 import { checkInSchema } from '@/lib/validations';
 import { getAuthenticatedGuard } from '@/lib/guard-auth';
+import { ZodError } from 'zod';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: shiftId } = await params;
@@ -41,17 +41,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // Fixed interval logic:
     // Slot N starts at: startsAt + N * interval
     // Check-in Window for Slot N: [SlotStart, SlotStart + grace]
-    
+
     const nowMs = now.getTime();
     const startMs = shift.startsAt.getTime();
     const intervalMs = shift.requiredCheckinIntervalMins * 60000;
     const graceMs = shift.graceMinutes * 60000;
-    
+
     // Which slot are we in?
     const currentSlotIndex = Math.floor((nowMs - startMs) / intervalMs);
     const targetTime = new Date(startMs + currentSlotIndex * intervalMs);
     const deadline = new Date(targetTime.getTime() + graceMs);
-    
+
     // Validate Strict Window
     // If now > deadline, we missed the window for this slot.
     // And it is too early for the next slot.
@@ -62,7 +62,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // Check if we already checked in for this slot
     // If lastHeartbeatAt >= targetTime, we have done this slot.
     if (shift.lastHeartbeatAt && shift.lastHeartbeatAt.getTime() >= targetTime.getTime()) {
-        return NextResponse.json({ error: 'Already checked in for this interval' }, { status: 400 });
+      return NextResponse.json({ error: 'Already checked in for this interval' }, { status: 400 });
     }
 
     const status: 'on_time' | 'late' = 'on_time'; // Always on_time if within the strict window
@@ -75,7 +75,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           guardId: guardId, // Use guardId instead of userId
           status: status, // Directly use the calculated status
           source: body.source || 'api',
-          metadata: body.location as any,
+          metadata: body.location,
           at: now,
         },
       });
@@ -109,7 +109,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // 5. Publish Realtime Events
     // No alert resolution by guard check-in. Alerts are handled by admin.
-    
+
     // Calculate next due for response
     // Next due is the START of the NEXT slot
     const nextDueAfterCheckin = new Date(startMs + (currentSlotIndex + 1) * intervalMs);
@@ -119,10 +119,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       next_due_at: nextDueAfterCheckin,
       status,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error checking in:', error);
-    if (error.name === 'ZodError') {
-      return NextResponse.json({ error: error.errors }, { status: 400 });
+    if (error instanceof ZodError) {
+      return NextResponse.json({ error: error.issues }, { status: 400 });
     }
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

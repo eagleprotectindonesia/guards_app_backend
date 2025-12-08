@@ -126,6 +126,29 @@ export default function GuardPage() {
 
   const handleCheckIn = async () => {
     if (!activeShift) return;
+    
+    let locationData: { lat: number; lng: number } | undefined;
+
+    if (navigator.geolocation) {
+      setStatus('Acquiring location...');
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 5000,
+            maximumAge: 0,
+          });
+        });
+        locationData = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+      } catch (error) {
+        console.warn('Geolocation failed or timed out:', error);
+        // Continue without location
+      }
+    }
+
     setStatus('Checking in...');
     try {
       const res = await fetchWithAuth(`/api/shifts/${activeShift.id}/checkin`, {
@@ -133,7 +156,10 @@ export default function GuardPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ source: 'web-ui' }),
+        body: JSON.stringify({ 
+          source: 'web-ui',
+          location: locationData,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {

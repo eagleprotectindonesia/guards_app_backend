@@ -80,7 +80,7 @@ export default function SiteForm({ site }: Props) {
     { success: false }
   );
 
-  const defaultPosition = { lat: 34.052235, lng: -118.243683 }; // Default to Los Angeles
+  const defaultPosition = { lat: -8.643, lng: 115.158 }; // Default to Kuta Utara, Bali
   const [currentAddress, setCurrentAddress] = useState(site?.address || null);
   const [currentLatitude, setCurrentLatitude] = useState(site?.latitude || defaultPosition.lat);
   const [currentLongitude, setCurrentLongitude] = useState(site?.longitude || defaultPosition.lng);

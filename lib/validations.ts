@@ -15,6 +15,15 @@ export const createSiteSchema = z.object({
 export const createAdminSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
+  password: z.string().min(6, 'Password must be at least 6 characters long'),
+  role: z.enum(['superadmin', 'admin']),
+});
+
+export const updateAdminSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  password: z.string().min(6, 'Password must be at least 6 characters long').optional(),
+  role: z.enum(['superadmin', 'admin']),
 });
 
 // --- Guard ---

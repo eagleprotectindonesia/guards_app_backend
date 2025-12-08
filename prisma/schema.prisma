@@ -7,15 +7,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum AdminRole {
+  superadmin
+  admin
+}
+
 model Admin {
-  id                 String   @id @default(uuid())
+  id                 String    @id @default(uuid())
   name               String
-  email              String   @unique
-  hashedPassword     String   @map("hashed_password")
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
-  acknowledgedAlerts Alert[]  @relation("AcknowledgedBy")
-  resolvedAlerts     Alert[]  @relation("ResolvedBy")
+  email              String    @unique
+  hashedPassword     String    @map("hashed_password")
+  role               AdminRole @default(admin)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  acknowledgedAlerts Alert[]   @relation("AcknowledgedBy")
+  resolvedAlerts     Alert[]   @relation("ResolvedBy")
 
   @@map("admins")
 }

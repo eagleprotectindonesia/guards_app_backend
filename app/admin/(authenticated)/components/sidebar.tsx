@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { LayoutDashboard, MapPin, Users, Calendar, Bell, User, LogOut, Shield, Layers } from 'lucide-react';
+import { LayoutDashboard, MapPin, Users, Calendar, Bell, User, LogOut, Shield, Layers, UserCog } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -11,6 +11,7 @@ const navItems = [
   { name: 'Shifts', href: '/admin/shifts', icon: Calendar },
   { name: 'Shift Types', href: '/admin/shift-types', icon: Layers },
   { name: 'Alerts', href: '/admin/alerts', icon: Bell },
+  { name: 'Admins', href: '/admin/admins', icon: UserCog },
 ];
 
 export default function Sidebar() {
