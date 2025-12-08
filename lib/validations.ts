@@ -6,7 +6,9 @@ export const ShiftStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 
 export const createSiteSchema = z.object({
   name: z.string().min(1),
   clientName: z.string().optional(),
-  timeZone: z.string().optional(), // Validate IANA time zone if possible, string for now
+  address: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
 });
 
 // --- Admin ---

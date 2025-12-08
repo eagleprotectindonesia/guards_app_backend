@@ -9,7 +9,9 @@ export type ActionState = {
   errors?: {
     name?: string[];
     clientName?: string[];
-    timeZone?: string[];
+    address?: string[];
+    latitude?: string[];
+    longitude?: string[];
   };
   success?: boolean;
 };
@@ -18,7 +20,9 @@ export async function createSite(prevState: ActionState, formData: FormData): Pr
   const validatedFields = createSiteSchema.safeParse({
     name: formData.get('name'),
     clientName: formData.get('clientName'),
-    timeZone: formData.get('timeZone'),
+    address: formData.get('address'),
+    latitude: parseFloat(formData.get('latitude') as string),
+    longitude: parseFloat(formData.get('longitude') as string),
   });
 
   if (!validatedFields.success) {
@@ -33,7 +37,6 @@ export async function createSite(prevState: ActionState, formData: FormData): Pr
     await prisma.site.create({
       data: {
         ...validatedFields.data,
-        timeZone: validatedFields.data.timeZone || 'UTC',
       },
     });
   } catch (error) {
@@ -52,7 +55,9 @@ export async function updateSite(id: string, prevState: ActionState, formData: F
   const validatedFields = createSiteSchema.safeParse({
     name: formData.get('name'),
     clientName: formData.get('clientName'),
-    timeZone: formData.get('timeZone'),
+    address: formData.get('address'),
+    latitude: parseFloat(formData.get('latitude') as string),
+    longitude: parseFloat(formData.get('longitude') as string),
   });
 
   if (!validatedFields.success) {
