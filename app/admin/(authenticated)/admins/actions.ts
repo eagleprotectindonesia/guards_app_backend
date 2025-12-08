@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { createAdminSchema, updateAdminSchema } from '@/lib/validations';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
+import { getCurrentAdmin } from '@/lib/admin-auth';
 
 export type ActionState = {
   message?: string;
@@ -16,7 +17,23 @@ export type ActionState = {
   success?: boolean;
 };
 
+async function checkSuperAdmin() {
+  const currentAdmin = await getCurrentAdmin();
+  if (currentAdmin?.role !== 'superadmin') {
+    return false;
+  }
+  return true;
+}
+
 export async function createAdmin(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const isSuperAdmin = await checkSuperAdmin();
+  if (!isSuperAdmin) {
+    return {
+      message: 'Unauthorized: Only Super Admins can create admins.',
+      success: false,
+    };
+  }
+
   const validatedFields = createAdminSchema.safeParse({
     name: formData.get('name'),
     email: formData.get('email'),
@@ -43,7 +60,7 @@ export async function createAdmin(prevState: ActionState, formData: FormData): P
       return {
         message: 'Email already exists.',
         success: false,
-        errors: { email: ['Email already exists'] }
+        errors: { email: ['Email already exists'] },
       };
     }
 
@@ -70,12 +87,20 @@ export async function createAdmin(prevState: ActionState, formData: FormData): P
 }
 
 export async function updateAdmin(id: string, prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const isSuperAdmin = await checkSuperAdmin();
+  if (!isSuperAdmin) {
+    return {
+      message: 'Unauthorized: Only Super Admins can update admins.',
+      success: false,
+    };
+  }
+
   const rawData: any = {
     name: formData.get('name'),
     email: formData.get('email'),
     role: formData.get('role'),
   };
-  
+
   const password = formData.get('password');
   if (password && typeof password === 'string' && password.length > 0) {
     rawData.password = password;
@@ -96,18 +121,18 @@ export async function updateAdmin(id: string, prevState: ActionState, formData: 
   try {
     // Check if email is taken by another admin
     const existingAdmin = await prisma.admin.findFirst({
-        where: { 
-            email,
-            id: { not: id } 
-        }
+      where: {
+        email,
+        id: { not: id },
+      },
     });
 
     if (existingAdmin) {
-        return {
-            message: 'Email already exists.',
-            success: false,
-            errors: { email: ['Email already exists'] }
-        };
+      return {
+        message: 'Email already exists.',
+        success: false,
+        errors: { email: ['Email already exists'] },
+      };
     }
 
     const data: any = {
@@ -137,7 +162,25 @@ export async function updateAdmin(id: string, prevState: ActionState, formData: 
 }
 
 export async function deleteAdmin(id: string) {
+  const isSuperAdmin = await checkSuperAdmin();
+  if (!isSuperAdmin) {
+    return { success: false, message: 'Unauthorized: Only Super Admins can delete admins.' };
+  }
+
   try {
+    const adminToDelete = await prisma.admin.findUnique({
+      where: { id },
+      select: { role: true }, // Only need the role
+    });
+
+    if (!adminToDelete) {
+      return { success: false, message: 'Admin not found.' };
+    }
+
+    if ((adminToDelete as any).role === 'superadmin') {
+      return { success: false, message: 'Cannot delete a Super Admin. Change their role to Admin first.' };
+    }
+
     await prisma.admin.delete({
       where: { id },
     });

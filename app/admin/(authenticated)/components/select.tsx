@@ -12,7 +12,7 @@ export default function Select<
       {...props}
       classNames={{
         control: (state) =>
-          `!rounded-lg !border-gray-200 !min-h-[40px] ${
+          `!rounded-lg !border-gray-200 !min-h-[40px] !min-w-[200px] ${
             state.isFocused ? '!border-red-500 !ring-2 !ring-red-500/20' : ''
           }`,
         singleValue: () => '!text-gray-900 !text-sm',

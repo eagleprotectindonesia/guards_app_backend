@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { LayoutDashboard, MapPin, Users, Calendar, Bell, User, LogOut, Shield, Layers, UserCog } from 'lucide-react';
+import { Admin } from '@prisma/client';
 
 const navItems = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -11,10 +12,13 @@ const navItems = [
   { name: 'Shifts', href: '/admin/shifts', icon: Calendar },
   { name: 'Shift Types', href: '/admin/shift-types', icon: Layers },
   { name: 'Alerts', href: '/admin/alerts', icon: Bell },
-  { name: 'Admins', href: '/admin/admins', icon: UserCog },
 ];
 
-export default function Sidebar() {
+type SidebarProps = {
+  currentAdmin: Admin | null;
+};
+
+export default function Sidebar({ currentAdmin }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -60,6 +64,20 @@ export default function Sidebar() {
           );
         })}
 
+        {currentAdmin?.role === 'superadmin' && (
+          <Link
+            href="/admin/admins"
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              pathname.startsWith('/admin/admins')
+                ? 'bg-red-50 text-red-600'
+                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+            }`}
+          >
+            <UserCog className={`w-5 h-5 ${pathname.startsWith('/admin/admins') ? 'text-red-600' : 'text-gray-500'}`} />
+            Admins
+          </Link>
+        )}
+
         <div className="pt-4 mt-4 border-t border-gray-100">
           <Link
             href="/admin/profile"
@@ -79,11 +97,11 @@ export default function Sidebar() {
       <div className="p-4 border-t border-gray-200">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">
-            AD
+            {currentAdmin?.name?.substring(0, 2).toUpperCase() || 'AD'}
           </div>
-          <div>
-            <p className="text-sm font-semibold text-gray-900">Admin User</p>
-            <p className="text-xs text-gray-500">admin@example.com</p>
+          <div className="overflow-hidden">
+            <p className="text-sm font-semibold text-gray-900 truncate">{currentAdmin?.name || 'Admin User'}</p>
+            <p className="text-xs text-gray-500 truncate">{currentAdmin?.email || 'admin@example.com'}</p>
           </div>
         </div>
         <button

@@ -4,8 +4,9 @@ import jwt from 'jsonwebtoken';
 import Sidebar from './components/sidebar';
 import Header from './components/header';
 import { Toaster } from 'react-hot-toast';
+import { getCurrentAdmin } from '@/lib/admin-auth';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey'; // Should match the one in route.ts
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
@@ -21,10 +22,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect('/admin/login');
   }
 
+  const currentAdmin = await getCurrentAdmin();
+
   return (
     <div className="flex min-h-screen bg-gray-50">
       <Toaster position="top-right" containerStyle={{ zIndex: 99999 }} toastOptions={{ style: { zIndex: 99999 } }} />
-      <Sidebar />
+      <Sidebar currentAdmin={currentAdmin} />
       <div className="flex-1 flex flex-col">
         <Header />
         <main className="flex-1 p-8 overflow-y-auto">{children}</main>

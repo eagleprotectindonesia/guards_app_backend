@@ -5,6 +5,7 @@ import { Site, Guard, Shift, ShiftType, Alert } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import AlertItem from '../components/alert-item';
 import AlertResolutionModal from '../components/alert-resolution-modal';
+import Select from '../components/select'; // Added import for custom Select component
 
 type GuardWithOptionalRelations = Serialized<Guard>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
@@ -173,10 +174,7 @@ export default function AdminDashboard() {
     }
   };
 
-  // Filter active sites based on selection if needed, 
-  // but usually we want to see ALL active sites in the sidebar regardless of filter?
-  // Or if we filter main view, maybe sidebar should reflect that?
-  // Let's show ALL active sites in sidebar always for context.
+  const siteOptions = [{ value: '', label: 'All Sites' }, ...sites.map(s => ({ value: s.id, label: s.name })).slice(0, 8)];
   
   return (
     <div className="h-full flex flex-col">
@@ -195,18 +193,13 @@ export default function AdminDashboard() {
             {connectionStatus}
           </div>
           
-          <select
-            className="bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block p-2.5 min-w-[200px]"
-            value={selectedSiteId}
-            onChange={e => setSelectedSiteId(e.target.value)}
-          >
-            <option value="">All Sites</option>
-            {sites.map(s => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <Select
+            options={siteOptions}
+            value={siteOptions.find(opt => opt.value === selectedSiteId) || null}
+            onChange={option => setSelectedSiteId(option?.value || '')}
+            placeholder="All Sites"
+            isClearable={false}
+          />
         </div>
       </header>
 

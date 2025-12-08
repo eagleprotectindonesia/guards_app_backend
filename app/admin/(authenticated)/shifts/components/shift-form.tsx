@@ -39,8 +39,11 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
   }, [state, shift, router]);
 
   const siteOptions = sites.map(site => ({ value: site.id, label: site.name }));
-  const guardOptions = guards.map(guard => ({ value: guard.id, label: guard.name }));
-  const shiftTypeOptions = shiftTypes.map(st => ({ value: st.id, label: `${st.name} (${st.startTime} - ${st.endTime})` }));
+  const guardOptions = guards.map(guard => ({ value: guard.id, label: guard.name })).slice(0, 8);
+  const shiftTypeOptions = shiftTypes.map(st => ({
+    value: st.id,
+    label: `${st.name} (${st.startTime} - ${st.endTime})`,
+  }));
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-2xl mx-auto">
@@ -56,7 +59,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
             instanceId="site-select"
             options={siteOptions}
             value={siteOptions.find(opt => opt.value === selectedSiteId) || null}
-            onChange={(option) => setSelectedSiteId(option?.value || '')}
+            onChange={option => setSelectedSiteId(option?.value || '')}
             placeholder="Select a site..."
             isClearable
           />
@@ -74,7 +77,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
             instanceId="shift-type-select"
             options={shiftTypeOptions}
             value={shiftTypeOptions.find(opt => opt.value === selectedShiftTypeId) || null}
-            onChange={(option) => setSelectedShiftTypeId(option?.value || '')}
+            onChange={option => setSelectedShiftTypeId(option?.value || '')}
             placeholder="Select a shift type"
             isClearable={false}
             isSearchable={false}
@@ -86,14 +89,14 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
         {/* Guard Field */}
         <div>
           <label htmlFor="guardId" className="block text-sm font-medium text-gray-700 mb-1">
-            Guard (Optional)
+            Guard
           </label>
           <Select
             id="guard-select"
             instanceId="guard-select"
             options={guardOptions}
             value={guardOptions.find(opt => opt.value === selectedGuardId) || null}
-            onChange={(option) => setSelectedGuardId(option?.value || '')}
+            onChange={option => setSelectedGuardId(option?.value || '')}
             placeholder="Unassigned"
             isClearable
           />
