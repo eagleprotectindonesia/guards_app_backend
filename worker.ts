@@ -78,7 +78,7 @@ async function runWorker() {
       }
 
       // 3. Process Logic (Uses cachedShifts with fresh heartbeats)
-      const activeSitesMap = new Map<string, { site: Site; shifts: Shift[] }>();
+      const activeSitesMap = new Map<string, { site: Site; shifts: any[] }>();
 
       for (const shift of cachedShifts) {
         // Double check validity (in case status changed in Light Sync or time passed)

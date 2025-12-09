@@ -3,17 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useActionState } from 'react';
-import { Button } from '@/components/ui/button'; // Assuming this exists for styling
+import { Button } from '@/app/guard/components/ui/button'; // Assuming this exists for styling
 
 type GuardLoginState = {
   success?: boolean;
   message?: string;
 };
 
-async function guardLoginAction(
-  prevState: GuardLoginState,
-  formData: FormData
-): Promise<GuardLoginState> {
+async function guardLoginAction(prevState: GuardLoginState, formData: FormData): Promise<GuardLoginState> {
   const phone = formData.get('phone') as string;
   const password = formData.get('password') as string;
 

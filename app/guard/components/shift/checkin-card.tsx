@@ -1,10 +1,10 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/app/guard/components/ui/button';
 import { ShiftWithRelations } from '@/app/admin/(authenticated)/shifts/components/shift-list';
 import { useGuardApi } from '@/app/guard/(authenticated)/hooks/use-guard-api';
 
-type ShiftDetailsProps = {
+type CheckInCardProps = {
   activeShift: ShiftWithRelations | null;
   loading: boolean;
   status: string;
@@ -13,14 +13,14 @@ type ShiftDetailsProps = {
   fetchShift: () => Promise<void>;
 };
 
-export default function ShiftDetails({
+export default function CheckInCard({
   activeShift,
   loading,
   status,
   currentTime,
   setStatus,
-  fetchShift
-}: ShiftDetailsProps) {
+  fetchShift,
+}: CheckInCardProps) {
   const { fetchWithAuth } = useGuardApi();
 
   // Calculate Next Due & Window Status based on Worker Logic (Fixed Intervals)
@@ -39,7 +39,7 @@ export default function ShiftDetails({
     } else {
       const elapsed = nowMs - startMs;
       const currentSlotIndex = Math.floor(elapsed / intervalMs);
-      const currentSlotStartMs = startMs + (currentSlotIndex * intervalMs);
+      const currentSlotStartMs = startMs + currentSlotIndex * intervalMs;
       const currentSlotEndMs = currentSlotStartMs + graceMs;
 
       let isCurrentCompleted = false;
@@ -72,14 +72,14 @@ export default function ShiftDetails({
     if (currentTime < nextDue) {
       const diffSec = Math.ceil((nextDue.getTime() - currentTime.getTime()) / 1000);
       if (diffSec > 60) {
-        windowMessage = `Opens in ${Math.ceil(diffSec / 60)} min`;
+        windowMessage = `Buka dalam ${Math.ceil(diffSec / 60)} menit`;
       } else {
-        windowMessage = `Opens in ${diffSec} sec`;
+        windowMessage = `Buka dalam ${diffSec} detik`;
       }
     } else if (currentTime > graceEndTime) {
-      windowMessage = 'Window missed';
+      windowMessage = 'Jendela terlewat';
     } else {
-      windowMessage = 'Check-in Open';
+      windowMessage = 'Check-in Buka';
     }
   }
 
@@ -89,7 +89,7 @@ export default function ShiftDetails({
     let locationData: { lat: number; lng: number } | undefined;
 
     if (navigator.geolocation) {
-      setStatus('Acquiring location...');
+      setStatus('Mendapatkan lokasi...');
       try {
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -108,7 +108,7 @@ export default function ShiftDetails({
       }
     }
 
-    setStatus('Checking in...');
+    setStatus('Check-in...');
     try {
       const res = await fetchWithAuth(`/api/shifts/${activeShift.id}/checkin`, {
         method: 'POST',
@@ -122,13 +122,13 @@ export default function ShiftDetails({
       });
       const data = await res.json();
       if (!res.ok) {
-        setStatus(`Error: ${data.message || data.error || 'Check-in failed.'}`);
+        setStatus(`Error: ${data.message || data.error || 'Check-in gagal.'}`);
       } else {
-        setStatus(`Checked in! Status: ${data.status}`);
+        setStatus(`Berhasil Check-in! Status: ${data.status}`);
         fetchShift();
       }
     } catch (err) {
-      setStatus('Network Error');
+      setStatus('Kesalahan Jaringan');
       console.error('Network error during check-in:', err);
     }
   };
@@ -136,11 +136,9 @@ export default function ShiftDetails({
   return (
     <div className="border rounded-lg shadow-sm p-6 bg-white mb-6">
       <div className="mb-6">
-        <p className="text-sm text-gray-500">Next Check-in Due:</p>
-        <p className="text-3xl font-mono font-bold text-blue-600">
-          {nextDue ? nextDue.toLocaleTimeString() : '--:--'}
-        </p>
-        <p className="text-xs text-gray-400 mt-1">Grace period: {activeShift?.graceMinutes} min</p>
+        <p className="text-sm text-gray-500">Check-in Berikutnya Jatuh Tempo:</p>
+        <p className="text-3xl font-mono font-bold text-blue-600">{nextDue ? nextDue.toLocaleTimeString() : '--:--'}</p>
+        <p className="text-xs text-gray-400 mt-1">Masa tenggang: {activeShift?.graceMinutes} menit</p>
         <p className={`text-sm font-medium mt-2 ${canCheckIn ? 'text-green-600' : 'text-amber-600'}`}>
           {windowMessage}
         </p>
@@ -153,7 +151,7 @@ export default function ShiftDetails({
           canCheckIn ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-gray-300 text-gray-500 cursor-not-allowed'
         }`}
       >
-        {canCheckIn ? 'CHECK IN NOW' : 'LOCKED'}
+        {canCheckIn ? 'CHECK IN SEKARANG' : 'TERKUNCI'}
       </button>
 
       {status && <p className="mt-4 text-center font-medium text-sm text-gray-700">{status}</p>}

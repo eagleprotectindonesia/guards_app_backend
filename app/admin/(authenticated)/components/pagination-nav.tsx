@@ -9,7 +9,7 @@ import {
   PaginationNext,
   PaginationPrevious,
   PaginationEllipsis,
-} from '@/components/ui/pagination';
+} from '@/app/guard/components/ui/pagination';
 
 type PaginationNavProps = {
   page: number;

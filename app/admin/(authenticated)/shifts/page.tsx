@@ -34,7 +34,7 @@ export default async function ShiftsPage({
   const [shifts, totalCount] = await prisma.$transaction([
     prisma.shift.findMany({
       where,
-      include: { site: true, shiftType: true, guard: true },
+      include: { site: true, shiftType: true, guard: true, attendance: true },
       orderBy: { startsAt: 'desc' },
       skip,
       take: perPage,

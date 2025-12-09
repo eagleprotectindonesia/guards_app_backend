@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useActionState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/app/guard/components/ui/button';
 import Modal from '../components/modal';
 import { changePassword, ChangePasswordState } from './actions';
 
