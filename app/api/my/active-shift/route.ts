@@ -21,7 +21,7 @@ export async function GET(req: Request) {
         startsAt: { lte: now },
         endsAt: { gte: now },
       },
-      include: { site: true, shiftType: true, guard: true }, // Include new relations
+      include: { site: true, shiftType: true, guard: true, attendance: true }, // Include new relations
     });
 
     return NextResponse.json({ activeShift });

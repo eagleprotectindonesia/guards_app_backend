@@ -27,33 +27,33 @@ model Admin {
 }
 
 model Guard {
-  id          String    @id @default(uuid())
-  name        String
-  phone       String    @unique
-  hashedPassword String @map("hashed_password") // Added password field
+  id             String    @id @default(uuid())
+  name           String
+  phone          String    @unique
+  hashedPassword String    @map("hashed_password") // Added password field
   tokenVersion   Int       @default(0) @map("token_version")
-  guardCode   String?   @map("guard_code") @db.VarChar(10)
-  status      Boolean?  @default(true)
-  joinDate    DateTime? @map("join_date")
-  leftDate    DateTime? @map("left_date")
-  note        String?   @db.Text
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  checkins    Checkin[]
-  shifts      Shift[]
+  guardCode      String?   @map("guard_code") @db.VarChar(10)
+  status         Boolean?  @default(true)
+  joinDate       DateTime? @map("join_date")
+  leftDate       DateTime? @map("left_date")
+  note           String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  checkins       Checkin[]
+  shifts         Shift[]
 
   @@map("guards")
 }
 
 model Site {
-  id         String      @id @default(uuid())
+  id         String   @id @default(uuid())
   name       String
-  clientName String?     @map("client_name")
+  clientName String?  @map("client_name")
   address    String?
   latitude   Float?
   longitude  Float?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
   alerts     Alert[]
   shifts     Shift[]
 
@@ -94,6 +94,7 @@ model Shift {
   guard                       Guard?         @relation(fields: [guardId], references: [id])
   shiftType                   ShiftType      @relation(fields: [shiftTypeId], references: [id])
   site                        Site           @relation(fields: [siteId], references: [id])
+  attendance                  Attendance?
 
   @@index([siteId, date])
   @@index([guardId, date])
@@ -119,23 +120,23 @@ model Checkin {
 }
 
 model Alert {
-  id               String        @id @default(uuid())
-  shiftId          String        @map("shift_id")
-  siteId           String        @map("site_id")
+  id               String           @id @default(uuid())
+  shiftId          String           @map("shift_id")
+  siteId           String           @map("site_id")
   reason           AlertReason
   severity         AlertSeverity
-  windowStart      DateTime      @map("window_start") @db.Timestamptz(6)
-  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  acknowledgedAt   DateTime?     @map("acknowledged_at") @db.Timestamptz(6)
-  acknowledgedById String?       @map("acknowledged_by_id")
-  resolvedAt       DateTime?     @map("resolved_at") @db.Timestamptz(6)
-  resolvedById     String?       @map("resolved_by_id")
-  resolutionNote   String?       @map("resolution_note")
+  windowStart      DateTime         @map("window_start") @db.Timestamptz(6)
+  createdAt        DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  acknowledgedAt   DateTime?        @map("acknowledged_at") @db.Timestamptz(6)
+  acknowledgedById String?          @map("acknowledged_by_id")
+  resolvedAt       DateTime?        @map("resolved_at") @db.Timestamptz(6)
+  resolvedById     String?          @map("resolved_by_id")
+  resolutionNote   String?          @map("resolution_note")
   resolutionType   AlertResolution? @map("resolution_type")
-  ackAdmin         Admin?        @relation("AcknowledgedBy", fields: [acknowledgedById], references: [id])
-  resolverAdmin    Admin?        @relation("ResolvedBy", fields: [resolvedById], references: [id])
-  shift            Shift         @relation(fields: [shiftId], references: [id])
-  site             Site          @relation(fields: [siteId], references: [id])
+  ackAdmin         Admin?           @relation("AcknowledgedBy", fields: [acknowledgedById], references: [id])
+  resolverAdmin    Admin?           @relation("ResolvedBy", fields: [resolvedById], references: [id])
+  shift            Shift            @relation(fields: [shiftId], references: [id])
+  site             Site             @relation(fields: [siteId], references: [id])
 
   @@unique([shiftId, reason, windowStart])
   @@index([siteId, createdAt])
@@ -168,4 +169,27 @@ enum AlertResolution {
   standard
   forgiven
   auto
+}
+
+model Attendance {
+  id         String           @id @default(uuid())
+  shiftId    String           @map("shift_id")
+  recordedAt DateTime         @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  picture    String? // URL or path to the attendance picture
+  status     AttendanceStatus
+  metadata   Json? // Additional information like geolocation, device info
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt
+
+  shift Shift @relation(fields: [shiftId], references: [id])
+
+  @@unique([shiftId]) // Ensuring one attendance record per shift
+  @@map("attendance")
+}
+
+enum AttendanceStatus {
+  present
+  absent
+  late
+  pending_verification
 }

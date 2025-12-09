@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Shift, Site, ShiftType, Guard } from '@prisma/client';
+import { Shift, Site, ShiftType, Guard, Attendance } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { deleteShift } from '../actions';
 import ShiftFilterModal from './shift-filter-modal';
@@ -14,7 +14,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Pencil } from 'lucide-react';
 
-export type ShiftWithRelations = Shift & { site: Site; shiftType: ShiftType; guard: Guard | null };
+export type ShiftWithRelations = Shift & {
+  site: Site;
+  shiftType: ShiftType;
+  guard: Guard | null;
+  attendance: Attendance | null;
+};
 
 type ShiftListProps = {
   shifts: Serialized<ShiftWithRelations>[];
