@@ -18,6 +18,7 @@ export default async function ShiftsPage({
   const endDate = typeof resolvedSearchParams.endDate === 'string' ? resolvedSearchParams.endDate : undefined;
   const guardId = typeof resolvedSearchParams.guardId === 'string' ? resolvedSearchParams.guardId : undefined;
   const siteId = typeof resolvedSearchParams.siteId === 'string' ? resolvedSearchParams.siteId : undefined;
+  const sort = typeof resolvedSearchParams.sort === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sort) ? resolvedSearchParams.sort : 'desc';
 
   const parsedStartDate = startDate ? startOfDay(parseISO(startDate)) : undefined;
   const parsedEndDate = endDate ? endOfDay(parseISO(endDate)) : undefined;
@@ -35,7 +36,7 @@ export default async function ShiftsPage({
     prisma.shift.findMany({
       where,
       include: { site: true, shiftType: true, guard: true, attendance: true },
-      orderBy: { startsAt: 'desc' },
+      orderBy: { startsAt: sort as 'asc' | 'desc' },
       skip,
       take: perPage,
     }),
@@ -66,6 +67,7 @@ export default async function ShiftsPage({
           endDate={endDate}
           guardId={guardId}
           siteId={siteId}
+          sort={sort}
           page={page}
           perPage={perPage}
           totalCount={totalCount}

@@ -13,7 +13,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Pencil, Upload } from 'lucide-react';
+import { Pencil, Upload, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 export type ShiftWithRelations = Shift & {
   site: Site;
@@ -31,6 +31,7 @@ type ShiftListProps = {
   endDate?: string;
   guardId?: string;
   siteId?: string;
+  sort?: string;
   page: number;
   perPage: number;
   totalCount: number;
@@ -45,6 +46,7 @@ export default function ShiftList({
   endDate,
   guardId,
   siteId,
+  sort = 'desc',
   page,
   perPage,
   totalCount,
@@ -59,6 +61,14 @@ export default function ShiftList({
 
   const handleDeleteClick = (id: string) => {
     setDeleteId(id);
+  };
+
+  const handleSort = () => {
+    const params = new URLSearchParams(searchParams.toString());
+    const newSort = sort === 'desc' ? 'asc' : 'desc';
+    params.set('sort', newSort);
+    params.set('page', '1');
+    router.push(`/admin/shifts?${params.toString()}`);
   };
 
   const handleConfirmDelete = () => {
@@ -100,6 +110,10 @@ export default function ShiftList({
       params.set('guardId', filters.guardId);
     } else {
       params.delete('guardId');
+    }
+
+    if (sort) {
+      params.set('sort', sort);
     }
 
     params.set('page', '1'); // Reset to page 1 when filtering
@@ -179,7 +193,21 @@ export default function ShiftList({
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Site</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Shift Type</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Guard</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Date / Time</th>
+                <th
+                  className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
+                  onClick={handleSort}
+                >
+                  <div className="flex items-center gap-1">
+                    Date / Time
+                    {sort === 'asc' ? (
+                      <ArrowUp className="w-4 h-4" />
+                    ) : sort === 'desc' ? (
+                      <ArrowDown className="w-4 h-4" />
+                    ) : (
+                      <ArrowUpDown className="w-4 h-4" />
+                    )}
+                  </div>
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
                   Actions
@@ -284,10 +312,7 @@ export default function ShiftList({
         />
       )}
 
-      <BulkCreateModal
-        isOpen={isBulkCreateOpen}
-        onClose={() => setIsBulkCreateOpen(false)}
-      />
+      <BulkCreateModal isOpen={isBulkCreateOpen} onClose={() => setIsBulkCreateOpen(false)} />
 
       <ConfirmDialog
         isOpen={!!deleteId}
