@@ -63,6 +63,24 @@ export async function createShift(prevState: ActionState, formData: FormData): P
       endDateTime = addDays(endDateTime, 1);
     }
 
+    // Check for overlapping shifts
+    if (guardId) {
+      const conflictingShift = await prisma.shift.findFirst({
+        where: {
+          guardId,
+          startsAt: { lt: endDateTime },
+          endsAt: { gt: startDateTime },
+        },
+      });
+
+      if (conflictingShift) {
+        return {
+          message: 'Guard already has a conflicting shift during this time.',
+          success: false,
+        };
+      }
+    }
+
     await prisma.shift.create({
       data: {
         siteId,
@@ -126,6 +144,25 @@ export async function updateShift(id: string, prevState: ActionState, formData: 
 
     if (isBefore(endDateTime, startDateTime)) {
       endDateTime = addDays(endDateTime, 1);
+    }
+
+    // Check for overlapping shifts
+    if (guardId) {
+      const conflictingShift = await prisma.shift.findFirst({
+        where: {
+          guardId,
+          id: { not: id },
+          startsAt: { lt: endDateTime },
+          endsAt: { gt: startDateTime },
+        },
+      });
+
+      if (conflictingShift) {
+        return {
+          message: 'Guard already has a conflicting shift during this time.',
+          success: false,
+        };
+      }
     }
 
     await prisma.shift.update({
@@ -257,6 +294,32 @@ export async function bulkCreateShifts(
 
       if (isBefore(endDateTime, startDateTime)) {
         endDateTime = addDays(endDateTime, 1);
+      }
+
+      // Check intra-batch overlap
+      const overlapInBatch = shiftsToCreate.find(s =>
+        s.guardId === guardId &&
+        s.startsAt < endDateTime &&
+        s.endsAt > startDateTime
+      );
+
+      if (overlapInBatch) {
+        errors.push(`Row ${i + 1}: Overlaps with another shift in this batch for guard ${guardCode}.`);
+        continue;
+      }
+
+      // Check DB overlap
+      const existingShift = await prisma.shift.findFirst({
+        where: {
+          guardId,
+          startsAt: { lt: endDateTime },
+          endsAt: { gt: startDateTime },
+        },
+      });
+
+      if (existingShift) {
+        errors.push(`Row ${i + 1}: Guard ${guardCode} already has a shift overlapping with this time.`);
+        continue;
       }
 
       shiftsToCreate.push({
