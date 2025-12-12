@@ -5,20 +5,21 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Attendance, Guard, Shift, Site } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import PaginationNav from '../../components/pagination-nav';
-import { MapPin, Clock, Filter, Calendar, User } from 'lucide-react';
+import { MapPin, Clock, Filter, Calendar } from 'lucide-react';
 import AttendanceFilterModal from './attendance-filter-modal';
+import AttendanceExport from './attendance-export';
 import { format } from 'date-fns';
 
 // Define a type for the attendance metadata that includes location information
 type AttendanceMetadata = {
   lat: number;
   lng: number;
-} & Record<string, any>; // Allow additional properties
+};
 
 // Type guard to check if an object has valid location data
-function hasValidLocation(metadata: any): metadata is AttendanceMetadata {
+function hasValidLocation(metadata: unknown): metadata is AttendanceMetadata {
   return (
-    metadata &&
+    !!metadata &&
     typeof metadata === 'object' &&
     'lat' in metadata &&
     'lng' in metadata &&
@@ -29,7 +30,7 @@ function hasValidLocation(metadata: any): metadata is AttendanceMetadata {
 
 type AttendanceWithRelations = Attendance & {
   shift: Shift & {
-    guard: Guard;
+    guard: Guard | null;
     site: Site;
   };
 };
@@ -47,13 +48,13 @@ type AttendanceListProps = {
   };
 };
 
-export default function AttendanceList({ 
-  attendances, 
-  page, 
-  perPage, 
-  totalCount, 
-  guards, 
-  initialFilters 
+export default function AttendanceList({
+  attendances,
+  page,
+  perPage,
+  totalCount,
+  guards,
+  initialFilters,
 }: AttendanceListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const router = useRouter();
@@ -94,13 +95,16 @@ export default function AttendanceList({
           <h1 className="text-2xl font-bold text-gray-900">Attendance</h1>
           <p className="text-sm text-gray-500 mt-1">View guard attendance records and status.</p>
         </div>
-        <button
-          onClick={() => setIsFilterOpen(true)}
-          className="inline-flex items-center justify-center h-10 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-        >
-          <Filter className="w-4 h-4 mr-2" />
-          Filter
-        </button>
+        <div className="flex items-center gap-2">
+          <AttendanceExport initialFilters={initialFilters} />
+          <button
+            onClick={() => setIsFilterOpen(true)}
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            Filter
+          </button>
+        </div>
       </div>
 
       {/* Table Section */}
@@ -131,9 +135,9 @@ export default function AttendanceList({
                     <td className="py-4 px-6 text-sm font-medium text-gray-900">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
-                          {attendance.shift.guard.name.substring(0, 2).toUpperCase()}
+                          {attendance.shift.guard?.name.substring(0, 2).toUpperCase() || '??'}
                         </div>
-                        {attendance.shift.guard.name}
+                        {attendance.shift.guard?.name || 'Unknown Guard'}
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-600">
@@ -154,7 +158,9 @@ export default function AttendanceList({
                         <Clock className="w-3 h-3 text-gray-400" />
                         {new Date(attendance.recordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">{new Date(attendance.recordedAt).toLocaleDateString()}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">
+                        {new Date(attendance.recordedAt).toLocaleDateString()}
+                      </div>
                     </td>
                     <td className="py-4 px-6 text-sm">
                       {attendance.status === 'present' && (
