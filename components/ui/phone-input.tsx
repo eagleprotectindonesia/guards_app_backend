@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import PhoneInputWithCountrySelect, { Value } from 'react-phone-number-input';
 import 'react-phone-number-input/style.css';
 import { parsePhoneNumberWithError } from 'libphonenumber-js';
@@ -24,7 +24,16 @@ const PhoneInput: React.FC<PhoneInputProps> = ({ id, inputName, defaultValue, on
     }
   };
 
-  const defaultCountry = value ? parsePhoneNumberWithError(value as string)?.country : 'ID';
+  const defaultCountry = useMemo(() => {
+    if (defaultValue) {
+      try {
+        return parsePhoneNumberWithError(defaultValue as string)?.country || 'ID';
+      } catch (error) {
+        return 'ID';
+      }
+    }
+    return 'ID';
+  }, [defaultValue]);
 
   return (
     <>
