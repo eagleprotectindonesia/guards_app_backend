@@ -26,6 +26,7 @@ const navItems = [
   { name: 'Sites', href: '/admin/sites', icon: MapPin },
   { name: 'Guards', href: '/admin/guards', icon: Users },
   { name: 'Shifts', href: '/admin/shifts', icon: Calendar },
+  { name: 'Attendance', href: '/admin/attendance', icon: ClipboardCheck },
   { name: 'Checkins', href: '/admin/checkins', icon: ClipboardCheck },
   { name: 'Shift Types', href: '/admin/shift-types', icon: Layers },
   { name: 'Alerts', href: '/admin/alerts', icon: Bell },
@@ -67,7 +68,7 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
             Guard<span className="text-gray-900">Sys</span>
           </span>
         </div>
-        
+
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={cn(

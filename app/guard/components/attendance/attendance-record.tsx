@@ -92,16 +92,23 @@ export function AttendanceRecord({
   const now = currentTime || new Date();
   const startMs = new Date(shift.startsAt).getTime();
   const graceEndMs = startMs + ATTENDANCE_GRACE_MINS * 60000;
-  const isLate = !hasAttendance && now.getTime() > graceEndMs;
+
+  // Check if attendance was marked as late due to forgiveness
+  const isLateAttendance = hasAttendance && shift.attendance?.status === 'late';
+
+  // Check if it's currently late and no attendance has been recorded
+  const isLateTime = !hasAttendance && now.getTime() > graceEndMs;
 
   return (
-    <div className={`p-4 border rounded-lg shadow-sm mb-4 ${isLate ? 'bg-red-50 border-red-200' : 'bg-white'}`}>
+    <div className={`p-4 border rounded-lg shadow-sm mb-4 ${isLateTime ? 'bg-red-50 border-red-200' : isLateAttendance ? 'bg-yellow-50 border-yellow-200' : 'bg-white'}`}>
       <h3 className="text-lg font-semibold mb-2">Status Kehadiran</h3>
       {hasAttendance ? (
-        <p className="text-green-600 font-medium">
-          Kehadiran direkam pada {format(new Date(shift.attendance!.recordedAt), 'MM/dd/yyyy HH:mm')}
+        <p className={`${isLateAttendance ? 'text-yellow-600 font-medium' : 'text-green-600 font-medium'}`}>
+          {isLateAttendance
+            ? `Kehadiran direkam sebagai terlambat pada ${format(new Date(shift.attendance!.recordedAt), 'MM/dd/yyyy HH:mm')}`
+            : `Kehadiran direkam pada ${format(new Date(shift.attendance!.recordedAt), 'MM/dd/yyyy HH:mm')}`}
         </p>
-      ) : isLate ? (
+      ) : isLateTime ? (
         <p className="text-red-600 font-bold">Kehadiran Tidak Terekam</p>
       ) : (
         <p className="text-red-500 font-medium">Harap rekam kehadiran Anda untuk memulai Shift.</p>
@@ -111,7 +118,7 @@ export function AttendanceRecord({
         <p className={`mt-2 text-sm ${messageType === 'success' ? 'text-green-600' : 'text-red-600'}`}>{message}</p>
       )}
 
-      {!hasAttendance && !isLate && (
+      {!hasAttendance && !isLateTime && (
         <>
           <Button
             onClick={handleRecordAttendance}
@@ -126,7 +133,7 @@ export function AttendanceRecord({
         </>
       )}
 
-      {isLate && !hasAttendance && (
+      {isLateTime && !hasAttendance && (
         <p className="text-red-600 mt-2 font-medium">
           Batas waktu presensi terlewat. Harap hubungi administrator Anda.
         </p>
