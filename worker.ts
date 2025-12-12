@@ -123,7 +123,7 @@ async function runWorker() {
                   shiftId: shift.id,
                   siteId: shift.siteId,
                   reason: 'missed_attendance',
-                  severity: 'warning',
+                  severity: 'critical',
                   windowStart: shift.startsAt,
                 },
               });
@@ -192,7 +192,7 @@ async function runWorker() {
                     shiftId: shift.id,
                     siteId: shift.siteId,
                     reason: 'missed_checkin',
-                    severity: 'warning',
+                    severity: 'critical',
                     windowStart: dueTime,
                   },
                 });

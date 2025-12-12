@@ -5,11 +5,12 @@ import { Guard } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { deleteGuard } from '../actions';
 import ConfirmDialog from '../../components/confirm-dialog';
+import ChangePasswordModal from './change-password-modal';
 import { DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { Pencil } from 'lucide-react';
+import { Pencil, Key } from 'lucide-react';
 
 type GuardListProps = {
   guards: Serialized<Guard>[];
@@ -20,6 +21,7 @@ type GuardListProps = {
 
 export default function GuardList({ guards, page, perPage, totalCount }: GuardListProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [passwordModalData, setPasswordModalData] = useState<{ id: string; name: string } | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleDeleteClick = (id: string) => {
@@ -126,10 +128,16 @@ export default function GuardList({ guards, page, perPage, totalCount }: GuardLi
                           <Pencil className="w-4 h-4" />
                           <span className="sr-only">Edit</span>
                         </Link>
-                        <DeleteButton
-                          onClick={() => handleDeleteClick(guard.id)}
-                          disabled={isPending}
-                        />
+                        <DeleteButton onClick={() => handleDeleteClick(guard.id)} disabled={isPending} />
+                        <button
+                          type="button"
+                          onClick={() => setPasswordModalData({ id: guard.id, name: guard.name })}
+                          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                          title="Change Password"
+                        >
+                          <Key className="w-4 h-4" />
+                          <span className="sr-only">Change Password</span>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -151,6 +159,15 @@ export default function GuardList({ guards, page, perPage, totalCount }: GuardLi
         confirmText="Delete Guard"
         isPending={isPending}
       />
+
+      {passwordModalData && (
+        <ChangePasswordModal
+          isOpen={true}
+          onClose={() => setPasswordModalData(null)}
+          guardId={passwordModalData.id}
+          guardName={passwordModalData.name}
+        />
+      )}
     </div>
   );
 }

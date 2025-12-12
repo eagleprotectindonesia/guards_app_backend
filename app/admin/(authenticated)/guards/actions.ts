@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { createGuardSchema, updateGuardSchema } from '@/lib/validations';
+import { createGuardSchema, updateGuardSchema, updateGuardPasswordSchema } from '@/lib/validations';
 import { hashPassword } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 
@@ -11,6 +11,7 @@ export type ActionState = {
     name?: string[];
     phone?: string[];
     password?: string[];
+    confirmPassword?: string[];
   };
   success?: boolean;
 };
@@ -109,6 +110,38 @@ export async function updateGuard(id: string, prevState: ActionState, formData: 
 
   revalidatePath('/admin/guards');
   return { success: true, message: 'Guard updated successfully' };
+}
+
+export async function updateGuardPassword(id: string, prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const validatedFields = updateGuardPasswordSchema.safeParse({
+    password: formData.get('password'),
+    confirmPassword: formData.get('confirmPassword'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Invalid input. Failed to update password.',
+      success: false,
+    };
+  }
+
+  try {
+    const hashedPassword = await hashPassword(validatedFields.data.password);
+    await prisma.guard.update({
+      where: { id },
+      data: { hashedPassword },
+    });
+  } catch (error) {
+    console.error('Database Error:', error);
+    return {
+      message: 'Database Error: Failed to update password.',
+      success: false,
+    };
+  }
+
+  revalidatePath('/admin/guards');
+  return { success: true, message: 'Password updated successfully' };
 }
 
 export async function deleteGuard(id: string) {
