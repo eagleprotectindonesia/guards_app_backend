@@ -286,7 +286,7 @@ export default function AdminDashboard() {
         <div className="col-span-1 lg:col-span-3 space-y-4">
           <AlarmInterface alerts={alerts} />
 
-          <AlertMap alerts={alerts} />
+          {/* <AlertMap alerts={alerts} /> */}
 
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold text-gray-900">Alert Feed</h2>

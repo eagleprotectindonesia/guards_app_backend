@@ -7,8 +7,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// Define a type for JSON-serializable values
+type JsonValue = string | number | boolean | null | { [key: string]: JsonValue } | JsonValue[];
+
 export type Serialized<T> = T extends Date
   ? string
+  : T extends JsonValue
+  ? T
   : T extends (infer U)[]
   ? Serialized<U>[]
   : T extends object

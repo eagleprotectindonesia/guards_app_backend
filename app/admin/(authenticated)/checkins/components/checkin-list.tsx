@@ -10,6 +10,24 @@ import CheckinFilterModal from './checkin-filter-modal';
 import { format } from 'date-fns';
 
 // Define the type for a Checkin with its relations
+// Define a type for the checkin metadata that includes location information
+type CheckinMetadata = {
+  lat: number;
+  lng: number;
+} & Record<string, any>; // Allow additional properties
+
+// Type guard to check if an object has valid location data
+function hasValidLocation(metadata: any): metadata is CheckinMetadata {
+  return (
+    metadata &&
+    typeof metadata === 'object' &&
+    'lat' in metadata &&
+    'lng' in metadata &&
+    typeof metadata.lat === 'number' &&
+    typeof metadata.lng === 'number'
+  );
+}
+
 type CheckinWithRelations = Checkin & {
   guard: Guard;
   shift: Shift & {
@@ -30,21 +48,14 @@ type CheckinListProps = {
   };
 };
 
-export default function CheckinList({
-  checkins,
-  page,
-  perPage,
-  totalCount,
-  guards,
-  initialFilters,
-}: CheckinListProps) {
+export default function CheckinList({ checkins, page, perPage, totalCount, guards, initialFilters }: CheckinListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; guardId: string }) => {
     const params = new URLSearchParams(searchParams.toString());
-    
+
     // Reset pagination when filtering
     params.set('page', '1');
 
@@ -96,15 +107,17 @@ export default function CheckinList({
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Site</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Time</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Source</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Shift Date</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th> {/* New Column */}
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>{' '}
+                {/* New Column */}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {checkins.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-500"> {/* Updated colspan */}
+                  <td colSpan={6} className="py-8 text-center text-gray-500">
+                    {' '}
+                    {/* Updated colspan */}
                     No check-ins found.
                   </td>
                 </tr>
@@ -130,9 +143,7 @@ export default function CheckinList({
                         <Clock className="w-3 h-3 text-gray-400" />
                         {new Date(checkin.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        {new Date(checkin.at).toLocaleDateString()}
-                      </div>
+                      <div className="text-xs text-gray-500 mt-0.5">{new Date(checkin.at).toLocaleDateString()}</div>
                     </td>
                     <td className="py-4 px-6 text-sm">
                       {checkin.status === 'on_time' && (
@@ -151,20 +162,14 @@ export default function CheckinList({
                         </span>
                       )}
                     </td>
-                    <td className="py-4 px-6 text-sm text-gray-600 capitalize">
-                      {checkin.source || '-'}
-                    </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
-                       {new Date(checkin.shift.date).toLocaleDateString()}
+                      {new Date(checkin.shift.date).toLocaleDateString()}
                     </td>
-                    <td className="py-4 px-6 text-sm text-gray-600"> {/* New Cell */}
-                      {checkin.metadata && (checkin.metadata as any).location ? (
-                        <div className="flex items-center gap-1">
-                           <Globe className="w-3 h-3 text-gray-400" />
-                           <span>
-                             Lat: {(checkin.metadata as any).location.lat.toFixed(3)},
-                             Lng: {(checkin.metadata as any).location.lng.toFixed(3)}
-                           </span>
+                    <td className="py-4 px-6 text-sm text-gray-600">
+                      {hasValidLocation(checkin.metadata) ? (
+                        <div className="flex flex-col">
+                          <div>Lat: {checkin.metadata.lat.toFixed(3)}</div>
+                          <div>Lng: {checkin.metadata.lng.toFixed(3)}</div>
                         </div>
                       ) : (
                         '-'
