@@ -60,6 +60,9 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Client Name</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Address</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Latitude</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Longitude</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Created At</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
                   Actions
@@ -69,7 +72,7 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
             <tbody className="divide-y divide-gray-100">
               {sites.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-gray-500">
+                  <td colSpan={7} className="py-8 text-center text-gray-500">
                     No sites found. Create one to get started.
                   </td>
                 </tr>
@@ -79,6 +82,15 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
                     <td className="py-4 px-6 text-sm font-medium text-gray-900">{site.name}</td>
                     <td className="py-4 px-6 text-sm text-gray-600 font-mono bg-gray-50/50 rounded px-2 py-1 w-fit">
                       {site.clientName || 'N/A'}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-500">
+                      {site.address || 'N/A'}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-500">
+                      {site.latitude !== null && site.latitude !== undefined ? site.latitude.toFixed(6) : 'N/A'}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-500">
+                      {site.longitude !== null && site.longitude !== undefined ? site.longitude.toFixed(6) : 'N/A'}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
                       {new Date(site.createdAt).toLocaleDateString(undefined, {
