@@ -16,6 +16,7 @@ import {
   UserCog,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
 } from 'lucide-react';
 import { Admin } from '@prisma/client';
 import { cn } from '@/lib/utils';
@@ -25,6 +26,7 @@ const navItems = [
   { name: 'Sites', href: '/admin/sites', icon: MapPin },
   { name: 'Guards', href: '/admin/guards', icon: Users },
   { name: 'Shifts', href: '/admin/shifts', icon: Calendar },
+  { name: 'Checkins', href: '/admin/checkins', icon: ClipboardCheck },
   { name: 'Shift Types', href: '/admin/shift-types', icon: Layers },
   { name: 'Alerts', href: '/admin/alerts', icon: Bell },
 ];
