@@ -79,6 +79,14 @@ export async function updateShiftType(id: string, prevState: ActionState, formDa
 
 export async function deleteShiftType(id: string) {
   try {
+    const relatedShifts = await prisma.shift.findFirst({
+      where: { shiftTypeId: id },
+    });
+
+    if (relatedShifts) {
+      return { success: false, message: 'Cannot delete shift type: It has associated shifts.' };
+    }
+
     await prisma.shiftType.delete({
       where: { id },
     });

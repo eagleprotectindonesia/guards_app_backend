@@ -87,6 +87,22 @@ export async function updateSite(id: string, prevState: ActionState, formData: F
 
 export async function deleteSite(id: string) {
   try {
+    const relatedShifts = await prisma.shift.findFirst({
+      where: { siteId: id },
+    });
+
+    if (relatedShifts) {
+      return { success: false, message: 'Cannot delete site: It has associated shifts.' };
+    }
+
+    const relatedAlerts = await prisma.alert.findFirst({
+      where: { siteId: id },
+    });
+
+    if (relatedAlerts) {
+      return { success: false, message: 'Cannot delete site: It has associated alerts.' };
+    }
+
     await prisma.site.delete({
       where: { id },
     });

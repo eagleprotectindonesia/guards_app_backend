@@ -192,9 +192,20 @@ export async function updateShift(id: string, prevState: ActionState, formData: 
 
 export async function deleteShift(id: string) {
   try {
-    await prisma.shift.delete({
-      where: { id },
-    });
+    await prisma.$transaction([
+      prisma.alert.deleteMany({
+        where: { shiftId: id },
+      }),
+      prisma.checkin.deleteMany({
+        where: { shiftId: id },
+      }),
+      prisma.attendance.deleteMany({
+        where: { shiftId: id },
+      }),
+      prisma.shift.delete({
+        where: { id },
+      }),
+    ]);
     revalidatePath('/admin/shifts');
     return { success: true };
   } catch (error) {
