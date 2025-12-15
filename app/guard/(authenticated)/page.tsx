@@ -168,9 +168,9 @@ export default function GuardPage() {
 
   return (
     <div className="p-8 max-w-md mx-auto font-sans">
-      <h1 className="text-2xl font-bold mb-1">Selamat datang, {guardDetails?.name || 'Guard'}!</h1>
+      <h1 className="text-3xl font-bold mb-1">Selamat datang, <br /> {guardDetails?.name || 'Guard'}!</h1>
       {guardDetails?.guardCode && (
-        <p className="text-gray-500 text-sm font-semibold mb-4">Kode Guard: {guardDetails.guardCode}</p>
+        <p className="text-gray-500 text font-semibold mb-4">Kode Guard: {guardDetails.guardCode}</p>
       )}
 
       {loading && <p>Memuat detail Shift Anda...</p>}
@@ -212,9 +212,7 @@ export default function GuardPage() {
       )}
 
       {/* Display Next Shift if available and no active shift */}
-      {!activeShift && nextShift && (
-        <NextShiftCard shift={nextShift} />
-      )}
+      {!activeShift && nextShift && <NextShiftCard shift={nextShift} />}
 
       <div className="mt-8 border-t pt-6">
         <Button onClick={() => setShowPasswordChange(true)} variant="secondary" className="w-full mb-4">

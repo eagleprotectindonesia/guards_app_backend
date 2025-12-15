@@ -100,12 +100,19 @@ export function AttendanceRecord({
   const isLateTime = !hasAttendance && now.getTime() > graceEndMs;
 
   return (
-    <div className={`p-4 border rounded-lg shadow-sm mb-4 ${isLateTime ? 'bg-red-50 border-red-200' : isLateAttendance ? 'bg-yellow-50 border-yellow-200' : 'bg-white'}`}>
-      <h3 className="text-lg font-semibold mb-2">Status Kehadiran</h3>
+    <div
+      className={`p-6 border rounded-lg shadow-sm mb-4 ${
+        isLateTime ? 'bg-red-50 border-red-200' : isLateAttendance ? 'bg-yellow-50 border-yellow-200' : 'bg-white'
+      }`}
+    >
+      <h3 className="text-2xl font-bold mb-2">Status Kehadiran</h3>
       {hasAttendance ? (
-        <p className={`${isLateAttendance ? 'text-yellow-600 font-medium' : 'text-green-600 font-medium'}`}>
+        <p className={`font-medium ${isLateAttendance ? 'text-yellow-600' : 'text-green-600'}`}>
           {isLateAttendance
-            ? `Kehadiran direkam sebagai terlambat pada ${format(new Date(shift.attendance!.recordedAt), 'MM/dd/yyyy HH:mm')}`
+            ? `Kehadiran direkam sebagai terlambat pada ${format(
+                new Date(shift.attendance!.recordedAt),
+                'MM/dd/yyyy HH:mm'
+              )}`
             : `Kehadiran direkam pada ${format(new Date(shift.attendance!.recordedAt), 'MM/dd/yyyy HH:mm')}`}
         </p>
       ) : isLateTime ? (
@@ -128,15 +135,13 @@ export function AttendanceRecord({
             {isRecording ? 'Merekam...' : 'Rekam Kehadiran'}
           </Button>
           {!canRecordAttendance && (
-            <p className="text-sm text-gray-500 mt-2">Kehadiran sudah direkam untuk Shift ini.</p>
+            <p className="text-sm text-gray-500 font-semibold mt-2">Kehadiran sudah direkam untuk Shift ini.</p>
           )}
         </>
       )}
 
       {isLateTime && !hasAttendance && (
-        <p className="text-red-600 mt-2 font-medium">
-          Batas waktu presensi terlewat. Harap hubungi administrator Anda.
-        </p>
+        <p className="text-red-600 mt-2 font-medium"><i>Batas waktu presensi terlewat. Harap hubungi administrator Anda.</i></p>
       )}
     </div>
   );

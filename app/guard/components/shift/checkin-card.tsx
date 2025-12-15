@@ -169,12 +169,12 @@ export default function CheckInCard({
   return (
     <div className="border rounded-lg shadow-sm p-6 bg-white mb-6">
       <div className="mb-6">
-        <p className="text-sm text-gray-500">Check-in Berikutnya:</p>
+        <p className="font-semibold text-gray-500">Check-in Berikutnya:</p>
         <p className="text-3xl font-mono font-bold text-blue-600">
           {nextDueDisplay.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </p>
-        <p className="text-xs text-gray-400 mt-1">Masa tenggang: {activeShift.graceMinutes} menit</p>
-        <p className={`text-sm font-medium mt-2 ${canCheckIn ? 'text-green-600' : 'text-amber-600'}`}>{timeLeft}</p>
+        <p className="text-sm font-bold text-gray-400 mt-1">Masa tenggang: {activeShift.graceMinutes} menit</p>
+        <p className={`text-sm font-semibold mt-2 ${canCheckIn ? 'text-green-600' : 'text-amber-600'}`}>{timeLeft}</p>
       </div>
 
       {canCheckIn && (
