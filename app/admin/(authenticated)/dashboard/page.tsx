@@ -95,12 +95,27 @@ export default function AdminDashboard() {
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Overview</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-red-50 p-3 rounded-lg border border-red-100">
-                <div className="text-2xl font-bold text-red-700">{alerts.length}</div>
+                <div className="text-2xl font-bold text-red-700">
+                  {alerts.filter(a => a.status !== 'need_attention').length}
+                </div>
                 <div className="text-xs text-red-600 font-medium">Active Alerts</div>
               </div>
               <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
                 <div className="text-2xl font-bold text-blue-700">{activeSites.length}</div>
                 <div className="text-xs text-blue-600 font-medium">Active Sites</div>
+              </div>
+              <div className="bg-green-50 p-3 rounded-lg border border-green-100 col-span-2">
+                <div className="text-2xl font-bold text-green-700">
+                  {activeSites.reduce(
+                    (acc, site) =>
+                      acc +
+                      site.shifts.filter(
+                        s => s.guard && s.attendance && s.attendance.status !== 'absent'
+                      ).length,
+                    0
+                  )}
+                </div>
+                <div className="text-xs text-green-600 font-medium">Active Guards</div>
               </div>
             </div>
           </div>

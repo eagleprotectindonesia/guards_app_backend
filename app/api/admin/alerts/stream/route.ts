@@ -56,7 +56,7 @@ export async function GET(req: Request) {
             endsAt: { gte: now },
             guardId: { not: null },
           },
-          include: { shiftType: true, guard: true, site: true },
+          include: { shiftType: true, guard: true, site: true, attendance: true },
         });
 
         const activeSitesMap = new Map<string, { site: any; shifts: any[] }>();
@@ -73,6 +73,7 @@ export async function GET(req: Request) {
             status: shift.status,
             checkInCount: shift.checkInCount,
             missedCount: shift.missedCount,
+            attendance: shift.attendance,
           });
         }
         const activeSitesPayload = Array.from(activeSitesMap.values());

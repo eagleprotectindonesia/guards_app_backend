@@ -148,6 +148,7 @@ class SchedulingWorker {
       // --- UNIFIED CHECKIN LOGIC ---
       const windowResult = calculateCheckInWindow(
         shift.startsAt,
+        shift.endsAt, // Added shift.endsAt
         shift.requiredCheckinIntervalMins,
         shift.graceMinutes,
         now,
@@ -279,6 +280,7 @@ class SchedulingWorker {
         endsAt: shift.endsAt,
         status: shift.status,
         missedCount: shift.missedCount,
+        attendance: shift.attendance,
       });
     }
 

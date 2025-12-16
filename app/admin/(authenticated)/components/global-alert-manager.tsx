@@ -1,17 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { useAlerts } from '../context/alert-context';
-import { X } from 'lucide-react';
 import Link from 'next/link';
 
 export default function GlobalAlertManager() {
   const { alerts } = useAlerts();
   const pathname = usePathname();
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
 
   // Audio Logic
   useEffect(() => {
@@ -28,7 +25,7 @@ export default function GlobalAlertManager() {
     };
   }, []);
 
-  const hasActiveAlerts = alerts.some(alert => !alert.acknowledgedAt && !alert.resolvedAt);
+  const hasActiveAlerts = alerts.some(alert => !alert.acknowledgedAt && !alert.resolvedAt && alert.status !== 'need_attention');
 
   useEffect(() => {
     const unlockAudio = () => {
@@ -37,8 +34,7 @@ export default function GlobalAlertManager() {
         if (playPromise !== undefined) {
           playPromise
             .then(() => {
-              setIsBlocked(false);
-              if (!hasActiveAlerts && !isMuted) {
+              if (!hasActiveAlerts) {
                 audioRef.current?.pause();
                 if (audioRef.current) audioRef.current.currentTime = 0;
               }
@@ -59,16 +55,17 @@ export default function GlobalAlertManager() {
       document.removeEventListener('click', unlockAudio);
       document.removeEventListener('keydown', unlockAudio);
     };
-  }, [hasActiveAlerts, isMuted]);
+  }, [hasActiveAlerts]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (hasActiveAlerts && !isMuted) {
+    if (hasActiveAlerts) {
       if (audio.paused) {
         audio.play().catch(() => {
-          setIsBlocked(true);
+          // Autoplay prevented.
+          // The document listeners will eventually handle this when user interacts.
         });
       }
     } else {
@@ -77,44 +74,16 @@ export default function GlobalAlertManager() {
         audio.currentTime = 0;
       }
     }
-  }, [hasActiveAlerts, isMuted]);
-
-  const enableAudio = () => {
-    if (audioRef.current) {
-      audioRef.current.play().then(() => {
-        setIsBlocked(false);
-        if (!hasActiveAlerts) {
-          audioRef.current?.pause();
-          audioRef.current!.currentTime = 0;
-        }
-      });
-    }
-  };
-
-  // If on dashboard, we don't show the visual alert (Dashboard handles it)
-  // UNLESS audio is blocked, then we might want to show the 'Enable Audio' button even there?
-  // Actually, let's keep it clean. If on dashboard, rely on Dashboard UI?
-  // BUT we removed Audio logic from Dashboard. So Dashboard won't know if Audio is blocked.
-  // So we should show "Audio Blocked" warning globally.
+  }, [hasActiveAlerts]);
 
   const isOnDashboard = pathname === '/admin/dashboard';
   const isOnAlertsPage = pathname === '/admin/alerts';
   const showVisuals = !isOnDashboard && !isOnAlertsPage && hasActiveAlerts;
 
-  if (!hasActiveAlerts && !isBlocked) return null;
+  if (!hasActiveAlerts) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 items-end">
-      {/* Audio Blocked Warning - Always show if blocked and alerts exist */}
-      {isBlocked && hasActiveAlerts && (
-        <button
-          onClick={enableAudio}
-          className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-red-700 animate-bounce flex items-center gap-2"
-        >
-          <span>Enable Alarm Audio</span>
-        </button>
-      )}
-
       {/* Floating Alert Card - Only if NOT on Dashboard */}
       {showVisuals && (
         <div className="bg-white border border-red-100 rounded-xl shadow-xl p-4 w-80 animate-in slide-in-from-bottom-5">
@@ -126,12 +95,6 @@ export default function GlobalAlertManager() {
               </span>
               <span className="font-bold">ALARM TRIGGERED</span>
             </div>
-            <button
-              onClick={() => setIsMuted(!isMuted)}
-              className="text-gray-400 hover:text-gray-600 text-xs underline"
-            >
-              {isMuted ? 'Unmute' : 'Mute'}
-            </button>
           </div>
 
           <p className="text-sm text-gray-600 mb-3">

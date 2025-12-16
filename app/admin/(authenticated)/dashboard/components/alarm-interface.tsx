@@ -15,6 +15,7 @@ type ShiftWithOptionalRelations = Serialized<Shift> & {
 type AlertWithRelations = Serialized<Alert> & {
   site?: SiteWithOptionalRelations;
   shift?: ShiftWithOptionalRelations;
+  status?: string;
 };
 
 interface AlarmInterfaceProps {
@@ -24,7 +25,7 @@ interface AlarmInterfaceProps {
 export default function AlarmInterface({ alerts }: AlarmInterfaceProps) {
   // Audio logic has been moved to GlobalAlertManager
 
-  const hasActiveAlerts = alerts.some(alert => !alert.acknowledgedAt && !alert.resolvedAt);
+  const hasActiveAlerts = alerts.some(alert => !alert.resolvedAt && alert.status !== 'need_attention');
 
   return (
     <div
@@ -64,7 +65,7 @@ export default function AlarmInterface({ alerts }: AlarmInterfaceProps) {
           </h3>
           <p className={`text-sm ${hasActiveAlerts ? 'text-red-700' : 'text-gray-500'}`}>
             {hasActiveAlerts
-              ? `${alerts.length} active alert${alerts.length === 1 ? '' : 's'} require attention`
+              ? `${alerts.filter(a => a.status !== 'need_attention').length} active alert${alerts.filter(a => a.status !== 'need_attention').length === 1 ? '' : 's'} require attention`
               : 'No active alerts detected'}
           </p>
         </div>
