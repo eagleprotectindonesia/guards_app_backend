@@ -4,7 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import { ShiftWithRelations } from '@/app/admin/(authenticated)/shifts/components/shift-list';
 import { useGuardApi } from '@/app/guard/(authenticated)/hooks/use-guard-api';
 import { CheckInWindowResult } from '@/lib/scheduling';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import toast from 'react-hot-toast';
 
 type ActiveShiftWithWindow = ShiftWithRelations & {
   checkInWindow?: CheckInWindowResult;
@@ -19,14 +20,7 @@ type CheckInCardProps = {
   fetchShift: () => Promise<void>;
 };
 
-export default function CheckInCard({
-  activeShift,
-  loading,
-  status,
-  // currentTime, // Not needed as primary source of truth anymore, used for local timer
-  setStatus,
-  fetchShift,
-}: CheckInCardProps) {
+export default function CheckInCard({ activeShift, loading, status, setStatus, fetchShift }: CheckInCardProps) {
   const { fetchWithAuth } = useGuardApi();
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [canCheckIn, setCanCheckIn] = useState(false);
@@ -179,7 +173,10 @@ export default function CheckInCard({
       if (!res.ok) {
         setStatus(`Error: ${data.message || data.error || 'Check-in gagal.'}`);
       } else {
-        setStatus(`Berhasil Check-in! Status: ${data.status}`);
+        // setStatus(`Berhasil Check-in! Status: ${data.status}`);
+        if (data.isLastSlot) {
+          toast.success('Shift Selesai');
+        }
         fetchShift(); // Refresh to get next window
       }
     } catch (err) {

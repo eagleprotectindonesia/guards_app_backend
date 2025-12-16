@@ -11,6 +11,7 @@ import { AttendanceRecord } from '@/app/guard/components/attendance/attendance-r
 import { ShiftInfoCard } from '@/app/guard/components/shift/shift-info-card';
 import { NextShiftCard } from '@/app/guard/components/shift/next-shift-card';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { PasswordChangeForm } from '@/app/guard/components/password-change/password-change-form';
 
 // Type for password change form state
 type PasswordChangeState = {
@@ -86,8 +87,8 @@ export default function GuardPage() {
   const [status, setStatus] = useState('');
   const [guardDetails, setGuardDetails] = useState<{ name: string; guardCode?: string } | null>(null); // New state for guard details
   const [showPasswordChange, setShowPasswordChange] = useState(false);
-  const [passwordChangeState, passwordChangeFormAction] = useActionState(changeGuardPasswordAction, {});
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [passwordChangeState, passwordChangeFormAction] = useActionState(changeGuardPasswordAction, {});
 
   useEffect(() => {
     if (loading) return;
@@ -99,7 +100,7 @@ export default function GuardPage() {
 
       // Check if the current shift has ended
       if (activeShift) {
-        const endTime = new Date(activeShift.endsAt);
+        const endTime = new Date(activeShift.endsAt.getTime() + 5 * 60000);
         if (now > endTime) {
           setActiveShift(null);
           // Re-fetch to see if there's a new upcoming shift
@@ -277,64 +278,12 @@ export default function GuardPage() {
           Ubah Kata Sandi
         </Button>
 
-        {showPasswordChange && (
-          <div className="mt-4 p-4 border rounded bg-gray-50 relative">
-            <button
-              onClick={() => setShowPasswordChange(false)}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-              aria-label="Tutup"
-            >
-              &times;
-            </button>
-            <h2 className="text-xl font-semibold mb-4">Ubah Kata Sandi</h2>
-            <form action={passwordChangeFormAction} className="space-y-4">
-              <div>
-                <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">
-                  Kata Sandi Saat Ini
-                </label>
-                <input
-                  type="password"
-                  id="currentPassword"
-                  name="currentPassword"
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-              <div>
-                <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
-                  Kata Sandi Baru
-                </label>
-                <input
-                  type="password"
-                  id="newPassword"
-                  name="newPassword"
-                  required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-                {passwordChangeState.errors?.find(e => e.field === 'newPassword') && (
-                  <p className="text-red-500 text-xs mt-1">
-                    {passwordChangeState.errors.find(e => e.field === 'newPassword')?.message ===
-                    'Must be at least 8 characters'
-                      ? 'Harus minimal 8 karakter'
-                      : passwordChangeState.errors.find(e => e.field === 'newPassword')?.message}
-                  </p>
-                )}
-              </div>
-              <Button type="submit" className="w-full">
-                Perbarui Kata Sandi
-              </Button>
-              {passwordChangeState.message && (
-                <p
-                  className={`mt-4 text-center text-sm ${
-                    passwordChangeState.success ? 'text-green-600' : 'text-red-600'
-                  }`}
-                >
-                  {passwordChangeState.message}
-                </p>
-              )}
-            </form>
-          </div>
-        )}
+        <PasswordChangeForm
+          isOpen={showPasswordChange}
+          onClose={() => setShowPasswordChange(false)}
+          actionState={passwordChangeState}
+          formAction={passwordChangeFormAction}
+        />
 
         <Button onClick={handleLogout} variant="destructive" className="w-full">
           Keluar

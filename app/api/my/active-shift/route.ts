@@ -21,7 +21,7 @@ export async function GET(req: Request) {
         guardId,
         status: { in: ['scheduled', 'in_progress'] }, // Shift must be scheduled or in progress
         startsAt: { lte: new Date(now.getTime() + 5 * 60000) }, // Include shifts starting within 5 minutes
-        endsAt: { gte: now },
+        endsAt: { gte: new Date(now.getTime() - 5 * 60000) },
       },
       include: { site: true, shiftType: true, guard: true, attendance: true }, // Include new relations
     });
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
         startsAt: { gt: now },
       },
       orderBy: {
-        startsAt: 'asc'
+        startsAt: 'asc',
       },
       take: 4,
       include: { site: true, shiftType: true, guard: true, attendance: true }, // Include same relations as active shift

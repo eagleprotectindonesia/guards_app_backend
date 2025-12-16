@@ -57,9 +57,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           );
 
           if (distance > maxDistance) {
-            return NextResponse.json({
-              error: `Anda berada terlalu jauh dari lokasi penugasan. Jarak saat ini: ${Math.round(distance)}m (Maksimal: ${maxDistance}m). Silakan pindah ke lokasi yang ditentukan.`,
-            }, { status: 400 });
+            return NextResponse.json(
+              {
+                error: `Anda berada terlalu jauh dari lokasi penugasan. Jarak saat ini: ${Math.round(
+                  distance
+                )}m (Maksimal: ${maxDistance}m). Silakan pindah ke lokasi yang ditentukan.`,
+              },
+              { status: 400 }
+            );
           }
         }
       }
@@ -87,14 +92,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     if (windowResult.status === 'late') {
-       return NextResponse.json({ error: 'Too late to check in for this interval' }, { status: 400 });
+      return NextResponse.json({ error: 'Too late to check in for this interval' }, { status: 400 });
     }
 
     if (windowResult.status === 'early') {
-       return NextResponse.json({ error: 'Too early to check in' }, { status: 400 });
+      return NextResponse.json({ error: 'Too early to check in' }, { status: 400 });
     }
 
     const status: 'on_time' | 'late' = 'on_time'; // If window is 'open', it's on time.
+    const isLastSlot = windowResult.nextSlotStart.getTime() > shift.endsAt.getTime();
 
     // 4. Transaction: Insert Checkin, Update Shift, Resolve Alerts
     const result = await prisma.$transaction(async tx => {
@@ -109,23 +115,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         },
       });
 
-      const updateData: any = {
+      const updateData = {
         lastHeartbeatAt: now,
         checkInStatus: status,
+        ...(shift.status === 'scheduled' && { status: 'in_progress' as const }),
+        ...(status === 'on_time' && { missedCount: 0 }),
+        ...(isLastSlot && { status: 'completed' as const }),
       };
-
-      if (shift.status === 'scheduled') {
-        updateData.status = 'in_progress';
-      }
-
-      if (status === 'on_time') {
-        updateData.missedCount = 0;
-      }
-
-      // Check if this is the last check-in
-      if (windowResult.nextSlotStart.getTime() >= shift.endsAt.getTime()) {
-        updateData.status = 'completed';
-      }
 
       await tx.shift.update({
         where: { id: shift.id },
@@ -139,6 +135,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       checkin: result.checkin,
       next_due_at: windowResult.nextSlotStart,
       status,
+      isLastSlot,
     });
   } catch (error: unknown) {
     console.error('Error checking in:', error);
