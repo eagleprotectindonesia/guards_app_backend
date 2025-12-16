@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 
           let chunk = '';
           for (const att of batch) {
-            const metadata = att.metadata as { lat?: number; lng?: number } | null;
+            const metadata = (att.metadata as { location: { lat?: number; lng?: number } })?.location;
             const lat = metadata?.lat?.toFixed(6) || '';
             const lng = metadata?.lng?.toFixed(6) || '';
             const guardName = att.shift.guard?.name || 'Unknown';

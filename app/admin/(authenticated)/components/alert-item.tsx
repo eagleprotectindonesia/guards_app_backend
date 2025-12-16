@@ -3,6 +3,7 @@
 import { Alert, Shift, Site, Guard, ShiftType, Admin } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { Check, CheckCircle, Clock, Eye, User } from 'lucide-react';
+import Link from 'next/link';
 
 // Define types locally or import if shared (duplicating for now to ensure self-containment)
 type GuardWithOptionalRelations = Serialized<Guard>;
@@ -72,7 +73,16 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
             <div className="text-sm text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
               <span className="flex items-center gap-1">
                 <User className="w-4 h-4 text-gray-400" />
-                {alert.shift?.guard?.name || 'Unassigned Guard'}
+                {alert.shift?.guard ? (
+                  <Link
+                    href={`/admin/guards/${alert.shift.guard.id}`}
+                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    {alert.shift.guard.name}
+                  </Link>
+                ) : (
+                  'Unassigned Guard'
+                )}
               </span>
               <span className="flex items-center gap-1">
                 <Clock className="w-4 h-4 text-gray-400" />
