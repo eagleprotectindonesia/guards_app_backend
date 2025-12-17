@@ -1,17 +1,17 @@
 import 'dotenv/config';
-import { PrismaClient, Shift, ShiftType, Guard, Site, Attendance } from '@prisma/client';
+import { Shift, ShiftType, Guard, Site, Attendance } from '@prisma/client';
 import { Redis } from 'ioredis';
 import { calculateCheckInWindow } from './lib/scheduling';
+import { prisma } from './lib/prisma';
 
 // Configuration
 const TICK_INTERVAL_MS = 5 * 1000; // 5 seconds
 const FULL_SYNC_INTERVAL_MS = 30 * 1000; // 30 seconds
 const UPCOMING_SYNC_INTERVAL_MS = 60 * 1000; // 1 minute
-const LOCK_ID = 123456;
 const ATTENDANCE_GRACE_PERIOD_MINS = 5;
 
 // Prisma & Redis
-const prisma = new PrismaClient();
+// const prisma = new PrismaClient();
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
 // Types
@@ -71,16 +71,18 @@ class SchedulingWorker {
       await this.releaseLock();
     } catch (error) {
       console.error('Worker tick error:', error);
+      // Ensure lock is released in case of error, though expiration handles it eventually
+      await this.releaseLock();
     }
   }
 
   private async acquireLock(): Promise<boolean> {
-    const result: { locked: boolean }[] = await prisma.$queryRaw`SELECT pg_try_advisory_lock(${LOCK_ID}) as locked`;
-    return result[0]?.locked;
+    const result = await redis.set('worker:lock', 'locked', 'EX', 60, 'NX');
+    return result === 'OK';
   }
 
   private async releaseLock() {
-    await prisma.$queryRaw`SELECT pg_advisory_unlock(${LOCK_ID})`;
+    await redis.del('worker:lock');
   }
 
   private async syncActiveShifts(now: Date, nowMs: number): Promise<boolean> {
@@ -135,6 +137,20 @@ class SchedulingWorker {
       if (shift.endsAt < now) continue;
 
       const startMs = shift.startsAt.getTime();
+      const intervalMs = shift.requiredCheckinIntervalMins * 60000;
+
+      // --- CLEAR ATTENTION IF CHECKED IN ---
+      if (typeof shift.lastAttentionIndexSent === 'number') {
+        const warningIndex = shift.lastAttentionIndexSent;
+        const warningSlotStart = startMs + warningIndex * intervalMs;
+
+        // If we have a heartbeat AFTER the start of the warned slot
+        if (shift.lastHeartbeatAt && shift.lastHeartbeatAt.getTime() >= warningSlotStart) {
+          await this.clearAttentionEvent(shift, warningIndex);
+          shift.lastAttentionIndexSent = undefined;
+          this.shiftStates.set(shift.id, { lastAttentionIndexSent: undefined });
+        }
+      }
 
       // --- ATTENDANCE ALERT LOGIC ---
       const attendanceGraceMs = ATTENDANCE_GRACE_PERIOD_MINS * 60000;
@@ -211,7 +227,7 @@ class SchedulingWorker {
 
           // But we stored lastAttentionIndexSent in DB/Cache.
           // Let's derive index from time.
-          const intervalMs = shift.requiredCheckinIntervalMins * 60000;
+          // const intervalMs = shift.requiredCheckinIntervalMins * 60000;
           const index = Math.round((slotIdentifier - startMs) / intervalMs);
 
           if (shift.lastAttentionIndexSent !== index) {
@@ -259,6 +275,12 @@ class SchedulingWorker {
       await redis.publish(`alerts:site:${shift.siteId}`, JSON.stringify(payload));
       console.log(`[MOCK] Sending notification for alert ${newAlert.id}`);
     });
+  }
+
+  private async clearAttentionEvent(shift: CachedShift, attentionIndex: number) {
+    const alertId = `transient-${shift.id}-${attentionIndex}`;
+    const payload = { type: 'alert_cleared', alertId };
+    await redis.publish(`alerts:site:${shift.siteId}`, JSON.stringify(payload));
   }
 
   private async sendAttentionEvent(shift: CachedShift, attentionIndex: number, dueTime: Date, now: Date) {

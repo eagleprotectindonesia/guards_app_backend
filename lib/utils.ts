@@ -2,7 +2,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
-import { JsonValue } from '@prisma/client/runtime/library';
+import { JsonValue } from '@prisma/client/runtime/client';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));

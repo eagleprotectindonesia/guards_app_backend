@@ -44,7 +44,7 @@ export type SSEAlertData =
       type: 'alert_created' | 'alert_updated' | 'alert_attention';
       alert: AlertWithRelations;
     }
-  | { type: 'alert_deleted'; alertId: string } // Added alert_deleted for completeness if needed
+  | { type: 'alert_deleted' | 'alert_cleared'; alertId: string }
   | AlertWithRelations;
 
 interface AlertContextType {
@@ -132,6 +132,8 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
             }
             return prev.map(a => (a.id === data.alert.id ? data.alert : a));
           });
+        } else if ('type' in data && data.type === 'alert_cleared') {
+          setAlerts(prev => prev.filter(a => a.id !== data.alertId));
         } else if ('id' in data && !('type' in data)) {
           // Fallback for raw alert object
           if (!data.resolvedAt) {

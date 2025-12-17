@@ -6,6 +6,7 @@ import AlertFeed, { AlertWithRelations } from '../components/alert-feed';
 import PaginationNav from '../components/pagination-nav';
 import AlertExport from '../components/alert-export';
 import { useAlerts } from '../context/alert-context';
+import { $Enums } from '@prisma/client';
 
 export default function AdminAlertsPage() {
   const searchParams = useSearchParams();
@@ -78,8 +79,8 @@ export default function AdminAlertsPage() {
         if (a.id !== alertId) return a;
         return {
           ...a,
-          resolvedAt: new Date().toISOString(),
-          // resolutionType: resolutionData?.outcome || 'resolve',
+          resolvedAt: new Date().toISOString() ,
+          resolutionType: resolutionData?.outcome as $Enums.AlertResolution,
           resolutionNote: resolutionData?.note || '',
           status: 'resolved',
         };

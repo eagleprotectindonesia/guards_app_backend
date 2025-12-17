@@ -9,17 +9,17 @@ import { MapPin, Clock, Filter } from 'lucide-react'; // Added Globe icon
 import CheckinFilterModal from './checkin-filter-modal';
 import CheckinExport from './checkin-export';
 import { format } from 'date-fns';
-import { JsonValue } from '@prisma/client/runtime/library';
+import { JsonValue } from '@prisma/client/runtime/client';
 
 // Define the type for a Checkin with its relations
 // Define a type for the checkin metadata that includes location information
 type CheckinMetadata = {
   lat: number;
   lng: number;
-}
+};
 
 // Type guard to check if an object has valid location data
-function hasValidLocation(metadata:JsonValue): metadata is CheckinMetadata {
+function hasValidLocation(metadata: JsonValue): metadata is CheckinMetadata {
   return (
     !!metadata &&
     typeof metadata === 'object' &&

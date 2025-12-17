@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum AdminRole {
@@ -27,21 +26,23 @@ model Admin {
 }
 
 model Guard {
-  id             String    @id @default(uuid())
+  id             String       @id @default(uuid())
   name           String
-  phone          String    @unique
-  hashedPassword String    @map("hashed_password") // Added password field
-  tokenVersion   Int       @default(0) @map("token_version")
-  guardCode      String?   @map("guard_code") @db.VarChar(10)
-  status         Boolean?  @default(true)
-  joinDate       DateTime? @map("join_date")
-  leftDate       DateTime? @map("left_date")
-  note           String?   @db.Text
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  phone          String       @unique
+  hashedPassword String       @map("hashed_password") // Added password field
+  tokenVersion   Int          @default(0) @map("token_version")
+  guardCode      String?      @map("guard_code") @db.VarChar(10)
+  status         Boolean?     @default(true)
+  joinDate       DateTime?    @map("join_date")
+  leftDate       DateTime?    @map("left_date")
+  note           String?      @db.Text
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
   checkins       Checkin[]
   shifts         Shift[]
+  attendances    Attendance[]
 
+  @@index([status])
   @@map("guards")
 }
 
@@ -100,6 +101,9 @@ model Shift {
   @@index([guardId, date])
   @@index([guardId, startsAt])
   @@index([startsAt, endsAt])
+  @@index([guardId, status, startsAt]) // For active shift queries
+  @@index([guardId, status, endsAt]) // For active shift queries with endsAt
+  @@index([guardId, status, date, startsAt]) // For next shifts queries
   @@map("shifts")
 }
 
@@ -116,6 +120,7 @@ model Checkin {
   shift     Shift         @relation(fields: [shiftId], references: [id])
 
   @@unique([shiftId, at])
+  @@index([createdAt])
   @@map("checkins")
 }
 
@@ -140,6 +145,7 @@ model Alert {
 
   @@unique([shiftId, reason, windowStart])
   @@index([siteId, createdAt])
+  @@index([reason])
   @@map("alerts")
 }
 
@@ -175,16 +181,21 @@ enum AlertResolution {
 model Attendance {
   id         String           @id @default(uuid())
   shiftId    String           @map("shift_id")
+  guardId    String?          @map("guard_id") // Add guardId for direct filtering
   recordedAt DateTime         @default(now()) @map("recorded_at") @db.Timestamptz(6)
-  picture    String? // URL or path to the attendance picture
+  picture    String?
   status     AttendanceStatus
-  metadata   Json? // Additional information like geolocation, device info
+  metadata   Json?
   createdAt  DateTime         @default(now()) @map("created_at")
   updatedAt  DateTime         @updatedAt
 
-  shift Shift @relation(fields: [shiftId], references: [id])
+  shift Shift  @relation(fields: [shiftId], references: [id])
+  guard Guard? @relation(fields: [guardId], references: [id])
 
   @@unique([shiftId]) // Ensuring one attendance record per shift
+  @@index([recordedAt]) // For attendance export queries
+  @@index([guardId]) // For direct guard filtering in attendance export
+  @@index([shiftId]) // For joining with shifts table
   @@map("attendance")
 }
 
