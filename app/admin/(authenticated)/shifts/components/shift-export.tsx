@@ -55,7 +55,7 @@ export default function ShiftExport({ initialFilters }: ShiftExportProps) {
         className="inline-flex items-center justify-center h-10 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
       >
         <Download className="w-4 h-4 mr-2" />
-        Export CSV
+        Download CSV
       </button>
 
       <ShiftExportModal

@@ -85,7 +85,7 @@ export default function AttendanceExportModal({ isOpen, onClose, onExport }: Att
             Cancel
           </Button>
           <Button className="flex-1" onClick={handleExport} type="button">
-            Export CSV
+            Download CSV
           </Button>
         </div>
       </div>

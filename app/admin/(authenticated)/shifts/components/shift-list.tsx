@@ -178,7 +178,7 @@ export default function ShiftList({
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
           >
             <Upload className="w-4 h-4 mr-2" />
-            Import CSV
+            Upload CSV
           </button>
           <Link
             href="/admin/shifts/create"
