@@ -7,6 +7,7 @@ import { deleteGuard, getAllGuardsForExport } from '../actions';
 import ConfirmDialog from '../../components/confirm-dialog';
 import ChangePasswordModal from './change-password-modal';
 import BulkCreateModal from './bulk-create-modal';
+import GuardFilterModal from './guard-filter-modal';
 import { DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
@@ -15,6 +16,7 @@ import { Pencil, Key, Download, Upload } from 'lucide-react';
 import Search from '../../components/search';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
+import { format } from 'date-fns';
 
 type GuardListProps = {
   guards: Serialized<Guard>[];
@@ -23,6 +25,8 @@ type GuardListProps = {
   totalCount: number;
   sortBy?: 'name' | 'guardCode' | 'joinDate';
   sortOrder?: 'asc' | 'desc';
+  startDate?: string;
+  endDate?: string;
 };
 
 export default function GuardList({
@@ -32,12 +36,15 @@ export default function GuardList({
   totalCount,
   sortBy = 'joinDate',
   sortOrder = 'desc',
+  startDate,
+  endDate,
 }: GuardListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [passwordModalData, setPasswordModalData] = useState<{ id: string; name: string } | null>(null);
   const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const handleSort = (field: string) => {
@@ -58,6 +65,25 @@ export default function GuardList({
     params.set('page', '1');
 
     // Navigate to the new URL
+    router.push(`/admin/guards?${params.toString()}`);
+  };
+
+  const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date }) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (filters.startDate) {
+      params.set('startDate', format(filters.startDate, 'yyyy-MM-dd'));
+    } else {
+      params.delete('startDate');
+    }
+
+    if (filters.endDate) {
+      params.set('endDate', format(filters.endDate, 'yyyy-MM-dd'));
+    } else {
+      params.delete('endDate');
+    }
+
+    params.set('page', '1');
     router.push(`/admin/guards?${params.toString()}`);
   };
 
@@ -88,13 +114,13 @@ export default function GuardList({
         headers.join(','),
         ...guards.map(guard => {
           return [
-            `"${guard.name}"`,
-            `"${guard.phone}"`,
-            `"${guard.guardCode || ''}"`,
+            `"${guard.name}"`, 
+            `"${guard.phone}"`, 
+            `"${guard.guardCode || ''}"`, 
             guard.status ? 'Active' : 'Inactive',
-            `"${guard.joinDate ? new Date(guard.joinDate).toLocaleDateString() : ''}"`,
-            `"${guard.leftDate ? new Date(guard.leftDate).toLocaleDateString() : ''}"`,
-            `"${guard.note ? guard.note.replace(/"/g, '""') : ''}"`,
+            `"${guard.joinDate ? new Date(guard.joinDate).toLocaleDateString() : ''}"`, 
+            `"${guard.leftDate ? new Date(guard.leftDate).toLocaleDateString() : ''}"`, 
+            `"${guard.note ? guard.note.replace(/"/g, '""') : ''}"`, 
           ].join(',');
         }),
       ].join('\n');
@@ -114,6 +140,8 @@ export default function GuardList({
     }
   };
 
+  const activeFiltersCount = [startDate, endDate].filter(Boolean).length;
+
   return (
     <div>
       {/* Header Section */}
@@ -127,18 +155,39 @@ export default function GuardList({
             <Search placeholder="Search guards..." />
           </div>
           <button
+            onClick={() => setIsFilterOpen(true)}
+            className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors shadow-sm w-full md:w-auto ${
+              activeFiltersCount > 0 ? 'text-red-600 border-red-200 bg-red-50' : ''
+            }`}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+              />
+            </svg>
+            Filters
+            {activeFiltersCount > 0 && (
+              <span className="ml-2 bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
+          <button
             onClick={() => setIsBulkCreateOpen(true)}
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-white text-gray-700 text-sm font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors shadow-sm w-full md:w-auto"
           >
             <Upload className="mr-2 h-4 w-4" />
-            Import CSV
+            Upload CSV
           </button>
           <button
             onClick={handleExportCSV}
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-white text-gray-700 text-sm font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors shadow-sm w-full md:w-auto"
           >
             <Download className="mr-2 h-4 w-4" />
-            Export CSV
+            Download CSV
           </button>
           <Link
             href="/admin/guards/create"
@@ -270,6 +319,16 @@ export default function GuardList({
       />
 
       <BulkCreateModal isOpen={isBulkCreateOpen} onClose={() => setIsBulkCreateOpen(false)} />
+
+      <GuardFilterModal
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        onApply={handleApplyFilter}
+        initialFilters={{
+          startDate,
+          endDate,
+        }}
+      />
 
       {passwordModalData && (
         <ChangePasswordModal
