@@ -19,6 +19,7 @@ jobs:
             cd ${{ secrets.APP_DIR }}
 
             echo "== Pull latest code =="
+            export GIT_SSH_COMMAND="ssh -i ~/.ssh/github_actions_deploy -o StrictHostKeyChecking=accept-new"
             git fetch --all
             git reset --hard origin/main
 
