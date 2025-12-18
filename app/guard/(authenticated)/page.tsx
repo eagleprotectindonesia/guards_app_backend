@@ -151,7 +151,13 @@ export default function GuardPage() {
         return;
       }
       const data = await res.json();
-      if (data.activeShift) {
+      if (
+        data.activeShift &&
+        !(
+          data.activeShift.checkInWindow?.isLastSlot &&
+          ['late', 'completed'].includes(data.activeShift.checkInWindow?.status)
+        ) // due to how the active slot is retrieved, if it's late/completed for last slot then consider it as finished
+      ) {
         setActiveShift(parseShiftDates(data.activeShift));
         // If guardDetails are not yet set, set guardName from activeShift
       } else {

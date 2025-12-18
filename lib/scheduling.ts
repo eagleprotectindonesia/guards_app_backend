@@ -6,6 +6,7 @@ export interface CheckInWindowResult {
   currentSlotEnd: Date;
   nextSlotStart: Date;
   remainingTimeMs: number; // Time until open (if early/completed/late) or close (if open)
+  isLastSlot?: boolean;
 }
 
 /**
@@ -82,6 +83,11 @@ export function calculateCheckInWindow(
 
   // Determine if the current slot is the very last *scheduled* interval check-in slot for the shift.
   const isLastSlot = currentSlotStartMs === lastScheduledSlotStartMs;
+  const isLastSlotStart = nowMs > lastScheduledSlotStartMs - graceMs;
+
+  console.log('isLastSlotStart',isLastSlotStart);
+  
+
 
   // Determine if the next slot would be the last scheduled check-in slot for the shift.
   const nextSlotStartCalculated = currentSlotStartMs + intervalMs;
@@ -100,7 +106,7 @@ export function calculateCheckInWindow(
   // Now determine nextSlotStart based on isLastSlot and isNextSlotLast
   if (isLastSlot) {
     // If current slot is the last scheduled one, "next slot" is the shift end
-    // nextSlotStartMs = endMs+1;
+    // nextSlotStartMs = endMs;
   } else if (isNextSlotLast && graceMins > 0) {
     // If the next slot is the last one and early check-ins are allowed,
     // adjust nextSlotStart to reflect when check-ins actually become available
@@ -126,6 +132,7 @@ export function calculateCheckInWindow(
       currentSlotEnd: new Date(currentSlotEndMs),
       nextSlotStart: new Date(nextSlotStartMs),
       remainingTimeMs: nextSlotStartMs - nowMs,
+      isLastSlot: isLastSlotStart,
     };
   }
 
@@ -137,6 +144,8 @@ export function calculateCheckInWindow(
       currentSlotEnd: new Date(currentSlotEndMs),
       nextSlotStart: new Date(nextSlotStartMs),
       remainingTimeMs: effectiveCheckinWindowEndMs - nowMs,
+      isLastSlot: isLastSlotStart,
+
     };
     // } else if (nowMs < effectiveCheckinWindowStartMs) {
     //   console.log('early ges');
@@ -156,6 +165,7 @@ export function calculateCheckInWindow(
       currentSlotEnd: new Date(currentSlotEndMs),
       nextSlotStart: new Date(nextSlotStartMs),
       remainingTimeMs: nextSlotStartMs - nowMs,
+      isLastSlot: isLastSlotStart,
     };
   }
 }

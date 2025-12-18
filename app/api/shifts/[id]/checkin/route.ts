@@ -35,7 +35,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Not assigned to this shift' }, { status: 403 });
     }
 
-    if (now < shift.startsAt || now > shift.endsAt) {
+    const allowedEndTime = new Date(shift.endsAt.getTime() + shift.graceMinutes * 60 * 1000);
+    if (now < shift.startsAt || now > allowedEndTime) {
       return NextResponse.json({ error: 'Shift is not active' }, { status: 400 });
     }
 
@@ -100,7 +101,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     const status: 'on_time' | 'late' = 'on_time'; // If window is 'open', it's on time.
-    const isLastSlot = windowResult.nextSlotStart.getTime() > shift.endsAt.getTime();
+    const isLastSlot = windowResult.isLastSlot;
+    console.log(windowResult);
+    
+    console.log(isLastSlot);
 
     // 4. Transaction: Insert Checkin, Update Shift, Resolve Alerts
     const result = await prisma.$transaction(async tx => {
