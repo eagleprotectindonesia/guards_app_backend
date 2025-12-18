@@ -45,6 +45,7 @@ export async function GET() {
         guardId,
         status: { in: ['scheduled'] }, // Only scheduled shifts
         startsAt: { gt: now },
+        NOT: activeShift ? { id: activeShift.id } : {}, // Exclude the active shift
       },
       orderBy: {
         startsAt: 'asc',

@@ -6,23 +6,23 @@ export const ShiftStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 
 // --- Site ---
 export const createSiteSchema = z.object({
   name: z.string().min(1),
-  clientName: z.string().optional(),
+  clientName: z.string(),
   address: z.string().optional(),
-  latitude: z.number().optional(),
-  longitude: z.number().optional(),
+  latitude: z.number(),
+  longitude: z.number(),
 });
 
 // --- Admin ---
 export const createAdminSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(6, 'Password must be at least 6 characters long'),
   role: z.enum(['superadmin', 'admin']),
 });
 
 export const updateAdminSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(6, 'Password must be at least 6 characters long').optional(),
   role: z.enum(['superadmin', 'admin']),
 });
@@ -92,8 +92,8 @@ export const updateGuardSchema = z.object({
     ),
   guardCode: z.string().max(12).regex(/^[a-zA-Z0-9]*$/, 'Guard code must be alphanumeric only').optional(),
   status: z.boolean().optional(),
-  joinDate: z.string().datetime().optional(),
-  leftDate: z.string().datetime().optional(),
+  joinDate: z.iso.datetime().optional(),
+  leftDate: z.iso.datetime().optional(),
   note: z.string().optional(),
   password: z.string().min(6, 'Password must be at least 6 characters long').optional(), // Optional for updates
 });
@@ -117,10 +117,10 @@ export const createShiftTypeSchema = z.object({
 
 // --- Shift ---
 export const createShiftSchema = z.object({
-  siteId: z.string().uuid(),
-  shiftTypeId: z.string().uuid(),
-  guardId: z.string().uuid().nullable().optional(),
-  date: z.string().date(), // Expects "YYYY-MM-DD"
+  siteId: z.uuid(),
+  shiftTypeId: z.uuid(),
+  guardId: z.uuid(),
+  date: z.iso.date(), // Expects "YYYY-MM-DD"
   requiredCheckinIntervalMins: z.number().int().min(5).default(60),
   graceMinutes: z.number().int().min(1).default(15),
 });

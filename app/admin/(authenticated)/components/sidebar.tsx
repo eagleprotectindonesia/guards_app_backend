@@ -25,10 +25,10 @@ const navItems = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Sites', href: '/admin/sites', icon: MapPin },
   { name: 'Guards', href: '/admin/guards', icon: Users },
+  { name: 'Shift Types', href: '/admin/shift-types', icon: Layers },
   { name: 'Shifts', href: '/admin/shifts', icon: Calendar },
   { name: 'Attendance', href: '/admin/attendance', icon: ClipboardCheck },
   { name: 'Checkins', href: '/admin/checkins', icon: ClipboardCheck },
-  { name: 'Shift Types', href: '/admin/shift-types', icon: Layers },
   { name: 'Alerts', href: '/admin/alerts', icon: Bell },
 ];
 

@@ -8,9 +8,7 @@ import { useRouter } from 'next/navigation'; // Import useRouter
 import { useGuardApi } from './hooks/use-guard-api';
 import CheckInCard from '@/app/guard/components/shift/checkin-card';
 import { AttendanceRecord } from '@/app/guard/components/attendance/attendance-record';
-import { ShiftInfoCard } from '@/app/guard/components/shift/shift-info-card';
-import { NextShiftCard } from '@/app/guard/components/shift/next-shift-card';
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
+import { GuardCarousel } from '@/app/guard/components/shift/guard-carousel';
 import { PasswordChangeForm } from '@/app/guard/components/password-change/password-change-form';
 import { CheckInWindowResult } from '@/lib/scheduling';
 
@@ -216,32 +214,7 @@ export default function GuardPage() {
 
       {(activeShift || nextShifts.length > 0) && (
         <>
-          <div className="relative">
-            <Carousel className="w-full mb-6">
-              <CarouselContent>
-                {activeShift && (
-                  <CarouselItem>
-                    <div className="p-1">
-                      <ShiftInfoCard shift={activeShift} />
-                    </div>
-                  </CarouselItem>
-                )}
-                {nextShifts.map(shift => (
-                  <CarouselItem key={shift.id}>
-                    <div className="p-1">
-                      <NextShiftCard shift={shift} />
-                    </div>
-                  </CarouselItem>
-                ))}
-              </CarouselContent>
-              {(activeShift ? 1 : 0) + nextShifts.length > 1 && (
-                <>
-                  <CarouselPrevious className="absolute top-1/2 left-2 -translate-y-1/2 z-10 bg-transparent border-none text-blue-600 hover:text-blue-800 p-0 w-auto h-auto" />
-                  <CarouselNext className="absolute top-1/2 right-2 -translate-y-1/2 z-10 bg-transparent border-none text-blue-600 hover:text-blue-800 p-0 w-auto h-auto" />
-                </>
-              )}
-            </Carousel>
-          </div>
+          <GuardCarousel activeShift={activeShift} nextShifts={nextShifts} />
 
           {activeShift && (
             <>
