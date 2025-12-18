@@ -1,0 +1,33 @@
+name: Deploy to Production (EC2)
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ secrets.APP_DIR }}
+
+            echo "== Pull latest code =="
+            git fetch --all
+            git reset --hard origin/main
+
+            echo "== Rebuild & restart containers =="
+            docker-compose down
+            docker-compose up -d --build
+
+            echo "== Run DB migrations =="
+            docker-compose exec -T app npx prisma migrate deploy
+
+            echo "== Status =="
+            docker-compose ps
