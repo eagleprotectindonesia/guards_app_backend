@@ -23,9 +23,13 @@ jobs:
             git fetch --all
             git reset --hard origin/main
 
-            echo "== Rebuild & restart containers =="
-            docker-compose down
-            docker-compose up -d --build
+            echo "== Build new images =="
+            export BUILD_ID=$(git rev-parse --short HEAD)
+            docker-compose build --build-arg BUILD_ID=$BUILD_ID
+
+            echo "== Update containers =="
+            # Recreates only changed containers with minimal downtime
+            docker-compose up -d
 
             echo "== Run DB migrations =="
             docker-compose exec -T app npx prisma migrate deploy

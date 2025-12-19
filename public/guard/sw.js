@@ -1,4 +1,4 @@
-const CACHE_NAME = 'guard-pwa-v1';
+const CACHE_NAME = 'guard-pwa-{{BUILD_ID}}';
 const OFFLINE_URL = '/guard/offline.html';
 const ASSETS_TO_CACHE = [
   OFFLINE_URL,

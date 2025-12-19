@@ -4,6 +4,7 @@ services:
       context: .
       args:
         - DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
+        - BUILD_ID=${BUILD_ID:-dev}
     image: ep_guard_app:latest
     container_name: ep_guard_app
     restart: always
@@ -26,6 +27,7 @@ services:
       context: .
       args:
         - DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy
+        - BUILD_ID=${BUILD_ID:-dev}
     image: ep_guard_app:latest
     container_name: ep_guard_worker
     restart: always

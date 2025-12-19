@@ -25,6 +25,10 @@ ENV DATABASE_URL=${DATABASE_URL}
 
 RUN npx prisma generate
 
+# Inject Build ID into Service Worker for cache busting
+ARG BUILD_ID=dev
+RUN sed -i "s/{{BUILD_ID}}/$BUILD_ID/g" public/guard/sw.js
+
 # Build Next.js
 # Note: We keep the standard build (not standalone) to simplify sharing dependencies with the worker.
 RUN npm run build
