@@ -3,6 +3,11 @@ import { serialize, getPaginationParams } from '@/lib/utils';
 import ShiftList from './components/shift-list';
 import { parseISO, startOfDay, endOfDay } from 'date-fns';
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Shifts Management',
+};
 
 export const dynamic = 'force-dynamic';
 

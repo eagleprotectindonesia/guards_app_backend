@@ -3,6 +3,11 @@ import { serialize, getPaginationParams } from '@/lib/utils';
 import SiteList from './components/site-list';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Sites Management',
+};
 
 export const dynamic = 'force-dynamic';
 

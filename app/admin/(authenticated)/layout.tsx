@@ -7,8 +7,18 @@ import { Toaster } from 'react-hot-toast';
 import { getCurrentAdmin } from '@/lib/admin-auth';
 import { AlertProvider } from './context/alert-context';
 import GlobalAlertManager from './components/global-alert-manager';
+import { Metadata } from 'next';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+
+export const metadata: Metadata = {
+  title: {
+    template: '%s | Eagle Protect',
+    default: 'Admin Dashboard | Eagle Protect',
+  },
+  description: 'Security guard scheduling and real-time monitoring system.',
+};
+
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();

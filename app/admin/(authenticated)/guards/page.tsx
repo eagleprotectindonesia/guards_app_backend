@@ -4,6 +4,11 @@ import GuardList from './components/guard-list';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { parseISO, isValid } from 'date-fns';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Guards Management',
+};
 
 export const dynamic = 'force-dynamic';
 
