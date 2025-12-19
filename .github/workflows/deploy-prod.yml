@@ -25,6 +25,9 @@ jobs:
 
             echo "== Build new images =="
             export BUILD_ID=$(git rev-parse --short HEAD)
+            # Force legacy builder for compatibility with docker-compose 1.29.2
+            export DOCKER_BUILDKIT=0
+            export COMPOSE_DOCKER_CLI_BUILD=0
             docker-compose build --build-arg BUILD_ID=$BUILD_ID
 
             echo "== Update containers =="
