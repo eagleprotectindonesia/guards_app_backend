@@ -9,7 +9,7 @@ import { z } from 'zod';
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
 const guardLoginSchema = z.object({
-  phone: z.string().min(1, 'Phone is required'),
+  employeeId: z.string().min(1, 'Employee ID is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -34,10 +34,10 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { phone, password } = guardLoginSchema.parse(body);
+    const { employeeId, password } = guardLoginSchema.parse(body);
 
     const guard = await prisma.guard.findUnique({
-      where: { phone },
+      where: { employeeId },
     });
 
     if (!guard) {

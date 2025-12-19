@@ -11,11 +11,11 @@ type GuardLoginState = {
 };
 
 async function guardLoginAction(prevState: GuardLoginState, formData: FormData): Promise<GuardLoginState> {
-  const phone = formData.get('phone') as string;
+  const employeeId = formData.get('employeeId') as string;
   const password = formData.get('password') as string;
 
-  if (!phone || !password) {
-    return { message: 'Phone and password are required.' };
+  if (!employeeId || !password) {
+    return { message: 'Employee ID and password are required.' };
   }
 
   const res = await fetch('/api/auth/guard/login', {
@@ -23,7 +23,7 @@ async function guardLoginAction(prevState: GuardLoginState, formData: FormData):
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ phone, password }),
+    body: JSON.stringify({ employeeId, password }),
   });
 
   const data = await res.json();
@@ -50,13 +50,13 @@ export default function GuardLoginPage() {
         <h1 className="text-2xl font-bold text-center mb-6">Guard Login</h1>
         <form action={formAction} className="space-y-4">
           <div>
-            <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-              Phone
+            <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700">
+              Employee ID
             </label>
             <input
               type="text"
-              id="phone"
-              name="phone"
+              id="employeeId"
+              name="employeeId"
               required
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             />
