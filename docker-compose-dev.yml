@@ -12,6 +12,7 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ep_guard?schema=public
       - REDIS_URL=redis://redis:6379
       - NEXT_TELEMETRY_DISABLED=1
+      - TZ=Asia/Makassar
     depends_on:
       db:
         condition: service_healthy
@@ -29,6 +30,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/ep_guard?schema=public
       - REDIS_URL=redis://redis:6379
+      - TZ=Asia/Makassar
     depends_on:
       db:
         condition: service_healthy
@@ -44,6 +46,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=ep_guard
+      - TZ=Asia/Makassar
     ports:
       - "5432:5432"
     volumes:
@@ -60,6 +63,8 @@ services:
     restart: always
     ports:
       - "6379:6379"
+    environment:
+      - TZ=Asia/Makassar
     volumes:
       - redis_data:/data
 
