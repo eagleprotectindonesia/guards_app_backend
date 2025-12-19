@@ -78,7 +78,10 @@ export async function changePassword(prevState: ChangePasswordState, formData: F
 
     await prisma.admin.update({
       where: { id: adminId },
-      data: { hashedPassword },
+      data: { 
+        hashedPassword,
+        tokenVersion: { increment: 1 } 
+      },
     });
 
     return { message: 'Password changed successfully' };

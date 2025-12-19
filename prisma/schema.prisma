@@ -17,6 +17,7 @@ model Admin {
   email              String    @unique
   hashedPassword     String    @map("hashed_password")
   role               AdminRole @default(admin)
+  tokenVersion       Int       @default(0) @map("token_version")
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
   acknowledgedAlerts Alert[]   @relation("AcknowledgedBy")

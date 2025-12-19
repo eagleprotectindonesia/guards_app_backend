@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     }
 
     if (!guard || !guard.hashedPassword) {
-      return NextResponse.json({ message: 'Invalid adada', data: guard }, { status: 401 });
+      return NextResponse.json({ message: 'Invalid Guard', data: guard }, { status: 401 });
     }
 
     const passwordMatch = await bcrypt.compare(password, guard.hashedPassword);

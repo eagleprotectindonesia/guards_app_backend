@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     }
 
     // Generate JWT token
-    const token = jwt.sign({ adminId: admin.id, email: admin.email }, JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ adminId: admin.id, email: admin.email, tokenVersion: admin.tokenVersion }, JWT_SECRET, { expiresIn: '30d' });
 
     // Set the token as an HTTP-only cookie
     const response = new NextResponse(JSON.stringify({ message: 'Login successful' }), {
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     response.cookies.set('admin_token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 8 * 60 * 60, // 8 hour
+      maxAge: 30 * 24 * 60 * 60, // 30 days
       path: '/',
     });
 
