@@ -26,6 +26,9 @@ ENV DATABASE_URL=${DATABASE_URL}
 
 RUN npx prisma generate
 
+# Copy environment file
+COPY .env ./
+
 # Build Next.js
 # Note: We keep the standard build (not standalone) to simplify sharing dependencies with the worker.
 RUN npm run build
@@ -52,6 +55,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
 
 # Copy files needed for the worker
+COPY --from=builder --chown=nextjs:nodejs /app/.env ./
 COPY --from=builder --chown=nextjs:nodejs /app/worker.ts ./worker.ts
 COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
 COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
