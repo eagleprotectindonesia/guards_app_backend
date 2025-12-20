@@ -8,10 +8,11 @@ interface TimePickerProps {
   value: string | null;
   onChange: (value: string) => void;
   className?: string;
+  use24h?: boolean;
 }
 
-export function TimePicker({ value, onChange, className }: TimePickerProps) {
-  // Calculate 12-hour format values from 24-hour value
+export function TimePicker({ value, onChange, className, use24h = false }: TimePickerProps) {
+  // Calculate display values from 24-hour value
   const { hour, minute, period } = useMemo(() => {
     if (!value) {
       return { hour: undefined, minute: undefined, period: undefined };
@@ -19,6 +20,14 @@ export function TimePicker({ value, onChange, className }: TimePickerProps) {
 
     const [h24, m] = value.split(':');
     const hInt = parseInt(h24, 10);
+
+    if (use24h) {
+      return {
+        hour: h24,
+        minute: m,
+        period: undefined
+      };
+    }
 
     let p: 'AM' | 'PM' = 'AM';
     let h12 = hInt;
@@ -36,11 +45,11 @@ export function TimePicker({ value, onChange, className }: TimePickerProps) {
       minute: m,
       period: p
     };
-  }, [value]);
+  }, [value, use24h]);
 
   const handleTimeChange = (type: 'hour' | 'minute' | 'period', val: string) => {
     // Defaults
-    const currentHour = hour || '12';
+    const currentHour = hour || (use24h ? '00' : '12');
     const currentMinute = minute || '00';
     const currentPeriod = period || 'AM';
 
@@ -52,16 +61,24 @@ export function TimePicker({ value, onChange, className }: TimePickerProps) {
     else if (type === 'minute') newMinute = val;
     else if (type === 'period') newPeriod = val as 'AM' | 'PM';
 
-    // Convert to 24h
-    let h24 = parseInt(newHour, 10);
-    if (newPeriod === 'PM' && h24 !== 12) h24 += 12;
-    if (newPeriod === 'AM' && h24 === 12) h24 = 0;
+    let h24Str: string;
 
-    const h24Str = h24.toString().padStart(2, '0');
+    if (use24h) {
+      h24Str = newHour;
+    } else {
+      // Convert to 24h
+      let h24 = parseInt(newHour, 10);
+      if (newPeriod === 'PM' && h24 !== 12) h24 += 12;
+      if (newPeriod === 'AM' && h24 === 12) h24 = 0;
+      h24Str = h24.toString().padStart(2, '0');
+    }
+
     onChange(`${h24Str}:${newMinute}`);
   };
 
-  const hourOptions = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+  const hourOptions = use24h
+    ? Array.from({ length: 24 }, (_, i) => i.toString().padStart(2, '0'))
+    : Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
 
   const minuteOptions = Array.from({ length: 12 }, (_, i) => (i * 5).toString().padStart(2, '0'));
 
@@ -98,15 +115,17 @@ export function TimePicker({ value, onChange, className }: TimePickerProps) {
       </Select>
 
       {/* AM/PM Select */}
-      <Select value={period} onValueChange={val => handleTimeChange('period', val)}>
-        <SelectTrigger className="w-[70px]">
-          <SelectValue placeholder="AM/PM">{period}</SelectValue>
-        </SelectTrigger>
-        <SelectContent className="min-w-0 w-[70px]">
-          <SelectItem value="AM">AM</SelectItem>
-          <SelectItem value="PM">PM</SelectItem>
-        </SelectContent>
-      </Select>
+      {!use24h && (
+        <Select value={period} onValueChange={val => handleTimeChange('period', val)}>
+          <SelectTrigger className="w-[70px]">
+            <SelectValue placeholder="AM/PM">{period}</SelectValue>
+          </SelectTrigger>
+          <SelectContent className="min-w-0 w-[70px]">
+            <SelectItem value="AM">AM</SelectItem>
+            <SelectItem value="PM">PM</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
     </div>
   );
 }

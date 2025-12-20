@@ -86,6 +86,7 @@ export default function ShiftTypeForm({ shiftType }: Props) {
               onChange={setStartTime}
               value={startTime}
               className="w-full h-10"
+              use24h={true}
             />
             <input type="hidden" name="startTime" value={startTime || ''} />
             {state.errors?.startTime && <p className="text-red-500 text-xs mt-1">{state.errors.startTime[0]}</p>}
@@ -100,6 +101,7 @@ export default function ShiftTypeForm({ shiftType }: Props) {
               onChange={setEndTime}
               value={endTime}
               className="w-full h-10"
+              use24h={true}
             />
             <input type="hidden" name="endTime" value={endTime || ''} />
             {state.errors?.endTime && <p className="text-red-500 text-xs mt-1">{state.errors.endTime[0]}</p>}

@@ -217,6 +217,7 @@ export async function deleteGuard(id: string) {
 export async function bulkCreateGuards(
   formData: FormData
 ): Promise<{ success: boolean; message?: string; errors?: string[] }> {
+  const adminId = await getAdminIdFromToken();
   const file = formData.get('file') as File;
   if (!file) {
     return { success: false, message: 'No file provided.' };
@@ -232,7 +233,15 @@ export async function bulkCreateGuards(
   const errors: string[] = [];
   const guardsToCreate: Pick<
     Guard,
-    'name' | 'phone' | 'employeeId' | 'guardCode' | 'note' | 'joinDate' | 'hashedPassword' | 'status'
+    | 'name'
+    | 'phone'
+    | 'employeeId'
+    | 'guardCode'
+    | 'note'
+    | 'joinDate'
+    | 'hashedPassword'
+    | 'status'
+    | 'lastUpdatedById'
   >[] = [];
   const phonesToCheck: string[] = [];
   const employeeIdsToCheck: string[] = [];
@@ -391,6 +400,7 @@ export async function bulkCreateGuards(
       joinDate: validationResult.data.joinDate as unknown as Date,
       hashedPassword: hashedPasswordForGuard,
       status: true,
+      lastUpdatedById: adminId || null,
     });
   }
 

@@ -5,6 +5,7 @@ import { createShiftSchema } from '@/lib/validations';
 import { revalidatePath } from 'next/cache';
 import { parse, addDays, isBefore } from 'date-fns';
 import { Shift } from '@prisma/client';
+import { getAdminIdFromToken } from '@/lib/admin-auth';
 
 export type ActionState = {
   message?: string;
@@ -20,6 +21,7 @@ export type ActionState = {
 };
 
 export async function createShift(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const adminId = await getAdminIdFromToken();
   const validatedFields = createShiftSchema.safeParse({
     siteId: formData.get('siteId'),
     shiftTypeId: formData.get('shiftTypeId'),
@@ -100,6 +102,7 @@ export async function createShift(prevState: ActionState, formData: FormData): P
         requiredCheckinIntervalMins,
         graceMinutes,
         status: 'scheduled',
+        createdBy: adminId,
       },
     });
   } catch (error) {
@@ -225,6 +228,7 @@ export async function deleteShift(id: string) {
 export async function bulkCreateShifts(
   formData: FormData
 ): Promise<{ success: boolean; message?: string; errors?: string[] }> {
+  const adminId = await getAdminIdFromToken();
   const file = formData.get('file') as File;
   if (!file) {
     return { success: false, message: 'No file provided.' };
@@ -263,6 +267,7 @@ export async function bulkCreateShifts(
     | 'startsAt'
     | 'endsAt'
     | 'status'
+    | 'createdBy'
   >[] = [];
 
   // Skip header row
@@ -393,6 +398,7 @@ export async function bulkCreateShifts(
         status: 'scheduled',
         requiredCheckinIntervalMins: interval,
         graceMinutes: grace,
+        createdBy: adminId || null,
       });
     }
   }
