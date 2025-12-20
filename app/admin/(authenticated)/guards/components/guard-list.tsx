@@ -211,38 +211,42 @@ export default function GuardList({
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <SortableHeader
-                  label="Name"
-                  field="name"
-                  currentSortBy={sortBy}
-                  currentSortOrder={sortOrder}
-                  onSort={handleSort}
-                />
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Phone</th>
-                <SortableHeader
                   label="Employee ID"
                   field="employeeId"
                   currentSortBy={sortBy}
                   currentSortOrder={sortOrder}
                   onSort={handleSort}
+                  className="text-center"
                 />
+                <SortableHeader
+                  label="Name"
+                  field="name"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                  className="text-center"
+                />
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Phone</th>
                 <SortableHeader
                   label="Guard Code"
                   field="guardCode"
                   currentSortBy={sortBy}
                   currentSortOrder={sortOrder}
                   onSort={handleSort}
+                  className="text-center"
                 />
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
                 <SortableHeader
                   label="Joined Date"
                   field="joinDate"
                   currentSortBy={sortBy}
                   currentSortOrder={sortOrder}
                   onSort={handleSort}
+                  className="text-center"
                 />
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Left Date</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Last Updated By</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Left Date</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Last Updated By</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
                   Actions
                 </th>
               </tr>
@@ -257,6 +261,7 @@ export default function GuardList({
               ) : (
                 guards.map(guard => (
                   <tr key={guard.id} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="py-4 px-6 text-sm text-gray-600">{guard.employeeId}</td>
                     <td className="py-4 px-6 text-sm font-medium text-gray-900">
                       <div className="flex items-center gap-3">
                         {/* Avatar Placeholder */}
@@ -267,7 +272,6 @@ export default function GuardList({
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-600 font-mono">{guard.phone}</td>
-                    <td className="py-4 px-6 text-sm text-gray-600">{guard.employeeId}</td>
                     <td className="py-4 px-6 text-sm text-gray-600">{guard.guardCode || '-'}</td>
                     <td className="py-4 px-6 text-sm">
                       {guard.status !== false ? (

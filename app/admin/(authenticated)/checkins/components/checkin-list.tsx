@@ -168,7 +168,7 @@ export default function CheckinList({ checkins, page, perPage, totalCount, guard
                       )}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
-                      {new Date(checkin.shift.date).toLocaleDateString()}
+                      {format(new Date(checkin.shift.date), 'MMM d, yyyy')}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-600">
                       {hasValidLocation(checkin.metadata) ? (
