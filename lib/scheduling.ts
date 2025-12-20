@@ -70,7 +70,7 @@ export function calculateCheckInWindow(
   const potentialNextSlotStart = firstScheduledCheckInMs + (slotIndex + 1) * intervalMs;
   if (potentialNextSlotStart === lastScheduledSlotStartMs && graceMins > 0) {
     // If the next slot would be the last slot, check if we're in the early window for it
-    const adjustedNextSlotStart = potentialNextSlotStart - graceMs;
+    const adjustedNextSlotStart = Math.max(potentialNextSlotStart - graceMs, startMs);
     if (nowMs >= adjustedNextSlotStart) {
       // Move to the last slot early
       slotIndex += 1;
@@ -83,7 +83,7 @@ export function calculateCheckInWindow(
 
   // Determine if the current slot is the very last *scheduled* interval check-in slot for the shift.
   const isLastSlot = currentSlotStartMs === lastScheduledSlotStartMs;
-  const isLastSlotStart = nowMs > lastScheduledSlotStartMs - graceMs;
+  const isLastSlotStart = nowMs >= lastScheduledSlotStartMs - graceMs;
 
   // Determine if the next slot would be the last scheduled check-in slot for the shift.
   const nextSlotStartCalculated = currentSlotStartMs + intervalMs;
@@ -119,7 +119,8 @@ export function calculateCheckInWindow(
   // const effectiveCheckinWindowEndMs = currentSlotStartMs;
 
   // Check if this specific slot is already completed
-  const isCompleted = lastHeartbeat && lastHeartbeat.getTime() >= currentSlotStartMs;
+  // Use effectiveCheckinWindowStartMs for the last slot to correctly prevent duplicates during early check-in
+  const isCompleted = lastHeartbeat && lastHeartbeat.getTime() >= effectiveCheckinWindowStartMs;
 
   if (isCompleted) {
     return {

@@ -169,6 +169,13 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
       });
       const data = await res.json();
       if (!res.ok) {
+        if (data.error === 'Already checked in for this interval') {
+          if (activeShift.checkInWindow?.isLastSlot) {
+            toast.success('Shift Selesai');
+          }
+          fetchShift();
+          return;
+        }
         setStatus(`Error: ${data.message || data.error || 'Check-in gagal.'}`);
       } else {
         // setStatus(`Berhasil Check-in! Status: ${data.status}`);
