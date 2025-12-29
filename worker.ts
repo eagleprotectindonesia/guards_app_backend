@@ -112,11 +112,14 @@ class SchedulingWorker {
   }
 
   private async publish<T>(channel: string, payload: T) {
-    const message = JSON.stringify({
-      ...payload,
-      version: 1,
-      _timestamp: Date.now(),
-    });
+    const message = Array.isArray(payload)
+      ? JSON.stringify(payload)
+      : JSON.stringify({
+          ...payload,
+          version: 1,
+          _timestamp: Date.now(),
+        });
+    console.log(channel, payload, message);
     await redis.publish(channel, message);
   }
 
