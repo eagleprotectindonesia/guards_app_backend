@@ -55,7 +55,6 @@ ENV HOSTNAME "0.0.0.0"
 CMD ["node", "server.js"]
 
 # 5. Build Worker (Bundle into single JS file)
-
 FROM base AS worker-builder
 WORKDIR /app
 COPY --from=prisma-gen /app/node_modules ./node_modules
@@ -75,7 +74,6 @@ COPY package-lock.json* ./
 RUN npm ci --omit=dev
 
 # 7. Production image for the Worker
-
 FROM base AS worker-runner
 WORKDIR /app
 
@@ -97,3 +95,23 @@ USER workeruser
 
 # Run the bundled worker.js
 CMD ["node", "worker.js"]
+
+# 8. Production image for migrations
+FROM base AS migration-runner
+WORKDIR /app
+ENV NODE_ENV production
+ENV TZ=Asia/Makassar
+
+# Copy migration-specific package file
+COPY package.migration.json ./package.json
+COPY package-lock.json* ./package-lock.json
+
+# Install Prisma CLI and dependencies
+RUN npm ci --omit=dev
+
+# Copy migrations, schema, and config
+COPY prisma ./prisma
+COPY prisma.config.ts ./
+
+# Default command for the migration container
+CMD ["npx", "prisma", "migrate", "deploy"]

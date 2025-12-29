@@ -43,6 +43,19 @@ services:
       redis:
         condition: service_healthy
 
+  migration:
+    build:
+      context: .
+      target: migration-runner
+    image: ep_guard_migration:latest
+    container_name: ep_guard_migration
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - migration
+
   db:
     image: postgres:15-alpine
     container_name: ep_guard_db

@@ -28,15 +28,15 @@ jobs:
             sed -i "s/{{BUILD_ID}}/$BUILD_ID/g" public/guard/sw.js
 
             echo "== Build new images =="
-            docker-compose build
+            docker compose build
 
             echo "== Run DB migrations =="
-            # Run migration in a temporary container (using new image) BEFORE restarting app
-            docker-compose run --rm app npx prisma migrate deploy
+            # Run migration using the dedicated migration service
+            docker compose run --rm migration
 
             echo "== Update containers =="
             # Recreates only changed containers with minimal downtime
-            docker-compose up -d
+            docker compose up -d
 
             echo "== Status =="
-            docker-compose ps
+            docker compose ps

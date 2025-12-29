@@ -1,0 +1,9 @@
+{
+  "name": "ep-guard-migration",
+  "version": "0.1.0",
+  "private": true,
+  "dependencies": {
+    "prisma": "7.1.0",
+    "dotenv": "^17.2.3"
+  }
+}
