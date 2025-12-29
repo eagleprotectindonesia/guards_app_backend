@@ -4,6 +4,7 @@ import CheckinList from './components/checkin-list';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
+import { getAllGuards } from '@/lib/data-access/guards';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +38,7 @@ export default async function CheckinsPage(props: CheckinsPageProps) {
     }
   }
 
-  const [checkins, totalCount, guards] = await prisma.$transaction([
+  const [checkins, totalCount, guards] = await Promise.all([
     prisma.checkin.findMany({
       where,
       orderBy: { at: 'desc' },
@@ -53,9 +54,7 @@ export default async function CheckinsPage(props: CheckinsPageProps) {
       },
     }),
     prisma.checkin.count({ where }),
-    prisma.guard.findMany({
-      orderBy: { name: 'asc' },
-    }),
+    getAllGuards({ name: 'asc' }),
   ]);
 
   const serializedCheckins = serialize(checkins);

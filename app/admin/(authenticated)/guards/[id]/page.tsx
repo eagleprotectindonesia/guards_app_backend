@@ -1,7 +1,7 @@
-import { prisma } from '@/lib/prisma';
 import { serialize } from '@/lib/utils';
 import GuardDetail from '../components/guard-detail';
 import { notFound } from 'next/navigation';
+import { getGuardById } from '@/lib/data-access/guards';
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -10,9 +10,7 @@ type Props = {
 export default async function GuardDetailPage({ params }: Props) {
   const { id } = await params;
 
-  const guard = await prisma.guard.findUnique({
-    where: { id },
-  });
+  const guard = await getGuardById(id);
 
   if (!guard) {
     notFound();

@@ -1,14 +1,12 @@
-import { prisma } from '@/lib/prisma';
 import { serialize } from '@/lib/utils';
 import SiteForm from '../../components/site-form';
 import { notFound } from 'next/navigation';
+import { getSiteById } from '@/lib/data-access/sites';
 
 export default async function EditSitePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const site = await prisma.site.findUnique({
-    where: { id },
-  });
+  const site = await getSiteById(id);
 
   if (!site) {
     notFound();

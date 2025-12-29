@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getAllGuards } from '@/lib/data-access/guards';
 
 export async function GET() {
   // TODO: Auth check (Admin only)
   try {
-    const guards = await prisma.guard.findMany({
-      orderBy: { name: 'asc' },
-    });
+    const guards = await getAllGuards();
+    // DAL returns orderBy createdAt desc by default, but this endpoint might expect name asc.
+    // However, consistency with DAL is preferred unless specific order is required.
+    // The original code was name: asc.
     return NextResponse.json(guards);
   } catch (error) {
     console.error('Error fetching guards:', error);

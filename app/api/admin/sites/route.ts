@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { getAllSites } from '@/lib/data-access/sites';
 
 export async function GET() {
   // TODO: Auth check (Admin only)
   try {
-    const sites = await prisma.site.findMany({
-      orderBy: { name: 'asc' },
-    });
+    const sites = await getAllSites();
     return NextResponse.json(sites);
   } catch (error) {
     console.error('Error fetching sites:', error);

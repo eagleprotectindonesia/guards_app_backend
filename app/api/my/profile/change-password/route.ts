@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { getAuthenticatedGuard } from '@/lib/guard-auth';
+import { updateGuard } from '@/lib/data-access/guards';
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
@@ -32,10 +32,7 @@ export async function POST(req: Request) {
 
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
-    await prisma.guard.update({
-      where: { id: guard.id },
-      data: { hashedPassword: hashedNewPassword },
-    });
+    await updateGuard(guard.id, { hashedPassword: hashedNewPassword });
 
     return NextResponse.json({ message: 'Password updated successfully' }, { status: 200 });
   } catch (error) {

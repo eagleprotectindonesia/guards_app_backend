@@ -4,6 +4,8 @@ import ShiftList from './components/shift-list';
 import { parseISO, startOfDay, endOfDay } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
+import { getAllSites } from '@/lib/data-access/sites';
+import { getActiveGuards } from '@/lib/data-access/guards';
 
 export const metadata: Metadata = {
   title: 'Shifts Management',
@@ -48,12 +50,9 @@ export default async function ShiftsPage({
     prisma.shift.count({ where }),
   ]);
 
-  const sites = await prisma.site.findMany({ orderBy: { name: 'asc' } });
+  const sites = await getAllSites();
   const shiftTypes = await prisma.shiftType.findMany({ orderBy: { name: 'asc' } });
-  const guards = await prisma.guard.findMany({
-    where: { status: true },
-    orderBy: { name: 'asc' },
-  });
+  const guards = await getActiveGuards();
 
   const serializedShifts = serialize(shifts);
   const serializedSites = serialize(sites);

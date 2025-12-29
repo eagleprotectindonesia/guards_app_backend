@@ -1,10 +1,10 @@
-import { prisma } from '@/lib/prisma';
 import { serialize, getPaginationParams } from '@/lib/utils';
 import GuardList from './components/guard-list';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { parseISO, isValid } from 'date-fns';
 import type { Metadata } from 'next';
+import { getPaginatedGuards } from '@/lib/data-access/guards';
 
 export const metadata: Metadata = {
   title: 'Guards Management',
@@ -63,22 +63,12 @@ export default async function GuardsPage(props: GuardsPageProps) {
     }
   }
 
-  const [guards, totalCount] = await prisma.$transaction([
-    prisma.guard.findMany({
-      where,
-      orderBy: { [sortField]: sortOrder as 'asc' | 'desc' },
-      skip,
-      take: perPage,
-      include: {
-        lastUpdatedBy: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    }),
-    prisma.guard.count({ where }),
-  ]);
+  const { guards, totalCount } = await getPaginatedGuards({
+    where,
+    orderBy: { [sortField]: sortOrder as 'asc' | 'desc' },
+    skip,
+    take: perPage,
+  });
 
   const serializedGuards = serialize(guards);
 

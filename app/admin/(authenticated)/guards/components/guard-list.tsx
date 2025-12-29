@@ -118,14 +118,14 @@ export default function GuardList({
         headers.join(','),
         ...guards.map(guard => {
           return [
-            `"${guard.name}"`, 
-            `"${guard.phone}"`, 
+            `"${guard.name}"`,
+            `"${guard.phone}"`,
             `"${guard.id}"`,
-            `"${guard.guardCode || ''}"`, 
+            `"${guard.guardCode || ''}"`,
             guard.status ? 'Active' : 'Inactive',
-            `"${guard.joinDate ? new Date(guard.joinDate).toLocaleDateString() : ''}"`, 
-            `"${guard.leftDate ? new Date(guard.leftDate).toLocaleDateString() : ''}"`, 
-            `"${guard.note ? guard.note.replace(/"/g, '""') : ''}"`, 
+            `"${guard.joinDate ? new Date(guard.joinDate).toLocaleDateString() : ''}"`,
+            `"${guard.leftDate ? new Date(guard.leftDate).toLocaleDateString() : ''}"`,
+            `"${guard.note ? guard.note.replace(/"/g, '""') : ''}"`,
           ].join(',');
         }),
       ].join('\n');
@@ -233,7 +233,9 @@ export default function GuardList({
                   onSort={handleSort}
                   className="text-center"
                 />
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Phone</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
+                  Phone
+                </th>
                 <SortableHeader
                   label="Guard Code"
                   field="guardCode"
@@ -242,7 +244,9 @@ export default function GuardList({
                   onSort={handleSort}
                   className="text-center"
                 />
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
+                  Status
+                </th>
                 <SortableHeader
                   label="Joined Date"
                   field="joinDate"
@@ -251,8 +255,12 @@ export default function GuardList({
                   onSort={handleSort}
                   className="text-center"
                 />
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Left Date</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Last Updated By</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
+                  Left Date
+                </th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
+                  Last Updated By
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
                   Actions
                 </th>
@@ -301,9 +309,7 @@ export default function GuardList({
                     <td className="py-4 px-6 text-sm text-gray-500">
                       {guard.leftDate ? new Date(guard.leftDate).toLocaleDateString() : '-'}
                     </td>
-                    <td className="py-4 px-6 text-sm text-gray-500">
-                      {guard.lastUpdatedBy?.name || '-'}
-                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-500">{guard.lastUpdatedBy?.name || '-'}</td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-100">
                         <Link

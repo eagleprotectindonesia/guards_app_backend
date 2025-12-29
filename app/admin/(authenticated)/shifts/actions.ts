@@ -6,6 +6,8 @@ import { revalidatePath } from 'next/cache';
 import { parse, addDays, isBefore } from 'date-fns';
 import { Shift } from '@prisma/client';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
+import { getAllSites } from '@/lib/data-access/sites';
+import { getActiveGuards } from '@/lib/data-access/guards';
 
 export type ActionState = {
   message?: string;
@@ -315,12 +317,9 @@ export async function bulkCreateShifts(
 
   // Fetch all reference data for lookups
   const [sites, shiftTypes, guards] = await Promise.all([
-    prisma.site.findMany({ select: { id: true, name: true } }),
+    getAllSites(),
     prisma.shiftType.findMany({ select: { id: true, name: true, startTime: true, endTime: true } }),
-    prisma.guard.findMany({
-      where: { status: true },
-      select: { id: true, name: true },
-    }),
+    getActiveGuards(),
   ]);
 
   const siteMap = new Map(sites.map(s => [s.name.toLowerCase(), s.id]));

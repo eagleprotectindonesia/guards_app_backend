@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
+import { getAllGuards } from '@/lib/data-access/guards';
 
 export const metadata: Metadata = {
   title: 'Guard Audit Logs',
@@ -62,7 +63,7 @@ export default async function GuardAuditPage(props: PageProps) {
     }
   }
 
-  const [changelogs, totalCount, guards] = await prisma.$transaction([
+  const [changelogs, totalCount, guards] = await Promise.all([
     prisma.changelog.findMany({
       where,
       orderBy: { [sortField]: sortOrder },
@@ -77,9 +78,7 @@ export default async function GuardAuditPage(props: PageProps) {
       },
     }),
     prisma.changelog.count({ where }),
-    prisma.guard.findMany({
-      orderBy: { name: 'asc' },
-    }),
+    getAllGuards({ name: 'asc' }),
   ]);
 
   const serializedChangelogs = serialize(changelogs);

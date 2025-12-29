@@ -2,18 +2,17 @@ import { prisma } from '@/lib/prisma';
 import { serialize } from '@/lib/utils';
 import ShiftForm from '../../components/shift-form';
 import { notFound } from 'next/navigation';
+import { getAllSites } from '@/lib/data-access/sites';
+import { getActiveGuards } from '@/lib/data-access/guards';
 
 export default async function EditShiftPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   const [shift, sites, shiftTypes, guards] = await Promise.all([
     prisma.shift.findUnique({ where: { id } }),
-    prisma.site.findMany({ orderBy: { name: 'asc' } }),
+    getAllSites(),
     prisma.shiftType.findMany({ orderBy: { name: 'asc' } }),
-    prisma.guard.findMany({
-      where: { status: true },
-      orderBy: { name: 'asc' },
-    }),
+    getActiveGuards(),
   ]);
 
   if (!shift) {

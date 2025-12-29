@@ -4,6 +4,7 @@ import AttendanceList, { AttendanceWithRelations } from './components/attendance
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
+import { getAllGuards } from '@/lib/data-access/guards';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,7 +38,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
     }
   }
 
-  const [attendances, totalCount, guards] = await prisma.$transaction([
+  const [attendances, totalCount, guards] = await Promise.all([
     prisma.attendance.findMany({
       where,
       orderBy: { recordedAt: 'desc' },
@@ -54,9 +55,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
       },
     }),
     prisma.attendance.count({ where }),
-    prisma.guard.findMany({
-      orderBy: { name: 'asc' },
-    }),
+    getAllGuards({ name: 'asc' }),
   ]);
 
   const serializedAttendances = serialize(attendances) as unknown as Serialized<AttendanceWithRelations>[];

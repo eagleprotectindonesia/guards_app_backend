@@ -1,14 +1,12 @@
-import { prisma } from '@/lib/prisma';
 import { serialize } from '@/lib/utils';
 import GuardForm from '../../components/guard-form';
 import { notFound } from 'next/navigation';
+import { getGuardById } from '@/lib/data-access/guards';
 
 export default async function EditGuardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const guard = await prisma.guard.findUnique({
-    where: { id },
-  });
+  const guard = await getGuardById(id);
 
   if (!guard) {
     notFound();

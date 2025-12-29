@@ -2,9 +2,9 @@ import { NextResponse } from 'next/server';
 import { cookies, headers } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { z } from 'zod';
+import { getGuardById, updateGuard } from '@/lib/data-access/guards';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
@@ -36,9 +36,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { employeeId, password } = guardLoginSchema.parse(body);
 
-    const guard = await prisma.guard.findUnique({
-      where: { id: employeeId },
-    });
+    const guard = await getGuardById(employeeId);
 
     if (!guard) {
       return NextResponse.json({ message: 'Invalid Guard' }, { status: 401 });
@@ -55,9 +53,8 @@ export async function POST(req: Request) {
     }
 
     // Increment token version to invalidate other sessions
-    const updatedGuard = await prisma.guard.update({
-      where: { id: guard.id },
-      data: { tokenVersion: { increment: 1 } },
+    const updatedGuard = await updateGuard(guard.id, {
+      tokenVersion: { increment: 1 },
     });
 
     // Notify other active sessions to logout

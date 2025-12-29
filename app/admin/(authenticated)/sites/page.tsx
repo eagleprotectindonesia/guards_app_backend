@@ -1,9 +1,8 @@
-import { prisma } from '@/lib/prisma';
 import { serialize, getPaginationParams } from '@/lib/utils';
 import SiteList from './components/site-list';
 import { Suspense } from 'react';
-import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
+import { getPaginatedSites } from '@/lib/data-access/sites';
 
 export const metadata: Metadata = {
   title: 'Sites Management',
@@ -20,31 +19,11 @@ export default async function SitesPage(props: SitesPageProps) {
   const { page, perPage, skip } = getPaginationParams(searchParams);
   const query = searchParams.q as string | undefined;
 
-  const where: Prisma.SiteWhereInput = query
-    ? {
-        OR: [
-          { name: { contains: query, mode: 'insensitive' } },
-          { clientName: { contains: query, mode: 'insensitive' } },
-        ],
-      }
-    : {};
-
-  const [sites, totalCount] = await prisma.$transaction([
-    prisma.site.findMany({
-      where,
-      orderBy: { name: 'asc' },
-      skip,
-      take: perPage,
-      include: {
-        lastUpdatedBy: {
-          select: {
-            name: true,
-          },
-        },
-      },
-    }),
-    prisma.site.count({ where }),
-  ]);
+  const { sites, totalCount } = await getPaginatedSites({
+    query,
+    skip,
+    take: perPage,
+  });
 
   const serializedSites = serialize(sites);
 

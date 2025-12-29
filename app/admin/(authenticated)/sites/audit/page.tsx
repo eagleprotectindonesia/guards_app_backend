@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
+import { getAllSites } from '@/lib/data-access/sites';
 
 export const metadata: Metadata = {
   title: 'Site Audit Logs',
@@ -62,7 +63,7 @@ export default async function SiteAuditPage(props: PageProps) {
     }
   }
 
-  const [changelogs, totalCount, sites] = await prisma.$transaction([
+  const [changelogs, totalCount, sites] = await Promise.all([
     prisma.changelog.findMany({
       where,
       orderBy: { [sortField]: sortOrder },
@@ -77,9 +78,7 @@ export default async function SiteAuditPage(props: PageProps) {
       },
     }),
     prisma.changelog.count({ where }),
-    prisma.site.findMany({
-      orderBy: { name: 'asc' },
-    }),
+    getAllSites(),
   ]);
 
   const serializedChangelogs = serialize(changelogs);
