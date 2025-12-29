@@ -1,15 +1,16 @@
 import { POST } from '../app/api/shifts/[id]/checkin/route';
 import { prisma } from '../lib/prisma';
 import { getAuthenticatedGuard } from '../lib/guard-auth';
+import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
+import { PrismaClient } from '@prisma/client';
+
+const prismaMock = prisma as unknown as DeepMockProxy<PrismaClient>;
 
 // Mock the dependencies
-jest.mock('../lib/prisma', () => {
-  const { mockDeep } = jest.requireActual('jest-mock-extended');
-  return {
-    __esModule: true,
-    prisma: mockDeep<import('@prisma/client').PrismaClient>(),
-  };
-});
+jest.mock('../lib/prisma', () => ({
+  __esModule: true,
+  prisma: mockDeep<PrismaClient>(),
+}));
 
 jest.mock('../lib/guard-auth', () => ({
   getAuthenticatedGuard: jest.fn(),
@@ -36,7 +37,7 @@ describe('POST /api/shifts/[id]/checkin - Last Slot Case', () => {
 
   beforeEach(() => {
     const { mockReset } = jest.requireActual('jest-mock-extended');
-    mockReset(prisma as any);
+    mockReset(prismaMock);
     jest.clearAllMocks();
   });
 
@@ -59,17 +60,17 @@ describe('POST /api/shifts/[id]/checkin - Last Slot Case', () => {
       site: { latitude: null, longitude: null },
       shiftType: {},
       guard: mockGuard,
-    };
+    } as unknown;
 
-    (prisma.shift.findUnique as jest.Mock).mockResolvedValue(mockShift);
+    (prismaMock.shift.findUnique as jest.Mock).mockResolvedValue(mockShift);
 
     // Mock transaction
-    (prisma.$transaction as jest.Mock).mockImplementation(async (cb: any) => {
-      return cb(prisma);
+    (prismaMock.$transaction as jest.Mock).mockImplementation(async (cb: (tx: PrismaClient) => Promise<unknown>) => {
+      return cb(prismaMock as unknown as PrismaClient);
     });
 
-    (prisma.checkin.create as jest.Mock).mockResolvedValue({ id: 'checkin-1' });
-    (prisma.shift.update as jest.Mock).mockResolvedValue({ ...mockShift, status: 'completed' });
+    (prismaMock.checkin.create as jest.Mock).mockResolvedValue({ id: 'checkin-1' });
+    (prismaMock.shift.update as jest.Mock).mockResolvedValue({ ...(mockShift as Record<string, unknown>), status: 'completed' });
 
     const req = new Request(`http://localhost/api/shifts/${shiftId}/checkin`, {
       method: 'POST',
@@ -83,7 +84,7 @@ describe('POST /api/shifts/[id]/checkin - Last Slot Case', () => {
     expect(data.isLastSlot).toBe(true);
     
     // Verify shift update call includes status: 'completed'
-    expect(prisma.shift.update).toHaveBeenCalledWith({
+    expect(prismaMock.shift.update).toHaveBeenCalledWith({
       where: { id: shiftId },
       data: expect.objectContaining({
         status: 'completed',
@@ -114,9 +115,9 @@ describe('POST /api/shifts/[id]/checkin - Last Slot Case', () => {
       site: { latitude: null, longitude: null },
       shiftType: {},
       guard: mockGuard,
-    };
+    } as unknown;
 
-    (prisma.shift.findUnique as jest.Mock).mockResolvedValue(mockShift);
+    (prismaMock.shift.findUnique as jest.Mock).mockResolvedValue(mockShift);
 
     const req = new Request(`http://localhost/api/shifts/${shiftId}/checkin`, {
       method: 'POST',

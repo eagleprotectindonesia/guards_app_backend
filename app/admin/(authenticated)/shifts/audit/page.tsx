@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { serialize, getPaginationParams } from '@/lib/utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
+import ShiftChangelogFilterModal from '../../changelogs/components/shift-changelog-filter-modal';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
@@ -19,7 +20,6 @@ type PageProps = {
 export default async function ShiftAuditPage(props: PageProps) {
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
-  const query = searchParams.q as string | undefined;
   const action = searchParams.action as string | undefined;
   const startDateParam = searchParams.startDate as string | undefined;
   const endDateParam = searchParams.endDate as string | undefined;
@@ -36,10 +36,6 @@ export default async function ShiftAuditPage(props: PageProps) {
   const where: Prisma.ChangelogWhereInput = {
     entityType: 'Shift',
   };
-
-  if (query) {
-    where.entityId = { contains: query, mode: 'insensitive' };
-  }
 
   if (action) {
     where.action = action;
@@ -92,7 +88,7 @@ export default async function ShiftAuditPage(props: PageProps) {
           sortOrder={sortOrder}
           hideEntityType={true}
           fixedEntityType="Shift"
-          entityIdLabel="Shift ID"
+          FilterModal={ShiftChangelogFilterModal}
         />
       </Suspense>
     </div>

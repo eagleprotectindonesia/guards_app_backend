@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { serialize, getPaginationParams } from '@/lib/utils';
 import ChangelogList from './components/changelog-list';
+import ChangelogFilterModal from './components/changelog-filter-modal';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
@@ -19,7 +20,6 @@ type ChangelogsPageProps = {
 export default async function ChangelogsPage(props: ChangelogsPageProps) {
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
-  const query = searchParams.q as string | undefined;
   const action = searchParams.action as string | undefined;
   const entityType = searchParams.entityType as string | undefined;
   const startDateParam = searchParams.startDate as string | undefined;
@@ -37,10 +37,6 @@ export default async function ChangelogsPage(props: ChangelogsPageProps) {
   const sortField = validSortFields.includes(sortBy) ? (sortBy as 'createdAt' | 'action' | 'entityType' | 'entityId') : 'createdAt';
 
   const where: Prisma.ChangelogWhereInput = {};
-
-  if (query) {
-    where.entityId = { contains: query, mode: 'insensitive' };
-  }
 
   if (action) {
     where.action = action;
@@ -95,6 +91,7 @@ export default async function ChangelogsPage(props: ChangelogsPageProps) {
           totalCount={totalCount}
           sortBy={sortField}
           sortOrder={sortOrder}
+          FilterModal={ChangelogFilterModal}
         />
       </Suspense>
     </div>

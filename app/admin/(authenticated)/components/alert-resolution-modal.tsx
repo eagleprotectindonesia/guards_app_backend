@@ -18,11 +18,11 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm, alert
   // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
-      setOutcome('resolve');
+      setOutcome(alertType === 'missed_attendance' ? 'forgive' : 'resolve');
       setNote('');
       setIsSubmitting(false);
     }
-  }, [isOpen]);
+  }, [isOpen, alertType]);
 
   const handleSubmit = async () => {
     if (!note.trim()) return;
@@ -39,23 +39,25 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm, alert
       <div className="space-y-6 p-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">Resolution Outcome</label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setOutcome('resolve')}
-              className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
-                outcome === 'resolve'
-                  ? 'border-blue-600 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-              }`}
-            >
-              <span className="font-semibold mb-1">Reject</span>
-              <span className="text-xs text-center opacity-80">
-                {alertType === 'missed_attendance'
-                  ? 'Record attendance as absent'
-                  : 'Mark as resolved but keep "Missed" count.'}
-              </span>
-            </button>
+          <div className={`grid ${alertType === 'missed_attendance' ? 'grid-cols-1' : 'grid-cols-2'} gap-3`}>
+            {alertType !== 'missed_attendance' && (
+              <button
+                type="button"
+                onClick={() => setOutcome('resolve')}
+                className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
+                  outcome === 'resolve'
+                    ? 'border-blue-600 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <span className="font-semibold mb-1">Reject</span>
+                <span className="text-xs text-center opacity-80">
+                  {alertType === 'missed_attendance'
+                    ? 'Record attendance as absent'
+                    : 'Mark as resolved but keep "Missed" count.'}
+                </span>
+              </button>
+            )}
 
             <button
               type="button"
