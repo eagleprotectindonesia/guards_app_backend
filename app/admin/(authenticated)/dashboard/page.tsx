@@ -108,10 +108,7 @@ export default function AdminDashboard() {
                 <div className="text-2xl font-bold text-green-700">
                   {activeSites.reduce(
                     (acc, site) =>
-                      acc +
-                      site.shifts.filter(
-                        s => s.guard && s.attendance && s.attendance.status !== 'absent'
-                      ).length,
+                      acc + site.shifts.filter(s => s.guard && s.attendance && s.attendance.status !== 'absent').length,
                     0
                   )}
                 </div>

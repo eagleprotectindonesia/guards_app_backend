@@ -14,7 +14,7 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Pencil, Upload, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Pencil, Upload, ArrowUpDown, ArrowUp, ArrowDown, History } from 'lucide-react';
 
 export type ShiftWithRelations = Shift & {
   site: Site;
@@ -180,6 +180,13 @@ export default function ShiftList({
             <Upload className="w-4 h-4 mr-2" />
             Upload CSV
           </button>
+          <Link
+            href="/admin/shifts/audit"
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            <History className="mr-2 h-4 w-4" />
+            Audit Log
+          </Link>
           <Link
             href="/admin/shifts/create"
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"

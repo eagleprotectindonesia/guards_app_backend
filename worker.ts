@@ -119,7 +119,6 @@ class SchedulingWorker {
           version: 1,
           _timestamp: Date.now(),
         });
-    console.log(channel, payload, message);
     await redis.publish(channel, message);
   }
 

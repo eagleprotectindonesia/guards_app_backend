@@ -91,19 +91,43 @@ export async function createShift(prevState: ActionState, formData: FormData): P
       }
     }
 
-    await prisma.shift.create({
-      data: {
-        siteId,
-        shiftTypeId,
-        guardId: guardId || null,
-        date: dateObj,
-        startsAt: startDateTime,
-        endsAt: endDateTime,
-        requiredCheckinIntervalMins,
-        graceMinutes,
-        status: 'scheduled',
-        createdBy: adminId,
-      },
+    await prisma.$transaction(async tx => {
+      const createdShift = await tx.shift.create({
+        data: {
+          siteId,
+          shiftTypeId,
+          guardId: guardId || null,
+          date: dateObj,
+          startsAt: startDateTime,
+          endsAt: endDateTime,
+          requiredCheckinIntervalMins,
+          graceMinutes,
+          status: 'scheduled',
+          createdBy: adminId,
+        },
+        include: {
+          site: true,
+          shiftType: true,
+          guard: true,
+        },
+      });
+
+      await tx.changelog.create({
+        data: {
+          action: 'CREATE',
+          entityType: 'Shift',
+          entityId: createdShift.id,
+          adminId: adminId,
+          details: {
+            site: createdShift.site.name,
+            type: createdShift.shiftType.name,
+            guard: createdShift.guard?.name || 'Unassigned',
+            date: date,
+            startsAt: createdShift.startsAt,
+            endsAt: createdShift.endsAt,
+          },
+        },
+      });
     });
   } catch (error) {
     console.error('Database Error:', error);
@@ -118,9 +142,7 @@ export async function createShift(prevState: ActionState, formData: FormData): P
 }
 
 export async function updateShift(id: string, prevState: ActionState, formData: FormData): Promise<ActionState> {
-  // Similar logic, but we might need to recalculate times if shiftType or date changes.
-  // For simplicity, we'll assume we recalculate if fields are present.
-
+  const adminId = await getAdminIdFromToken();
   const validatedFields = createShiftSchema.safeParse({
     siteId: formData.get('siteId'),
     shiftTypeId: formData.get('shiftTypeId'),
@@ -176,18 +198,44 @@ export async function updateShift(id: string, prevState: ActionState, formData: 
       }
     }
 
-    await prisma.shift.update({
-      where: { id },
-      data: {
-        siteId,
-        shiftTypeId,
-        guardId: guardId || null,
-        date: dateObj,
-        startsAt: startDateTime,
-        endsAt: endDateTime,
-        requiredCheckinIntervalMins,
-        graceMinutes,
-      },
+    await prisma.$transaction(async tx => {
+      const updatedShift = await tx.shift.update({
+        where: { id },
+        data: {
+          siteId,
+          shiftTypeId,
+          guardId: guardId || null,
+          date: dateObj,
+          startsAt: startDateTime,
+          endsAt: endDateTime,
+          requiredCheckinIntervalMins,
+          graceMinutes,
+        },
+        include: {
+          site: true,
+          shiftType: true,
+          guard: true,
+        },
+      });
+
+      await tx.changelog.create({
+        data: {
+          action: 'UPDATE',
+          entityType: 'Shift',
+          entityId: updatedShift.id,
+          adminId: adminId,
+          details: {
+            site: updatedShift.site.name,
+            type: updatedShift.shiftType.name,
+            guard: updatedShift.guard?.name || 'Unassigned',
+            date: date,
+            startsAt: updatedShift.startsAt,
+            endsAt: updatedShift.endsAt,
+            interval: requiredCheckinIntervalMins,
+            grace: graceMinutes,
+          },
+        },
+      });
     });
   } catch (error) {
     console.error('Database Error:', error);
@@ -203,20 +251,44 @@ export async function updateShift(id: string, prevState: ActionState, formData: 
 
 export async function deleteShift(id: string) {
   try {
-    await prisma.$transaction([
-      prisma.alert.deleteMany({
-        where: { shiftId: id },
-      }),
-      prisma.checkin.deleteMany({
-        where: { shiftId: id },
-      }),
-      prisma.attendance.deleteMany({
-        where: { shiftId: id },
-      }),
-      prisma.shift.delete({
+    const adminId = await getAdminIdFromToken();
+    await prisma.$transaction(async tx => {
+      const shiftToDelete = await tx.shift.findUnique({
         where: { id },
-      }),
-    ]);
+        include: { site: true, shiftType: true, guard: true },
+      });
+
+      await tx.alert.deleteMany({
+        where: { shiftId: id },
+      });
+      await tx.checkin.deleteMany({
+        where: { shiftId: id },
+      });
+      await tx.attendance.deleteMany({
+        where: { shiftId: id },
+      });
+      await tx.shift.delete({
+        where: { id },
+      });
+
+      if (shiftToDelete) {
+        await tx.changelog.create({
+          data: {
+            action: 'DELETE',
+            entityType: 'Shift',
+            entityId: id,
+            adminId: adminId,
+            details: {
+              site: shiftToDelete.site.name,
+              type: shiftToDelete.shiftType.name,
+              guard: shiftToDelete.guard?.name || 'Unassigned',
+              date: shiftToDelete.date,
+              deletedAt: new Date(),
+            },
+          },
+        });
+      }
+    });
     revalidatePath('/admin/shifts');
     return { success: true };
   } catch (error) {
@@ -247,13 +319,13 @@ export async function bulkCreateShifts(
     prisma.shiftType.findMany({ select: { id: true, name: true, startTime: true, endTime: true } }),
     prisma.guard.findMany({
       where: { status: true },
-      select: { id: true, name: true }, // Changed from guardCode to name
+      select: { id: true, name: true },
     }),
   ]);
 
   const siteMap = new Map(sites.map(s => [s.name.toLowerCase(), s.id]));
   const shiftTypeMap = new Map(shiftTypes.map(st => [st.name.toLowerCase(), st]));
-  const guardMap = new Map(guards.map(g => [g.name.toLowerCase(), g.id])); // Changed to use name instead of code
+  const guardMap = new Map(guards.map(g => [g.name.toLowerCase(), g.id]));
 
   const errors: string[] = [];
   const shiftsToCreate: Pick<
@@ -275,14 +347,8 @@ export async function bulkCreateShifts(
 
   for (let i = startRow; i < lines.length; i++) {
     const line = lines[i];
-    // Simple CSV split, handling potential quotes if needed?
-    // For now, assume simple comma separation as per prompt requirements of "csv input" usually implying standard or simple csv.
-    // If we wanted to be robust against commas in names, we'd need a parser.
-    // Given previous context, let's try to handle basic quotes if possible, or just split.
-    // Splitting by comma is risky if names have commas. But names are usually "Site A", "Morning Shift".
     const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
 
-    // Expected: Site Name, Shift Type Name, Date, Guard Name, Required Check-in Interval (minutes), Grace Period (minutes)
     if (cols.length < 6) {
       errors.push(
         `Row ${
@@ -315,7 +381,6 @@ export async function bulkCreateShifts(
 
     const guardId = guardName ? guardMap.get(guardName.toLowerCase()) || null : null;
     if (!guardId && guardName) {
-      // Only show error if a guard name was provided but not found
       errors.push(`Row ${i + 1}: Guard with name '${guardName}' not found or inactive.`);
     }
 
@@ -325,7 +390,6 @@ export async function bulkCreateShifts(
       errors.push(`Row ${i + 1}: Invalid date format '${dateStr}'. Expected YYYY-MM-DD.`);
     }
 
-    // Validate interval and grace minutes
     const interval = parseInt(intervalStr, 10);
     const grace = parseInt(graceStr, 10);
 
@@ -347,8 +411,6 @@ export async function bulkCreateShifts(
       !isNaN(grace) &&
       grace >= 0
     ) {
-      // guardId is now optional (can be null)
-      // Prepare data
       const dateObj = new Date(`${dateStr}T00:00:00Z`);
       const startDateTime = parse(`${dateStr} ${shiftType.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
       let endDateTime = parse(`${dateStr} ${shiftType.endTime}`, 'yyyy-MM-dd HH:mm', new Date());
@@ -362,7 +424,6 @@ export async function bulkCreateShifts(
         continue;
       }
 
-      // Check intra-batch overlap
       if (guardId) {
         const overlapInBatch = shiftsToCreate.find(
           s => s.guardId === guardId && s.startsAt < endDateTime && s.endsAt > startDateTime
@@ -373,7 +434,6 @@ export async function bulkCreateShifts(
           continue;
         }
 
-        // Check DB overlap
         const existingShift = await prisma.shift.findFirst({
           where: {
             guardId,
@@ -391,7 +451,7 @@ export async function bulkCreateShifts(
       shiftsToCreate.push({
         siteId,
         shiftTypeId: shiftType.id,
-        guardId: guardId || null, // Allow null for unassigned shifts
+        guardId: guardId || null,
         date: dateObj,
         startsAt: startDateTime,
         endsAt: endDateTime,
@@ -412,9 +472,35 @@ export async function bulkCreateShifts(
   }
 
   try {
-    await prisma.shift.createMany({
-      data: shiftsToCreate,
+    await prisma.$transaction(async tx => {
+      const createdShifts = await tx.shift.createManyAndReturn({
+        data: shiftsToCreate,
+        include: {
+          site: { select: { name: true } },
+          shiftType: { select: { name: true } },
+          guard: { select: { name: true } },
+        },
+      });
+
+      await tx.changelog.createMany({
+        data: createdShifts.map(s => ({
+          action: 'CREATE',
+          entityType: 'Shift',
+          entityId: s.id,
+          adminId: adminId,
+          details: {
+            method: 'BULK_UPLOAD',
+            site: s.site.name,
+            type: s.shiftType.name,
+            guard: s.guard?.name || 'Unassigned',
+            date: s.date,
+            startsAt: s.startsAt,
+            endsAt: s.endsAt,
+          },
+        })),
+      });
     });
+
     revalidatePath('/admin/shifts');
     return { success: true, message: `Successfully created ${shiftsToCreate.length} shifts.` };
   } catch (error) {

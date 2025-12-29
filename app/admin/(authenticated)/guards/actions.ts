@@ -66,8 +66,28 @@ export async function createGuard(prevState: ActionState, formData: FormData): P
       lastUpdatedById: adminId,
     };
 
-    await prisma.guard.create({
-      data: dataToCreate,
+    await prisma.$transaction(async tx => {
+      const createdGuard = await tx.guard.create({
+        data: dataToCreate,
+      });
+
+      await tx.changelog.create({
+        data: {
+          action: 'CREATE',
+          entityType: 'Guard',
+          entityId: createdGuard.id,
+          adminId: adminId,
+          details: {
+            name: createdGuard.name,
+            phone: createdGuard.phone,
+            guardCode: createdGuard.guardCode,
+            status: createdGuard.status,
+            joinDate: createdGuard.joinDate,
+            leftDate: createdGuard.leftDate,
+            note: createdGuard.note,
+          },
+        },
+      });
     });
   } catch (error) {
     if (error instanceof PrismaClientKnownRequestError) {
@@ -125,12 +145,27 @@ export async function updateGuard(id: string, prevState: ActionState, formData: 
   }
 
   try {
-    await prisma.guard.update({
-      where: { id },
-      data: {
-        ...validatedFields.data,
-        lastUpdatedById: adminId,
-      },
+    await prisma.$transaction(async tx => {
+      const updatedGuard = await tx.guard.update({
+        where: { id },
+        data: {
+          ...validatedFields.data,
+          lastUpdatedById: adminId,
+        },
+      });
+
+      await tx.changelog.create({
+        data: {
+          action: 'UPDATE',
+          entityType: 'Guard',
+          entityId: updatedGuard.id,
+          adminId: adminId,
+          details: {
+            ...validatedFields.data,
+            name: updatedGuard.name, // Ensure name is always present for display
+          },
+        },
+      });
     });
   } catch (error) {
     if (error instanceof PrismaClientKnownRequestError) {
@@ -179,9 +214,23 @@ export async function updateGuardPassword(
 
   try {
     const hashedPassword = await hashPassword(validatedFields.data.password);
-    await prisma.guard.update({
-      where: { id },
-      data: { hashedPassword },
+    const adminId = await getAdminIdFromToken();
+
+    await prisma.$transaction(async tx => {
+      await tx.guard.update({
+        where: { id },
+        data: { hashedPassword, lastUpdatedById: adminId },
+      });
+
+      await tx.changelog.create({
+        data: {
+          action: 'UPDATE',
+          entityType: 'Guard',
+          entityId: id,
+          adminId: adminId,
+          details: { field: 'password', status: 'changed' },
+        },
+      });
     });
   } catch (error) {
     console.error('Database Error:', error);
@@ -197,8 +246,33 @@ export async function updateGuardPassword(
 
 export async function deleteGuard(id: string) {
   try {
-    await prisma.guard.delete({
-      where: { id },
+    const adminId = await getAdminIdFromToken();
+    await prisma.$transaction(async tx => {
+      // Fetch guard details before deletion to store in log
+      const guardToDelete = await tx.guard.findUnique({
+        where: { id },
+        select: { name: true, phone: true, id: true },
+      });
+
+      await tx.guard.delete({
+        where: { id },
+      });
+
+      if (guardToDelete) {
+        await tx.changelog.create({
+          data: {
+            action: 'DELETE',
+            entityType: 'Guard',
+            entityId: id,
+            adminId: adminId,
+            details: {
+              name: guardToDelete.name,
+              phone: guardToDelete.phone,
+              deletedAt: new Date(),
+            },
+          },
+        });
+      }
     });
     revalidatePath('/admin/guards');
     return { success: true };
@@ -227,15 +301,7 @@ export async function bulkCreateGuards(
   const errors: string[] = [];
   const guardsToCreate: Pick<
     Guard,
-    | 'name'
-    | 'phone'
-    | 'id'
-    | 'guardCode'
-    | 'note'
-    | 'joinDate'
-    | 'hashedPassword'
-    | 'status'
-    | 'lastUpdatedById'
+    'name' | 'phone' | 'id' | 'guardCode' | 'note' | 'joinDate' | 'hashedPassword' | 'status' | 'lastUpdatedById'
   >[] = [];
   const phonesToCheck: string[] = [];
   const idsToCheck: string[] = [];
@@ -251,9 +317,7 @@ export async function bulkCreateGuards(
     // Expected: Name, Phone, ID (was Employee ID), Guard Code, Note, Join Date, Password
     // At minimum, Name, Phone, ID, Password, and Join Date are required.
     if (cols.length < 4) {
-      errors.push(
-        `Row ${i + 1}: Insufficient columns. Name, Phone, Guard ID, Password, and Join Date are required.`
-      );
+      errors.push(`Row ${i + 1}: Insufficient columns. Name, Phone, Guard ID, Password, and Join Date are required.`);
       continue;
     }
 
@@ -437,8 +501,30 @@ export async function bulkCreateGuards(
       joinDate: g.joinDate ? new Date(g.joinDate) : undefined,
     }));
 
-    await prisma.guard.createMany({
-      data: finalData,
+    await prisma.$transaction(async tx => {
+      const createdGuards = await tx.guard.createManyAndReturn({
+        data: finalData,
+        select: { id: true, name: true, phone: true, guardCode: true, status: true, joinDate: true },
+      });
+
+      // Log the creation event for EACH guard so their individual history is complete
+      await tx.changelog.createMany({
+        data: createdGuards.map(g => ({
+          action: 'CREATE', // Treat as standard creation for history consistency
+          entityType: 'Guard',
+          entityId: g.id,
+          adminId: adminId,
+          details: {
+            method: 'BULK_UPLOAD',
+            name: g.name,
+            phone: g.phone,
+            guardCode: g.guardCode,
+            status: g.status,
+            joinDate: g.joinDate,
+            // We can add other fields if needed, but this is the core info
+          },
+        })),
+      });
     });
 
     revalidatePath('/admin/guards');
