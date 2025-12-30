@@ -24,6 +24,7 @@ model Admin {
   resolvedAlerts     Alert[]   @relation("ResolvedBy")
   updatedGuards      Guard[]   @relation("GuardLastUpdatedBy")
   updatedSites       Site[]    @relation("SiteLastUpdatedBy")
+  updatedShiftTypes  ShiftType[] @relation("ShiftTypeLastUpdatedBy")
   changelogs         Changelog[]
 
   @@map("admins")
@@ -87,13 +88,15 @@ model Site {
 }
 
 model ShiftType {
-  id        String   @id @default(uuid())
-  name      String
-  startTime String   @map("start_time")
-  endTime   String   @map("end_time")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  shifts    Shift[]
+  id              String   @id @default(uuid())
+  name            String
+  startTime       String   @map("start_time")
+  endTime         String   @map("end_time")
+  lastUpdatedById String?  @map("last_updated_by_id")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  shifts          Shift[]
+  lastUpdatedBy   Admin?   @relation("ShiftTypeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
 
   @@map("shift_types")
 }

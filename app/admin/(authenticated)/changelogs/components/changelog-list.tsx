@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, ComponentType } from 'react';
-import { Changelog, Prisma, Guard, Site } from '@prisma/client';
+import { Changelog, Prisma, Guard, Site, ShiftType } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import PaginationNav from '../../components/pagination-nav';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -21,6 +21,7 @@ type FilterModalProps = {
   initialFilters: Record<string, string | null>;
   guards?: Serialized<Guard>[];
   sites?: Serialized<Site>[];
+  shiftTypes?: Serialized<ShiftType>[];
 };
 
 type ChangelogListProps = {
@@ -36,6 +37,7 @@ type ChangelogListProps = {
   FilterModal: ComponentType<FilterModalProps>;
   guards?: Serialized<Guard>[];
   sites?: Serialized<Site>[];
+  shiftTypes?: Serialized<ShiftType>[];
 };
 
 export default function ChangelogList({
@@ -51,6 +53,7 @@ export default function ChangelogList({
   FilterModal,
   guards,
   sites,
+  shiftTypes,
 }: ChangelogListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -279,6 +282,7 @@ export default function ChangelogList({
         }}
         guards={guards}
         sites={sites}
+        shiftTypes={shiftTypes}
       />
     </div>
   );

@@ -9,12 +9,14 @@ import { DeleteButton } from '../../components/action-buttons';
 import toast from 'react-hot-toast';
 import PaginationNav from '../../components/pagination-nav';
 import Link from 'next/link';
-import { Pencil } from 'lucide-react';
+import { Pencil, History } from 'lucide-react';
 
-type ShiftTypeOnly = ShiftType; // Renamed type, no longer includes Site
+type ShiftTypeWithUpdater = ShiftType & {
+  lastUpdatedBy?: { name: string } | null;
+};
 
 type ShiftTypeListProps = {
-  shiftTypes: Serialized<ShiftTypeOnly>[];
+  shiftTypes: Serialized<ShiftTypeWithUpdater>[];
   page: number;
   perPage: number;
   totalCount: number;
@@ -50,13 +52,22 @@ export default function ShiftTypeList({ shiftTypes, page, perPage, totalCount }:
           <h1 className="text-2xl font-bold text-gray-900">Shift Types</h1>
           <p className="text-sm text-gray-500 mt-1">Manage standard shift templates.</p>
         </div>
-        <Link
-          href="/admin/shift-types/create"
-          className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
-        >
-          <span className="mr-2 text-lg leading-none">+</span>
-          Add Shift Type
-        </Link>
+        <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
+          <Link
+            href="/admin/shift-types/audit"
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-white text-gray-700 text-sm font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors shadow-sm w-full md:w-auto"
+          >
+            <History className="mr-2 h-4 w-4" />
+            Audit Log
+          </Link>
+          <Link
+            href="/admin/shift-types/create"
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-500 text-white text-sm font-semibold rounded-lg hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30 w-full md:w-auto"
+          >
+            <span className="mr-2 text-lg leading-none">+</span>
+            Add Shift Type
+          </Link>
+        </div>
       </div>
 
       {/* Table Section */}
@@ -66,8 +77,15 @@ export default function ShiftTypeList({ shiftTypes, page, perPage, totalCount }:
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Start Time</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">End Time</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
+                  Start Time
+                </th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
+                  End Time
+                </th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">
+                  Last Updated By
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
                   Actions
                 </th>
@@ -76,7 +94,7 @@ export default function ShiftTypeList({ shiftTypes, page, perPage, totalCount }:
             <tbody className="divide-y divide-gray-100">
               {shiftTypes.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-gray-500">
+                  <td colSpan={5} className="py-8 text-center text-gray-500">
                     No shift types found. Add one to get started.
                   </td>
                 </tr>
@@ -84,8 +102,11 @@ export default function ShiftTypeList({ shiftTypes, page, perPage, totalCount }:
                 shiftTypes.map(shiftType => (
                   <tr key={shiftType.id} className="hover:bg-gray-50/50 transition-colors group">
                     <td className="py-4 px-6 text-sm font-medium text-gray-900">{shiftType.name}</td>
-                    <td className="py-4 px-6 text-sm text-gray-600 font-mono">{shiftType.startTime}</td>
-                    <td className="py-4 px-6 text-sm text-gray-600 font-mono">{shiftType.endTime}</td>
+                    <td className="py-4 px-6 text-sm text-gray-600 font-mono text-center">{shiftType.startTime}</td>
+                    <td className="py-4 px-6 text-sm text-gray-600 font-mono text-center">{shiftType.endTime}</td>
+                    <td className="py-4 px-6 text-sm text-gray-500 text-center">
+                      {shiftType.lastUpdatedBy?.name || '-'}
+                    </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-100">
                         <Link

@@ -1,7 +1,7 @@
-import { prisma } from '@/lib/prisma';
 import { serialize, getPaginationParams } from '@/lib/utils';
 import ShiftTypeList from './components/shift-type-list';
 import { Suspense } from 'react';
+import { getPaginatedShiftTypes } from '@/lib/data-access/shift-types';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,14 +13,11 @@ export default async function ShiftTypesPage(props: ShiftTypesPageProps) {
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
 
-  const [shiftTypes, totalCount] = await prisma.$transaction([
-    prisma.shiftType.findMany({
-      orderBy: { name: 'asc' },
-      skip,
-      take: perPage,
-    }),
-    prisma.shiftType.count(),
-  ]);
+  const { shiftTypes, totalCount } = await getPaginatedShiftTypes({
+    orderBy: { name: 'asc' },
+    skip,
+    take: perPage,
+  });
 
   const serializedShiftTypes = serialize(shiftTypes);
 

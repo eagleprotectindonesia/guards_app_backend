@@ -1,9 +1,14 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
+import {
+  createShiftTypeWithChangelog,
+  updateShiftTypeWithChangelog,
+  deleteShiftTypeWithChangelog,
+  updateFutureShifts,
+} from '@/lib/data-access/shift-types';
 import { createShiftTypeSchema } from '@/lib/validations';
 import { revalidatePath } from 'next/cache';
-import { parse, addDays, isBefore } from 'date-fns';
+import { getAdminIdFromToken } from '@/lib/admin-auth';
 
 export type ActionState = {
   message?: string;
@@ -16,6 +21,7 @@ export type ActionState = {
 };
 
 export async function createShiftType(prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const adminId = await getAdminIdFromToken();
   const validatedFields = createShiftTypeSchema.safeParse({
     name: formData.get('name'),
     startTime: formData.get('startTime'),
@@ -31,9 +37,7 @@ export async function createShiftType(prevState: ActionState, formData: FormData
   }
 
   try {
-    await prisma.shiftType.create({
-      data: validatedFields.data,
-    });
+    await createShiftTypeWithChangelog(validatedFields.data, adminId!);
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -47,6 +51,7 @@ export async function createShiftType(prevState: ActionState, formData: FormData
 }
 
 export async function updateShiftType(id: string, prevState: ActionState, formData: FormData): Promise<ActionState> {
+  const adminId = await getAdminIdFromToken();
   const validatedFields = createShiftTypeSchema.safeParse({
     name: formData.get('name'),
     startTime: formData.get('startTime'),
@@ -61,78 +66,21 @@ export async function updateShiftType(id: string, prevState: ActionState, formDa
     };
   }
 
-  const { name, startTime, endTime } = validatedFields.data;
-
   try {
-    // Fetch existing shift type to check for changes
-    const existingShiftType = await prisma.shiftType.findUnique({
-      where: { id },
-    });
-
-    if (!existingShiftType) {
-      return {
-        message: 'Shift Type not found.',
-        success: false,
-      };
-    }
-
-    const timesChanged = existingShiftType.startTime !== startTime || existingShiftType.endTime !== endTime;
-
-    await prisma.shiftType.update({
-      where: { id },
-      data: { name, startTime, endTime },
-    });
+    const { timesChanged, startTime, endTime } = await updateShiftTypeWithChangelog(
+      id,
+      validatedFields.data,
+      adminId!
+    );
 
     if (timesChanged) {
       // Run in background (fire and forget) to avoid blocking the response
-      void (async () => {
-        try {
-          // Find all unstarted future shifts
-          const futureShifts = await prisma.shift.findMany({
-            where: {
-              shiftTypeId: id,
-              status: 'scheduled',
-              startsAt: {
-                gt: new Date(),
-              },
-            },
-          });
-
-          // Update shifts in parallel
-          await Promise.all(
-            futureShifts.map(async (shift) => {
-              // Reconstruct date string from shift.date (assuming stored as UTC midnight or similar consistent date)
-              // We use toISOString().split('T')[0] to get YYYY-MM-DD
-              const dateStr = shift.date.toISOString().split('T')[0];
-
-              // Parse new start/end times using the shift's date
-              const startDateTime = parse(`${dateStr} ${startTime}`, 'yyyy-MM-dd HH:mm', new Date());
-              let endDateTime = parse(`${dateStr} ${endTime}`, 'yyyy-MM-dd HH:mm', new Date());
-
-              // Handle overnight shift
-              if (isBefore(endDateTime, startDateTime)) {
-                endDateTime = addDays(endDateTime, 1);
-              }
-
-              await prisma.shift.update({
-                where: { id: shift.id },
-                data: {
-                  startsAt: startDateTime,
-                  endsAt: endDateTime,
-                },
-              });
-            })
-          );
-          console.log(`[Background] Updated ${futureShifts.length} future shifts for ShiftType ${id}`);
-        } catch (backgroundError) {
-          console.error('[Background] Failed to update future shifts:', backgroundError);
-        }
-      })();
+      void updateFutureShifts(id, startTime, endTime);
     }
   } catch (error) {
     console.error('Database Error:', error);
     return {
-      message: 'Database Error: Failed to Update Shift Type.',
+      message: error instanceof Error ? error.message : 'Database Error: Failed to Update Shift Type.',
       success: false,
     };
   }
@@ -143,21 +91,15 @@ export async function updateShiftType(id: string, prevState: ActionState, formDa
 
 export async function deleteShiftType(id: string) {
   try {
-    const relatedShifts = await prisma.shift.findFirst({
-      where: { shiftTypeId: id },
-    });
-
-    if (relatedShifts) {
-      return { success: false, message: 'Cannot delete shift type: It has associated shifts.' };
-    }
-
-    await prisma.shiftType.delete({
-      where: { id },
-    });
+    const adminId = await getAdminIdFromToken();
+    await deleteShiftTypeWithChangelog(id, adminId!);
     revalidatePath('/admin/shift-types');
     return { success: true };
   } catch (error) {
     console.error('Database Error:', error);
-    return { success: false, message: 'Failed to delete shift type' };
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete shift type',
+    };
   }
 }

@@ -1,14 +1,12 @@
-import { prisma } from '@/lib/prisma';
 import { serialize } from '@/lib/utils';
 import ShiftTypeForm from '../../components/shift-type-form';
 import { notFound } from 'next/navigation';
+import { getShiftTypeById } from '@/lib/data-access/shift-types';
 
 export default async function EditShiftTypePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
-  const shiftType = await prisma.shiftType.findUnique({
-    where: { id },
-  });
+  const shiftType = await getShiftTypeById(id);
 
   if (!shiftType) {
     notFound();
