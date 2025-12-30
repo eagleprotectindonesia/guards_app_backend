@@ -28,7 +28,7 @@ jobs:
             sed -i "s/{{BUILD_ID}}/$BUILD_ID/g" public/guard/sw.js
 
             echo "== Build new images =="
-            docker compose build
+            docker compose --profile migration build
 
             echo "== Run DB migrations =="
             # Run migration using the dedicated migration service
