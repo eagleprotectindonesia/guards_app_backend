@@ -72,6 +72,13 @@ export async function createShift(prevState: ActionState, formData: FormData): P
       };
     }
 
+    if (durationInMins < 2 * requiredCheckinIntervalMins) {
+      return {
+        message: `Shift duration (${durationInMins} mins) must allow for at least 2 check-in slots. Please reduce the check-in interval.`,
+        success: false,
+      };
+    }
+
     // Parse times
     // date is YYYY-MM-DD
     // startTime/endTime is HH:mm
@@ -163,6 +170,13 @@ export async function updateShift(id: string, prevState: ActionState, formData: 
     if (durationInMins % requiredCheckinIntervalMins !== 0) {
       return {
         message: `Shift duration (${durationInMins} mins) must be a multiple of the check-in interval (${requiredCheckinIntervalMins} mins).`,
+        success: false,
+      };
+    }
+
+    if (durationInMins < 2 * requiredCheckinIntervalMins) {
+      return {
+        message: `Shift duration (${durationInMins} mins) must allow for at least 2 check-in slots. Please reduce the check-in interval.`,
         success: false,
       };
     }
@@ -328,6 +342,13 @@ export async function bulkCreateShifts(
       if (durationInMins % interval !== 0) {
         errors.push(
           `Row ${i + 1}: Shift duration (${durationInMins} mins) must be a multiple of the check-in interval (${interval} mins).`
+        );
+        continue;
+      }
+
+      if (durationInMins < 2 * interval) {
+        errors.push(
+          `Row ${i + 1}: Shift duration (${durationInMins} mins) must allow for at least 2 check-in slots. Please reduce the check-in interval.`
         );
         continue;
       }
