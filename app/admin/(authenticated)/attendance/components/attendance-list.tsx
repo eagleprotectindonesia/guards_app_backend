@@ -117,6 +117,7 @@ export default function AttendanceList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-100">
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Employee ID</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Guard</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Site</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Shift</th>
@@ -129,13 +130,16 @@ export default function AttendanceList({
             <tbody className="divide-y divide-gray-100">
               {attendances.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-500">
+                  <td colSpan={8} className="py-8 text-center text-gray-500">
                     No attendance records found.
                   </td>
                 </tr>
               ) : (
                 attendances.map(attendance => (
                   <tr key={attendance.id} className="hover:bg-gray-50/50 transition-colors group">
+                    <td className="py-4 px-6 text-sm font-medium text-gray-500">
+                      {attendance.guard?.id || '-'}
+                    </td>
                     <td className="py-4 px-6 text-sm font-medium text-gray-900">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
