@@ -269,37 +269,17 @@ export default function ShiftList({
                       </span>
                     </td>
                     <td className="py-4 px-6 text-right">
-                      {(() => {
-                        const now = new Date();
-                        const shiftEndsAt = new Date(shift.endsAt);
-                        // const shiftStartsAt = new Date(shift.startsAt);
-                        // const isPastOrOngoing = shiftEndsAt < now || (shiftStartsAt < now && shiftEndsAt > now);
-                        const isPast = shiftEndsAt < now;
-                        return (
-                          <div className="flex items-center justify-end gap-2 opacity-100">
-                            {isPast ? (
-                              <button
-                                disabled
-                                className="p-2 text-gray-300 cursor-not-allowed rounded-lg"
-                                title="Cannot edit past or ongoing shifts"
-                              >
-                                <Pencil className="w-4 h-4" />
-                                <span className="sr-only">Edit</span>
-                              </button>
-                            ) : (
-                              <Link
-                                href={`/admin/shifts/${shift.id}/edit`}
-                                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-                                title="Edit"
-                              >
-                                <Pencil className="w-4 h-4" />
-                                <span className="sr-only">Edit</span>
-                              </Link>
-                            )}
-                            <DeleteButton onClick={() => handleDeleteClick(shift.id)} />
-                          </div>
-                        );
-                      })()}
+                      <div className="flex items-center justify-end gap-2 opacity-100">
+                        <Link
+                          href={`/admin/shifts/${shift.id}/edit`}
+                          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                          title="Edit"
+                        >
+                          <Pencil className="w-4 h-4" />
+                          <span className="sr-only">Edit</span>
+                        </Link>
+                        <DeleteButton onClick={() => handleDeleteClick(shift.id)} />
+                      </div>
                     </td>
                   </tr>
                 ))

@@ -30,6 +30,8 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
   const [selectedSiteId, setSelectedSiteId] = useState<string>(shift?.siteId || '');
   const [selectedGuardId, setSelectedGuardId] = useState<string>(shift?.guardId || '');
 
+  const isReadOnly = shift ? shift.status !== 'scheduled' : false;
+
   useEffect(() => {
     if (state.success) {
       toast.success(state.message || (shift ? 'Shift updated successfully!' : 'Shift created successfully!'));
@@ -48,7 +50,9 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">{shift ? 'Edit Shift' : 'Schedule New Shift'}</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+        {isReadOnly ? 'View Shift' : shift ? 'Edit Shift' : 'Schedule New Shift'}
+      </h1>
       <form action={formAction} className="space-y-8">
         {/* Site Field */}
         <div>
@@ -62,7 +66,8 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
             value={siteOptions.find(opt => opt.value === selectedSiteId) || null}
             onChange={option => setSelectedSiteId(option?.value || '')}
             placeholder="Select a site..."
-            isClearable
+            isClearable={!isReadOnly}
+            isDisabled={isReadOnly}
           />
           <input type="hidden" name="siteId" value={selectedSiteId} />
           {state.errors?.siteId && <p className="text-red-500 text-xs mt-1">{state.errors.siteId[0]}</p>}
@@ -82,6 +87,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
             placeholder="Select a shift type"
             isClearable={false}
             isSearchable={false}
+            isDisabled={isReadOnly}
           />
           <input type="hidden" name="shiftTypeId" value={selectedShiftTypeId} />
           {state.errors?.shiftTypeId && <p className="text-red-500 text-xs mt-1">{state.errors.shiftTypeId[0]}</p>}
@@ -99,7 +105,8 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
             value={guardOptions.find(opt => opt.value === selectedGuardId) || null}
             onChange={option => setSelectedGuardId(option?.value || '')}
             placeholder="Unassigned"
-            isClearable
+            isClearable={!isReadOnly}
+            isDisabled={isReadOnly}
           />
           <input type="hidden" name="guardId" value={selectedGuardId} />
         </div>
@@ -116,7 +123,8 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
             onChange={d => setDate(d)}
             dateFormat="yyyy-MM-dd"
             minDate={new Date()}
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+            disabled={isReadOnly}
+            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
             wrapperClassName="w-full"
           />
           {state.errors?.date && <p className="text-red-500 text-xs mt-1">{state.errors.date[0]}</p>}
@@ -134,7 +142,8 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
               id="requiredCheckinIntervalMins"
               defaultValue={shift?.requiredCheckinIntervalMins || 20}
               min={5}
-              className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+              disabled={isReadOnly}
+              className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
             />
             {state.errors?.requiredCheckinIntervalMins && (
               <p className="text-red-500 text-xs mt-1">{state.errors.requiredCheckinIntervalMins[0]}</p>
@@ -151,7 +160,8 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
               id="graceMinutes"
               defaultValue={shift?.graceMinutes || 2}
               min={1}
-              className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+              disabled={isReadOnly}
+              className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
             />
             {state.errors?.graceMinutes && <p className="text-red-500 text-xs mt-1">{state.errors.graceMinutes[0]}</p>}
           </div>
@@ -169,15 +179,17 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
             onClick={() => router.push('/admin/shifts')}
             className="px-6 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-50 transition-colors"
           >
-            Cancel
+            {isReadOnly ? 'Back' : 'Cancel'}
           </button>
-          <button
-            type="submit"
-            disabled={isPending}
-            className="px-6 py-2.5 rounded-lg bg-red-500 text-white font-bold text-sm hover:bg-red-600 active:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
-          >
-            {isPending ? 'Saving...' : shift ? 'Save Changes' : 'Schedule Shift'}
-          </button>
+          {!isReadOnly && (
+            <button
+              type="submit"
+              disabled={isPending}
+              className="px-6 py-2.5 rounded-lg bg-red-500 text-white font-bold text-sm hover:bg-red-600 active:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
+            >
+              {isPending ? 'Saving...' : shift ? 'Save Changes' : 'Schedule Shift'}
+            </button>
+          )}
         </div>
       </form>
     </div>
