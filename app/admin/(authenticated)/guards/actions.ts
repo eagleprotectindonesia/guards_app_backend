@@ -125,8 +125,8 @@ export async function updateGuard(
     guardCode: formData.get('guardCode')?.toString() || undefined,
     status: formData.get('status') === 'true' ? true : formData.get('status') === 'false' ? false : undefined,
     joinDate: formData.get('joinDate')?.toString() || undefined,
-    leftDate: formData.get('leftDate')?.toString() || undefined,
-    note: formData.get('note')?.toString() || undefined,
+    leftDate: formData.get('leftDate')?.toString() || null,
+    note: formData.get('note')?.toString() || null,
   });
 
   if (!validatedFields.success) {

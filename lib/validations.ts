@@ -96,11 +96,15 @@ export const updateGuardSchema = z.object({
         message: 'Phone number must be between 6 and 17 characters',
       }
     ),
-  guardCode: z.string().max(12).regex(/^[a-zA-Z0-9]*$/, 'Guard code must be alphanumeric only').optional(),
+  guardCode: z
+    .string()
+    .max(12)
+    .regex(/^[a-zA-Z0-9]*$/, 'Guard code must be alphanumeric only')
+    .optional(),
   status: z.boolean().optional(),
   joinDate: z.coerce.date(),
-  leftDate: z.coerce.date().optional(),
-  note: z.string().optional(),
+  leftDate: z.coerce.date().nullable().optional(),
+  note: z.string().nullable().optional(),
   password: z.string().min(6, 'Password must be at least 6 characters long').optional(), // Optional for updates
 });
 
