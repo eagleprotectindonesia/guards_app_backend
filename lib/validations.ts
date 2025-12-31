@@ -10,6 +10,7 @@ export const createSiteSchema = z.object({
   address: z.string().optional(),
   latitude: z.number(),
   longitude: z.number(),
+  status: z.boolean().optional(),
 });
 
 // --- Admin ---

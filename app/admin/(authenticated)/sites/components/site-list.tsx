@@ -80,6 +80,7 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Address</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Latitude</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Longitude</th>
+                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Created At</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Last Updated By</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
@@ -90,7 +91,7 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
             <tbody className="divide-y divide-gray-100">
               {sites.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-gray-500">
+                  <td colSpan={9} className="py-8 text-center text-gray-500">
                     No sites found. Create one to get started.
                   </td>
                 </tr>
@@ -98,17 +99,24 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
                 sites.map(site => (
                   <tr key={site.id} className="hover:bg-gray-50/50 transition-colors group">
                     <td className="py-4 px-6 text-sm font-medium text-gray-900">{site.name}</td>
-                    <td className="py-4 px-6 text-sm text-gray-600 font-mono bg-gray-50/50 rounded px-2 py-1 w-fit">
+                    <td className="py-4 px-6 text-sm text-gray-600 font-mono bg-gray-50/50 rounded w-fit">
                       {site.clientName || 'N/A'}
                     </td>
-                    <td className="py-4 px-6 text-sm text-gray-500">
-                      {site.address || 'N/A'}
-                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-500">{site.address || 'N/A'}</td>
                     <td className="py-4 px-6 text-sm text-gray-500">
                       {site.latitude !== null && site.latitude !== undefined ? site.latitude.toFixed(6) : 'N/A'}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
                       {site.longitude !== null && site.longitude !== undefined ? site.longitude.toFixed(6) : 'N/A'}
+                    </td>
+                    <td className="py-4 px-6 text-sm">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          site.status ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {site.status ? 'Active' : 'Inactive'}
+                      </span>
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
                       {new Date(site.createdAt).toLocaleDateString(undefined, {
@@ -117,9 +125,7 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
                         day: 'numeric',
                       })}
                     </td>
-                    <td className="py-4 px-6 text-sm text-gray-500">
-                      {site.lastUpdatedBy?.name || '-'}
-                    </td>
+                    <td className="py-4 px-6 text-sm text-gray-500">{site.lastUpdatedBy?.name || '-'}</td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-100">
                         <Link

@@ -7,6 +7,13 @@ export async function getAllSites() {
   });
 }
 
+export async function getActiveSites() {
+  return prisma.site.findMany({
+    where: { status: true },
+    orderBy: { name: 'asc' },
+  });
+}
+
 export async function getPaginatedSites(params: { query?: string; skip: number; take: number }) {
   const { query, skip, take } = params;
 

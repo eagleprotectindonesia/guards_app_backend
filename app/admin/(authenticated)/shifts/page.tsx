@@ -4,7 +4,7 @@ import ShiftList from './components/shift-list';
 import { parseISO, startOfDay, endOfDay } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { getAllSites } from '@/lib/data-access/sites';
+import { getActiveSites } from '@/lib/data-access/sites';
 import { getActiveGuards } from '@/lib/data-access/guards';
 
 export const metadata: Metadata = {
@@ -20,12 +20,15 @@ export default async function ShiftsPage({
 }) {
   const resolvedSearchParams = await searchParams;
   const { page, perPage, skip } = getPaginationParams(resolvedSearchParams);
-  
+
   const startDate = typeof resolvedSearchParams.startDate === 'string' ? resolvedSearchParams.startDate : undefined;
   const endDate = typeof resolvedSearchParams.endDate === 'string' ? resolvedSearchParams.endDate : undefined;
   const guardId = typeof resolvedSearchParams.guardId === 'string' ? resolvedSearchParams.guardId : undefined;
   const siteId = typeof resolvedSearchParams.siteId === 'string' ? resolvedSearchParams.siteId : undefined;
-  const sort = typeof resolvedSearchParams.sort === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sort) ? resolvedSearchParams.sort : 'desc';
+  const sort =
+    typeof resolvedSearchParams.sort === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sort)
+      ? resolvedSearchParams.sort
+      : 'desc';
 
   const parsedStartDate = startDate ? startOfDay(parseISO(startDate)) : undefined;
   const parsedEndDate = endDate ? endOfDay(parseISO(endDate)) : undefined;
@@ -50,7 +53,7 @@ export default async function ShiftsPage({
     prisma.shift.count({ where }),
   ]);
 
-  const sites = await getAllSites();
+  const sites = await getActiveSites();
   const shiftTypes = await prisma.shiftType.findMany({ orderBy: { name: 'asc' } });
   const guards = await getActiveGuards();
 

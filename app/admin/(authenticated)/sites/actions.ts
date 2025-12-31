@@ -30,6 +30,7 @@ export async function createSite(prevState: ActionState, formData: FormData): Pr
     address: formData.get('address'),
     latitude: parseFloat(formData.get('latitude') as string),
     longitude: parseFloat(formData.get('longitude') as string),
+    status: formData.get('status') === 'true',
   });
 
   if (!validatedFields.success) {
@@ -62,6 +63,7 @@ export async function updateSite(id: string, prevState: ActionState, formData: F
     address: formData.get('address'),
     latitude: parseFloat(formData.get('latitude') as string),
     longitude: parseFloat(formData.get('longitude') as string),
+    status: formData.get('status') === 'true',
   });
 
   if (!validatedFields.success) {

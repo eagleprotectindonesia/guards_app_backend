@@ -225,6 +225,35 @@ export default function SiteForm({ site }: Props) {
               />
               {state.errors?.clientName && <p className="text-red-500 text-xs mt-1">{state.errors.clientName[0]}</p>}
             </div>
+
+            {/* Status Field */}
+            <div>
+              <label htmlFor="status" className="block font-medium text-gray-700 mb-1">
+                Status
+              </label>
+              <div className="flex items-center space-x-4 h-10">
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="status"
+                    value="true"
+                    defaultChecked={site?.status !== false}
+                    className="text-red-500 focus:ring-red-500"
+                  />
+                  <span className="ml-2 text-gray-700">Active</span>
+                </label>
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="status"
+                    value="false"
+                    defaultChecked={site?.status === false}
+                    className="text-red-500 focus:ring-red-500"
+                  />
+                  <span className="ml-2 text-gray-700">Inactive</span>
+                </label>
+              </div>
+            </div>
           </div>
 
           {/* Location Search Input */}
