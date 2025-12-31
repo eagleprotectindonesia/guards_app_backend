@@ -4,8 +4,7 @@ import { cookies } from 'next/headers';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { prisma } from '@/lib/prisma';
-import { redis } from '@/lib/redis';
+import { getAdminById, updateAdminWithChangelog } from '@/lib/data-access/admins';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
@@ -60,9 +59,7 @@ export async function changePassword(prevState: ChangePasswordState, formData: F
 
   try {
     // 3. Verify Current Password
-    const admin = await prisma.admin.findUnique({
-      where: { id: adminId },
-    });
+    const admin = await getAdminById(adminId);
 
     if (!admin || !admin.hashedPassword) {
       return { error: 'Admin not found' };
@@ -78,19 +75,16 @@ export async function changePassword(prevState: ChangePasswordState, formData: F
     // We increment tokenVersion to invalidate sessions on all other devices/browsers
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    const updatedAdmin = await prisma.admin.update({
-      where: { id: adminId },
-      data: {
+    const updatedAdmin = await updateAdminWithChangelog(
+      adminId,
+      {
         hashedPassword,
-        tokenVersion: { increment: 1 }
+        tokenVersion: { increment: 1 },
       },
-    });
+      adminId // Self-modified
+    );
 
-    // 5. Update Redis cache immediately
-    const cacheKey = `admin:token_version:${adminId}`;
-    await redis.set(cacheKey, updatedAdmin.tokenVersion.toString(), 'EX', 3600);
-
-    // 6. Generate NEW token with the NEW version and set it to keep current session active
+    // 5. Generate NEW token with the NEW version and set it to keep current session active
     const newToken = jwt.sign(
       { adminId: updatedAdmin.id, email: updatedAdmin.email, tokenVersion: updatedAdmin.tokenVersion },
       JWT_SECRET,

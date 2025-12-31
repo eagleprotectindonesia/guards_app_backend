@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
+import { findAdminByEmail } from '@/lib/data-access/admins';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey'; // Replace with a strong, random key in production
 
@@ -20,9 +21,7 @@ export async function POST(req: Request) {
     }
 
     // Find admin by email
-    const admin = await prisma.admin.findFirst({
-      where: { email, deletedAt: null },
-    });
+    const admin = await findAdminByEmail(email);
 
     if (!admin || !admin.hashedPassword) {
       return new NextResponse(JSON.stringify({ error: 'Invalid credentials' }), {

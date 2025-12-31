@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { getAdminById } from '@/lib/data-access/admins';
 import AdminForm from '../../components/admin-form';
 import { serialize } from '@/lib/utils';
 import { notFound } from 'next/navigation';
@@ -9,9 +9,7 @@ type EditAdminPageProps = {
 
 export default async function EditAdminPage(props: EditAdminPageProps) {
   const params = await props.params;
-  const admin = await prisma.admin.findUnique({
-    where: { id: params.id },
-  });
+  const admin = await getAdminById(params.id);
 
   if (!admin) {
     notFound();

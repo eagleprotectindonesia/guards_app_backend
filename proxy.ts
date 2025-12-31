@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
+import { getAdminById } from '@/lib/data-access/admins';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
@@ -32,10 +32,7 @@ export async function proxy(request: NextRequest) {
           currentVersion = parseInt(cachedVersion, 10);
         } else {
           // 2. Fallback to Database
-          const admin = await prisma.admin.findUnique({
-            where: { id: decoded.adminId, deletedAt: null },
-            select: { tokenVersion: true },
-          });
+          const admin = await getAdminById(decoded.adminId);
           
           if (admin) {
             currentVersion = admin.tokenVersion;

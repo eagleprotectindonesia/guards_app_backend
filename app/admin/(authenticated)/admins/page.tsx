@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { getPaginatedAdmins } from '@/lib/data-access/admins';
 import { serialize, getPaginationParams } from '@/lib/utils';
 import AdminList from './components/admin-list';
 import { Suspense } from 'react';
@@ -13,14 +13,12 @@ export default async function AdminsPage(props: AdminsPageProps) {
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
 
-  const [admins, totalCount] = await prisma.$transaction([
-    prisma.admin.findMany({
-      orderBy: { name: 'asc' },
-      skip,
-      take: perPage,
-    }),
-    prisma.admin.count(),
-  ]);
+  const { admins, totalCount } = await getPaginatedAdmins({
+    where: {},
+    orderBy: { name: 'asc' },
+    skip,
+    take: perPage,
+  });
 
   const serializedAdmins = serialize(admins);
 

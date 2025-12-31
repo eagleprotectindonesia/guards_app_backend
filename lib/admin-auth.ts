@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 import { Admin } from '@prisma/client';
+import { getAdminById } from './data-access/admins';
 
 
 export async function getAdminIdFromToken(): Promise<string> {
@@ -28,11 +29,7 @@ export async function getCurrentAdmin(): Promise<Admin | null> {
   }
 
   try {
-    const admin = await prisma.admin.findUnique({
-      where: { id: adminId, deletedAt: null },
-    });
-
-    return admin;
+    return await getAdminById(adminId);
   } catch (error) {
     console.error('Error fetching current admin:', error);
     return null;

@@ -1,11 +1,16 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
+import {
+  createAdminWithChangelog,
+  deleteAdminWithChangelog,
+  findAdminByEmail,
+  getAdminById,
+  updateAdminWithChangelog,
+} from '@/lib/data-access/admins';
+import { getCurrentAdmin } from '@/lib/admin-auth';
 import { createAdminSchema, updateAdminSchema } from '@/lib/validations';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
-import { getCurrentAdmin } from '@/lib/admin-auth';
-import { redis } from '@/lib/redis';
 
 export type ActionState = {
   message?: string;
@@ -21,14 +26,14 @@ export type ActionState = {
 async function checkSuperAdmin() {
   const currentAdmin = await getCurrentAdmin();
   if (currentAdmin?.role !== 'superadmin') {
-    return false;
+    return null;
   }
-  return true;
+  return currentAdmin;
 }
 
 export async function createAdmin(prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const isSuperAdmin = await checkSuperAdmin();
-  if (!isSuperAdmin) {
+  const currentAdmin = await checkSuperAdmin();
+  if (!currentAdmin) {
     return {
       message: 'Unauthorized: Only Super Admins can create admins.',
       success: false,
@@ -53,9 +58,7 @@ export async function createAdmin(prevState: ActionState, formData: FormData): P
   const { name, email, password, role } = validatedFields.data;
 
   try {
-    const existingAdmin = await prisma.admin.findFirst({
-      where: { email, deletedAt: null },
-    });
+    const existingAdmin = await findAdminByEmail(email);
 
     if (existingAdmin) {
       return {
@@ -67,14 +70,15 @@ export async function createAdmin(prevState: ActionState, formData: FormData): P
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await prisma.admin.create({
-      data: {
+    await createAdminWithChangelog(
+      {
         name,
         email,
         hashedPassword,
         role: role,
       },
-    });
+      currentAdmin.id
+    );
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -88,8 +92,8 @@ export async function createAdmin(prevState: ActionState, formData: FormData): P
 }
 
 export async function updateAdmin(id: string, prevState: ActionState, formData: FormData): Promise<ActionState> {
-  const isSuperAdmin = await checkSuperAdmin();
-  if (!isSuperAdmin) {
+  const currentAdmin = await checkSuperAdmin();
+  if (!currentAdmin) {
     return {
       message: 'Unauthorized: Only Super Admins can update admins.',
       success: false,
@@ -119,15 +123,9 @@ export async function updateAdmin(id: string, prevState: ActionState, formData: 
 
   try {
     // Check if email is taken by another admin
-    const existingAdmin = await prisma.admin.findFirst({
-      where: {
-        email,
-        deletedAt: null,
-        id: { not: id },
-      },
-    });
+    const existingAdmin = await findAdminByEmail(email);
 
-    if (existingAdmin) {
+    if (existingAdmin && existingAdmin.id !== id) {
       return {
         message: 'Email already exists.',
         success: false,
@@ -139,22 +137,13 @@ export async function updateAdmin(id: string, prevState: ActionState, formData: 
       name,
       email,
       role,
-      ...(newPassword && { 
+      ...(newPassword && {
         hashedPassword: await bcrypt.hash(newPassword, 10),
-        tokenVersion: { increment: 1 }
+        tokenVersion: { increment: 1 },
       }),
     };
 
-    await prisma.admin.update({
-      where: { id },
-      data,
-    });
-
-    // Invalidate Redis cache for this admin
-    if (newPassword) {
-      const cacheKey = `admin:token_version:${id}`;
-      await redis.del(cacheKey);
-    }
+    await updateAdminWithChangelog(id, data, currentAdmin.id);
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -168,16 +157,13 @@ export async function updateAdmin(id: string, prevState: ActionState, formData: 
 }
 
 export async function deleteAdmin(id: string) {
-  const isSuperAdmin = await checkSuperAdmin();
-  if (!isSuperAdmin) {
+  const currentAdmin = await checkSuperAdmin();
+  if (!currentAdmin) {
     return { success: false, message: 'Unauthorized: Only Super Admins can delete admins.' };
   }
 
   try {
-    const adminToDelete = await prisma.admin.findUnique({
-      where: { id, deletedAt: null },
-      select: { role: true, email: true },
-    });
+    const adminToDelete = await getAdminById(id);
 
     if (!adminToDelete) {
       return { success: false, message: 'Admin not found.' };
@@ -187,18 +173,7 @@ export async function deleteAdmin(id: string) {
       return { success: false, message: 'Cannot delete a Super Admin. Change their role to Admin first.' };
     }
 
-    await prisma.admin.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-        email: `${adminToDelete.email}#deleted#${id}`,
-        tokenVersion: { increment: 1 }, // Logout all sessions
-      },
-    });
-
-    // Invalidate Redis cache for this admin
-    const cacheKey = `admin:token_version:${id}`;
-    await redis.del(cacheKey);
+    await deleteAdminWithChangelog(id, currentAdmin.id);
 
     revalidatePath('/admin/admins');
     return { success: true };
