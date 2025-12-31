@@ -3,6 +3,8 @@ import GuardDetail from '../components/guard-detail';
 import { notFound } from 'next/navigation';
 import { getGuardById } from '@/lib/data-access/guards';
 
+export const dynamic = 'force-dynamic';
+
 type Props = {
   params: Promise<{ id: string }>;
 };

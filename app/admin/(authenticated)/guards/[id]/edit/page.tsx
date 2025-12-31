@@ -3,6 +3,8 @@ import GuardForm from '../../components/guard-form';
 import { notFound } from 'next/navigation';
 import { getGuardById } from '@/lib/data-access/guards';
 
+export const dynamic = 'force-dynamic';
+
 export default async function EditGuardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 

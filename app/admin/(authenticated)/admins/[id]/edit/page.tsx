@@ -3,6 +3,8 @@ import AdminForm from '../../components/admin-form';
 import { serialize } from '@/lib/utils';
 import { notFound } from 'next/navigation';
 
+export const dynamic = 'force-dynamic';
+
 type EditAdminPageProps = {
   params: Promise<{ id: string }>;
 };

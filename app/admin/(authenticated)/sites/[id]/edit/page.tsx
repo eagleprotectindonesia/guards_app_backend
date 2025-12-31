@@ -3,6 +3,8 @@ import SiteForm from '../../components/site-form';
 import { notFound } from 'next/navigation';
 import { getSiteById } from '@/lib/data-access/sites';
 
+export const dynamic = 'force-dynamic';
+
 export default async function EditSitePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 

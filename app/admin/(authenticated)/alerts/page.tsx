@@ -8,6 +8,8 @@ import AlertExport from '../components/alert-export';
 import { useAlerts } from '../context/alert-context';
 import { $Enums } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+
 export default function AdminAlertsPage() {
   const searchParams = useSearchParams();
   const page = parseInt(searchParams.get('page') || '1', 10);

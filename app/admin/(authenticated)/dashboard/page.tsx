@@ -8,6 +8,8 @@ import AlertFeed from '../components/alert-feed';
 import Select from '../components/select';
 import { useAlerts } from '../context/alert-context';
 
+export const dynamic = 'force-dynamic';
+
 type SiteWithOptionalRelations = Serialized<Site>;
 
 export default function AdminDashboard() {

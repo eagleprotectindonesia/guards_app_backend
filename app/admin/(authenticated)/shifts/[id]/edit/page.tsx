@@ -5,6 +5,8 @@ import { notFound } from 'next/navigation';
 import { getActiveSites } from '@/lib/data-access/sites';
 import { getActiveGuards } from '@/lib/data-access/guards';
 
+export const dynamic = 'force-dynamic';
+
 export default async function EditShiftPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 

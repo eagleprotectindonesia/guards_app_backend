@@ -4,6 +4,8 @@ import ShiftForm from '../components/shift-form';
 import { getActiveSites } from '@/lib/data-access/sites';
 import { getActiveGuards } from '@/lib/data-access/guards';
 
+export const dynamic = 'force-dynamic';
+
 export default async function CreateShiftPage() {
   const [sites, shiftTypes, guards] = await Promise.all([
     getActiveSites(),
