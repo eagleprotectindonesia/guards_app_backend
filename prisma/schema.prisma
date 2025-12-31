@@ -194,6 +194,7 @@ enum ShiftStatus {
   in_progress
   completed
   missed
+  cancelled
 }
 
 enum CheckInStatus {

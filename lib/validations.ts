@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js';
 
-export const ShiftStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 'missed']);
+export const ShiftStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 'missed', 'cancelled']);
 
 // --- Site ---
 export const createSiteSchema = z.object({

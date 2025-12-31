@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@/lib/validations';
 import { revalidatePath } from 'next/cache';
 import { parse, addDays, isBefore } from 'date-fns';
-import { Prisma } from '@prisma/client';
+import { Prisma, ShiftStatus } from '@prisma/client';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { getActiveSites } from '@/lib/data-access/sites';
 import { getActiveGuards } from '@/lib/data-access/guards';
@@ -231,6 +231,33 @@ export async function deleteShift(id: string) {
   } catch (error) {
     console.error('Database Error:', error);
     return { success: false, message: 'Failed to delete shift' };
+  }
+}
+
+export async function cancelShift(id: string) {
+  try {
+    const adminId = await getAdminIdFromToken();
+
+    // Validate that the shift exists and is in_progress
+    const shift = await prisma.shift.findUnique({
+      where: { id, deletedAt: null },
+      select: { status: true },
+    });
+
+    if (!shift) {
+      return { success: false, message: 'Shift not found' };
+    }
+
+    if (shift.status !== 'in_progress') {
+      return { success: false, message: 'Only in-progress shifts can be cancelled' };
+    }
+
+    await updateShiftWithChangelog(id, { status: ShiftStatus.cancelled }, adminId);
+    revalidatePath('/admin/shifts');
+    return { success: true };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return { success: false, message: 'Failed to cancel shift' };
   }
 }
 

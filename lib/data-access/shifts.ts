@@ -96,6 +96,8 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
 }
 
 export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpdateInput, adminId: string) {
+  console.log('Updating shift with changelog:', id, data);
+
   return prisma.$transaction(
     async tx => {
       const updatedShift = await tx.shift.update({

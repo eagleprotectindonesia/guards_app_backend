@@ -3,11 +3,11 @@
 import { useState, useTransition } from 'react';
 import { Shift, Site, ShiftType, Guard, Attendance } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
-import { deleteShift } from '../actions';
+import { deleteShift, cancelShift } from '../actions';
 import ShiftFilterModal from './shift-filter-modal';
 import BulkCreateModal from './bulk-create-modal';
 import ShiftExport from './shift-export';
-import ConfirmDialog from '../../components/confirm-dialog';
+import ShiftActionModal from './shift-action-modal';
 import { DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
@@ -58,11 +58,11 @@ export default function ShiftList({
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleDeleteClick = (id: string) => {
-    setDeleteId(id);
+    setSelectedShiftId(id);
   };
 
   const handleSort = () => {
@@ -74,15 +74,29 @@ export default function ShiftList({
   };
 
   const handleConfirmDelete = () => {
-    if (!deleteId) return;
+    if (!selectedShiftId) return;
 
     startTransition(async () => {
-      const result = await deleteShift(deleteId);
+      const result = await deleteShift(selectedShiftId);
       if (result.success) {
         toast.success('Shift deleted successfully!');
-        setDeleteId(null);
+        setSelectedShiftId(null);
       } else {
         toast.error(result.message || 'Failed to delete shift.');
+      }
+    });
+  };
+
+  const handleCancelShift = () => {
+    if (!selectedShiftId) return;
+
+    startTransition(async () => {
+      const result = await cancelShift(selectedShiftId);
+      if (result.success) {
+        toast.success('Shift cancelled successfully!');
+        setSelectedShiftId(null);
+      } else {
+        toast.error(result.message || 'Failed to cancel shift.');
       }
     });
   };
@@ -132,6 +146,8 @@ export default function ShiftList({
         return 'bg-green-100 text-green-800';
       case 'missed':
         return 'bg-red-100 text-red-800';
+      case 'cancelled':
+        return 'bg-slate-100 text-slate-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -284,8 +300,8 @@ export default function ShiftList({
                         </Link>
                         <DeleteButton
                           onClick={() => handleDeleteClick(shift.id)}
-                          disabled={!isSuperAdmin || isPending}
-                          title={!isSuperAdmin ? 'Only Super Admins can delete' : 'Delete'}
+                          disabled={isPending || (!isSuperAdmin && shift.status !== 'in_progress')}
+                          title={!isSuperAdmin && shift.status !== 'in_progress' ? 'Only in-progress shifts can be cancelled' : 'Actions'}
                         />
                       </div>
                     </td>
@@ -318,14 +334,14 @@ export default function ShiftList({
 
       <BulkCreateModal isOpen={isBulkCreateOpen} onClose={() => setIsBulkCreateOpen(false)} />
 
-      <ConfirmDialog
-        isOpen={!!deleteId}
-        onClose={() => setDeleteId(null)}
-        onConfirm={handleConfirmDelete}
-        title="Delete Shift"
-        description="Are you sure you want to delete this shift?"
-        confirmText="Delete Shift"
+      <ShiftActionModal
+        isOpen={!!selectedShiftId}
+        onClose={() => setSelectedShiftId(null)}
+        onDelete={handleConfirmDelete}
+        onCancelShift={handleCancelShift}
         isPending={isPending}
+        isSuperAdmin={isSuperAdmin}
+        status={shifts.find(s => s.id === selectedShiftId)?.status}
       />
     </div>
   );
