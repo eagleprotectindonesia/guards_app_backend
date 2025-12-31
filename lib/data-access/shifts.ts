@@ -206,3 +206,108 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
     { timeout: 30000 }
   );
 }
+
+export async function getExportShiftsBatch(params: {
+  where: Prisma.ShiftWhereInput;
+  take: number;
+  cursor?: string;
+}) {
+  const { where, take, cursor } = params;
+  return prisma.shift.findMany({
+    take,
+    where: { ...where, deletedAt: null },
+    orderBy: { id: 'asc' },
+    include: {
+      site: true,
+      shiftType: true,
+      guard: true,
+    },
+    ...(cursor && { skip: 1, cursor: { id: cursor } }),
+  });
+}
+
+export async function getActiveShifts(now: Date) {
+  return prisma.shift.findMany({
+    where: {
+      status: { in: ['scheduled', 'in_progress'] },
+      startsAt: { lte: now },
+      endsAt: { gte: now },
+      guardId: { not: null },
+      deletedAt: null,
+    },
+    include: { shiftType: true, guard: true, site: true, attendance: true },
+  });
+}
+
+export async function getShiftsUpdates(ids: string[]) {
+  return prisma.shift.findMany({
+    where: {
+      id: { in: ids },
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      lastHeartbeatAt: true,
+      missedCount: true,
+      status: true,
+      attendance: true,
+    },
+  });
+}
+
+export async function getUpcomingShifts(now: Date, take = 50) {
+  const upcomingEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  return prisma.shift.findMany({
+    where: {
+      status: 'scheduled',
+      startsAt: { gt: now, lte: upcomingEnd },
+      deletedAt: null,
+    },
+    include: {
+      shiftType: true,
+      guard: true,
+      site: true,
+    },
+    orderBy: {
+      startsAt: 'asc',
+    },
+    take,
+  });
+}
+
+export async function createMissedCheckinAlert(params: {
+  shiftId: string;
+  siteId: string;
+  reason: 'missed_attendance' | 'missed_checkin';
+  windowStart: Date;
+  incrementMissedCount: boolean;
+}) {
+  const { shiftId, siteId, reason, windowStart, incrementMissedCount } = params;
+
+  return prisma.$transaction(async tx => {
+    const newAlert = await tx.alert.create({
+      data: {
+        shiftId,
+        siteId,
+        reason,
+        severity: 'critical',
+        windowStart,
+      },
+    });
+
+    if (incrementMissedCount) {
+      await tx.shift.update({
+        where: { id: shiftId },
+        data: { missedCount: { increment: 1 } },
+      });
+    }
+
+    return tx.alert.findUnique({
+      where: { id: newAlert.id },
+      include: {
+        site: true,
+        shift: { include: { guard: true, shiftType: true } },
+      },
+    });
+  });
+}

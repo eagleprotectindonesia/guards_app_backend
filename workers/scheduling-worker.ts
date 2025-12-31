@@ -3,6 +3,12 @@ import { Redis } from 'ioredis';
 import { calculateCheckInWindow } from '../lib/scheduling';
 import { prisma } from '../lib/prisma';
 import { BaseWorker } from './base-worker';
+import {
+  getActiveShifts,
+  getShiftsUpdates,
+  getUpcomingShifts,
+  createMissedCheckinAlert,
+} from '../lib/data-access/shifts';
 
 // Configuration
 const TICK_INTERVAL_MS = 5 * 1000; // 5 seconds
@@ -138,15 +144,7 @@ export class SchedulingWorker extends BaseWorker {
     if (nowMs - this.lastFullSync > FULL_SYNC_INTERVAL_MS || this.cachedShifts.length === 0) {
       isFullSync = true;
       // --- HEAVY SYNC (Every 30s) ---
-      const newShifts = await prisma.shift.findMany({
-        where: {
-          status: { in: ['scheduled', 'in_progress'] },
-          startsAt: { lte: now },
-          endsAt: { gte: now },
-          guardId: { not: null },
-        },
-        include: { shiftType: true, guard: true, site: true, attendance: true },
-      });
+      const newShifts = await getActiveShifts(now);
 
       // Restore state
       this.cachedShifts = newShifts.map(s => {
@@ -159,10 +157,7 @@ export class SchedulingWorker extends BaseWorker {
       // --- LIGHT SYNC (Every 5s) ---
       if (this.cachedShifts.length > 0) {
         const shiftIds = this.cachedShifts.map(s => s.id);
-        const updates = await prisma.shift.findMany({
-          where: { id: { in: shiftIds } },
-          select: { id: true, lastHeartbeatAt: true, missedCount: true, status: true, attendance: true },
-        });
+        const updates = await getShiftsUpdates(shiftIds);
 
         // Merge updates into cache
         updates.forEach(u => {
@@ -306,36 +301,21 @@ export class SchedulingWorker extends BaseWorker {
     windowStart: Date,
     incrementMissedCount = false
   ) {
-    await prisma.$transaction(async tx => {
-      const newAlert = await tx.alert.create({
-        data: {
-          shiftId: shift.id,
-          siteId: shift.siteId,
-          reason,
-          severity: 'critical',
-          windowStart,
-        },
-      });
+    const alert = await createMissedCheckinAlert({
+      shiftId: shift.id,
+      siteId: shift.siteId,
+      reason,
+      windowStart,
+      incrementMissedCount,
+    });
 
+    if (alert) {
       if (incrementMissedCount) {
-        await tx.shift.update({
-          where: { id: shift.id },
-          data: { missedCount: { increment: 1 } },
-        });
         shift.missedCount += 1; // Update cache
       }
-
-      const alert = await tx.alert.findUnique({
-        where: { id: newAlert.id },
-        include: {
-          site: true,
-          shift: { include: { guard: true, shiftType: true } },
-        },
-      });
-
       const payload = { type: 'alert_created', alert };
       await this.publish(`alerts:site:${shift.siteId}`, payload);
-    });
+    }
   }
 
   private async clearAttentionEvent(shift: CachedShift, attentionIndex: number) {
@@ -396,22 +376,7 @@ export class SchedulingWorker extends BaseWorker {
   }
 
   private async broadcastUpcomingShifts(now: Date) {
-    const upcomingEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const upcomingShifts = await prisma.shift.findMany({
-      where: {
-        status: 'scheduled',
-        startsAt: { gt: now, lte: upcomingEnd },
-      },
-      include: {
-        shiftType: true,
-        guard: true,
-        site: true,
-      },
-      orderBy: {
-        startsAt: 'asc',
-      },
-      take: 50,
-    });
+    const upcomingShifts = await getUpcomingShifts(now);
     // Broadcast to a new channel
     await this.publish('dashboard:upcoming-shifts', upcomingShifts);
   }

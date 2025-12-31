@@ -25,6 +25,7 @@ export async function getPaginatedSites(params: { query?: string; skip: number; 
           OR: [
             { name: { contains: query, mode: 'insensitive' } },
             { clientName: { contains: query, mode: 'insensitive' } },
+            { address: { contains: query, mode: 'insensitive' } },
           ],
         }
       : {}),

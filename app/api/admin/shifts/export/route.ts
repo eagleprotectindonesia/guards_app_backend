@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { Prisma, Shift, Guard, Site, ShiftType } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
+import { getExportShiftsBatch } from '@/lib/data-access/shifts';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -49,6 +49,7 @@ export async function GET(request: NextRequest) {
         'Check-In Status',
         'Grace Minutes',
         'Required Checkin Interval (mins)',
+        'Deleted At',
       ];
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
@@ -56,19 +57,11 @@ export async function GET(request: NextRequest) {
 
       try {
         while (true) {
-          const queryOptions: Prisma.ShiftFindManyArgs = {
+          const batch = await getExportShiftsBatch({
             take: BATCH_SIZE,
             where,
-            orderBy: { id: 'asc' },
-            include: {
-              site: true,
-              shiftType: true,
-              guard: true,
-            },
-            ...(cursor && { skip: 1, cursor: { id: cursor } }),
-          };
-
-          const batch = await prisma.shift.findMany(queryOptions);
+            cursor,
+          });
 
           if (batch.length === 0) {
             break;
@@ -86,9 +79,10 @@ export async function GET(request: NextRequest) {
             const startTime = new Date(s.startsAt).toLocaleTimeString();
             const endTime = new Date(s.endsAt).toLocaleTimeString();
             const checkInStatus = s.checkInStatus || '';
+            const deletedAt = s.deletedAt ? new Date(s.deletedAt).toLocaleString() : '';
 
             // Escape quotes in CSV fields: " -> ""
-            const escape = (str: string) => `"${str.replace(/"/g, '""')}"`;
+            const escape = (str: string) => `"${String(str).replace(/"/g, '""')}"`;
 
             chunk +=
               [
@@ -103,6 +97,7 @@ export async function GET(request: NextRequest) {
                 checkInStatus,
                 s.graceMinutes,
                 s.requiredCheckinIntervalMins,
+                escape(deletedAt),
               ].join(',') + '\n';
           }
 
