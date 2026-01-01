@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma, Shift, Guard, Site, ShiftType } from '@prisma/client';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, format } from 'date-fns';
 import { getExportShiftsBatch } from '@/lib/data-access/shifts';
 
 export async function GET(request: NextRequest) {
@@ -82,13 +82,13 @@ export async function GET(request: NextRequest) {
             const siteName = s.site.name;
             const shiftTypeName = s.shiftType.name;
             const guardName = s.guard?.name || 'Unassigned';
-            const date = new Date(s.date).toLocaleDateString();
-            const startTime = new Date(s.startsAt).toLocaleTimeString();
-            const endTime = new Date(s.endsAt).toLocaleTimeString();
+            const date = format(new Date(s.date), 'yyyy/MM/dd');
+            const startTime = format(new Date(s.startsAt), 'HH:mm');
+            const endTime = format(new Date(s.endsAt), 'HH:mm');
             const checkInStatus = s.checkInStatus || '';
             const createdBy = s.createdBy?.name || 'System';
-            const createdAt = new Date(s.createdAt).toLocaleString();
-            const deletedAt = s.deletedAt ? new Date(s.deletedAt).toLocaleString() : '';
+            const createdAt = format(new Date(s.createdAt), 'yyyy/MM/dd HH:mm');
+            const deletedAt = s.deletedAt ? format(new Date(s.deletedAt), 'yyyy/MM/dd HH:mm') : '';
 
             // Escape quotes in CSV fields: " -> ""
             const escape = (str: string) => `"${String(str).replace(/"/g, '""')}"`;

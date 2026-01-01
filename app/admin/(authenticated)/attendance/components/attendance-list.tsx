@@ -159,7 +159,7 @@ export default function AttendanceList({
                       {attendance.shift.shiftType.name}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
-                      {new Date(attendance.shift.date).toLocaleDateString()}
+                      {format(new Date(attendance.shift.date), 'yyyy/MM/dd')}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-900 font-medium">
                       <div className="flex items-center gap-2">
@@ -167,7 +167,7 @@ export default function AttendanceList({
                         {new Date(attendance.recordedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
                       <div className="text-xs text-gray-500 mt-0.5">
-                        {new Date(attendance.recordedAt).toLocaleDateString()}
+                        {format(new Date(attendance.recordedAt), 'yyyy/MM/dd')}
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm">

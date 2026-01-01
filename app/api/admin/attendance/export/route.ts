@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Attendance, Guard, Prisma, Shift, Site } from '@prisma/client';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, format } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -77,9 +77,9 @@ export async function GET(request: NextRequest) {
             const guardName = att.guard?.name || 'Unknown';
             const employeeId = att.guard?.id || 'N/A';
             const siteName = att.shift.site.name;
-            const shiftDate = new Date(att.shift.date).toLocaleDateString();
-            const recordDate = new Date(att.recordedAt).toLocaleDateString();
-            const recordTime = new Date(att.recordedAt).toLocaleTimeString();
+            const shiftDate = format(new Date(att.shift.date), 'yyyy/MM/dd');
+            const recordDate = format(new Date(att.recordedAt), 'yyyy/MM/dd');
+            const recordTime = format(new Date(att.recordedAt), 'HH:mm');
 
             // Escape quotes in CSV fields: " -> ""
             const escape = (str: string) => `"${str.replace(/"/g, '""')}"`;

@@ -140,13 +140,13 @@ export default function GuardList({
             `"${guard.id}"`,
             `"${guard.guardCode || ''}"`,
             guard.status ? 'Active' : 'Inactive',
-            `"${guard.joinDate ? new Date(guard.joinDate).toLocaleDateString() : ''}"`,
-            `"${guard.leftDate ? new Date(guard.leftDate).toLocaleDateString() : ''}"`,
+            `"${guard.joinDate ? format(new Date(guard.joinDate), 'yyyy/MM/dd') : ''}"`,
+            `"${guard.leftDate ? format(new Date(guard.leftDate), 'yyyy/MM/dd') : ''}"`,
             `"${guard.note ? guard.note.replace(/"/g, '""') : ''}"`,
             `"${guard.createdBy?.name || ''}"`,
-            `"${new Date(guard.createdAt).toLocaleString()}"`,
+            `"${format(new Date(guard.createdAt), 'yyyy/MM/dd HH:mm')}"`,
             `"${guard.lastUpdatedBy?.name || ''}"`,
-            `"${guard.deletedAt ? new Date(guard.deletedAt).toLocaleString() : ''}"`,
+            `"${guard.deletedAt ? format(new Date(guard.deletedAt), 'yyyy/MM/dd HH:mm') : ''}"`,
           ].join(',');
         }),
       ].join('\n');
@@ -327,10 +327,10 @@ export default function GuardList({
                       )}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
-                      {new Date(guard.joinDate || guard.createdAt).toLocaleDateString()}
+                      {format(new Date(guard.joinDate || guard.createdAt), 'yyyy/MM/dd')}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
-                      {guard.leftDate ? new Date(guard.leftDate).toLocaleDateString() : '-'}
+                      {guard.leftDate ? format(new Date(guard.leftDate), 'yyyy/MM/dd') : '-'}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
                       <div className="max-w-[200px] whitespace-normal wrap-break-words">{guard.note || '-'}</div>

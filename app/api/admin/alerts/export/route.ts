@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { startOfDay, endOfDay } from 'date-fns';
+import { startOfDay, endOfDay, format } from 'date-fns';
 
 const include = {
   site: true,
@@ -87,16 +87,16 @@ export async function GET(request: NextRequest) {
             const siteName = alert.site.name;
             const guardName = alert.shift?.guard?.name || 'Unassigned';
 
-            const createdAt = new Date(alert.createdAt).toLocaleString();
-            const windowStart = new Date(alert.windowStart).toLocaleString();
+            const createdAt = format(new Date(alert.createdAt), 'yyyy/MM/dd HH:mm');
+            const windowStart = format(new Date(alert.windowStart), 'yyyy/MM/dd HH:mm');
 
             const status = alert.resolvedAt ? 'Resolved' : alert.acknowledgedAt ? 'Acknowledged' : 'Open';
 
             const ackByName = alert.ackAdmin?.name || '';
-            const ackAt = alert.acknowledgedAt ? new Date(alert.acknowledgedAt).toLocaleString() : '';
+            const ackAt = alert.acknowledgedAt ? format(new Date(alert.acknowledgedAt), 'yyyy/MM/dd HH:mm') : '';
 
             const resByName = alert.resolverAdmin?.name || '';
-            const resAt = alert.resolvedAt ? new Date(alert.resolvedAt).toLocaleString() : '';
+            const resAt = alert.resolvedAt ? format(new Date(alert.resolvedAt), 'yyyy/MM/dd HH:mm') : '';
 
             const row = [
               escape(siteName),

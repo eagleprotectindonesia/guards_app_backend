@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { Pencil, History, Download } from 'lucide-react';
 import Search from '../../components/search';
+import { format } from 'date-fns';
 
 type SiteWithAdminInfo = Site & {
   lastUpdatedBy?: { name: string } | null;
@@ -71,9 +72,9 @@ export default function SiteList({ sites, page, perPage, totalCount, isSuperAdmi
             site.status ? 'Active' : 'Inactive',
             `"${site.note ? site.note.replace(/"/g, '""') : ''}"`,
             `"${site.createdBy?.name || ''}"`,
-            `"${new Date(site.createdAt).toLocaleString()}"`,
+            `"${format(new Date(site.createdAt), 'yyyy/MM/dd HH:mm')}"`,
             `"${site.lastUpdatedBy?.name || ''}"`,
-            `"${site.deletedAt ? new Date(site.deletedAt).toLocaleString() : ''}"`,
+            `"${site.deletedAt ? format(new Date(site.deletedAt), 'yyyy/MM/dd HH:mm') : ''}"`,
           ].join(',');
         }),
       ].join('\n');

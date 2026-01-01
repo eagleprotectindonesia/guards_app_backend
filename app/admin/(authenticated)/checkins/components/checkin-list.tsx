@@ -148,7 +148,7 @@ export default function CheckinList({ checkins, page, perPage, totalCount, guard
                         <Clock className="w-3 h-3 text-gray-400" />
                         {new Date(checkin.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">{new Date(checkin.at).toLocaleDateString()}</div>
+                      <div className="text-xs text-gray-500 mt-0.5">{format(new Date(checkin.at), 'yyyy/MM/dd')}</div>
                     </td>
                     <td className="py-4 px-6 text-sm">
                       {checkin.status === 'on_time' && (
@@ -168,7 +168,7 @@ export default function CheckinList({ checkins, page, perPage, totalCount, guard
                       )}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
-                      {new Date(checkin.shift.date).toLocaleDateString()}
+                      {format(new Date(checkin.shift.date), 'yyyy/MM/dd')}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-600">
                       {hasValidLocation(checkin.metadata) ? (

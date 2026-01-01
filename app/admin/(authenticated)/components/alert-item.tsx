@@ -4,6 +4,7 @@ import { Alert, Shift, Site, Guard, ShiftType, Admin } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { Check, CheckCircle, Clock, Eye, User } from 'lucide-react';
 import Link from 'next/link';
+import { format } from 'date-fns';
 
 // Define types locally or import if shared (duplicating for now to ensure self-containment)
 type GuardWithOptionalRelations = Serialized<Guard>;
@@ -65,7 +66,7 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
                 {isNeedAttention ? 'ATTENTION NEEDED' : alert.reason.replace('_', ' ')}
               </span>
               <span className="text-xs text-gray-400 font-mono">
-                {new Date(alert.windowStart).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
+                {format(new Date(alert.windowStart), 'yyyy/MM/dd HH:mm')}
               </span>
             </div>
 
@@ -103,7 +104,7 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
                     </p>
                   )}
                   <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-200">
-                    Acknowledged on {new Date(alert.acknowledgedAt!).toLocaleString()}
+                    Acknowledged on {format(new Date(alert.acknowledgedAt!), 'yyyy/MM/dd HH:mm')}
                   </p>
                 </div>
               </div>
@@ -131,7 +132,7 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
                     </p>
                   )}
                   <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-200">
-                    Resolved on {new Date(alert.resolvedAt!).toLocaleString()}
+                    Resolved on {format(new Date(alert.resolvedAt!), 'yyyy/MM/dd HH:mm')}
                   </p>
                 </div>
               </div>
