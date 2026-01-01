@@ -50,7 +50,14 @@ export default async function ShiftsPage({
     orderBy: { startsAt: sort as 'asc' | 'desc' },
     skip,
     take: perPage,
-    include: { site: true, shiftType: true, guard: true, attendance: true },
+    include: {
+      site: true,
+      shiftType: true,
+      guard: true,
+      attendance: true,
+      createdBy: { select: { name: true } },
+      lastUpdatedBy: { select: { name: true } },
+    },
   });
 
   const sites = await getActiveSites();

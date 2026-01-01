@@ -62,6 +62,11 @@ export async function getPaginatedShiftTypes(params: {
                 name: true,
               },
             },
+            createdBy: {
+              select: {
+                name: true,
+              },
+            },
           },
         }),
         tx.shiftType.count({ where: finalWhere }),
@@ -79,9 +84,8 @@ export async function createShiftTypeWithChangelog(data: Prisma.ShiftTypeCreateI
       const createdShiftType = await tx.shiftType.create({
         data: {
           ...data,
-          lastUpdatedById: adminId,
-          createdById: adminId,
-          lastUpdatedBy: undefined,
+          lastUpdatedBy: { connect: { id: adminId } },
+          createdBy: { connect: { id: adminId } },
         },
       });
 
@@ -120,8 +124,7 @@ export async function updateShiftTypeWithChangelog(id: string, data: Prisma.Shif
         where: { id },
         data: {
           ...data,
-          lastUpdatedById: adminId,
-          lastUpdatedBy: undefined,
+          lastUpdatedBy: { connect: { id: adminId } },
         },
       });
 
@@ -174,7 +177,7 @@ export async function deleteShiftTypeWithChangelog(id: string, adminId: string) 
         where: { id },
         data: {
           deletedAt: new Date(),
-          lastUpdatedById: adminId,
+          lastUpdatedBy: { connect: { id: adminId } },
         },
       });
 

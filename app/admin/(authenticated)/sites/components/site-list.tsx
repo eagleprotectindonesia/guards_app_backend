@@ -141,9 +141,9 @@ export default function SiteList({ sites, page, perPage, totalCount, isSuperAdmi
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Note</th>
                 <th className="py-3 px-6 text-[10px] font-bold text-gray-500 uppercase tracking-wider text-center">
-                  <div className="flex flex-col">
-                    <span>Created By</span>
-                    <span className="text-gray-400">Updated By</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-blue-600">Created By</span>
+                    <span className="text-gray-400">Last Updated By</span>
                   </div>
                 </th>
                 <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
@@ -185,11 +185,25 @@ export default function SiteList({ sites, page, perPage, totalCount, isSuperAdmi
                       <div className="max-w-[200px] whitespace-normal wrap-break-words">{site.note || '-'}</div>
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500 text-center">
-                      <div className="flex flex-col items-center">
-                        <div className="font-medium text-gray-900" title="Created By">
+                      <div className="flex flex-col items-center gap-1">
+                        <div 
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                            site.createdBy?.name 
+                              ? 'bg-blue-50 text-blue-700 border border-blue-100' 
+                              : 'text-gray-400'
+                          }`} 
+                          title="Created By"
+                        >
                           {site.createdBy?.name || '-'}
                         </div>
-                        <div className="text-xs text-gray-400" title="Last Updated By">
+                        <div 
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                            site.lastUpdatedBy?.name 
+                              ? 'bg-gray-50 text-gray-600 border border-gray-100' 
+                              : 'text-gray-400'
+                          }`} 
+                          title="Last Updated By"
+                        >
                           {site.lastUpdatedBy?.name || '-'}
                         </div>
                       </div>

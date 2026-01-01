@@ -93,6 +93,11 @@ export async function getPaginatedGuards(params: {
                 name: true,
               },
             },
+            createdBy: {
+              select: {
+                name: true,
+              },
+            },
           },
         }),
         tx.guard.count({ where: finalWhere }),
@@ -142,9 +147,8 @@ export async function createGuardWithChangelog(data: Prisma.GuardCreateInput, ad
         data: {
           ...data,
           status: effectiveStatus,
-          lastUpdatedById: adminId,
-          createdById: adminId,
-          lastUpdatedBy: undefined,
+          lastUpdatedBy: { connect: { id: adminId } },
+          createdBy: { connect: { id: adminId } },
         },
       });
 
@@ -200,9 +204,11 @@ export async function updateGuardWithChangelog(id: string, data: Prisma.GuardUpd
       const updateData = {
         ...data,
         status: effectiveStatus,
-        lastUpdatedById: adminId,
-        lastUpdatedBy: undefined,
       };
+
+      if (adminId) {
+        updateData.lastUpdatedBy = { connect: { id: adminId } };
+      }
 
       if (effectiveStatus === false) {
         updateData.tokenVersion = { increment: 1 };
@@ -273,7 +279,10 @@ export async function updateGuardPasswordWithChangelog(id: string, hashedPasswor
     async tx => {
       await tx.guard.update({
         where: { id },
-        data: { hashedPassword, lastUpdatedById: adminId },
+        data: {
+          hashedPassword,
+          lastUpdatedBy: { connect: { id: adminId } },
+        },
       });
 
       await tx.changelog.create({
@@ -308,7 +317,7 @@ export async function deleteGuardWithChangelog(id: string, adminId: string) {
           status: false,
           // Append suffix to phone to allow re-registration with same phone
           phone: `${guardToDelete.phone}#deleted#${id}`,
-          lastUpdatedById: adminId,
+          lastUpdatedBy: { connect: { id: adminId } },
           tokenVersion: { increment: 1 }, // Revoke all sessions
         },
       });

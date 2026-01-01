@@ -12,20 +12,20 @@ enum AdminRole {
 }
 
 model Admin {
-  id                 String    @id @default(uuid())
+  id                 String      @id @default(uuid())
   name               String
-  email              String    @unique
-  hashedPassword     String    @map("hashed_password")
-  role               AdminRole @default(admin)
-  tokenVersion       Int       @default(0) @map("token_version")
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  deletedAt          DateTime? @map("deleted_at")
-  note               String?   @db.Text
-  acknowledgedAlerts Alert[]   @relation("AcknowledgedBy")
-  resolvedAlerts     Alert[]   @relation("ResolvedBy")
-  updatedGuards      Guard[]   @relation("GuardLastUpdatedBy")
-  updatedSites       Site[]    @relation("SiteLastUpdatedBy")
+  email              String      @unique
+  hashedPassword     String      @map("hashed_password")
+  role               AdminRole   @default(admin)
+  tokenVersion       Int         @default(0) @map("token_version")
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+  deletedAt          DateTime?   @map("deleted_at")
+  note               String?     @db.Text
+  acknowledgedAlerts Alert[]     @relation("AcknowledgedBy")
+  resolvedAlerts     Alert[]     @relation("ResolvedBy")
+  updatedGuards      Guard[]     @relation("GuardLastUpdatedBy")
+  updatedSites       Site[]      @relation("SiteLastUpdatedBy")
   updatedShiftTypes  ShiftType[] @relation("ShiftTypeLastUpdatedBy")
   updatedShifts      Shift[]     @relation("ShiftLastUpdatedBy")
   createdGuards      Guard[]     @relation("GuardCreatedBy")
@@ -84,23 +84,23 @@ model Guard {
 }
 
 model Site {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   name            String
-  clientName      String?  @map("client_name")
+  clientName      String?   @map("client_name")
   address         String?
   latitude        Float?
   longitude       Float?
-  status          Boolean? @default(true)
-  lastUpdatedById String?  @map("last_updated_by_id")
-  createdById     String?  @map("created_by_id")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status          Boolean?  @default(true)
+  lastUpdatedById String?   @map("last_updated_by_id")
+  createdById     String?   @map("created_by_id")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   deletedAt       DateTime? @map("deleted_at")
-  note            String?  @db.Text
+  note            String?   @db.Text
   alerts          Alert[]
   shifts          Shift[]
-  lastUpdatedBy   Admin?   @relation("SiteLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  createdBy       Admin?   @relation("SiteCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy   Admin?    @relation("SiteLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  createdBy       Admin?    @relation("SiteCreatedBy", fields: [createdById], references: [id])
 
   @@index([status])
   @@index([deletedAt])
@@ -108,18 +108,18 @@ model Site {
 }
 
 model ShiftType {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   name            String
-  startTime       String   @map("start_time")
-  endTime         String   @map("end_time")
-  lastUpdatedById String?  @map("last_updated_by_id")
-  createdById     String?  @map("created_by_id")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  startTime       String    @map("start_time")
+  endTime         String    @map("end_time")
+  lastUpdatedById String?   @map("last_updated_by_id")
+  createdById     String?   @map("created_by_id")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   deletedAt       DateTime? @map("deleted_at")
   shifts          Shift[]
-  lastUpdatedBy   Admin?   @relation("ShiftTypeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  createdBy       Admin?   @relation("ShiftTypeCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy   Admin?    @relation("ShiftTypeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  createdBy       Admin?    @relation("ShiftTypeCreatedBy", fields: [createdById], references: [id])
 
   @@index([deletedAt])
   @@map("shift_types")

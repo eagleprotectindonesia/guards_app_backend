@@ -57,6 +57,11 @@ export async function getPaginatedSites(params: { query?: string; skip: number; 
                 name: true,
               },
             },
+            createdBy: {
+              select: {
+                name: true,
+              },
+            },
           },
         }),
         tx.site.count({ where }),
@@ -80,9 +85,8 @@ export async function createSiteWithChangelog(data: Prisma.SiteCreateInput, admi
       const createdSite = await tx.site.create({
         data: {
           ...data,
-          lastUpdatedById: adminId,
-          createdById: adminId,
-          lastUpdatedBy: undefined,
+          lastUpdatedBy: { connect: { id: adminId } },
+          createdBy: { connect: { id: adminId } },
         },
       });
 
@@ -116,8 +120,7 @@ export async function updateSiteWithChangelog(id: string, data: Prisma.SiteUpdat
         where: { id, deletedAt: null },
         data: {
           ...data,
-          lastUpdatedById: adminId,
-          lastUpdatedBy: undefined,
+          lastUpdatedBy: { connect: { id: adminId } },
         },
       });
 
@@ -159,7 +162,7 @@ export async function deleteSiteWithChangelog(id: string, adminId: string) {
         data: {
           deletedAt: new Date(),
           status: false,
-          lastUpdatedById: adminId,
+          lastUpdatedBy: { connect: { id: adminId } },
         },
       });
 

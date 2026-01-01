@@ -65,8 +65,8 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
       const createdShift = await tx.shift.create({
         data: {
           ...data,
-          createdById: adminId,
-          lastUpdatedById: adminId,
+          createdBy: { connect: { id: adminId } },
+          lastUpdatedBy: { connect: { id: adminId } },
         },
         include: {
           site: true,
@@ -107,7 +107,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
         where: { id, deletedAt: null },
         data: {
           ...data,
-          lastUpdatedById: adminId,
+          lastUpdatedBy: { connect: { id: adminId } },
         },
         include: {
           site: true,
@@ -156,7 +156,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
         where: { id },
         data: {
           deletedAt: new Date(),
-          lastUpdatedById: adminId,
+          lastUpdatedBy: { connect: { id: adminId } },
         },
       });
 
@@ -216,11 +216,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
   );
 }
 
-export async function getExportShiftsBatch(params: {
-  where: Prisma.ShiftWhereInput;
-  take: number;
-  cursor?: string;
-}) {
+export async function getExportShiftsBatch(params: { where: Prisma.ShiftWhereInput; take: number; cursor?: string }) {
   const { where, take, cursor } = params;
   return prisma.shift.findMany({
     take,
