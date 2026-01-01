@@ -26,8 +26,8 @@ import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { ActionState } from '@/types/actions';
 
-export async function getAllGuardsForExport(): Promise<Serialized<Guard>[]> {
-  const guards = await getAllGuards();
+export async function getAllGuardsForExport(): Promise<Serialized<Guard & { lastUpdatedBy?: { name: string } | null }>[]> {
+  const guards = await getAllGuards(undefined, true);
   return serialize(guards);
 }
 

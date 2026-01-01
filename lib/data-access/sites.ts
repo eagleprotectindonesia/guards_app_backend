@@ -1,10 +1,17 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 
-export async function getAllSites() {
+export async function getAllSites(includeDeleted = false) {
   return prisma.site.findMany({
-    where: { deletedAt: null },
+    where: includeDeleted ? {} : { deletedAt: null },
     orderBy: { name: 'asc' },
+    include: {
+      lastUpdatedBy: {
+        select: {
+          name: true,
+        },
+      },
+    },
   });
 }
 

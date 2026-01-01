@@ -115,19 +115,33 @@ export default function GuardList({
     try {
       const guards = await getAllGuardsForExport();
 
-      const headers = ['Name', 'Phone', 'Employee ID', 'Guard Code', 'Status', 'Joined Date', 'Left Date', 'Note'];
+      const headers = [
+        'Name',
+        'Phone',
+        'Employee ID',
+        'Guard Code',
+        'Status',
+        'Joined Date',
+        'Left Date',
+        'Note',
+        'Last Updated By',
+        'Deleted At',
+      ];
       const csvContent = [
         headers.join(','),
         ...guards.map(guard => {
+          const phone = guard.phone.split('#')[0];
           return [
             `"${guard.name}"`,
-            `"${guard.phone}"`,
+            `"${phone}"`,
             `"${guard.id}"`,
             `"${guard.guardCode || ''}"`,
             guard.status ? 'Active' : 'Inactive',
             `"${guard.joinDate ? new Date(guard.joinDate).toLocaleDateString() : ''}"`,
             `"${guard.leftDate ? new Date(guard.leftDate).toLocaleDateString() : ''}"`,
             `"${guard.note ? guard.note.replace(/"/g, '""') : ''}"`,
+            `"${guard.lastUpdatedBy?.name || ''}"`,
+            `"${guard.deletedAt ? new Date(guard.deletedAt).toLocaleString() : ''}"`,
           ].join(',');
         }),
       ].join('\n');

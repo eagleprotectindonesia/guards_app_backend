@@ -3,12 +3,12 @@
 import { useTransition } from 'react';
 import { Site } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
-import { deleteSite } from '../actions';
+import { deleteSite, getAllSitesForExport } from '../actions';
 import { DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { Pencil, History } from 'lucide-react';
+import { Pencil, History, Download } from 'lucide-react';
 import Search from '../../components/search';
 
 type SiteWithUpdater = Site & {
@@ -41,6 +41,53 @@ export default function SiteList({ sites, page, perPage, totalCount, isSuperAdmi
     });
   };
 
+  const handleExportCSV = async () => {
+    try {
+      const sites = await getAllSitesForExport();
+
+      const headers = [
+        'Name',
+        'Client Name',
+        'Address',
+        'Latitude',
+        'Longitude',
+        'Status',
+        'Note',
+        'Last Updated By',
+        'Deleted At',
+      ];
+      const csvContent = [
+        headers.join(','),
+        ...sites.map(site => {
+          return [
+            `"${site.name}"`,
+            `"${site.clientName || ''}"`,
+            `"${site.address || ''}"`,
+            site.latitude !== null && site.latitude !== undefined ? site.latitude.toString() : '',
+            site.longitude !== null && site.longitude !== undefined ? site.longitude.toString() : '',
+            site.status ? 'Active' : 'Inactive',
+            `"${site.note ? site.note.replace(/"/g, '""') : ''}"`,
+            `"${site.lastUpdatedBy?.name || ''}"`,
+            `"${site.deletedAt ? new Date(site.deletedAt).toLocaleString() : ''}"`,
+          ].join(',');
+        }),
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `sites_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Failed to export sites:', error);
+      toast.error('Failed to export sites.');
+    }
+  };
+
   return (
     <div>
       {/* Header Section */}
@@ -53,6 +100,13 @@ export default function SiteList({ sites, page, perPage, totalCount, isSuperAdmi
           <div className="w-full md:w-64">
             <Search placeholder="Search sites..." />
           </div>
+          <button
+            onClick={handleExportCSV}
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-white text-gray-700 text-sm font-semibold rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors shadow-sm w-full md:w-auto"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Download CSV
+          </button>
           {isSuperAdmin && (
             <Link
               href="/admin/sites/audit"

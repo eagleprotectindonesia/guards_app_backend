@@ -29,10 +29,20 @@ export function getEffectiveStatus(status: boolean, joinDateVal?: string | Date 
   return true;
 }
 
-export async function getAllGuards(orderBy: Prisma.GuardOrderByWithRelationInput = { createdAt: 'desc' }) {
+export async function getAllGuards(
+  orderBy: Prisma.GuardOrderByWithRelationInput = { createdAt: 'desc' },
+  includeDeleted = false
+) {
   return prisma.guard.findMany({
-    where: { deletedAt: null },
+    where: includeDeleted ? {} : { deletedAt: null },
     orderBy,
+    include: {
+      lastUpdatedBy: {
+        select: {
+          name: true,
+        },
+      },
+    },
   });
 }
 
