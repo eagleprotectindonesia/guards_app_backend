@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Eagle Protect Guard Management',
   description: 'Eagle Protect Guard Management',
+  icons: {
+    apple: '/guard/icons/180.png',
+  },
 };
 
 export default function RootLayout({
