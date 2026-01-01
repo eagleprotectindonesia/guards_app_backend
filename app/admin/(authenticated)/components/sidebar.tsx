@@ -5,32 +5,14 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  LayoutDashboard,
-  MapPin,
-  Users,
-  Calendar,
-  Bell,
-  User,
   LogOut,
-  Layers,
-  UserCog,
   ChevronLeft,
   ChevronRight,
-  ClipboardCheck,
+  User,
 } from 'lucide-react';
 import { Admin } from '@prisma/client';
 import { cn } from '@/lib/utils';
-
-const navItems = [
-  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-  { name: 'Sites', href: '/admin/sites', icon: MapPin },
-  { name: 'Guards', href: '/admin/guards', icon: Users },
-  { name: 'Shift Types', href: '/admin/shift-types', icon: Layers },
-  { name: 'Shifts', href: '/admin/shifts', icon: Calendar },
-  { name: 'Attendance', href: '/admin/attendance', icon: ClipboardCheck },
-  { name: 'Checkins', href: '/admin/checkins', icon: ClipboardCheck },
-  { name: 'Alerts', href: '/admin/alerts', icon: Bell },
-];
+import { ADMIN_NAV_ITEMS, ADMIN_SECONDARY_NAV_ITEMS } from '@/lib/admin-navigation';
 
 type SidebarProps = {
   currentAdmin: Admin | null;
@@ -92,7 +74,7 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto overflow-x-hidden">
-        {navItems.map(item => {
+        {ADMIN_NAV_ITEMS.map(item => {
           const isActive = pathname.startsWith(item.href);
           return (
             <Link
@@ -118,31 +100,35 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
           );
         })}
 
-        {currentAdmin?.role === 'superadmin' && (
-          <Link
-            href="/admin/admins"
-            title={isCollapsed ? 'Admins' : undefined}
-            className={cn(
-              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              pathname.startsWith('/admin/admins')
-                ? 'bg-red-50 text-red-600'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
-              isCollapsed && 'justify-center px-2'
-            )}
-          >
-            <UserCog
+        {ADMIN_SECONDARY_NAV_ITEMS.filter(item => !item.role || item.role === currentAdmin?.role).map(item => {
+          const isActive = pathname.startsWith(item.href);
+          const isProfile = item.href.includes('profile');
+          
+          if (isProfile) return null; // Handle profile separately if desired, or just let it flow
+
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              title={isCollapsed ? item.name : undefined}
               className={cn(
-                'w-5 h-5 shrink-0',
-                pathname.startsWith('/admin/admins') ? 'text-red-600' : 'text-gray-500'
+                'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                isActive ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                isCollapsed && 'justify-center px-2'
               )}
-            />
-            <span
-              className={cn('transition-opacity duration-300 whitespace-nowrap', isCollapsed && 'opacity-0 w-0 hidden')}
             >
-              Admins
-            </span>
-          </Link>
-        )}
+              <item.icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-red-600' : 'text-gray-500')} />
+              <span
+                className={cn(
+                  'transition-opacity duration-300 whitespace-nowrap',
+                  isCollapsed && 'opacity-0 w-0 hidden'
+                )}
+              >
+                {item.name}
+              </span>
+            </Link>
+          );
+        })}
 
         <div className="pt-4 mt-4 border-t border-gray-100">
           <Link
