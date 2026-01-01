@@ -322,10 +322,10 @@ export default function ShiftList({
                         </Link>
                         <DeleteButton
                           onClick={() => handleDeleteClick(shift.id)}
-                          disabled={isPending || (!isSuperAdmin && shift.status !== 'in_progress')}
+                          disabled={isPending || (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled')}
                           title={
-                            !isSuperAdmin && shift.status !== 'in_progress'
-                              ? 'Only in-progress shifts can be cancelled'
+                            !isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled'
+                              ? 'Only in-progress or scheduled shifts can be cancelled'
                               : 'Actions'
                           }
                         />

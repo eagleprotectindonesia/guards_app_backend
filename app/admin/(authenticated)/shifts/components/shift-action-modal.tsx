@@ -29,6 +29,7 @@ export default function ShiftActionModal({
   const [selectedAction, setSelectedAction] = useState<string | null>(null);
   const [cancelNote, setCancelNote] = useState('');
   const canCancel = status === 'in_progress';
+  const canDelete = isSuperAdmin || status === 'scheduled';
 
   const handleConfirm = () => {
     if (selectedAction === 'cancel') {
@@ -71,7 +72,7 @@ export default function ShiftActionModal({
               </div>
             )}
 
-            {isSuperAdmin && (
+            {canDelete && (
               <div
                 className={`flex items-start gap-3 p-4 rounded-lg border transition-all cursor-pointer ${
                   selectedAction === 'delete' ? 'border-red-200 bg-red-50' : 'border-gray-200 hover:border-gray-300'
@@ -92,11 +93,11 @@ export default function ShiftActionModal({
             )}
           </RadioGroup>
 
-          {!canCancel && !isSuperAdmin && (
+          {!canCancel && !canDelete && (
             <div className="p-4 bg-yellow-50 border border-yellow-100 rounded-lg flex gap-3">
               <AlertTriangle className="w-5 h-5 text-yellow-600 shrink-0" />
               <p className="text-sm text-yellow-700">
-                Only in-progress shifts can be cancelled. Since you are not a Super Admin, you cannot delete this shift.
+                Only in-progress shifts can be cancelled. Since you are not a Super Admin, you can only delete scheduled shifts.
               </p>
             </div>
           )}
