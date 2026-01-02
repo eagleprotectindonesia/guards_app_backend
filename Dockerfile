@@ -9,7 +9,7 @@ WORKDIR /app
 # Install dependencies based on package-lock.json
 COPY package.json package-lock.json* ./
 COPY prisma ./prisma
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # 2. Generate Prisma Client
 FROM deps AS prisma-gen
@@ -27,7 +27,7 @@ COPY . .
 ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
 
-RUN npm run build
+RUN --mount=type=cache,target=/app/.next/cache npm run build
 RUN npm prune --omit=dev
 RUN rm -rf .next/cache
 
@@ -43,11 +43,9 @@ RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
 # Copy standalone build
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
-# COPY --from=builder /app/server.js ./server.js
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 USER nextjs
 
@@ -55,8 +53,8 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-# Use node directly for better signal handling
-CMD ["npm", "start"]
+# Use node directly to run the standalone server
+CMD ["node", "server.js"]
 
 # 5. Build Worker (Bundle into single JS file)
 FROM base AS worker-builder
@@ -77,7 +75,7 @@ COPY package.worker.json ./package.json
 COPY package-lock.json* ./
 
 # Install only the prisma client and its adapter
-RUN npm ci --omit=dev
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
 
 # 7. Production image for the Worker
 FROM base AS worker-runner
@@ -113,7 +111,7 @@ COPY package.migration.json ./package.json
 COPY package-lock.json* ./package-lock.json
 
 # Install Prisma CLI and dependencies
-RUN npm ci --omit=dev
+RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
 
 # Copy migrations, schema, and config
 COPY prisma ./prisma

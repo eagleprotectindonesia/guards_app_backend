@@ -40,3 +40,6 @@ jobs:
 
             echo "== Status =="
             docker compose ps
+
+            echo "== Cleanup =="
+            docker image prune -f
