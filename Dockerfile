@@ -56,28 +56,37 @@ ENV HOSTNAME "0.0.0.0"
 # Use node directly to run the standalone server
 CMD ["node", "server.js"]
 
-# 5. Build Worker (Bundle into single JS file)
-FROM base AS worker-builder
+# 5. Worker Dependencies (Build time)
+FROM base AS worker-build-deps
 WORKDIR /app
-COPY --from=prisma-gen /app/node_modules ./node_modules
-COPY package.json worker.ts tsconfig.json ./
+COPY package.worker.json ./package.json
+RUN --mount=type=cache,target=/root/.npm npm install
+
+# 6. Worker Prisma Generation
+FROM worker-build-deps AS worker-gen
+WORKDIR /app
+ARG DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+ENV DATABASE_URL=${DATABASE_URL}
+COPY prisma ./prisma
+RUN npx prisma generate
+
+# 7. Build Worker (Bundle into single JS file)
+FROM worker-gen AS worker-builder
+WORKDIR /app
 COPY lib ./lib
 COPY workers ./workers
-COPY prisma ./prisma
+COPY worker.ts tsconfig.json ./
 
 RUN npx esbuild worker.ts --bundle --platform=node --target=node24 --outfile=dist/worker.js \
     --external:@prisma/client --external:pg --external:@prisma/adapter-pg --external:ioredis --external:dotenv --external:date-fns
 
-# 6. Prepare minimal worker dependencies
-FROM base AS worker-deps
+# 8. Worker Production Dependencies
+FROM base AS worker-prod-deps
 WORKDIR /app
 COPY package.worker.json ./package.json
-COPY package-lock.json* ./
+RUN --mount=type=cache,target=/root/.npm npm install --production
 
-# Install only the prisma client and its adapter
-RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
-
-# 7. Production image for the Worker
+# 9. Production image for the Worker
 FROM base AS worker-runner
 WORKDIR /app
 
@@ -90,11 +99,11 @@ RUN adduser --system --uid 1001 workeruser
 # Copy the bundled worker
 COPY --from=worker-builder /app/dist/worker.js ./worker.js
 
-# Copy pruned node_modules from worker-deps
-COPY --from=worker-deps /app/node_modules ./node_modules
+# Copy production node_modules
+COPY --from=worker-prod-deps /app/node_modules ./node_modules
 
-# Copy the generated prisma client engines from the prisma-gen stage
-COPY --from=prisma-gen /app/node_modules/.prisma ./node_modules/.prisma
+# Copy the generated prisma client engines from the worker-gen stage
+COPY --from=worker-gen /app/node_modules/.prisma ./node_modules/.prisma
 USER workeruser
 
 # Run the bundled worker.js

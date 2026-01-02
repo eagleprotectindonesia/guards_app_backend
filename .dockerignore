@@ -8,3 +8,5 @@ README.md
 .env.local
 .DS_Store
 tests
+dist
+coverage
