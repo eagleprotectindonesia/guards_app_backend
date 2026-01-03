@@ -139,6 +139,16 @@ export default function GuardPage() {
   useEffect(() => {
     fetchGuardDetails();
     fetchShift();
+
+    const handleShiftUpdate = () => {
+      fetchShift();
+    };
+
+    window.addEventListener('shift_updated', handleShiftUpdate);
+    
+    return () => {
+      window.removeEventListener('shift_updated', handleShiftUpdate);
+    };
   }, []);
 
   const handleLogout = async () => {

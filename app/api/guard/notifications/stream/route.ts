@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedGuard } from '@/lib/guard-auth';
 import Redis from 'ioredis';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const guard = await getAuthenticatedGuard();
 
   if (!guard) {
@@ -10,56 +10,73 @@ export async function GET() {
   }
 
   const encoder = new TextEncoder();
-  // Create a new Redis instance for subscription
-  const subscriber = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  // Create a new Redis instance for blocking read
+  const reader = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
     enableReadyCheck: false,
   });
 
-  subscriber.on('error', err => {
-    console.error('Redis subscription error (Guard SSE):', err);
+  reader.on('error', err => {
+    console.error('Redis reader error (Guard SSE):', err);
   });
 
-  let interval: NodeJS.Timeout;
+  // Support reconnection by reading the Last-Event-ID header
+  const lastEventId = req.headers.get('last-event-id') || req.nextUrl.searchParams.get('lastId') || '$';
+
+  let isClosed = false;
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Subscribe to guard-specific channel
-      const channel = `guard:${guard.id}`;
-      await subscriber.subscribe(channel);
+      const channel = `guard:stream:${guard.id}`;
+      let currentLastId = lastEventId;
 
-      subscriber.on('message', (chan, message) => {
-        if (chan === channel) {
-          try {
-            const data = JSON.parse(message);
-            
-            // Check for session revocation
-            if (data.type === 'session_revoked') {
-              // If the new token version is higher than what we have in the closure (current session),
-              // force a logout.
-              if (data.newTokenVersion > guard.tokenVersion) {
-                const event = `event: force_logout\ndata: ${JSON.stringify({ reason: 'logged_in_elsewhere' })}\n\n`;
-                controller.enqueue(encoder.encode(event));
+      // Inner loop for continuous reading
+      const readLoop = async () => {
+        try {
+          while (!isClosed) {
+            // Block for 20 seconds waiting for new messages
+            const results = await reader.xread('BLOCK', 20000, 'STREAMS', channel, currentLastId);
+
+            if (results && results.length > 0) {
+              const messages = results[0][1];
+              for (const [id, fields] of messages) {
+                currentLastId = id;
+                
+                // Convert Redis array [key, val, key, val] to object
+                const data: Record<string, string> = {};
+                for (let i = 0; i < fields.length; i += 2) {
+                  data[fields[i]] = fields[i + 1];
+                }
+
+                if (data.type === 'session_revoked') {
+                  const newTokenVersion = parseInt(data.newTokenVersion, 10);
+                  if (newTokenVersion > guard.tokenVersion) {
+                    const event = `id: ${id}\nevent: force_logout\ndata: ${JSON.stringify({ reason: 'logged_in_elsewhere' })}\n\n`;
+                    controller.enqueue(encoder.encode(event));
+                  }
+                } else if (data.type === 'shift_updated') {
+                  const event = `id: ${id}\nevent: shift_updated\ndata: ${JSON.stringify({ shiftId: data.shiftId })}\n\n`;
+                  controller.enqueue(encoder.encode(event));
+                }
               }
+            } else {
+              // Send keepalive ping if no messages received within BLOCK period
+              const ping = `: ping\n\n`;
+              controller.enqueue(encoder.encode(ping));
             }
-          } catch {
-            console.error('Error parsing Redis message:');
+          }
+        } catch (err) {
+          if (!isClosed) {
+            console.error('SSE Stream error:', err);
+            controller.error(err);
           }
         }
-      });
+      };
 
-      // Keepalive (every 30s)
-      interval = setInterval(() => {
-        try {
-          const ping = `: ping\n\n`;
-          controller.enqueue(encoder.encode(ping));
-        } catch {
-          clearInterval(interval);
-        }
-      }, 30000);
+      readLoop();
     },
-    async cancel() {
-      if (interval) clearInterval(interval);
-      await subscriber.quit();
+    cancel() {
+      isClosed = true;
+      reader.quit();
     },
   });
 

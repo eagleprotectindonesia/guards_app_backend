@@ -58,14 +58,18 @@ export async function POST(req: Request) {
       tokenVersion: { increment: 1 },
     });
 
-    // Notify other active sessions to logout
+    // Notify other active sessions to logout via Redis Stream
     try {
-      await redis.publish(
-        `guard:${guard.id}`,
-        JSON.stringify({
-          type: 'session_revoked',
-          newTokenVersion: updatedGuard.tokenVersion,
-        })
+      await redis.xadd(
+        `guard:stream:${guard.id}`,
+        'MAXLEN',
+        '~',
+        100,
+        '*',
+        'type',
+        'session_revoked',
+        'newTokenVersion',
+        updatedGuard.tokenVersion.toString()
       );
     } catch (error) {
       console.error('Failed to publish session revocation event:', error);

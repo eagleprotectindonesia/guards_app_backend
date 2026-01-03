@@ -29,6 +29,13 @@ export default function SessionMonitor() {
         }
       });
 
+      eventSource.addEventListener('shift_updated', () => {
+        // Refresh the current route to pick up shift changes
+        router.refresh();
+        // Also dispatch a custom event for client components to listen to
+        window.dispatchEvent(new CustomEvent('shift_updated'));
+      });
+
       eventSource.onerror = () => {
         // If 401 or similar, we might want to stop.
         // EventSource doesn't give status codes easily in onerror.
