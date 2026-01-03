@@ -152,6 +152,9 @@ export async function createGuardWithChangelog(data: Prisma.GuardCreateInput, ad
         },
       });
 
+      // Set Redis flag for password change requirement
+      await redis.set(`guard:${createdGuard.id}:must-change-password`, '1');
+
       await tx.changelog.create({
         data: {
           action: 'CREATE',
@@ -336,16 +339,19 @@ export async function deleteGuardWithChangelog(id: string, adminId: string) {
         },
       });
 
-      // Notify active sessions to logout via Redis
+      // Notify active sessions to logout via Redis and cleanup flags
       try {
-        await redis.publish(
-          `guard:${id}`,
-          JSON.stringify({
-            type: 'session_revoked',
-          })
-        );
+        await Promise.all([
+          redis.del(`guard:${id}:must-change-password`),
+          redis.publish(
+            `guard:${id}`,
+            JSON.stringify({
+              type: 'session_revoked',
+            })
+          ),
+        ]);
       } catch (error) {
-        console.error('Failed to publish session revocation event:', error);
+        console.error('Failed to perform Redis cleanup/notification:', error);
       }
     },
     { timeout: 5000 }
@@ -411,6 +417,11 @@ export async function bulkCreateGuardsWithChangelog(guardsData: Prisma.GuardCrea
           joinDate: true,
         },
       });
+
+      // Set Redis flag for password change requirement for each created guard
+      for (const g of createdGuards) {
+        await redis.set(`guard:${g.id}:must-change-password`, '1');
+      }
 
       // Log the creation event for EACH guard so their individual history is complete
       await tx.changelog.createMany({

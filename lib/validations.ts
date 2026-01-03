@@ -63,7 +63,12 @@ export const createGuardSchema = z.object({
     .string()
     .length(6, 'Employee ID (System ID) must be exactly 6 characters')
     .regex(/^[a-zA-Z0-9]*$/, 'Employee ID must be alphanumeric only'),
-  guardCode: z.string().min(1).max(12).regex(/^[a-zA-Z0-9]*$/, 'Guard code must be alphanumeric only').optional(),
+  guardCode: z
+    .string()
+    .min(1)
+    .max(10)
+    .regex(/^[a-zA-Z0-9]*$/, 'Guard code must be alphanumeric only')
+    .optional(),
   status: z.boolean().optional(),
   joinDate: z.coerce.date(),
   leftDate: z.coerce.date().optional(),

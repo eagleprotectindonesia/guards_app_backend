@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { getAuthenticatedGuard } from '@/lib/guard-auth';
 import { updateGuard } from '@/lib/data-access/guards';
+import { redis } from '@/lib/redis';
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),
@@ -33,6 +34,9 @@ export async function POST(req: Request) {
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
 
     await updateGuard(guard.id, { hashedPassword: hashedNewPassword });
+
+    // Clear Redis flag for password change requirement
+    await redis.del(`guard:${guard.id}:must-change-password`);
 
     return NextResponse.json({ message: 'Password updated successfully' }, { status: 200 });
   } catch (error) {

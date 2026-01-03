@@ -11,54 +11,7 @@ import { AttendanceRecord } from '@/app/guard/components/attendance/attendance-r
 import { GuardCarousel } from '@/app/guard/components/shift/guard-carousel';
 import { PasswordChangeForm } from '@/app/guard/components/password-change/password-change-form';
 import { CheckInWindowResult } from '@/lib/scheduling';
-
-// Type for password change form state
-type PasswordChangeState = {
-  success?: boolean;
-  message?: string;
-  errors?: { field: string; message: string }[];
-};
-
-// Server Action for password change
-async function changeGuardPasswordAction(
-  prevState: PasswordChangeState,
-  formData: FormData
-): Promise<PasswordChangeState> {
-  const currentPassword = formData.get('currentPassword') as string;
-  const newPassword = formData.get('newPassword') as string;
-
-  if (!currentPassword || !newPassword) {
-    return { message: 'Semua kolom wajib diisi.' };
-  }
-  if (newPassword.length < 8) {
-    return {
-      message: 'Kata sandi baru harus minimal 8 karakter.',
-      errors: [{ field: 'newPassword', message: 'Harus minimal 8 karakter' }],
-    };
-  }
-
-  const res = await fetch('/api/my/profile/change-password', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ currentPassword, newPassword }),
-  });
-
-  const data = await res.json();
-
-  if (res.ok) {
-    return { success: true, message: 'Kata sandi berhasil diperbarui!' };
-  } else {
-    // Attempt to parse validation errors if available
-    const errors =
-      data.errors?.map((err: { path: string[]; message: string }) => ({
-        field: err.path[0],
-        message: err.message,
-      })) || [];
-    return { success: false, message: data.message || 'Gagal memperbarui kata sandi.', errors };
-  }
-}
+import { changeGuardPasswordAction } from '@/app/guard/actions';
 
 const parseShiftDates = (shift: ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) => {
   if (!shift) return null;
