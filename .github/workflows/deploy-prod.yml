@@ -12,26 +12,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (for GitHub runner)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Login to Amazon ECR
+      - name: Login to Amazon ECR (on GitHub runner)
         run: |
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
           | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
-      - name: Build & Push Backend Image
+      - name: Build & Push Backend Image (latest)
         run: |
-          IMAGE_TAG=${{ github.sha }}
-          docker build -t guards-backend:$IMAGE_TAG .
-          docker tag guards-backend:$IMAGE_TAG ${{ secrets.ECR_REGISTRY }}/guards-backend:$IMAGE_TAG
-          docker push ${{ secrets.ECR_REGISTRY }}/guards-backend:$IMAGE_TAG
+          docker build -t ${{ secrets.ECR_REGISTRY }}/guards-backend:latest .
+          docker push ${{ secrets.ECR_REGISTRY }}/guards-backend:latest
 
-      - name: Deploy on EC2
+      - name: Deploy on EC2 (login to ECR then pull)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -40,5 +38,10 @@ jobs:
           script: |
             set -e
             cd /opt/guards
+
+            # ECR login on EC2 (uses EC2 IAM role if present)
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
+            | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+
             docker compose pull
             docker compose up -d
