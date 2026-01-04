@@ -12,19 +12,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials (for GitHub runner)
+      - name: Configure AWS credentials (GitHub runner)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Login to Amazon ECR (on GitHub runner)
+      - name: Login to Amazon ECR (GitHub runner)
         run: |
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
           | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
-      - name: Build & Push Backend Image (latest)
+      - name: Build & Push Backend (latest)
         run: |
           docker build -t ${{ secrets.ECR_REGISTRY }}/guards-backend:latest .
           docker push ${{ secrets.ECR_REGISTRY }}/guards-backend:latest
@@ -39,7 +39,6 @@ jobs:
             set -e
             cd /opt/guards
 
-            # ECR login on EC2 (uses EC2 IAM role if present)
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
             | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
