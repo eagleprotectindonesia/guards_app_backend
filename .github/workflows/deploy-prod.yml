@@ -24,12 +24,13 @@ jobs:
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
           | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
-      - name: Build & Push Backend (latest)
+      - name: Build & Push Backend Image (immutable tag)
         run: |
-          docker build -t ${{ secrets.ECR_REGISTRY }}/guards-backend:latest .
-          docker push ${{ secrets.ECR_REGISTRY }}/guards-backend:latest
+          IMAGE_TAG=${{ github.sha }}
+          docker build -t ${{ secrets.ECR_REGISTRY }}/guards-backend:$IMAGE_TAG .
+          docker push ${{ secrets.ECR_REGISTRY }}/guards-backend:$IMAGE_TAG
 
-      - name: Deploy on EC2 (login to ECR then pull)
+      - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -41,6 +42,8 @@ jobs:
 
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
             | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
+
+            sed -i "s|${{ secrets.ECR_REGISTRY }}/guards-backend:.*|${{ secrets.ECR_REGISTRY }}/guards-backend:${{ github.sha }}|g" docker-compose.yml
 
             docker compose pull
             docker compose up -d
