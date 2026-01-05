@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import Redis from 'ioredis';
 import { Guard, Site, ShiftType, Attendance } from '@prisma/client';
 
+export const dynamic = 'force-dynamic';
+
 type ShiftWithRelations = {
   id: string;
   guard: Guard;
@@ -22,6 +24,8 @@ export async function GET(req: Request) {
   const encoder = new TextEncoder();
   const subscriber = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
     enableReadyCheck: false,
+    enableOfflineQueue: false, // Don't queue messages if redis is down
+    connectTimeout: 5000,
   });
 
   subscriber.on('error', err => {
@@ -32,6 +36,9 @@ export async function GET(req: Request) {
 
   const stream = new ReadableStream({
     async start(controller) {
+      // 0. Send Initial Connection Event (to flush proxies)
+      controller.enqueue(encoder.encode(': connected\n\n'));
+
       // 1. Send Backfill (Open Alerts)
       const whereCondition = {
         resolvedAt: null,
@@ -170,7 +177,8 @@ export async function GET(req: Request) {
   return new NextResponse(stream, {
     headers: {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': 'no-cache, no-transform',
+      'X-Accel-Buffering': 'no',
       Connection: 'keep-alive',
     },
   });
