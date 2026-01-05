@@ -34,8 +34,8 @@ jobs:
           target: app-runner
           push: true
           tags: ${{ secrets.ECR_REGISTRY }}/guards-backend:app-${{ github.sha }}-${{ github.run_id }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=app
+          cache-to: type=gha,mode=max,scope=app
           build-args: |
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
 
@@ -46,8 +46,11 @@ jobs:
           target: worker-runner
           push: true
           tags: ${{ secrets.ECR_REGISTRY }}/guards-backend:worker-${{ github.sha }}-${{ github.run_id }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Pull from both app and worker scopes to maximize hits, but only write to worker scope
+          cache-from: |
+            type=gha,scope=app
+            type=gha,scope=worker
+          cache-to: type=gha,mode=min,scope=worker
 
       - name: Build & Push Migration Image
         uses: docker/build-push-action@v5
@@ -56,8 +59,11 @@ jobs:
           target: migration-runner
           push: true
           tags: ${{ secrets.ECR_REGISTRY }}/guards-backend:migration-${{ github.sha }}-${{ github.run_id }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Pull from app scope to get the 'base' layers for free
+          cache-from: |
+            type=gha,scope=app
+            type=gha,scope=migration
+          cache-to: type=gha,mode=min,scope=migration
 
       - name: Copy docker-compose.yml to EC2
         uses: appleboy/scp-action@v0.1.7
