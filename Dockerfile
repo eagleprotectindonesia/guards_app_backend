@@ -81,7 +81,9 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 COPY package.migration.json ./package.json
-COPY prisma ./prisma
 RUN --mount=type=cache,target=/root/.npm npm install --omit=dev
+
+COPY prisma ./prisma
+COPY prisma.config.ts ./
 
 CMD ["npx", "prisma", "migrate", "deploy"]
