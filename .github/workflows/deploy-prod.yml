@@ -33,7 +33,7 @@ jobs:
           context: .
           target: app-runner
           push: true
-          tags: ${{ secrets.ECR_REGISTRY }}/ep-guard:app-${{ github.sha }}-${{ github.run_id }}
+          tags: ${{ secrets.ECR_REGISTRY }}/guards-backend:app-${{ github.sha }}-${{ github.run_id }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
@@ -45,7 +45,7 @@ jobs:
           context: .
           target: worker-runner
           push: true
-          tags: ${{ secrets.ECR_REGISTRY }}/ep-guard:worker-${{ github.sha }}-${{ github.run_id }}
+          tags: ${{ secrets.ECR_REGISTRY }}/guards-backend:worker-${{ github.sha }}-${{ github.run_id }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -55,7 +55,7 @@ jobs:
           context: .
           target: migration-runner
           push: true
-          tags: ${{ secrets.ECR_REGISTRY }}/ep-guard:migration-${{ github.sha }}-${{ github.run_id }}
+          tags: ${{ secrets.ECR_REGISTRY }}/guards-backend:migration-${{ github.sha }}-${{ github.run_id }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -76,9 +76,9 @@ jobs:
             REGISTRY="${{ secrets.ECR_REGISTRY }}"
 
             # Update image tags in docker-compose.yml
-            sed -i "s|${REGISTRY}/ep-guard:app-.*|${REGISTRY}/ep-guard:app-${IMAGE_TAG}|g" docker-compose.yml
-            sed -i "s|${REGISTRY}/ep-guard:worker-.*|${REGISTRY}/ep-guard:worker-${IMAGE_TAG}|g" docker-compose.yml
-            sed -i "s|${REGISTRY}/ep-guard:migration-.*|${REGISTRY}/ep-guard:migration-${IMAGE_TAG}|g" docker-compose.yml
+            sed -i "s|${REGISTRY}/guards-backend:app-.*|${REGISTRY}/guards-backend:app-${IMAGE_TAG}|g" docker-compose.yml
+            sed -i "s|${REGISTRY}/guards-backend:worker-.*|${REGISTRY}/guards-backend:worker-${IMAGE_TAG}|g" docker-compose.yml
+            sed -i "s|${REGISTRY}/guards-backend:migration-.*|${REGISTRY}/guards-backend:migration-${IMAGE_TAG}|g" docker-compose.yml
 
             docker compose pull
             
