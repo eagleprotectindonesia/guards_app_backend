@@ -33,7 +33,9 @@ jobs:
           context: .
           target: app-runner
           push: true
-          tags: ${{ secrets.ECR_REGISTRY }}/guards-backend:app-${{ github.sha }}-${{ github.run_id }}
+          tags: |
+            ${{ secrets.ECR_REGISTRY }}/guards-backend:app-${{ github.sha }}-${{ github.run_id }}
+            ${{ secrets.ECR_REGISTRY }}/guards-backend:app-latest
           cache-from: type=gha,scope=app
           cache-to: type=gha,mode=max,scope=app
           build-args: |
@@ -45,7 +47,9 @@ jobs:
           context: .
           target: worker-runner
           push: true
-          tags: ${{ secrets.ECR_REGISTRY }}/guards-backend:worker-${{ github.sha }}-${{ github.run_id }}
+          tags: |
+            ${{ secrets.ECR_REGISTRY }}/guards-backend:worker-${{ github.sha }}-${{ github.run_id }}
+            ${{ secrets.ECR_REGISTRY }}/guards-backend:worker-latest
           # Pull from both app and worker scopes to maximize hits, but only write to worker scope
           cache-from: |
             type=gha,scope=app
@@ -58,7 +62,9 @@ jobs:
           context: .
           target: migration-runner
           push: true
-          tags: ${{ secrets.ECR_REGISTRY }}/guards-backend:migration-${{ github.sha }}-${{ github.run_id }}
+          tags: |
+            ${{ secrets.ECR_REGISTRY }}/guards-backend:migration-${{ github.sha }}-${{ github.run_id }}
+            ${{ secrets.ECR_REGISTRY }}/guards-backend:migration-latest
           # Pull from app scope to get the 'base' layers for free
           cache-from: |
             type=gha,scope=app
