@@ -24,26 +24,33 @@ jobs:
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
           | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
-      - name: Remove old latest tags from ECR (required for immutable tags)
+      - name: Remove old latest tags from ECR (force delete by digest)
         run: |
-          echo "Removing old latest tags to allow new immutable tags..."
-          aws ecr batch-delete-image \
-            --region ${{ secrets.AWS_REGION }} \
-            --repository-name guards-backend \
-            --image-ids imageTag=app-latest 2>/dev/null || echo "app-latest not found, skipping"
+          echo "Removing immutable latest tags..."
           
-          aws ecr batch-delete-image \
-            --region ${{ secrets.AWS_REGION }} \
-            --repository-name guards-backend \
-            --image-ids imageTag=worker-latest 2>/dev/null || echo "worker-latest not found, skipping"
+          for tag in app-latest worker-latest migration-latest; do
+            echo "Processing $tag..."
+            DIGEST=$(aws ecr describe-images \
+              --region ${{ secrets.AWS_REGION }} \
+              --repository-name guards-backend \
+              --image-ids imageTag=$tag \
+              --query 'imageDetails[0].imageDigest' \
+              --output text 2>/dev/null || echo "")
+            
+            if [ -n "$DIGEST" ] && [ "$DIGEST" != "None" ]; then
+              aws ecr batch-delete-image \
+                --region ${{ secrets.AWS_REGION }} \
+                --repository-name guards-backend \
+                --image-ids imageDigest=$DIGEST \
+                && echo "✓ Deleted $tag ($DIGEST)" \
+                || echo "✗ Failed to delete $tag"
+            else
+              echo "✓ $tag not found"
+            fi
+          done
           
-          aws ecr batch-delete-image \
-            --region ${{ secrets.AWS_REGION }} \
-            --repository-name guards-backend \
-            --image-ids imageTag=migration-latest 2>/dev/null || echo "migration-latest not found, skipping"
-          
-          echo "Waiting 2 seconds for ECR to process deletions..."
-          sleep 2
+          echo "Waiting for ECR consistency..."
+          sleep 5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
