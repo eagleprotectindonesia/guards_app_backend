@@ -84,7 +84,7 @@ RUN npx esbuild worker.ts --bundle --platform=node --target=node24 --outfile=dis
 FROM base AS worker-prod-deps
 WORKDIR /app
 COPY package.worker.json ./package.json
-RUN --mount=type=cache,target=/root/.npm npm install --production
+RUN --mount=type=cache,target=/root/.npm npm install --omit=dev
 
 # 9. Production image for the Worker
 FROM base AS worker-runner
@@ -109,7 +109,7 @@ USER workeruser
 # Run the bundled worker.js
 CMD ["node", "worker.js"]
 
-# 8. Production image for migrations
+# 10. Production image for migrations
 FROM base AS migration-runner
 WORKDIR /app
 ENV NODE_ENV production
@@ -117,14 +117,16 @@ ENV TZ=Asia/Makassar
 
 # Copy migration-specific package file
 COPY package.migration.json ./package.json
-COPY package-lock.json* ./package-lock.json
 
 # Install Prisma CLI and dependencies
-RUN --mount=type=cache,target=/root/.npm npm ci --omit=dev
+RUN --mount=type=cache,target=/root/.npm npm install --omit=dev
 
 # Copy migrations, schema, and config
 COPY prisma ./prisma
 COPY prisma.config.ts ./
 
+# Generate Prisma Client for the script
+RUN npx prisma generate
+
 # Default command for the migration container
-CMD ["npx", "prisma", "migrate", "deploy"]
+CMD npx prisma migrate deploy && node prisma/init-admin.js

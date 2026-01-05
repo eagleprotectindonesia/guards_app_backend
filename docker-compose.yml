@@ -1,11 +1,6 @@
 services:
   app:
-    build: 
-      context: .
-      target: app-runner
-      args:
-        - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
-    image: ep_guard_app:latest
+    image: ${ECR_REGISTRY}/ep-guard:app-${IMAGE_TAG:-latest}
     container_name: ep_guard_app
     restart: always
     env_file: .env
@@ -27,12 +22,7 @@ services:
       start_period: 20s
 
   worker:
-    build: 
-      context: .
-      target: worker-runner
-      args:
-        - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
-    image: ep_guard_worker:latest
+    image: ${ECR_REGISTRY}/ep-guard:worker-${IMAGE_TAG:-latest}
     container_name: ep_guard_worker
     restart: always
     env_file: .env
@@ -45,10 +35,7 @@ services:
         condition: service_healthy
 
   migration:
-    build:
-      context: .
-      target: migration-runner
-    image: ep_guard_migration:latest
+    image: ${ECR_REGISTRY}/ep-guard:migration-${IMAGE_TAG:-latest}
     container_name: ep_guard_migration
     env_file: .env
     depends_on:

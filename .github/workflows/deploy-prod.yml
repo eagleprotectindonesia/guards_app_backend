@@ -33,11 +33,31 @@ jobs:
           context: .
           target: app-runner
           push: true
-          tags: ${{ secrets.ECR_REGISTRY }}/guards-backend:${{ github.sha }}-${{ github.run_id }}
+          tags: ${{ secrets.ECR_REGISTRY }}/ep-guard:app-${{ github.sha }}-${{ github.run_id }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+
+      - name: Build & Push Worker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: worker-runner
+          push: true
+          tags: ${{ secrets.ECR_REGISTRY }}/ep-guard:worker-${{ github.sha }}-${{ github.run_id }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & Push Migration Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: migration-runner
+          push: true
+          tags: ${{ secrets.ECR_REGISTRY }}/ep-guard:migration-${{ github.sha }}-${{ github.run_id }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -53,8 +73,17 @@ jobs:
             | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
             IMAGE_TAG="${{ github.sha }}-${{ github.run_id }}"
+            REGISTRY="${{ secrets.ECR_REGISTRY }}"
 
-            sed -i "s|${{ secrets.ECR_REGISTRY }}/guards-backend:.*|${{ secrets.ECR_REGISTRY }}/guards-backend:${IMAGE_TAG}|g" docker-compose.yml
+            # Update image tags in docker-compose.yml
+            sed -i "s|${REGISTRY}/ep-guard:app-.*|${REGISTRY}/ep-guard:app-${IMAGE_TAG}|g" docker-compose.yml
+            sed -i "s|${REGISTRY}/ep-guard:worker-.*|${REGISTRY}/ep-guard:worker-${IMAGE_TAG}|g" docker-compose.yml
+            sed -i "s|${REGISTRY}/ep-guard:migration-.*|${REGISTRY}/ep-guard:migration-${IMAGE_TAG}|g" docker-compose.yml
 
             docker compose pull
-            docker compose up -d
+            
+            # Run migrations
+            docker compose run --rm migration
+            
+            # Update app and worker
+            docker compose up -d app worker
