@@ -44,6 +44,8 @@ export default function GuardLoginPage() {
     return null;
   }
 
+  console.log('deploy');
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
@@ -59,7 +61,7 @@ export default function GuardLoginPage() {
               name="employeeId"
               required
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              onChange={(e) => {
+              onChange={e => {
                 const filteredValue = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                 if (filteredValue !== e.target.value) {
                   e.target.value = filteredValue;
