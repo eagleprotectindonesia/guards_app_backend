@@ -95,7 +95,8 @@ jobs:
             docker compose --profile migration run --rm migration
             
             # Update app and worker (restarts only if changed)
-            docker compose up -d app worker
+            # --remove-orphans will clean up the old 'db' service automatically
+            docker compose up -d --remove-orphans app worker
 
             # Clean up old unused images to save disk space
             docker image prune -f
