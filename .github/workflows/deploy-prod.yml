@@ -59,6 +59,15 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Copy docker-compose.yml to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "docker-compose.yml"
+          target: "/opt/guards"
+
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -72,18 +81,18 @@ jobs:
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
             | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
-            IMAGE_TAG="${{ github.sha }}-${{ github.run_id }}"
-            REGISTRY="${{ secrets.ECR_REGISTRY }}"
-
-            # Update image tags in docker-compose.yml
-            sed -i "s|${REGISTRY}/guards-backend:app-.*|${REGISTRY}/guards-backend:app-${IMAGE_TAG}|g" docker-compose.yml
-            sed -i "s|${REGISTRY}/guards-backend:worker-.*|${REGISTRY}/guards-backend:worker-${IMAGE_TAG}|g" docker-compose.yml
-            sed -i "s|${REGISTRY}/guards-backend:migration-.*|${REGISTRY}/guards-backend:migration-${IMAGE_TAG}|g" docker-compose.yml
-
-            docker compose pull
+            # Export variables for Docker Compose to use
+            export ECR_REGISTRY="${{ secrets.ECR_REGISTRY }}"
+            export IMAGE_TAG="${{ github.sha }}-${{ github.run_id }}"
             
-            # Run migrations
-            docker compose run --rm migration
+            # Export other required DB vars for healthchecks if needed, 
+            # though they are usually in the .env on the server
             
-            # Update app and worker
+            # Pull all images (including those in the migration profile)
+            docker compose --profile migration pull
+            
+            # Run migrations (explicitly enabling the profile)
+            docker compose --profile migration run --rm migration
+            
+            # Update app and worker (restarts only if changed)
             docker compose up -d app worker

@@ -64,7 +64,7 @@ services:
       retries: 5
 
   redis:
-    image: redis:8.0-alpine
+    image: redis:8.4-alpine
     container_name: ep_guard_redis
     restart: always
     environment:
