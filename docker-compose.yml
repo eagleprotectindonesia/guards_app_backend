@@ -10,8 +10,6 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
       - TZ=Asia/Makassar
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -29,8 +27,6 @@ services:
     environment:
       - TZ=Asia/Makassar
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
 
@@ -38,30 +34,8 @@ services:
     image: ${ECR_REGISTRY}/guards-backend:migration-${IMAGE_TAG:-latest}
     container_name: ep_guard_migration
     env_file: .env
-    depends_on:
-      db:
-        condition: service_healthy
     profiles:
       - migration
-
-  db:
-    image: postgres:15-alpine
-    ports:
-      - "127.0.0.1:5432:5432"
-    container_name: ep_guard_db
-    restart: always
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - TZ=Asia/Makassar
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
 
   redis:
     image: redis:8.4-alpine
@@ -78,5 +52,4 @@ services:
       retries: 5
 
 volumes:
-  db_data:
   redis_data:

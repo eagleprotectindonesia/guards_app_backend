@@ -96,3 +96,6 @@ jobs:
             
             # Update app and worker (restarts only if changed)
             docker compose up -d app worker
+
+            # Clean up old unused images to save disk space
+            docker image prune -f
