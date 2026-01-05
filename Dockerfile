@@ -112,7 +112,7 @@ CMD ["node", "worker.js"]
 # 10. Production image for migrations
 FROM base AS migration-runner
 WORKDIR /app
-ENV NODE_ENV production
+ENV NODE_ENV=production
 ENV TZ=Asia/Makassar
 
 # Copy migration-specific package file
@@ -126,7 +126,10 @@ COPY prisma ./prisma
 COPY prisma.config.ts ./
 
 # Generate Prisma Client for the script
+# We provide a dummy DATABASE_URL because Prisma needs it to validate the config during generation
+ARG DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+ENV DATABASE_URL=${DATABASE_URL}
 RUN npx prisma generate
 
 # Default command for the migration container
-CMD npx prisma migrate deploy && node prisma/init-admin.js
+CMD ["sh", "-c", "npx prisma migrate deploy && node prisma/init-admin.js"]
