@@ -62,40 +62,65 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   };
 
   const hasAttendance = !!shift.attendance;
-  // Use a simple check for lateness for now, can be enhanced
-  const isLate = false; 
+  
+  // Calculate late status
+  const ATTENDANCE_GRACE_MINS = 5;
+  const now = new Date();
+  const startMs = new Date(shift.startsAt).getTime();
+  const graceEndMs = startMs + ATTENDANCE_GRACE_MINS * 60000;
+
+  // Check if attendance was marked as late due to forgiveness or actual lateness
+  const isLateAttendance = hasAttendance && shift.attendance?.status === 'late';
+
+  // Check if it's currently late and no attendance has been recorded
+  const isLateTime = !hasAttendance && now.getTime() > graceEndMs;
 
   if (hasAttendance) {
     return (
-      <Box className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4">
-        <Heading size="md" className="mb-2 text-green-600">Kehadiran Terekam</Heading>
+      <Box className={`${isLateAttendance ? 'bg-yellow-50 border-yellow-200' : 'bg-white'} p-4 rounded-lg shadow-sm border border-gray-200 mb-4`}>
+        <Heading size="md" className={`mb-2 ${isLateAttendance ? 'text-yellow-600' : 'text-green-600'}`}>
+          {isLateAttendance ? 'Kehadiran Terlambat' : 'Kehadiran Terekam'}
+        </Heading>
         <Text>
-          Direkam pada: {format(new Date(shift.attendance.recordedAt), 'PPpp')}
+          {isLateAttendance
+            ? `Kehadiran direkam sebagai terlambat pada ${format(new Date(shift.attendance.recordedAt), 'PPpp')}`
+            : `Kehadiran direkam pada ${format(new Date(shift.attendance.recordedAt), 'PPpp')}`}
         </Text>
       </Box>
     );
   }
 
   return (
-    <Box className="bg-white p-4 rounded-lg shadow-sm border border-red-100 mb-4">
+    <Box className={`${isLateTime ? 'bg-red-50 border-red-200' : 'bg-white'} p-4 rounded-lg shadow-sm border border-red-100 mb-4`}>
       <VStack space="md">
-        <Heading size="md" className="text-gray-900">Kehadiran Diperlukan</Heading>
-        <Text className="text-gray-500">
-          Harap rekam kehadiran Anda untuk memulai shift.
-        </Text>
+        <Heading size="md" className={isLateTime ? 'text-red-600' : 'text-gray-900'}>
+          {isLateTime ? 'Kehadiran Tidak Terekam' : 'Kehadiran Diperlukan'}
+        </Heading>
+        
+        {isLateTime ? (
+          <Text className="text-red-600 font-medium italic">
+            Batas waktu presensi terlewat. Harap hubungi administrator Anda.
+          </Text>
+        ) : (
+          <Text className="text-gray-500">
+            Harap rekam kehadiran Anda untuk memulai shift.
+          </Text>
+        )}
         
         {status ? <Text className="text-sm text-blue-600 font-medium">{status}</Text> : null}
 
-        <Button
-          size="lg"
-          variant="solid"
-          action="primary"
-          onPress={handleRecordAttendance}
-          isDisabled={attendanceMutation.isPending}
-        >
-          {attendanceMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
-          <ButtonText>Rekam Kehadiran</ButtonText>
-        </Button>
+        {!isLateTime && (
+          <Button
+            size="lg"
+            variant="solid"
+            action="primary"
+            onPress={handleRecordAttendance}
+            isDisabled={attendanceMutation.isPending}
+          >
+            {attendanceMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
+            <ButtonText>Rekam Kehadiran</ButtonText>
+          </Button>
+        )}
       </VStack>
     </Box>
   );

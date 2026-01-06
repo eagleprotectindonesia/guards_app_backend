@@ -1,13 +1,17 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, RefreshControl, Alert } from 'react-native';
 import { Box, VStack, Heading, Text, Button, ButtonText, Spinner, Center } from '@gluestack-ui/themed';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client, setupInterceptors } from '../api/client';
 import AttendanceRecord from '../components/AttendanceRecord';
 import CheckInCard from '../components/CheckInCard';
+import ShiftCarousel from '../components/ShiftCarousel';
+import PasswordChangeModal from '../components/PasswordChangeModal';
 
 export default function DashboardScreen({ navigation }: any) {
   const queryClient = useQueryClient();
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [isForcePasswordChange, setIsForcePasswordChange] = useState(false);
 
   // Setup Global Logout Interceptor once
   useEffect(() => {
@@ -23,6 +27,16 @@ export default function DashboardScreen({ navigation }: any) {
       return res.data;
     },
   });
+
+  // Handle Force Password Change
+  useEffect(() => {
+    if (profile?.guard?.mustChangePassword) {
+      setIsForcePasswordChange(true);
+      setIsPasswordModalOpen(true);
+    } else {
+      setIsForcePasswordChange(false);
+    }
+  }, [profile?.guard?.mustChangePassword]);
 
   const { data: shiftData, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['active-shift'],
@@ -66,62 +80,64 @@ export default function DashboardScreen({ navigation }: any) {
             <Center h={200}>
               <Spinner size="large" color="$blue600" />
             </Center>
-          ) : activeShift ? (
-            <VStack space="md">
-              <Box className="bg-white p-4 rounded-lg border border-blue-50">
-                <Text className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Shift Saat Ini</Text>
-                <Heading size="md" className="mt-1">{activeShift.location?.name || 'Lokasi Tidak Diketahui'}</Heading>
-                 <Text className="text-gray-600 mt-1">
-                  {new Date(activeShift.startsAt).toLocaleString()} - {new Date(activeShift.endsAt).toLocaleString()}
-                </Text>
-              </Box>
-
-              <AttendanceRecord 
-                shift={activeShift} 
-                onAttendanceRecorded={refetch}
+          ) : (
+            <VStack space="xl">
+              <ShiftCarousel 
+                activeShift={activeShift} 
+                nextShifts={nextShifts} 
               />
-              
-              {/* Show CheckInCard if attendance is recorded OR late */}
-              {(activeShift.attendance || (activeShift.attendanceStatus === 'late')) && (
-                <CheckInCard 
-                    activeShift={activeShift} 
-                    refetchShift={refetch}
-                />
+
+              {activeShift && (
+                <VStack space="md">
+                  <AttendanceRecord 
+                    shift={activeShift} 
+                    onAttendanceRecorded={refetch}
+                  />
+                  
+                  {/* Show CheckInCard if attendance is recorded OR late */}
+                  {(activeShift.attendance || (activeShift.attendanceStatus === 'late')) && (
+                    <CheckInCard 
+                        activeShift={activeShift} 
+                        refetchShift={refetch}
+                    />
+                  )}
+                </VStack>
               )}
             </VStack>
-          ) : (
-            <Box className="bg-white p-8 rounded-lg border-2 border-dashed border-gray-300 items-center">
-              <Text className="text-gray-500 text-center font-medium">Tidak ada shift aktif saat ini.</Text>
-            </Box>
           )}
 
-          {nextShifts.length > 0 && (
-             <Box className="mt-4">
-                <Heading size="sm" className="mb-2 text-gray-500">Shift Mendatang</Heading>
-                {nextShifts.map((shift: any) => (
-                    <Box key={shift.id} className="bg-white p-3 rounded-md mb-2 shadow-sm">
-                         <Text className="font-bold">{shift.location?.name}</Text>
-                         <Text className="text-xs text-gray-500">
-                             {new Date(shift.startsAt).toLocaleString()}
-                         </Text>
-                    </Box>
-                ))}
-             </Box>
-          )}
+          <VStack space="md" className="mt-8">
+            <Button 
+              variant="outline" 
+              action="secondary" 
+              onPress={() => setIsPasswordModalOpen(true)}
+            >
+              <ButtonText>Ubah Kata Sandi</ButtonText>
+            </Button>
 
-          <Button 
-            variant="outline" 
-            action="secondary" 
-            className="mt-8 border-red-500"
-            onPress={() => Alert.alert('Keluar', 'Apakah Anda yakin?', [
-                { text: 'Batal', style: 'cancel'},
-                { text: 'Keluar', style: 'destructive', onPress: handleLogout}
-            ])}
-          >
-            <ButtonText className="text-red-500">Keluar</ButtonText>
-          </Button>
+            <Button 
+              variant="outline" 
+              action="secondary" 
+              className="border-red-500"
+              onPress={() => Alert.alert('Keluar', 'Apakah Anda yakin?', [
+                  { text: 'Batal', style: 'cancel'},
+                  { text: 'Keluar', style: 'destructive', onPress: handleLogout}
+              ])}
+            >
+              <ButtonText className="text-red-500">Keluar</ButtonText>
+            </Button>
+          </VStack>
         </VStack>
       </ScrollView>
+
+      <PasswordChangeModal 
+        isOpen={isPasswordModalOpen} 
+        isForce={isForcePasswordChange}
+        onClose={() => {
+          setIsPasswordModalOpen(false);
+          setIsForcePasswordChange(false);
+        }} 
+      />
     </Box>
   );
 }

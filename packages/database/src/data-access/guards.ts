@@ -1,5 +1,5 @@
-import { db as prisma } from "../client";
-import { redis } from "../redis";
+import { db as prisma } from '../client';
+import { redis } from '../redis';
 import { Prisma } from '@prisma/client';
 import { isValid, startOfDay, isAfter, isBefore, parseISO } from 'date-fns';
 
@@ -7,7 +7,11 @@ import { isValid, startOfDay, isAfter, isBefore, parseISO } from 'date-fns';
  * Helper to calculate effective status based on join and left dates.
  * If join date is in the future or left date is in the past, status is forced to false.
  */
-export function getEffectiveStatus(status: boolean, joinDateVal?: string | Date | null, leftDateVal?: string | Date | null): boolean {
+export function getEffectiveStatus(
+  status: boolean,
+  joinDateVal?: string | Date | null,
+  leftDateVal?: string | Date | null
+): boolean {
   if (!status) return false;
   const today = startOfDay(new Date());
 
@@ -187,7 +191,7 @@ export async function updateGuardWithChangelog(id: string, data: Prisma.GuardUpd
 
       let joinDate = data.joinDate as Date | string | undefined;
       let leftDate = data.leftDate as Date | string | undefined;
-      let status = data.status ;
+      let status = data.status;
 
       if (joinDate === undefined || leftDate === undefined || status === undefined) {
         const current = await tx.guard.findUnique({
@@ -382,9 +386,7 @@ export async function bulkCreateGuardsWithChangelog(guardsData: Prisma.GuardCrea
   return prisma.$transaction(
     async tx => {
       // Check for duplicate guard codes in the batch
-      const activeGuardCodes = finalData
-        .filter(g => g.guardCode && g.status === true)
-        .map(g => g.guardCode as string);
+      const activeGuardCodes = finalData.filter(g => g.guardCode && g.status === true).map(g => g.guardCode as string);
 
       if (new Set(activeGuardCodes).size !== activeGuardCodes.length) {
         throw new Error('DUPLICATE_GUARD_CODE_IN_BATCH');
