@@ -1,0 +1,28 @@
+{
+  "name": "worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx --watch src/worker.ts",
+    "build": "esbuild src/worker.ts --bundle --platform=node --target=node20 --outfile=dist/worker.js --external:@prisma/client --external:pg --external:@prisma/adapter-pg --external:ioredis --external:dotenv --external:date-fns",
+    "start": "node dist/worker.js",
+    "lint": "eslint . --ext .ts",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/database": "*",
+    "@repo/shared": "*",
+    "@repo/types": "*",
+    "@repo/validations": "*",
+    "dotenv": "^17.2.3",
+    "ioredis": "^5.8.2",
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@repo/tsconfig": "*",
+    "@types/node": "^20",
+    "@typescript-eslint/parser": "^8.52.0",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.39.2"
+  }
+}
