@@ -53,46 +53,50 @@ export default function LoginScreen({ navigation }: any) {
   return (
     <Box className="flex-1 bg-white justify-center px-6">
       <VStack space="xl">
-        <VStack space="xs" className="mb-4">
-          <Heading size="2xl" className="text-gray-900">
+        <Box className="mb-4">
+          <Heading size="2xl" style={{ color: '#111827' }}>
             Guard Portal
           </Heading>
-          <Text className="text-gray-500">
+          <Text style={{ color: '#6B7280' }}>
             Sign in to manage your shifts and attendance.
           </Text>
-        </VStack>
+        </Box>
 
         <FormControl isInvalid={loginMutation.isError}>
           <FormControlLabel className="mb-1">
             <FormControlLabelText>Employee ID</FormControlLabelText>
           </FormControlLabel>
-          <Input size="xl" className="mb-4 bg-gray-50 border-gray-200">
-            <InputField
-              placeholder="Enter your Guard ID"
-              value={employeeId}
-              onChangeText={(text) => setEmployeeId(text.toUpperCase())}
-              autoCapitalize="characters"
-            />
-          </Input>
+          <Box className="mb-4 bg-gray-50 border border-gray-200 rounded-md">
+            <Input size="xl" variant="outline">
+              <InputField
+                placeholder="Enter your Guard ID"
+                value={employeeId}
+                onChangeText={(text:string) => setEmployeeId(text.toUpperCase())}
+                autoCapitalize="characters"
+              />
+            </Input>
+          </Box>
 
           <FormControlLabel className="mb-1">
             <FormControlLabelText>Password</FormControlLabelText>
           </FormControlLabel>
-          <Input size="xl" className="mb-6 bg-gray-50 border-gray-200">
-            <InputField
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </Input>
+          <Box className="mb-6 bg-gray-50 border border-gray-200 rounded-md">
+            <Input size="xl" variant="outline">
+              <InputField
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+              />
+            </Input>
+          </Box>
 
           <Button
             size="xl"
             onPress={handleLogin}
             isDisabled={loginMutation.isPending}
-            className="bg-blue-600 active:bg-blue-700"
+            style={{ backgroundColor: '#2563EB' }}
           >
             {loginMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
             <ButtonText>Sign In</ButtonText>
