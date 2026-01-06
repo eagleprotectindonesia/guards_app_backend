@@ -24,34 +24,6 @@ jobs:
           aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
           | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
-      - name: Remove old latest tags from ECR (force delete by digest)
-        run: |
-          echo "Removing immutable latest tags..."
-          
-          for tag in app-latest worker-latest migration-latest; do
-            echo "Processing $tag..."
-            DIGEST=$(aws ecr describe-images \
-              --region ${{ secrets.AWS_REGION }} \
-              --repository-name guards-backend \
-              --image-ids imageTag=$tag \
-              --query 'imageDetails[0].imageDigest' \
-              --output text 2>/dev/null || echo "")
-            
-            if [ -n "$DIGEST" ] && [ "$DIGEST" != "None" ]; then
-              aws ecr batch-delete-image \
-                --region ${{ secrets.AWS_REGION }} \
-                --repository-name guards-backend \
-                --image-ids imageDigest=$DIGEST \
-                && echo "✓ Deleted $tag ($DIGEST)" \
-                || echo "✗ Failed to delete $tag"
-            else
-              echo "✓ $tag not found"
-            fi
-          done
-          
-          echo "Waiting for ECR consistency..."
-          sleep 5
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -63,7 +35,6 @@ jobs:
           push: true
           tags: |
             ${{ secrets.ECR_REGISTRY }}/guards-backend:app-${{ github.sha }}-${{ github.run_id }}
-            ${{ secrets.ECR_REGISTRY }}/guards-backend:app-latest
           cache-from: type=gha,scope=app
           cache-to: type=gha,mode=max,scope=app
           build-args: |
@@ -77,7 +48,6 @@ jobs:
           push: true
           tags: |
             ${{ secrets.ECR_REGISTRY }}/guards-backend:worker-${{ github.sha }}-${{ github.run_id }}
-            ${{ secrets.ECR_REGISTRY }}/guards-backend:worker-latest
           # Pull from both app and worker scopes to maximize hits, but only write to worker scope
           cache-from: |
             type=gha,scope=app
@@ -92,14 +62,13 @@ jobs:
           push: true
           tags: |
             ${{ secrets.ECR_REGISTRY }}/guards-backend:migration-${{ github.sha }}-${{ github.run_id }}
-            ${{ secrets.ECR_REGISTRY }}/guards-backend:migration-latest
           # Pull from app scope to get the 'base' layers for free
           cache-from: |
             type=gha,scope=app
             type=gha,scope=migration
           cache-to: type=gha,mode=min,scope=migration
 
-      - name: Copy docker-compose.yml to EC2
+      - name: Copy docker-compose files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -121,22 +90,25 @@ jobs:
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
             | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
-            # Export variables for Docker Compose to use
+            # Persist ECR info to .env for manual restarts
+            touch .env
+            sed -i '/^ECR_REGISTRY=/d' .env
+            sed -i '/^IMAGE_TAG=/d' .env
+            echo "ECR_REGISTRY=${{ secrets.ECR_REGISTRY }}" >> .env
+            echo "IMAGE_TAG=${{ github.sha }}-${{ github.run_id }}" >> .env
+
+            # Export variables for the current session
             export ECR_REGISTRY="${{ secrets.ECR_REGISTRY }}"
             export IMAGE_TAG="${{ github.sha }}-${{ github.run_id }}"
-            
-            # Export other required DB vars for healthchecks if needed, 
-            # though they are usually in the .env on the server
             
             # Pull all images (including those in the migration profile)
             docker compose --profile migration pull
             
-            # Run migrations (explicitly enabling the profile)
+            # Run migrations
             docker compose --profile migration run --rm migration
             
-            # Update app and worker (restarts only if changed)
-            # --remove-orphans will clean up the old 'db' service automatically
+            # Update app and worker
             docker compose up -d --remove-orphans app worker
 
-            # Clean up old unused images to save disk space
+            # Clean up old unused images
             docker image prune -f
