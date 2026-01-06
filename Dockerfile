@@ -84,13 +84,14 @@ FROM base AS migration-runner
 WORKDIR /app
 ENV NODE_ENV production
 
-# Install only the necessary tools for running migrations
-# We need prisma (CLI), dotenv (for config), and tsx (for loading .ts config/seed)
-RUN npm install -g prisma tsx dotenv
+# Install only the necessary tools for running migrations locally
+# Local install ensures 'dotenv' is resolvable by the config file
+RUN npm install prisma tsx dotenv
 
 # Copy only the database package files needed for migration
 COPY packages/database/prisma ./prisma
 COPY packages/database/prisma.config.ts ./prisma.config.ts
 COPY packages/database/package.json ./package.json
 
-CMD ["prisma", "migrate", "deploy"]
+# Use npx to run the locally installed prisma
+CMD ["npx", "prisma", "migrate", "deploy"]
