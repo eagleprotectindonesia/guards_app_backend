@@ -54,11 +54,11 @@ export default function DashboardScreen({ navigation }: any) {
         <VStack space="xl">
           <Box className="mt-8 mb-4">
              <Heading size="3xl" className="text-gray-900 leading-tight">
-              Welcome, {'\n'}
+              Selamat Datang, {'\n'}
               <Text className="text-blue-600">{profile?.guard?.name || 'Guard'}</Text>
              </Heading>
              {profile?.guard?.guardCode && (
-                <Text className="text-gray-500 font-bold mt-1">Code: {profile.guard.guardCode}</Text>
+                <Text className="text-gray-500 font-bold mt-1">Kode: {profile.guard.guardCode}</Text>
              )}
           </Box>
 
@@ -69,8 +69,8 @@ export default function DashboardScreen({ navigation }: any) {
           ) : activeShift ? (
             <VStack space="md">
               <Box className="bg-white p-4 rounded-lg border border-blue-50">
-                <Text className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Current Shift</Text>
-                <Heading size="md" className="mt-1">{activeShift.location?.name || 'Unknown Location'}</Heading>
+                <Text className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Shift Saat Ini</Text>
+                <Heading size="md" className="mt-1">{activeShift.location?.name || 'Lokasi Tidak Diketahui'}</Heading>
                  <Text className="text-gray-600 mt-1">
                   {new Date(activeShift.startsAt).toLocaleString()} - {new Date(activeShift.endsAt).toLocaleString()}
                 </Text>
@@ -91,13 +91,13 @@ export default function DashboardScreen({ navigation }: any) {
             </VStack>
           ) : (
             <Box className="bg-white p-8 rounded-lg border-2 border-dashed border-gray-300 items-center">
-              <Text className="text-gray-500 text-center font-medium">No active shift right now.</Text>
+              <Text className="text-gray-500 text-center font-medium">Tidak ada shift aktif saat ini.</Text>
             </Box>
           )}
 
           {nextShifts.length > 0 && (
              <Box className="mt-4">
-                <Heading size="sm" className="mb-2 text-gray-500">Upcoming Shifts</Heading>
+                <Heading size="sm" className="mb-2 text-gray-500">Shift Mendatang</Heading>
                 {nextShifts.map((shift: any) => (
                     <Box key={shift.id} className="bg-white p-3 rounded-md mb-2 shadow-sm">
                          <Text className="font-bold">{shift.location?.name}</Text>
@@ -113,12 +113,12 @@ export default function DashboardScreen({ navigation }: any) {
             variant="outline" 
             action="secondary" 
             className="mt-8 border-red-500"
-            onPress={() => Alert.alert('Logout', 'Are you sure?', [
-                { text: 'Cancel', style: 'cancel'},
-                { text: 'Logout', style: 'destructive', onPress: handleLogout}
+            onPress={() => Alert.alert('Keluar', 'Apakah Anda yakin?', [
+                { text: 'Batal', style: 'cancel'},
+                { text: 'Keluar', style: 'destructive', onPress: handleLogout}
             ])}
           >
-            <ButtonText className="text-red-500">Logout</ButtonText>
+            <ButtonText className="text-red-500">Keluar</ButtonText>
           </Button>
         </VStack>
       </ScrollView>

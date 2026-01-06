@@ -24,32 +24,32 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
       return response.data;
     },
     onSuccess: () => {
-      setStatus('Attendance Recorded!');
+      setStatus('Kehadiran Berhasil Direkam!');
       queryClient.invalidateQueries({ queryKey: ['active-shift'] });
       if (onAttendanceRecorded) onAttendanceRecorded();
     },
     onError: (error: any) => {
-      const msg = error.response?.data?.error || error.message || 'Failed to record attendance';
-      setStatus('Failed: ' + msg);
+      const msg = error.response?.data?.error || error.message || 'Gagal merekam kehadiran';
+      setStatus('Gagal: ' + msg);
       Alert.alert('Error', msg);
     },
   });
 
   const handleRecordAttendance = async () => {
-    setStatus('Requesting location permission...');
+    setStatus('Meminta izin lokasi...');
     let { status: permStatus } = await Location.requestForegroundPermissionsAsync();
     
     if (permStatus !== 'granted') {
-      setStatus('Permission to access location was denied');
-      Alert.alert('Permission Denied', 'Location is required to record attendance.');
+      setStatus('Izin untuk mengakses lokasi ditolak');
+      Alert.alert('Izin Ditolak', 'Lokasi diperlukan untuk merekam kehadiran.');
       return;
     }
 
-    setStatus('Getting location...');
+    setStatus('Mendapatkan lokasi...');
     try {
       let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       
-      setStatus('Recording attendance...');
+      setStatus('Merekam kehadiran...');
       attendanceMutation.mutate({
         lat: location.coords.latitude,
         lng: location.coords.longitude,
@@ -68,9 +68,9 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   if (hasAttendance) {
     return (
       <Box className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-4">
-        <Heading size="md" className="mb-2 text-green-600">Attendance Recorded</Heading>
+        <Heading size="md" className="mb-2 text-green-600">Kehadiran Terekam</Heading>
         <Text>
-          Recorded at: {format(new Date(shift.attendance.recordedAt), 'PPpp')}
+          Direkam pada: {format(new Date(shift.attendance.recordedAt), 'PPpp')}
         </Text>
       </Box>
     );
@@ -79,9 +79,9 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   return (
     <Box className="bg-white p-4 rounded-lg shadow-sm border border-red-100 mb-4">
       <VStack space="md">
-        <Heading size="md" className="text-gray-900">Attendance Required</Heading>
+        <Heading size="md" className="text-gray-900">Kehadiran Diperlukan</Heading>
         <Text className="text-gray-500">
-          Please record your attendance to start the shift.
+          Harap rekam kehadiran Anda untuk memulai shift.
         </Text>
         
         {status ? <Text className="text-sm text-blue-600 font-medium">{status}</Text> : null}
@@ -94,7 +94,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
           isDisabled={attendanceMutation.isPending}
         >
           {attendanceMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
-          <ButtonText>Record Attendance</ButtonText>
+          <ButtonText>Rekam Kehadiran</ButtonText>
         </Button>
       </VStack>
     </Box>

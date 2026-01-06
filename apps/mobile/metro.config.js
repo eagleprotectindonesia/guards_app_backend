@@ -20,6 +20,7 @@ config.resolver.nodeModulesPaths = [
 // 3. Force deduplication for React and related packages
 config.resolver.extraNodeModules = {
   react: path.resolve(workspaceRoot, "node_modules/react"),
+  "react-dom": path.resolve(workspaceRoot, "node_modules/react-dom"),
   "react-native": path.resolve(workspaceRoot, "node_modules/react-native"),
   "@tanstack/react-query": path.resolve(workspaceRoot, "node_modules/@tanstack/react-query"),
 };

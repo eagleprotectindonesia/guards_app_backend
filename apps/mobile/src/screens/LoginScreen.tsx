@@ -37,14 +37,14 @@ export default function LoginScreen({ navigation }: any) {
       navigation.replace('Main');
     },
     onError: (error: any) => {
-      const message = error.response?.data?.message || 'Login failed. Please check your credentials.';
-      Alert.alert('Login Error', message);
+      const message = error.response?.data?.message || 'Login gagal. Silakan periksa kredensial Anda.';
+      Alert.alert('Kesalahan Login', message);
     },
   });
 
   const handleLogin = () => {
     if (!employeeId || !password) {
-      Alert.alert('Error', 'Please enter both Employee ID and Password.');
+      Alert.alert('Error', 'Silakan masukkan ID Karyawan dan Kata Sandi.');
       return;
     }
     loginMutation.mutate();
@@ -55,21 +55,21 @@ export default function LoginScreen({ navigation }: any) {
       <VStack space="xl">
         <Box className="mb-4">
           <Heading size="2xl" style={{ color: '#111827' }}>
-            Guard Portal
+            Portal Guard
           </Heading>
           <Text style={{ color: '#6B7280' }}>
-            Sign in to manage your shifts and attendance.
+            Masuk untuk mengelola shift dan kehadiran Anda.
           </Text>
         </Box>
 
         <FormControl isInvalid={loginMutation.isError}>
           <FormControlLabel className="mb-1">
-            <FormControlLabelText>Employee ID</FormControlLabelText>
+            <FormControlLabelText>ID Karyawan</FormControlLabelText>
           </FormControlLabel>
           <Box className="mb-4 bg-gray-50 border border-gray-200 rounded-md">
             <Input size="xl" variant="outline">
               <InputField
-                placeholder="Enter your Guard ID"
+                placeholder="Masukkan ID Guard Anda"
                 value={employeeId}
                 onChangeText={(text:string) => setEmployeeId(text.toUpperCase())}
                 autoCapitalize="characters"
@@ -78,13 +78,13 @@ export default function LoginScreen({ navigation }: any) {
           </Box>
 
           <FormControlLabel className="mb-1">
-            <FormControlLabelText>Password</FormControlLabelText>
+            <FormControlLabelText>Kata Sandi</FormControlLabelText>
           </FormControlLabel>
           <Box className="mb-6 bg-gray-50 border border-gray-200 rounded-md">
             <Input size="xl" variant="outline">
               <InputField
                 type="password"
-                placeholder="Enter your password"
+                placeholder="Masukkan kata sandi Anda"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
@@ -99,7 +99,7 @@ export default function LoginScreen({ navigation }: any) {
             style={{ backgroundColor: '#2563EB' }}
           >
             {loginMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
-            <ButtonText>Sign In</ButtonText>
+            <ButtonText>Masuk</ButtonText>
           </Button>
 
           {loginMutation.isError && (
