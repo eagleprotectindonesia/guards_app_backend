@@ -26,8 +26,8 @@ COPY turbo.json turbo.json
 ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
 
-# Generate prisma and build
-RUN npx turbo run prisma:generate build --filter=web
+# Build the application (turbo handles prisma:generate dependency)
+RUN npx turbo run build --filter=web
 
 # 3. Build Worker
 FROM base AS worker-builder
@@ -38,7 +38,7 @@ RUN npm ci --ignore-scripts
 
 COPY --from=pruner /app/out-worker/full/ .
 COPY turbo.json turbo.json
-RUN npx turbo run prisma:generate build --filter=worker
+RUN npx turbo run build --filter=worker
 
 # 4. Web Runner
 FROM base AS app-runner
