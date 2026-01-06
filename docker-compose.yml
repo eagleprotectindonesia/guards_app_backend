@@ -12,8 +12,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      migration:
-        condition: service_completed_successfully
     networks:
       - app_network
     # Use built-in healthcheck from Dockerfile
@@ -37,8 +35,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      migration:
-        condition: service_completed_successfully
     networks:
       - app_network
     deploy:
