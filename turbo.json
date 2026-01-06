@@ -21,9 +21,12 @@
     },
     "prisma:generate": {
       "dependsOn": ["^prisma:generate"],
+      "env": ["DATABASE_URL"],
       "cache": false
     },
     "db:push": {
+      "dependsOn": ["^prisma:generate"],
+      "env": ["DATABASE_URL"],
       "cache": false
     }
   }
