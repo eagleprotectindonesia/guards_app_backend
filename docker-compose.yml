@@ -1,11 +1,6 @@
 services:
   app:
-    build: 
-      context: .
-      target: app-runner
-      args:
-        - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
-    image: ep_guard_app:latest
+    image: ${ECR_REGISTRY}/guards-backend:app-${IMAGE_TAG:-latest}
     container_name: ep_guard_app
     restart: always
     env_file: .env
@@ -15,8 +10,6 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
       - TZ=Asia/Makassar
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -27,57 +20,25 @@ services:
       start_period: 20s
 
   worker:
-    build: 
-      context: .
-      target: worker-runner
-      args:
-        - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
-    image: ep_guard_worker:latest
+    image: ${ECR_REGISTRY}/guards-backend:worker-${IMAGE_TAG:-latest}
     container_name: ep_guard_worker
     restart: always
     env_file: .env
     environment:
       - TZ=Asia/Makassar
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
 
   migration:
-    build:
-      context: .
-      target: migration-runner
-    image: ep_guard_migration:latest
+    image: ${ECR_REGISTRY}/guards-backend:migration-${IMAGE_TAG:-latest}
     container_name: ep_guard_migration
     env_file: .env
-    depends_on:
-      db:
-        condition: service_healthy
     profiles:
       - migration
 
-  db:
-    image: postgres:15-alpine
-    ports:
-      - "127.0.0.1:5432:5432"
-    container_name: ep_guard_db
-    restart: always
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - TZ=Asia/Makassar
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   redis:
-    image: redis:8.0-alpine
+    image: redis:8.4-alpine
     container_name: ep_guard_redis
     restart: always
     environment:
@@ -91,5 +52,4 @@ services:
       retries: 5
 
 volumes:
-  db_data:
   redis_data:
