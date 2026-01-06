@@ -1,81 +1,58 @@
 services:
   app:
-    build: 
+    build:
       context: .
+      target: app-runner
       args:
         - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
     container_name: ep_guard_app
-    restart: always
+    restart: unless-stopped
     env_file: .env
-    ports:
-      - "3000:3000"
+    network_mode: host
     environment:
       - NEXT_TELEMETRY_DISABLED=1
       - TZ=Asia/Makassar
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    command: /bin/sh -c "npx prisma migrate deploy && npm start"
+      migration:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   worker:
-    build: 
+    build:
       context: .
+      target: worker-runner
       args:
         - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
     container_name: ep_guard_worker
-    restart: always
+    restart: unless-stopped
     env_file: .env
+    network_mode: host
     environment:
       - TZ=Asia/Makassar
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: npx tsx worker.ts
+      migration:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
-  db:
-    image: postgres:15-alpine
-    container_name: ep_guard_db
-    restart: always
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - POSTGRES_DB=${POSTGRES_DB:-ep_guard}
-      - TZ=Asia/Makassar
-    ports:
-      - "5432:5432"
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:8.0-alpine
-    container_name: ep_guard_redis
-    restart: always
-    ports:
-      - "6379:6379"
-    environment:
-      - TZ=Asia/Makassar
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  db_data:
-  redis_data:
+  migration:
+    build:
+      context: .
+      target: migration-runner
+    container_name: ep_guard_migration
+    env_file: .env
+    network_mode: host
+    restart: "no"

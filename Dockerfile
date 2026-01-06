@@ -20,13 +20,15 @@ RUN apk add --no-cache python3 make g++
 FROM deps-base AS web-deps
 COPY --from=pruner /app/out-web/json/ .
 COPY --from=pruner /app/out-web/package-lock.json ./package-lock.json
-RUN npm ci --ignore-scripts --prefer-offline
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --ignore-scripts --prefer-offline
 
 # 4. Worker dependencies
 FROM deps-base AS worker-deps
 COPY --from=pruner /app/out-worker/json/ .
 COPY --from=pruner /app/out-worker/package-lock.json ./package-lock.json
-RUN npm ci --ignore-scripts --prefer-offline
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --ignore-scripts --prefer-offline
 
 # 5. Build Web
 FROM web-deps AS web-builder
