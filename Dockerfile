@@ -26,6 +26,9 @@ COPY turbo.json turbo.json
 ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
 
+# Dummy DATABASE_URL for prisma:generate
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
+
 # Build the application (turbo handles prisma:generate dependency)
 RUN npx turbo run build --filter=web
 
@@ -38,6 +41,10 @@ RUN npm ci --ignore-scripts
 
 COPY --from=pruner /app/out-worker/full/ .
 COPY turbo.json turbo.json
+
+# Dummy DATABASE_URL for prisma:generate
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
+
 RUN npx turbo run build --filter=worker
 
 # 4. Web Runner
