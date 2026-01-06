@@ -1,0 +1,16 @@
+{
+  "name": "@repo/validations",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "dependencies": {
+    "zod": "^4.1.13",
+    "libphonenumber-js": "^1.12.31"
+  },
+  "devDependencies": {
+    "@repo/tsconfig": "*",
+    "typescript": "^5"
+  }
+}
