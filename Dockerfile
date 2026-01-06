@@ -84,9 +84,13 @@ FROM base AS migration-runner
 WORKDIR /app
 ENV NODE_ENV production
 
-COPY --from=web-builder /app/packages/database/prisma ./prisma
-COPY --from=web-builder /app/packages/database/prisma.config.ts ./prisma.config.ts
-COPY --from=web-builder /app/node_modules ./node_modules
-COPY --from=web-builder /app/package.json ./package.json
+# Install only the necessary tools for running migrations
+# We need prisma (CLI), dotenv (for config), and tsx (for loading .ts config/seed)
+RUN npm install -g prisma tsx dotenv
 
-CMD ["npx", "prisma", "migrate", "deploy"]
+# Copy only the database package files needed for migration
+COPY packages/database/prisma ./prisma
+COPY packages/database/prisma.config.ts ./prisma.config.ts
+COPY packages/database/package.json ./package.json
+
+CMD ["prisma", "migrate", "deploy"]
