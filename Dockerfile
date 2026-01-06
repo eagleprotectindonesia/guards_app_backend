@@ -85,6 +85,7 @@ WORKDIR /app
 ENV NODE_ENV production
 
 COPY --from=web-builder /app/packages/database/prisma ./prisma
+COPY --from=web-builder /app/packages/database/prisma.config.ts ./prisma.config.ts
 COPY --from=web-builder /app/node_modules ./node_modules
 COPY --from=web-builder /app/package.json ./package.json
 
