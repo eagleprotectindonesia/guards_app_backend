@@ -17,7 +17,7 @@ FROM base AS web-builder
 WORKDIR /app
 COPY --from=pruner /app/out-web/json/ .
 COPY --from=pruner /app/out-web/package-lock.json ./package-lock.json
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 COPY --from=pruner /app/out-web/full/ .
 COPY turbo.json turbo.json
@@ -34,7 +34,7 @@ FROM base AS worker-builder
 WORKDIR /app
 COPY --from=pruner /app/out-worker/json/ .
 COPY --from=pruner /app/out-worker/package-lock.json ./package-lock.json
-RUN npm ci
+RUN npm ci --ignore-scripts
 
 COPY --from=pruner /app/out-worker/full/ .
 COPY turbo.json turbo.json
