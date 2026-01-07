@@ -260,18 +260,26 @@ export async function updateGuardWithChangelog(id: string, data: Prisma.GuardUpd
         },
       });
 
-      // If status was set to false, notify active sessions to logout via Redis
+      // If status was set to false, notify active sessions to logout via Redis Stream
       if (updatedGuard.status === false) {
         try {
-          await redis.publish(
-            `guard:${updatedGuard.id}`,
-            JSON.stringify({
-              type: 'session_revoked',
-              newTokenVersion: updatedGuard.tokenVersion,
-            })
-          );
+          await Promise.all([
+            redis.xadd(
+              `guard:stream:${updatedGuard.id}`,
+              'MAXLEN',
+              '~',
+              100,
+              '*',
+              'type',
+              'session_revoked',
+              'newTokenVersion',
+              updatedGuard.tokenVersion.toString()
+            ),
+            // Update cache for high-frequency polling
+            redis.set(`guard:${updatedGuard.id}:token_version`, updatedGuard.tokenVersion.toString(), 'EX', 3600),
+          ]);
         } catch (error) {
-          console.error('Failed to publish session revocation event:', error);
+          console.error('Failed to notify session revocation:', error);
         }
       }
 
@@ -343,16 +351,12 @@ export async function deleteGuardWithChangelog(id: string, adminId: string) {
         },
       });
 
-      // Notify active sessions to logout via Redis and cleanup flags
+      // Notify active sessions to logout via Redis Stream and cleanup flags
       try {
         await Promise.all([
           redis.del(`guard:${id}:must-change-password`),
-          redis.publish(
-            `guard:${id}`,
-            JSON.stringify({
-              type: 'session_revoked',
-            })
-          ),
+          redis.del(`guard:${id}:token_version`),
+          redis.xadd(`guard:stream:${id}`, 'MAXLEN', '~', 100, '*', 'type', 'session_revoked', 'reason', 'deleted'),
         ]);
       } catch (error) {
         console.error('Failed to perform Redis cleanup/notification:', error);

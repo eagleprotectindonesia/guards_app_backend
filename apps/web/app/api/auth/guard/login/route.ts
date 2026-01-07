@@ -71,6 +71,8 @@ export async function POST(req: Request) {
         'newTokenVersion',
         updatedGuard.tokenVersion.toString()
       );
+      // Update cache for high-frequency polling
+      await redis.set(`guard:${guard.id}:token_version`, updatedGuard.tokenVersion.toString(), 'EX', 3600);
     } catch (error) {
       console.error('Failed to publish session revocation event:', error);
     }

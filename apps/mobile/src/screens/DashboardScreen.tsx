@@ -7,6 +7,7 @@ import AttendanceRecord from '../components/AttendanceRecord';
 import CheckInCard from '../components/CheckInCard';
 import ShiftCarousel from '../components/ShiftCarousel';
 import PasswordChangeModal from '../components/PasswordChangeModal';
+import SessionMonitor from '../components/SessionMonitor';
 
 export default function DashboardScreen({ navigation }: any) {
   const queryClient = useQueryClient();
@@ -16,7 +17,16 @@ export default function DashboardScreen({ navigation }: any) {
   // Setup Global Logout Interceptor once
   useEffect(() => {
     setupInterceptors(() => {
-      navigation.replace('Login');
+      Alert.alert(
+        'Sesi Berakhir',
+        'Akun Anda telah login di perangkat lain atau sesi telah berakhir.',
+        [
+          { 
+            text: 'OK', 
+            onPress: () => navigation.replace('Login') 
+          }
+        ]
+      );
     });
   }, [navigation]);
 
@@ -61,6 +71,7 @@ export default function DashboardScreen({ navigation }: any) {
 
   return (
     <Box className="flex-1 bg-gray-50">
+      <SessionMonitor />
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
