@@ -17,16 +17,12 @@ export default function DashboardScreen({ navigation }: any) {
   // Setup Global Logout Interceptor once
   useEffect(() => {
     setupInterceptors(() => {
-      Alert.alert(
-        'Sesi Berakhir',
-        'Akun Anda telah login di perangkat lain atau sesi telah berakhir.',
-        [
-          { 
-            text: 'OK', 
-            onPress: () => navigation.replace('Login') 
-          }
-        ]
-      );
+      Alert.alert('Sesi Berakhir', 'Akun Anda telah login di perangkat lain atau sesi telah berakhir.', [
+        {
+          text: 'OK',
+          onPress: () => navigation.replace('Login'),
+        },
+      ]);
     });
   }, [navigation]);
 
@@ -48,7 +44,12 @@ export default function DashboardScreen({ navigation }: any) {
     }
   }, [profile?.guard?.mustChangePassword]);
 
-  const { data: shiftData, isLoading, refetch, isRefetching } = useQuery({
+  const {
+    data: shiftData,
+    isLoading,
+    refetch,
+    isRefetching,
+  } = useQuery({
     queryKey: ['active-shift'],
     queryFn: async () => {
       const res = await client.get('/api/my/active-shift');
@@ -78,13 +79,13 @@ export default function DashboardScreen({ navigation }: any) {
       >
         <VStack space="xl">
           <Box className="mt-8 mb-4">
-             <Heading size="3xl" className="text-gray-900 leading-tight">
+            <Heading size="3xl" className="text-gray-900 leading-tight">
               Selamat Datang, {'\n'}
               <Text className="text-blue-600">{profile?.guard?.name || 'Guard'}</Text>
-             </Heading>
-             {profile?.guard?.guardCode && (
-                <Text className="text-gray-500 font-bold mt-1">Kode: {profile.guard.guardCode}</Text>
-             )}
+            </Heading>
+            {profile?.guard?.guardCode && (
+              <Text className="text-gray-500 font-bold mt-1">Kode: {profile.guard.guardCode}</Text>
+            )}
           </Box>
 
           {isLoading ? (
@@ -93,24 +94,23 @@ export default function DashboardScreen({ navigation }: any) {
             </Center>
           ) : (
             <VStack space="xl">
-              <ShiftCarousel 
-                activeShift={activeShift} 
-                nextShifts={nextShifts} 
-              />
+              {!activeShift && (
+                <Box className="bg-white p-8 rounded-2xl border-2 border-dashed border-gray-300 items-center">
+                  <Text className="text-gray-500 text-center font-medium">Anda tidak memiliki shift aktif</Text>
+                </Box>
+              )}
+
+              {(activeShift || nextShifts.length > 0) && (
+                <ShiftCarousel activeShift={activeShift} nextShifts={nextShifts} />
+              )}
 
               {activeShift && (
                 <VStack space="md">
-                  <AttendanceRecord 
-                    shift={activeShift} 
-                    onAttendanceRecorded={refetch}
-                  />
-                  
+                  <AttendanceRecord shift={activeShift} onAttendanceRecorded={refetch} />
+
                   {/* Show CheckInCard if attendance is recorded OR late */}
-                  {(activeShift.attendance || (activeShift.attendanceStatus === 'late')) && (
-                    <CheckInCard 
-                        activeShift={activeShift} 
-                        refetchShift={refetch}
-                    />
+                  {(activeShift.attendance || activeShift.attendanceStatus === 'late') && (
+                    <CheckInCard activeShift={activeShift} refetchShift={refetch} />
                   )}
                 </VStack>
               )}
@@ -118,22 +118,20 @@ export default function DashboardScreen({ navigation }: any) {
           )}
 
           <VStack space="md" className="mt-8">
-            <Button 
-              variant="outline" 
-              action="secondary" 
-              onPress={() => setIsPasswordModalOpen(true)}
-            >
+            <Button variant="outline" action="secondary" onPress={() => setIsPasswordModalOpen(true)}>
               <ButtonText>Ubah Kata Sandi</ButtonText>
             </Button>
 
-            <Button 
-              variant="outline" 
-              action="secondary" 
+            <Button
+              variant="outline"
+              action="secondary"
               className="border-red-500"
-              onPress={() => Alert.alert('Keluar', 'Apakah Anda yakin?', [
-                  { text: 'Batal', style: 'cancel'},
-                  { text: 'Keluar', style: 'destructive', onPress: handleLogout}
-              ])}
+              onPress={() =>
+                Alert.alert('Keluar', 'Apakah Anda yakin?', [
+                  { text: 'Batal', style: 'cancel' },
+                  { text: 'Keluar', style: 'destructive', onPress: handleLogout },
+                ])
+              }
             >
               <ButtonText className="text-red-500">Keluar</ButtonText>
             </Button>
@@ -141,13 +139,13 @@ export default function DashboardScreen({ navigation }: any) {
         </VStack>
       </ScrollView>
 
-      <PasswordChangeModal 
-        isOpen={isPasswordModalOpen} 
+      <PasswordChangeModal
+        isOpen={isPasswordModalOpen}
         isForce={isForcePasswordChange}
         onClose={() => {
           setIsPasswordModalOpen(false);
           setIsForcePasswordChange(false);
-        }} 
+        }}
       />
     </Box>
   );

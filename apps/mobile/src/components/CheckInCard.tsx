@@ -142,12 +142,20 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
   return (
     <Box className="bg-white p-6 rounded-xl shadow-md border border-blue-100 mb-6">
       <VStack space="md" alignItems="center">
-        <Text className="text-gray-500 font-medium">Check-in Berikutnya</Text>
-        <Heading size="3xl" className="font-mono text-blue-600">
-          {new Date(
-            activeShift.checkInWindow.nextSlotStart || activeShift.checkInWindow.currentSlotStart
-          ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Heading>
+        {canCheckIn ? (
+          <Heading size="2xl" className="text-green-600 mb-2">
+            Check-in Dibuka!
+          </Heading>
+        ) : (
+          <>
+            <Text className="text-gray-500 font-medium">Check-in Berikutnya</Text>
+            <Heading size="3xl" className="font-mono text-blue-600">
+              {new Date(
+                activeShift.checkInWindow.nextSlotStart || activeShift.checkInWindow.currentSlotStart
+              ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Heading>
+          </>
+        )}
 
         <Text className={`font-bold ${canCheckIn ? 'text-green-600' : 'text-amber-600'}`}>{timeLeft}</Text>
 

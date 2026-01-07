@@ -59,7 +59,21 @@ export async function GET(req: Request) {
         },
       });
 
-      const backfillEvent = `event: backfill\ndata: ${JSON.stringify(openAlerts)}\n\n`;
+      // 1a. Send Backfill (Warning Alerts from Redis)
+      const warningPattern = siteId ? `alert:warning:${siteId}:*` : `alert:warning:*`;
+      const warningKeys = await subscriber.keys(warningPattern);
+      const warningAlerts = (
+        warningKeys.length > 0
+          ? (await subscriber.mget(...warningKeys)).filter((v): v is string => v !== null).map(v => JSON.parse(v))
+          : []
+      ) as { createdAt: string | Date }[];
+
+      // Merge and sort
+      const allAlerts = [...openAlerts, ...warningAlerts].sort((a, b) => {
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      const backfillEvent = `event: backfill\ndata: ${JSON.stringify(allAlerts)}\n\n`;
       controller.enqueue(encoder.encode(backfillEvent));
 
       // 1b. Send Initial Active Shifts (Global Mode Only)

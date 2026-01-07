@@ -3,12 +3,7 @@ import { Redis } from 'ioredis';
 import { calculateCheckInWindow } from '@repo/shared';
 import { db as prisma } from '@repo/database';
 import { BaseWorker } from './base-worker';
-import {
-  getActiveShifts,
-  getShiftsUpdates,
-  getUpcomingShifts,
-  createMissedCheckinAlert,
-} from '@repo/database';
+import { getActiveShifts, getShiftsUpdates, getUpcomingShifts, createMissedCheckinAlert } from '@repo/database';
 
 // Configuration
 const TICK_INTERVAL_MS = 5 * 1000; // 5 seconds
@@ -322,6 +317,10 @@ export class SchedulingWorker extends BaseWorker {
     const alertId = `transient-${shift.id}-${attentionIndex}`;
     const payload = { type: 'alert_cleared', alertId };
     await this.publish(`alerts:site:${shift.siteId}`, payload);
+
+    // Save to redis with TTL to persist across refreshes
+    const redisKey = `alert:warning:${shift.siteId}:${alertId}`;
+    await this.redis.del(redisKey);
   }
 
   private async sendAttentionEvent(
@@ -347,6 +346,10 @@ export class SchedulingWorker extends BaseWorker {
 
     const payload = { type: 'alert_attention', alert: fakeAlert };
     await this.publish(`alerts:site:${shift.siteId}`, payload);
+
+    // Save to redis with TTL to persist across refreshes
+    const redisKey = `alert:warning:${shift.siteId}:${fakeAlert.id}`;
+    await this.redis.set(redisKey, JSON.stringify(fakeAlert), 'EX', 60);
 
     shift.lastAttentionIndexSent = attentionIndex;
     this.shiftStates.set(shift.id, { lastAttentionIndexSent: attentionIndex });
