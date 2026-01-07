@@ -3,6 +3,16 @@ name: Deploy to Production
 on:
   push:
     branches: ['main']
+    paths:
+      - 'apps/web/**'
+      - 'apps/worker/**'
+      - 'packages/**'
+      - 'docker-compose.yml'
+      - 'Dockerfile'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'turbo.json'
+      - '.github/workflows/deploy-prod.yml'
 
 jobs:
   deploy:
@@ -111,4 +121,4 @@ jobs:
             docker compose up -d --remove-orphans app worker
 
             # Clean up old unused images
-            docker image prune -f
+            docker image prune -af

@@ -1,0 +1,27 @@
+# Ignore backend and worker code to speed up mobile builds
+apps/web
+apps/worker
+packages/database/prisma/migrations
+
+# Ignore local environment files
+.env
+.env-prod
+.env-dev
+.example-env
+
+# Ignore build artifacts
+.next
+dist
+build
+out
+
+# Ignore documentation and other non-app files
+*.md
+Dockerfile
+docker-compose*.yml
+tests
+
+# Standard ignores (usually handled by .gitignore but good to be explicit)
+node_modules
+.git
+.turbo
