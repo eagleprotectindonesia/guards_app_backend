@@ -2,7 +2,7 @@ name: Deploy to Production
 
 on:
   push:
-    branches: ["main"]
+    branches: ['main']
 
 jobs:
   deploy:
@@ -74,8 +74,8 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "docker-compose.yml"
-          target: "/opt/guards"
+          source: 'docker-compose.yml'
+          target: '/opt/guards'
 
       - name: Deploy on EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -100,13 +100,13 @@ jobs:
             # Export variables for the current session
             export ECR_REGISTRY="${{ secrets.ECR_REGISTRY }}"
             export IMAGE_TAG="${{ github.sha }}-${{ github.run_id }}"
-            
+
             # Pull all images (including those in the migration profile)
             docker compose --profile migration pull
-            
+
             # Run migrations
             docker compose --profile migration run --rm migration
-            
+
             # Update app and worker
             docker compose up -d --remove-orphans app worker
 

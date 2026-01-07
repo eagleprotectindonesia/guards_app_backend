@@ -2,54 +2,87 @@ services:
   app:
     image: ${ECR_REGISTRY}/guards-backend:app-${IMAGE_TAG:-latest}
     container_name: ep_guard_app
-    restart: always
+    restart: unless-stopped
     env_file: .env
     ports:
-      - "127.0.0.1:3000:3000"
+      - '127.0.0.1:3000:3000'
     environment:
       - NEXT_TELEMETRY_DISABLED=1
       - TZ=Asia/Makassar
     depends_on:
       redis:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 20s
+    networks:
+      - app_network
+    # Use built-in healthcheck from Dockerfile
+    # Removed duplicate healthcheck
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
 
   worker:
     image: ${ECR_REGISTRY}/guards-backend:worker-${IMAGE_TAG:-latest}
     container_name: ep_guard_worker
-    restart: always
+    restart: unless-stopped
     env_file: .env
     environment:
       - TZ=Asia/Makassar
     depends_on:
       redis:
         condition: service_healthy
+    networks:
+      - app_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
 
   migration:
     image: ${ECR_REGISTRY}/guards-backend:migration-${IMAGE_TAG:-latest}
     container_name: ep_guard_migration
     env_file: .env
+    networks:
+      - app_network
+    restart: 'no'
     profiles:
       - migration
 
   redis:
     image: redis:8.4-alpine
     container_name: ep_guard_redis
-    restart: always
+    restart: unless-stopped
     environment:
       - TZ=Asia/Makassar
     volumes:
       - redis_data:/data
+    networks:
+      - app_network
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
 
 volumes:
   redis_data:
+    driver: local
+
+networks:
+  app_network:
+    driver: bridge

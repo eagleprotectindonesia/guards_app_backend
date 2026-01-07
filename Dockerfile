@@ -1,97 +1,119 @@
 FROM node:24-alpine AS base
 ENV TZ=Asia/Makassar
-RUN apk add --no-cache libc6-compat
-RUN npm install -g turbo
+WORKDIR /app
+RUN apk add --no-cache libc6-compat && \
+    npm install -g turbo@latest
 
 # 1. Prune the monorepo for each service
 FROM base AS pruner
-WORKDIR /app
 COPY . .
-RUN turbo prune --scope=web --docker
-RUN mv out out-web
-RUN turbo prune --scope=worker --docker
-RUN mv out out-worker
+RUN turbo prune --scope=web --docker && \
+    mv out out-web && \
+    turbo prune --scope=worker --docker && \
+    mv out out-worker
 
-# 2. Build Web
-FROM base AS web-builder
-WORKDIR /app
+# 2. Dependencies base (shared layer for both services)
+FROM base AS deps-base
+RUN apk add --no-cache python3 make g++
+
+# 3. Web dependencies
+FROM deps-base AS web-deps
 COPY --from=pruner /app/out-web/json/ .
 COPY --from=pruner /app/out-web/package-lock.json ./package-lock.json
-RUN npm ci --ignore-scripts
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --ignore-scripts --prefer-offline
 
+# 4. Worker dependencies
+FROM deps-base AS worker-deps
+COPY --from=pruner /app/out-worker/json/ .
+COPY --from=pruner /app/out-worker/package-lock.json ./package-lock.json
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --ignore-scripts --prefer-offline
+
+# 5. Build Web
+FROM web-deps AS web-builder
 COPY --from=pruner /app/out-web/full/ .
 COPY turbo.json turbo.json
 
-# Bake in build-time variables
 ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY} \
+    DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
+    NODE_ENV=production
 
-# Dummy DATABASE_URL for prisma:generate
-ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
+RUN npx turbo run build --filter=web && \
+    # Clean up unnecessary files
+    rm -rf apps/web/.next/cache
 
-# Build the application (turbo handles prisma:generate dependency)
-RUN npx turbo run build --filter=web
-
-# 3. Build Worker
-FROM base AS worker-builder
-WORKDIR /app
-COPY --from=pruner /app/out-worker/json/ .
-COPY --from=pruner /app/out-worker/package-lock.json ./package-lock.json
-RUN npm ci --ignore-scripts
-
+# 6. Build Worker
+FROM worker-deps AS worker-builder
 COPY --from=pruner /app/out-worker/full/ .
 COPY turbo.json turbo.json
 
-# Dummy DATABASE_URL for prisma:generate
-ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
+    NODE_ENV=production
 
 RUN npx turbo run build --filter=worker
 
-# 4. Web Runner
-FROM base AS app-runner
+# 7. Web Runner (production image)
+FROM node:24-alpine AS app-runner
 WORKDIR /app
-ENV NODE_ENV production
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME="0.0.0.0" \
+    TZ=Asia/Makassar
 
+RUN apk add --no-cache libc6-compat wget && \
+    addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy only production files
 COPY --from=web-builder /app/apps/web/public ./apps/web/public
 COPY --from=web-builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=web-builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 
 USER nextjs
 EXPOSE 3000
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
 
-# Note: server.js in standalone mode expects to be in the root of the app
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+
 CMD ["node", "apps/web/server.js"]
 
-# 5. Worker Runner
-FROM base AS worker-runner
+# 8. Worker Runner (production image)
+FROM node:24-alpine AS worker-runner
 WORKDIR /app
-ENV NODE_ENV production
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 workeruser
+ENV NODE_ENV=production \
+    TZ=Asia/Makassar
 
+RUN apk add --no-cache libc6-compat && \
+    addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 workeruser
+
+# Copy only necessary production dependencies
 COPY --from=worker-builder /app/apps/worker/dist/worker.js ./worker.js
 COPY --from=worker-builder /app/node_modules ./node_modules
 
 USER workeruser
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD pgrep -f "node.*worker.js" || exit 1
+
 CMD ["node", "worker.js"]
 
-# 6. Migration Runner
-FROM base AS migration-runner
+# 9. Migration Runner (lightweight)
+FROM node:24-alpine AS migration-runner
 WORKDIR /app
-ENV NODE_ENV production
+ENV NODE_ENV=production \
+    TZ=Asia/Makassar
 
-# Install only the necessary tools for running migrations locally
-# Local install ensures 'dotenv' is resolvable by the config file
-RUN npm install prisma tsx dotenv
+RUN apk add --no-cache libc6-compat
 
-# Copy only the database package files needed for migration
+# Install migration dependencies in a single layer
+RUN npm install --production --no-save prisma tsx dotenv
+
+# Copy migration files
 COPY packages/database/prisma ./prisma
 COPY packages/database/prisma.config.ts ./prisma.config.ts
 COPY packages/database/package.json ./package.json
 
-# Use npx to run the locally installed prisma
 CMD ["npx", "prisma", "migrate", "deploy"]
