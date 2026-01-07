@@ -19,11 +19,14 @@ import {
   FormControlLabelText,
   Input,
   InputField,
+  InputSlot,
+  InputIcon,
   Text,
   ButtonSpinner,
 } from '@gluestack-ui/themed';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
+import { Eye, EyeOff } from 'lucide-react-native';
 
 type PasswordChangeModalProps = {
   isOpen: boolean;
@@ -34,6 +37,8 @@ type PasswordChangeModalProps = {
 export default function PasswordChangeModal({ isOpen, onClose, isForce }: PasswordChangeModalProps) {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{ field: string; message: string }[]>([]);
   const queryClient = useQueryClient();
 
@@ -111,11 +116,14 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
               </FormControlLabel>
               <Input>
                 <InputField
-                  type="password"
+                  type={showCurrentPassword ? 'text' : 'password'}
                   value={currentPassword}
                   onChangeText={setCurrentPassword}
                   placeholder="Masukkan kata sandi saat ini"
                 />
+                <InputSlot pr="$3" onPress={() => setShowCurrentPassword(!showCurrentPassword)}>
+                  <InputIcon as={showCurrentPassword ? Eye : EyeOff} color="$gray500" />
+                </InputSlot>
               </Input>
               {currentPasswordError && (
                 <Text size="xs" color="$red600" className="mt-1">
@@ -130,11 +138,14 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
               </FormControlLabel>
               <Input>
                 <InputField
-                  type="password"
+                  type={showNewPassword ? 'text' : 'password'}
                   value={newPassword}
                   onChangeText={setNewPassword}
                   placeholder="Masukkan kata sandi baru"
                 />
+                <InputSlot pr="$3" onPress={() => setShowNewPassword(!showNewPassword)}>
+                  <InputIcon as={showNewPassword ? Eye : EyeOff} color="$gray500" />
+                </InputSlot>
               </Input>
               {newPasswordError && (
                 <Text size="xs" color="$red600" className="mt-1">

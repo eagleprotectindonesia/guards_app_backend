@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { ScrollView, Dimensions, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Box, VStack, Heading, Text, Button, ButtonText, HStack } from '@gluestack-ui/themed';
 import { format } from 'date-fns';
@@ -14,8 +14,17 @@ interface ShiftCarouselProps {
 
 export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarouselProps) {
   const scrollViewRef = useRef<ScrollView>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
   const totalShifts = (activeShift ? 1 : 0) + nextShifts.length;
   
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const scrollPosition = event.nativeEvent.contentOffset.x;
+    const index = Math.round(scrollPosition / (CARD_WIDTH + 16));
+    if (index !== activeIndex) {
+      setActiveIndex(index);
+    }
+  };
+
   const renderShiftCard = (shift: any, isActive: boolean) => {
     return (
       <Box 
@@ -69,6 +78,8 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         decelerationRate="fast"
         snapToInterval={CARD_WIDTH + 16} // card width + margin
         snapToAlignment="start"
@@ -83,7 +94,7 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
           {Array.from({ length: totalShifts }).map((_, i) => (
              <Box 
               key={i} 
-              className="w-2 h-2 rounded-full bg-blue-200"
+              className={`h-2 rounded-full ${i === activeIndex ? 'w-4 bg-blue-600' : 'w-2 bg-blue-200'}`}
              />
           ))}
         </HStack>

@@ -24,10 +24,16 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
       });
       return response.data;
     },
-    onSuccess: (data) => {
+    onSuccess: data => {
       setStatus('Check-in Berhasil!');
       queryClient.invalidateQueries({ queryKey: ['active-shift'] });
       refetchShift();
+
+      // Clear success indicator after 3 seconds
+      setTimeout(() => {
+        setStatus(prev => (prev === 'Check-in Berhasil!' ? '' : prev));
+      }, 3000);
+
       if (data.isLastSlot) {
         Alert.alert('Shift Selesai', 'Anda telah menyelesaikan shift Anda!');
       }
@@ -45,6 +51,11 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
   useEffect(() => {
     if (!activeShift?.checkInWindow) return;
 
+    const formatTime = (seconds: number) => {
+      if (seconds > 60) return `${Math.ceil(seconds / 60)} menit`;
+      return `${seconds} detik`;
+    };
+
     const updateTimer = () => {
       const window = activeShift.checkInWindow;
       const now = Date.now();
@@ -56,35 +67,45 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
       let message = '';
 
       if (window.status === 'completed') {
-         const diff = Math.ceil((nextSlotStart - now) / 1000);
-         message = diff > 0 ? `Check-in berikutnya dalam ${Math.ceil(diff / 60)} mnt` : 'Mempersiapkan slot berikutnya...';
+        const diff = Math.ceil((nextSlotStart - now) / 1000);
+        if (diff > 0) {
+          message = `Check-in berikutnya dalam ${formatTime(diff)}`;
+        } else {
+          message = 'Mempersiapkan slot berikutnya...';
+          refetchShift();
+        }
       } else if (window.status === 'early') {
         const diff = Math.ceil((currentSlotStart - now) / 1000);
         if (diff > 0) {
-            message = `Check-in dibuka dalam ${Math.ceil(diff/60)} mnt`;
+          message = `Check-in dibuka dalam ${formatTime(diff)}`;
         } else {
-            // Check if passed end time
-            if (now < currentSlotEnd) {
-                 message = 'Check-in BUKA';
-                 isWindowOpen = true;
-            } else {
-                message = 'Jendela terlewat';
-                // Trigger refresh if we just missed it
-                refetchShift();
-            }
+          // Check if passed end time
+          if (now < currentSlotEnd) {
+            message = 'Check-in BUKA';
+            isWindowOpen = true;
+          } else {
+            message = 'Jendela terlewat';
+            // Trigger refresh if we just missed it
+            refetchShift();
+          }
         }
       } else if (window.status === 'open') {
         const diff = Math.ceil((currentSlotEnd - now) / 1000);
         if (diff > 0) {
-            message = `Sisa waktu: ${diff} dtk`;
-            isWindowOpen = true;
+          message = `Sisa waktu: ${diff} detik`;
+          isWindowOpen = true;
         } else {
-            message = 'Jendela terlewat';
-            refetchShift();
+          message = 'Jendela terlewat';
+          refetchShift();
         }
       } else if (window.status === 'late') {
-         const diff = Math.ceil((nextSlotStart - now) / 1000);
-         message = diff > 0 ? `Check-in berikutnya dalam ${Math.ceil(diff / 60)} mnt` : 'Mempersiapkan slot berikutnya...';
+        const diff = Math.ceil((nextSlotStart - now) / 1000);
+        if (diff > 0) {
+          message = `Check-in berikutnya dalam ${formatTime(diff)}`;
+        } else {
+          message = 'Mempersiapkan slot berikutnya...';
+          refetchShift();
+        }
       }
 
       setTimeLeft(message);
@@ -123,25 +144,25 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
       <VStack space="md" alignItems="center">
         <Text className="text-gray-500 font-medium">Check-in Berikutnya</Text>
         <Heading size="3xl" className="font-mono text-blue-600">
-          {new Date(activeShift.checkInWindow.nextSlotStart || activeShift.checkInWindow.currentSlotStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit'})}
+          {new Date(
+            activeShift.checkInWindow.nextSlotStart || activeShift.checkInWindow.currentSlotStart
+          ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
         </Heading>
-        
-        <Text className={`font-bold ${canCheckIn ? 'text-green-600' : 'text-amber-600'}`}>
-            {timeLeft}
-        </Text>
+
+        <Text className={`font-bold ${canCheckIn ? 'text-green-600' : 'text-amber-600'}`}>{timeLeft}</Text>
 
         {status ? <Text className="text-xs text-gray-400">{status}</Text> : null}
 
         {canCheckIn && (
-            <Button 
-                size="xl" 
-                className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800"
-                onPress={handleCheckIn}
-                isDisabled={checkInMutation.isPending}
-            >
-                {checkInMutation.isPending ? <ButtonSpinner color="white" mr="$2"/> : null}
-                <ButtonText>CHECK IN SEKARANG</ButtonText>
-            </Button>
+          <Button
+            size="xl"
+            className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800"
+            onPress={handleCheckIn}
+            isDisabled={checkInMutation.isPending}
+          >
+            {checkInMutation.isPending ? <ButtonSpinner color="white" mr="$2" /> : null}
+            <ButtonText>CHECK IN SEKARANG</ButtonText>
+          </Button>
         )}
       </VStack>
     </Box>

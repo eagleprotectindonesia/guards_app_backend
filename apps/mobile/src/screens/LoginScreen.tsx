@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Pressable } from 'react-native';
 import {
   Box,
   VStack,
@@ -8,6 +8,8 @@ import {
   FormControlLabelText,
   Input,
   InputField,
+  InputSlot,
+  InputIcon,
   Button,
   ButtonText,
   Heading,
@@ -19,11 +21,12 @@ import {
 } from '@gluestack-ui/themed';
 import { useMutation } from '@tanstack/react-query';
 import { client } from '../api/client';
-import { CircleAlert } from 'lucide-react-native';
+import { CircleAlert, Eye, EyeOff } from 'lucide-react-native';
 
 export default function LoginScreen({ navigation }: any) {
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const loginMutation = useMutation({
     mutationFn: async () => {
@@ -83,12 +86,14 @@ export default function LoginScreen({ navigation }: any) {
           <Box className="mb-6 bg-gray-50 border border-gray-200 rounded-md">
             <Input size="xl" variant="outline">
               <InputField
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 placeholder="Masukkan kata sandi Anda"
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry
               />
+              <InputSlot pr="$4" onPress={() => setShowPassword(!showPassword)}>
+                <InputIcon as={showPassword ? Eye : EyeOff} color="$gray500" />
+              </InputSlot>
             </Input>
           </Box>
 
