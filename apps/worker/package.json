@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "tsx --watch src/worker.ts",
-    "build": "esbuild src/worker.ts --bundle --platform=node --target=node20 --outfile=dist/worker.js --external:@prisma/client --external:pg --external:@prisma/adapter-pg --external:ioredis --external:dotenv --external:date-fns",
+    "build": "esbuild src/worker.ts --bundle --platform=node --target=node22 --outfile=dist/worker.js --external:@prisma/client --external:pg --external:@prisma/adapter-pg --external:ioredis --external:dotenv --external:date-fns --external:bullmq",
     "start": "node dist/worker.js",
     "lint": "eslint . --ext .ts",
     "type-check": "tsc --noEmit"
@@ -14,6 +14,7 @@
     "@repo/shared": "*",
     "@repo/types": "*",
     "@repo/validations": "*",
+    "bullmq": "^5.66.4",
     "dotenv": "^17.2.3",
     "ioredis": "^5.8.2",
     "tsx": "^4.21.0"

@@ -1,6 +1,6 @@
-import { db as prisma } from "../client";
+import { db as prisma } from '../client';
 import { Prisma } from '@prisma/client';
-import { redis } from "../redis";
+import { redis } from '../redis';
 
 export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
   return prisma.shift.findUnique({
@@ -112,6 +112,8 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
     );
   }
 
+  await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_CREATED', id: result.id }));
+
   return result;
 }
 
@@ -170,6 +172,8 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
     );
   }
 
+  await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_UPDATED', id: result.id }));
+
   return result;
 }
 
@@ -215,6 +219,8 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
   if (result?.guardId) {
     await redis.xadd(`guard:stream:${result.guardId}`, 'MAXLEN', '~', 100, '*', 'type', 'shift_updated', 'shiftId', id);
   }
+
+  await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_DELETED', id: id }));
 
   return result;
 }
@@ -280,10 +286,13 @@ export async function getExportShiftsBatch(params: { where: Prisma.ShiftWhereInp
 }
 
 export async function getActiveShifts(now: Date) {
+  const LOOKAHEAD_MS = 10 * 60 * 1000; // 10 minutes
+  const lookaheadDate = new Date(now.getTime() + LOOKAHEAD_MS);
+
   return prisma.shift.findMany({
     where: {
       status: { in: ['scheduled', 'in_progress'] },
-      startsAt: { lte: now },
+      startsAt: { lte: lookaheadDate },
       endsAt: { gte: now },
       guardId: { not: null },
       deletedAt: null,

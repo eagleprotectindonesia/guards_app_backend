@@ -1,13 +1,12 @@
 import { Shift, ShiftType, Guard, Site, Attendance } from '@prisma/client';
-import { Redis } from 'ioredis';
-import { calculateCheckInWindow } from '@repo/shared';
+import { calculateCheckInWindow, CHECK_SHIFTS_JOB_NAME } from '@repo/shared';
 import { db as prisma } from '@repo/database';
-import { BaseWorker } from './base-worker';
 import { getActiveShifts, getShiftsUpdates, getUpcomingShifts, createMissedCheckinAlert } from '@repo/database';
+import { Job } from 'bullmq';
+import { getRedisConnection } from '../infrastructure/redis';
 
 // Configuration
-const TICK_INTERVAL_MS = 5 * 1000; // 5 seconds
-const FULL_SYNC_INTERVAL_MS = 30 * 1000; // 30 seconds
+const FULL_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes (safety fallback)
 const UPCOMING_SYNC_INTERVAL_MS = 60 * 1000; // 1 minute
 const ATTENDANCE_GRACE_PERIOD_MINS = 5;
 
@@ -18,6 +17,11 @@ type CachedShift = Shift & {
   site: Site;
   attendance: Attendance | null;
   lastAttentionIndexSent?: number;
+};
+
+type ShiftState = {
+  lastAttentionIndexSent?: number;
+  processedAlerts: Set<string>; // Format: "reason:timestamp"
 };
 
 type BroadcastedShift = {
@@ -31,50 +35,50 @@ type BroadcastedShift = {
   attendance: Attendance | null;
 };
 
-export class SchedulingWorker extends BaseWorker {
-  name = 'SchedulingWorker';
-  private cachedShifts: CachedShift[] = [];
-  private shiftStates = new Map<string, { lastAttentionIndexSent?: number }>();
+export class SchedulingProcessor {
+  private cachedShifts = new Map<string, CachedShift>();
+  private shiftStates = new Map<string, ShiftState>();
   private lastFullSync = 0;
   private lastUpcomingSync = 0;
-  private redis: Redis;
+  private needsFullSync = true;
 
   constructor() {
-    super();
-    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+    this.setupEventListener();
   }
 
-  async start() {
-    console.log(`[${this.name}] Started with 5s tick and 30s full sync...`);
-    this.runLoop();
+  private setupEventListener() {
+    const redis = getRedisConnection().duplicate();
+    redis.subscribe('events:shifts', err => {
+      if (err) {
+        console.error('[SchedulingProcessor] Redis subscribe error:', err);
+      }
+    });
+
+    redis.on('message', (channel, message) => {
+      if (channel === 'events:shifts') {
+        console.log('[SchedulingProcessor] Received shift change event, triggering sync.');
+        this.needsFullSync = true;
+      }
+    });
   }
 
-  private async runLoop() {
-    while (!this.isShuttingDown) {
-      const startedAt = Date.now();
-
-      try {
-        await this.tick();
-      } catch (err) {
-        console.error(`[${this.name}] Loop error:`, err);
-      }
-
-      const elapsed = Date.now() - startedAt;
-      const sleepMs = Math.max(0, TICK_INTERVAL_MS - elapsed);
-
-      if (!this.isShuttingDown) {
-        await new Promise(res => setTimeout(res, sleepMs));
-      }
+  async process(job: Job) {
+    if (job.name === CHECK_SHIFTS_JOB_NAME) {
+      await this.tick();
     }
+  }
 
-    console.log(`[${this.name}] Loop exited`);
-    await this.cleanup();
+  private getShiftState(shiftId: string): ShiftState {
+    let state = this.shiftStates.get(shiftId);
+    if (!state) {
+      state = { processedAlerts: new Set() };
+      this.shiftStates.set(shiftId, state);
+    }
+    return state;
   }
 
   private async tick() {
     try {
-      if (!(await this.acquireLock())) return;
-
       const now = new Date();
       const nowMs = now.getTime();
 
@@ -94,16 +98,13 @@ export class SchedulingWorker extends BaseWorker {
         await this.broadcastUpcomingShifts(now);
         this.lastUpcomingSync = nowMs;
       }
-
-      await this.releaseLock();
     } catch (error) {
-      console.error(`[${this.name}] Tick error:`, error);
-      // Ensure lock is released in case of error, though expiration handles it eventually
-      await this.releaseLock();
+      console.error(`[SchedulingProcessor] Tick error:`, error);
     }
   }
 
   private async publish<T>(channel: string, payload: T) {
+    const redis = getRedisConnection();
     const message = Array.isArray(payload)
       ? JSON.stringify(payload)
       : JSON.stringify({
@@ -111,52 +112,43 @@ export class SchedulingWorker extends BaseWorker {
           version: 1,
           _timestamp: Date.now(),
         });
-    await this.redis.publish(channel, message);
-  }
-
-  private async cleanup() {
-    try {
-      await this.redis.quit();
-      console.log(`[${this.name}] Redis connection closed.`);
-    } catch (e) {
-      console.error(`[${this.name}] Error closing Redis:`, e);
-    }
-    // We do NOT disconnect prisma here as it might be shared
-    console.log(`[${this.name}] Cleanup complete.`);
-  }
-
-  private async acquireLock(): Promise<boolean> {
-    const result = await this.redis.set('worker:lock', 'locked', 'EX', 60, 'NX');
-    return result === 'OK';
-  }
-
-  private async releaseLock() {
-    await this.redis.del('worker:lock');
+    await redis.publish(channel, message);
   }
 
   private async syncActiveShifts(now: Date, nowMs: number): Promise<boolean> {
     let isFullSync = false;
-    if (nowMs - this.lastFullSync > FULL_SYNC_INTERVAL_MS || this.cachedShifts.length === 0) {
+    const timeSinceLastSync = nowMs - this.lastFullSync;
+
+    if (this.needsFullSync || timeSinceLastSync > FULL_SYNC_INTERVAL_MS || this.cachedShifts.size === 0) {
       isFullSync = true;
-      // --- HEAVY SYNC (Every 30s) ---
+      this.needsFullSync = false;
       const newShifts = await getActiveShifts(now);
 
-      // Restore state
-      this.cachedShifts = newShifts.map(s => {
-        const state = this.shiftStates.get(s.id);
-        return { ...s, lastAttentionIndexSent: state?.lastAttentionIndexSent };
+      // Clean up states for shifts no longer active
+      const activeIds = new Set(newShifts.map(s => s.id));
+      for (const id of this.shiftStates.keys()) {
+        if (!activeIds.has(id)) {
+          this.shiftStates.delete(id);
+        }
+      }
+
+      this.cachedShifts.clear();
+      newShifts.forEach(s => {
+        const state = this.getShiftState(s.id);
+        this.cachedShifts.set(s.id, {
+          ...s,
+          lastAttentionIndexSent: state.lastAttentionIndexSent,
+        });
       });
 
       this.lastFullSync = nowMs;
     } else {
-      // --- LIGHT SYNC (Every 5s) ---
-      if (this.cachedShifts.length > 0) {
-        const shiftIds = this.cachedShifts.map(s => s.id);
+      if (this.cachedShifts.size > 0) {
+        const shiftIds = Array.from(this.cachedShifts.keys());
         const updates = await getShiftsUpdates(shiftIds);
 
-        // Merge updates into cache
         updates.forEach(u => {
-          const target = this.cachedShifts.find(s => s.id === u.id);
+          const target = this.cachedShifts.get(u.id);
           if (target) {
             target.lastHeartbeatAt = u.lastHeartbeatAt;
             target.missedCount = u.missedCount;
@@ -170,42 +162,38 @@ export class SchedulingWorker extends BaseWorker {
   }
 
   private async processActiveShifts(now: Date, nowMs: number) {
-    for (const shift of this.cachedShifts) {
+    for (const shift of this.cachedShifts.values()) {
       if (shift.status !== 'scheduled' && shift.status !== 'in_progress') continue;
       if (shift.endsAt < now) continue;
 
+      const state = this.getShiftState(shift.id);
       const startMs = shift.startsAt.getTime();
       const intervalMs = shift.requiredCheckinIntervalMins * 60000;
 
-      // --- CLEAR ATTENTION IF CHECKED IN ---
       if (typeof shift.lastAttentionIndexSent === 'number') {
         const warningIndex = shift.lastAttentionIndexSent;
 
         if (warningIndex === -1) {
-          // Attendance attention clearing
           if (shift.attendance) {
             await this.clearAttentionEvent(shift, warningIndex);
             shift.lastAttentionIndexSent = undefined;
-            this.shiftStates.set(shift.id, { lastAttentionIndexSent: undefined });
+            state.lastAttentionIndexSent = undefined;
           }
         } else {
           const warningSlotStart = startMs + warningIndex * intervalMs;
-
-          // If we have a heartbeat AFTER the start of the warned slot
           if (shift.lastHeartbeatAt && shift.lastHeartbeatAt.getTime() >= warningSlotStart) {
             await this.clearAttentionEvent(shift, warningIndex);
             shift.lastAttentionIndexSent = undefined;
-            this.shiftStates.set(shift.id, { lastAttentionIndexSent: undefined });
+            state.lastAttentionIndexSent = undefined;
           }
         }
       }
 
-      // --- ATTENDANCE ALERT LOGIC ---
       const attendanceGraceMs = ATTENDANCE_GRACE_PERIOD_MINS * 60000;
       const attendanceDeadline = startMs + attendanceGraceMs;
+      const attendanceAlertKey = `missed_attendance:${shift.startsAt.getTime()}`;
 
-      if (!shift.attendance) {
-        // 1. Attention (Warning)
+      if (!shift.attendance && !state.processedAlerts.has(attendanceAlertKey)) {
         const timeUntilDeadline = attendanceDeadline - nowMs;
         if (timeUntilDeadline <= 60000 && timeUntilDeadline > 0) {
           if (shift.lastAttentionIndexSent !== -1) {
@@ -213,7 +201,6 @@ export class SchedulingWorker extends BaseWorker {
           }
         }
 
-        // 2. Alert (Missed)
         if (nowMs > attendanceDeadline) {
           const existingAttendanceAlert = await prisma.alert.findUnique({
             where: {
@@ -226,62 +213,51 @@ export class SchedulingWorker extends BaseWorker {
           });
 
           if (!existingAttendanceAlert) {
-            console.log(
-              `[${this.name}] Detected missed attendance for shift ${shift.id} (Guard: ${shift.guard?.name})`
-            );
+            console.log(`[SchedulingProcessor] Detected missed attendance for shift ${shift.id}`);
             await this.createAlert(shift, 'missed_attendance', shift.startsAt);
           }
+          state.processedAlerts.add(attendanceAlertKey);
         }
       }
 
-      // --- UNIFIED CHECKIN LOGIC ---
       const windowResult = calculateCheckInWindow(
         shift.startsAt,
-        shift.endsAt, // Added shift.endsAt
+        shift.endsAt,
         shift.requiredCheckinIntervalMins,
         shift.graceMinutes,
         now,
         shift.lastHeartbeatAt
       );
 
-      // A) Missed Checkin Alert
       if (windowResult.status === 'late') {
-        // "late" means we are past the grace period of currentSlotStart
-        // So check if we have alerted for this specific slot start
         const dueTime = windowResult.currentSlotStart;
+        const checkinAlertKey = `missed_checkin:${dueTime.getTime()}`;
 
-        const existingAlert = await prisma.alert.findUnique({
-          where: {
-            shiftId_reason_windowStart: {
-              shiftId: shift.id,
-              reason: 'missed_checkin',
-              windowStart: dueTime,
+        if (!state.processedAlerts.has(checkinAlertKey)) {
+          const existingAlert = await prisma.alert.findUnique({
+            where: {
+              shiftId_reason_windowStart: {
+                shiftId: shift.id,
+                reason: 'missed_checkin',
+                windowStart: dueTime,
+              },
             },
-          },
-        });
+          });
 
-        if (!existingAlert) {
-          console.log(
-            `[${this.name}] Detected missed checkin for shift ${shift.id} (Guard: ${shift.guard?.name}) at ${dueTime.toISOString()}`
-          );
-          await this.createAlert(shift, 'missed_checkin', dueTime, true);
+          if (!existingAlert) {
+            console.log(
+              `[SchedulingProcessor] Detected missed checkin for shift ${shift.id} at ${dueTime.toISOString()}`
+            );
+            await this.createAlert(shift, 'missed_checkin', dueTime, true);
+          }
+          state.processedAlerts.add(checkinAlertKey);
         }
       }
 
-      // B) Need Attention Warning
-      // We want to warn if status is 'open' BUT we are nearing the end.
-      // E.g. 1 minute left.
       if (windowResult.status === 'open') {
-        // remainingTimeMs is time until currentSlotEndMs
         if (windowResult.remainingTimeMs <= 60000) {
-          // Less than 1 min left
-          // Ensure we haven't sent this already for this slot
-          // Identify slot by index or timestamp
-          // currentSlotStart is unique for the slot.
           const slotIdentifier = windowResult.currentSlotStart.getTime();
-
           const index = Math.round((slotIdentifier - startMs) / intervalMs);
-
           if (shift.lastAttentionIndexSent !== index) {
             await this.sendAttentionEvent(shift, index, windowResult.currentSlotStart, now);
           }
@@ -306,7 +282,7 @@ export class SchedulingWorker extends BaseWorker {
 
     if (alert) {
       if (incrementMissedCount) {
-        shift.missedCount += 1; // Update cache
+        shift.missedCount += 1;
       }
       const payload = { type: 'alert_created', alert };
       await this.publish(`alerts:site:${shift.siteId}`, payload);
@@ -318,9 +294,9 @@ export class SchedulingWorker extends BaseWorker {
     const payload = { type: 'alert_cleared', alertId };
     await this.publish(`alerts:site:${shift.siteId}`, payload);
 
-    // Save to redis with TTL to persist across refreshes
+    const redis = getRedisConnection();
     const redisKey = `alert:warning:${shift.siteId}:${alertId}`;
-    await this.redis.del(redisKey);
+    await redis.del(redisKey);
   }
 
   private async sendAttentionEvent(
@@ -347,18 +323,19 @@ export class SchedulingWorker extends BaseWorker {
     const payload = { type: 'alert_attention', alert: fakeAlert };
     await this.publish(`alerts:site:${shift.siteId}`, payload);
 
-    // Save to redis with TTL to persist across refreshes
+    const redis = getRedisConnection();
     const redisKey = `alert:warning:${shift.siteId}:${fakeAlert.id}`;
-    await this.redis.set(redisKey, JSON.stringify(fakeAlert), 'EX', 60);
+    await redis.set(redisKey, JSON.stringify(fakeAlert), 'EX', 60);
 
     shift.lastAttentionIndexSent = attentionIndex;
-    this.shiftStates.set(shift.id, { lastAttentionIndexSent: attentionIndex });
+    const state = this.getShiftState(shift.id);
+    state.lastAttentionIndexSent = attentionIndex;
   }
 
   private async broadcastActiveShifts() {
     const activeSitesMap = new Map<string, { site: Site; shifts: BroadcastedShift[] }>();
 
-    for (const shift of this.cachedShifts) {
+    for (const shift of this.cachedShifts.values()) {
       if (!activeSitesMap.has(shift.siteId)) {
         activeSitesMap.set(shift.siteId, { site: shift.site, shifts: [] });
       }
@@ -380,7 +357,6 @@ export class SchedulingWorker extends BaseWorker {
 
   private async broadcastUpcomingShifts(now: Date) {
     const upcomingShifts = await getUpcomingShifts(now);
-    // Broadcast to a new channel
     await this.publish('dashboard:upcoming-shifts', upcomingShifts);
   }
 }
