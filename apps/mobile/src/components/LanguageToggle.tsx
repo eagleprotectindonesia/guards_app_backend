@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button, ButtonText, ButtonIcon } from '@gluestack-ui/themed';
+import { Button, ButtonIcon } from '@gluestack-ui/themed';
 import { useTranslation } from 'react-i18next';
 import { Languages } from 'lucide-react-native';
 

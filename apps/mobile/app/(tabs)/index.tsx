@@ -10,6 +10,17 @@ import SessionMonitor from '../../src/components/SessionMonitor';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ShiftWithRelations, Guard } from '@repo/types';
+import { CheckInWindowResult } from '@repo/shared';
+
+type ActiveShiftData = {
+  activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;
+  nextShifts: ShiftWithRelations[];
+};
+
+type ProfileData = {
+  guard: Guard;
+};
 
 export default function HomeScreen() {
   const { t } = useTranslation();
@@ -28,7 +39,7 @@ export default function HomeScreen() {
     });
   }, [router, t]);
 
-  const { data: profile } = useQuery({
+  const { data: profile } = useQuery<ProfileData>({
     queryKey: ['profile'],
     queryFn: async () => {
       const res = await client.get('/api/my/profile');
@@ -41,7 +52,7 @@ export default function HomeScreen() {
     isLoading,
     refetch,
     isRefetching,
-  } = useQuery({
+  } = useQuery<ActiveShiftData>({
     queryKey: ['active-shift'],
     queryFn: async () => {
       const res = await client.get('/api/my/active-shift');
@@ -52,6 +63,14 @@ export default function HomeScreen() {
 
   const activeShift = shiftData?.activeShift;
   const nextShifts = shiftData?.nextShifts || [];
+
+  const isAttendanceLate = (() => {
+    if (!activeShift || activeShift.attendance) return false;
+    const ATTENDANCE_GRACE_MINS = 5;
+    const startMs = new Date(activeShift.startsAt).getTime();
+    const graceEndMs = startMs + ATTENDANCE_GRACE_MINS * 60000;
+    return new Date().getTime() > graceEndMs;
+  })();
 
   return (
     <Box className="flex-1 bg-gray-50 relative">
@@ -98,7 +117,7 @@ export default function HomeScreen() {
                   <AttendanceRecord shift={activeShift} onAttendanceRecorded={refetch} />
 
                   {/* Show CheckInCard if attendance is recorded OR late */}
-                  {(activeShift.attendance || activeShift.attendanceStatus === 'late') && (
+                  {(activeShift.attendance || isAttendanceLate) && (
                     <CheckInCard activeShift={activeShift} refetchShift={refetch} />
                   )}
                 </VStack>

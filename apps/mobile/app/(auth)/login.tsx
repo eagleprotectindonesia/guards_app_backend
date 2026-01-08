@@ -78,6 +78,7 @@ export default function LoginScreen() {
                 value={employeeId}
                 onChangeText={(text: string) => setEmployeeId(text.toUpperCase())}
                 autoCapitalize="characters"
+                maxLength={6}
               />
             </Input>
           </Box>

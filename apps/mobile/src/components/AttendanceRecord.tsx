@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { Alert } from 'react-native';
-import { Box, Button, ButtonText, Heading, Text, VStack, ButtonSpinner, Card } from '@gluestack-ui/themed';
+import { Box, Button, ButtonText, Heading, Text, VStack, ButtonSpinner } from '@gluestack-ui/themed';
 import * as Location from 'expo-location';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { client } from '../api/client';
 import { useTranslation } from 'react-i18next';
+import { ShiftWithRelations } from '@repo/types';
 
 type AttendanceRecordProps = {
-  shift: any; // Type should be imported from shared types if possible
+  shift: ShiftWithRelations;
   onAttendanceRecorded?: () => void;
 };
 
@@ -85,8 +86,8 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
         </Heading>
         <Text>
           {isLateAttendance
-            ? t('attendance.recordedLateAt', { date: format(new Date(shift.attendance.recordedAt), 'PPpp') })
-            : t('attendance.recordedAt', { date: format(new Date(shift.attendance.recordedAt), 'PPpp') })}
+            ? t('attendance.recordedLateAt', { date: format(new Date(shift.attendance!.recordedAt), 'PPpp') })
+            : t('attendance.recordedAt', { date: format(new Date(shift.attendance!.recordedAt), 'PPpp') })}
         </Text>
       </Box>
     );

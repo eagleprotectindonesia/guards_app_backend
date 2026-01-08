@@ -1,13 +1,15 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import { Box, Button, ButtonText, Heading, Text, VStack, ButtonSpinner } from '@gluestack-ui/themed';
 import * as Location from 'expo-location';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { useTranslation } from 'react-i18next';
+import { ShiftWithRelations } from '@repo/types';
+import { CheckInWindowResult } from '@repo/shared';
 
 type CheckInCardProps = {
-  activeShift: any;
+  activeShift: ShiftWithRelations & { checkInWindow?: CheckInWindowResult };
   refetchShift: () => void;
 };
 
@@ -61,6 +63,8 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
 
     const updateTimer = () => {
       const window = activeShift.checkInWindow;
+      if (!window) return;
+      
       const now = Date.now();
       const currentSlotStart = new Date(window.currentSlotStart).getTime();
       const currentSlotEnd = new Date(window.currentSlotEnd).getTime();
@@ -135,7 +139,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
         lat: location.coords.latitude,
         lng: location.coords.longitude,
       });
-    } catch (e) {
+    } catch {
       Alert.alert('Error', t('checkin.locationError'));
     }
   };

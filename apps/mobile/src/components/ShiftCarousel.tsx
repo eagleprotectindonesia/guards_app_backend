@@ -1,16 +1,17 @@
 import React, { useRef, useState } from 'react';
 import { ScrollView, Dimensions, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import { Box, VStack, Heading, Text, Button, ButtonText, HStack } from '@gluestack-ui/themed';
+import { Box, VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { format } from 'date-fns';
 import { id, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
+import { ShiftWithRelations } from '@repo/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 40; // Full width minus padding
 
 interface ShiftCarouselProps {
-  activeShift: any;
-  nextShifts: any[];
+  activeShift: ShiftWithRelations | null | undefined;
+  nextShifts: ShiftWithRelations[];
 }
 
 export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarouselProps) {
@@ -29,7 +30,7 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
     }
   };
 
-  const renderShiftCard = (shift: any, isActive: boolean) => {
+  const renderShiftCard = (shift: ShiftWithRelations, isActive: boolean) => {
     return (
       <Box
         key={shift.id}
@@ -50,7 +51,7 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
 
           <Box>
             <Text className="text-gray-700 font-bold text-xl leading-tight">
-              {shift.location?.name || shift.site?.name || t('shift.defaultLocation')}
+              {shift.site?.name || t('shift.defaultLocation')}
             </Text>
             <Text className="text-gray-600 mt-2 font-medium">
               {format(new Date(shift.startsAt), 'dd MMM yyyy, HH:mm', { locale: dateLocale })} -{' '}

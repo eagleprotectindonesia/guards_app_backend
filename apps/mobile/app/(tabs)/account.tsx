@@ -16,7 +16,7 @@ import { client } from '../../src/api/client';
 import PasswordChangeModal from '../../src/components/PasswordChangeModal';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { User, LogOut, Lock } from 'lucide-react-native';
+import { LogOut, Lock } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function AccountScreen() {
@@ -36,8 +36,13 @@ export default function AccountScreen() {
 
   useEffect(() => {
     if (profile?.guard?.mustChangePassword) {
-      setIsForcePasswordChange(true);
-      setIsPasswordModalOpen(true);
+      // Use a small timeout to avoid synchronous set state in effect warning
+      // or simply rely on the fact that this should only happen once
+      const timer = setTimeout(() => {
+        setIsForcePasswordChange(true);
+        setIsPasswordModalOpen(true);
+      }, 0);
+      return () => clearTimeout(timer);
     }
   }, [profile?.guard?.mustChangePassword]);
 
@@ -45,7 +50,7 @@ export default function AccountScreen() {
     try {
       await client.post('/api/auth/guard/logout');
       router.replace('/(auth)/login');
-    } catch (e) {
+    } catch {
       router.replace('/(auth)/login');
     }
   };
