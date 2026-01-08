@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, View } from 'react-native';
 import {
-  Box,
   VStack,
   FormControl,
   FormControlLabel,
@@ -18,15 +17,17 @@ import {
   FormControlError,
   FormControlErrorText,
   FormControlErrorIcon,
+  Box,
 } from '@gluestack-ui/themed';
 import { useMutation } from '@tanstack/react-query';
-import { client } from '../api/client';
+import { client } from '../../src/api/client';
 import { CircleAlert, Eye, EyeOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import LanguageToggle from '../components/LanguageToggle';
+import { useRouter } from 'expo-router';
 
-export default function LoginScreen({ navigation }: any) {
+export default function LoginScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -40,7 +41,7 @@ export default function LoginScreen({ navigation }: any) {
       return response.data;
     },
     onSuccess: () => {
-      navigation.replace('Main');
+      router.replace('/(tabs)');
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || t('login.errorMessage');
@@ -57,19 +58,13 @@ export default function LoginScreen({ navigation }: any) {
   };
 
   return (
-    <Box className="flex-1 bg-white justify-center px-6 relative">
-      <Box className="absolute top-12 right-6 z-50">
-        <LanguageToggle />
-      </Box>
-
+    <View style={{ flex: 1, backgroundColor: 'white', justifyContent: 'center', paddingHorizontal: 24 }}>
       <VStack space="xl">
         <Box className="mb-4">
           <Heading size="2xl" style={{ color: '#111827' }}>
             {t('login.title')}
           </Heading>
-          <Text style={{ color: '#6B7280' }}>
-            {t('login.subtitle')}
-          </Text>
+          <Text style={{ color: '#6B7280' }}>{t('login.subtitle')}</Text>
         </Box>
 
         <FormControl isInvalid={loginMutation.isError}>
@@ -81,7 +76,7 @@ export default function LoginScreen({ navigation }: any) {
               <InputField
                 placeholder={t('login.employeeIdPlaceholder')}
                 value={employeeId}
-                onChangeText={(text:string) => setEmployeeId(text.toUpperCase())}
+                onChangeText={(text: string) => setEmployeeId(text.toUpperCase())}
                 autoCapitalize="characters"
               />
             </Input>
@@ -115,7 +110,7 @@ export default function LoginScreen({ navigation }: any) {
           </Button>
 
           {loginMutation.isError && (
-             <FormControlError className="mt-4">
+            <FormControlError className="mt-4">
               <FormControlErrorIcon as={CircleAlert} />
               <FormControlErrorText>
                 {loginMutation.error instanceof Error ? loginMutation.error.message : 'Authentication failed'}
@@ -124,6 +119,6 @@ export default function LoginScreen({ navigation }: any) {
           )}
         </FormControl>
       </VStack>
-    </Box>
+    </View>
   );
 }

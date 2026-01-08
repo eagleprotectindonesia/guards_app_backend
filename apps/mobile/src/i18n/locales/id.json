@@ -92,5 +92,18 @@
     "upcomingStatus": "MENDATANG",
     "defaultLocation": "Lokasi",
     "typePrefix": "Tipe Shift: "
+  },
+  "tabs": {
+    "home": "Beranda",
+    "chat": "Pesan",
+    "account": "Akun"
+  },
+  "chat": {
+    "title": "Pesan Dummy",
+    "noMessages": "Belum ada pesan"
+  },
+  "account": {
+    "title": "Akun",
+    "settings": "Pengaturan"
   }
 }

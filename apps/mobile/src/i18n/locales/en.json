@@ -92,5 +92,18 @@
     "upcomingStatus": "UPCOMING",
     "defaultLocation": "Location",
     "typePrefix": "Shift Type: "
+  },
+  "tabs": {
+    "home": "Home",
+    "chat": "Chat",
+    "account": "Account"
+  },
+  "chat": {
+    "title": "Messages Dummy",
+    "noMessages": "No messages yet"
+  },
+  "account": {
+    "title": "Account",
+    "settings": "Settings"
   }
 }
