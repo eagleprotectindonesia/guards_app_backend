@@ -8,8 +8,11 @@ import CheckInCard from '../components/CheckInCard';
 import ShiftCarousel from '../components/ShiftCarousel';
 import PasswordChangeModal from '../components/PasswordChangeModal';
 import SessionMonitor from '../components/SessionMonitor';
+import { useTranslation } from 'react-i18next';
+import LanguageToggle from '../components/LanguageToggle';
 
 export default function DashboardScreen({ navigation }: any) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isForcePasswordChange, setIsForcePasswordChange] = useState(false);
@@ -17,14 +20,14 @@ export default function DashboardScreen({ navigation }: any) {
   // Setup Global Logout Interceptor once
   useEffect(() => {
     setupInterceptors(() => {
-      Alert.alert('Sesi Berakhir', 'Akun Anda telah login di perangkat lain atau sesi telah berakhir.', [
+      Alert.alert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
         {
           text: 'OK',
           onPress: () => navigation.replace('Login'),
         },
       ]);
     });
-  }, [navigation]);
+  }, [navigation, t]);
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -71,8 +74,11 @@ export default function DashboardScreen({ navigation }: any) {
   const nextShifts = shiftData?.nextShifts || [];
 
   return (
-    <Box className="flex-1 bg-gray-50">
+    <Box className="flex-1 bg-gray-50 relative">
       <SessionMonitor />
+      <Box className="absolute top-12 right-6 z-50">
+        <LanguageToggle />
+      </Box>
       <ScrollView
         contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
@@ -80,11 +86,13 @@ export default function DashboardScreen({ navigation }: any) {
         <VStack space="xl">
           <Box className="mt-8 mb-4">
             <Heading size="3xl" className="text-gray-900 leading-tight">
-              Selamat Datang, {'\n'}
+              {t('dashboard.welcome')} {'\n'}
               <Text className="text-blue-600">{profile?.guard?.name || 'Guard'}</Text>
             </Heading>
             {profile?.guard?.guardCode && (
-              <Text className="text-gray-500 font-bold mt-1">Kode: {profile.guard.guardCode}</Text>
+              <Text className="text-gray-500 font-bold mt-1">
+                {t('dashboard.guardCode')} {profile.guard.guardCode}
+              </Text>
             )}
           </Box>
 
@@ -96,7 +104,9 @@ export default function DashboardScreen({ navigation }: any) {
             <VStack space="xl">
               {!activeShift && (
                 <Box className="bg-white p-8 rounded-2xl border-2 border-dashed border-gray-300 items-center">
-                  <Text className="text-gray-500 text-center font-medium">Anda tidak memiliki shift aktif</Text>
+                  <Text className="text-gray-500 text-center font-medium">
+                    {t('dashboard.noActiveShift')}
+                  </Text>
                 </Box>
               )}
 
@@ -119,7 +129,7 @@ export default function DashboardScreen({ navigation }: any) {
 
           <VStack space="md" className="mt-8">
             <Button variant="outline" action="secondary" onPress={() => setIsPasswordModalOpen(true)}>
-              <ButtonText>Ubah Kata Sandi</ButtonText>
+              <ButtonText>{t('dashboard.changePassword')}</ButtonText>
             </Button>
 
             <Button
@@ -127,13 +137,13 @@ export default function DashboardScreen({ navigation }: any) {
               action="secondary"
               className="border-red-500"
               onPress={() =>
-                Alert.alert('Keluar', 'Apakah Anda yakin?', [
-                  { text: 'Batal', style: 'cancel' },
-                  { text: 'Keluar', style: 'destructive', onPress: handleLogout },
+                Alert.alert(t('dashboard.logoutConfirmTitle'), t('dashboard.logoutConfirmMessage'), [
+                  { text: t('dashboard.cancel'), style: 'cancel' },
+                  { text: t('dashboard.logout'), style: 'destructive', onPress: handleLogout },
                 ])
               }
             >
-              <ButtonText className="text-red-500">Keluar</ButtonText>
+              <ButtonText className="text-red-500">{t('dashboard.logout')}</ButtonText>
             </Button>
           </VStack>
         </VStack>

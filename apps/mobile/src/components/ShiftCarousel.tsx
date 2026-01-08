@@ -2,7 +2,8 @@ import React, { useRef, useState } from 'react';
 import { ScrollView, Dimensions, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { Box, VStack, Heading, Text, Button, ButtonText, HStack } from '@gluestack-ui/themed';
 import { format } from 'date-fns';
-import { id } from 'date-fns/locale';
+import { id, enUS } from 'date-fns/locale';
+import { useTranslation } from 'react-i18next';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 40; // Full width minus padding
@@ -13,9 +14,12 @@ interface ShiftCarouselProps {
 }
 
 export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarouselProps) {
+  const { t, i18n } = useTranslation();
   const scrollViewRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const totalShifts = (activeShift ? 1 : 0) + nextShifts.length;
+
+  const dateLocale = i18n.language === 'id' ? id : enUS;
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
@@ -35,26 +39,30 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
         <VStack space="md">
           <HStack justifyContent="space-between" alignItems="center">
             <Heading size="lg" className="text-blue-800">
-              {isActive ? 'Shift Sekarang' : 'Shift Mendatang'}
+              {isActive ? t('shift.currentTitle') : t('shift.upcomingTitle')}
             </Heading>
             <Box className={`${isActive ? 'bg-blue-100' : 'bg-gray-100'} px-2 py-0.5 rounded-full`}>
               <Text className={`text-xs font-bold ${isActive ? 'text-blue-800' : 'text-gray-600'}`}>
-                {isActive ? 'AKTIF' : 'MENDATANG'}
+                {isActive ? t('shift.activeStatus') : t('shift.upcomingStatus')}
               </Text>
             </Box>
           </HStack>
 
           <Box>
             <Text className="text-gray-700 font-bold text-xl leading-tight">
-              {shift.location?.name || shift.site?.name || 'Lokasi'}
+              {shift.location?.name || shift.site?.name || t('shift.defaultLocation')}
             </Text>
             <Text className="text-gray-600 mt-2 font-medium">
-              {format(new Date(shift.startsAt), 'dd MMM yyyy, HH:mm', { locale: id })} -{' '}
-              {format(new Date(shift.endsAt), 'HH:mm', { locale: id })}
+              {format(new Date(shift.startsAt), 'dd MMM yyyy, HH:mm', { locale: dateLocale })} -{' '}
+              {format(new Date(shift.endsAt), 'HH:mm', { locale: dateLocale })}
             </Text>
           </Box>
 
-          {shift.shiftType && <Text className="text-sm text-gray-500">Tipe Shift: {shift.shiftType.name}</Text>}
+          {shift.shiftType && (
+            <Text className="text-sm text-gray-500">
+              {t('shift.typePrefix')}{shift.shiftType.name}
+            </Text>
+          )}
         </VStack>
       </Box>
     );

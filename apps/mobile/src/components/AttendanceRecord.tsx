@@ -5,6 +5,7 @@ import * as Location from 'expo-location';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { client } from '../api/client';
+import { useTranslation } from 'react-i18next';
 
 type AttendanceRecordProps = {
   shift: any; // Type should be imported from shared types if possible
@@ -12,6 +13,7 @@ type AttendanceRecordProps = {
 };
 
 export default function AttendanceRecord({ shift, onAttendanceRecorded }: AttendanceRecordProps) {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<string>('');
 
@@ -24,40 +26,40 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
       return response.data;
     },
     onSuccess: () => {
-      setStatus('Kehadiran Berhasil Direkam!');
+      setStatus(t('attendance.success'));
       queryClient.invalidateQueries({ queryKey: ['active-shift'] });
       if (onAttendanceRecorded) onAttendanceRecorded();
     },
     onError: (error: any) => {
-      const msg = error.response?.data?.error || error.message || 'Gagal merekam kehadiran';
-      setStatus('Gagal: ' + msg);
+      const msg = error.response?.data?.error || error.message || t('attendance.fail');
+      setStatus(t('attendance.failPrefix') + msg);
       Alert.alert('Error', msg);
     },
   });
 
   const handleRecordAttendance = async () => {
-    setStatus('Meminta izin lokasi...');
+    setStatus(t('attendance.requestingPermission'));
     let { status: permStatus } = await Location.requestForegroundPermissionsAsync();
     
     if (permStatus !== 'granted') {
-      setStatus('Izin untuk mengakses lokasi ditolak');
-      Alert.alert('Izin Ditolak', 'Lokasi diperlukan untuk merekam kehadiran.');
+      setStatus(t('attendance.permissionDenied'));
+      Alert.alert(t('attendance.permissionDeniedTitle'), t('attendance.locationRequired'));
       return;
     }
 
-    setStatus('Mendapatkan lokasi...');
+    setStatus(t('attendance.gettingLocation'));
     try {
       let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
       
-      setStatus('Merekam kehadiran...');
+      setStatus(t('attendance.recording'));
       attendanceMutation.mutate({
         lat: location.coords.latitude,
         lng: location.coords.longitude,
       });
     } catch (err) {
       console.error(err);
-      setStatus('Failed to get location');
-      Alert.alert('Location Error', 'Could not fetch current location.');
+      setStatus(t('attendance.locationFetchError'));
+      Alert.alert(t('attendance.locationErrorTitle'), t('attendance.locationErrorMessage'));
     }
   };
 
@@ -79,12 +81,12 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
     return (
       <Box className={`${isLateAttendance ? 'bg-yellow-50 border-yellow-200' : 'bg-white'} p-4 rounded-lg shadow-sm border border-gray-200 mb-4`}>
         <Heading size="md" className={`mb-2 ${isLateAttendance ? 'text-yellow-600' : 'text-green-600'}`}>
-          {isLateAttendance ? 'Kehadiran Terlambat' : 'Kehadiran Terekam'}
+          {isLateAttendance ? t('attendance.lateTitle') : t('attendance.recordedTitle')}
         </Heading>
         <Text>
           {isLateAttendance
-            ? `Kehadiran direkam sebagai terlambat pada ${format(new Date(shift.attendance.recordedAt), 'PPpp')}`
-            : `Kehadiran direkam pada ${format(new Date(shift.attendance.recordedAt), 'PPpp')}`}
+            ? t('attendance.recordedLateAt', { date: format(new Date(shift.attendance.recordedAt), 'PPpp') })
+            : t('attendance.recordedAt', { date: format(new Date(shift.attendance.recordedAt), 'PPpp') })}
         </Text>
       </Box>
     );
@@ -94,16 +96,16 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
     <Box className={`${isLateTime ? 'bg-red-50 border-red-200' : 'bg-white'} p-4 rounded-lg shadow-sm border border-red-100 mb-4`}>
       <VStack space="md">
         <Heading size="md" className={isLateTime ? 'text-red-600' : 'text-gray-900'}>
-          {isLateTime ? 'Kehadiran Tidak Terekam' : 'Kehadiran Diperlukan'}
+          {isLateTime ? t('attendance.notRecordedTitle') : t('attendance.requiredTitle')}
         </Heading>
         
         {isLateTime ? (
           <Text className="text-red-600 font-medium italic">
-            Batas waktu presensi terlewat. Harap hubungi administrator Anda.
+            {t('attendance.lateMessage')}
           </Text>
         ) : (
           <Text className="text-gray-500">
-            Harap rekam kehadiran Anda untuk memulai shift.
+            {t('attendance.requiredMessage')}
           </Text>
         )}
         
@@ -118,7 +120,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
             isDisabled={attendanceMutation.isPending}
           >
             {attendanceMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
-            <ButtonText>Rekam Kehadiran</ButtonText>
+            <ButtonText>{t('attendance.submitButton')}</ButtonText>
           </Button>
         )}
       </VStack>

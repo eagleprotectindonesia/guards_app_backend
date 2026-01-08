@@ -27,6 +27,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { Eye, EyeOff } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
 
 type PasswordChangeModalProps = {
   isOpen: boolean;
@@ -35,6 +36,7 @@ type PasswordChangeModalProps = {
 };
 
 export default function PasswordChangeModal({ isOpen, onClose, isForce }: PasswordChangeModalProps) {
+  const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -51,7 +53,7 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
       return response.data;
     },
     onSuccess: () => {
-      Alert.alert('Sukses', 'Kata sandi berhasil diperbarui!');
+      Alert.alert(t('passwordChange.successTitle'), t('passwordChange.successMessage'));
       setCurrentPassword('');
       setNewPassword('');
       setValidationErrors([]);
@@ -66,7 +68,7 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
           message: e.message
         })));
       } else {
-        Alert.alert('Error', data?.message || 'Gagal memperbarui kata sandi');
+        Alert.alert('Error', data?.message || t('passwordChange.failMessage'));
       }
     },
   });
@@ -74,11 +76,11 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
   const handleUpdate = () => {
     setValidationErrors([]);
     if (!currentPassword) {
-      setValidationErrors([{ field: 'currentPassword', message: 'Kata sandi saat ini wajib diisi' }]);
+      setValidationErrors([{ field: 'currentPassword', message: t('passwordChange.currentPasswordRequired') }]);
       return;
     }
     if (newPassword.length < 8) {
-      setValidationErrors([{ field: 'newPassword', message: 'Kata sandi baru harus minimal 8 karakter' }]);
+      setValidationErrors([{ field: 'newPassword', message: t('passwordChange.newPasswordMinLength') }]);
       return;
     }
     mutation.mutate();
@@ -96,7 +98,7 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
       <ModalBackdrop />
       <ModalContent>
         <ModalHeader>
-          <Heading size="lg">Ubah Kata Sandi</Heading>
+          <Heading size="lg">{t('passwordChange.title')}</Heading>
           {!isForce && (
             <ModalCloseButton>
               <Icon as={CloseIcon} />
@@ -107,19 +109,19 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
           <VStack space="md">
             {isForce && (
               <Text size="sm" color="$gray500" className="mb-2">
-                Demi keamanan, Anda diwajibkan untuk mengganti kata sandi saat pertama kali masuk.
+                {t('passwordChange.forceChangeMessage')}
               </Text>
             )}
             <FormControl isInvalid={!!currentPasswordError}>
               <FormControlLabel>
-                <FormControlLabelText>Kata Sandi Saat Ini</FormControlLabelText>
+                <FormControlLabelText>{t('passwordChange.currentPasswordLabel')}</FormControlLabelText>
               </FormControlLabel>
               <Input>
                 <InputField
                   type={showCurrentPassword ? 'text' : 'password'}
                   value={currentPassword}
                   onChangeText={setCurrentPassword}
-                  placeholder="Masukkan kata sandi saat ini"
+                  placeholder={t('passwordChange.currentPasswordPlaceholder')}
                 />
                 <InputSlot pr="$3" onPress={() => setShowCurrentPassword(!showCurrentPassword)}>
                   <InputIcon as={showCurrentPassword ? Eye : EyeOff} color="$gray500" />
@@ -134,14 +136,14 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
 
             <FormControl isInvalid={!!newPasswordError}>
               <FormControlLabel>
-                <FormControlLabelText>Kata Sandi Baru</FormControlLabelText>
+                <FormControlLabelText>{t('passwordChange.newPasswordLabel')}</FormControlLabelText>
               </FormControlLabel>
               <Input>
                 <InputField
                   type={showNewPassword ? 'text' : 'password'}
                   value={newPassword}
                   onChangeText={setNewPassword}
-                  placeholder="Masukkan kata sandi baru"
+                  placeholder={t('passwordChange.newPasswordPlaceholder')}
                 />
                 <InputSlot pr="$3" onPress={() => setShowNewPassword(!showNewPassword)}>
                   <InputIcon as={showNewPassword ? Eye : EyeOff} color="$gray500" />
@@ -158,12 +160,12 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
         <ModalFooter>
           {!isForce && (
             <Button variant="outline" action="secondary" onPress={onClose} isDisabled={mutation.isPending}>
-              <ButtonText>Batal</ButtonText>
+              <ButtonText>{t('common.cancel')}</ButtonText>
             </Button>
           )}
           <Button action="primary" onPress={handleUpdate} isDisabled={mutation.isPending} ml={isForce ? "$0" : "$3"} className={isForce ? "w-full" : ""}>
             {mutation.isPending && <ButtonSpinner mr="$2" />}
-            <ButtonText>Perbarui</ButtonText>
+            <ButtonText>{t('passwordChange.submitButton')}</ButtonText>
           </Button>
         </ModalFooter>
       </ModalContent>

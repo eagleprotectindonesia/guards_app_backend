@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Pressable } from 'react-native';
+import { Alert } from 'react-native';
 import {
   Box,
   VStack,
@@ -22,8 +22,11 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { CircleAlert, Eye, EyeOff } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
+import LanguageToggle from '../components/LanguageToggle';
 
 export default function LoginScreen({ navigation }: any) {
+  const { t } = useTranslation();
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -40,39 +43,43 @@ export default function LoginScreen({ navigation }: any) {
       navigation.replace('Main');
     },
     onError: (error: any) => {
-      const message = error.response?.data?.message || 'Login gagal. Silakan periksa kredensial Anda.';
-      Alert.alert('Kesalahan Login', message);
+      const message = error.response?.data?.message || t('login.errorMessage');
+      Alert.alert(t('login.errorTitle'), message);
     },
   });
 
   const handleLogin = () => {
     if (!employeeId || !password) {
-      Alert.alert('Error', 'Silakan masukkan ID Karyawan dan Kata Sandi.');
+      Alert.alert(t('login.validationErrorTitle'), t('login.validationErrorMessage'));
       return;
     }
     loginMutation.mutate();
   };
 
   return (
-    <Box className="flex-1 bg-white justify-center px-6">
+    <Box className="flex-1 bg-white justify-center px-6 relative">
+      <Box className="absolute top-12 right-6 z-50">
+        <LanguageToggle />
+      </Box>
+
       <VStack space="xl">
         <Box className="mb-4">
           <Heading size="2xl" style={{ color: '#111827' }}>
-            Portal Guard
+            {t('login.title')}
           </Heading>
           <Text style={{ color: '#6B7280' }}>
-            Masuk untuk mengelola shift dan kehadiran Anda.
+            {t('login.subtitle')}
           </Text>
         </Box>
 
         <FormControl isInvalid={loginMutation.isError}>
           <FormControlLabel className="mb-1">
-            <FormControlLabelText>ID Karyawan</FormControlLabelText>
+            <FormControlLabelText>{t('login.employeeIdLabel')}</FormControlLabelText>
           </FormControlLabel>
           <Box className="mb-4 bg-gray-50 border border-gray-200 rounded-md">
             <Input size="xl" variant="outline">
               <InputField
-                placeholder="Masukkan ID Guard Anda"
+                placeholder={t('login.employeeIdPlaceholder')}
                 value={employeeId}
                 onChangeText={(text:string) => setEmployeeId(text.toUpperCase())}
                 autoCapitalize="characters"
@@ -81,13 +88,13 @@ export default function LoginScreen({ navigation }: any) {
           </Box>
 
           <FormControlLabel className="mb-1">
-            <FormControlLabelText>Kata Sandi</FormControlLabelText>
+            <FormControlLabelText>{t('login.passwordLabel')}</FormControlLabelText>
           </FormControlLabel>
           <Box className="mb-6 bg-gray-50 border border-gray-200 rounded-md">
             <Input size="xl" variant="outline">
               <InputField
                 type={showPassword ? 'text' : 'password'}
-                placeholder="Masukkan kata sandi Anda"
+                placeholder={t('login.passwordPlaceholder')}
                 value={password}
                 onChangeText={setPassword}
               />
@@ -104,7 +111,7 @@ export default function LoginScreen({ navigation }: any) {
             style={{ backgroundColor: '#2563EB' }}
           >
             {loginMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
-            <ButtonText>Masuk</ButtonText>
+            <ButtonText>{t('login.submitButton')}</ButtonText>
           </Button>
 
           {loginMutation.isError && (
