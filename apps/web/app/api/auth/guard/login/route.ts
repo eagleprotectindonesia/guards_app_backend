@@ -90,7 +90,14 @@ export async function POST(req: Request) {
       path: '/',
     });
 
-    return NextResponse.json({ message: 'Login berhasil' }, { status: 200 });
+    return NextResponse.json({ 
+      message: 'Login berhasil',
+      token, // Return token for mobile clients
+      guard: {
+        id: guard.id,
+        name: guard.name
+      }
+    }, { status: 200 });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: 'Kesalahan validasi', errors: error.issues }, { status: 400 });

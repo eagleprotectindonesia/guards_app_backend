@@ -12,7 +12,7 @@ import { DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { Pencil, Key, Download, Upload, History } from 'lucide-react';
+import { Pencil, Key, Download, Upload, History, MessageSquare } from 'lucide-react';
 import Search from '../../components/search';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
@@ -382,6 +382,15 @@ export default function GuardList({
                         >
                           <Key className="w-4 h-4" />
                           <span className="sr-only">Change Password</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-admin-chat', { detail: { guardId: guard.id } }))}
+                          className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer"
+                          title="Chat with Guard"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          <span className="sr-only">Chat</span>
                         </button>
                       </div>
                     </td>

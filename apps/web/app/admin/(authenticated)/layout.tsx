@@ -7,6 +7,8 @@ import { AlertProvider } from './context/alert-context';
 import GlobalAlertManager from './components/global-alert-manager';
 import { Metadata } from 'next';
 import { AdminBreadcrumb } from './components/admin-breadcrumb';
+import { SocketProvider } from '@/components/socket-provider';
+import FloatingChatWidget from './components/floating-chat-widget';
 
 export const metadata: Metadata = {
   title: {
@@ -25,19 +27,22 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <AlertProvider>
-      <div className="flex min-h-screen bg-gray-50">
-        <Toaster position="top-right" containerStyle={{ zIndex: 99999 }} toastOptions={{ style: { zIndex: 99999 } }} />
-        <Sidebar currentAdmin={currentAdmin} />
-        <div className="flex-1 flex flex-col">
-          <Header />
-          <div className="px-8 pt-4">
-            <AdminBreadcrumb />
+    <SocketProvider>
+      <AlertProvider>
+        <div className="flex min-h-screen bg-gray-50">
+          <Toaster position="top-right" containerStyle={{ zIndex: 99999 }} toastOptions={{ style: { zIndex: 99999 } }} />
+          <Sidebar currentAdmin={currentAdmin} />
+          <div className="flex-1 flex flex-col">
+            <Header />
+            <div className="px-8 pt-4">
+              <AdminBreadcrumb />
+            </div>
+            <main className="flex-1 p-8 overflow-y-auto">{children}</main>
           </div>
-          <main className="flex-1 p-8 overflow-y-auto">{children}</main>
+          <GlobalAlertManager />
+          <FloatingChatWidget />
         </div>
-        <GlobalAlertManager />
-      </div>
-    </AlertProvider>
+      </AlertProvider>
+    </SocketProvider>
   );
 }

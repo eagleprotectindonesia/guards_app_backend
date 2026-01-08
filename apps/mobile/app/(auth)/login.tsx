@@ -21,6 +21,7 @@ import {
 } from '@gluestack-ui/themed';
 import { useMutation } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
+import { storage, STORAGE_KEYS } from '../../src/utils/storage';
 import { CircleAlert, Eye, EyeOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -40,7 +41,13 @@ export default function LoginScreen() {
       });
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      if (data.token) {
+        await storage.setItem(STORAGE_KEYS.TOKEN, data.token);
+      }
+      if (data.guard) {
+        await storage.setItem(STORAGE_KEYS.GUARD_INFO, data.guard);
+      }
       router.replace('/(tabs)');
     },
     onError: (error: any) => {

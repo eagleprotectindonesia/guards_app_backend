@@ -6,14 +6,36 @@ import { SocketAuth } from '../types/socket';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
-export async function authenticateSocket(handshake: { headers: { cookie?: string } }): Promise<SocketAuth | null> {
+export async function authenticateSocket(handshake: {
+  headers: { cookie?: string };
+  auth?: { token?: string };
+}): Promise<SocketAuth | null> {
   const cookieHeader = handshake.headers.cookie;
-  if (!cookieHeader) return null;
+  const authPayload = handshake.auth;
 
-  const cookies = cookie.parse(cookieHeader);
+  let adminToken: string | undefined;
+  let guardToken: string | undefined;
+
+  if (cookieHeader) {
+    const cookies = cookie.parse(cookieHeader);
+    adminToken = cookies.admin_token;
+    guardToken = cookies.guard_token;
+  }
+
+  // Allow token to be passed via handshake.auth for mobile/cross-origin clients
+  if (authPayload?.token) {
+    // If we have a token in auth, we need to know if it's admin or guard
+    // In this app, we can try to decode and see what's inside
+    try {
+      const decoded = jwt.decode(authPayload.token) as { adminId?: string; guardId?: string };
+      if (decoded?.adminId) adminToken = authPayload.token;
+      if (decoded?.guardId) guardToken = authPayload.token;
+    } catch (e) {
+      // Ignore decode error
+    }
+  }
 
   // Try Admin Auth
-  const adminToken = cookies.admin_token;
   if (adminToken) {
     try {
       const decoded = jwt.verify(adminToken, JWT_SECRET) as { adminId: string; tokenVersion?: number };
@@ -49,7 +71,6 @@ export async function authenticateSocket(handshake: { headers: { cookie?: string
   }
 
   // Try Guard Auth
-  const guardToken = cookies.guard_token;
   if (guardToken) {
     try {
       const decoded = jwt.verify(guardToken, JWT_SECRET) as { guardId: string; tokenVersion?: number };

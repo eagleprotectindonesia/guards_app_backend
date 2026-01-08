@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { LogOut, Lock } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { disconnectSocket } from '../../src/api/socket';
 
 export default function AccountScreen() {
   const { t } = useTranslation();
@@ -48,6 +49,8 @@ export default function AccountScreen() {
 
   const handleLogout = async () => {
     try {
+      // Close socket connection first
+      disconnectSocket();
       await client.post('/api/auth/guard/logout');
       router.replace('/(auth)/login');
     } catch {
