@@ -108,7 +108,7 @@ ENV NODE_ENV=production \
 
 RUN apk add --no-cache libc6-compat
 
-# Install migration dependencies in a single layer
+# Install migration dependencies
 RUN npm install --production --no-save prisma tsx dotenv
 
 # Copy migration files

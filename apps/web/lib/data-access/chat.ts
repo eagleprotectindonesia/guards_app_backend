@@ -26,7 +26,7 @@ export async function saveMessage(data: {
   });
 }
 
-export async function getChatMessages(guardId: string, limit = 50) {
+export async function getChatMessages(guardId: string, limit = 50, cursorId?: string) {
   return prisma.chatMessage.findMany({
     where: {
       guardId,
@@ -35,6 +35,8 @@ export async function getChatMessages(guardId: string, limit = 50) {
       createdAt: 'desc',
     },
     take: limit,
+    skip: cursorId ? 1 : 0,
+    cursor: cursorId ? { id: cursorId } : undefined,
     include: {
       admin: {
         select: {
@@ -88,6 +90,16 @@ export async function getConversationList() {
     },
     unreadCount: unreadMap[conv.guardId] || 0,
   }));
+}
+
+export async function getUnreadCount(params: { guardId?: string; isAdmin: boolean }) {
+  return prisma.chatMessage.count({
+    where: {
+      guardId: params.guardId,
+      sender: params.isAdmin ? 'guard' : 'admin',
+      readAt: null,
+    },
+  });
 }
 
 export async function markAsRead(messageIds: string[]) {

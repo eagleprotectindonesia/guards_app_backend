@@ -44,8 +44,8 @@ export default function FloatingChatWidget() {
       setActiveGuardId(e.detail.guardId);
     };
 
-    window.addEventListener('open-admin-chat' as any, handleOpenChat);
-    return () => window.removeEventListener('open-admin-chat' as any, handleOpenChat);
+    window.addEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
+    return () => window.removeEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
   }, []);
 
   // Fetch conversations list
@@ -86,13 +86,11 @@ export default function FloatingChatWidget() {
   useEffect(() => {
     if (activeGuardId) {
       fetchMessages(activeGuardId);
-      
+
       // Mark as read
       if (socket) {
-        const unreadIds = messages
-          .filter(m => m.sender === 'guard' && !m.readAt)
-          .map(m => m.id);
-        
+        const unreadIds = messages.filter(m => m.sender === 'guard' && !m.readAt).map(m => m.id);
+
         if (unreadIds.length > 0) {
           socket.emit('mark_read', { guardId: activeGuardId, messageIds: unreadIds });
         }
@@ -106,19 +104,25 @@ export default function FloatingChatWidget() {
         // If it's for current active conversation, add it
         if (activeGuardId === message.guardId) {
           setMessages(prev => [...prev, message]);
-          
+
           // Mark as read if we are looking at it
           if (message.sender === 'guard') {
             socket.emit('mark_read', { guardId: message.guardId, messageIds: [message.id] });
           }
         }
-        
+
         // Always refresh conversations list to show last message/badge
+        fetchConversations();
+      });
+
+      socket.on('messages_read', () => {
+        // Refresh conversations to update unread counts when messages are marked as read
         fetchConversations();
       });
 
       return () => {
         socket.off('new_message');
+        socket.off('messages_read');
       };
     }
   }, [socket, activeGuardId]);
@@ -135,7 +139,7 @@ export default function FloatingChatWidget() {
 
     socket.emit('send_message', {
       content: inputText.trim(),
-      guardId: activeGuardId
+      guardId: activeGuardId,
     });
 
     setInputText('');
@@ -152,7 +156,7 @@ export default function FloatingChatWidget() {
           <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {activeGuardId && (
-                <button 
+                <button
                   onClick={() => setActiveGuardId(null)}
                   className="p-1 hover:bg-blue-700 rounded-full transition-colors"
                 >
@@ -160,9 +164,7 @@ export default function FloatingChatWidget() {
                 </button>
               )}
               <h3 className="font-semibold">
-                {activeGuardId 
-                  ? conversations.find(c => c.guardId === activeGuardId)?.guardName 
-                  : 'Messages'}
+                {activeGuardId ? conversations.find(c => c.guardId === activeGuardId)?.guardName : 'Messages'}
               </h3>
             </div>
             <button onClick={() => setIsOpen(false)} className="hover:bg-blue-700 p-1 rounded-full transition-colors">
@@ -178,7 +180,7 @@ export default function FloatingChatWidget() {
                 {conversations.length === 0 ? (
                   <div className="text-center text-gray-500 mt-10">No conversations yet</div>
                 ) : (
-                  conversations.map((conv) => (
+                  conversations.map(conv => (
                     <button
                       key={conv.guardId}
                       onClick={() => setActiveGuardId(conv.guardId)}
@@ -212,22 +214,24 @@ export default function FloatingChatWidget() {
               /* Message List */
               <div className="space-y-3">
                 {isLoading ? (
-                  <div className="flex justify-center mt-10"><div className="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full"></div></div>
+                  <div className="flex justify-center mt-10">
+                    <div className="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                  </div>
                 ) : (
-                  messages.map((msg) => (
-                    <div 
+                  messages.map(msg => (
+                    <div
                       key={msg.id}
                       className={cn(
-                        "flex flex-col max-w-[85%]",
-                        msg.sender === 'admin' ? "ml-auto items-end" : "mr-auto items-start"
+                        'flex flex-col max-w-[85%]',
+                        msg.sender === 'admin' ? 'ml-auto items-end' : 'mr-auto items-start'
                       )}
                     >
-                      <div 
+                      <div
                         className={cn(
-                          "p-3 rounded-2xl text-sm",
-                          msg.sender === 'admin' 
-                            ? "bg-blue-600 text-white rounded-tr-none" 
-                            : "bg-white border border-gray-200 text-gray-800 rounded-tl-none"
+                          'p-3 rounded-2xl text-sm',
+                          msg.sender === 'admin'
+                            ? 'bg-blue-600 text-white rounded-tr-none'
+                            : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
                         )}
                       >
                         {msg.content}
@@ -248,11 +252,11 @@ export default function FloatingChatWidget() {
               <input
                 type="text"
                 value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
+                onChange={e => setInputText(e.target.value)}
                 placeholder="Type a message..."
                 className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-              <button 
+              <button
                 type="submit"
                 disabled={!inputText.trim()}
                 className="bg-blue-600 text-white p-2 rounded-full disabled:opacity-50 hover:bg-blue-700 transition-colors"
@@ -268,12 +272,12 @@ export default function FloatingChatWidget() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 relative",
-          isOpen ? "bg-white text-gray-600 rotate-90" : "bg-blue-600 text-white hover:bg-blue-700"
+          'w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 relative',
+          isOpen ? 'bg-white text-gray-600 rotate-90' : 'bg-blue-600 text-white hover:bg-blue-700'
         )}
       >
         {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
-        
+
         {!isOpen && totalUnread > 0 && (
           <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold border-2 border-white">
             {totalUnread}

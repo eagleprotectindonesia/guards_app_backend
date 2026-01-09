@@ -18,7 +18,11 @@ export async function GET(
   }
 
   try {
-    const messages = await getChatMessages(guardId);
+    const { searchParams } = request.nextUrl;
+    const limit = parseInt(searchParams.get('limit') || '15');
+    const cursor = searchParams.get('cursor') || undefined;
+
+    const messages = await getChatMessages(guardId, limit, cursor);
     return NextResponse.json(messages);
   } catch (error) {
     console.error('Error fetching chat messages:', error);

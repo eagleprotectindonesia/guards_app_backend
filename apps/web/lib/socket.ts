@@ -76,20 +76,31 @@ export function initSocket(server: HttpServer) {
       }
     });
 
-    socket.on('mark_read', async (data: { guardId: string; messageIds: string[] }) => {
+    socket.on('mark_read', async (data: { guardId?: string; messageIds: string[] }) => {
       try {
+        const targetGuardId = auth.type === 'admin' ? data.guardId : auth.id;
+        
+        if (!targetGuardId) {
+          console.error('mark_read: Missing guardId');
+          return;
+        }
+
         await markAsRead(data.messageIds);
         
         if (auth.type === 'admin') {
           // Notify the guard that admin read their messages
-          io.to(`guard:${data.guardId}`).emit('messages_read', {
+          io.to(`guard:${targetGuardId}`).emit('messages_read', {
             messageIds: data.messageIds,
             readBy: auth.id,
           });
         } else {
           // Notify admins that guard read their messages
           io.to('admin').emit('messages_read', {
-            guardId: auth.id,
+            guardId: targetGuardId,
+            messageIds: data.messageIds,
+          });
+          // Also notify the guard themselves (for other sessions/hooks)
+          io.to(`guard:${targetGuardId}`).emit('messages_read', {
             messageIds: data.messageIds,
           });
         }

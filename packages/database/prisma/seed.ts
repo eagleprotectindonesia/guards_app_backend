@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '../src';
 import bcrypt from 'bcryptjs';
 
 async function main() {
@@ -46,7 +46,7 @@ async function main() {
     data: {
       id: 'EMP001',
       name: 'Jackie Chan',
-      phone: '+15551234567', // Ensure unique phone number
+      phone: '+62551234567', // Ensure unique phone number
       hashedPassword: hashedGuardPassword,
       guardCode: '00001',
     },
@@ -57,7 +57,7 @@ async function main() {
     data: {
       id: 'EMP002',
       name: 'Bruce Lee',
-      phone: '+15551234568', // Ensure unique phone number
+      phone: '+625551234568', // Ensure unique phone number
       hashedPassword: hashedGuardPassword,
       guardCode: '00002',
     },
@@ -68,7 +68,7 @@ async function main() {
     data: {
       id: 'EMP003',
       name: 'Chuck Norris',
-      phone: '+15551234569', // Ensure unique phone number
+      phone: '+625551234569', // Ensure unique phone number
       hashedPassword: hashedGuardPassword,
       guardCode: '00003',
     },

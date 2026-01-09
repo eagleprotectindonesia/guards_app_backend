@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { 
   FlatList, 
   KeyboardAvoidingView, 
@@ -9,7 +9,6 @@ import {
   View 
 } from 'react-native';
 import { 
-  Box, 
   VStack, 
   Heading, 
   Text, 
@@ -20,8 +19,10 @@ import {
   Spinner
 } from '@gluestack-ui/themed';
 import { useTranslation } from 'react-i18next';
-import { MessageSquare, Send } from 'lucide-react-native';
+import { Send } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { getSocket } from '../../src/api/socket';
 import { client } from '../../src/api/client';
 import { storage, STORAGE_KEYS } from '../../src/utils/storage';
@@ -44,56 +45,144 @@ interface ChatMessage {
 export default function ChatScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const queryClient = useQueryClient();
+  
   const [inputText, setInputText] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
   const [guardInfo, setGuardInfo] = useState<any>(null);
+  const [isFocused, setIsFocused] = useState(false);
   const socketRef = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
 
+  // Load guard info from storage
   useEffect(() => {
-    const initChat = async () => {
-      try {
-        const info = await storage.getItem(STORAGE_KEYS.GUARD_INFO);
-        setGuardInfo(info);
+    storage.getItem(STORAGE_KEYS.GUARD_INFO).then(setGuardInfo);
+  }, []);
 
-        if (info?.id) {
-          // Fetch history (newest first from API)
-          const response = await client.get(`/api/chat/${info.id}`);
-          setMessages(response.data); 
-          setIsLoading(false);
+  // Fetch messages with TanStack Query (Infinite Query for pagination)
+  const { 
+    data, 
+    fetchNextPage, 
+    hasNextPage, 
+    isFetchingNextPage, 
+    isLoading 
+  } = useInfiniteQuery({
+    queryKey: ['chat', 'messages', guardInfo?.id],
+    queryFn: async ({ pageParam }) => {
+      const response = await client.get(`/api/chat/${guardInfo.id}`, {
+        params: {
+          limit: 15,
+          cursor: pageParam,
+        }
+      });
+      return response.data as ChatMessage[];
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length < 15) return undefined;
+      return lastPage[lastPage.length - 1].id;
+    },
+    enabled: !!guardInfo?.id,
+  });
 
-          // Init Socket
-          const socket = await getSocket();
-          if (socket) {
-            socketRef.current = socket;
+  const messages = useMemo(() => data?.pages.flat() || [], [data]);
+  
+  const guardId = guardInfo?.id;
+  const markMessagesAsRead = useCallback((msgs: ChatMessage[]) => {
+    if (!socketRef.current || !msgs.length || !guardId) return;
+    
+    const unreadIds = msgs
+      .filter(m => m.sender === 'admin' && !m.readAt)
+      .map(m => m.id);
+    
+    if (unreadIds.length > 0) {
+      console.log(`Marking ${unreadIds.length} messages as read for guard ${guardId}`);
+      socketRef.current.emit('mark_read', { 
+        guardId,
+        messageIds: unreadIds 
+      });
+    }
+  }, [guardId]);
 
-            socket.on('new_message', (message: ChatMessage) => {
-              setMessages(prev => [message, ...prev]);
-            });
+  useFocusEffect(
+    useCallback(() => {
+      setIsFocused(true);
+      return () => setIsFocused(false);
+    }, [])
+  );
 
-            socket.on('messages_read', (data: { messageIds: string[] }) => {
-              setMessages(prev => prev.map(msg => 
-                data.messageIds.includes(msg.id) ? { ...msg, readAt: new Date().toISOString() } : msg
-              ));
+  // Trigger mark as read when focused and messages or socket becomes available
+  useEffect(() => {
+    if (isFocused && messages.length > 0 && socketRef.current?.connected) {
+      markMessagesAsRead(messages);
+    }
+  }, [isFocused, messages, markMessagesAsRead]);
+
+  // Socket setup
+  useEffect(() => {
+    if (!guardId) return;
+
+    let socketInstance: any = null;
+
+    const setupSocket = async () => {
+      const socket = await getSocket();
+      if (socket) {
+        socketRef.current = socket;
+        socketInstance = socket;
+
+        socket.on('new_message', (message: ChatMessage) => {
+          // Update message list cache
+          queryClient.setQueryData(['chat', 'messages', guardId], (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: [
+                [message, ...old.pages[0]],
+                ...old.pages.slice(1)
+              ]
+            };
+          });
+          
+          // If we are currently looking at the chat, mark it as read immediately
+          if (isFocused && message.sender === 'admin') {
+            socket.emit('mark_read', { 
+              guardId,
+              messageIds: [message.id] 
             });
           }
-        }
-      } catch (error) {
-        console.error('Failed to init chat:', error);
-        setIsLoading(false);
+          
+          // Invalidate unread count query
+          queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
+        });
+
+        socket.on('messages_read', (data: { messageIds: string[] }) => {
+          // Update messages in cache to show read status
+          queryClient.setQueryData(['chat', 'messages', guardId], (old: any) => {
+            if (!old) return old;
+            return {
+              ...old,
+              pages: old.pages.map((page: ChatMessage[]) => 
+                page.map(msg => 
+                  data.messageIds.includes(msg.id) ? { ...msg, readAt: new Date().toISOString() } : msg
+                )
+              )
+            };
+          });
+          
+          // Invalidate unread count query
+          queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
+        });
       }
     };
 
-    initChat();
+    setupSocket();
 
     return () => {
-      if (socketRef.current) {
-        socketRef.current.off('new_message');
-        socketRef.current.off('messages_read');
+      if (socketInstance) {
+        socketInstance.off('new_message');
+        socketInstance.off('messages_read');
       }
     };
-  }, []);
+  }, [guardId, isFocused, queryClient]);
 
   const sendMessage = () => {
     if (!inputText.trim() || !socketRef.current) return;
@@ -138,7 +227,7 @@ export default function ChatScreen() {
     );
   };
 
-  if (isLoading) {
+  if (isLoading && messages.length === 0) {
     return (
       <Center flex={1}>
         <Spinner size="large" />
@@ -147,27 +236,53 @@ export default function ChatScreen() {
   }
 
   return (
-    <Box className="flex-1 bg-gray-50">
-      <View style={{ paddingTop: insets.top, backgroundColor: 'white' }}>
-        <HStack px="$4" py="$3" alignItems="center" borderBottomWidth={1} borderColor="$gray200">
+    <View style={{ flex: 1, backgroundColor: '#F3F4F6' }}>
+      {/* Header */}
+      <View style={{ paddingTop: insets.top, backgroundColor: 'white', borderBottomWidth: 1, borderColor: '#E5E7EB' }}>
+        <HStack px="$4" py="$3" alignItems="center">
           <Heading size="lg">{t('chat.title', 'Admin Support')}</Heading>
         </HStack>
       </View>
 
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        inverted
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        contentContainerStyle={{ padding: 16 }}
-      />
-
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        <Box px="$4" py="$2" bg="white" borderTopWidth={1} borderColor="$gray200" style={{ paddingBottom: insets.bottom + 8 }}>
+        <View style={{ flex: 1 }}>
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            inverted
+            keyExtractor={(item) => item.id}
+            renderItem={renderItem}
+            contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+            style={{ flex: 1 }}
+            onEndReached={() => {
+              if (hasNextPage && !isFetchingNextPage) {
+                fetchNextPage();
+              }
+            }}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={() => (
+              isFetchingNextPage ? (
+                <View style={{ padding: 10 }}>
+                  <Spinner size="small" />
+                </View>
+              ) : null
+            )}
+          />
+        </View>
+
+        {/* Input Area */}
+        <View style={{ 
+          backgroundColor: 'white', 
+          borderTopWidth: 1, 
+          borderColor: '#E5E7EB',
+          paddingHorizontal: 16,
+          paddingTop: 8,
+          paddingBottom: insets.bottom + 8
+        }}>
           <HStack space="sm" alignItems="center">
             <TextInput
               style={styles.input}
@@ -187,9 +302,9 @@ export default function ChatScreen() {
               <Send size={20} color="white" />
             </TouchableOpacity>
           </HStack>
-        </Box>
+        </View>
       </KeyboardAvoidingView>
-    </Box>
+    </View>
   );
 }
 

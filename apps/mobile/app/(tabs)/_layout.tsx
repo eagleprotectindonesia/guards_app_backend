@@ -2,9 +2,11 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { Home, MessageSquare, User } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
+import { useChatUnread } from '../../src/hooks/useChatUnread';
 
 export default function TabsLayout() {
   const { t } = useTranslation();
+  const { unreadCount } = useChatUnread();
 
   return (
     <Tabs screenOptions={{ 
@@ -24,6 +26,8 @@ export default function TabsLayout() {
         options={{
           title: t('tabs.chat', 'Chat'),
           tabBarIcon: ({ color, size }) => <MessageSquare stroke={color} size={size} />,
+          tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: '#EF4444' },
         }}
       />
       <Tabs.Screen
