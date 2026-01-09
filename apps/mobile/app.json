@@ -1,13 +1,17 @@
 {
   "expo": {
     "name": "EP Employee",
-    "slug": "ep-employee",
+    "slug": "mobile",
     "scheme": "ep-employee",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icons/android-launchericon-512-512.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -27,8 +31,11 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
+    "updates": {
+      "url": "https://u.expo.dev/1745481a-0e61-4fe1-ba06-1ac4e9c0deba"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "extra": {
       "eas": {

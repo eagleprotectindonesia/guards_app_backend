@@ -5,8 +5,11 @@ import { Providers } from '../src/components/Providers';
 import { StatusBar } from 'expo-status-bar';
 import { View } from 'react-native';
 import LanguageToggle from '../src/components/LanguageToggle';
+import { useUpdates } from '../src/hooks/useUpdates';
 
 export default function RootLayout() {
+  useUpdates();
+
   return (
     <Providers>
       <View style={{ flex: 1 }}>
