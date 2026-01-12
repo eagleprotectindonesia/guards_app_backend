@@ -25,12 +25,19 @@ export function initSocket(server: HttpServer) {
   io.adapter(createAdapter(pubClient, subClient));
 
   io.use(async (socket, next) => {
-    const auth = await authenticateSocket(socket.handshake);
-    if (auth) {
-      socket.auth = auth;
-      next();
-    } else {
-      next(new Error('Unauthorized'));
+    try {
+      const auth = await authenticateSocket(socket.handshake);
+      if (auth) {
+        socket.auth = auth;
+        console.log(`Socket ${socket.id} authenticated as ${auth.type} ${auth.id}`);
+        next();
+      } else {
+        console.warn(`Socket ${socket.id} authentication failed`);
+        next(new Error('Unauthorized'));
+      }
+    } catch (error) {
+      console.error(`Socket ${socket.id} authentication error:`, error);
+      next(new Error('Internal Server Error'));
     }
   });
 
@@ -55,8 +62,8 @@ export function initSocket(server: HttpServer) {
           });
           
           io.to('admin').emit('new_message', message);
-          // Also send back to guard (for multi-device sync if needed)
-          socket.emit('new_message', message);
+          // Also send back to guard room (for multi-device sync)
+          io.to(`guard:${auth.id}`).emit('new_message', message);
           
         } else if (auth.type === 'admin' && data.guardId) {
           // Admin sending to a specific guard

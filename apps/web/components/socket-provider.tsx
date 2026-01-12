@@ -15,7 +15,7 @@ const SocketContext = createContext<SocketContextType>({
 
 export const useSocket = () => useContext(SocketContext);
 
-export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
+export const SocketProvider = ({ children, role }: { children: React.ReactNode; role?: 'admin' | 'guard' }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 
@@ -24,15 +24,18 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     const socketInstance = io({
       path: '/socket.io', // Default path
       reconnectionAttempts: 5,
+      auth: {
+        role,
+      },
     });
 
     socketInstance.on('connect', () => {
-      console.log('Admin socket connected');
+      console.log(`Socket connected for role: ${role || 'default'}`);
       setIsConnected(true);
     });
 
     socketInstance.on('disconnect', () => {
-      console.log('Admin socket disconnected');
+      console.log(`Socket disconnected for role: ${role || 'default'}`);
       setIsConnected(false);
     });
 
@@ -42,7 +45,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       socketInstance.disconnect();
     };
-  }, []);
+  }, [role]);
 
   return <SocketContext.Provider value={{ socket, isConnected }}>{children}</SocketContext.Provider>;
 };

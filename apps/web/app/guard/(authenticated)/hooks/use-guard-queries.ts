@@ -31,7 +31,7 @@ export function useProfile() {
       const res = await fetchWithAuth('/api/my/profile');
       if (!res.ok) throw new Error('Failed to fetch profile');
       const data = await res.json();
-      return data.guard as { name: string; guardCode?: string; mustChangePassword: boolean };
+      return data.guard as { id: string; name: string; guardCode?: string; mustChangePassword: boolean };
     },
   });
 }

@@ -29,7 +29,7 @@ export default function AccountPage() {
   };
 
   return (
-    <div className="p-6 max-w-md mx-auto font-sans space-y-8">
+    <div className="p-6 text-center font-sans space-y-8">
       <h1 className="text-2xl font-bold">{t('account.title')}</h1>
 
       <div className="bg-white p-6 rounded-2xl shadow-sm flex flex-col items-center">

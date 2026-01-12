@@ -27,7 +27,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <SocketProvider>
+    <SocketProvider role="admin">
       <AlertProvider>
         <div className="flex min-h-screen bg-gray-50">
           <Toaster position="top-right" containerStyle={{ zIndex: 99999 }} toastOptions={{ style: { zIndex: 99999 } }} />

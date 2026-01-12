@@ -102,7 +102,11 @@
     "account": "Account"
   },
   "chat": {
-    "title": "Messages",
+    "title": "Admin Support",
+    "placeholder": "Type a message...",
+    "connected": "Online",
+    "disconnected": "Disconnected",
+    "read": "Read",
     "noMessages": "No messages yet"
   },
   "account": {

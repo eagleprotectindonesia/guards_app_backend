@@ -37,7 +37,7 @@ export default function GuardAuthenticatedLayout({ children }: { children: React
       <SessionMonitor />
       <ForcePasswordChangeModal mustChange={profile.mustChangePassword} />
       <TopNav />
-      <main className="grow pb-24">{children}</main>
+      <main className="grow pb-24 flex flex-col">{children}</main>
       <BottomNav />
     </div>
   );

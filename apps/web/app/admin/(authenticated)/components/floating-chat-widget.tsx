@@ -65,9 +65,7 @@ export default function FloatingChatWidget() {
     setIsLoading(true);
 
     // Optimistically clear unread count locally
-    setConversations(prev => prev.map(c => 
-      c.guardId === guardId ? { ...c, unreadCount: 0 } : c
-    ));
+    setConversations(prev => prev.map(c => (c.guardId === guardId ? { ...c, unreadCount: 0 } : c)));
 
     try {
       const res = await fetch(`/api/chat/${guardId}`);
@@ -75,8 +73,10 @@ export default function FloatingChatWidget() {
         const data = await res.json();
         const reversed: ChatMessage[] = data.reverse();
         setMessages(reversed);
-        if (socket) {          
-          const unreadIds = reversed.filter((m: ChatMessage) => m.sender === 'guard' && !m.readAt).map((m: ChatMessage) => m.id);
+        if (socket) {
+          const unreadIds = reversed
+            .filter((m: ChatMessage) => m.sender === 'guard' && !m.readAt)
+            .map((m: ChatMessage) => m.id);
           if (unreadIds.length > 0) {
             socket.emit('mark_read', { guardId, messageIds: unreadIds });
           }
@@ -115,11 +115,11 @@ export default function FloatingChatWidget() {
             fetchConversations();
             return prev;
           }
-          
+
           const updated = [...prev];
           const conv = updated[index];
           const isCurrentlyViewing = activeGuardId === message.guardId;
-          
+
           updated[index] = {
             ...conv,
             lastMessage: {
@@ -127,34 +127,30 @@ export default function FloatingChatWidget() {
               sender: message.sender,
               createdAt: message.createdAt,
             },
-            unreadCount: (isCurrentlyViewing || message.sender === 'admin') 
-              ? conv.unreadCount 
-              : conv.unreadCount + 1
+            unreadCount: isCurrentlyViewing || message.sender === 'admin' ? conv.unreadCount : conv.unreadCount + 1,
           };
-          
+
           // Move to top of list
           const [moved] = updated.splice(index, 1);
           updated.unshift(moved);
-          
+
           return updated;
         });
       });
 
-      socket.on('messages_read', (data: { guardId: string, messageIds?: string[] }) => {
+      socket.on('messages_read', (data: { guardId: string; messageIds?: string[] }) => {
         // Update local state to reflect that messages were read
-        setConversations(prev => prev.map(c => 
-          c.guardId === data.guardId ? { ...c, unreadCount: 0 } : c
-        ));
+        setConversations(prev => prev.map(c => (c.guardId === data.guardId ? { ...c, unreadCount: 0 } : c)));
 
         // Update individual messages if they were read by the guard
         if (activeGuardId === data.guardId && data.messageIds) {
-          setMessages(prev => prev.map(m => 
-            data.messageIds?.includes(m.id) ? { ...m, readAt: new Date().toISOString() } : m
-          ));
+          setMessages(prev =>
+            prev.map(m => (data.messageIds?.includes(m.id) ? { ...m, readAt: new Date().toISOString() } : m))
+          );
         }
       });
 
-      socket.on('typing', (data: { guardId: string, isTyping: boolean }) => {
+      socket.on('typing', (data: { guardId: string; isTyping: boolean }) => {
         setTypingGuards(prev => ({ ...prev, [data.guardId]: data.isTyping }));
       });
 
@@ -182,7 +178,7 @@ export default function FloatingChatWidget() {
     });
 
     setInputText('');
-    
+
     // Stop typing
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     socket.emit('typing', { guardId: activeGuardId, isTyping: false });
@@ -190,10 +186,10 @@ export default function FloatingChatWidget() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputText(e.target.value);
-    
+
     if (socket && activeGuardId) {
       socket.emit('typing', { guardId: activeGuardId, isTyping: true });
-      
+
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => {
         socket.emit('typing', { guardId: activeGuardId, isTyping: false });
@@ -228,11 +224,11 @@ export default function FloatingChatWidget() {
                     key={conv.guardId}
                     onClick={() => handleSelectConversation(conv.guardId)}
                     className={cn(
-                      "w-full text-left p-3 border-b border-gray-50 hover:bg-gray-50 transition-all flex items-center gap-3 relative",
-                      activeGuardId === conv.guardId && "bg-blue-50 border-l-4 border-l-blue-600"
+                      'w-full text-left p-3 border-b border-gray-50 hover:bg-gray-50 transition-all flex items-center gap-3 relative',
+                      activeGuardId === conv.guardId && 'bg-blue-50 border-l-4 border-l-blue-600'
                     )}
                   >
-                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0 relative">
+                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center shrink-0 relative">
                       <User className="text-gray-500" size={16} />
                       {typingGuards[conv.guardId] && (
                         <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full animate-pulse" />
@@ -308,14 +304,9 @@ export default function FloatingChatWidget() {
                             {msg.content}
                           </div>
                           <div className="flex items-center gap-1 px-1 mt-1">
-                            <span className="text-[9px] text-gray-400">
-                              {format(new Date(msg.createdAt), 'HH:mm')}
-                            </span>
+                            <span className="text-[9px] text-gray-400">{format(new Date(msg.createdAt), 'HH:mm')}</span>
                             {msg.sender === 'admin' && (
-                              <span className={cn(
-                                "text-[9px]",
-                                msg.readAt ? "text-blue-500" : "text-gray-300"
-                              )}>
+                              <span className={cn('text-[9px]', msg.readAt ? 'text-blue-500' : 'text-gray-300')}>
                                 {msg.readAt ? '✓✓' : '✓'}
                               </span>
                             )}
@@ -326,7 +317,10 @@ export default function FloatingChatWidget() {
                   </div>
 
                   {/* Footer Input */}
-                  <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-gray-200 flex gap-2 shrink-0">
+                  <form
+                    onSubmit={handleSendMessage}
+                    className="p-3 bg-white border-t border-gray-200 flex gap-2 shrink-0"
+                  >
                     <input
                       type="text"
                       value={inputText}

@@ -102,7 +102,11 @@
     "account": "Akun"
   },
   "chat": {
-    "title": "Pesan Dummy",
+    "title": "Dukungan Admin",
+    "placeholder": "Ketik pesan...",
+    "connected": "Online",
+    "disconnected": "Terputus",
+    "read": "Dibaca",
     "noMessages": "Belum ada pesan"
   },
   "account": {

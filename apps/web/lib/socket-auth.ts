@@ -8,7 +8,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
 export async function authenticateSocket(handshake: {
   headers: { cookie?: string };
-  auth?: { token?: string };
+  auth?: { token?: string; role?: 'admin' | 'guard' };
 }): Promise<SocketAuth | null> {
   const cookieHeader = handshake.headers.cookie;
   const authPayload = handshake.auth;
@@ -24,23 +24,21 @@ export async function authenticateSocket(handshake: {
 
   // Allow token to be passed via handshake.auth for mobile/cross-origin clients
   if (authPayload?.token) {
-    // If we have a token in auth, we need to know if it's admin or guard
-    // In this app, we can try to decode and see what's inside
     try {
       const decoded = jwt.decode(authPayload.token) as { adminId?: string; guardId?: string };
       if (decoded?.adminId) adminToken = authPayload.token;
       if (decoded?.guardId) guardToken = authPayload.token;
-    } catch (e) {
+    } catch {
       // Ignore decode error
     }
   }
 
-  // Try Admin Auth
-  if (adminToken) {
+  const preferredRole = authPayload?.role;
+
+  const tryAdminAuth = async () => {
+    if (!adminToken) return null;
     try {
       const decoded = jwt.verify(adminToken, JWT_SECRET) as { adminId: string; tokenVersion?: number };
-
-      // Check token version
       const cachedVersion = await redis.get(`admin:token_version:${decoded.adminId}`);
       let currentVersion: number | null = null;
 
@@ -60,21 +58,21 @@ export async function authenticateSocket(handshake: {
       if (currentVersion !== null && (decoded.tokenVersion === undefined || decoded.tokenVersion === currentVersion)) {
         const admin = await prisma.admin.findUnique({ where: { id: decoded.adminId }, select: { name: true } });
         return {
-          type: 'admin',
+          type: 'admin' as const,
           id: decoded.adminId,
           name: admin?.name || 'Admin',
         };
       }
-    } catch (err) {
+    } catch {
       console.warn('Socket Auth: Admin token verification failed');
     }
-  }
+    return null;
+  };
 
-  // Try Guard Auth
-  if (guardToken) {
+  const tryGuardAuth = async () => {
+    if (!guardToken) return null;
     try {
       const decoded = jwt.verify(guardToken, JWT_SECRET) as { guardId: string; tokenVersion?: number };
-
       const cachedVersion = await redis.get(`guard:${decoded.guardId}:token_version`);
       let currentVersion: number | null = null;
 
@@ -94,15 +92,25 @@ export async function authenticateSocket(handshake: {
       if (currentVersion !== null && decoded.tokenVersion === currentVersion) {
         const guard = await prisma.guard.findUnique({ where: { id: decoded.guardId }, select: { name: true } });
         return {
-          type: 'guard',
+          type: 'guard' as const,
           id: decoded.guardId,
           name: guard?.name || 'Guard',
         };
       }
-    } catch (err) {
+    } catch {
       console.warn('Socket Auth: Guard token verification failed');
     }
+    return null;
+  };
+
+  if (preferredRole === 'guard') {
+    const guardAuth = await tryGuardAuth();
+    if (guardAuth) return guardAuth;
+    return tryAdminAuth();
   }
 
-  return null;
+  // Default priority: Admin then Guard
+  const adminAuth = await tryAdminAuth();
+  if (adminAuth) return adminAuth;
+  return tryGuardAuth();
 }
