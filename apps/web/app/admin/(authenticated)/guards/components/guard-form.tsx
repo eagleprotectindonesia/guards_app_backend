@@ -85,8 +85,8 @@ export default function GuardForm({ guard }: Props) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">{guard ? 'Edit Guard' : 'Add New Guard'}</h1>
+    <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
+      <h1 className="text-2xl font-bold text-foreground mb-6">{guard ? 'Edit Guard' : 'Add New Guard'}</h1>
       <form
         ref={formRef}
         onSubmit={e => {
@@ -99,14 +99,14 @@ export default function GuardForm({ guard }: Props) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Name Field */}
           <div>
-            <label htmlFor="name" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="name" className="block font-medium text-foreground mb-1">
               Full Name <span className="text-red-500">*</span>
             </label>
             <input
               {...register('name')}
               type="text"
               id="name"
-              className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
               placeholder="e.g. John Doe"
             />
             {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
@@ -114,7 +114,7 @@ export default function GuardForm({ guard }: Props) {
 
           {/* Phone Field */}
           <div>
-            <label htmlFor="phone" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="phone" className="block font-medium text-foreground mb-1">
               Phone Number <span className="text-red-500">*</span>
             </label>
             <Controller
@@ -136,7 +136,7 @@ export default function GuardForm({ guard }: Props) {
 
           {/* Employee ID Field */}
           <div>
-            <label htmlFor="id" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="id" className="block font-medium text-foreground mb-1">
               Employee ID <span className="text-red-500">*</span>
             </label>
             <Controller
@@ -151,8 +151,8 @@ export default function GuardForm({ guard }: Props) {
                   maxLength={6}
                   minLength={6}
                   title="Employee ID must be exactly 6 alphanumeric characters"
-                  className={`w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all ${
-                    guard ? 'bg-gray-100 text-gray-500 cursor-not-allowed' : ''
+                  className={`w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all ${
+                    guard ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''
                   }`}
                   placeholder="e.g. EMP001"
                   autoComplete="off"
@@ -168,7 +168,7 @@ export default function GuardForm({ guard }: Props) {
 
           {/* Guard Code Field */}
           <div>
-            <label htmlFor="guardCode" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="guardCode" className="block font-medium text-foreground mb-1">
               Guard Code <span className="text-red-500">*</span>
             </label>
             <Controller
@@ -181,7 +181,7 @@ export default function GuardForm({ guard }: Props) {
                   id="guardCode"
                   maxLength={12}
                   title="Guard code must be alphanumeric only, maximum 12 characters"
-                  className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
                   placeholder="e.g. G001"
                   autoComplete="off"
                   onChange={e => {
@@ -196,7 +196,7 @@ export default function GuardForm({ guard }: Props) {
 
           {/* Status Field */}
           <div>
-            <label className="block font-medium text-gray-700 mb-1">Status</label>
+            <label className="block font-medium text-foreground mb-1">Status</label>
             <Controller
               control={control}
               name="status"
@@ -208,18 +208,18 @@ export default function GuardForm({ guard }: Props) {
                       type="radio"
                       checked={field.value === true}
                       onChange={() => field.onChange(true)}
-                      className="text-red-500 focus:ring-red-500"
+                      className="text-red-600 focus:ring-red-600"
                     />
-                    <span className="ml-2 text-gray-700">Active</span>
+                    <span className="ml-2 text-foreground">Active</span>
                   </label>
                   <label className="inline-flex items-center cursor-pointer">
                     <input
                       type="radio"
                       checked={field.value === false}
                       onChange={() => field.onChange(false)}
-                      className="text-red-500 focus:ring-red-500"
+                      className="text-red-600 focus:ring-red-600"
                     />
-                    <span className="ml-2 text-gray-700">Inactive</span>
+                    <span className="ml-2 text-foreground">Inactive</span>
                   </label>
                 </div>
               )}
@@ -228,7 +228,7 @@ export default function GuardForm({ guard }: Props) {
 
           {/* Join Date Field */}
           <div>
-            <label htmlFor="joinDate" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="joinDate" className="block font-medium text-foreground mb-1">
               Join Date <span className="text-red-500">*</span>
             </label>
             <Controller
@@ -242,8 +242,8 @@ export default function GuardForm({ guard }: Props) {
                     setDate={field.onChange}
                     placeholder="Select date"
                     className={`w-full h-10 px-3 rounded-lg border ${
-                      errors.joinDate ? 'border-red-500' : 'border-gray-200'
-                    } focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all`}
+                      errors.joinDate ? 'border-red-500' : 'border-border'
+                    } bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all`}
                   />
                 </>
               )}
@@ -253,7 +253,7 @@ export default function GuardForm({ guard }: Props) {
 
           {/* Left Date Field */}
           <div>
-            <label htmlFor="leftDate" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="leftDate" className="block font-medium text-foreground mb-1">
               Left Date
             </label>
             <Controller
@@ -266,7 +266,7 @@ export default function GuardForm({ guard }: Props) {
                     date={field.value}
                     setDate={field.onChange}
                     placeholder="Select date"
-                    className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
                   />
                 </>
               )}
@@ -276,13 +276,13 @@ export default function GuardForm({ guard }: Props) {
           {/* Password Field - Only show for creation, not editing */}
           {!guard && (
             <div className="md:col-span-2">
-              <label htmlFor="password" className="block font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="block font-medium text-foreground mb-1">
                 Password <span className="text-red-500">*</span>
               </label>
               <PasswordInput
                 {...register('password')}
                 id="password"
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
                 placeholder="Enter password (at least 6 characters)"
                 autoComplete="new-password"
               />
@@ -292,14 +292,14 @@ export default function GuardForm({ guard }: Props) {
 
           {/* Note Field */}
           <div className="md:col-span-2">
-            <label htmlFor="note" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="note" className="block font-medium text-foreground mb-1">
               Note
             </label>
             <textarea
               {...register('note')}
               id="note"
               rows={4}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
               placeholder="Additional information about the guard"
             />
           </div>
@@ -307,22 +307,22 @@ export default function GuardForm({ guard }: Props) {
 
         {/* Error Message */}
         {state.message && !state.success && (
-          <div className="p-3 rounded bg-red-50 text-red-600 text-sm">{state.message}</div>
+          <div className="p-3 rounded bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-100 dark:border-red-900/30">{state.message}</div>
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+        <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <button
             type="button"
             onClick={() => router.push('/admin/guards')}
-            className="px-6 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-50 transition-colors"
+            className="px-6 py-2.5 rounded-lg border border-border text-foreground font-bold text-sm hover:bg-muted transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isPending}
-            className="px-6 py-2.5 rounded-lg bg-red-500 text-white font-bold text-sm hover:bg-red-600 active:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
+            className="px-6 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/20"
           >
             {isPending ? 'Saving...' : guard ? 'Save Changes' : 'Create Guard'}
           </button>

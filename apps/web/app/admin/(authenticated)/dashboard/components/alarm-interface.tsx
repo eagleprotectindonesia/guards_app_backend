@@ -30,13 +30,13 @@ export default function AlarmInterface({ alerts }: AlarmInterfaceProps) {
   return (
     <div
       className={`flex items-center justify-between p-4 rounded-xl shadow-sm border transition-colors ${
-        hasActiveAlerts ? 'bg-red-50 border-red-100' : 'bg-white border-gray-100'
+        hasActiveAlerts ? 'bg-red-500/10 border-red-500/20' : 'bg-card border-border'
       }`}
     >
       <div className="flex items-center gap-4">
         <div
           className={`p-3 rounded-full ${
-            hasActiveAlerts ? 'bg-red-100 text-red-600 animate-pulse' : 'bg-gray-100 text-gray-400'
+            hasActiveAlerts ? 'bg-red-500/20 text-red-600 dark:text-red-400 animate-pulse' : 'bg-muted text-muted-foreground'
           }`}
         >
           {hasActiveAlerts ? (
@@ -60,10 +60,10 @@ export default function AlarmInterface({ alerts }: AlarmInterfaceProps) {
           )}
         </div>
         <div>
-          <h3 className={`font-bold ${hasActiveAlerts ? 'text-red-900' : 'text-gray-900'}`}>
+          <h3 className={`font-bold ${hasActiveAlerts ? 'text-red-600 dark:text-red-400' : 'text-foreground'}`}>
             {hasActiveAlerts ? 'ALARM TRIGGERED' : 'System Normal'}
           </h3>
-          <p className={`text-sm ${hasActiveAlerts ? 'text-red-700' : 'text-gray-500'}`}>
+          <p className={`text-sm ${hasActiveAlerts ? 'text-red-700 dark:text-red-300' : 'text-muted-foreground'}`}>
             {hasActiveAlerts
               ? `${alerts.filter(a => a.status !== 'need_attention').length} active alert${alerts.filter(a => a.status !== 'need_attention').length === 1 ? '' : 's'} require attention`
               : 'No active alerts detected'}

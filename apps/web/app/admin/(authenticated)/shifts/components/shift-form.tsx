@@ -51,14 +51,14 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
   }));
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">
+    <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
+      <h1 className="text-2xl font-bold text-foreground mb-6">
         {isReadOnly ? 'View Shift' : shift ? 'Edit Shift' : 'Schedule New Shift'}
       </h1>
       <form action={formAction} className="space-y-8">
         {/* Site Field */}
         <div>
-          <label htmlFor="siteId" className="block font-medium text-gray-700 mb-1">
+          <label htmlFor="siteId" className="block font-medium text-foreground mb-1">
             Site
           </label>
           <Select
@@ -72,12 +72,12 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
             isDisabled={isReadOnly}
           />
           <input type="hidden" name="siteId" value={selectedSiteId} />
-          {state.errors?.siteId && <p className="text-red-500 text-xs mt-1">{state.errors.siteId[0]}</p>}
+          {state.errors?.siteId && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.siteId[0]}</p>}
         </div>
 
         {/* Shift Type Field */}
         <div>
-          <label htmlFor="shiftTypeId" className="block font-medium text-gray-700 mb-1">
+          <label htmlFor="shiftTypeId" className="block font-medium text-foreground mb-1">
             Shift Type
           </label>
           <Select
@@ -92,12 +92,12 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
             isDisabled={isReadOnly}
           />
           <input type="hidden" name="shiftTypeId" value={selectedShiftTypeId} />
-          {state.errors?.shiftTypeId && <p className="text-red-500 text-xs mt-1">{state.errors.shiftTypeId[0]}</p>}
+          {state.errors?.shiftTypeId && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.shiftTypeId[0]}</p>}
         </div>
 
         {/* Guard Field */}
         <div>
-          <label htmlFor="guardId" className="block font-medium text-gray-700 mb-1">
+          <label htmlFor="guardId" className="block font-medium text-foreground mb-1">
             Guard
           </label>
           <Select
@@ -115,7 +115,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
 
         {/* Date Field */}
         <div>
-          <label htmlFor="date" className="block font-medium text-gray-700 mb-1">
+          <label htmlFor="date" className="block font-medium text-foreground mb-1">
             Date
           </label>
           {/* Hidden input for formatted date string YYYY-MM-DD */}
@@ -126,16 +126,16 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
             dateFormat="yyyy-MM-dd"
             minDate={new Date()}
             disabled={isReadOnly}
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
+            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-muted disabled:text-muted-foreground"
             wrapperClassName="w-full"
           />
-          {state.errors?.date && <p className="text-red-500 text-xs mt-1">{state.errors.date[0]}</p>}
+          {state.errors?.date && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.date[0]}</p>}
         </div>
 
         {/* Config Fields */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="requiredCheckinIntervalMins" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="requiredCheckinIntervalMins" className="block font-medium text-foreground mb-1">
               Interval (min)
             </label>
             <input
@@ -145,15 +145,15 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
               defaultValue={shift?.requiredCheckinIntervalMins || 20}
               min={5}
               disabled={isReadOnly}
-              className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
+              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-muted disabled:text-muted-foreground"
             />
             {state.errors?.requiredCheckinIntervalMins && (
-              <p className="text-red-500 text-xs mt-1">{state.errors.requiredCheckinIntervalMins[0]}</p>
+              <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.requiredCheckinIntervalMins[0]}</p>
             )}
           </div>
 
           <div>
-            <label htmlFor="graceMinutes" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="graceMinutes" className="block font-medium text-foreground mb-1">
               Grace Period (min)
             </label>
             <input
@@ -163,15 +163,15 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
               defaultValue={shift?.graceMinutes || 2}
               min={1}
               disabled={isReadOnly}
-              className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-gray-50 disabled:text-gray-500"
+              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-muted disabled:text-muted-foreground"
             />
-            {state.errors?.graceMinutes && <p className="text-red-500 text-xs mt-1">{state.errors.graceMinutes[0]}</p>}
+            {state.errors?.graceMinutes && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.graceMinutes[0]}</p>}
           </div>
         </div>
 
         {/* Note Field */}
         <div>
-          <label htmlFor="note" className="block font-medium text-gray-700 mb-1">
+          <label htmlFor="note" className="block font-medium text-foreground mb-1">
             Note
           </label>
           <textarea
@@ -180,23 +180,23 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
             defaultValue={shift?.note || ''}
             rows={3}
             disabled={isReadOnly}
-            className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all resize-none disabled:bg-gray-50 disabled:text-gray-500"
+            className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all resize-none disabled:bg-muted disabled:text-muted-foreground placeholder:text-muted-foreground/50"
             placeholder="Add any special instructions or notes for this shift..."
           />
-          {state.errors?.note && <p className="text-red-500 text-xs mt-1">{state.errors.note[0]}</p>}
+          {state.errors?.note && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.note[0]}</p>}
         </div>
 
         {/* Error Message */}
         {state.message && !state.success && (
-          <div className="p-3 rounded bg-red-50 text-red-600 text-sm">{state.message}</div>
+          <div className="p-3 rounded bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-100 dark:border-red-900/50">{state.message}</div>
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+        <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <button
             type="button"
             onClick={() => router.push('/admin/shifts')}
-            className="px-6 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-50 transition-colors"
+            className="px-6 py-2.5 rounded-lg border border-border bg-card text-foreground font-bold text-sm hover:bg-muted transition-colors"
           >
             {isReadOnly ? 'Back' : 'Cancel'}
           </button>
@@ -204,7 +204,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
             <button
               type="submit"
               disabled={isPending}
-              className="px-6 py-2.5 rounded-lg bg-red-500 text-white font-bold text-sm hover:bg-red-600 active:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
+              className="px-6 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
             >
               {isPending ? 'Saving...' : shift ? 'Save Changes' : 'Schedule Shift'}
             </button>

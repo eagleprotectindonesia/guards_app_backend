@@ -109,16 +109,16 @@ export default function GlobalAlertManager() {
           >
             <div className="relative">
               <Bell className="h-6 w-6" />
-              <span className="absolute -top-2 -right-2 bg-white text-red-600 text-[10px] font-bold h-5 w-5 rounded-full flex items-center justify-center border-2 border-red-600 shadow-sm">
+              <span className="absolute -top-2 -right-2 bg-white dark:bg-red-700 text-red-600 dark:text-white text-[10px] font-bold h-5 w-5 rounded-full flex items-center justify-center border-2 border-red-600 dark:border-red-500 shadow-sm">
                 {activeAlerts.length}
               </span>
               <span className="animate-ping absolute inset-0 rounded-full bg-red-400 opacity-40"></span>
             </div>
           </button>
         ) : (
-          <div className="bg-white border border-red-100 rounded-xl shadow-2xl p-4 w-80 animate-in slide-in-from-bottom-5">
+          <div className="bg-card border border-red-500/20 dark:border-red-900/50 rounded-xl shadow-2xl p-4 w-80 animate-in slide-in-from-bottom-5">
             <div className="flex items-start justify-between mb-2">
-              <div className="flex items-center gap-2 text-red-600">
+              <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
                 <span className="relative flex h-3 w-3">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
@@ -127,14 +127,14 @@ export default function GlobalAlertManager() {
               </div>
               <button
                 onClick={() => setIsMinimized(true)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+                className="text-muted-foreground hover:text-foreground p-1 rounded-lg hover:bg-muted transition-colors"
                 title="Minimize"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-sm text-muted-foreground mb-3">
               {activeAlerts.length} active alert{activeAlerts.length === 1 ? '' : 's'} require immediate attention.
             </p>
 

@@ -12,14 +12,21 @@ export default function Select<
       {...props}
       classNames={{
         control: (state) =>
-          `!rounded-lg !border-gray-200 !min-h-[40px] !min-w-[200px] ${
+          `!rounded-lg !border-border !bg-card !min-h-[40px] !min-w-[200px] ${
             state.isFocused ? '!border-red-500 !ring-2 !ring-red-500/20' : ''
           }`,
-        singleValue: () => '!text-gray-900 !text-sm',
-        input: () => '!text-gray-900 !text-sm',
-        placeholder: () => '!text-sm',
-        menuList: () => '!text-sm',
-        option: () => '!text-sm',
+        singleValue: () => '!text-foreground !text-sm',
+        input: () => '!text-foreground !text-sm',
+        placeholder: () => '!text-muted-foreground !text-sm',
+        menuList: () => '!text-sm !bg-card !border !border-border !rounded-lg',
+        option: (state) => 
+          `!text-sm ${
+            state.isFocused 
+              ? '!bg-muted !text-foreground' 
+              : state.isSelected 
+                ? '!bg-red-500 !text-white' 
+                : '!text-foreground'
+          }`,
         ...props.classNames,
       }}
     />

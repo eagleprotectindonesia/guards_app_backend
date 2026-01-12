@@ -38,7 +38,7 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm, alert
     <Modal isOpen={isOpen} onClose={onClose} title="Resolve Alert">
       <div className="space-y-6 p-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">Resolution Outcome</label>
+          <label className="block text-sm font-medium text-foreground mb-3">Resolution Outcome</label>
           <div className={`grid ${alertType === 'missed_attendance' ? 'grid-cols-1' : 'grid-cols-2'} gap-3`}>
             {alertType !== 'missed_attendance' && (
               <button
@@ -46,8 +46,8 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm, alert
                 onClick={() => setOutcome('resolve')}
                 className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
                   outcome === 'resolve'
-                    ? 'border-blue-600 bg-blue-50 text-blue-700'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                    ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    : 'border-border bg-card text-muted-foreground hover:border-muted hover:bg-muted/50'
                 }`}
               >
                 <span className="font-semibold mb-1">Reject</span>
@@ -64,8 +64,8 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm, alert
               onClick={() => setOutcome('forgive')}
               className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
                 outcome === 'forgive'
-                  ? 'border-green-600 bg-green-50 text-green-700'
-                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                  ? 'border-green-600 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300'
+                  : 'border-border bg-card text-muted-foreground hover:border-muted hover:bg-muted/50'
               }`}
             >
               <span className="font-semibold mb-1">Forgive</span>
@@ -79,13 +79,13 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm, alert
         </div>
 
         <div>
-          <label htmlFor="resolution-note" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="resolution-note" className="block text-sm font-medium text-foreground mb-1">
             Resolution Note <span className="text-red-500">*</span>
           </label>
           <textarea
             id="resolution-note"
             rows={3}
-            className="w-full rounded-lg border border-gray-300 p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow"
+            className="w-full rounded-lg border border-border bg-card p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow text-foreground"
             placeholder="Explain why this alert is being resolved..."
             value={note}
             onChange={e => setNote(e.target.value)}
@@ -95,7 +95,7 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm, alert
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-foreground bg-secondary hover:bg-secondary/80 rounded-lg transition-colors"
           >
             Cancel
           </button>

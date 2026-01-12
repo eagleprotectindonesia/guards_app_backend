@@ -61,7 +61,7 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
       <div className="space-y-4 p-4">
         {/* Date Range */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+          <label className="block text-sm font-medium text-foreground mb-1">Date Range</label>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <DatePicker
@@ -72,7 +72,7 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
                 endDate={endDate}
                 maxDate={endDate} // Start date cannot be after end date
                 dateFormat="yyyy-MM-dd"
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
+                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
                 placeholderText="Start Date"
               />
             </div>
@@ -85,7 +85,7 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
                 endDate={endDate}
                 minDate={startDate} // End date cannot be before start date
                 dateFormat="yyyy-MM-dd"
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
+                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
                 placeholderText="End Date"
               />
             </div>
@@ -94,7 +94,7 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
 
         {/* Site Filter */}
         <div>
-          <label htmlFor="filter-site" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="filter-site" className="block text-sm font-medium text-foreground mb-1">
             Site
           </label>
           <Select
@@ -110,7 +110,7 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
 
         {/* Guard Filter */}
         <div>
-          <label htmlFor="filter-guard" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="filter-guard" className="block text-sm font-medium text-foreground mb-1">
             Guard
           </label>
           <Select
@@ -126,21 +126,21 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
 
         {/* Actions */}
         <div className="flex justify-between pt-6">
-          <button type="button" onClick={handleClear} className="text-sm text-gray-500 hover:text-gray-700 underline">
+          <button type="button" onClick={handleClear} className="text-sm text-muted-foreground hover:text-foreground underline">
             Clear Filters
           </button>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-50 transition-colors"
+              className="px-4 py-2 rounded-lg border border-border bg-card text-foreground font-bold text-sm hover:bg-muted transition-colors"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={handleApply}
-              className="px-4 py-2 rounded-lg bg-gray-900 text-white font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm"
+              className="px-4 py-2 rounded-lg bg-foreground text-background font-bold text-sm hover:opacity-90 transition-colors shadow-sm"
             >
               Apply Filters
             </button>

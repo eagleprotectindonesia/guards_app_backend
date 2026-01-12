@@ -91,41 +91,41 @@ export default function AlertFeed({
   return (
     <>
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold text-gray-900">Alert Feed</h2>
+        <h2 className="text-xl font-bold text-foreground">Alert Feed</h2>
         {showSiteFilter && selectedSiteId && onSiteSelect && (
-          <button onClick={() => onSiteSelect('')} className="text-sm text-blue-600 hover:text-blue-800">
+          <button onClick={() => onSiteSelect('')} className="text-sm text-red-600 hover:text-red-700 dark:text-red-400">
             View All Sites
           </button>
         )}
       </div>
 
       {/* Alert Type Tabs */}
-      <div className="flex border-b border-gray-200 mb-4">
+      <div className="flex border-b border-border mb-4">
         <button
-          className={`py-2 px-4 text-sm font-medium ${
+          className={`py-2 px-4 text-sm font-medium transition-colors ${
             activeTab === 'all'
-              ? 'border-b-2 border-blue-600 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'border-b-2 border-red-600 text-red-600 dark:text-red-400 dark:border-red-400'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => setActiveTab('all')}
         >
           All ({alerts.length})
         </button>
         <button
-          className={`py-2 px-4 text-sm font-medium ${
+          className={`py-2 px-4 text-sm font-medium transition-colors ${
             activeTab === 'attendance'
-              ? 'border-b-2 border-blue-600 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'border-b-2 border-red-600 text-red-600 dark:text-red-400 dark:border-red-400'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => setActiveTab('attendance')}
         >
           Attendance ({alerts.filter(a => a.reason === 'missed_attendance').length})
         </button>
         <button
-          className={`py-2 px-4 text-sm font-medium ${
+          className={`py-2 px-4 text-sm font-medium transition-colors ${
             activeTab === 'checkin'
-              ? 'border-b-2 border-blue-600 text-blue-600'
-              : 'text-gray-500 hover:text-gray-700'
+              ? 'border-b-2 border-red-600 text-red-600 dark:text-red-400 dark:border-red-400'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
           onClick={() => setActiveTab('checkin')}
         >
@@ -134,12 +134,12 @@ export default function AlertFeed({
       </div>
 
       {filteredAlerts.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
-          <div className="mx-auto w-16 h-16 bg-green-50 text-green-500 rounded-full flex items-center justify-center mb-4">
+        <div className="bg-card rounded-xl shadow-sm border border-border p-12 text-center">
+          <div className="mx-auto w-16 h-16 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mb-4">
             <Check className="w-8 h-8" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900">All Clear</h3>
-          <p className="text-gray-500">No active alerts at the moment.</p>
+          <h3 className="text-lg font-medium text-foreground">All Clear</h3>
+          <p className="text-muted-foreground">No active alerts at the moment.</p>
         </div>
       ) : (
         <div className="space-y-3">

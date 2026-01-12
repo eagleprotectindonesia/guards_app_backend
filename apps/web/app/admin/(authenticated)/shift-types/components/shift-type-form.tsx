@@ -59,12 +59,12 @@ export default function ShiftTypeForm({ shiftType }: Props) {
   }, [state, shiftType, router]);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">{shiftType ? 'Edit Shift Type' : 'Add New Shift Type'}</h1>
+    <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
+      <h1 className="text-2xl font-bold text-foreground mb-6">{shiftType ? 'Edit Shift Type' : 'Add New Shift Type'}</h1>
       <form action={formAction} className="space-y-8">
         {/* Name Field */}
         <div>
-          <label htmlFor="name" className="block font-medium text-gray-700 mb-1">
+          <label htmlFor="name" className="block font-medium text-foreground mb-1">
             Name
           </label>
           <input
@@ -72,16 +72,16 @@ export default function ShiftTypeForm({ shiftType }: Props) {
             name="name"
             id="name"
             defaultValue={shiftType?.name || ''}
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground/50"
             placeholder="e.g. Night Shift"
           />
-          {state.errors?.name && <p className="text-red-500 text-xs mt-1">{state.errors.name[0]}</p>}
+          {state.errors?.name && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.name[0]}</p>}
         </div>
 
         {/* Start Time Field */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="startTime" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="startTime" className="block font-medium text-foreground mb-1">
               Start Time
             </label>
             <TimePicker
@@ -91,12 +91,12 @@ export default function ShiftTypeForm({ shiftType }: Props) {
               use24h={true}
             />
             <input type="hidden" name="startTime" value={startTime || ''} />
-            {state.errors?.startTime && <p className="text-red-500 text-xs mt-1">{state.errors.startTime[0]}</p>}
+            {state.errors?.startTime && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.startTime[0]}</p>}
           </div>
 
           {/* End Time Field */}
           <div>
-            <label htmlFor="endTime" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="endTime" className="block font-medium text-foreground mb-1">
               End Time
             </label>
             <TimePicker
@@ -106,13 +106,13 @@ export default function ShiftTypeForm({ shiftType }: Props) {
               use24h={true}
             />
             <input type="hidden" name="endTime" value={endTime || ''} />
-            {state.errors?.endTime && <p className="text-red-500 text-xs mt-1">{state.errors.endTime[0]}</p>}
+            {state.errors?.endTime && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.endTime[0]}</p>}
           </div>
         </div>
 
         {/* Duration Display */}
         {duration && (
-          <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-md w-fit">
+          <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-2 rounded-md w-fit border border-blue-100 dark:border-blue-800">
             <Clock className="w-4 h-4" />
             <span className="font-medium">Shift Duration: {duration}</span>
           </div>
@@ -120,22 +120,22 @@ export default function ShiftTypeForm({ shiftType }: Props) {
 
         {/* Error Message */}
         {state.message && !state.success && (
-          <div className="p-3 rounded bg-red-50 text-red-600 text-sm">{state.message}</div>
+          <div className="p-3 rounded bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-100 dark:border-red-900/50">{state.message}</div>
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+        <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <button
             type="button"
             onClick={() => router.push('/admin/shift-types')}
-            className="px-6 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-50 transition-colors"
+            className="px-6 py-2.5 rounded-lg border border-border bg-card text-foreground font-bold text-sm hover:bg-muted transition-colors"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isPending}
-            className="px-6 py-2.5 rounded-lg bg-red-500 text-white font-bold text-sm hover:bg-red-600 active:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
+            className="px-6 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
           >
             {isPending ? 'Saving...' : shiftType ? 'Save Changes' : 'Add Shift Type'}
           </button>

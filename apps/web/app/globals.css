@@ -48,12 +48,12 @@
   input,
   textarea,
   select {
-    @apply text-gray-900 text-sm;
+    @apply text-foreground text-sm bg-card border-border;
   }
 
   input::placeholder,
   textarea::placeholder {
-    @apply text-gray-500 opacity-100;
+    @apply text-muted-foreground opacity-100;
   }
 }
 

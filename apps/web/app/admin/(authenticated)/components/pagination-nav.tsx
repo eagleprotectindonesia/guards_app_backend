@@ -46,12 +46,12 @@ export default function PaginationNav({ page, perPage, totalCount }: PaginationN
 
   return (
     <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-8">
-      <div className="flex items-center gap-2 text-sm text-gray-500">
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>Rows per page</span>
         <select
           value={perPage}
           onChange={handlePerPageChange}
-          className="h-8 w-16 rounded-md border border-gray-200 bg-white text-sm focus:border-red-500 focus:ring-red-500/20"
+          className="h-8 w-16 rounded-md border border-border bg-card text-sm focus:border-red-500 focus:ring-red-500/20"
         >
           {[5, 10, 20, 50].map(size => (
             <option key={size} value={size}>

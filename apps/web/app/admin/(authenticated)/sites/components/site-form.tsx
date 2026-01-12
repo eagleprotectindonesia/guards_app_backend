@@ -91,7 +91,7 @@ function MapComponent({
   }, [initialPosition.lat, initialPosition.lng]); // Only when coordinates change, not on address changes
 
   return (
-    <div className="h-96 w-full relative rounded-lg overflow-hidden border border-gray-200">
+    <div className="h-96 w-full relative rounded-lg overflow-hidden border border-border">
       <Map
         defaultCenter={markerPosition}
         defaultZoom={10}
@@ -155,7 +155,7 @@ function LocationSearchInput({
       type="text"
       id="locationSearch"
       placeholder="Search for a location..."
-      className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+      className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
       defaultValue={initialAddress || ''}
     />
   );
@@ -190,13 +190,13 @@ export default function SiteForm({ site }: Props) {
 
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">{site ? 'Edit Site' : 'Create New Site'}</h1>
+      <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
+        <h1 className="text-2xl font-bold text-foreground mb-6">{site ? 'Edit Site' : 'Create New Site'}</h1>
         <form action={formAction} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Name Field */}
             <div>
-              <label htmlFor="name" className="block font-medium text-gray-700 mb-1">
+              <label htmlFor="name" className="block font-medium text-foreground mb-1">
                 Site Name
               </label>
               <input
@@ -204,7 +204,7 @@ export default function SiteForm({ site }: Props) {
                 name="name"
                 id="name"
                 defaultValue={site?.name || ''}
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
                 placeholder="e.g. Warehouse A"
                 minLength={4}
               />
@@ -213,7 +213,7 @@ export default function SiteForm({ site }: Props) {
 
             {/* Client Name Field */}
             <div>
-              <label htmlFor="clientName" className="block font-medium text-gray-700 mb-1">
+              <label htmlFor="clientName" className="block font-medium text-foreground mb-1">
                 Client Name
               </label>
               <input
@@ -221,7 +221,7 @@ export default function SiteForm({ site }: Props) {
                 name="clientName"
                 id="clientName"
                 defaultValue={site?.clientName || ''}
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
                 placeholder="e.g. Acme Corp"
                 minLength={2}
               />
@@ -230,7 +230,7 @@ export default function SiteForm({ site }: Props) {
 
             {/* Status Field */}
             <div>
-              <label htmlFor="status" className="block font-medium text-gray-700 mb-1">
+              <label htmlFor="status" className="block font-medium text-foreground mb-1">
                 Status
               </label>
               <div className="flex items-center space-x-4 h-10">
@@ -240,9 +240,9 @@ export default function SiteForm({ site }: Props) {
                     name="status"
                     value="true"
                     defaultChecked={site?.status !== false}
-                    className="text-red-500 focus:ring-red-500"
+                    className="text-red-600 focus:ring-red-600"
                   />
-                  <span className="ml-2 text-gray-700">Active</span>
+                  <span className="ml-2 text-foreground">Active</span>
                 </label>
                 <label className="inline-flex items-center cursor-pointer">
                   <input
@@ -250,9 +250,9 @@ export default function SiteForm({ site }: Props) {
                     name="status"
                     value="false"
                     defaultChecked={site?.status === false}
-                    className="text-red-500 focus:ring-red-500"
+                    className="text-red-600 focus:ring-red-600"
                   />
-                  <span className="ml-2 text-gray-700">Inactive</span>
+                  <span className="ml-2 text-foreground">Inactive</span>
                 </label>
               </div>
             </div>
@@ -260,7 +260,7 @@ export default function SiteForm({ site }: Props) {
 
           {/* Location Search Input */}
           <div className="relative">
-            <label htmlFor="locationSearch" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="locationSearch" className="block font-medium text-foreground mb-1">
               Search for a location
             </label>
             <LocationSearchInput
@@ -272,8 +272,8 @@ export default function SiteForm({ site }: Props) {
 
           {/* Map Integration */}
           <div>
-            <label className="block font-medium text-gray-700 mb-2">Site Location</label>
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <label className="block font-medium text-foreground mb-2">Site Location</label>
+            <div className="border border-border rounded-lg overflow-hidden">
               <MapComponent
                 initialPosition={{ lat: currentLatitude, lng: currentLongitude }}
                 onPlaceSelect={handlePlaceSelect}
@@ -286,15 +286,15 @@ export default function SiteForm({ site }: Props) {
             {state.errors?.address && <p className="text-red-500 text-xs mt-1">{state.errors.address[0]}</p>}
             {state.errors?.latitude && <p className="text-red-500 text-xs mt-1">{state.errors.latitude[0]}</p>}
             {state.errors?.longitude && <p className="text-red-500 text-xs mt-1">{state.errors.longitude[0]}</p>}
-            <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-500 mb-1">Selected Address</div>
-              <div className="text-sm font-medium text-gray-900">{currentAddress || 'No address selected'}</div>
+            <div className="mt-3 p-3 bg-muted rounded-lg border border-border">
+              <div className="text-xs text-muted-foreground mb-1">Selected Address</div>
+              <div className="text-sm font-medium text-foreground">{currentAddress || 'No address selected'}</div>
             </div>
           </div>
 
           {/* Note Field */}
           <div>
-            <label htmlFor="note" className="block font-medium text-gray-700 mb-1">
+            <label htmlFor="note" className="block font-medium text-foreground mb-1">
               Note
             </label>
             <textarea
@@ -302,7 +302,7 @@ export default function SiteForm({ site }: Props) {
               id="note"
               defaultValue={site?.note || ''}
               rows={3}
-              className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all resize-none"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all resize-none placeholder:text-muted-foreground"
               placeholder="Add any additional information about the site..."
             />
             {state.errors?.note && <p className="text-red-500 text-xs mt-1">{state.errors.note[0]}</p>}
@@ -310,22 +310,22 @@ export default function SiteForm({ site }: Props) {
 
           {/* Error Message */}
           {state.message && !state.success && (
-            <div className="p-3 rounded bg-red-50 text-red-600 text-sm">{state.message}</div>
+            <div className="p-3 rounded bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-100 dark:border-red-900/30">{state.message}</div>
           )}
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+          <div className="flex justify-end gap-3 pt-4 border-t border-border">
             <button
               type="button"
               onClick={() => router.push('/admin/sites')}
-              className="px-6 py-2.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-50 transition-colors"
+              className="px-6 py-2.5 rounded-lg border border-border text-foreground font-bold text-sm hover:bg-muted transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isPending}
-              className="px-6 py-2.5 rounded-lg bg-red-500 text-white font-bold text-sm hover:bg-red-500 active:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
+              className="px-6 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/20"
             >
               {isPending ? 'Saving...' : site ? 'Save Changes' : 'Create Site'}
             </button>

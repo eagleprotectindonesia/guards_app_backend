@@ -38,12 +38,12 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'bg-white border-r border-gray-200 flex flex-col h-screen sticky top-0 transition-all duration-300 ease-in-out z-50 overflow-visible',
+        'bg-card border-r border-border flex flex-col h-screen sticky top-0 transition-all duration-300 ease-in-out z-50 overflow-visible',
         isCollapsed ? 'w-20' : 'w-64'
       )}
     >
       {/* Logo */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-gray-100 relative group">
+      <div className="h-16 flex items-center justify-between px-4 border-b border-border relative group">
         <Link
           href="/admin/dashboard"
           className={cn(
@@ -56,7 +56,7 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
               src="/eagle-protect-long-logo-red-white.svg"
               alt="Eagle Protect"
               fill
-              className="object-contain object-left"
+              className="object-contain object-left dark:brightness-110"
               priority
             />
           </div>
@@ -65,7 +65,7 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={cn(
-            'p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors absolute -right-4 top-1/2 -translate-y-1/2 border border-gray-200 shadow-sm z-50'
+            'p-2 rounded-full bg-secondary text-secondary-foreground hover:bg-accent hover:text-accent-foreground transition-colors absolute -right-4 top-1/2 -translate-y-1/2 border border-border shadow-sm z-50'
           )}
         >
           {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -83,11 +83,11 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
               title={isCollapsed ? item.name : undefined}
               className={cn(
                 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                isActive ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                 isCollapsed && 'justify-center px-2'
               )}
             >
-              <item.icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-red-600' : 'text-gray-500')} />
+              <item.icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')} />
               <span
                 className={cn(
                   'transition-opacity duration-300 whitespace-nowrap',
@@ -113,11 +113,11 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
               title={isCollapsed ? item.name : undefined}
               className={cn(
                 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive ? 'bg-red-50 text-red-600' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                isActive ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                 isCollapsed && 'justify-center px-2'
               )}
             >
-              <item.icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-red-600' : 'text-gray-500')} />
+              <item.icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')} />
               <span
                 className={cn(
                   'transition-opacity duration-300 whitespace-nowrap',
@@ -130,19 +130,19 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
           );
         })}
 
-        <div className="pt-4 mt-4 border-t border-gray-100">
+        <div className="pt-4 mt-4 border-t border-border">
           <Link
             href="/admin/profile"
             title={isCollapsed ? 'Profile' : undefined}
             className={cn(
               'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
               pathname.startsWith('/admin/profile')
-                ? 'bg-red-50 text-red-600'
-                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
+                ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
+                : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
               isCollapsed && 'justify-center px-2'
             )}
           >
-            <User className="w-5 h-5 text-gray-500 shrink-0" />
+            <User className="w-5 h-5 text-muted-foreground shrink-0" />
             <span
               className={cn('transition-opacity duration-300 whitespace-nowrap', isCollapsed && 'opacity-0 w-0 hidden')}
             >
@@ -153,21 +153,21 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
       </nav>
 
       {/* Footer / User Profile */}
-      <div className={cn('p-4 border-t border-gray-200', isCollapsed && 'p-2')}>
+      <div className={cn('p-4 border-t border-border', isCollapsed && 'p-2')}>
         <div className={cn('flex items-center gap-3 mb-4', isCollapsed && 'justify-center mb-2')}>
-          <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0 flex items-center justify-center text-gray-500 font-bold">
+          <div className="w-10 h-10 rounded-full bg-muted shrink-0 flex items-center justify-center text-muted-foreground font-bold">
             {currentAdmin?.name?.substring(0, 2).toUpperCase() || 'AD'}
           </div>
           <div className={cn('overflow-hidden transition-all duration-300', isCollapsed && 'w-0 opacity-0 hidden')}>
-            <p className="text-sm font-semibold text-gray-900 truncate">{currentAdmin?.name || 'Admin User'}</p>
-            <p className="text-xs text-gray-500 truncate">{currentAdmin?.email || 'admin@example.com'}</p>
+            <p className="text-sm font-semibold text-foreground truncate">{currentAdmin?.name || 'Admin User'}</p>
+            <p className="text-xs text-muted-foreground truncate">{currentAdmin?.email || 'admin@example.com'}</p>
           </div>
         </div>
         <button
           onClick={handleLogout}
           title={isCollapsed ? 'Log Out' : undefined}
           className={cn(
-            'w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer',
+            'w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-foreground bg-secondary rounded-lg hover:bg-accent transition-colors cursor-pointer',
             isCollapsed && 'px-2'
           )}
         >

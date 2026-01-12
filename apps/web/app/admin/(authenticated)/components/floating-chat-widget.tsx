@@ -203,44 +203,44 @@ export default function FloatingChatWidget() {
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       {/* Chat Window */}
       {isOpen && (
-        <div className="mb-4 w-[650px] h-[500px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
+        <div className="mb-4 w-[650px] h-[500px] bg-card rounded-lg shadow-2xl border border-border flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
           {/* Header */}
-          <div className="bg-blue-600 text-white p-3 flex items-center justify-between shrink-0">
+          <div className="bg-blue-600 dark:bg-blue-700 text-white p-3 flex items-center justify-between shrink-0">
             <h3 className="font-semibold">Chat Support</h3>
-            <button onClick={() => setIsOpen(false)} className="hover:bg-blue-700 p-1 rounded-full transition-colors">
+            <button onClick={() => setIsOpen(false)} className="hover:bg-blue-700 dark:hover:bg-blue-800 p-1 rounded-full transition-colors">
               <X size={20} />
             </button>
           </div>
 
           {/* Body */}
-          <div className="flex-1 flex overflow-hidden bg-gray-50">
+          <div className="flex-1 flex overflow-hidden bg-muted/50">
             {/* Sidebar: Conversation List */}
-            <div className="w-1/3 border-r border-gray-200 overflow-y-auto bg-white">
+            <div className="w-1/3 border-r border-border overflow-y-auto bg-card">
               {conversations.length === 0 ? (
-                <div className="text-center text-gray-500 mt-10 text-sm px-4">No conversations yet</div>
+                <div className="text-center text-muted-foreground mt-10 text-sm px-4">No conversations yet</div>
               ) : (
                 conversations.map(conv => (
                   <button
                     key={conv.guardId}
                     onClick={() => handleSelectConversation(conv.guardId)}
                     className={cn(
-                      'w-full text-left p-3 border-b border-gray-50 hover:bg-gray-50 transition-all flex items-center gap-3 relative',
-                      activeGuardId === conv.guardId && 'bg-blue-50 border-l-4 border-l-blue-600'
+                      'w-full text-left p-3 border-b border-border/50 hover:bg-muted transition-all flex items-center gap-3 relative',
+                      activeGuardId === conv.guardId && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500'
                     )}
                   >
-                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center shrink-0 relative">
-                      <User className="text-gray-500" size={16} />
+                    <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center shrink-0 relative">
+                      <User className="text-muted-foreground" size={16} />
                       {typingGuards[conv.guardId] && (
-                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full animate-pulse" />
+                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-card rounded-full animate-pulse" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">
-                        <p className="font-medium text-gray-900 text-sm truncate">{conv.guardName}</p>
+                        <p className="font-medium text-foreground text-sm truncate">{conv.guardName}</p>
                       </div>
-                      <p className="text-[10px] text-gray-500 truncate">
+                      <p className="text-[10px] text-muted-foreground truncate">
                         {typingGuards[conv.guardId] ? (
-                          <span className="text-green-600 font-medium italic">typing...</span>
+                          <span className="text-green-600 dark:text-green-400 font-medium italic">typing...</span>
                         ) : (
                           <>
                             {conv.lastMessage.sender === 'admin' ? 'You: ' : ''}
@@ -260,20 +260,20 @@ export default function FloatingChatWidget() {
             </div>
 
             {/* Main: Active Chat Area */}
-            <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+            <div className="flex-1 flex flex-col overflow-hidden bg-muted/30">
               {activeGuardId ? (
                 <>
                   {/* Active Chat Header */}
-                  <div className="p-2 px-4 border-b border-gray-200 bg-white flex items-center gap-2">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <User className="text-blue-600" size={16} />
+                  <div className="p-2 px-4 border-b border-border bg-card flex items-center gap-2">
+                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                      <User className="text-blue-600 dark:text-blue-400" size={16} />
                     </div>
                     <div className="flex flex-col">
-                      <span className="font-medium text-sm leading-tight">
+                      <span className="font-medium text-sm leading-tight text-foreground">
                         {conversations.find(c => c.guardId === activeGuardId)?.guardName}
                       </span>
                       {typingGuards[activeGuardId] && (
-                        <span className="text-[10px] text-green-600 animate-pulse">typing...</span>
+                        <span className="text-[10px] text-green-600 dark:text-green-400 animate-pulse">typing...</span>
                       )}
                     </div>
                   </div>
@@ -297,16 +297,16 @@ export default function FloatingChatWidget() {
                             className={cn(
                               'p-2 rounded-xl text-sm',
                               msg.sender === 'admin'
-                                ? 'bg-blue-600 text-white rounded-tr-none'
-                                : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
+                                ? 'bg-blue-600 dark:bg-blue-700 text-white rounded-tr-none'
+                                : 'bg-card border border-border text-foreground rounded-tl-none'
                             )}
                           >
                             {msg.content}
                           </div>
                           <div className="flex items-center gap-1 px-1 mt-1">
-                            <span className="text-[9px] text-gray-400">{format(new Date(msg.createdAt), 'HH:mm')}</span>
+                            <span className="text-[9px] text-muted-foreground/60">{format(new Date(msg.createdAt), 'HH:mm')}</span>
                             {msg.sender === 'admin' && (
-                              <span className={cn('text-[9px]', msg.readAt ? 'text-blue-500' : 'text-gray-300')}>
+                              <span className={cn('text-[9px]', msg.readAt ? 'text-blue-500 dark:text-blue-400' : 'text-muted-foreground/30')}>
                                 {msg.readAt ? '✓✓' : '✓'}
                               </span>
                             )}
@@ -319,26 +319,26 @@ export default function FloatingChatWidget() {
                   {/* Footer Input */}
                   <form
                     onSubmit={handleSendMessage}
-                    className="p-3 bg-white border-t border-gray-200 flex gap-2 shrink-0"
+                    className="p-3 bg-card border-t border-border flex gap-2 shrink-0"
                   >
                     <input
                       type="text"
                       value={inputText}
                       onChange={handleInputChange}
                       placeholder="Type a message..."
-                      className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="flex-1 bg-muted rounded-full px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-muted-foreground/50"
                     />
                     <button
                       type="submit"
                       disabled={!inputText.trim()}
-                      className="bg-blue-600 text-white p-2 rounded-full disabled:opacity-50 hover:bg-blue-700 transition-colors"
+                      className="bg-blue-600 dark:bg-blue-700 text-white p-2 rounded-full disabled:opacity-50 hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
                     >
                       <Send size={18} />
                     </button>
                   </form>
                 </>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
+                <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
                   <MessageSquare size={48} className="mb-4 opacity-10" />
                   <p className="text-sm">Select a guard from the list to start chatting</p>
                 </div>
@@ -352,20 +352,20 @@ export default function FloatingChatWidget() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 relative',
-          isOpen ? 'bg-white text-gray-600 rotate-90' : 'bg-blue-600 text-white hover:bg-blue-700'
+          'w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 relative border border-border/50',
+          isOpen ? 'bg-card text-foreground rotate-90' : 'bg-blue-600 dark:bg-blue-700 text-white hover:bg-blue-700 dark:hover:bg-blue-600'
         )}
       >
         {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
 
         {!isOpen && totalUnread > 0 && (
-          <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold border-2 border-white">
+          <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold border-2 border-white dark:border-slate-900">
             {totalUnread}
           </div>
         )}
 
         {!isConnected && !isOpen && (
-          <div className="absolute bottom-0 right-0 w-3 h-3 bg-gray-400 rounded-full border-2 border-white" />
+          <div className="absolute bottom-0 right-0 w-3 h-3 bg-gray-400 rounded-full border-2 border-white dark:border-slate-900" />
         )}
       </button>
     </div>

@@ -58,17 +58,17 @@ export default function AdminDashboard() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="mb-6 flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <header className="mb-6 flex justify-between items-center bg-card p-4 rounded-xl shadow-sm border border-border">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Live Dashboard</h1>
-          <p className="text-sm text-gray-500">Real-time monitoring of guards and alerts</p>
+          <h1 className="text-2xl font-bold text-foreground">Live Dashboard</h1>
+          <p className="text-sm text-muted-foreground">Real-time monitoring of guards and alerts</p>
         </div>
         <div className="flex items-center gap-4">
           <div
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${
               connectionStatus === 'Connected'
-                ? 'bg-green-50 text-green-700 border-green-200'
-                : 'bg-amber-50 text-amber-700 border-amber-200'
+                ? 'bg-green-500/10 text-green-700 border-green-500/20 dark:text-green-400'
+                : 'bg-amber-500/10 text-amber-700 border-amber-500/20 dark:text-amber-400'
             }`}
           >
             <div
@@ -93,58 +93,58 @@ export default function AdminDashboard() {
         {/* Left Column: Active Sites / Stats */}
         <div className="space-y-6">
           {/* Stats Card */}
-          <div className="bg-white p-5 rounded-xl shadow-sm border border-gray-100">
-            <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Overview</h3>
+          <div className="bg-card p-5 rounded-xl shadow-sm border border-border">
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">Overview</h3>
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-red-50 p-3 rounded-lg border border-red-100">
-                <div className="text-2xl font-bold text-red-700">
+              <div className="bg-red-500/10 p-3 rounded-lg border border-red-500/20">
+                <div className="text-2xl font-bold text-red-700 dark:text-red-400">
                   {alerts.filter(a => a.status !== 'need_attention').length}
                 </div>
-                <div className="text-xs text-red-600 font-medium">Active Alerts</div>
+                <div className="text-xs text-red-600 dark:text-red-400 font-medium">Active Alerts</div>
               </div>
-              <div className="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                <div className="text-2xl font-bold text-blue-700">{activeSites.length}</div>
-                <div className="text-xs text-blue-600 font-medium">Active Sites</div>
+              <div className="bg-blue-500/10 p-3 rounded-lg border border-blue-500/20">
+                <div className="text-2xl font-bold text-blue-700 dark:text-blue-400">{activeSites.length}</div>
+                <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">Active Sites</div>
               </div>
-              <div className="bg-green-50 p-3 rounded-lg border border-green-100 col-span-2">
-                <div className="text-2xl font-bold text-green-700">
+              <div className="bg-green-500/10 p-3 rounded-lg border border-green-500/20 col-span-2">
+                <div className="text-2xl font-bold text-green-700 dark:text-green-400">
                   {activeSites.reduce(
                     (acc, site) =>
                       acc + site.shifts.filter(s => s.guard && s.attendance && s.attendance.status !== 'absent').length,
                     0
                   )}
                 </div>
-                <div className="text-xs text-green-600 font-medium">Active Guards</div>
+                <div className="text-xs text-green-600 dark:text-green-400 font-medium">Active Guards</div>
               </div>
             </div>
           </div>
 
           {/* Active Sites List */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-              <h3 className="font-semibold text-gray-900">Active Shifts</h3>
+          <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+            <div className="p-4 border-b border-border bg-muted/30">
+              <h3 className="font-semibold text-foreground">Active Shifts</h3>
             </div>
-            <div className="divide-y divide-gray-100 max-h-[calc(100vh-400px)] overflow-y-auto">
+            <div className="divide-y divide-border max-h-[calc(100vh-400px)] overflow-y-auto">
               {activeSites.length === 0 ? (
                 <div className="p-8 text-center">
-                  <p className="text-sm text-gray-500">No active shifts right now.</p>
+                  <p className="text-sm text-muted-foreground">No active shifts right now.</p>
                 </div>
               ) : (
                 activeSites.map(({ site, shifts }) => (
-                  <div key={site.id} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div key={site.id} className="p-4 hover:bg-muted/30 transition-colors">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-gray-900">{site.name}</span>
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+                      <span className="font-medium text-foreground">{site.name}</span>
+                      <span className="text-xs bg-green-500/10 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full font-medium">
                         {shifts.length} Active
                       </span>
                     </div>
                     <div className="space-y-2">
                       {shifts.map(shift => (
-                        <div key={shift.id} className="text-xs text-gray-600 flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>
+                        <div key={shift.id} className="text-xs text-muted-foreground flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
                           <span className="truncate">
                             {shift.guard?.name || 'Unassigned'}
-                            <span className="text-gray-400"> ({shift.shiftType?.name})</span>
+                            <span className="text-muted-foreground/60"> ({shift.shiftType?.name})</span>
                           </span>
                         </div>
                       ))}
@@ -156,34 +156,34 @@ export default function AdminDashboard() {
           </div>
 
           {/* New Card: Upcoming Shifts */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-4 border-b border-gray-100 bg-gray-50/50">
-              <h3 className="font-semibold text-gray-900">Upcoming (24h)</h3>
+          <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+            <div className="p-4 border-b border-border bg-muted/30">
+              <h3 className="font-semibold text-foreground">Upcoming (24h)</h3>
             </div>
-            <div className="divide-y divide-gray-100 max-h-[300px] overflow-y-auto">
+            <div className="divide-y divide-border max-h-[300px] overflow-y-auto">
               {upcomingShifts.length === 0 ? (
                 <div className="p-8 text-center">
-                  <p className="text-sm text-gray-500">No upcoming shifts.</p>
+                  <p className="text-sm text-muted-foreground">No upcoming shifts.</p>
                 </div>
               ) : (
                 upcomingShifts.map(shift => (
-                  <div key={shift.id} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div key={shift.id} className="p-4 hover:bg-muted/30 transition-colors">
                     <div className="flex items-center justify-between mb-2">
                       <span
-                        className="font-medium text-gray-900 text-sm truncate max-w-[150px]"
+                        className="font-medium text-foreground text-sm truncate max-w-[150px]"
                         title={shift.site?.name}
                       >
                         {shift.site?.name}
                       </span>
-                      <span className="text-xs text-gray-500 font-mono">
+                      <span className="text-xs text-muted-foreground font-mono">
                         {new Date(shift.startsAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
-                    <div className="text-xs text-gray-600 flex items-center gap-2">
+                    <div className="text-xs text-muted-foreground flex items-center gap-2">
                       <div className={`w-1.5 h-1.5 rounded-full ${shift.guard ? 'bg-blue-400' : 'bg-red-400'}`}></div>
                       <span className="truncate">
                         {shift.guard?.name || 'Unassigned'}
-                        <span className="text-gray-400"> ({shift.shiftType?.name})</span>
+                        <span className="text-muted-foreground/60"> ({shift.shiftType?.name})</span>
                       </span>
                     </div>
                   </div>

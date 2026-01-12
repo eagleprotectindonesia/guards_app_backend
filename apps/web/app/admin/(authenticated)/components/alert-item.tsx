@@ -40,14 +40,14 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
 
   return (
     <div
-      className={`group relative overflow-hidden bg-white rounded-xl shadow-sm border transition-all duration-200 hover:shadow-md ${
+      className={`group relative overflow-hidden bg-card rounded-xl shadow-sm border transition-all duration-200 hover:shadow-md ${
         isResolved
-          ? 'border-gray-100 opacity-60 bg-gray-50'
+          ? 'border-border opacity-60 bg-muted/30'
           : isCritical
-          ? 'border-l-4 border-l-red-500 border-y-red-100 border-r-red-100'
+          ? 'border-l-4 border-l-red-500 border-y-red-100 border-r-red-100 dark:border-y-red-900/20 dark:border-r-red-900/20'
           : isNeedAttention
-          ? 'border-l-4 border-l-yellow-400 border-y-yellow-100 border-r-yellow-100'
-          : 'border-l-4 border-l-orange-400 border-y-orange-100 border-r-orange-100'
+          ? 'border-l-4 border-l-yellow-400 border-y-yellow-100 border-r-yellow-100 dark:border-y-yellow-900/20 dark:border-r-yellow-900/20'
+          : 'border-l-4 border-l-orange-400 border-y-orange-100 border-r-orange-100 dark:border-y-orange-900/20 dark:border-r-orange-900/20'
       }`}
     >
       <div className="p-5">
@@ -57,27 +57,27 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
               <span
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wide ${
                   isCritical
-                    ? 'bg-red-100 text-red-800'
+                    ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
                     : isNeedAttention
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-orange-100 text-orange-800'
+                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300'
+                    : 'bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300'
                 }`}
               >
                 {isNeedAttention ? 'ATTENTION NEEDED' : alert.reason.replace('_', ' ')}
               </span>
-              <span className="text-xs text-gray-400 font-mono">
+              <span className="text-xs text-muted-foreground font-mono">
                 {format(new Date(alert.windowStart), 'yyyy/MM/dd HH:mm')}
               </span>
             </div>
 
-            <h4 className="text-lg font-medium text-gray-900 mb-1">{alert.site?.name}</h4>
-            <div className="text-sm text-gray-600 flex flex-wrap gap-x-4 gap-y-1">
+            <h4 className="text-lg font-medium text-foreground mb-1">{alert.site?.name}</h4>
+            <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
               <span className="flex items-center gap-1">
-                <User className="w-4 h-4 text-gray-400" />
+                <User className="w-4 h-4 text-muted-foreground/60" />
                 {alert.shift?.guard ? (
                   <Link
                     href={`/admin/guards/${alert.shift.guard.id}`}
-                    className="text-blue-600 hover:text-blue-800 hover:underline"
+                    className="text-blue-600 dark:text-blue-400 hover:underline"
                   >
                     {alert.shift.guard.name}
                   </Link>
@@ -86,24 +86,24 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
                 )}
               </span>
               <span className="flex items-center gap-1">
-                <Clock className="w-4 h-4 text-gray-400" />
+                <Clock className="w-4 h-4 text-muted-foreground/60" />
                 {alert.shift?.shiftType?.name}
               </span>
             </div>
 
             {isAcknowledged && showResolutionDetails && (
-              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                <h5 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-blue-600" />
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-900/40">
+                <h5 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-2 flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                   Acknowledgement Details
                 </h5>
-                <div className="text-sm text-blue-600 space-y-1">
+                <div className="text-sm text-blue-600 dark:text-blue-400 space-y-1">
                   {alert.ackAdmin && (
                     <p>
-                      <span className="font-medium text-blue-700">Acknowledged by:</span> {alert.ackAdmin.name}
+                      <span className="font-medium text-blue-700 dark:text-blue-300">Acknowledged by:</span> {alert.ackAdmin.name}
                     </p>
                   )}
-                  <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-200">
+                  <p className="text-xs text-muted-foreground/60 mt-2 pt-2 border-t border-border">
                     Acknowledged on {format(new Date(alert.acknowledgedAt!), 'yyyy/MM/dd HH:mm')}
                   </p>
                 </div>
@@ -111,27 +111,27 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
             )}
 
             {isResolved && showResolutionDetails && (
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
-                <h5 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-600" />
+              <div className="mt-4 p-3 bg-muted/50 rounded-lg border border-border">
+                <h5 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                   Resolution Details
                 </h5>
-                <div className="text-sm text-gray-600 space-y-1">
+                <div className="text-sm text-muted-foreground space-y-1">
                   <p>
-                    <span className="font-medium text-gray-700">Outcome:</span>{' '}
+                    <span className="font-medium text-foreground">Outcome:</span>{' '}
                     <span className="capitalize">{alert.resolutionType || 'Standard'}</span>
                   </p>
                   {alert.resolutionNote && (
                     <p>
-                      <span className="font-medium text-gray-700">Note:</span> {alert.resolutionNote}
+                      <span className="font-medium text-foreground">Note:</span> {alert.resolutionNote}
                     </p>
                   )}
                   {alert.resolverAdmin && (
                     <p>
-                      <span className="font-medium text-gray-700">Resolved by:</span> {alert.resolverAdmin.name}
+                      <span className="font-medium text-foreground">Resolved by:</span> {alert.resolverAdmin.name}
                     </p>
                   )}
-                  <p className="text-xs text-gray-400 mt-2 pt-2 border-t border-gray-200">
+                  <p className="text-xs text-muted-foreground/60 mt-2 pt-2 border-t border-border">
                     Resolved on {format(new Date(alert.resolvedAt!), 'yyyy/MM/dd HH:mm')}
                   </p>
                 </div>
@@ -144,7 +144,7 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
               {!isAcknowledged && !isResolved && (
                 <button
                   onClick={() => onAcknowledge(alert.id)}
-                  className="px-4 py-2 bg-white border border-blue-200 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors focus:ring-2 focus:ring-blue-200"
+                  className="px-4 py-2 bg-card border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 text-sm font-medium rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-900"
                 >
                   Acknowledge
                 </button>
@@ -160,14 +160,14 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
               )}
 
               {isResolved && (
-                <span className="flex items-center gap-1.5 text-green-600 font-medium text-sm bg-green-50 px-3 py-1 rounded-full border border-green-100">
+                <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-medium text-sm bg-green-50 dark:bg-green-950/20 px-3 py-1 rounded-full border border-green-100 dark:border-green-900/40">
                   <Check className="w-4 h-4" />
                   Resolved
                 </span>
               )}
 
               {isAcknowledged && !isResolved && (
-                <span className="flex items-center gap-1.5 text-blue-600 font-medium text-sm bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-medium text-sm bg-blue-50 dark:bg-blue-950/20 px-3 py-1 rounded-full border border-blue-100 dark:border-blue-900/40">
                   <Eye className="w-4 h-4" />
                   Acknowledged
                 </span>
