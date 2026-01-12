@@ -46,7 +46,7 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm, alert
                 onClick={() => setOutcome('resolve')}
                 className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${
                   outcome === 'resolve'
-                    ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                    ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                     : 'border-border bg-card text-muted-foreground hover:border-muted hover:bg-muted/50'
                 }`}
               >
@@ -79,13 +79,13 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm, alert
         </div>
 
         <div>
-          <label htmlFor="resolution-note" className="block text-sm font-medium text-foreground mb-1">
+          <label htmlFor="resolution-note" senior-id="resolution-note" className="block text-sm font-medium text-foreground mb-1">
             Resolution Note <span className="text-red-500">*</span>
           </label>
           <textarea
             id="resolution-note"
             rows={3}
-            className="w-full rounded-lg border border-border bg-card p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-shadow text-foreground"
+            className="w-full rounded-lg border border-border bg-card p-3 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-shadow text-foreground placeholder:text-muted-foreground/50"
             placeholder="Explain why this alert is being resolved..."
             value={note}
             onChange={e => setNote(e.target.value)}
@@ -95,14 +95,14 @@ export default function AlertResolutionModal({ isOpen, onClose, onConfirm, alert
         <div className="flex justify-end gap-3 pt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium text-foreground bg-secondary hover:bg-secondary/80 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-muted/80 rounded-lg transition-colors border border-border"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={!note.trim() || isSubmitting}
-            className={`px-6 py-2 text-sm font-medium text-white rounded-lg transition-all shadow-sm ${
+            className={`px-6 py-2 text-sm font-bold text-white rounded-lg transition-all shadow-sm ${
               outcome === 'resolve'
                 ? 'bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400'
                 : 'bg-green-600 hover:bg-green-700 disabled:bg-green-400'

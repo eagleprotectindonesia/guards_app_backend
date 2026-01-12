@@ -87,14 +87,14 @@ export default function CheckinList({ checkins, page, perPage, totalCount, guard
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Check-ins</h1>
-          <p className="text-sm text-gray-500 mt-1">View guard check-in history and status.</p>
+          <h1 className="text-2xl font-bold text-foreground">Check-ins</h1>
+          <p className="text-sm text-muted-foreground mt-1">View guard check-in history and status.</p>
         </div>
         <div className="flex items-center gap-2">
           <CheckinExport initialFilters={initialFilters} guards={guards} />
           <button
             onClick={() => setIsFilterOpen(true)}
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm"
           >
             <Filter className="w-4 h-4 mr-2" />
             Filter
@@ -103,24 +103,24 @@ export default function CheckinList({ checkins, page, perPage, totalCount, guard
       </div>
 
       {/* Table Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Guard</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Site</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Time</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Shift Date</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Location</th>
+              <tr className="bg-muted/50 border-b border-border">
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Guard</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift Date</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Location</th>
                 {/* New Column */}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {checkins.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-gray-500">
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     {' '}
                     {/* Updated colspan */}
                     No check-ins found.
@@ -128,49 +128,49 @@ export default function CheckinList({ checkins, page, perPage, totalCount, guard
                 </tr>
               ) : (
                 checkins.map(checkin => (
-                  <tr key={checkin.id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="py-4 px-6 text-sm font-medium text-gray-900">
+                  <tr key={checkin.id} className="hover:bg-muted/50 transition-colors group">
+                    <td className="py-4 px-6 text-sm font-medium text-foreground">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">
                           {checkin.guard.name.substring(0, 2).toUpperCase()}
                         </div>
                         {checkin.guard.name}
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-sm text-gray-600">
+                    <td className="py-4 px-6 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
-                        <MapPin className="w-3 h-3 text-gray-400" />
+                        <MapPin className="w-3 h-3 text-muted-foreground/60" />
                         {checkin.shift.site.name}
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-sm text-gray-900 font-medium">
+                    <td className="py-4 px-6 text-sm text-foreground font-medium">
                       <div className="flex items-center gap-2">
-                        <Clock className="w-3 h-3 text-gray-400" />
+                        <Clock className="w-3 h-3 text-muted-foreground/60" />
                         {new Date(checkin.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
-                      <div className="text-xs text-gray-500 mt-0.5">{format(new Date(checkin.at), 'yyyy/MM/dd')}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(checkin.at), 'yyyy/MM/dd')}</div>
                     </td>
                     <td className="py-4 px-6 text-sm">
                       {checkin.status === 'on_time' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
                           On Time
                         </span>
                       )}
                       {checkin.status === 'late' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
                           Late
                         </span>
                       )}
                       {checkin.status === 'invalid' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
                           Invalid
                         </span>
                       )}
                     </td>
-                    <td className="py-4 px-6 text-sm text-gray-500">
+                    <td className="py-4 px-6 text-sm text-muted-foreground">
                       {format(new Date(checkin.shift.date), 'yyyy/MM/dd')}
                     </td>
-                    <td className="py-4 px-6 text-sm text-gray-600">
+                    <td className="py-4 px-6 text-sm text-muted-foreground">
                       {hasValidLocation(checkin.metadata) ? (
                         <div className="flex flex-col">
                           <div>Lat: {checkin.metadata.lat.toFixed(3)}</div>

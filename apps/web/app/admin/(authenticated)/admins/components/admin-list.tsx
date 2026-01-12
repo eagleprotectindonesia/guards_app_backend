@@ -45,8 +45,8 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Admins</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage system administrators.</p>
+          <h1 className="text-2xl font-bold text-foreground">Admins</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage system administrators.</p>
         </div>
         <Link
           href="/admin/admins/create"
@@ -58,42 +58,42 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
       </div>
 
       {/* Table Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Email</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Role</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Note</th>
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+              <tr className="bg-muted/50 border-b border-border">
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Email</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Role</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {admins.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-500">
+                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
                     No admins found. Add one to get started.
                   </td>
                 </tr>
               ) : (
                 admins.map(admin => (
-                  <tr key={admin.id} className="hover:bg-gray-50/50 transition-colors group">
-                    <td className="py-4 px-6 text-sm font-medium text-gray-900">{admin.name}</td>
-                    <td className="py-4 px-6 text-sm text-gray-600">{admin.email}</td>
-                    <td className="py-4 px-6 text-sm text-gray-600">
+                  <tr key={admin.id} className="hover:bg-muted/50 transition-colors group">
+                    <td className="py-4 px-6 text-sm font-medium text-foreground">{admin.name}</td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground">{admin.email}</td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          admin.role === 'superadmin' ? 'bg-purple-100 text-purple-800' : 'bg-gray-100 text-gray-800'
+                          admin.role === 'superadmin' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400' : 'bg-muted text-foreground border border-border'
                         }`}
                       >
                         {admin.role || 'admin'}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-sm text-gray-500">
+                    <td className="py-4 px-6 text-sm text-muted-foreground">
                       <div className="max-w-[200px] whitespace-normal wrap-break-words">
                         {admin.note || '-'}
                       </div>
@@ -102,7 +102,7 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
                       <div className="flex items-center justify-end gap-2 opacity-100">
                         <Link
                           href={`/admin/admins/${admin.id}/edit`}
-                          className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
+                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
                           title="Edit"
                         >
                           <Pencil className="w-4 h-4" />

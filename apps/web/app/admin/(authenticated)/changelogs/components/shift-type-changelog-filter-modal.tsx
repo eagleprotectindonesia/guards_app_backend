@@ -65,7 +65,7 @@ export default function ShiftTypeChangelogFilterModal({
       <div className="flex flex-col justify-between p-4 min-h-[350px]">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Date Range</label>
             <div className="grid grid-cols-2 gap-2">
               <DatePicker
                 selected={startDate}
@@ -75,7 +75,7 @@ export default function ShiftTypeChangelogFilterModal({
                 endDate={endDate}
                 isClearable={true}
                 dateFormat="yyyy-MM-dd"
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
+                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm placeholder:text-muted-foreground/50"
                 placeholderText="Start Date"
               />
               <DatePicker
@@ -87,14 +87,14 @@ export default function ShiftTypeChangelogFilterModal({
                 minDate={startDate}
                 isClearable={true}
                 dateFormat="yyyy-MM-dd"
-                className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
+                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none transition-all text-sm placeholder:text-muted-foreground/50"
                 placeholderText="End Date"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Shift Type</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Shift Type</label>
             <Select
               options={shiftTypeOptions}
               value={shiftTypeOptions.find(opt => opt.value === entityId)}
@@ -104,29 +104,29 @@ export default function ShiftTypeChangelogFilterModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Action</label>
             <select 
-              className="w-full h-10 px-3 bg-white border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+              className="w-full h-10 px-3 bg-card border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary transition-all"
               value={action}
               onChange={(e) => setAction(e.target.value)}
             >
-              <option value="">All Actions</option>
-              <option value="CREATE">Create</option>
-              <option value="UPDATE">Update</option>
-              <option value="DELETE">Delete</option>
+              <option value="" className="bg-card">All Actions</option>
+              <option value="CREATE" className="bg-card">Create</option>
+              <option value="UPDATE" className="bg-card">Update</option>
+              <option value="DELETE" className="bg-card">Delete</option>
             </select>
           </div>
         </div>
 
         <div className="flex justify-between pt-6">
-          <button type="button" onClick={handleClear} className="text-sm text-gray-500 hover:text-gray-700 underline">
+          <button type="button" onClick={handleClear} className="text-sm text-muted-foreground hover:text-foreground underline">
             Clear Filters
           </button>
           <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 font-bold text-sm hover:bg-gray-50 transition-colors">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-foreground font-bold text-sm hover:bg-muted transition-colors">
               Cancel
             </button>
-            <button type="button" onClick={handleApply} className="px-4 py-2 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 transition-colors shadow-sm">
+            <button type="button" onClick={handleApply} className="px-4 py-2 rounded-lg bg-foreground text-background font-bold text-sm hover:bg-foreground/90 transition-colors shadow-sm">
               Apply Filters
             </button>
           </div>

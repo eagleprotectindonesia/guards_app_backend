@@ -103,7 +103,7 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
                       <span className="font-medium text-blue-700 dark:text-blue-300">Acknowledged by:</span> {alert.ackAdmin.name}
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground/60 mt-2 pt-2 border-t border-border">
+                  <p className="text-xs text-blue-600/60 dark:text-blue-400/60 mt-2 pt-2 border-t border-blue-100 dark:border-blue-900/40">
                     Acknowledged on {format(new Date(alert.acknowledgedAt!), 'yyyy/MM/dd HH:mm')}
                   </p>
                 </div>
@@ -111,27 +111,27 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
             )}
 
             {isResolved && showResolutionDetails && (
-              <div className="mt-4 p-3 bg-muted/50 rounded-lg border border-border">
-                <h5 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+              <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-900/40">
+                <h5 className="text-sm font-semibold text-green-900 dark:text-green-200 mb-2 flex items-center gap-2">
                   <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                   Resolution Details
                 </h5>
-                <div className="text-sm text-muted-foreground space-y-1">
+                <div className="text-sm text-green-600 dark:text-green-400 space-y-1">
                   <p>
-                    <span className="font-medium text-foreground">Outcome:</span>{' '}
+                    <span className="font-medium text-green-700 dark:text-green-300">Outcome:</span>{' '}
                     <span className="capitalize">{alert.resolutionType || 'Standard'}</span>
                   </p>
                   {alert.resolutionNote && (
                     <p>
-                      <span className="font-medium text-foreground">Note:</span> {alert.resolutionNote}
+                      <span className="font-medium text-green-700 dark:text-green-300">Note:</span> {alert.resolutionNote}
                     </p>
                   )}
                   {alert.resolverAdmin && (
                     <p>
-                      <span className="font-medium text-foreground">Resolved by:</span> {alert.resolverAdmin.name}
+                      <span className="font-medium text-green-700 dark:text-green-300">Resolved by:</span> {alert.resolverAdmin.name}
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground/60 mt-2 pt-2 border-t border-border">
+                  <p className="text-xs text-green-600/60 dark:text-green-400/60 mt-2 pt-2 border-t border-green-100 dark:border-green-900/40">
                     Resolved on {format(new Date(alert.resolvedAt!), 'yyyy/MM/dd HH:mm')}
                   </p>
                 </div>

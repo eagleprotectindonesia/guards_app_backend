@@ -112,18 +112,18 @@ export default function AdminAlertsPage() {
 
   return (
     <div className="h-full flex flex-col">
-      <header className="mb-6 flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+      <header className="mb-6 flex justify-between items-center bg-card p-4 rounded-xl shadow-sm border border-border">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">All Alerts</h1>
-          <p className="text-sm text-gray-500">Comprehensive view of all system alerts</p>
+          <h1 className="text-2xl font-bold text-foreground">All Alerts</h1>
+          <p className="text-sm text-muted-foreground">Comprehensive view of all system alerts</p>
         </div>
         <div className="flex items-center gap-4">
           <AlertExport />
           <div
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ${
               connectionStatus === 'Connected'
-                ? 'bg-green-50 text-green-700 border-green-200'
-                : 'bg-amber-50 text-amber-700 border-amber-200'
+                ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900/30'
+                : 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/30'
             }`}
           >
             <div

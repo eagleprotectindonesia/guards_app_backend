@@ -51,7 +51,7 @@ export default function AttendanceExport({ initialFilters, guards }: AttendanceE
     <>
       <button
         onClick={() => setIsExportOpen(true)}
-        className="inline-flex items-center justify-center h-10 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+        className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm"
       >
         <Download className="w-4 h-4 mr-2" />
         Download CSV

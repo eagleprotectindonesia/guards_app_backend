@@ -125,7 +125,7 @@ export default function AdminForm({ admin }: Props) {
           <button
             type="button"
             onClick={() => router.push('/admin/admins')}
-            className="px-6 py-2.5 rounded-lg border border-gray-200 text-gray-700 fontbold text-sm hover:bg-gray-50 transition-colors"
+            className="px-6 py-2.5 rounded-lg border border-border text-foreground font-bold text-sm hover:bg-muted transition-colors"
           >
             Cancel
           </button>

@@ -35,22 +35,22 @@ export default function SiteDetail({ site }: Props) {
 
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Site Details</h1>
+      <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
+        <h1 className="text-2xl font-bold text-foreground mb-6">Site Details</h1>
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Name Field */}
             <div>
-              <label className="block font-medium text-gray-700 mb-1">Site Name</label>
-              <div className="w-full h-10 px-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center">
+              <label className="block font-medium text-foreground mb-1">Site Name</label>
+              <div className="w-full h-10 px-3 rounded-lg border border-border bg-muted/50 text-foreground flex items-center">
                 {site.name}
               </div>
             </div>
 
             {/* Client Name Field */}
             <div>
-              <label className="block font-medium text-gray-700 mb-1">Client Name</label>
-              <div className="w-full h-10 px-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center">
+              <label className="block font-medium text-foreground mb-1">Client Name</label>
+              <div className="w-full h-10 px-3 rounded-lg border border-border bg-muted/50 text-foreground flex items-center">
                 {site.clientName}
               </div>
             </div>
@@ -58,21 +58,21 @@ export default function SiteDetail({ site }: Props) {
 
           {/* Address Display */}
           <div>
-            <label className="block font-medium text-gray-700 mb-1">Address</label>
-            <div className="w-full px-3 py-2 rounded-lg border border-gray-200 bg-gray-50 min-h-12">
+            <label className="block font-medium text-foreground mb-1">Address</label>
+            <div className="w-full px-3 py-2 rounded-lg border border-border bg-muted/50 text-foreground min-h-12">
               {site.address || 'No address provided'}
             </div>
           </div>
 
           {/* Map Integration */}
           <div>
-            <label className="block font-medium text-gray-700 mb-2">Site Location</label>
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <label className="block font-medium text-foreground mb-2">Site Location</label>
+            <div className="border border-border rounded-lg overflow-hidden">
               <MapComponent position={currentPosition} />
             </div>
-            <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="text-xs text-gray-500 mb-1">Coordinates</div>
-              <div className="text-sm font-medium text-gray-900">
+            <div className="mt-3 p-3 bg-muted/50 rounded-lg border border-border">
+              <div className="text-xs text-muted-foreground mb-1">Coordinates</div>
+              <div className="text-sm font-medium text-foreground">
                 Latitude: {currentPosition.lat.toFixed(6)}, Longitude: {currentPosition.lng.toFixed(6)}
               </div>
             </div>
@@ -80,16 +80,16 @@ export default function SiteDetail({ site }: Props) {
 
           {/* Created At */}
           <div>
-            <label className="block font-medium text-gray-700 mb-1">Created At</label>
-            <div className="w-full h-10 px-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center">
+            <label className="block font-medium text-foreground mb-1">Created At</label>
+            <div className="w-full h-10 px-3 rounded-lg border border-border bg-muted/50 text-foreground flex items-center">
               {site.createdAt ? format(new Date(site.createdAt), 'MMM dd, yyyy h:mm a') : 'N/A'}
             </div>
           </div>
 
           {/* Updated At */}
           <div>
-            <label className="block font-medium text-gray-700 mb-1">Updated At</label>
-            <div className="w-full h-10 px-3 rounded-lg border border-gray-200 bg-gray-50 flex items-center">
+            <label className="block font-medium text-foreground mb-1">Updated At</label>
+            <div className="w-full h-10 px-3 rounded-lg border border-border bg-muted/50 text-foreground flex items-center">
               {site.updatedAt ? format(new Date(site.updatedAt), 'MMM dd, yyyy h:mm a') : 'N/A'}
             </div>
           </div>

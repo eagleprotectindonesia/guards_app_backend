@@ -42,23 +42,23 @@ export default function AlertExportModal({ isOpen, onClose, onExport }: AlertExp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
-      <div className="relative bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="relative bg-card rounded-xl shadow-lg w-full max-w-md p-6 border border-border">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-gray-900">Export Alerts</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          <h3 className="text-lg font-bold text-foreground">Export Alerts</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Select a date range to export alert records. The maximum range is 31 days.
         </p>
 
         <div className="space-y-4">
           {/* Start Date */}
           <div>
-            <Label htmlFor="export-start-date">Start Date</Label>
+            <Label htmlFor="export-start-date" senior-id="export-start-date">Start Date</Label>
             <DatePicker
               date={startDate}
               setDate={setStartDate}
@@ -69,7 +69,7 @@ export default function AlertExportModal({ isOpen, onClose, onExport }: AlertExp
 
           {/* End Date */}
           <div>
-            <Label htmlFor="export-end-date">End Date</Label>
+            <Label htmlFor="export-end-date" senior-id="export-end-date">End Date</Label>
             <DatePicker
               date={endDate}
               setDate={setEndDate}
@@ -81,10 +81,10 @@ export default function AlertExportModal({ isOpen, onClose, onExport }: AlertExp
         </div>
 
         <div className="flex space-x-3 mt-6">
-          <Button variant="outline" className="flex-1" onClick={onClose} type="button">
+          <Button variant="outline" className="flex-1 border-border text-foreground hover:bg-muted" onClick={onClose} type="button">
             Cancel
           </Button>
-          <Button className="flex-1" onClick={handleExport} type="button">
+          <Button className="flex-1 bg-foreground text-background hover:bg-foreground/90 font-bold" onClick={handleExport} type="button">
             Download CSV
           </Button>
         </div>

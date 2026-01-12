@@ -41,42 +41,42 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
-        <p className="text-gray-500">Manage your account settings.</p>
+        <h1 className="text-2xl font-bold text-foreground">Profile</h1>
+        <p className="text-muted-foreground">Manage your account settings.</p>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-200 bg-gray-50">
-          <h2 className="text-lg font-semibold text-gray-900">Personal Information</h2>
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-border bg-muted/50">
+          <h2 className="text-lg font-semibold text-foreground">Personal Information</h2>
         </div>
         <div className="p-6 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-500">Full Name</label>
-              <div className="mt-1 text-base font-medium text-gray-900">{admin.name}</div>
+              <label className="block text-sm font-medium text-muted-foreground">Full Name</label>
+              <div className="mt-1 text-base font-medium text-foreground">{admin.name}</div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-500">Email Address</label>
-              <div className="mt-1 text-base font-medium text-gray-900">{admin.email}</div>
+              <label className="block text-sm font-medium text-muted-foreground">Email Address</label>
+              <div className="mt-1 text-base font-medium text-foreground">{admin.email}</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-gray-200 bg-gray-50">
-          <h2 className="text-lg font-semibold text-gray-900">Security</h2>
+      <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-border bg-muted/50">
+          <h2 className="text-lg font-semibold text-foreground">Security</h2>
         </div>
         <div className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-medium text-gray-900">Password</h3>
-              <p className="text-sm text-gray-500">Update your password to keep your account secure.</p>
+              <h3 className="text-base font-medium text-foreground">Password</h3>
+              <p className="text-sm text-muted-foreground">Update your password to keep your account secure.</p>
             </div>
             <Button
               variant="outline"
               onClick={() => setIsPasswordModalOpen(true)}
-              className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              className="border-border text-foreground hover:bg-muted"
             >
               Change Password
             </Button>
@@ -85,19 +85,19 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
       </div>
 
       <Modal isOpen={isPasswordModalOpen} onClose={closeModal} title="Change Password">
-        <form action={formAction} className="space-y-4 py-4">
+        <form action={formAction} className="space-y-4 py-4 px-6">
           {state?.message && (
-            <div className="p-4 rounded-lg text-sm bg-green-50 text-green-700 border border-green-200">
+            <div className="p-4 rounded-lg text-sm bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 border border-green-100 dark:border-green-900/30">
               {state.message}
             </div>
           )}
 
           {state?.error && (
-            <div className="p-4 rounded-lg text-sm bg-red-50 text-red-700 border border-red-200">{state.error}</div>
+            <div className="p-4 rounded-lg text-sm bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-100 dark:border-red-900/30">{state.error}</div>
           )}
 
           <div className="space-y-2">
-            <label htmlFor="currentPassword" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="currentPassword" className="block text-sm font-medium text-foreground">
               Current Password
             </label>
             <input
@@ -105,12 +105,12 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
               name="currentPassword"
               type="password"
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-border bg-card text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             />
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="newPassword" className="block text-sm font-medium text-foreground">
               New Password
             </label>
             <input
@@ -118,12 +118,12 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
               name="newPassword"
               type="password"
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-border bg-card text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             />
           </div>
 
           <div className="space-y-2">
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">
               Confirm New Password
             </label>
             <input
@@ -131,7 +131,7 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
               name="confirmPassword"
               type="password"
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-border bg-card text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             />
           </div>
 
@@ -140,11 +140,11 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
               type="button"
               variant="outline"
               onClick={closeModal}
-              className="border-gray-300 text-gray-700 hover:bg-gray-50"
+              className="border-border text-foreground hover:bg-muted"
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isPending} className="bg-red-600 hover:bg-red-700 text-white">
+            <Button type="submit" disabled={isPending} className="bg-red-600 hover:bg-red-700 text-white font-bold">
               {isPending ? 'Updating...' : 'Update Password'}
             </Button>
           </div>

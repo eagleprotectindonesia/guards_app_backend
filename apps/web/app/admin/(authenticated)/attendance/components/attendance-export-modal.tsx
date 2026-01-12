@@ -46,16 +46,16 @@ export default function AttendanceExportModal({ isOpen, onClose, onExport, guard
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm">
-      <div className="relative bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="relative bg-card rounded-xl shadow-lg w-full max-w-md p-6 border border-border">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-bold text-gray-900">Export Attendance</h3>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+          <h3 className="text-lg font-bold text-foreground">Export Attendance</h3>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Select a date range to export attendance records. The maximum range is 31 days.
         </p>
 
@@ -67,11 +67,11 @@ export default function AttendanceExportModal({ isOpen, onClose, onExport, guard
               id="guard"
               value={selectedGuardId}
               onChange={e => setSelectedGuardId(e.target.value)}
-              className="w-full mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full mt-1 rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground"
             >
-              <option value="">All Guards</option>
+              <option value="" className="bg-card">All Guards</option>
               {guards.map(guard => (
-                <option key={guard.id} value={guard.id}>
+                <option key={guard.id} value={guard.id} className="bg-card">
                   {guard.name}
                 </option>
               ))}

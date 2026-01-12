@@ -127,10 +127,10 @@ export default function ChangelogList({
       {/* Header & Filters */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-foreground">
             {fixedEntityType ? `${fixedEntityType} Audit Log` : 'Audit Log'}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             {fixedEntityType
               ? `Track changes for ${fixedEntityType}s.`
               : 'Track system changes and administrative actions.'}
@@ -139,14 +139,14 @@ export default function ChangelogList({
         <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
           <button
             onClick={() => setIsFilterOpen(true)}
-            className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-white border border-gray-200 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 transition-colors shadow-sm w-full md:w-auto ${
-              activeFiltersCount > 0 ? 'text-red-600 border-red-200 bg-red-50' : ''
+            className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm w-full md:w-auto ${
+              activeFiltersCount > 0 ? 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-950/30' : ''
             }`}
           >
             <Filter className="w-4 h-4 mr-2" />
             Filters
             {activeFiltersCount > 0 && (
-              <span className="ml-2 bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs">
+              <span className="ml-2 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 px-2 py-0.5 rounded-full text-xs">
                 {activeFiltersCount}
               </span>
             )}
@@ -155,11 +155,11 @@ export default function ChangelogList({
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-100">
+              <tr className="bg-muted/50 border-b border-border">
                 <SortableHeader
                   label="Date"
                   field="createdAt"
@@ -168,7 +168,7 @@ export default function ChangelogList({
                   onSort={handleSort}
                   className="pl-6"
                 />
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Admin</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Admin</th>
                 <SortableHeader
                   label="Action"
                   field="action"
@@ -193,50 +193,50 @@ export default function ChangelogList({
                   onSort={handleSort}
                 />
                 {showEntityName && (
-                  <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
+                  <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
                 )}
-                <th className="py-3 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
                   Details
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody className="divide-y divide-border">
               {changelogs.length === 0 ? (
                 <tr>
                   <td
                     colSpan={hideEntityType ? (showEntityName ? 6 : 5) : showEntityName ? 7 : 6}
-                    className="py-8 text-center text-gray-500"
+                    className="py-8 text-center text-muted-foreground"
                   >
                     No logs found.
                   </td>
                 </tr>
               ) : (
                 changelogs.map(log => (
-                  <tr key={log.id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="py-4 px-6 text-sm text-gray-500 whitespace-nowrap">
+                  <tr key={log.id} className="hover:bg-muted/50 transition-colors">
+                    <td className="py-4 px-6 text-sm text-muted-foreground whitespace-nowrap">
                       {new Date(log.createdAt).toLocaleString()}
                     </td>
-                    <td className="py-4 px-6 text-sm font-medium text-gray-900">
-                      {log.admin?.name || <span className="text-gray-400 italic">System</span>}
+                    <td className="py-4 px-6 text-sm font-medium text-foreground">
+                      {log.admin?.name || <span className="text-muted-foreground/50 italic">System</span>}
                     </td>
                     <td className="py-4 px-6 text-sm">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
                         ${
                           log.action === 'CREATE' || log.action === 'BULK_CREATE'
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
                             : log.action === 'DELETE'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-blue-100 text-blue-800'
+                            ? 'bg-red-100 dark:bg-red-950/30 text-red-800 dark:text-red-400'
+                            : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
                         }`}
                       >
                         {log.action}
                       </span>
                     </td>
-                    {!hideEntityType && <td className="py-4 px-6 text-sm text-gray-700">{log.entityType}</td>}
-                    <td className="py-4 px-6 text-sm text-gray-500 font-mono text-xs">{log.entityId}</td>
+                    {!hideEntityType && <td className="py-4 px-6 text-sm text-muted-foreground">{log.entityType}</td>}
+                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono text-xs">{log.entityId}</td>
                     {showEntityName && (
-                      <td className="py-4 px-6 text-sm text-gray-700">
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
                         {/* Safe access to details.name if it exists */}
                         {log.details && typeof log.details === 'object' && 'name' in log.details
                           ? String((log.details as Record<string, unknown>).name)
@@ -246,7 +246,7 @@ export default function ChangelogList({
                     <td className="py-4 px-6 text-right">
                       <button
                         onClick={() => setSelectedDetails(log.details)}
-                        className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                        className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors cursor-pointer"
                         title="View Details"
                       >
                         <Eye className="w-4 h-4" />
