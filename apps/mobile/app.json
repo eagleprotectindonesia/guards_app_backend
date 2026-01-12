@@ -8,10 +8,7 @@
     "icon": "./assets/icons/android-launchericon-512-512.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "platforms": [
-      "ios",
-      "android"
-    ],
+    "platforms": ["ios", "android"],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -29,7 +26,14 @@
       },
       "package": "com.eagleprotect.employee",
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "FOREGROUND_SERVICE",
+        "ACCESS_BACKGROUND_LOCATION"
+      ]
     },
     "updates": {
       "url": "https://u.expo.dev/1745481a-0e61-4fe1-ba06-1ac4e9c0deba"

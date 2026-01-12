@@ -14,7 +14,7 @@
   },
   "dashboard": {
     "welcome": "Selamat Datang,",
-    "guardCode": "Kode:",
+    "guardCode": "Kode Guard:",
     "noActiveShift": "Anda tidak memiliki shift aktif",
     "changePassword": "Ubah Kata Sandi",
     "logout": "Keluar",

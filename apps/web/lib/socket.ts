@@ -93,6 +93,11 @@ export function initSocket(server: HttpServer) {
             messageIds: data.messageIds,
             readBy: auth.id,
           });
+          // Also notify admins (to update unread counts in UI)
+          io.to('admin').emit('messages_read', {
+            guardId: targetGuardId,
+            messageIds: data.messageIds,
+          });
         } else {
           // Notify admins that guard read their messages
           io.to('admin').emit('messages_read', {

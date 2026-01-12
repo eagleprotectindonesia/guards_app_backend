@@ -14,7 +14,7 @@
   },
   "dashboard": {
     "welcome": "Welcome,",
-    "guardCode": "Code:",
+    "guardCode": "Guard Code:",
     "noActiveShift": "You have no active shifts",
     "changePassword": "Change Password",
     "logout": "Logout",
@@ -99,7 +99,7 @@
     "account": "Account"
   },
   "chat": {
-    "title": "Messages Dummy",
+    "title": "Messages",
     "noMessages": "No messages yet"
   },
   "account": {

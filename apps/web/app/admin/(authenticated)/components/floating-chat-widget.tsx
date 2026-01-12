@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '@/components/socket-provider';
-import { MessageSquare, X, Send, ChevronLeft, User } from 'lucide-react';
+import { MessageSquare, X, Send, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
@@ -35,19 +35,19 @@ export default function FloatingChatWidget() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [typingGuards, setTypingGuards] = useState<Record<string, boolean>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Listen for external open chat events
   useEffect(() => {
     const handleOpenChat = (e: CustomEvent<{ guardId: string }>) => {
       setIsOpen(true);
-      setActiveGuardId(e.detail.guardId);
+      handleSelectConversation(e.detail.guardId);
     };
-
     window.addEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
     return () => window.removeEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
-  }, []);
-
+  }, [socket]);
   // Fetch conversations list
   const fetchConversations = async () => {
     try {
@@ -60,15 +60,27 @@ export default function FloatingChatWidget() {
       console.error('Failed to fetch conversations', err);
     }
   };
-
-  // Fetch messages for active guard
-  const fetchMessages = async (guardId: string) => {
+  const handleSelectConversation = async (guardId: string) => {
+    setActiveGuardId(guardId);
     setIsLoading(true);
+
+    // Optimistically clear unread count locally
+    setConversations(prev => prev.map(c => 
+      c.guardId === guardId ? { ...c, unreadCount: 0 } : c
+    ));
+
     try {
       const res = await fetch(`/api/chat/${guardId}`);
       if (res.ok) {
         const data = await res.json();
-        setMessages(data.reverse());
+        const reversed: ChatMessage[] = data.reverse();
+        setMessages(reversed);
+        if (socket) {          
+          const unreadIds = reversed.filter((m: ChatMessage) => m.sender === 'guard' && !m.readAt).map((m: ChatMessage) => m.id);
+          if (unreadIds.length > 0) {
+            socket.emit('mark_read', { guardId, messageIds: unreadIds });
+          }
+        }
       }
     } catch (err) {
       console.error('Failed to fetch messages', err);
@@ -76,27 +88,11 @@ export default function FloatingChatWidget() {
       setIsLoading(false);
     }
   };
-
   useEffect(() => {
     if (isOpen) {
       fetchConversations();
     }
   }, [isOpen]);
-
-  useEffect(() => {
-    if (activeGuardId) {
-      fetchMessages(activeGuardId);
-
-      // Mark as read
-      if (socket) {
-        const unreadIds = messages.filter(m => m.sender === 'guard' && !m.readAt).map(m => m.id);
-
-        if (unreadIds.length > 0) {
-          socket.emit('mark_read', { guardId: activeGuardId, messageIds: unreadIds });
-        }
-      }
-    }
-  }, [activeGuardId]);
 
   useEffect(() => {
     if (socket) {
@@ -111,18 +107,61 @@ export default function FloatingChatWidget() {
           }
         }
 
-        // Always refresh conversations list to show last message/badge
-        fetchConversations();
+        // Update conversations state locally for immediate feedback
+        setConversations(prev => {
+          const index = prev.findIndex(c => c.guardId === message.guardId);
+          if (index === -1) {
+            // New conversation, need full refresh to get names etc
+            fetchConversations();
+            return prev;
+          }
+          
+          const updated = [...prev];
+          const conv = updated[index];
+          const isCurrentlyViewing = activeGuardId === message.guardId;
+          
+          updated[index] = {
+            ...conv,
+            lastMessage: {
+              content: message.content,
+              sender: message.sender,
+              createdAt: message.createdAt,
+            },
+            unreadCount: (isCurrentlyViewing || message.sender === 'admin') 
+              ? conv.unreadCount 
+              : conv.unreadCount + 1
+          };
+          
+          // Move to top of list
+          const [moved] = updated.splice(index, 1);
+          updated.unshift(moved);
+          
+          return updated;
+        });
       });
 
-      socket.on('messages_read', () => {
-        // Refresh conversations to update unread counts when messages are marked as read
-        fetchConversations();
+      socket.on('messages_read', (data: { guardId: string, messageIds?: string[] }) => {
+        // Update local state to reflect that messages were read
+        setConversations(prev => prev.map(c => 
+          c.guardId === data.guardId ? { ...c, unreadCount: 0 } : c
+        ));
+
+        // Update individual messages if they were read by the guard
+        if (activeGuardId === data.guardId && data.messageIds) {
+          setMessages(prev => prev.map(m => 
+            data.messageIds?.includes(m.id) ? { ...m, readAt: new Date().toISOString() } : m
+          ));
+        }
+      });
+
+      socket.on('typing', (data: { guardId: string, isTyping: boolean }) => {
+        setTypingGuards(prev => ({ ...prev, [data.guardId]: data.isTyping }));
       });
 
       return () => {
         socket.off('new_message');
         socket.off('messages_read');
+        socket.off('typing');
       };
     }
   }, [socket, activeGuardId]);
@@ -131,7 +170,7 @@ export default function FloatingChatWidget() {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, typingGuards]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,6 +182,23 @@ export default function FloatingChatWidget() {
     });
 
     setInputText('');
+    
+    // Stop typing
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    socket.emit('typing', { guardId: activeGuardId, isTyping: false });
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputText(e.target.value);
+    
+    if (socket && activeGuardId) {
+      socket.emit('typing', { guardId: activeGuardId, isTyping: true });
+      
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        socket.emit('typing', { guardId: activeGuardId, isTyping: false });
+      }, 3000);
+    }
   };
 
   const totalUnread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
@@ -151,120 +207,150 @@ export default function FloatingChatWidget() {
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       {/* Chat Window */}
       {isOpen && (
-        <div className="mb-4 w-80 h-[500px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
+        <div className="mb-4 w-[650px] h-[500px] bg-white rounded-lg shadow-2xl border border-gray-200 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
           {/* Header */}
-          <div className="bg-blue-600 text-white p-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {activeGuardId && (
-                <button
-                  onClick={() => setActiveGuardId(null)}
-                  className="p-1 hover:bg-blue-700 rounded-full transition-colors"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-              )}
-              <h3 className="font-semibold">
-                {activeGuardId ? conversations.find(c => c.guardId === activeGuardId)?.guardName : 'Messages'}
-              </h3>
-            </div>
+          <div className="bg-blue-600 text-white p-3 flex items-center justify-between shrink-0">
+            <h3 className="font-semibold">Chat Support</h3>
             <button onClick={() => setIsOpen(false)} className="hover:bg-blue-700 p-1 rounded-full transition-colors">
               <X size={20} />
             </button>
           </div>
 
           {/* Body */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 p-4" ref={scrollRef}>
-            {!activeGuardId ? (
-              /* Conversation List */
-              <div className="space-y-2">
-                {conversations.length === 0 ? (
-                  <div className="text-center text-gray-500 mt-10">No conversations yet</div>
-                ) : (
-                  conversations.map(conv => (
-                    <button
-                      key={conv.guardId}
-                      onClick={() => setActiveGuardId(conv.guardId)}
-                      className="w-full text-left p-3 bg-white rounded-lg border border-gray-100 hover:border-blue-300 hover:shadow-sm transition-all flex items-center gap-3 relative"
-                    >
-                      <div className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
-                        <User className="text-gray-500" size={20} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex justify-between items-start">
-                          <p className="font-medium text-gray-900 truncate">{conv.guardName}</p>
-                          <span className="text-[10px] text-gray-400">
-                            {format(new Date(conv.lastMessage.createdAt), 'HH:mm')}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 truncate">
-                          {conv.lastMessage.sender === 'admin' ? 'You: ' : ''}
-                          {conv.lastMessage.content}
-                        </p>
-                      </div>
-                      {conv.unreadCount > 0 && (
-                        <div className="absolute top-2 right-2 w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold">
-                          {conv.unreadCount}
-                        </div>
+          <div className="flex-1 flex overflow-hidden bg-gray-50">
+            {/* Sidebar: Conversation List */}
+            <div className="w-1/3 border-r border-gray-200 overflow-y-auto bg-white">
+              {conversations.length === 0 ? (
+                <div className="text-center text-gray-500 mt-10 text-sm px-4">No conversations yet</div>
+              ) : (
+                conversations.map(conv => (
+                  <button
+                    key={conv.guardId}
+                    onClick={() => handleSelectConversation(conv.guardId)}
+                    className={cn(
+                      "w-full text-left p-3 border-b border-gray-50 hover:bg-gray-50 transition-all flex items-center gap-3 relative",
+                      activeGuardId === conv.guardId && "bg-blue-50 border-l-4 border-l-blue-600"
+                    )}
+                  >
+                    <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0 relative">
+                      <User className="text-gray-500" size={16} />
+                      {typingGuards[conv.guardId] && (
+                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-white rounded-full animate-pulse" />
                       )}
-                    </button>
-                  ))
-                )}
-              </div>
-            ) : (
-              /* Message List */
-              <div className="space-y-3">
-                {isLoading ? (
-                  <div className="flex justify-center mt-10">
-                    <div className="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full"></div>
-                  </div>
-                ) : (
-                  messages.map(msg => (
-                    <div
-                      key={msg.id}
-                      className={cn(
-                        'flex flex-col max-w-[85%]',
-                        msg.sender === 'admin' ? 'ml-auto items-end' : 'mr-auto items-start'
-                      )}
-                    >
-                      <div
-                        className={cn(
-                          'p-3 rounded-2xl text-sm',
-                          msg.sender === 'admin'
-                            ? 'bg-blue-600 text-white rounded-tr-none'
-                            : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
-                        )}
-                      >
-                        {msg.content}
-                      </div>
-                      <span className="text-[10px] text-gray-400 mt-1 px-1">
-                        {format(new Date(msg.createdAt), 'HH:mm')}
-                      </span>
                     </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <p className="font-medium text-gray-900 text-sm truncate">{conv.guardName}</p>
+                      </div>
+                      <p className="text-[10px] text-gray-500 truncate">
+                        {typingGuards[conv.guardId] ? (
+                          <span className="text-green-600 font-medium italic">typing...</span>
+                        ) : (
+                          <>
+                            {conv.lastMessage.sender === 'admin' ? 'You: ' : ''}
+                            {conv.lastMessage.content}
+                          </>
+                        )}
+                      </p>
+                    </div>
+                    {conv.unreadCount > 0 && (
+                      <div className="absolute top-3 right-2 w-4 h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+                        {conv.unreadCount}
+                      </div>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
 
-          {/* Footer Input */}
-          {activeGuardId && (
-            <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-gray-200 flex gap-2">
-              <input
-                type="text"
-                value={inputText}
-                onChange={e => setInputText(e.target.value)}
-                placeholder="Type a message..."
-                className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="submit"
-                disabled={!inputText.trim()}
-                className="bg-blue-600 text-white p-2 rounded-full disabled:opacity-50 hover:bg-blue-700 transition-colors"
-              >
-                <Send size={18} />
-              </button>
-            </form>
-          )}
+            {/* Main: Active Chat Area */}
+            <div className="flex-1 flex flex-col overflow-hidden bg-gray-50">
+              {activeGuardId ? (
+                <>
+                  {/* Active Chat Header */}
+                  <div className="p-2 px-4 border-b border-gray-200 bg-white flex items-center gap-2">
+                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User className="text-blue-600" size={16} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-sm leading-tight">
+                        {conversations.find(c => c.guardId === activeGuardId)?.guardName}
+                      </span>
+                      {typingGuards[activeGuardId] && (
+                        <span className="text-[10px] text-green-600 animate-pulse">typing...</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-3" ref={scrollRef}>
+                    {isLoading ? (
+                      <div className="flex justify-center mt-10">
+                        <div className="animate-spin h-6 w-6 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                      </div>
+                    ) : (
+                      messages.map(msg => (
+                        <div
+                          key={msg.id}
+                          className={cn(
+                            'flex flex-col max-w-[85%]',
+                            msg.sender === 'admin' ? 'ml-auto items-end' : 'mr-auto items-start'
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              'p-2 rounded-xl text-sm',
+                              msg.sender === 'admin'
+                                ? 'bg-blue-600 text-white rounded-tr-none'
+                                : 'bg-white border border-gray-200 text-gray-800 rounded-tl-none'
+                            )}
+                          >
+                            {msg.content}
+                          </div>
+                          <div className="flex items-center gap-1 px-1 mt-1">
+                            <span className="text-[9px] text-gray-400">
+                              {format(new Date(msg.createdAt), 'HH:mm')}
+                            </span>
+                            {msg.sender === 'admin' && (
+                              <span className={cn(
+                                "text-[9px]",
+                                msg.readAt ? "text-blue-500" : "text-gray-300"
+                              )}>
+                                {msg.readAt ? '✓✓' : '✓'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Footer Input */}
+                  <form onSubmit={handleSendMessage} className="p-3 bg-white border-t border-gray-200 flex gap-2 shrink-0">
+                    <input
+                      type="text"
+                      value={inputText}
+                      onChange={handleInputChange}
+                      placeholder="Type a message..."
+                      className="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!inputText.trim()}
+                      className="bg-blue-600 text-white p-2 rounded-full disabled:opacity-50 hover:bg-blue-700 transition-colors"
+                    >
+                      <Send size={18} />
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
+                  <MessageSquare size={48} className="mb-4 opacity-10" />
+                  <p className="text-sm">Select a guard from the list to start chatting</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
