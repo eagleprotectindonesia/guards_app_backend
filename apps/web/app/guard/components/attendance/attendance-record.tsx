@@ -3,9 +3,10 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ShiftWithRelations } from '@/app/admin/(authenticated)/shifts/components/shift-list'; // Assuming this type is available and suitable
-import { useGuardApi } from '@/app/guard/(authenticated)/hooks/use-guard-api'; // Adjust import path as necessary
+import { useRecordAttendance } from '@/app/guard/(authenticated)/hooks/use-guard-queries'; // Adjust import path as necessary
 import { format } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { useTranslation } from 'react-i18next';
 
 interface AttendanceRecordProps {
   shift: ShiftWithRelations;
@@ -21,20 +22,19 @@ export function AttendanceRecord({
   setStatus,
   currentTime,
 }: AttendanceRecordProps) {
-  const { fetchWithAuth } = useGuardApi();
-  const [isRecording, setIsRecording] = useState(false);
+  const { t } = useTranslation();
+  const attendanceMutation = useRecordAttendance();
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
 
   const handleRecordAttendance = async () => {
-    setIsRecording(true);
     setMessage('');
     setMessageType('');
 
-    let locationData: { lat: number; lng: number } | null = null;
+    let locationData: { lat: number; lng: number } | undefined = undefined;
 
     if (navigator.geolocation) {
-      setStatus('Mendapatkan lokasi...');
+      setStatus(t('attendance.gettingLocation'));
       try {
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -49,48 +49,33 @@ export function AttendanceRecord({
         };
       } catch (error) {
         console.error('Geolocation failed or timed out:', error);
-        setIsRecording(false);
-        setMessage('Lokasi diperlukan untuk merekam kehadiran. Pastikan izin lokasi diaktifkan dan coba lagi.');
+        setMessage(t('attendance.locationRequired'));
         setMessageType('error');
-        setStatus('Gagal mendapatkan lokasi');
+        setStatus(t('attendance.locationFetchError'));
         return;
       }
     } else {
-      setIsRecording(false);
-      setMessage('Layanan lokasi tidak tersedia di perangkat ini. Lokasi diperlukan untuk merekam kehadiran.');
+      setMessage(t('attendance.locationErrorMessage'));
       setMessageType('error');
-      setStatus('Layanan lokasi tidak tersedia');
+      setStatus(t('attendance.locationErrorTitle'));
       return;
     }
 
-    setStatus('Merekam...');
+    setStatus(t('attendance.recording'));
 
     try {
-      const res = await fetchWithAuth(`/api/shifts/${shift.id}/attendance`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ shiftId: shift.id, location: locationData }),
-      });
+      await attendanceMutation.mutateAsync({ shiftId: shift.id, location: locationData });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        // The API will return the distance exceeded error message as part of errorData.error
-        throw new Error(errorData.error || errorData.message || 'Gagal merekam kehadiran');
-      }
-
-      setMessage('Kehadiran berhasil direkam!');
+      setMessage(t('attendance.success'));
       setMessageType('success');
       onAttendanceRecorded(); // Notify parent component to refresh shift data
       setStatus('Attendance Recorded'); // Update local status
     } catch (error: unknown) {
       console.error('Error recording attendance:', error);
-      setMessage(error instanceof Error ? error.message : 'Terjadi kesalahan tak terduga.');
+      const errorMessage = error instanceof Error ? error.message : t('attendance.fail');
+      setMessage(errorMessage);
       setMessageType('error');
-      setStatus('Gagal merekam kehadiran');
-    } finally {
-      setIsRecording(false);
+      setStatus(t('attendance.fail'));
     }
   };
 
@@ -117,22 +102,19 @@ export function AttendanceRecord({
       }`}
     >
       <CardHeader className="pb-2">
-        <CardTitle className="text-2xl">Status Kehadiran</CardTitle>
+        <CardTitle className="text-2xl">{t('attendance.recordedTitle')}</CardTitle>
       </CardHeader>
       <CardContent>
         {hasAttendance ? (
           <p className={`font-medium ${isLateAttendance ? 'text-yellow-600' : 'text-green-600'}`}>
             {isLateAttendance
-              ? `Kehadiran direkam sebagai terlambat pada ${format(
-                  new Date(shift.attendance!.recordedAt),
-                  'MM/dd/yyyy HH:mm'
-                )}`
-              : `Kehadiran direkam pada ${format(new Date(shift.attendance!.recordedAt), 'MM/dd/yyyy HH:mm')}`}
+              ? t('attendance.recordedLateAt', { date: format(new Date(shift.attendance!.recordedAt), 'MM/dd/yyyy HH:mm') })
+              : t('attendance.recordedAt', { date: format(new Date(shift.attendance!.recordedAt), 'MM/dd/yyyy HH:mm') })}
           </p>
         ) : isLateTime ? (
-          <p className="text-red-600 font-bold">Kehadiran Tidak Terekam</p>
+          <p className="text-red-600 font-bold">{t('attendance.notRecordedTitle')}</p>
         ) : (
-          <p className="text-red-500 font-medium">Harap rekam kehadiran Anda untuk memulai Shift.</p>
+          <p className="text-red-500 font-medium">{t('attendance.requiredMessage')}</p>
         )}
 
         {message && (
@@ -143,20 +125,20 @@ export function AttendanceRecord({
           <>
             <Button
               onClick={handleRecordAttendance}
-              disabled={isRecording || !canRecordAttendance}
+              disabled={attendanceMutation.isPending || !canRecordAttendance}
               className="mt-4 w-full"
             >
-              {isRecording ? 'Merekam...' : 'Rekam Kehadiran'}
+              {attendanceMutation.isPending ? t('attendance.recording') : t('attendance.submitButton')}
             </Button>
             {!canRecordAttendance && (
-              <p className="text-sm text-gray-500 font-semibold mt-2">Kehadiran sudah direkam untuk Shift ini.</p>
+              <p className="text-sm text-gray-500 font-semibold mt-2">{t('attendance.alreadyRecorded')}</p>
             )}
           </>
         )}
 
         {isLateTime && !hasAttendance && (
           <p className="text-red-600 mt-2 font-medium">
-            <i>Batas waktu presensi terlewat. Harap hubungi administrator Anda.</i>
+            <i>{t('attendance.lateMessage')}</i>
           </p>
         )}
       </CardContent>

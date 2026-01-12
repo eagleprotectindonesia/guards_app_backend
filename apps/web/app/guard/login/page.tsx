@@ -1,89 +1,81 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useActionState } from 'react';
-import { Button } from '@/components/ui/button'; // Assuming this exists for styling
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { PasswordInput } from '@/components/ui/password-input';
-
-type GuardLoginState = {
-  success?: boolean;
-  message?: string;
-};
-
-async function guardLoginAction(prevState: GuardLoginState, formData: FormData): Promise<GuardLoginState> {
-  const employeeId = formData.get('employeeId') as string;
-  const password = formData.get('password') as string;
-
-  if (!employeeId || !password) {
-    return { message: 'Employee ID and password are required.' };
-  }
-
-  const res = await fetch('/api/auth/guard/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ employeeId, password }),
-  });
-
-  const data = await res.json();
-
-  if (res.ok) {
-    return { success: true, message: 'Login successful!' };
-  } else {
-    return { success: false, message: data.message || 'Login failed.' };
-  }
-}
+import { useLogin } from '../(authenticated)/hooks/use-guard-queries';
+import { useTranslation } from 'react-i18next';
 
 export default function GuardLoginPage() {
+  const { t } = useTranslation();
   const router = useRouter();
-  const [state, formAction] = useActionState(guardLoginAction, {});
+  const loginMutation = useLogin();
+  const [employeeId, setEmployeeId] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  if (state.success) {
-    router.push('/guard'); // Redirect to guard dashboard after successful login
-    return null;
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!employeeId || !password) {
+      setError(t('login.validationErrorMessage'));
+      return;
+    }
+
+    try {
+      await loginMutation.mutateAsync({ employeeId, password });
+      router.push('/guard');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : t('login.errorMessage');
+      setError(errorMessage);
+    }
+  };
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100 p-4">
       <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-2xl font-bold text-center mb-6">Guard Login</h1>
-        <form action={formAction} className="space-y-4">
+        <h1 className="text-2xl font-bold text-center mb-6">{t('login.title')}</h1>
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label htmlFor="employeeId" className="block text-sm font-medium text-gray-700">
-              Employee ID
+              {t('login.employeeIdLabel')}
             </label>
             <input
               type="text"
               id="employeeId"
               name="employeeId"
+              placeholder={t('login.employeeIdPlaceholder')}
+              value={employeeId}
               required
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
               onChange={(e) => {
                 const filteredValue = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-                if (filteredValue !== e.target.value) {
-                  e.target.value = filteredValue;
-                }
+                setEmployeeId(filteredValue);
               }}
             />
           </div>
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-              Password
+              {t('login.passwordLabel')}
             </label>
             <PasswordInput
               id="password"
               name="password"
+              placeholder={t('login.passwordPlaceholder')}
+              value={password}
               required
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          <Button type="submit" className="w-full">
-            Login
+          <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
+            {loginMutation.isPending ? t('common.processing') : t('login.submitButton')}
           </Button>
-          {state.message && (
-            <p className={`mt-4 text-center text-sm ${state.success ? 'text-green-600' : 'text-red-600'}`}>
-              {state.message}
+          {error && (
+            <p className="mt-4 text-center text-sm text-red-600">
+              {error}
             </p>
           )}
         </form>

@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import PwaRegistrar from './components/pwa-registrar';
+import Providers from './providers';
 // import InstallPrompt from './components/install-prompt';
 
 export const metadata: Metadata = {
@@ -32,10 +33,10 @@ export default function GuardRootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <Providers>
       <PwaRegistrar />
       {/* <InstallPrompt /> */}
       {children}
-    </>
+    </Providers>
   );
 }

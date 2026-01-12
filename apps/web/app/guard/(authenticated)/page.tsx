@@ -1,50 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { useActionState } from 'react';
-import { ShiftWithRelations } from '@/app/admin/(authenticated)/shifts/components/shift-list';
-import { useRouter } from 'next/navigation'; // Import useRouter
-import { useGuardApi } from './hooks/use-guard-api';
+import { useState, useEffect, useMemo } from 'react';
 import CheckInCard from '@/app/guard/components/shift/checkin-card';
 import { AttendanceRecord } from '@/app/guard/components/attendance/attendance-record';
 import { GuardCarousel } from '@/app/guard/components/shift/guard-carousel';
-import { PasswordChangeForm } from '@/app/guard/components/password-change/password-change-form';
-import { CheckInWindowResult } from '@/lib/scheduling';
-import { changeGuardPasswordAction } from '@/app/guard/actions';
-
-const parseShiftDates = (shift: ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) => {
-  if (!shift) return null;
-  return {
-    ...shift,
-    startsAt: new Date(shift.startsAt),
-    endsAt: new Date(shift.endsAt),
-    checkInWindow: shift.checkInWindow
-      ? {
-          ...shift.checkInWindow,
-          currentSlotStart: new Date(shift.checkInWindow.currentSlotStart),
-          currentSlotEnd: new Date(shift.checkInWindow.currentSlotEnd),
-          nextSlotStart: new Date(shift.checkInWindow.nextSlotStart),
-        }
-      : undefined,
-  };
-};
+import { useProfile, useActiveShift } from './hooks/use-guard-queries';
+import { useTranslation } from 'react-i18next';
 
 export default function GuardPage() {
-  const router = useRouter(); // Initialize router
-  const { fetchWithAuth } = useGuardApi();
-  const [activeShift, setActiveShift] = useState<ShiftWithRelations | null>(null);
-  const [nextShifts, setNextShifts] = useState<ShiftWithRelations[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { t } = useTranslation();
+  const { data: guardDetails } = useProfile();
+  const { data: shiftData, isLoading: loading, refetch: refetchShift } = useActiveShift();
+  
+  const activeShift = useMemo(() => shiftData?.activeShift || null, [shiftData]);
+  const nextShifts = useMemo(() => shiftData?.nextShifts || [], [shiftData]);
+  
   const [status, setStatus] = useState('');
-  const [guardDetails, setGuardDetails] = useState<{ name: string; guardCode?: string } | null>(null); // New state for guard details
-  const [showPasswordChange, setShowPasswordChange] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [passwordChangeState, passwordChangeFormAction] = useActionState(changeGuardPasswordAction, {});
 
   useEffect(() => {
-    if (loading) return;
-
     // Update current time every second to check window validity
     const timer = setInterval(() => {
       const now = new Date();
@@ -54,94 +28,24 @@ export default function GuardPage() {
       if (activeShift) {
         const endTime = new Date(activeShift.endsAt.getTime() + 5 * 60000);
         if (now > endTime) {
-          setActiveShift(null);
-          // Re-fetch to see if there's a new upcoming shift
-          fetchShift();
+          refetchShift();
         }
-      } else {
+      } else if (nextShifts.length > 0) {
         // When there's no active shift, check if we've passed the scheduled start time of the next shift
-        const FIVE_MINUTES_IN_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
-        if (nextShifts.length > 0) {
-          const startTime = new Date(nextShifts[0].startsAt);
-          const shiftStartWithGrace = new Date(startTime.getTime() - FIVE_MINUTES_IN_MS);
-          if (now >= shiftStartWithGrace) {
-            // Fetch to see if the next shift is now the active shift
-            fetchShift();
-          }
+        const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
+        const startTime = new Date(nextShifts[0].startsAt);
+        const shiftStartWithGrace = new Date(startTime.getTime() - FIVE_MINUTES_IN_MS);
+        if (now >= shiftStartWithGrace) {
+          refetchShift();
         }
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [activeShift, nextShifts, loading]);
-
-  const fetchGuardDetails = async () => {
-    try {
-      const res = await fetchWithAuth('/api/my/profile');
-      if (res.ok) {
-        const data = await res.json();
-        setGuardDetails(data.guard);
-      } else {
-        console.error('Failed to fetch guard details');
-        setGuardDetails(null);
-      }
-    } catch (error) {
-      console.error('Network error fetching guard details:', error);
-      setGuardDetails(null);
-    }
-  };
-
-  const fetchShift = async () => {
-    // Only set loading true if it's the first fetch or if guardDetails are already loaded
-    // This prevents showing a loader when only guard details are being fetched
-    setLoading(true);
-    try {
-      const res = await fetchWithAuth('/api/my/active-shift');
-      if (!res.ok) {
-        const errorData = await res.json();
-        console.error('Error fetching active shift:', errorData.message || res.statusText);
-        setActiveShift(null);
-        setNextShifts([]);
-        return;
-      }
-      const data = await res.json();
-      if (
-        data.activeShift &&
-        !(
-          data.activeShift.checkInWindow?.isLastSlot &&
-          ['late', 'completed'].includes(data.activeShift.checkInWindow?.status)
-        ) // due to how the active slot is retrieved, if it's late/completed for last slot then consider it as finished
-      ) {
-        setActiveShift(parseShiftDates(data.activeShift));
-        // If guardDetails are not yet set, set guardName from activeShift
-      } else {
-        setActiveShift(null);
-      }
-      if (data.nextShifts && Array.isArray(data.nextShifts)) {
-        setNextShifts(data.nextShifts.map(parseShiftDates));
-      } else {
-        setNextShifts([]);
-      }
-    } catch (err) {
-      console.error('Network error fetching active shift:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // useEffect(() => {
-  //   const intervalId = setInterval(async () => {
-  //     await Promise.all([fetchGuardDetails(), fetchShift()]);
-  //   }, 2 * 60 * 1000); // 2 minutes in milliseconds
-
-  //   return () => clearInterval(intervalId);
-  // }, []);
+  }, [activeShift, nextShifts, refetchShift]);
 
   useEffect(() => {
-    fetchGuardDetails();
-    fetchShift();
-
     const handleShiftUpdate = () => {
-      fetchShift();
+      refetchShift();
     };
 
     window.addEventListener('shift_updated', handleShiftUpdate);
@@ -149,35 +53,22 @@ export default function GuardPage() {
     return () => {
       window.removeEventListener('shift_updated', handleShiftUpdate);
     };
-  }, []);
-
-  const handleLogout = async () => {
-    try {
-      const res = await fetchWithAuth('/api/auth/guard/logout', { method: 'POST' });
-      if (res.ok) {
-        router.push('/guard/login');
-      } else {
-        console.error('Logout failed');
-      }
-    } catch (error) {
-      console.error('Network error during logout:', error);
-    }
-  };
+  }, [refetchShift]);
 
   return (
     <div className="p-8 max-w-md mx-auto font-sans">
       <h1 className="text-3xl font-bold mb-1">
-        Selamat datang, <br /> {guardDetails?.name || 'Guard'}!
+        {t('dashboard.welcome')} <br /> {guardDetails?.name || 'Guard'}!
       </h1>
       {guardDetails?.guardCode && (
-        <p className="text-gray-500 text font-semibold mb-4">Kode Guard: {guardDetails.guardCode}</p>
+        <p className="text-gray-500 text font-semibold mb-4">{t('dashboard.guardCode')} {guardDetails.guardCode}</p>
       )}
 
-      {loading && <p>Memuat detail Shift Anda...</p>}
+      {loading && <p>{t('common.loading')}</p>}
 
       {!loading && !activeShift && (
         <div className="text-center p-8 border-2 border-dashed rounded">
-          <p className="text-gray-500">Anda tidak memiliki shift aktif</p>
+          <p className="text-gray-500">{t('dashboard.noActiveShift')}</p>
         </div>
       )}
 
@@ -189,7 +80,7 @@ export default function GuardPage() {
             <>
               <AttendanceRecord
                 shift={activeShift}
-                onAttendanceRecorded={fetchShift}
+                onAttendanceRecorded={refetchShift}
                 status={status}
                 setStatus={setStatus}
                 currentTime={currentTime}
@@ -207,7 +98,7 @@ export default function GuardPage() {
                     status={status}
                     currentTime={currentTime}
                     setStatus={setStatus}
-                    fetchShift={fetchShift}
+                    fetchShift={refetchShift}
                   />
                 ) : null;
               })()}
@@ -215,23 +106,6 @@ export default function GuardPage() {
           )}
         </>
       )}
-
-      <div className="mt-8 border-t pt-6">
-        <Button onClick={() => setShowPasswordChange(true)} variant="secondary" className="w-full mb-4">
-          Ubah Kata Sandi
-        </Button>
-
-        <PasswordChangeForm
-          isOpen={showPasswordChange}
-          onClose={() => setShowPasswordChange(false)}
-          actionState={passwordChangeState}
-          formAction={passwordChangeFormAction}
-        />
-
-        <Button onClick={handleLogout} variant="destructive" className="w-full">
-          Keluar
-        </Button>
-      </div>
     </div>
   );
 }

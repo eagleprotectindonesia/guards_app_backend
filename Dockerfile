@@ -41,6 +41,9 @@ ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY} \
     NODE_ENV=production
 
 RUN npx turbo run build --filter=web && \
+    # Inject BUILD_ID into Service Worker for cache busting
+    BUILD_ID=$(cat apps/web/.next/BUILD_ID) && \
+    sed -i "s/{{BUILD_ID}}/$BUILD_ID/g" apps/web/public/guard/sw.js && \
     # Clean up unnecessary files
     rm -rf apps/web/.next/cache
 

@@ -1,8 +1,11 @@
 const CACHE_NAME = 'guard-pwa-{{BUILD_ID}}';
+const STATIC_CACHE = 'guard-static-v1'; // For hashed assets
 const OFFLINE_URL = '/guard/offline.html';
+
 const ASSETS_TO_CACHE = [
   OFFLINE_URL,
-  '/guard/icons/icon.svg'
+  '/guard/icons/icon.svg',
+  '/guard/manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
@@ -17,7 +20,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keyList) => {
       return Promise.all(
         keyList.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (key !== CACHE_NAME && key !== STATIC_CACHE) {
             return caches.delete(key);
           }
         })
@@ -28,15 +31,16 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only handle requests within the scope and GET method
-  if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) return;
+  const { request } = event;
+  const url = new URL(request.url);
 
-  // Don't cache API calls aggressively - we need real-time data
-  if (event.request.url.includes('/api/')) {
+  // 1. Skip non-GET and cross-origin (except CDN if needed)
+  if (request.method !== 'GET' || !url.origin.includes(self.location.origin)) return;
+
+  // 2. API: Network Only (Always fresh data)
+  if (url.pathname.includes('/api/')) {
     event.respondWith(
-      fetch(event.request).catch(() => {
-        // Optional: Return a JSON offline message for API calls?
-        // For now, let it fail naturally or handle in frontend code
+      fetch(request).catch(() => {
         return new Response(JSON.stringify({ error: 'Offline' }), {
           headers: { 'Content-Type': 'application/json' }
         });
@@ -45,19 +49,40 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network First Strategy for pages
-  event.respondWith(
-    fetch(event.request)
-      .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          // If it's a navigation request (HTML page), show offline page
-          if (event.request.mode === 'navigate') {
-            return caches.match(OFFLINE_URL);
-          }
+  // 3. Static Hashed Assets (JS, CSS from Next.js): Cache First
+  if (url.pathname.includes('/_next/static/')) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        return cached || fetch(request).then((response) => {
+          return caches.open(STATIC_CACHE).then((cache) => {
+            cache.put(request, response.clone());
+            return response;
+          });
         });
       })
+    );
+    return;
+  }
+
+  // 4. Pages and other assets: Stale-While-Revalidate
+  event.respondWith(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.match(request).then((cachedResponse) => {
+        const fetchedResponse = fetch(request)
+          .then((networkResponse) => {
+            if (networkResponse.status === 200) {
+              cache.put(request, networkResponse.clone());
+            }
+            return networkResponse;
+          })
+          .catch(() => {
+             if (request.mode === 'navigate' && !cachedResponse) {
+               return caches.match(OFFLINE_URL);
+             }
+          });
+
+        return cachedResponse || fetchedResponse;
+      });
+    })
   );
 });

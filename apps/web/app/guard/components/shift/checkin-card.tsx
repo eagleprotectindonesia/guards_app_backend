@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { ShiftWithRelations } from '@/app/admin/(authenticated)/shifts/components/shift-list';
-import { useGuardApi } from '@/app/guard/(authenticated)/hooks/use-guard-api';
+import { useCheckIn } from '@/app/guard/(authenticated)/hooks/use-guard-queries';
 import { CheckInWindowResult } from '@/lib/scheduling';
 import { Card, CardContent } from '@/components/ui/card';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 type ActiveShiftWithWindow = ShiftWithRelations & {
   checkInWindow?: CheckInWindowResult;
@@ -17,11 +18,12 @@ type CheckInCardProps = {
   status: string;
   currentTime: Date;
   setStatus: (status: string) => void;
-  fetchShift: () => Promise<void>;
+  fetchShift: () => Promise<unknown>;
 };
 
 export default function CheckInCard({ activeShift, status, setStatus, fetchShift }: CheckInCardProps) {
-  const { fetchWithAuth } = useGuardApi();
+  const { t } = useTranslation();
+  const checkInMutation = useCheckIn();
   const [timeLeft, setTimeLeft] = useState<string>('');
   const [canCheckIn, setCanCheckIn] = useState(false);
   const expiryRefreshRef = useRef<string | null>(null);
@@ -32,8 +34,8 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
       return;
     }
     const formatTime = (seconds: number) => {
-      if (seconds > 60) return `${Math.ceil(seconds / 60)} menit`;
-      return `${seconds} detik`;
+      if (seconds > 60) return `${Math.ceil(seconds / 60)} ${t('common.minutes')}`;
+      return `${seconds} ${t('common.seconds')}`;
     };
 
     const updateTimer = () => {
@@ -70,27 +72,27 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
         // Waiting for next slot
         const diff = Math.ceil((nextSlotStartMs - now) / 1000);
         if (diff > 0) {
-          message = `Check in berikutnya dalam ${formatTime(diff)}`;
+          message = t('checkin.nextIn', { time: formatTime(diff) });
         } else {
           // We might be in a drift state where frontend time > next slot but API hasn't updated.
           // In this case, we should probably fetchShift?
           // For now, just say "Opening..."
-          message = 'Mempersiapkan slot berikutnya...';
+          message = t('checkin.preparingNext');
         }
         isWindowOpen = false;
       } else if (window.status === 'early') {
         // Early for the very first slot (or general early)
         const diff = Math.ceil((currentSlotStartMs - now) / 1000);
         if (diff > 0) {
-          message = `Check in dibuka dalam ${formatTime(diff)}`;
+          message = t('checkin.opensIn', { time: formatTime(diff) });
         } else {
           // Check if we also passed the end time (missed the window locally)
           const endDiff = Math.ceil((currentSlotEndMs - now) / 1000);
           if (endDiff > 0) {
-            message = 'Check-in Buka...';
+            message = t('checkin.openStatus');
             isWindowOpen = true;
           } else {
-            message = 'Jendela terlewat';
+            message = t('checkin.missed');
             isWindowOpen = false;
             fetchShift().catch(console.error);
           }
@@ -99,10 +101,10 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
         // Open now, counting down to close
         const diff = Math.ceil((currentSlotEndMs - now) / 1000);
         if (diff > 0) {
-          message = `Sisa waktu: ${formatTime(diff)}`;
+          message = t('checkin.remainingTime', { time: diff });
           isWindowOpen = true;
         } else {
-          message = 'Jendela terlewat';
+          message = t('checkin.missed');
           isWindowOpen = false;
           fetchShift().catch(console.error);
         }
@@ -110,9 +112,9 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
         // Late for current, waiting for next
         const diff = Math.ceil((nextSlotStartMs - now) / 1000);
         if (diff > 0) {
-          message = `Check in berikutnya dalam ${formatTime(diff)}`;
+          message = t('checkin.nextIn', { time: formatTime(diff) });
         } else {
-          message = 'Mempersiapkan slot berikutnya...';
+          message = t('checkin.preparingNext');
         }
         isWindowOpen = false;
       }
@@ -124,7 +126,7 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
-  }, [activeShift, fetchShift]);
+  }, [activeShift, fetchShift, t]);
 
   const handleCheckIn = async () => {
     if (!activeShift) return;
@@ -132,7 +134,7 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
     let locationData: { lat: number; lng: number } | undefined;
 
     if (navigator.geolocation) {
-      setStatus('Mendapatkan lokasi...');
+      setStatus(t('checkin.gettingLocation'));
       try {
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
           navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -147,45 +149,36 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
         };
       } catch (error) {
         console.error('Geolocation failed or timed out:', error);
-        setStatus('Lokasi diperlukan untuk melakukan check-in. Pastikan izin lokasi diaktifkan dan coba lagi.');
+        setStatus(t('checkin.locationRequired'));
         return;
       }
     } else {
-      setStatus('Layanan lokasi tidak tersedia di perangkat ini. Lokasi diperlukan untuk check-in.');
+      setStatus(t('checkin.locationError'));
       return;
     }
 
-    setStatus('Check-in...');
+    setStatus(t('checkin.processing'));
     try {
-      const res = await fetchWithAuth(`/api/shifts/${activeShift.id}/checkin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          source: 'web-ui',
-          location: locationData,
-        }),
+      const data = await checkInMutation.mutateAsync({
+        shiftId: activeShift.id,
+        location: locationData,
       });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.error === 'Already checked in for this interval') {
-          if (activeShift.checkInWindow?.isLastSlot) {
-            toast.success('Shift Selesai');
-          }
-          fetchShift();
-          return;
-        }
-        setStatus(`Error: ${data.message || data.error || 'Check-in gagal.'}`);
-      } else {
-        // setStatus(`Berhasil Check-in! Status: ${data.status}`);
-        if (data.isLastSlot) {
-          toast.success('Shift Selesai');
-        }
-        fetchShift(); // Refresh to get next window
+      
+      if (data.isLastSlot) {
+        toast.success(t('checkin.shiftCompletedTitle'));
       }
-    } catch (err) {
-      setStatus('Kesalahan Jaringan');
+      setStatus('');
+    } catch (err: unknown) {
+      const errorData = err as { error?: string; message?: string };
+      if (errorData.error === 'Already checked in for this interval') {
+        if (activeShift.checkInWindow?.isLastSlot) {
+          toast.success(t('checkin.shiftCompletedTitle'));
+        }
+        fetchShift();
+        setStatus('');
+        return;
+      }
+      setStatus(`${t('checkin.fail')}: ${errorData.message || errorData.error}`);
       console.error('Network error during check-in:', err);
     }
   };
@@ -206,14 +199,14 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
       <CardContent className="pt-6">
         <div className="mb-6">
           {canCheckIn ? (
-            <h2 className="text-2xl font-bold text-green-600 mb-2">Check-in Dibuka!</h2>
+            <h2 className="text-2xl font-bold text-green-600 mb-2">{t('checkin.titleOpen')}</h2>
           ) : (
             <>
-              <p className="font-semibold text-gray-500">Check-in Berikutnya:</p>
+              <p className="font-semibold text-gray-500">{t('checkin.titleNext')}:</p>
               <p className="text-3xl font-mono font-bold text-blue-600">
                 {nextDueDisplay.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
-              <p className="text-sm font-bold text-gray-400 mt-1">Masa tenggang: {activeShift.graceMinutes} menit</p>
+              <p className="text-sm font-bold text-gray-400 mt-1">{t('attendance.requiredTitle')}: {activeShift.graceMinutes} {t('common.minutes')}</p>
             </>
           )}
           <p className={`text-sm font-semibold mt-2 ${canCheckIn ? 'text-green-600' : 'text-amber-600'}`}>{timeLeft}</p>
@@ -224,7 +217,7 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
             onClick={handleCheckIn}
             className="w-full text-lg font-bold py-4 rounded-lg shadow transition-all active:scale-95 bg-green-600 hover:bg-green-700 text-white"
           >
-            CHECK IN SEKARANG
+            {t('checkin.submitButton')}
           </button>
         )}
 
