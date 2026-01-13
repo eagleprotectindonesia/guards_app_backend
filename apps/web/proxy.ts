@@ -1,9 +1,6 @@
 import { NextResponse, NextRequest } from 'next/server';
-import jwt from 'jsonwebtoken';
-import { redis } from '@/lib/redis';
-import { getAdminById } from '@/lib/data-access/admins';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+import { verifySession } from '@/lib/auth/session';
+import { AUTH_COOKIES } from '@/lib/auth/constants';
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -15,38 +12,13 @@ export async function proxy(request: NextRequest) {
 
   // 2. Only check if it's an admin path and NOT the login page
   if ((isAdminPath || isAdminApiPath) && !isLoginPage) {
-    const token = request.cookies.get('admin_token')?.value;
+    const token = request.cookies.get(AUTH_COOKIES.ADMIN)?.value;
 
     let isValid = false;
 
     if (token) {
-      try {
-        const decoded = jwt.verify(token, JWT_SECRET) as { adminId: string; tokenVersion?: number };
-        
-        // 1. Check Redis Cache first
-        const cacheKey = `admin:token_version:${decoded.adminId}`;
-        let currentVersion: number | null = null;
-        
-        const cachedVersion = await redis.get(cacheKey);
-        if (cachedVersion !== null) {
-          currentVersion = parseInt(cachedVersion, 10);
-        } else {
-          // 2. Fallback to Database
-          const admin = await getAdminById(decoded.adminId);
-          
-          if (admin) {
-            currentVersion = admin.tokenVersion;
-            // Cache for 1 hour
-            await redis.set(cacheKey, currentVersion.toString(), 'EX', 3600);
-          }
-        }
-
-        if (currentVersion !== null && (decoded.tokenVersion === undefined || decoded.tokenVersion === currentVersion)) {
-          isValid = true;
-        }
-      } catch (err) {
-        console.warn('Proxy: Admin token verification failed:', err);
-      }
+      const { isValid: sessionValid } = await verifySession(token, 'admin');
+      isValid = sessionValid;
     }
 
     if (!isValid) {
@@ -57,12 +29,12 @@ export async function proxy(request: NextRequest) {
 
       // If it's a page request, redirect to login
       const loginUrl = new URL('/admin/login', request.url);
-      
+
       const response = NextResponse.redirect(loginUrl);
-      
+
       // Try to clear the invalid cookie
-      response.cookies.delete('admin_token');
-      
+      response.cookies.delete(AUTH_COOKIES.ADMIN);
+
       return response;
     }
   }
@@ -71,8 +43,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    '/admin/:path*',
-    '/api/admin/:path*',
-  ],
+  matcher: ['/admin/:path*', '/api/admin/:path*'],
 };
