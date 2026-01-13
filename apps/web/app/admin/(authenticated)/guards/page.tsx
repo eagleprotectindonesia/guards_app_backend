@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 import { parseISO, isValid } from 'date-fns';
 import type { Metadata } from 'next';
 import { getPaginatedGuards } from '@/lib/data-access/guards';
-import { getCurrentAdmin } from '@/lib/admin-auth';
+import { getAdminSession } from '@/lib/admin-auth';
 
 export const metadata: Metadata = {
   title: 'Guards Management',
@@ -18,7 +18,7 @@ type GuardsPageProps = {
 };
 
 export default async function GuardsPage(props: GuardsPageProps) {
-  const currentAdmin = await getCurrentAdmin();
+  const session = await getAdminSession();
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
   const query = searchParams.q as string | undefined;
@@ -29,13 +29,15 @@ export default async function GuardsPage(props: GuardsPageProps) {
   const sortBy = typeof searchParams.sortBy === 'string' ? searchParams.sortBy : 'joinDate'; // Default to joinDate
 
   const sortOrder =
-    (typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
-      ? searchParams.sortOrder as 'asc' | 'desc'
-      : 'desc');
+    typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
+      ? (searchParams.sortOrder as 'asc' | 'desc')
+      : 'desc';
 
   // Validate sortBy field to prevent SQL injection
   const validSortFields = ['name', 'id', 'guardCode', 'joinDate'];
-  const sortField = validSortFields.includes(sortBy) ? (sortBy as 'name' | 'id' | 'guardCode' | 'joinDate') : 'joinDate';
+  const sortField = validSortFields.includes(sortBy)
+    ? (sortBy as 'name' | 'id' | 'guardCode' | 'joinDate')
+    : 'joinDate';
 
   const where: Prisma.GuardWhereInput = {};
 
@@ -86,10 +88,9 @@ export default async function GuardsPage(props: GuardsPageProps) {
           sortOrder={sortOrder}
           startDate={startDateParam}
           endDate={endDateParam}
-          isSuperAdmin={currentAdmin?.role === 'superadmin'}
+          isSuperAdmin={session?.isSuperAdmin}
         />
       </Suspense>
     </div>
   );
 }
-

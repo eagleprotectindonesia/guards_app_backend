@@ -3,7 +3,7 @@ import ShiftTypeList from './components/shift-type-list';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { getPaginatedShiftTypes } from '@/lib/data-access/shift-types';
-import { getCurrentAdmin } from '@/lib/admin-auth';
+import { getAdminSession } from '@/lib/admin-auth';
 
 export const metadata: Metadata = {
   title: 'Shift Types Management',
@@ -16,7 +16,7 @@ type ShiftTypesPageProps = {
 };
 
 export default async function ShiftTypesPage(props: ShiftTypesPageProps) {
-  const currentAdmin = await getCurrentAdmin();
+  const session = await getAdminSession();
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
 
@@ -34,7 +34,7 @@ export default async function ShiftTypesPage(props: ShiftTypesPageProps) {
           page={page}
           perPage={perPage}
           totalCount={totalCount}
-          isSuperAdmin={currentAdmin?.role === 'superadmin'}
+          isSuperAdmin={session?.isSuperAdmin}
         />
       </Suspense>
     </div>

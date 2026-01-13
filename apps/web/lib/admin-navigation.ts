@@ -11,29 +11,30 @@ import {
   Settings,
   type LucideIcon,
 } from 'lucide-react';
+import { PermissionCode } from './auth/permissions';
 
 export interface NavItem {
   name: string;
   href: string;
   icon: LucideIcon;
-  role?: 'admin' | 'superadmin';
+  requiredPermission?: PermissionCode;
 }
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
-  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-  { name: 'Sites', href: '/admin/sites', icon: MapPin },
-  { name: 'Guards', href: '/admin/guards', icon: Users },
-  { name: 'Shift Types', href: '/admin/shift-types', icon: Layers },
-  { name: 'Shifts', href: '/admin/shifts', icon: Calendar },
-  { name: 'Attendance', href: '/admin/attendance', icon: ClipboardCheck },
-  { name: 'Checkins', href: '/admin/checkins', icon: ClipboardCheck },
-  { name: 'Alerts', href: '/admin/alerts', icon: Bell },
+  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, requiredPermission: 'dashboard:view' },
+  { name: 'Sites', href: '/admin/sites', icon: MapPin, requiredPermission: 'sites:view' },
+  { name: 'Guards', href: '/admin/guards', icon: Users, requiredPermission: 'guards:view' },
+  { name: 'Shift Types', href: '/admin/shift-types', icon: Layers, requiredPermission: 'shift-types:view' },
+  { name: 'Shifts', href: '/admin/shifts', icon: Calendar, requiredPermission: 'shifts:view' },
+  { name: 'Attendance', href: '/admin/attendance', icon: ClipboardCheck, requiredPermission: 'attendance:view' },
+  { name: 'Checkins', href: '/admin/checkins', icon: ClipboardCheck, requiredPermission: 'checkins:view' },
+  { name: 'Alerts', href: '/admin/alerts', icon: Bell, requiredPermission: 'alerts:view' },
 ];
 
 export const ADMIN_SECONDARY_NAV_ITEMS: NavItem[] = [
-  { name: 'Admins', href: '/admin/admins', icon: UserCog, role: 'superadmin' },
-  { name: 'Settings', href: '/admin/settings', icon: Settings },
-  // { name: 'Changelogs', href: '/admin/changelogs', icon: History, role: 'superadmin' },
+  { name: 'Admins', href: '/admin/admins', icon: UserCog, requiredPermission: 'admins:view' },
+  { name: 'Roles', href: '/admin/system/roles', icon: UserCog, requiredPermission: 'roles:view' },
+  { name: 'Settings', href: '/admin/settings', icon: Settings, requiredPermission: 'system-settings:view' },
   { name: 'Profile', href: '/admin/profile', icon: User },
 ];
 

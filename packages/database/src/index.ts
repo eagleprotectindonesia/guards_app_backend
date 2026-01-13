@@ -10,3 +10,4 @@ export * from './data-access/settings';
 export * from './data-access/shift-types';
 export * from './data-access/shifts';
 export * from './data-access/sites';
+export * from './data-access/roles';

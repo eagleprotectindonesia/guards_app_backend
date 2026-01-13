@@ -12,7 +12,7 @@ import Link from 'next/link';
 import { Pencil } from 'lucide-react';
 
 type AdminListProps = {
-  admins: Serialized<Admin>[];
+  admins: Serialized<Admin & { roleRef?: { name: string } | null }>[];
   page: number;
   perPage: number;
   totalCount: number;
@@ -80,43 +80,48 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
                   </td>
                 </tr>
               ) : (
-                admins.map(admin => (
-                  <tr key={admin.id} className="hover:bg-muted/50 transition-colors group">
-                    <td className="py-4 px-6 text-sm font-medium text-foreground">{admin.name}</td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">{admin.email}</td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          admin.role === 'superadmin' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400' : 'bg-muted text-foreground border border-border'
-                        }`}
-                      >
-                        {admin.role || 'admin'}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">
-                      <div className="max-w-[200px] whitespace-normal wrap-break-words">
-                        {admin.note || '-'}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-100">
-                        <Link
-                          href={`/admin/admins/${admin.id}/edit`}
-                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                          title="Edit"
+                admins.map(admin => {
+                  const roleName = admin.roleRef?.name || 'Admin';
+                  const isSuperAdmin = roleName === 'Super Admin';
+
+                  return (
+                    <tr key={admin.id} className="hover:bg-muted/50 transition-colors group">
+                      <td className="py-4 px-6 text-sm font-medium text-foreground">{admin.name}</td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">{admin.email}</td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            isSuperAdmin
+                              ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400'
+                              : 'bg-muted text-foreground border border-border'
+                          }`}
                         >
-                          <Pencil className="w-4 h-4" />
-                          <span className="sr-only">Edit</span>
-                        </Link>
-                        <DeleteButton
-                          onClick={() => handleDeleteClick(admin.id)}
-                          disabled={isPending || admin.role === 'superadmin'}
-                          title={admin.role === 'superadmin' ? 'Cannot delete a Super Admin' : 'Delete'}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                          {roleName}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
+                        <div className="max-w-[200px] whitespace-normal wrap-break-words">{admin.note || '-'}</div>
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-100">
+                          <Link
+                            href={`/admin/admins/${admin.id}/edit`}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
+                            title="Edit"
+                          >
+                            <Pencil className="w-4 h-4" />
+                            <span className="sr-only">Edit</span>
+                          </Link>
+                          <DeleteButton
+                            onClick={() => handleDeleteClick(admin.id)}
+                            disabled={isPending || isSuperAdmin}
+                            title={isSuperAdmin ? 'Cannot delete a Super Admin' : 'Delete'}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

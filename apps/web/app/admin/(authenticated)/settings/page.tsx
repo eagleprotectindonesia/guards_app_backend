@@ -1,4 +1,4 @@
-import { getCurrentAdmin } from '@/lib/admin-auth';
+import { getAdminSession } from '@/lib/admin-auth';
 import { getAllSystemSettings } from '@/lib/data-access/settings';
 import SettingsForm from './components/settings-form';
 import { redirect } from 'next/navigation';
@@ -7,13 +7,13 @@ import { serialize } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const currentAdmin = await getCurrentAdmin();
+  const session = await getAdminSession();
 
-  if (!currentAdmin) {
+  if (!session) {
     redirect('/admin/login');
   }
 
-  const isSuperAdmin = currentAdmin.role === 'superadmin';
+  const isSuperAdmin = session.isSuperAdmin;
   const allSettings = await getAllSystemSettings();
   const serializedSettings = serialize(allSettings);
 

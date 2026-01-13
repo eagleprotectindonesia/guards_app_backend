@@ -11,12 +11,40 @@ enum AdminRole {
   admin
 }
 
+model Permission {
+  id          String   @id @default(uuid())
+  action      String // e.g., "view", "create", "edit", "delete"
+  resource    String // e.g., "guards", "shifts", "admin_dashboard"
+  code        String   @unique // e.g., "guards:view"
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  roles       Role[]   @relation("RolePermissions")
+
+  @@map("permissions")
+}
+
+model Role {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  description String?
+  permissions Permission[] @relation("RolePermissions")
+  admins      Admin[]
+  isSystem    Boolean      @default(false) @map("is_system")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@map("roles")
+}
+
 model Admin {
   id                 String      @id @default(uuid())
   name               String
   email              String      @unique
   hashedPassword     String      @map("hashed_password")
-  role               AdminRole   @default(admin)
+  role               AdminRole   @default(admin) // Deprecated: use roleId
+  roleId             String?     @map("role_id")
+  roleRef            Role?       @relation(fields: [roleId], references: [id])
   tokenVersion       Int         @default(0) @map("token_version")
   createdAt          DateTime    @default(now())
   updatedAt          DateTime    @updatedAt

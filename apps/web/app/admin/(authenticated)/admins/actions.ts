@@ -29,7 +29,7 @@ export async function createAdmin(
     name: formData.get('name'),
     email: formData.get('email'),
     password: formData.get('password'),
-    role: formData.get('role'),
+    roleId: formData.get('roleId'),
     note: formData.get('note'),
   });
 
@@ -41,7 +41,7 @@ export async function createAdmin(
     };
   }
 
-  const { name, email, password, role, note } = validatedFields.data;
+  const { name, email, password, roleId, note } = validatedFields.data;
 
   try {
     const existingAdmin = await findAdminByEmail(email);
@@ -61,7 +61,7 @@ export async function createAdmin(
         name,
         email,
         hashedPassword,
-        role: role,
+        roleId: roleId,
         note: note || null,
       },
       currentAdmin.id
@@ -96,7 +96,7 @@ export async function updateAdmin(
   const rawData = {
     name: formData.get('name'),
     email: formData.get('email'),
-    role: formData.get('role'),
+    roleId: formData.get('roleId'),
     note: formData.get('note'),
     ...(password && typeof password === 'string' && password.length > 0 && { password }),
   };
@@ -111,7 +111,7 @@ export async function updateAdmin(
     };
   }
 
-  const { name, email, role, note, password: newPassword } = validatedFields.data;
+  const { name, email, roleId, note, password: newPassword } = validatedFields.data;
 
   try {
     // Check if email is taken by another admin
@@ -128,7 +128,7 @@ export async function updateAdmin(
     const data = {
       name,
       email,
-      role,
+      roleId,
       note: note || null,
       ...(newPassword && {
         hashedPassword: await bcrypt.hash(newPassword, 10),
@@ -162,8 +162,8 @@ export async function deleteAdmin(id: string) {
       return { success: false, message: 'Admin not found.' };
     }
 
-    if (adminToDelete.role === 'superadmin') {
-      return { success: false, message: 'Cannot delete a Super Admin. Change their role to Admin first.' };
+    if (adminToDelete.roleRef?.name === 'Super Admin') {
+      return { success: false, message: 'Cannot delete a Super Admin Role.' };
     }
 
     await deleteAdminWithChangelog(id, currentAdmin.id);

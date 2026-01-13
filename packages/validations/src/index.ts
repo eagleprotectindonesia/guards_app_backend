@@ -17,17 +17,17 @@ export const createSiteSchema = z.object({
 // --- Admin ---
 export const createAdminSchema = z.object({
   name: z.string().min(1),
-  email: z.email(),
+  email: z.string().email(),
   password: z.string().min(6, 'Password must be at least 6 characters long'),
-  role: z.enum(['superadmin', 'admin']),
+  roleId: z.string().min(1, 'Role is required'),
   note: z.string().optional(),
 });
 
 export const updateAdminSchema = z.object({
   name: z.string().min(1),
-  email: z.email(),
+  email: z.string().email(),
   password: z.string().min(6, 'Password must be at least 6 characters long').optional(),
-  role: z.enum(['superadmin', 'admin']),
+  roleId: z.string().min(1, 'Role is required'),
   note: z.string().optional(),
 });
 
@@ -116,13 +116,15 @@ export const updateGuardSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters long').optional(), // Optional for updates
 });
 
-export const updateGuardPasswordSchema = z.object({
-  password: z.string().min(6, 'Password must be at least 6 characters long'),
-  confirmPassword: z.string().min(6, 'Password must be at least 6 characters long'),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
+export const updateGuardPasswordSchema = z
+  .object({
+    password: z.string().min(6, 'Password must be at least 6 characters long'),
+    confirmPassword: z.string().min(6, 'Password must be at least 6 characters long'),
+  })
+  .refine(data => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
 
 // --- Shift Type ---
 const timeFormat = z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:mm format');
@@ -155,6 +157,13 @@ export const checkInSchema = z.object({
   source: z.string().optional(),
 });
 
+// --- Role ---
+export const createRoleSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  description: z.string().optional(),
+  permissionIds: z.array(z.string()).min(1, 'At least one permission is required'),
+});
+
 // --- System Settings ---
 export const updateSettingsSchema = z.record(z.string(), z.string());
 
@@ -170,4 +179,6 @@ export type UpdateShiftTypeInput = CreateShiftTypeInput; // Same for now
 export type CreateShiftInput = z.infer<typeof createShiftSchema>;
 export type UpdateShiftInput = CreateShiftInput; // Same for now
 export type CheckInInput = z.infer<typeof checkInSchema>;
+export type CreateRoleInput = z.infer<typeof createRoleSchema>;
+export type UpdateRoleInput = CreateRoleInput;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;

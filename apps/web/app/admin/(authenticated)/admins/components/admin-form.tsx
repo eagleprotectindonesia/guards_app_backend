@@ -6,15 +6,16 @@ import { ActionState } from '@/types/actions';
 import { CreateAdminInput } from '@/lib/validations';
 import { useActionState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { Admin } from '@prisma/client';
+import { Admin, Role } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 import { PasswordInput } from '@/components/ui/password-input';
 
 type Props = {
-  admin?: Serialized<Admin>;
+  admin?: Serialized<Admin & { roleRef?: { id: string; name: string } | null }>;
+  roles: Serialized<Role>[];
 };
 
-export default function AdminForm({ admin }: Props) {
+export default function AdminForm({ admin, roles }: Props) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<ActionState<CreateAdminInput>, FormData>(
     admin ? updateAdmin.bind(null, admin.id) : createAdmin,
@@ -70,19 +71,26 @@ export default function AdminForm({ admin }: Props) {
 
         {/* Role Field */}
         <div>
-          <label htmlFor="role" className="block font-medium text-gray-700 mb-1">
+          <label htmlFor="roleId" className="block font-medium text-gray-700 mb-1">
             Role
           </label>
           <select
-            name="role"
-            id="role"
-            defaultValue={admin?.role || 'admin'}
+            name="roleId"
+            id="roleId"
+            defaultValue={admin?.roleRef?.id || ''}
             className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all bg-white"
+            required
           >
-            <option value="admin">Admin</option>
-            <option value="superadmin">Super Admin</option>
+            <option value="" disabled>
+              Select a role
+            </option>
+            {roles.map(role => (
+              <option key={role.id} value={role.id}>
+                {role.name}
+              </option>
+            ))}
           </select>
-          {state.errors?.role && <p className="text-red-500 text-xs mt-1">{state.errors.role[0]}</p>}
+          {state.errors?.roleId && <p className="text-red-500 text-xs mt-1">{state.errors.roleId[0]}</p>}
         </div>
 
         {/* Password Field */}

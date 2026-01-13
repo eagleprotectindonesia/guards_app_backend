@@ -4,24 +4,21 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import {
-  LogOut,
-  ChevronLeft,
-  ChevronRight,
-  User,
-} from 'lucide-react';
+import { LogOut, ChevronLeft, ChevronRight, User } from 'lucide-react';
 import { Admin } from '@prisma/client';
 import { cn } from '@/lib/utils';
 import { ADMIN_NAV_ITEMS, ADMIN_SECONDARY_NAV_ITEMS } from '@/lib/admin-navigation';
+import { useSession } from '../context/session-context';
 
 type SidebarProps = {
-  currentAdmin: Admin | null;
+  currentAdmin: Admin; // Use more flexible type temporarily
 };
 
 export default function Sidebar({ currentAdmin }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+  const { hasPermission } = useSession();
 
   const handleLogout = async () => {
     try {
@@ -34,6 +31,14 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
       console.error('Logout failed:', error);
     }
   };
+
+  const filteredNavItems = ADMIN_NAV_ITEMS.filter(
+    item => !item.requiredPermission || hasPermission(item.requiredPermission)
+  );
+
+  const filteredSecondaryNavItems = ADMIN_SECONDARY_NAV_ITEMS.filter(
+    item => !item.requiredPermission || hasPermission(item.requiredPermission)
+  );
 
   return (
     <aside
@@ -74,7 +79,7 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto overflow-x-hidden">
-        {ADMIN_NAV_ITEMS.map(item => {
+        {filteredNavItems.map(item => {
           const isActive = pathname.startsWith(item.href);
           return (
             <Link
@@ -83,11 +88,18 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
               title={isCollapsed ? item.name : undefined}
               className={cn(
                 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                isActive
+                  ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                 isCollapsed && 'justify-center px-2'
               )}
             >
-              <item.icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')} />
+              <item.icon
+                className={cn(
+                  'w-5 h-5 shrink-0',
+                  isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+                )}
+              />
               <span
                 className={cn(
                   'transition-opacity duration-300 whitespace-nowrap',
@@ -100,10 +112,10 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
           );
         })}
 
-        {ADMIN_SECONDARY_NAV_ITEMS.filter(item => !item.role || item.role === currentAdmin?.role).map(item => {
+        {filteredSecondaryNavItems.map(item => {
           const isActive = pathname.startsWith(item.href);
           const isProfile = item.href.includes('profile');
-          
+
           if (isProfile) return null; // Handle profile separately if desired, or just let it flow
 
           return (
@@ -113,11 +125,18 @@ export default function Sidebar({ currentAdmin }: SidebarProps) {
               title={isCollapsed ? item.name : undefined}
               className={cn(
                 'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                isActive ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400' : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+                isActive
+                  ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
+                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                 isCollapsed && 'justify-center px-2'
               )}
             >
-              <item.icon className={cn('w-5 h-5 shrink-0', isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground')} />
+              <item.icon
+                className={cn(
+                  'w-5 h-5 shrink-0',
+                  isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+                )}
+              />
               <span
                 className={cn(
                   'transition-opacity duration-300 whitespace-nowrap',

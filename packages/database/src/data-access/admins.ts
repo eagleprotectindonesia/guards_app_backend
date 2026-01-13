@@ -1,17 +1,25 @@
-import { db as prisma } from "../client";
-import { redis } from "../redis";
+import { db as prisma } from '../client';
+import { redis } from '../redis';
 import { Prisma } from '@prisma/client';
 
 export async function getAllAdmins(orderBy: Prisma.AdminOrderByWithRelationInput = { createdAt: 'desc' }) {
   return prisma.admin.findMany({
     where: { deletedAt: null },
     orderBy,
+    include: { roleRef: true },
   });
 }
 
 export async function getAdminById(id: string) {
   return prisma.admin.findUnique({
     where: { id, deletedAt: null },
+    include: {
+      roleRef: {
+        include: {
+          permissions: true,
+        },
+      },
+    },
   });
 }
 
@@ -38,6 +46,7 @@ export async function getPaginatedAdmins(params: {
           orderBy,
           skip,
           take,
+          include: { roleRef: true },
         }),
         tx.admin.count({ where: finalWhere }),
       ]);
@@ -64,7 +73,7 @@ export async function createAdminWithChangelog(data: Prisma.AdminCreateInput, cr
           details: {
             name: createdAdmin.name,
             email: createdAdmin.email,
-            role: createdAdmin.role,
+            roleId: createdAdmin.roleId,
             note: createdAdmin.note,
           },
         },
@@ -93,7 +102,7 @@ export async function updateAdminWithChangelog(id: string, data: Prisma.AdminUpd
           details: {
             name: data.name ? updatedAdmin.name : undefined,
             email: data.email ? updatedAdmin.email : undefined,
-            role: data.role ? updatedAdmin.role : undefined,
+            roleId: data.roleId ? updatedAdmin.roleId : undefined,
             note: data.note !== undefined ? updatedAdmin.note : undefined,
             passwordChanged: !!data.hashedPassword,
           },
