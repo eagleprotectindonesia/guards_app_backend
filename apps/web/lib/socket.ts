@@ -17,10 +17,10 @@ export function initSocket(server: HttpServer) {
   // Setup Redis Adapter for horizontal scaling / blue-green deployment
   const pubClient = redis.duplicate();
   const subClient = redis.duplicate();
-  
+
   // Handle Redis errors for the adapter
-  pubClient.on('error', (err) => console.error('Socket.io Redis PubClient Error:', err));
-  subClient.on('error', (err) => console.error('Socket.io Redis SubClient Error:', err));
+  pubClient.on('error', err => console.error('Socket.io Redis PubClient Error:', err));
+  subClient.on('error', err => console.error('Socket.io Redis SubClient Error:', err));
 
   io.adapter(createAdapter(pubClient, subClient));
 
@@ -41,7 +41,7 @@ export function initSocket(server: HttpServer) {
     }
   });
 
-  io.on('connection', (socket) => {
+  io.on('connection', socket => {
     const auth = socket.auth!;
     console.log(`Socket connected: ${auth.type} ${auth.id} (${auth.name})`);
 
@@ -60,12 +60,31 @@ export function initSocket(server: HttpServer) {
             sender: 'guard',
             content: data.content,
           });
-          
+
           io.to('admin').emit('new_message', message);
           // Also send back to guard room (for multi-device sync)
           io.to(`guard:${auth.id}`).emit('new_message', message);
-          
         } else if (auth.type === 'admin' && data.guardId) {
+          // Check for conversation lock
+          const lockKey = `chat_lock:${data.guardId}`;
+          const lockedBy = await redis.get(lockKey);
+
+          if (lockedBy && lockedBy !== auth.id) {
+            socket.emit('error', { message: 'This conversation is currently locked by another admin.' });
+            return;
+          }
+
+          // Lock the conversation for 2 minutes
+          const LOCK_DURATION = 120;
+          await redis.set(lockKey, auth.id, 'EX', LOCK_DURATION);
+
+          // Broadcast lock status to all admins
+          io.to('admin').emit('conversation_locked', {
+            guardId: data.guardId,
+            lockedBy: auth.id,
+            expiresAt: Date.now() + LOCK_DURATION * 1000,
+          });
+
           // Admin sending to a specific guard
           const message = await saveMessage({
             guardId: data.guardId,
@@ -86,14 +105,14 @@ export function initSocket(server: HttpServer) {
     socket.on('mark_read', async (data: { guardId?: string; messageIds: string[] }) => {
       try {
         const targetGuardId = auth.type === 'admin' ? data.guardId : auth.id;
-        
+
         if (!targetGuardId) {
           console.error('mark_read: Missing guardId');
           return;
         }
 
         await markAsRead(data.messageIds);
-        
+
         if (auth.type === 'admin') {
           // Notify the guard that admin read their messages
           io.to(`guard:${targetGuardId}`).emit('messages_read', {
