@@ -6,6 +6,8 @@ import { Serialized } from '@/lib/utils';
 import AlertItem from './alert-item';
 import AlertResolutionModal from './alert-resolution-modal';
 import { Check } from 'lucide-react';
+import { useSession } from '../context/session-context';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 type GuardWithOptionalRelations = Serialized<Guard>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
@@ -46,6 +48,11 @@ export default function AlertFeed({
 }: AlertFeedProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'attendance' | 'checkin'>('all');
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
+  const { hasPermission } = useSession();
+
+  if (!hasPermission(PERMISSIONS.ALERTS.VIEW)) {
+    return null;
+  }
 
   const filteredAlerts = alerts.filter(alert => {
     if (activeTab === 'all') {

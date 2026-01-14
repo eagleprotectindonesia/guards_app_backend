@@ -25,7 +25,7 @@ export type Action = (typeof ACTIONS)[number];
 
 export type PermissionCode = `${Resource}:${Action}`;
 
-export const PERMISSIONS: Record<string, Record<string, PermissionCode>> = {
+export const PERMISSIONS = {
   GUARDS: {
     VIEW: 'guards:view',
     CREATE: 'guards:create',
@@ -80,10 +80,7 @@ export const PERMISSIONS: Record<string, Record<string, PermissionCode>> = {
     VIEW_SETTINGS: 'system-settings:view',
     EDIT_SETTINGS: 'system-settings:edit',
   },
-  DASHBOARD: {
-    VIEW: 'dashboard:view',
-  },
-} as const;
+} satisfies Record<string, Record<string, PermissionCode>>;
 
 /**
  * Validates if a string is a valid PermissionCode according to our TS source of truth.

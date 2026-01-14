@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, Guard, Shift, ShiftType, Site, Attendance } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
+import { useSession } from './session-context';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 // --- Types ---
 
@@ -66,9 +68,18 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   const [connectionStatus, setConnectionStatus] = useState('Connecting...');
   const [lastAlertEvent, setLastAlertEvent] = useState<SSEAlertData | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
+  const { hasPermission } = useSession();
+
+  const canViewAlerts = hasPermission(PERMISSIONS.ALERTS.VIEW);
 
   useEffect(() => {
-    // Always connect to global stream
+    // Only connect if the user has permission to view alerts or the dashboard
+    if (!canViewAlerts) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setConnectionStatus('Disabled');
+      return;
+    }
+
     const url = '/api/admin/alerts/stream';
     const es = new EventSource(url);
 
@@ -150,7 +161,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     return () => {
       es.close();
     };
-  }, []);
+  }, [canViewAlerts]);
 
   const resolveAlert = (alertId: string) => {
     setAlerts(prev => prev.filter(a => a.id !== alertId));

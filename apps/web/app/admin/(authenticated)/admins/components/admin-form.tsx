@@ -32,12 +32,12 @@ export default function AdminForm({ admin, roles }: Props) {
   }, [state, admin, router]);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">{admin ? 'Edit Admin' : 'Add New Admin'}</h1>
+    <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
+      <h1 className="text-2xl font-bold text-foreground mb-6">{admin ? 'Edit Admin' : 'Add New Admin'}</h1>
       <form action={formAction} className="space-y-6">
         {/* Name Field */}
         <div>
-          <label htmlFor="name" className="block font-medium text-gray-700 mb-1">
+          <label htmlFor="name" className="block font-medium text-foreground mb-1">
             Name
           </label>
           <input
@@ -45,7 +45,7 @@ export default function AdminForm({ admin, roles }: Props) {
             name="name"
             id="name"
             defaultValue={admin?.name || ''}
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-muted-foreground"
             placeholder="e.g. John Doe"
             minLength={6}
           />
@@ -54,7 +54,7 @@ export default function AdminForm({ admin, roles }: Props) {
 
         {/* Email Field */}
         <div>
-          <label htmlFor="email" className="block font-medium text-gray-700 mb-1">
+          <label htmlFor="email" className="block font-medium text-foreground mb-1">
             Email
           </label>
           <input
@@ -62,7 +62,7 @@ export default function AdminForm({ admin, roles }: Props) {
             name="email"
             id="email"
             defaultValue={admin?.email || ''}
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-muted-foreground"
             placeholder="e.g. admin@example.com"
             minLength={6}
           />
@@ -71,14 +71,14 @@ export default function AdminForm({ admin, roles }: Props) {
 
         {/* Role Field */}
         <div>
-          <label htmlFor="roleId" className="block font-medium text-gray-700 mb-1">
+          <label htmlFor="roleId" className="block font-medium text-foreground mb-1">
             Role
           </label>
           <select
             name="roleId"
             id="roleId"
             defaultValue={admin?.roleRef?.id || ''}
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all bg-white"
+            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
             required
           >
             <option value="" disabled>
@@ -95,13 +95,13 @@ export default function AdminForm({ admin, roles }: Props) {
 
         {/* Password Field */}
         <div>
-          <label htmlFor="password" className="block font-medium text-gray-700 mb-1">
+          <label htmlFor="password" className="block font-medium text-foreground mb-1">
             {admin ? 'New Password (Optional)' : 'Password'}
           </label>
           <PasswordInput
             name="password"
             id="password"
-            className="w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all"
+            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-muted-foreground"
             placeholder={admin ? 'Leave blank to keep current' : 'Enter password'}
           />
           {state.errors?.password && <p className="text-red-500 text-xs mt-1">{state.errors.password[0]}</p>}
@@ -109,7 +109,7 @@ export default function AdminForm({ admin, roles }: Props) {
 
         {/* Note Field */}
         <div>
-          <label htmlFor="note" className="block font-medium text-gray-700 mb-1">
+          <label htmlFor="note" className="block font-medium text-foreground mb-1">
             Note
           </label>
           <textarea
@@ -117,7 +117,7 @@ export default function AdminForm({ admin, roles }: Props) {
             id="note"
             defaultValue={admin?.note || ''}
             rows={3}
-            className="w-full px-3 py-2 rounded-lg border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none"
+            className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none placeholder:text-muted-foreground"
             placeholder="Add any additional information..."
           />
           {state.errors?.note && <p className="text-red-500 text-xs mt-1">{state.errors.note[0]}</p>}
@@ -125,11 +125,13 @@ export default function AdminForm({ admin, roles }: Props) {
 
         {/* Error Message */}
         {state.message && !state.success && (
-          <div className="p-3 rounded bg-red-50 text-red-600 text-sm">{state.message}</div>
+          <div className="p-3 rounded bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-100 dark:border-red-900/30">
+            {state.message}
+          </div>
         )}
 
         {/* Actions */}
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+        <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <button
             type="button"
             onClick={() => router.push('/admin/admins')}
@@ -140,7 +142,7 @@ export default function AdminForm({ admin, roles }: Props) {
           <button
             type="submit"
             disabled={isPending}
-            className="px-6 py-2.5 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-600/30"
+            className="px-6 py-2.5 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-500/20"
           >
             {isPending ? 'Saving...' : admin ? 'Save Changes' : 'Add Admin'}
           </button>
