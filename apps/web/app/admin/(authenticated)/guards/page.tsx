@@ -19,7 +19,7 @@ type GuardsPageProps = {
 };
 
 export default async function GuardsPage(props: GuardsPageProps) {
-  const session = await requirePermission(PERMISSIONS.GUARDS.VIEW);
+  await requirePermission(PERMISSIONS.GUARDS.VIEW);
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
   const query = searchParams.q as string | undefined;

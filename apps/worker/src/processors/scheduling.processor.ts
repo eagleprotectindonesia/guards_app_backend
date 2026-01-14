@@ -54,7 +54,7 @@ export class SchedulingProcessor {
       }
     });
 
-    redis.on('message', (channel, message) => {
+    redis.on('message', (channel) => {
       if (channel === 'events:shifts') {
         console.log('[SchedulingProcessor] Received shift change event, triggering sync.');
         this.needsFullSync = true;

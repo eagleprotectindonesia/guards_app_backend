@@ -17,7 +17,7 @@ type AdminsPageProps = {
 };
 
 export default async function AdminsPage(props: AdminsPageProps) {
-  const session = await requirePermission(PERMISSIONS.ADMINS.VIEW);
+  await requirePermission(PERMISSIONS.ADMINS.VIEW);
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
 

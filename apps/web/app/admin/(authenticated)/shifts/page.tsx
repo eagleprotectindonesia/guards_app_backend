@@ -21,7 +21,7 @@ export default async function ShiftsPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const session = await requirePermission(PERMISSIONS.SHIFTS.VIEW);
+  await requirePermission(PERMISSIONS.SHIFTS.VIEW);
   const resolvedSearchParams = await searchParams;
   const { page, perPage, skip } = getPaginationParams(resolvedSearchParams);
 

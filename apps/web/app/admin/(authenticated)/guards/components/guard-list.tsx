@@ -12,7 +12,7 @@ import { EditButton, DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { Pencil, Key, Download, Upload, History, MessageSquare } from 'lucide-react';
+import { Key, Download, Upload, History, MessageSquare } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
 import { format } from 'date-fns';

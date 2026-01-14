@@ -1,4 +1,4 @@
-import { Socket } from 'socket.io';
+import 'socket.io';
 
 export interface SocketAuth {
   id: string;

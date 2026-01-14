@@ -8,12 +8,11 @@ import { EditButton, DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { History, Download, Pencil } from 'lucide-react';
+import { History, Download } from 'lucide-react';
 import Search from '../../components/search';
 import { format } from 'date-fns';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { useRouter } from 'next/navigation';
 
 type SiteWithAdminInfo = Site & {
   lastUpdatedBy?: { name: string } | null;
