@@ -4,7 +4,7 @@ async function main() {
   console.log('Seeding RBAC permissions...');
 
   const resources = [
-    'guards',
+    'employees',
     'sites',
     'shifts',
     'shift-types',
@@ -74,9 +74,9 @@ async function main() {
       code: {
         in: [
           'dashboard:view',
-          'guards:view',
-          'guards:create',
-          'guards:edit',
+          'employees:view',
+          'employees:create',
+          'employees:edit',
           'sites:view',
           'sites:create',
           'sites:edit',

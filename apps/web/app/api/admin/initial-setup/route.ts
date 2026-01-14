@@ -3,10 +3,10 @@ import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
 const INITIAL_PERMISSIONS = [
-  { action: 'view', resource: 'guards', code: 'guards:view', description: 'Can view guards' },
-  { action: 'create', resource: 'guards', code: 'guards:create', description: 'Can create guards' },
-  { action: 'edit', resource: 'guards', code: 'guards:edit', description: 'Can edit guards' },
-  { action: 'delete', resource: 'guards', code: 'guards:delete', description: 'Can delete guards' },
+  { action: 'view', resource: 'employees', code: 'employees:view', description: 'Can view employees' },
+  { action: 'create', resource: 'employees', code: 'employees:create', description: 'Can create employees' },
+  { action: 'edit', resource: 'employees', code: 'employees:edit', description: 'Can edit employees' },
+  { action: 'delete', resource: 'employees', code: 'employees:delete', description: 'Can delete employees' },
   { action: 'view', resource: 'sites', code: 'sites:view', description: 'Can view sites' },
   { action: 'create', resource: 'sites', code: 'sites:create', description: 'Can create sites' },
   { action: 'edit', resource: 'sites', code: 'sites:edit', description: 'Can edit sites' },

@@ -3,7 +3,7 @@ import { redis } from '@/lib/redis';
 import { db as prisma } from '@/lib/prisma';
 import { JWT_SECRET, SESSION_CACHE_TTL } from './constants';
 
-export type UserRole = 'admin' | 'guard';
+export type UserRole = 'admin' | 'employee';
 
 export interface SessionPayload {
   userId: string;
@@ -26,8 +26,8 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { adminId?: string; guardId?: string; tokenVersion?: number };
-    const userId = type === 'admin' ? decoded.adminId : decoded.guardId;
+    const decoded = jwt.verify(token, JWT_SECRET) as { adminId?: string; employeeId?: string; guardId?: string; tokenVersion?: number };
+    const userId = type === 'admin' ? decoded.adminId : (decoded.employeeId || decoded.guardId);
     const tokenVersion = decoded.tokenVersion;
 
     if (!userId) {
@@ -81,12 +81,12 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
           await redis.set(permsCacheKey, JSON.stringify({ roleName, permissions }), 'EX', SESSION_CACHE_TTL);
         }
       } else {
-        const guard = await prisma.guard.findUnique({
+        const employee = await prisma.employee.findUnique({
           where: { id: userId },
           select: { tokenVersion: true, status: true, deletedAt: true },
         });
-        if (guard && guard.status !== false && guard.deletedAt === null) {
-          currentVersion = guard.tokenVersion;
+        if (employee && employee.status !== false && employee.deletedAt === null) {
+          currentVersion = employee.tokenVersion;
           await redis.set(versionCacheKey, currentVersion.toString(), 'EX', SESSION_CACHE_TTL);
         }
       }

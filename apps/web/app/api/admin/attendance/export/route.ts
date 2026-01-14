@@ -7,12 +7,12 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const startDateStr = searchParams.get('startDate');
   const endDateStr = searchParams.get('endDate');
-  const guardId = searchParams.get('guardId');
+  const employeeId = searchParams.get('employeeId');
 
   const where: Prisma.AttendanceWhereInput = {};
 
-  if (guardId) {
-    where.guardId = guardId;
+  if (employeeId) {
+    where.employeeId = employeeId;
   }
 
   if (startDateStr || endDateStr) {
@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
       const encoder = new TextEncoder();
 
       // Write Header
-      const headers = ['Guard', 'Employee ID', 'Site', 'Shift Date', 'Record Date', 'Record Time', 'Status', 'Latitude', 'Longitude'];
+      const headers = ['Employee', 'Employee ID', 'Site', 'Shift Date', 'Record Date', 'Record Time', 'Status', 'Latitude', 'Longitude'];
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
       let cursor: string | undefined = undefined;
@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
             const metadata = (att.metadata as { location: { lat?: number; lng?: number } })?.location;
             const lat = metadata?.lat?.toFixed(6) || '';
             const lng = metadata?.lng?.toFixed(6) || '';
-            const guardName = att.guard?.name || 'Unknown';
-            const employeeId = att.guard?.id || 'N/A';
+            const employeeName = att.employee?.name || 'Unknown';
+            const employeeId = att.employee?.id || 'N/A';
             const siteName = att.shift.site.name;
             const shiftDate = format(new Date(att.shift.date), 'yyyy/MM/dd');
             const recordDate = format(new Date(att.recordedAt), 'yyyy/MM/dd');
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
 
             chunk +=
               [
-                escape(guardName),
+                escape(employeeName),
                 escape(employeeId),
                 escape(siteName),
                 escape(shiftDate),

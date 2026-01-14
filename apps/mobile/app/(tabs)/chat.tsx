@@ -30,9 +30,9 @@ import { format } from 'date-fns';
 
 interface ChatMessage {
   id: string;
-  guardId: string;
+  employeeId: string;
   adminId?: string | null;
-  sender: 'admin' | 'guard';
+  sender: 'admin' | 'employee';
   content: string;
   createdAt: string;
   readAt?: string | null;
@@ -48,14 +48,14 @@ export default function ChatScreen() {
   const queryClient = useQueryClient();
   
   const [inputText, setInputText] = useState('');
-  const [guardInfo, setGuardInfo] = useState<any>(null);
+  const [employeeInfo, setEmployeeInfo] = useState<any>(null);
   const [isFocused, setIsFocused] = useState(false);
   const socketRef = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  // Load guard info from storage
+  // Load employee info from storage
   useEffect(() => {
-    storage.getItem(STORAGE_KEYS.GUARD_INFO).then(setGuardInfo);
+    storage.getItem(STORAGE_KEYS.EMPLOYEE_INFO).then(setEmployeeInfo);
   }, []);
 
   // Fetch messages with TanStack Query (Infinite Query for pagination)
@@ -66,9 +66,9 @@ export default function ChatScreen() {
     isFetchingNextPage, 
     isLoading 
   } = useInfiniteQuery({
-    queryKey: ['chat', 'messages', guardInfo?.id],
+    queryKey: ['chat', 'messages', employeeInfo?.id],
     queryFn: async ({ pageParam }) => {
-      const response = await client.get(`/api/chat/${guardInfo.id}`, {
+      const response = await client.get(`/api/chat/${employeeInfo.id}`, {
         params: {
           limit: 15,
           cursor: pageParam,
@@ -81,27 +81,27 @@ export default function ChatScreen() {
       if (lastPage.length < 15) return undefined;
       return lastPage[lastPage.length - 1].id;
     },
-    enabled: !!guardInfo?.id,
+    enabled: !!employeeInfo?.id,
   });
 
   const messages = useMemo(() => data?.pages.flat() || [], [data]);
   
-  const guardId = guardInfo?.id;
+  const employeeId = employeeInfo?.id;
   const markMessagesAsRead = useCallback((msgs: ChatMessage[]) => {
-    if (!socketRef.current || !msgs.length || !guardId) return;
+    if (!socketRef.current || !msgs.length || !employeeId) return;
     
     const unreadIds = msgs
       .filter(m => m.sender === 'admin' && !m.readAt)
       .map(m => m.id);
     
     if (unreadIds.length > 0) {
-      console.log(`Marking ${unreadIds.length} messages as read for guard ${guardId}`);
+      console.log(`Marking ${unreadIds.length} messages as read for employee ${employeeId}`);
       socketRef.current.emit('mark_read', { 
-        guardId,
+        employeeId,
         messageIds: unreadIds 
       });
     }
-  }, [guardId]);
+  }, [employeeId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -119,7 +119,7 @@ export default function ChatScreen() {
 
   // Socket setup
   useEffect(() => {
-    if (!guardId) return;
+    if (!employeeId) return;
 
     let socketInstance: any = null;
 
@@ -131,7 +131,7 @@ export default function ChatScreen() {
 
         socket.on('new_message', (message: ChatMessage) => {
           // Update message list cache
-          queryClient.setQueryData(['chat', 'messages', guardId], (old: any) => {
+          queryClient.setQueryData(['chat', 'messages', employeeId], (old: any) => {
             if (!old) return old;
             return {
               ...old,
@@ -145,7 +145,7 @@ export default function ChatScreen() {
           // If we are currently looking at the chat, mark it as read immediately
           if (isFocused && message.sender === 'admin') {
             socket.emit('mark_read', { 
-              guardId,
+              employeeId,
               messageIds: [message.id] 
             });
           }
@@ -156,7 +156,7 @@ export default function ChatScreen() {
 
         socket.on('messages_read', (data: { messageIds: string[] }) => {
           // Update messages in cache to show read status
-          queryClient.setQueryData(['chat', 'messages', guardId], (old: any) => {
+          queryClient.setQueryData(['chat', 'messages', employeeId], (old: any) => {
             if (!old) return old;
             return {
               ...old,
@@ -182,7 +182,7 @@ export default function ChatScreen() {
         socketInstance.off('messages_read');
       }
     };
-  }, [guardId, isFocused, queryClient]);
+  }, [employeeId, isFocused, queryClient]);
 
   const sendMessage = () => {
     if (!inputText.trim() || !socketRef.current) return;
@@ -195,7 +195,7 @@ export default function ChatScreen() {
   };
 
   const renderItem = ({ item }: { item: ChatMessage }) => {
-    const isMe = item.sender === 'guard';
+    const isMe = item.sender === 'employee';
     return (
       <View style={[
         styles.messageContainer,

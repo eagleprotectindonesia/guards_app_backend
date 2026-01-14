@@ -22,7 +22,7 @@ export async function GET(req: Request) {
           ackAdmin: true,
           shift: {
             include: {
-              guard: true,
+              employee: true,
               shiftType: true,
             },
           },

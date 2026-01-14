@@ -1,7 +1,7 @@
 import { serialize } from '@/lib/utils';
-import GuardDetail from '../components/guard-detail';
+import EmployeeDetail from '../components/employee-detail';
 import { notFound } from 'next/navigation';
-import { getGuardById } from '@/lib/data-access/guards';
+import { getEmployeeById } from '@/lib/data-access/employees';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,16 +9,16 @@ type Props = {
   params: Promise<{ id: string }>;
 };
 
-export default async function GuardDetailPage({ params }: Props) {
+export default async function EmployeeDetailPage({ params }: Props) {
   const { id } = await params;
 
-  const guard = await getGuardById(id);
+  const employee = await getEmployeeById(id);
 
-  if (!guard) {
+  if (!employee) {
     notFound();
   }
 
-  const serializedGuard = serialize(guard);
+  const serializedEmployee = serialize(employee);
 
-  return <GuardDetail guard={serializedGuard} />;
+  return <EmployeeDetail employee={serializedEmployee} />;
 }

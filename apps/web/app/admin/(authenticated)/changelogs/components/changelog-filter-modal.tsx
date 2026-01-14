@@ -116,7 +116,7 @@ export default function ChangelogFilterModal({
                 onChange={(e) => setEntityType(e.target.value)}
               >
                 <option value="" className="bg-card">All Entities</option>
-                <option value="Guard" className="bg-card">Guard</option>
+                <option value="Employee" className="bg-card">Employee</option>
                 <option value="Site" className="bg-card">Site</option>
                 <option value="Shift" className="bg-card">Shift</option>
                 <option value="Alert" className="bg-card">Alert</option>

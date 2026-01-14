@@ -1,17 +1,17 @@
 import { prisma } from '@/lib/prisma';
 import { serialize, getPaginationParams } from '@/lib/utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
-import GuardChangelogFilterModal from '../../changelogs/components/guard-changelog-filter-modal';
+import EmployeeChangelogFilterModal from '../../changelogs/components/employee-changelog-filter-modal';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
-import { getAllGuards } from '@/lib/data-access/guards';
+import { getAllEmployees } from '@/lib/data-access/employees';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const metadata: Metadata = {
-  title: 'Guard Audit Logs',
+  title: 'Employee Audit Logs',
 };
 
 export const dynamic = 'force-dynamic';
@@ -20,8 +20,8 @@ type PageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export default async function GuardAuditPage(props: PageProps) {
-  await requirePermission([PERMISSIONS.GUARDS.VIEW, PERMISSIONS.CHANGELOGS.VIEW]);
+export default async function EmployeeAuditPage(props: PageProps) {
+  await requirePermission([PERMISSIONS.EMPLOYEES.VIEW, PERMISSIONS.CHANGELOGS.VIEW]);
 
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
@@ -40,7 +40,7 @@ export default async function GuardAuditPage(props: PageProps) {
   const sortField = validSortFields.includes(sortBy) ? (sortBy as 'createdAt' | 'action' | 'entityId') : 'createdAt';
 
   const where: Prisma.ChangelogWhereInput = {
-    entityType: 'Guard',
+    entityType: 'Employee',
   };
 
   if (action) {
@@ -67,7 +67,7 @@ export default async function GuardAuditPage(props: PageProps) {
     }
   }
 
-  const [changelogs, totalCount, guards] = await Promise.all([
+  const [changelogs, totalCount, employees] = await Promise.all([
     prisma.changelog.findMany({
       where,
       orderBy: { [sortField]: sortOrder },
@@ -82,11 +82,11 @@ export default async function GuardAuditPage(props: PageProps) {
       },
     }),
     prisma.changelog.count({ where }),
-    getAllGuards({ name: 'asc' }),
+    getAllEmployees({ name: 'asc' }),
   ]);
 
   const serializedChangelogs = serialize(changelogs);
-  const serializedGuards = serialize(guards);
+  const serializedEmployees = serialize(employees);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -99,10 +99,10 @@ export default async function GuardAuditPage(props: PageProps) {
           sortBy={sortField}
           sortOrder={sortOrder}
           hideEntityType={true}
-          fixedEntityType="Guard"
+          fixedEntityType="Employee"
           showEntityName={true}
-          FilterModal={GuardChangelogFilterModal}
-          guards={serializedGuards}
+          FilterModal={EmployeeChangelogFilterModal}
+          employees={serializedEmployees}
         />
       </Suspense>
     </div>

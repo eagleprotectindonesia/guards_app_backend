@@ -15,7 +15,7 @@ const SocketContext = createContext<SocketContextType>({
 
 export const useSocket = () => useContext(SocketContext);
 
-export const SocketProvider = ({ children, role }: { children: React.ReactNode; role?: 'admin' | 'guard' }) => {
+export const SocketProvider = ({ children, role }: { children: React.ReactNode; role?: 'admin' | 'guard' | 'employee' }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
 

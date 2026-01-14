@@ -1,14 +1,14 @@
 'use client';
 
 import { Serialized } from '@/lib/utils';
-import { Alert, Guard, Shift, ShiftType, Site } from '@prisma/client';
+import { Alert, Employee, Shift, ShiftType, Site } from '@prisma/client';
 
 type SiteWithOptionalRelations = Serialized<Site>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
-type GuardWithOptionalRelations = Serialized<Guard>;
+type EmployeeWithOptionalRelations = Serialized<Employee>;
 
 type ShiftWithOptionalRelations = Serialized<Shift> & {
-  guard?: GuardWithOptionalRelations | null;
+  employee?: EmployeeWithOptionalRelations | null;
   shiftType?: ShiftTypeWithOptionalRelations;
 };
 

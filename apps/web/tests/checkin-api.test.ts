@@ -1,12 +1,12 @@
 import { POST } from '../app/api/shifts/[id]/checkin/route';
-import { getAuthenticatedGuard } from '@/lib/guard-auth';
+import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { getShiftById } from '@/lib/data-access/shifts';
 import { recordCheckin } from '@/lib/data-access/checkins';
 import { getSystemSetting } from '@/lib/data-access/settings';
 
 // Mock the dependencies
-jest.mock('@/lib/guard-auth', () => ({
-  getAuthenticatedGuard: jest.fn(),
+jest.mock('@/lib/employee-auth', () => ({
+  getAuthenticatedEmployee: jest.fn(),
 }));
 
 jest.mock('@/lib/data-access/shifts', () => ({
@@ -38,7 +38,7 @@ jest.mock('next/server', () => {
 
 describe('POST /api/shifts/[id]/checkin - Last Slot Case', () => {
   const shiftId = 'shift-123';
-  const guardId = 'guard-456';
+  const employeeId = 'employee-456';
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -48,12 +48,12 @@ describe('POST /api/shifts/[id]/checkin - Last Slot Case', () => {
     const now = new Date('2025-12-20T10:00:00Z');
     jest.useFakeTimers().setSystemTime(now);
 
-    const mockGuard = { id: guardId };
-    (getAuthenticatedGuard as jest.Mock).mockResolvedValue(mockGuard);
+    const mockEmployee = { id: employeeId };
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue(mockEmployee);
 
     const mockShift = {
       id: shiftId,
-      guardId: guardId,
+      employeeId: employeeId,
       startsAt: new Date('2025-12-20T08:00:00Z'),
       endsAt: new Date('2025-12-20T10:00:00Z'),
       requiredCheckinIntervalMins: 60,
@@ -62,7 +62,7 @@ describe('POST /api/shifts/[id]/checkin - Last Slot Case', () => {
       status: 'in_progress',
       site: { latitude: null, longitude: null },
       shiftType: {},
-      guard: mockGuard,
+      employee: mockEmployee,
     };
 
     (getShiftById as jest.Mock).mockResolvedValue(mockShift);
@@ -95,12 +95,12 @@ describe('POST /api/shifts/[id]/checkin - Last Slot Case', () => {
     const now = new Date('2025-12-20T09:50:00Z');
     jest.useFakeTimers().setSystemTime(now);
 
-    const mockGuard = { id: guardId };
-    (getAuthenticatedGuard as jest.Mock).mockResolvedValue(mockGuard);
+    const mockEmployee = { id: employeeId };
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue(mockEmployee);
 
     const mockShift = {
       id: shiftId,
-      guardId: guardId,
+      employeeId: employeeId,
       startsAt: new Date('2025-12-20T08:00:00Z'),
       endsAt: new Date('2025-12-20T10:00:00Z'),
       requiredCheckinIntervalMins: 60,
@@ -110,7 +110,7 @@ describe('POST /api/shifts/[id]/checkin - Last Slot Case', () => {
       status: 'in_progress',
       site: { latitude: null, longitude: null },
       shiftType: {},
-      guard: mockGuard,
+      employee: mockEmployee,
     };
 
     (getShiftById as jest.Mock).mockResolvedValue(mockShift);

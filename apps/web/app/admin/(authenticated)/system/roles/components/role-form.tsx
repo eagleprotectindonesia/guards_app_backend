@@ -93,7 +93,7 @@ export default function RoleForm({ role, allPermissions }: Props) {
               type="text"
               defaultValue={role?.description || ''}
               className="w-full h-11 px-4 bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-              placeholder="e.g. Can manage guards and shifts but not system settings"
+              placeholder="e.g. Can manage employees and shifts but not system settings"
             />
           </div>
         </div>

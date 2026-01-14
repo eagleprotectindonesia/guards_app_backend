@@ -6,7 +6,7 @@ import { ActionState } from '@/types/actions';
 import { CreateShiftInput } from '@/lib/validations';
 import { useActionState, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
-import { Shift, Site, ShiftType, Guard } from '@prisma/client';
+import { Shift, Site, ShiftType, Employee } from '@prisma/client';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Select from '../../components/select';
@@ -17,10 +17,10 @@ type Props = {
   shift?: Serialized<Shift>;
   sites: Serialized<Site>[];
   shiftTypes: Serialized<ShiftType>[];
-  guards: Serialized<Guard>[];
+  employees: Serialized<Employee>[];
 };
 
-export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
+export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<ActionState<CreateShiftInput>, FormData>(
     shift ? updateShift.bind(null, shift.id) : createShift,
@@ -30,7 +30,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
   const [date, setDate] = useState<Date | null>(shift?.date ? new Date(shift.date) : new Date());
   const [selectedShiftTypeId, setSelectedShiftTypeId] = useState<string>(shift?.shiftTypeId || '');
   const [selectedSiteId, setSelectedSiteId] = useState<string>(shift?.siteId || '');
-  const [selectedGuardId, setSelectedGuardId] = useState<string>(shift?.guardId || '');
+  const [selectedemployeeId, setSelectedemployeeId] = useState<string>(shift?.employeeId || '');
 
   const isReadOnly = shift ? shift.status !== 'scheduled' : false;
 
@@ -44,7 +44,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
   }, [state, shift, router]);
 
   const siteOptions = sites.map(site => ({ value: site.id, label: site.name }));
-  const guardOptions = guards.map(guard => ({ value: guard.id, label: guard.name })).slice(0, 8);
+  const employeeOptions = employees.map(employee => ({ value: employee.id, label: employee.name })).slice(0, 8);
   const shiftTypeOptions = shiftTypes.map(st => ({
     value: st.id,
     label: `${st.name} (${st.startTime} - ${st.endTime})`,
@@ -95,22 +95,22 @@ export default function ShiftForm({ shift, sites, shiftTypes, guards }: Props) {
           {state.errors?.shiftTypeId && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.shiftTypeId[0]}</p>}
         </div>
 
-        {/* Guard Field */}
+        {/* Employee Field */}
         <div>
-          <label htmlFor="guardId" className="block font-medium text-foreground mb-1">
-            Guard
+          <label htmlFor="employeeId" className="block font-medium text-foreground mb-1">
+            Employee
           </label>
           <Select
-            id="guard-select"
-            instanceId="guard-select"
-            options={guardOptions}
-            value={guardOptions.find(opt => opt.value === selectedGuardId) || null}
-            onChange={option => setSelectedGuardId(option?.value || '')}
+            id="employee-select"
+            instanceId="employee-select"
+            options={employeeOptions}
+            value={employeeOptions.find(opt => opt.value === selectedemployeeId) || null}
+            onChange={option => setSelectedemployeeId(option?.value || '')}
             placeholder="Unassigned"
             isClearable={!isReadOnly}
             isDisabled={isReadOnly}
           />
-          <input type="hidden" name="guardId" value={selectedGuardId} />
+          <input type="hidden" name="employeeId" value={selectedemployeeId} />
         </div>
 
         {/* Date Field */}

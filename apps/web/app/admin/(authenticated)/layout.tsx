@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     template: '%s | Eagle Protect',
     default: 'Admin Dashboard | Eagle Protect',
   },
-  description: 'Security guard scheduling and real-time monitoring system.',
+  description: 'Security employee scheduling and real-time monitoring system.',
 };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -52,7 +52,7 @@ export async function createEmployee(
     name: formData.get('name'),
     phone: formData.get('phone'),
     id: formData.get('id')?.toString() || undefined,
-    employeeCode: formData.get('employeeCode')?.toString() || formData.get('guardCode')?.toString() || undefined,
+    employeeCode: formData.get('employeeCode')?.toString() || formData.get('employeeCode')?.toString() || undefined,
     status: formData.get('status') === 'true' ? true : formData.get('status') === 'false' ? false : undefined,
     joinDate: formData.get('joinDate')?.toString() || undefined,
     leftDate: formData.get('leftDate')?.toString() || undefined,
@@ -77,7 +77,7 @@ export async function createEmployee(
       hashedPassword: await hashPassword(password!),
     } as Prisma.EmployeeCreateInput;
 
-    await createEmployeeWithChangelog(dataToCreate, adminId!)
+    await createEmployeeWithChangelog(dataToCreate, adminId!);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('DUPLICATE_EMPLOYEE_CODE')) {
       const parts = error.message.split(':');
@@ -131,7 +131,7 @@ export async function updateEmployee(
   const validatedFields = updateEmployeeSchema.safeParse({
     name: formData.get('name'),
     phone: formData.get('phone'),
-    employeeCode: formData.get('employeeCode')?.toString() || formData.get('guardCode')?.toString() || undefined,
+    employeeCode: formData.get('employeeCode')?.toString() || formData.get('employeeCode')?.toString() || undefined,
     status: formData.get('status') === 'true' ? true : formData.get('status') === 'false' ? false : undefined,
     joinDate: formData.get('joinDate')?.toString() || undefined,
     leftDate: formData.get('leftDate')?.toString() || null,
@@ -147,7 +147,7 @@ export async function updateEmployee(
   }
 
   try {
-    await updateEmployeeWithChangelog(id, validatedFields.data as Prisma.EmployeeUpdateInput, adminId!)
+    await updateEmployeeWithChangelog(id, validatedFields.data as Prisma.EmployeeUpdateInput, adminId!);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('DUPLICATE_EMPLOYEE_CODE')) {
       const parts = error.message.split(':');
@@ -207,7 +207,7 @@ export async function updateEmployeePassword(
     const hashedPassword = await hashPassword(validatedFields.data.password);
     const adminId = await getAdminIdFromToken();
 
-    await updateEmployeePasswordWithChangelog(id, hashedPassword, adminId!)
+    await updateEmployeePasswordWithChangelog(id, hashedPassword, adminId!);
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -223,7 +223,7 @@ export async function updateEmployeePassword(
 export async function deleteEmployee(id: string) {
   try {
     const adminId = await getAdminIdFromToken();
-    await deleteEmployeeWithChangelog(id, adminId!)
+    await deleteEmployeeWithChangelog(id, adminId!);
     revalidatePath('/admin/employees');
     return { success: true };
   } catch (error) {
@@ -267,7 +267,9 @@ export async function bulkCreateEmployees(
     // Expected: Name, Phone, ID (Employee ID), Employee Code, Note, Join Date, Password
     // At minimum, Name, Phone, ID, Password, and Join Date are required.
     if (cols.length < 4) {
-      errors.push(`Row ${i + 1}: Insufficient columns. Name, Phone, Employee ID, Password, and Join Date are required.`);
+      errors.push(
+        `Row ${i + 1}: Insufficient columns. Name, Phone, Employee ID, Password, and Join Date are required.`
+      );
       continue;
     }
 
@@ -458,14 +460,17 @@ export async function bulkCreateEmployees(
       joinDate: g.joinDate ? new Date(g.joinDate) : undefined,
     }));
 
-    await bulkCreateEmployeesWithChangelog(finalData, adminId!)
+    await bulkCreateEmployeesWithChangelog(finalData, adminId!);
 
     revalidatePath('/admin/employees');
     return { success: true, message: `Successfully created ${employeesToCreate.length} employees.` };
   } catch (error) {
     if (error instanceof Error) {
       if (error.message === 'DUPLICATE_EMPLOYEE_CODE_IN_BATCH') {
-        return { success: false, message: 'Duplicate employee codes found within the uploaded file for active employees.' };
+        return {
+          success: false,
+          message: 'Duplicate employee codes found within the uploaded file for active employees.',
+        };
       }
       if (error.message.startsWith('DUPLICATE_EMPLOYEE_CODE:')) {
         const parts = error.message.split(':');
@@ -473,24 +478,13 @@ export async function bulkCreateEmployees(
         const conflictId = parts[2];
         const row = employeeCodeToRow.get(code);
         const rowPrefix = row ? `Row ${row}: ` : '';
-        return { success: false, message: `${rowPrefix}Employee code '${code}' is already in use by another active employee (ID: ${conflictId}).` };
+        return {
+          success: false,
+          message: `${rowPrefix}Employee code '${code}' is already in use by another active employee (ID: ${conflictId}).`,
+        };
       }
     }
     console.error('Bulk Create Error:', error);
     return { success: false, message: 'Database error during bulk creation.' };
   }
 }
-
-// --- Backward Compatibility Aliases ---
-/** @deprecated Use getAllEmployeesForExport */
-export const getAllGuardsForExport = getAllEmployeesForExport;
-/** @deprecated Use createEmployee */
-export const createGuard = createEmployee;
-/** @deprecated Use updateEmployee */
-export const updateGuard = updateEmployee;
-/** @deprecated Use updateEmployeePassword */
-export const updateGuardPassword = updateEmployeePassword;
-/** @deprecated Use deleteEmployee */
-export const deleteGuard = deleteEmployee;
-/** @deprecated Use bulkCreateEmployees */
-export const bulkCreateGuards = bulkCreateEmployees;

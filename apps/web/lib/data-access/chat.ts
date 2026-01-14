@@ -2,7 +2,7 @@ import { db as prisma } from '@/lib/prisma';
 import { ChatSenderType } from '@prisma/client';
 
 export async function saveMessage(data: {
-  guardId: string;
+  employeeId: string;
   adminId?: string;
   sender: ChatSenderType;
   content: string;
@@ -10,7 +10,7 @@ export async function saveMessage(data: {
   return prisma.chatMessage.create({
     data,
     include: {
-      guard: {
+      employee: {
         select: {
           id: true,
           name: true,
@@ -26,10 +26,10 @@ export async function saveMessage(data: {
   });
 }
 
-export async function getChatMessages(guardId: string, limit = 50, cursorId?: string) {
+export async function getChatMessages(employeeId: string, limit = 50, cursorId?: string) {
   return prisma.chatMessage.findMany({
     where: {
-      guardId,
+      employeeId,
     },
     orderBy: {
       createdAt: 'desc',
@@ -53,9 +53,9 @@ export async function getConversationList() {
     orderBy: {
       createdAt: 'desc',
     },
-    distinct: ['guardId'],
+    distinct: ['employeeId'],
     include: {
-      guard: {
+      employee: {
         select: {
           id: true,
           name: true,
@@ -65,9 +65,9 @@ export async function getConversationList() {
   });
 
   const unreadCounts = await prisma.chatMessage.groupBy({
-    by: ['guardId'],
+    by: ['employeeId'],
     where: {
-      sender: 'guard',
+      sender: 'employee',
       readAt: null,
     },
     _count: {
@@ -76,27 +76,27 @@ export async function getConversationList() {
   });
 
   const unreadMap = unreadCounts.reduce((acc, curr) => {
-    acc[curr.guardId] = curr._count.id;
+    acc[curr.employeeId] = curr._count.id;
     return acc;
   }, {} as Record<string, number>);
 
   return conversations.map((conv) => ({
-    guardId: conv.guardId,
-    guardName: conv.guard.name,
+    employeeId: conv.employeeId,
+    employeeName: conv.employee.name,
     lastMessage: {
       content: conv.content,
       sender: conv.sender,
       createdAt: conv.createdAt,
     },
-    unreadCount: unreadMap[conv.guardId] || 0,
+    unreadCount: unreadMap[conv.employeeId] || 0,
   }));
 }
 
-export async function getUnreadCount(params: { guardId?: string; isAdmin: boolean }) {
+export async function getUnreadCount(params: { employeeId?: string; isAdmin: boolean }) {
   return prisma.chatMessage.count({
     where: {
-      guardId: params.guardId,
-      sender: params.isAdmin ? 'guard' : 'admin',
+      employeeId: params.employeeId,
+      sender: params.isAdmin ? 'employee' : 'admin',
       readAt: null,
     },
   });
@@ -113,4 +113,11 @@ export async function markAsRead(messageIds: string[]) {
       readAt: new Date(),
     },
   });
+}
+
+// --- Backward Compatibility Aliases ---
+/** @deprecated Use saveMessage with employeeId */
+export async function saveGuardMessage(data: { guardId: string; adminId?: string; sender: ChatSenderType; content: string }) {
+  const { guardId, ...rest } = data;
+  return saveMessage({ employeeId: guardId, ...rest });
 }

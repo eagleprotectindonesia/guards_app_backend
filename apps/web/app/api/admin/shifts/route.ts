@@ -16,7 +16,7 @@ export async function GET(req: Request) {
 
     const shifts = await prisma.shift.findMany({
       where,
-      include: { shiftType: true, guard: true },
+      include: { shiftType: true, employee: true },
       orderBy: { startsAt: 'asc' },
     });
     return NextResponse.json(shifts);

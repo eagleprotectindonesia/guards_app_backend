@@ -5,7 +5,7 @@ import { parseISO, startOfDay, endOfDay } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { getActiveSites } from '@/lib/data-access/sites';
-import { getActiveGuards } from '@/lib/data-access/guards';
+import { getActiveEmployees } from '@/lib/data-access/employees';
 import { getPaginatedShifts } from '@/lib/data-access/shifts';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
@@ -27,7 +27,7 @@ export default async function ShiftsPage({
 
   const startDate = typeof resolvedSearchParams.startDate === 'string' ? resolvedSearchParams.startDate : undefined;
   const endDate = typeof resolvedSearchParams.endDate === 'string' ? resolvedSearchParams.endDate : undefined;
-  const guardId = typeof resolvedSearchParams.guardId === 'string' ? resolvedSearchParams.guardId : undefined;
+  const employeeId = typeof resolvedSearchParams.employeeId === 'string' ? resolvedSearchParams.employeeId : undefined;
   const siteId = typeof resolvedSearchParams.siteId === 'string' ? resolvedSearchParams.siteId : undefined;
   const sort =
     typeof resolvedSearchParams.sort === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sort)
@@ -42,7 +42,7 @@ export default async function ShiftsPage({
       gte: parsedStartDate,
       lte: parsedEndDate,
     },
-    guardId: guardId || undefined,
+    employeeId: employeeId || undefined,
     siteId: siteId || undefined,
   };
 
@@ -54,7 +54,7 @@ export default async function ShiftsPage({
     include: {
       site: true,
       shiftType: true,
-      guard: true,
+      employee: true,
       attendance: true,
       createdBy: { select: { name: true } },
       lastUpdatedBy: { select: { name: true } },
@@ -63,12 +63,12 @@ export default async function ShiftsPage({
 
   const sites = await getActiveSites();
   const shiftTypes = await prisma.shiftType.findMany({ orderBy: { name: 'asc' } });
-  const guards = await getActiveGuards();
+  const employees = await getActiveEmployees();
 
   const serializedShifts = serialize(shifts);
   const serializedSites = serialize(sites);
   const serializedShiftTypes = serialize(shiftTypes);
-  const serializedGuards = serialize(guards);
+  const serializedEmployees = serialize(employees);
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -77,10 +77,10 @@ export default async function ShiftsPage({
           shifts={serializedShifts}
           sites={serializedSites}
           shiftTypes={serializedShiftTypes}
-          guards={serializedGuards}
+          employees={serializedEmployees}
           startDate={startDate}
           endDate={endDate}
-          guardId={guardId}
+          employeeId={employeeId}
           siteId={siteId}
           sort={sort}
           page={page}

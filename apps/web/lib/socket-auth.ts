@@ -7,18 +7,18 @@ import { AUTH_COOKIES } from './auth/constants';
 
 export async function authenticateSocket(handshake: {
   headers: { cookie?: string };
-  auth?: { token?: string; role?: 'admin' | 'guard' };
+  auth?: { token?: string; role?: 'admin' | 'employee' };
 }): Promise<SocketAuth | null> {
   const cookieHeader = handshake.headers.cookie;
   const authPayload = handshake.auth;
 
   let adminToken: string | undefined;
-  let guardToken: string | undefined;
+  let employeeToken: string | undefined;
 
   if (cookieHeader) {
     const cookies = cookie.parse(cookieHeader);
     adminToken = cookies[AUTH_COOKIES.ADMIN];
-    guardToken = cookies[AUTH_COOKIES.GUARD];
+    employeeToken = cookies[AUTH_COOKIES.EMPLOYEE];
   }
 
   const tryAdminAuth = async () => {
@@ -35,15 +35,15 @@ export async function authenticateSocket(handshake: {
     return null;
   };
 
-  const tryGuardAuth = async () => {
-    if (!guardToken) return null;
-    const { isValid, userId } = await verifySession(guardToken, 'guard');
+  const tryEmployeeAuth = async () => {
+    if (!employeeToken) return null;
+    const { isValid, userId } = await verifySession(employeeToken, 'employee');
     if (isValid && userId) {
-      const guard = await prisma.guard.findUnique({ where: { id: userId }, select: { name: true } });
+      const employee = await prisma.employee.findUnique({ where: { id: userId }, select: { name: true } });
       return {
-        type: 'guard' as const,
+        type: 'employee' as const,
         id: userId,
-        name: guard?.name || 'Guard',
+        name: employee?.name || 'Employee',
       };
     }
     return null;
@@ -55,14 +55,14 @@ export async function authenticateSocket(handshake: {
   // 1. If explicit token is provided in auth payload, prioritize the role it implies
   if (authPayload?.token) {
     try {
-      const decoded = jwt.decode(authPayload.token) as { adminId?: string; guardId?: string };
+      const decoded = jwt.decode(authPayload.token) as { adminId?: string; employeeId?: string; guardId?: string };
       if (decoded?.adminId) {
         adminToken = authPayload.token;
         const auth = await tryAdminAuth();
         if (auth) return auth;
-      } else if (decoded?.guardId) {
-        guardToken = authPayload.token;
-        const auth = await tryGuardAuth();
+      } else if (decoded?.employeeId || decoded?.guardId) {
+        employeeToken = authPayload.token;
+        const auth = await tryEmployeeAuth();
         if (auth) return auth;
       }
     } catch {
@@ -71,14 +71,14 @@ export async function authenticateSocket(handshake: {
   }
 
   // 2. If preferred role is specified, try that first
-  if (preferredRole === 'guard') {
-    const auth = await tryGuardAuth();
+  if (preferredRole === 'employee') {
+    const auth = await tryEmployeeAuth();
     if (auth) return auth;
     return tryAdminAuth();
   }
 
-  // 3. Default priority: Admin cookie then Guard cookie
+  // 3. Default priority: Admin cookie then Employee cookie
   const adminAuth = await tryAdminAuth();
   if (adminAuth) return adminAuth;
-  return tryGuardAuth();
+  return tryEmployeeAuth();
 }

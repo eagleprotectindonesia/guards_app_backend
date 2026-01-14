@@ -10,7 +10,7 @@ import SessionMonitor from '../../src/components/SessionMonitor';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ShiftWithRelations, Guard } from '@repo/types';
+import { ShiftWithRelations, Employee } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
 import { disconnectSocket } from '../../src/api/socket';
 
@@ -20,7 +20,7 @@ type ActiveShiftData = {
 };
 
 type ProfileData = {
-  guard: Guard;
+  employee: Employee;
 };
 
 export default function HomeScreen() {
@@ -91,11 +91,11 @@ export default function HomeScreen() {
           <Box className="mb-4">
             <Heading size="3xl" className="text-gray-900 leading-tight">
               {t('dashboard.welcome')}
-              <Text className="text-blue-600">{profile?.guard?.name || 'Guard'}</Text>
+              <Text className="text-blue-600">{profile?.employee?.name || 'Employee'}</Text>
             </Heading>
-            {profile?.guard?.guardCode && (
+            {profile?.employee?.employeeCode && (
               <Text className="text-gray-500 font-bold mt-1">
-                {t('dashboard.guardCode')} {profile.guard.guardCode}
+                {t('dashboard.employeeCode')} {profile.employee.employeeCode}
               </Text>
             )}
           </Box>

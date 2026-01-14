@@ -7,20 +7,20 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { differenceInDays, addDays } from 'date-fns';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Guard } from '@prisma/client';
+import { Employee } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 
 type AttendanceExportModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onExport: (startDate: Date, endDate: Date, guardId?: string) => void;
-  guards: Serialized<Guard>[];
+  onExport: (startDate: Date, endDate: Date, employeeId?: string) => void;
+  employees: Serialized<Employee>[];
 };
 
-export default function AttendanceExportModal({ isOpen, onClose, onExport, guards }: AttendanceExportModalProps) {
+export default function AttendanceExportModal({ isOpen, onClose, onExport, employees }: AttendanceExportModalProps) {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  const [selectedGuardId, setSelectedGuardId] = useState<string>('');
+  const [selectedemployeeId, setSelectedemployeeId] = useState<string>('');
 
   const handleExport = () => {
     if (!startDate || !endDate) {
@@ -39,7 +39,7 @@ export default function AttendanceExportModal({ isOpen, onClose, onExport, guard
       return;
     }
 
-    onExport(startDate, endDate, selectedGuardId || undefined);
+    onExport(startDate, endDate, selectedemployeeId || undefined);
     onClose();
   };
 
@@ -60,19 +60,19 @@ export default function AttendanceExportModal({ isOpen, onClose, onExport, guard
         </p>
 
         <div className="space-y-4">
-          {/* Guard Selection */}
+          {/* Employee Selection */}
           <div>
-            <Label htmlFor="guard">Guard (Optional)</Label>
+            <Label htmlFor="employee">Employee (Optional)</Label>
             <select
-              id="guard"
-              value={selectedGuardId}
-              onChange={e => setSelectedGuardId(e.target.value)}
+              id="employee"
+              value={selectedemployeeId}
+              onChange={e => setSelectedemployeeId(e.target.value)}
               className="w-full mt-1 rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground"
             >
-              <option value="" className="bg-card">All Guards</option>
-              {guards.map(guard => (
-                <option key={guard.id} value={guard.id} className="bg-card">
-                  {guard.name}
+              <option value="" className="bg-card">All Employees</option>
+              {employees.map(employee => (
+                <option key={employee.id} value={employee.id} className="bg-card">
+                  {employee.name}
                 </option>
               ))}
             </select>

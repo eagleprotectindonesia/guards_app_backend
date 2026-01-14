@@ -1,20 +1,20 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedGuard } from '@/lib/guard-auth';
+import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { calculateCheckInWindow } from '@/lib/scheduling';
-import { getGuardActiveAndUpcomingShifts } from '@/lib/data-access/shifts';
+import { getEmployeeActiveAndUpcomingShifts } from '@/lib/data-access/shifts';
 
 export async function GET() {
-  const guard = await getAuthenticatedGuard();
+  const employee = await getAuthenticatedEmployee();
 
-  if (!guard) {
+  if (!employee) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const guardId = guard.id;
+  const employeeId = employee.id;
   const now = new Date();
 
   try {
-    const { activeShift, nextShifts } = await getGuardActiveAndUpcomingShifts(guardId, now);
+    const { activeShift, nextShifts } = await getEmployeeActiveAndUpcomingShifts(employeeId, now);
 
     let activeShiftWithWindow = null;
     if (activeShift) {

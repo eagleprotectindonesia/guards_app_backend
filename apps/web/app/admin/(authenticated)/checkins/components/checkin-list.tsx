@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Checkin, Guard, Shift, Site } from '@prisma/client';
+import { Checkin, Employee, Shift, Site } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import PaginationNav from '../../components/pagination-nav';
 import { MapPin, Clock, Filter } from 'lucide-react'; // Added Globe icon
@@ -18,7 +18,7 @@ type CheckinMetadata = {
   lng: number;
 };
 
-// Type guard to check if an object has valid location data
+// Type employee to check if an object has valid location data
 function hasValidLocation(metadata: JsonValue): metadata is CheckinMetadata {
   return (
     !!metadata &&
@@ -31,7 +31,7 @@ function hasValidLocation(metadata: JsonValue): metadata is CheckinMetadata {
 }
 
 type CheckinWithRelations = Checkin & {
-  guard: Guard;
+  employee: Employee;
   shift: Shift & {
     site: Site;
   };
@@ -42,20 +42,20 @@ type CheckinListProps = {
   page: number;
   perPage: number;
   totalCount: number;
-  guards: Serialized<Guard>[];
+  employees: Serialized<Employee>[];
   initialFilters: {
     startDate?: string;
     endDate?: string;
-    guardId?: string;
+    employeeId?: string;
   };
 };
 
-export default function CheckinList({ checkins, page, perPage, totalCount, guards, initialFilters }: CheckinListProps) {
+export default function CheckinList({ checkins, page, perPage, totalCount, employees, initialFilters }: CheckinListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; guardId: string }) => {
+  const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => {
     const params = new URLSearchParams(searchParams.toString());
 
     // Reset pagination when filtering
@@ -73,10 +73,10 @@ export default function CheckinList({ checkins, page, perPage, totalCount, guard
       params.delete('to');
     }
 
-    if (filters.guardId) {
-      params.set('guardId', filters.guardId);
+    if (filters.employeeId) {
+      params.set('employeeId', filters.employeeId);
     } else {
-      params.delete('guardId');
+      params.delete('employeeId');
     }
 
     router.push(`?${params.toString()}`);
@@ -88,10 +88,10 @@ export default function CheckinList({ checkins, page, perPage, totalCount, guard
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Check-ins</h1>
-          <p className="text-sm text-muted-foreground mt-1">View guard check-in history and status.</p>
+          <p className="text-sm text-muted-foreground mt-1">View employee check-in history and status.</p>
         </div>
         <div className="flex items-center gap-2">
-          <CheckinExport initialFilters={initialFilters} guards={guards} />
+          <CheckinExport initialFilters={initialFilters} employees={employees} />
           <button
             onClick={() => setIsFilterOpen(true)}
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm"
@@ -108,7 +108,7 @@ export default function CheckinList({ checkins, page, perPage, totalCount, guard
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Guard</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
@@ -132,9 +132,9 @@ export default function CheckinList({ checkins, page, perPage, totalCount, guard
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">
-                          {checkin.guard.name.substring(0, 2).toUpperCase()}
+                          {checkin.employee.name.substring(0, 2).toUpperCase()}
                         </div>
-                        {checkin.guard.name}
+                        {checkin.employee.name}
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
@@ -195,7 +195,7 @@ export default function CheckinList({ checkins, page, perPage, totalCount, guard
         onClose={() => setIsFilterOpen(false)}
         onApply={handleApplyFilters}
         initialFilters={initialFilters}
-        guards={guards}
+        employees={employees}
       />
     </div>
   );

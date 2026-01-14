@@ -191,9 +191,15 @@ export type CreateSiteInput = z.infer<typeof createSiteSchema>;
 export type UpdateSiteInput = CreateSiteInput; // Same for now
 export type CreateAdminInput = z.infer<typeof createAdminSchema>;
 export type UpdateAdminInput = z.infer<typeof updateAdminSchema>;
-export type CreateGuardInput = z.infer<typeof createGuardSchema>;
-export type UpdateGuardInput = z.infer<typeof updateGuardSchema>;
-export type UpdateGuardPasswordInput = z.infer<typeof updateGuardPasswordSchema>;
+export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
+export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
+export type UpdateEmployeePasswordInput = z.infer<typeof updateEmployeePasswordSchema>;
+
+// Deprecated
+export type CreateGuardInput = CreateEmployeeInput;
+export type UpdateGuardInput = UpdateEmployeeInput;
+export type UpdateGuardPasswordInput = UpdateEmployeePasswordInput;
+
 export type CreateShiftTypeInput = z.infer<typeof createShiftTypeSchema>;
 export type UpdateShiftTypeInput = CreateShiftTypeInput; // Same for now
 export type CreateShiftInput = z.infer<typeof createShiftSchema>;

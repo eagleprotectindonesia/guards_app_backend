@@ -5,7 +5,7 @@ import { startOfDay, endOfDay, format } from 'date-fns';
 
 const include = {
   site: true,
-  shift: { include: { guard: true } },
+  shift: { include: { employee: true } },
   ackAdmin: true,
   resolverAdmin: true,
 } satisfies Prisma.AlertInclude;
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       // Write Header
       const headers = [
         'Site',
-        'Guard',
+        'Employee',
         'Reason',
         'Severity',
         'Created At',
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
             };
 
             const siteName = alert.site.name;
-            const guardName = alert.shift?.guard?.name || 'Unassigned';
+            const employeeName = alert.shift?.employee?.name || 'Unassigned';
 
             const createdAt = format(new Date(alert.createdAt), 'yyyy/MM/dd HH:mm');
             const windowStart = format(new Date(alert.windowStart), 'yyyy/MM/dd HH:mm');
@@ -100,7 +100,7 @@ export async function GET(request: NextRequest) {
 
             const row = [
               escape(siteName),
-              escape(guardName),
+              escape(employeeName),
               escape(alert.reason),
               escape(alert.severity),
               escape(createdAt),

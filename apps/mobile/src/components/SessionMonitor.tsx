@@ -6,7 +6,7 @@ export default function SessionMonitor() {
   useQuery({
     queryKey: ['session-monitor'],
     queryFn: async () => {
-      const res = await client.get('/api/guard/auth/check');
+      const res = await client.get('/api/employee/auth/check');
       return res.data;
     },
     refetchInterval: 15000,

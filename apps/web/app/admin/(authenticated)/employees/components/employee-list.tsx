@@ -55,9 +55,9 @@ export default function EmployeeList({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  const canCreate = hasPermission(PERMISSIONS.GUARDS.CREATE);
-  const canEdit = hasPermission(PERMISSIONS.GUARDS.EDIT);
-  const canDelete = hasPermission(PERMISSIONS.GUARDS.DELETE);
+  const canCreate = hasPermission(PERMISSIONS.EMPLOYEES.CREATE);
+  const canEdit = hasPermission(PERMISSIONS.EMPLOYEES.EDIT);
+  const canDelete = hasPermission(PERMISSIONS.EMPLOYEES.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
 
   const handleSort = (field: string) => {

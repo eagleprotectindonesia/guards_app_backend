@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedGuard } from '@/lib/guard-auth';
+import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { z } from 'zod'; // Import z for Zod validation
 import { calculateDistance } from '@/lib/utils';
 import { getSystemSetting } from '@/lib/data-access/settings';
@@ -18,11 +18,11 @@ const attendanceSchema = z.object({
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: shiftId } = await params;
 
-  const guard = await getAuthenticatedGuard();
-  if (!guard) {
+  const employee = await getAuthenticatedEmployee();
+  if (!employee) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const guardId = guard.id;
+  const employeeId = employee.id;
 
   try {
     const json = await req.json();
@@ -35,8 +35,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Shift not found' }, { status: 404 });
     }
 
-    // 2. Validate Guard and ensure attendance hasn't been recorded
-    if (shift.guardId !== guardId) {
+    // 2. Validate Employee and ensure attendance hasn't been recorded
+    if (shift.employeeId !== employeeId) {
       return NextResponse.json({ error: 'Not assigned to this shift' }, { status: 403 });
     }
 
@@ -67,7 +67,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             shift.site.latitude,
             shift.site.longitude
           );
-          console.log(distance);
 
           if (distance > maxDistance) {
             return NextResponse.json(
@@ -89,7 +88,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // 3. Record Attendance and Update Shift
     const attendance = await recordAttendance({
       shiftId: shift.id,
-      guardId: shift.guardId!,
+      employeeId: shift.employeeId!,
       status: 'present',
       metadata,
       updateShiftStatus: shift.status === 'scheduled',

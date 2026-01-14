@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import CheckinExportModal from './checkin-export-modal';
 import { format } from 'date-fns';
 import { Serialized } from '@/lib/utils';
-import { Guard } from '@prisma/client';
+import { Employee } from '@prisma/client';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
@@ -14,12 +14,12 @@ type CheckinExportProps = {
   initialFilters: {
     startDate?: string;
     endDate?: string;
-    guardId?: string;
+    employeeId?: string;
   };
-  guards: Serialized<Guard>[];
+  employees: Serialized<Employee>[];
 };
 
-export default function CheckinExport({ initialFilters, guards }: CheckinExportProps) {
+export default function CheckinExport({ initialFilters, employees }: CheckinExportProps) {
   const { hasPermission } = useSession();
   const [isExportOpen, setIsExportOpen] = useState(false);
 
@@ -27,13 +27,13 @@ export default function CheckinExport({ initialFilters, guards }: CheckinExportP
 
   if (!canExport) return null;
 
-  const performExport = async (startDate: Date, endDate: Date, selectedGuardId?: string) => {
+  const performExport = async (startDate: Date, endDate: Date, selectedemployeeId?: string) => {
     try {
       const params = new URLSearchParams();
       
-      const guardIdToUse = selectedGuardId || initialFilters.guardId;
-      if (guardIdToUse) {
-        params.set('guardId', guardIdToUse);
+      const employeeIdToUse = selectedemployeeId || initialFilters.employeeId;
+      if (employeeIdToUse) {
+        params.set('employeeId', employeeIdToUse);
       }
       
       params.set('startDate', format(startDate, 'yyyy-MM-dd'));
@@ -68,7 +68,7 @@ export default function CheckinExport({ initialFilters, guards }: CheckinExportP
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}
         onExport={performExport}
-        guards={guards}
+        employees={employees}
       />
     </>
   );

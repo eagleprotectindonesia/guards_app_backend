@@ -3,7 +3,7 @@ import AttendanceList, { AttendanceWithRelations } from './components/attendance
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
-import { getAllGuards } from '@/lib/data-access/guards';
+import { getAllEmployees } from '@/lib/data-access/employees';
 import { getPaginatedAttendance } from '@/lib/data-access/attendance';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
@@ -20,15 +20,15 @@ export default async function AttendancePage(props: AttendancePageProps) {
   const { page, perPage, skip } = getPaginationParams(searchParams);
 
   // Extract filters from searchParams
-  const guardId = typeof searchParams.guardId === 'string' ? searchParams.guardId : undefined;
+  const employeeId = typeof searchParams.employeeId === 'string' ? searchParams.employeeId : undefined;
   const from = typeof searchParams.from === 'string' ? searchParams.from : undefined;
   const to = typeof searchParams.to === 'string' ? searchParams.to : undefined;
 
   // Build where clause for attendance records
   const where: Prisma.AttendanceWhereInput = {};
 
-  if (guardId) {
-    where.guardId = guardId;
+  if (employeeId) {
+    where.employeeId = employeeId;
   }
 
   if (from || to) {
@@ -41,21 +41,21 @@ export default async function AttendancePage(props: AttendancePageProps) {
     }
   }
 
-  const [{ attendances, totalCount }, guards] = await Promise.all([
+  const [{ attendances, totalCount }, employees] = await Promise.all([
     getPaginatedAttendance({
       where,
       orderBy: { recordedAt: 'desc' },
       skip,
       take: perPage,
     }),
-    getAllGuards({ name: 'asc' }),
+    getAllEmployees({ name: 'asc' }),
   ]);
 
   const serializedAttendances = serialize(attendances) as unknown as Serialized<AttendanceWithRelations>[];
-  const serializedGuards = serialize(guards);
+  const serializedEmployees = serialize(employees);
 
   const initialFilters = {
-    guardId,
+    employeeId,
     startDate: from,
     endDate: to,
   };
@@ -68,7 +68,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
           page={page}
           perPage={perPage}
           totalCount={totalCount}
-          guards={serializedGuards}
+          employees={serializedEmployees}
           initialFilters={initialFilters}
         />
       </Suspense>

@@ -7,7 +7,7 @@ import { parse, addDays, isBefore } from 'date-fns';
 import { Prisma, ShiftStatus } from '@prisma/client';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { getActiveSites } from '@/lib/data-access/sites';
-import { getActiveGuards } from '@/lib/data-access/guards';
+import { getActiveEmployees } from '@/lib/data-access/employees';
 import {
   checkOverlappingShift,
   createShiftWithChangelog,
@@ -26,7 +26,7 @@ export async function createShift(
   const validatedFields = createShiftSchema.safeParse({
     siteId: formData.get('siteId'),
     shiftTypeId: formData.get('shiftTypeId'),
-    guardId: formData.get('guardId') || null, // Handle empty string as null
+    employeeId: formData.get('employeeId') || null, // Handle empty string as null
     date: formData.get('date'),
     requiredCheckinIntervalMins: Number(formData.get('requiredCheckinIntervalMins')),
     graceMinutes: Number(formData.get('graceMinutes')),
@@ -41,7 +41,7 @@ export async function createShift(
     };
   }
 
-  const { date, shiftTypeId, siteId, guardId, requiredCheckinIntervalMins, graceMinutes, note } = validatedFields.data;
+  const { date, shiftTypeId, siteId, employeeId, requiredCheckinIntervalMins, graceMinutes, note } = validatedFields.data;
 
   try {
     // Fetch ShiftType to calculate startsAt and endsAt
@@ -91,12 +91,16 @@ export async function createShift(
     }
 
     // Check for overlapping shifts
-    if (guardId) {
-      const conflictingShift = await checkOverlappingShift(guardId, startDateTime, endDateTime);
+    if (employeeId) {
+      const conflictingShift = await checkOverlappingShift({
+        employeeId,
+        startsAt: startDateTime,
+        endsAt: endDateTime,
+      });
 
       if (conflictingShift) {
         return {
-          message: 'Guard already has a conflicting shift during this time.',
+          message: 'Employee already has a conflicting shift during this time.',
           success: false,
         };
       }
@@ -106,7 +110,7 @@ export async function createShift(
       {
         site: { connect: { id: siteId } },
         shiftType: { connect: { id: shiftTypeId } },
-        guard: guardId ? { connect: { id: guardId } } : undefined,
+        employee: employeeId ? { connect: { id: employeeId } } : undefined,
         date: dateObj,
         startsAt: startDateTime,
         endsAt: endDateTime,
@@ -138,7 +142,7 @@ export async function updateShift(
   const validatedFields = createShiftSchema.safeParse({
     siteId: formData.get('siteId'),
     shiftTypeId: formData.get('shiftTypeId'),
-    guardId: formData.get('guardId') || null,
+    employeeId: formData.get('employeeId') || null,
     date: formData.get('date'),
     requiredCheckinIntervalMins: Number(formData.get('requiredCheckinIntervalMins')),
     graceMinutes: Number(formData.get('graceMinutes')),
@@ -153,7 +157,7 @@ export async function updateShift(
     };
   }
 
-  const { date, shiftTypeId, siteId, guardId, requiredCheckinIntervalMins, graceMinutes, note } = validatedFields.data;
+  const { date, shiftTypeId, siteId, employeeId, requiredCheckinIntervalMins, graceMinutes, note } = validatedFields.data;
 
   try {
     const shiftType = await prisma.shiftType.findUnique({
@@ -188,12 +192,17 @@ export async function updateShift(
     }
 
     // Check for overlapping shifts
-    if (guardId) {
-      const conflictingShift = await checkOverlappingShift(guardId, startDateTime, endDateTime, id);
+    if (employeeId) {
+      const conflictingShift = await checkOverlappingShift({
+        employeeId,
+        startsAt: startDateTime,
+        endsAt: endDateTime,
+        excludeShiftId: id,
+      });
 
       if (conflictingShift) {
         return {
-          message: 'Guard already has a conflicting shift during this time.',
+          message: 'Employee already has a conflicting shift during this time.',
           success: false,
         };
       }
@@ -204,7 +213,7 @@ export async function updateShift(
       {
         site: { connect: { id: siteId } },
         shiftType: { connect: { id: shiftTypeId } },
-        guard: guardId ? { connect: { id: guardId } } : { disconnect: true },
+        employee: employeeId ? { connect: { id: employeeId } } : { disconnect: true },
         date: dateObj,
         startsAt: startDateTime,
         endsAt: endDateTime,
@@ -289,15 +298,15 @@ export async function bulkCreateShifts(
   }
 
   // Fetch all reference data for lookups
-  const [sites, shiftTypes, guards] = await Promise.all([
+  const [sites, shiftTypes, employees] = await Promise.all([
     getActiveSites(),
     prisma.shiftType.findMany({ select: { id: true, name: true, startTime: true, endTime: true } }),
-    getActiveGuards(),
+    getActiveEmployees(),
   ]);
 
   const siteMap = new Map(sites.map(s => [s.name.toLowerCase(), s.id]));
   const shiftTypeMap = new Map(shiftTypes.map(st => [st.name.toLowerCase(), st]));
-  const guardMap = new Map(guards.map(g => [g.name.toLowerCase(), g.id]));
+  const employeeMap = new Map(employees.map(g => [g.name.toLowerCase(), g.id]));
 
   const errors: string[] = [];
   const shiftsToCreate: Prisma.ShiftCreateManyInput[] = [];
@@ -313,18 +322,18 @@ export async function bulkCreateShifts(
       errors.push(
         `Row ${
           i + 1
-        }: Insufficient columns. Expected at least 6 (Site Name, Shift Type Name, Date, Guard Name, Required Check-in Interval, Grace Period).`
+        }: Insufficient columns. Expected at least 6 (Site Name, Shift Type Name, Date, Employee Name, Required Check-in Interval, Grace Period).`
       );
       continue;
     }
 
-    const [siteName, shiftTypeName, dateStr, guardName, intervalStr, graceStr] = cols;
+    const [siteName, shiftTypeName, dateStr, employeeName, intervalStr, graceStr] = cols;
 
-    if (!siteName || !shiftTypeName || !dateStr || !guardName || !intervalStr || !graceStr) {
+    if (!siteName || !shiftTypeName || !dateStr || !employeeName || !intervalStr || !graceStr) {
       errors.push(
         `Row ${
           i + 1
-        }: Missing required fields. Ensure Site Name, Shift Type Name, Date, Guard Name, Required Check-in Interval, and Grace Period are provided.`
+        }: Missing required fields. Ensure Site Name, Shift Type Name, Date, Employee Name, Required Check-in Interval, and Grace Period are provided.`
       );
       continue;
     }
@@ -339,9 +348,9 @@ export async function bulkCreateShifts(
       errors.push(`Row ${i + 1}: Shift Type '${shiftTypeName}' not found.`);
     }
 
-    const guardId = guardName ? guardMap.get(guardName.toLowerCase()) || null : null;
-    if (!guardId && guardName) {
-      errors.push(`Row ${i + 1}: Guard with name '${guardName}' not found or inactive.`);
+    const employeeId = employeeName ? employeeMap.get(employeeName.toLowerCase()) || null : null;
+    if (!employeeId && employeeName) {
+      errors.push(`Row ${i + 1}: Employee with name '${employeeName}' not found or inactive.`);
     }
 
     // Validate Date
@@ -365,7 +374,7 @@ export async function bulkCreateShifts(
       siteId &&
       shiftType &&
       dateRegex.test(dateStr) &&
-      (guardId || guardName === '') &&
+      (employeeId || employeeName === '') &&
       !isNaN(interval) &&
       interval > 0 &&
       !isNaN(grace) &&
@@ -399,26 +408,26 @@ export async function bulkCreateShifts(
         continue;
       }
 
-      if (guardId) {
+      if (employeeId) {
         const overlapInBatch = shiftsToCreate.find(
-          s => s.guardId === guardId && s.startsAt < endDateTime && s.endsAt > startDateTime
+          s => s.employeeId === employeeId && s.startsAt < endDateTime && s.endsAt > startDateTime
         );
 
         if (overlapInBatch) {
-          errors.push(`Row ${i + 1}: Overlaps with another shift in this batch for guard ${guardName}.`);
+          errors.push(`Row ${i + 1}: Overlaps with another shift in this batch for employee ${employeeName}.`);
           continue;
         }
 
         const existingShift = await prisma.shift.findFirst({
           where: {
-            guardId,
+            employeeId,
             startsAt: { lt: endDateTime },
             endsAt: { gt: startDateTime },
           },
         });
 
         if (existingShift) {
-          errors.push(`Row ${i + 1}: Guard ${guardName} already has a shift overlapping with this time.`);
+          errors.push(`Row ${i + 1}: Employee ${employeeName} already has a shift overlapping with this time.`);
           continue;
         }
       }
@@ -426,7 +435,7 @@ export async function bulkCreateShifts(
       shiftsToCreate.push({
         siteId,
         shiftTypeId: shiftType.id,
-        guardId: guardId || null,
+        employeeId: employeeId || null,
         date: dateObj,
         startsAt: startDateTime,
         endsAt: endDateTime,

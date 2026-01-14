@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { getAuthenticatedGuard } from '@/lib/guard-auth';
-import { updateGuard } from '@/lib/data-access/guards';
+import { getAuthenticatedEmployee } from '@/lib/employee-auth';
+import { updateEmployee } from '@/lib/data-access/employees';
 import { redis } from '@/lib/redis';
 
 const changePasswordSchema = z.object({
@@ -11,9 +11,9 @@ const changePasswordSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const guard = await getAuthenticatedGuard();
+  const employee = await getAuthenticatedEmployee();
 
-  if (!guard) {
+  if (!employee) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
@@ -21,14 +21,14 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = changePasswordSchema.parse(body);
 
-    if (!guard.hashedPassword) {
+    if (!employee.hashedPassword) {
       return NextResponse.json(
-        { message: 'Tidak ada kata sandi yang disetel untuk guard ini' },
+        { message: 'Tidak ada kata sandi yang disetel untuk karyawan ini' },
         { status: 400 }
       );
     }
 
-    const passwordMatch = await bcrypt.compare(validated.currentPassword, guard.hashedPassword);
+    const passwordMatch = await bcrypt.compare(validated.currentPassword, employee.hashedPassword);
 
     if (!passwordMatch) {
       return NextResponse.json(
@@ -42,10 +42,10 @@ export async function POST(req: NextRequest) {
 
     const hashedNewPassword = await bcrypt.hash(validated.newPassword, 10);
 
-    await updateGuard(guard.id, { hashedPassword: hashedNewPassword });
+    await updateEmployee(employee.id, { hashedPassword: hashedNewPassword });
 
     // Clear Redis flag for password change requirement
-    await redis.del(`guard:${guard.id}:must-change-password`);
+    await redis.del(`employee:${employee.id}:must-change-password`);
 
     return NextResponse.json({ message: 'Kata sandi berhasil diperbarui!' });
   } catch (error) {
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    console.error('Error changing guard password:', error);
+    console.error('Error changing employee password:', error);
     return NextResponse.json({ message: 'Terjadi kesalahan internal' }, { status: 500 });
   }
 }

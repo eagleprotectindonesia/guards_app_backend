@@ -24,7 +24,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         ackAdmin: true,
         shift: {
           include: {
-            guard: true,
+            employee: true,
             shiftType: true,
           },
         },

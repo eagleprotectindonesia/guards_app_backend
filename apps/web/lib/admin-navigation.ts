@@ -23,7 +23,7 @@ export interface NavItem {
 export const ADMIN_NAV_ITEMS: NavItem[] = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, requiredPermission: 'dashboard:view' },
   { name: 'Sites', href: '/admin/sites', icon: MapPin, requiredPermission: 'sites:view' },
-  { name: 'Guards', href: '/admin/guards', icon: Users, requiredPermission: 'guards:view' },
+  { name: 'Employees', href: '/admin/employees', icon: Users, requiredPermission: 'employees:view' },
   { name: 'Shift Types', href: '/admin/shift-types', icon: Layers, requiredPermission: 'shift-types:view' },
   { name: 'Shifts', href: '/admin/shifts', icon: Calendar, requiredPermission: 'shifts:view' },
   { name: 'Attendance', href: '/admin/attendance', icon: ClipboardCheck, requiredPermission: 'attendance:view' },
@@ -40,7 +40,8 @@ export const ADMIN_SECONDARY_NAV_ITEMS: NavItem[] = [
 
 export const ADMIN_LABEL_MAP: Record<string, string> = {
   dashboard: 'Dashboard',
-  guards: 'Guards',
+  employees: 'Employees',
+  guards: 'Employees', // Backward compatibility
   sites: 'Sites',
   'shift-types': 'Shift Types',
   shifts: 'Shifts',

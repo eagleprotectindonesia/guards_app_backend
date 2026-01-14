@@ -12,6 +12,25 @@ const nextConfig: NextConfig = {
   experimental: {
     authInterrupts: true,
   },
+  async redirects() {
+    return [
+      {
+        source: '/api/guard/:path*',
+        destination: '/api/employee/:path*',
+        permanent: true,
+      },
+      {
+        source: '/api/auth/guard/:path*',
+        destination: '/api/auth/employee/:path*',
+        permanent: true,
+      },
+      {
+        source: '/guard/:path*',
+        destination: '/employee/:path*',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

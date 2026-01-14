@@ -10,7 +10,7 @@ type ShiftExportProps = {
   initialFilters: {
     startDate?: string;
     endDate?: string;
-    guardId?: string;
+    employeeId?: string;
     siteId?: string;
   };
 };
@@ -22,8 +22,8 @@ export default function ShiftExport({ initialFilters }: ShiftExportProps) {
     try {
       const params = new URLSearchParams();
       
-      if (initialFilters.guardId) {
-        params.set('guardId', initialFilters.guardId);
+      if (initialFilters.employeeId) {
+        params.set('employeeId', initialFilters.employeeId);
       }
 
       if (initialFilters.siteId) {

@@ -9,15 +9,15 @@ import {
   CHECK_SHIFTS_JOB_NAME,
   MAINTENANCE_QUEUE_NAME,
   DATA_CLEAN_JOB_NAME,
-  GUARD_STATUS_QUEUE_NAME,
-  GUARD_STATUS_CHECK_JOB_NAME,
+  EMPLOYEE_STATUS_QUEUE_NAME,
+  EMPLOYEE_STATUS_CHECK_JOB_NAME,
 } from '@repo/shared';
 
 import { createQueue, createWorker } from './infrastructure/bullmq';
 import { closeRedisConnections } from './infrastructure/redis';
 import { SchedulingProcessor } from './processors/scheduling.processor';
 import { MaintenanceProcessor } from './processors/maintenance.processor';
-import { GuardStatusProcessor } from './processors/guard-status.processor';
+import { EmployeeStatusProcessor } from './processors/employee-status.processor';
 
 // Configuration
 const TICK_INTERVAL_MS = 5 * 1000; // 5 seconds
@@ -30,12 +30,12 @@ async function start() {
   // 1. Initialize Processors
   const schedulingProcessor = new SchedulingProcessor();
   const maintenanceProcessor = new MaintenanceProcessor();
-  const guardStatusProcessor = new GuardStatusProcessor();
+  const employeeStatusProcessor = new EmployeeStatusProcessor();
 
   // 2. Initialize Queues and Add Repeatable Jobs
   const schedulingQueue = createQueue(SCHEDULING_QUEUE_NAME);
   const maintenanceQueue = createQueue(MAINTENANCE_QUEUE_NAME);
-  const guardStatusQueue = createQueue(GUARD_STATUS_QUEUE_NAME);
+  const employeeStatusQueue = createQueue(EMPLOYEE_STATUS_QUEUE_NAME);
 
   console.log('Registering repeatable jobs...');
 
@@ -59,8 +59,8 @@ async function start() {
     }
   );
 
-  await guardStatusQueue.add(
-    GUARD_STATUS_CHECK_JOB_NAME,
+  await employeeStatusQueue.add(
+    EMPLOYEE_STATUS_CHECK_JOB_NAME,
     {},
     {
       repeat: { pattern: DAILY_CRON_PATTERN },
@@ -73,7 +73,7 @@ async function start() {
   const workers = [
     createWorker(SCHEDULING_QUEUE_NAME, job => schedulingProcessor.process(job)),
     createWorker(MAINTENANCE_QUEUE_NAME, job => maintenanceProcessor.process(job)),
-    createWorker(GUARD_STATUS_QUEUE_NAME, job => guardStatusProcessor.process(job)),
+    createWorker(EMPLOYEE_STATUS_QUEUE_NAME, job => employeeStatusProcessor.process(job)),
   ];
 
   console.log('All workers started.');
@@ -85,7 +85,7 @@ async function start() {
     await Promise.all(workers.map(w => w.close()));
     await schedulingQueue.close();
     await maintenanceQueue.close();
-    await guardStatusQueue.close();
+    await employeeStatusQueue.close();
     await closeRedisConnections();
 
     console.log('Graceful shutdown complete.');

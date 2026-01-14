@@ -4,7 +4,7 @@
  */
 
 export const RESOURCES = [
-  'guards',
+  'employees',
   'sites',
   'shifts',
   'shift-types',
@@ -26,11 +26,18 @@ export type Action = (typeof ACTIONS)[number];
 export type PermissionCode = `${Resource}:${Action}`;
 
 export const PERMISSIONS = {
+  EMPLOYEES: {
+    VIEW: 'employees:view',
+    CREATE: 'employees:create',
+    EDIT: 'employees:edit',
+    DELETE: 'employees:delete',
+  },
+  // Backward compatibility alias
   GUARDS: {
-    VIEW: 'guards:view',
-    CREATE: 'guards:create',
-    EDIT: 'guards:edit',
-    DELETE: 'guards:delete',
+    VIEW: 'employees:view',
+    CREATE: 'employees:create',
+    EDIT: 'employees:edit',
+    DELETE: 'employees:delete',
   },
   SITES: {
     VIEW: 'sites:view',

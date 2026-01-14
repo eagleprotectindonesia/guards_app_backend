@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Attendance, Guard, Shift, ShiftType, Site } from '@prisma/client';
+import { Attendance, Employee, Shift, ShiftType, Site } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import PaginationNav from '../../components/pagination-nav';
 import { MapPin, Clock, Filter, Calendar } from 'lucide-react';
@@ -18,7 +18,7 @@ type AttendanceMetadata = {
   };
 };
 
-// Type guard to check if an object has valid location data
+// Type employee to check if an object has valid location data
 function hasValidLocation(metadata: unknown): metadata is AttendanceMetadata {
   return (
     !!metadata &&
@@ -36,7 +36,7 @@ export type AttendanceWithRelations = Omit<Attendance, 'metadata'> & {
     shiftType: ShiftType;
   };
   metadata: AttendanceMetadata;
-  guard: Guard | null;
+  employee: Employee | null;
 };
 
 type AttendanceListProps = {
@@ -44,11 +44,11 @@ type AttendanceListProps = {
   page: number;
   perPage: number;
   totalCount: number;
-  guards: Serialized<Guard>[];
+  employees: Serialized<Employee>[];
   initialFilters: {
     startDate?: string;
     endDate?: string;
-    guardId?: string;
+    employeeId?: string;
   };
 };
 
@@ -57,14 +57,14 @@ export default function AttendanceList({
   page,
   perPage,
   totalCount,
-  guards,
+  employees,
   initialFilters,
 }: AttendanceListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; guardId: string }) => {
+  const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => {
     const params = new URLSearchParams(searchParams.toString());
 
     // Reset pagination when filtering
@@ -82,10 +82,10 @@ export default function AttendanceList({
       params.delete('to');
     }
 
-    if (filters.guardId) {
-      params.set('guardId', filters.guardId);
+    if (filters.employeeId) {
+      params.set('employeeId', filters.employeeId);
     } else {
-      params.delete('guardId');
+      params.delete('employeeId');
     }
 
     router.push(`?${params.toString()}`);
@@ -97,10 +97,10 @@ export default function AttendanceList({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Attendance</h1>
-          <p className="text-sm text-muted-foreground mt-1">View guard attendance records and status.</p>
+          <p className="text-sm text-muted-foreground mt-1">View employee attendance records and status.</p>
         </div>
         <div className="flex items-center gap-2">
-          <AttendanceExport initialFilters={initialFilters} guards={guards} />
+          <AttendanceExport initialFilters={initialFilters} employees={employees} />
           <button
             onClick={() => setIsFilterOpen(true)}
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm"
@@ -118,7 +118,7 @@ export default function AttendanceList({
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee ID</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Guard</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Date</th>
@@ -138,14 +138,14 @@ export default function AttendanceList({
                 attendances.map(attendance => (
                   <tr key={attendance.id} className="hover:bg-muted/50 transition-colors group">
                     <td className="py-4 px-6 text-sm font-medium text-muted-foreground">
-                      {attendance.guard?.id || '-'}
+                      {attendance.employee?.id || '-'}
                     </td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">
-                          {attendance.guard?.name.substring(0, 2).toUpperCase() || '??'}
+                          {attendance.employee?.name.substring(0, 2).toUpperCase() || '??'}
                         </div>
-                        {attendance.guard?.name || 'Unknown Guard'}
+                        {attendance.employee?.name || 'Unknown Employee'}
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
@@ -217,7 +217,7 @@ export default function AttendanceList({
         onClose={() => setIsFilterOpen(false)}
         onApply={handleApplyFilters}
         initialFilters={initialFilters}
-        guards={guards}
+        employees={employees}
       />
     </div>
   );

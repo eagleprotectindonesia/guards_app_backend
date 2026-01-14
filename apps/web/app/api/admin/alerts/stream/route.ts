@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import Redis from 'ioredis';
-import { Guard, Site, ShiftType, Attendance } from '@prisma/client';
+import { Employee, Site, ShiftType, Attendance } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
 type ShiftWithRelations = {
   id: string;
-  guard: Guard;
+  employee: Employee;
   shiftType: ShiftType;
   startsAt: Date;
   endsAt: Date;
@@ -52,7 +52,7 @@ export async function GET(req: Request) {
           site: true,
           shift: {
             include: {
-              guard: true,
+              employee: true,
               shiftType: true,
             },
           },
@@ -84,9 +84,9 @@ export async function GET(req: Request) {
             status: { in: ['scheduled', 'in_progress'] },
             startsAt: { lte: now },
             endsAt: { gte: now },
-            guardId: { not: null },
+            employeeId: { not: null },
           },
-          include: { shiftType: true, guard: true, site: true, attendance: true },
+          include: { shiftType: true, employee: true, site: true, attendance: true },
         });
 
         const activeSitesMap = new Map<string, { site: Site; shifts: ShiftWithRelations[] }>();
@@ -96,7 +96,7 @@ export async function GET(req: Request) {
           }
           activeSitesMap.get(shift.siteId)?.shifts.push({
             id: shift.id,
-            guard: shift.guard as Guard,
+            employee: shift.employee as Employee,
             shiftType: shift.shiftType,
             startsAt: shift.startsAt,
             endsAt: shift.endsAt,
@@ -126,7 +126,7 @@ export async function GET(req: Request) {
           },
           include: {
             shiftType: true,
-            guard: true,
+            employee: true,
             site: true,
           },
           orderBy: {

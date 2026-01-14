@@ -1,4 +1,4 @@
-import { Shift, ShiftType, Guard, Site, Attendance } from '@prisma/client';
+import { Shift, ShiftType, Employee, Site, Attendance } from '@prisma/client';
 import { calculateCheckInWindow, CHECK_SHIFTS_JOB_NAME } from '@repo/shared';
 import { db as prisma } from '@repo/database';
 import { getActiveShifts, getShiftsUpdates, getUpcomingShifts, createMissedCheckinAlert } from '@repo/database';
@@ -13,7 +13,7 @@ const ATTENDANCE_GRACE_PERIOD_MINS = 5;
 // Types
 type CachedShift = Shift & {
   shiftType: ShiftType;
-  guard: Guard | null;
+  employee: Employee | null;
   site: Site;
   attendance: Attendance | null;
   lastAttentionIndexSent?: number;
@@ -26,7 +26,7 @@ type ShiftState = {
 
 type BroadcastedShift = {
   id: string;
-  guard: Guard | null;
+  employee: Employee | null;
   shiftType: ShiftType;
   startsAt: Date;
   endsAt: Date;
@@ -341,7 +341,7 @@ export class SchedulingProcessor {
       }
       activeSitesMap.get(shift.siteId)?.shifts.push({
         id: shift.id,
-        guard: shift.guard,
+        employee: shift.employee,
         shiftType: shift.shiftType,
         startsAt: shift.startsAt,
         endsAt: shift.endsAt,

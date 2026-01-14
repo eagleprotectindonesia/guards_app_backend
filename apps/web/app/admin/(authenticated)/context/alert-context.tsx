@@ -1,25 +1,25 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { Alert, Guard, Shift, ShiftType, Site, Attendance } from '@prisma/client';
+import { Alert, Employee, Shift, ShiftType, Site, Attendance } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { useSession } from './session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 // --- Types ---
 
-type GuardWithOptionalRelations = Serialized<Guard>;
+type EmployeeWithOptionalRelations = Serialized<Employee>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
 type SiteWithOptionalRelations = Serialized<Site>;
 type AttendanceWithOptionalRelations = Serialized<Attendance>;
 
 type ShiftWithOptionalRelations = Serialized<Shift> & {
-  guard?: GuardWithOptionalRelations | null;
+  employee?: EmployeeWithOptionalRelations | null;
   shiftType?: ShiftTypeWithOptionalRelations;
 };
 
 export type ActiveShiftInDashboard = Serialized<Shift> & {
-  guard: GuardWithOptionalRelations | null;
+  employee: EmployeeWithOptionalRelations | null;
   shiftType: ShiftTypeWithOptionalRelations;
   attendance?: AttendanceWithOptionalRelations | null;
 };
@@ -30,7 +30,7 @@ export type ActiveSiteData = {
 };
 
 export type UpcomingShift = Serialized<Shift> & {
-  guard: GuardWithOptionalRelations | null;
+  employee: EmployeeWithOptionalRelations | null;
   shiftType: ShiftTypeWithOptionalRelations;
   site: SiteWithOptionalRelations;
 };

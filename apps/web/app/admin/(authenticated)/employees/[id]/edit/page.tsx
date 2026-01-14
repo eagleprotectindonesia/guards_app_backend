@@ -1,27 +1,27 @@
 import { serialize } from '@/lib/utils';
-import GuardForm from '../../components/guard-form';
+import EmployeeForm from '../../components/employee-form';
 import { notFound } from 'next/navigation';
-import { getGuardById } from '@/lib/data-access/guards';
+import { getEmployeeById } from '@/lib/data-access/employees';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const dynamic = 'force-dynamic';
 
-export default async function EditGuardPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission(PERMISSIONS.GUARDS.EDIT);
+export default async function EditEmployeePage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
   const { id } = await params;
 
-  const guard = await getGuardById(id);
+  const employee = await getEmployeeById(id);
 
-  if (!guard) {
+  if (!employee) {
     notFound();
   }
 
-  const serializedGuard = serialize(guard);
+  const serializedEmployee = serialize(employee);
 
   return (
     <div className="max-w-6xl mx-auto py-8">
-      <GuardForm guard={serializedGuard} />
+      <EmployeeForm employee={serializedEmployee} />
     </div>
   );
 }

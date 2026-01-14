@@ -7,10 +7,10 @@ async function main() {
   // 1. Create Permissions
   console.log('Creating permissions...');
   const permissionsData = [
-    { action: 'view', resource: 'guards', code: 'guards:view', description: 'Can view guards' },
-    { action: 'create', resource: 'guards', code: 'guards:create', description: 'Can create guards' },
-    { action: 'edit', resource: 'guards', code: 'guards:edit', description: 'Can edit guards' },
-    { action: 'delete', resource: 'guards', code: 'guards:delete', description: 'Can delete guards' },
+    { action: 'view', resource: 'employees', code: 'employees:view', description: 'Can view employees' },
+    { action: 'create', resource: 'employees', code: 'employees:create', description: 'Can create employees' },
+    { action: 'edit', resource: 'employees', code: 'employees:edit', description: 'Can edit employees' },
+    { action: 'delete', resource: 'employees', code: 'employees:delete', description: 'Can delete employees' },
     { action: 'view', resource: 'sites', code: 'sites:view', description: 'Can view sites' },
     { action: 'create', resource: 'sites', code: 'sites:create', description: 'Can create sites' },
     { action: 'edit', resource: 'sites', code: 'sites:edit', description: 'Can edit sites' },
@@ -71,8 +71,11 @@ async function main() {
   });
 
   // 3. Create Sites
-  const site1 = await prisma.site.create({
-    data: {
+  const site1 = await prisma.site.upsert({
+    where: { id: 'site-hq' },
+    update: {},
+    create: {
+      id: 'site-hq',
       name: 'Headquarters',
       clientName: 'Headquarters Owner',
       address: 'Jl. Umalas 1 Gg. XXII, Kerobokan Kelod, Kec. Kuta Utara, Kabupaten Badung, Bali, Indonesia',
@@ -82,8 +85,11 @@ async function main() {
   });
   console.log('Created Site 1:', site1.id);
 
-  const site2 = await prisma.site.create({
-    data: {
+  const site2 = await prisma.site.upsert({
+    where: { id: 'site-downtown' },
+    update: {},
+    create: {
+      id: 'site-downtown',
       name: 'Downtown Branch',
       clientName: 'Downtown Branch Owner',
       address: 'Pemogan, Denpasar Selatan, Denpasar City, Bali, Indonesia',
@@ -93,8 +99,11 @@ async function main() {
   });
   console.log('Created Site 2:', site2.id);
 
-  const site3 = await prisma.site.create({
-    data: {
+  const site3 = await prisma.site.upsert({
+    where: { id: 'site-lilu' },
+    update: {},
+    create: {
+      id: 'site-lilu',
       name: 'Lilu Rental',
       clientName: 'Warehouse Manager',
       address: 'Jl. Mahendradatta Utara No.758, Tegal Kertha, Kec. Denpasar Bar., Kota Denpasar, Bali 80361, Indonesia',
@@ -104,49 +113,57 @@ async function main() {
   });
   console.log('Created Site 3:', site3.id);
 
-  // 4. Create Guards
-  const guardPassword = '123456'; 
-  const hashedGuardPassword = await bcrypt.hash(guardPassword, 10);
+  // 4. Create Employees
+  const employeePassword = '123456'; 
+  const hashedEmployeePassword = await bcrypt.hash(employeePassword, 10);
 
-  const guard1 = await prisma.guard.create({
-    data: {
+  const employee1 = await prisma.employee.upsert({
+    where: { id: 'EMP001' },
+    update: {},
+    create: {
       id: 'EMP001',
       name: 'Jackie Chan',
       phone: '+62551234567',
-      hashedPassword: hashedGuardPassword,
-      guardCode: '00001',
+      hashedPassword: hashedEmployeePassword,
+      employeeCode: '00001',
     },
   });
-  console.log('Created Guard 1:', guard1.id);
+  console.log('Created Employee 1:', employee1.id);
 
-  const guard2 = await prisma.guard.create({
-    data: {
+  const employee2 = await prisma.employee.upsert({
+    where: { id: 'EMP002' },
+    update: {},
+    create: {
       id: 'EMP002',
       name: 'Bruce Lee',
       phone: '+625551234568',
-      hashedPassword: hashedGuardPassword,
-      guardCode: '00002',
+      hashedPassword: hashedEmployeePassword,
+      employeeCode: '00002',
     },
   });
-  console.log('Created Guard 2:', guard2.id);
+  console.log('Created Employee 2:', employee2.id);
 
-  const guard3 = await prisma.guard.create({
-    data: {
+  const employee3 = await prisma.employee.upsert({
+    where: { id: 'EMP003' },
+    update: {},
+    create: {
       id: 'EMP003',
       name: 'Chuck Norris',
       phone: '+625551234569',
-      hashedPassword: hashedGuardPassword,
-      guardCode: '00003',
+      hashedPassword: hashedEmployeePassword,
+      employeeCode: '00003',
     },
   });
-  console.log('Created Guard 3:', guard3.id);
+  console.log('Created Employee 3:', employee3.id);
 
   // 5. Create Admin
   const adminPassword = 'password123';
   const hashedAdminPassword = await bcrypt.hash(adminPassword, 10);
 
-  const admin = await prisma.admin.create({
-    data: {
+  const admin = await prisma.admin.upsert({
+    where: { email: 'admin@example.com' },
+    update: {},
+    create: {
       name: 'Admin User',
       email: 'admin@example.com',
       hashedPassword: hashedAdminPassword,
@@ -157,8 +174,11 @@ async function main() {
   console.log('Created Admin:', admin.id);
 
   // 6. Create Shift Types
-  const morningShiftType = await prisma.shiftType.create({
-    data: {
+  const morningShiftType = await prisma.shiftType.upsert({
+    where: { id: 'shift-morning' },
+    update: {},
+    create: {
+      id: 'shift-morning',
       name: 'Morning Shift',
       startTime: '08:00',
       endTime: '16:00',
@@ -166,8 +186,11 @@ async function main() {
   });
   console.log('Created Morning Shift Type:', morningShiftType.id);
 
-  const afternoonShiftType = await prisma.shiftType.create({
-    data: {
+  const afternoonShiftType = await prisma.shiftType.upsert({
+    where: { id: 'shift-afternoon' },
+    update: {},
+    create: {
+      id: 'shift-afternoon',
       name: 'Afternoon Shift',
       startTime: '16:00',
       endTime: '00:00',
@@ -175,8 +198,11 @@ async function main() {
   });
   console.log('Created Afternoon Shift Type:', afternoonShiftType.id);
 
-  const nightShiftType = await prisma.shiftType.create({
-    data: {
+  const nightShiftType = await prisma.shiftType.upsert({
+    where: { id: 'shift-night' },
+    update: {},
+    create: {
+      id: 'shift-night',
       name: 'Night Shift',
       startTime: '22:00',
       endTime: '06:00',
@@ -193,62 +219,69 @@ async function main() {
   const morningEndsAt = new Date(today);
   morningEndsAt.setHours(16, 0, 0, 0);
 
-  const shiftToday1 = await prisma.shift.create({
-    data: {
-      siteId: site1.id,
-      shiftTypeId: morningShiftType.id,
-      guardId: guard1.id,
-      date: today,
-      startsAt: morningStartsAt,
-      endsAt: morningEndsAt,
-      status: 'scheduled',
-      requiredCheckinIntervalMins: 30,
-      graceMinutes: 4,
-    },
+  // Note: Shifts don't have a natural unique key in this seed, so we just create them if they don't exist for the day
+  const existingShifts = await prisma.shift.count({
+    where: { date: today }
   });
-  console.log('Created Shift for today (Guard 1):', shiftToday1.id);
 
-  const afternoonStartsAt = new Date(today);
-  afternoonStartsAt.setHours(16, 0, 0, 0);
-  const afternoonEndsAt = new Date(today);
-  afternoonEndsAt.setDate(afternoonEndsAt.getDate() + 1);
-  afternoonEndsAt.setHours(0, 0, 0, 0);
+  if (existingShifts === 0) {
+    const shiftToday1 = await prisma.shift.create({
+      data: {
+        siteId: site1.id,
+        shiftTypeId: morningShiftType.id,
+        employeeId: employee1.id,
+        date: today,
+        startsAt: morningStartsAt,
+        endsAt: morningEndsAt,
+        status: 'scheduled',
+        requiredCheckinIntervalMins: 30,
+        graceMinutes: 4,
+      },
+    });
+    console.log('Created Shift for today (Employee 1):', shiftToday1.id);
 
-  const afternoonShift = await prisma.shift.create({
-    data: {
-      siteId: site2.id,
-      shiftTypeId: afternoonShiftType.id,
-      guardId: guard2.id,
-      date: today,
-      startsAt: afternoonStartsAt,
-      endsAt: afternoonEndsAt,
-      status: 'scheduled',
-      requiredCheckinIntervalMins: 20,
-      graceMinutes: 4,
-    },
-  });
-  console.log('Created Afternoon Shift:', afternoonShift.id);
+    const afternoonStartsAt = new Date(today);
+    afternoonStartsAt.setHours(16, 0, 0, 0);
+    const afternoonEndsAt = new Date(today);
+    afternoonEndsAt.setDate(afternoonEndsAt.getDate() + 1);
+    afternoonEndsAt.setHours(0, 0, 0, 0);
 
-  const nightShiftStartsAt = new Date(today);
-  nightShiftStartsAt.setHours(22, 0, 0, 0);
-  const nightShiftEndsAt = new Date(today);
-  nightShiftEndsAt.setDate(nightShiftEndsAt.getDate() + 1);
-  nightShiftEndsAt.setHours(6, 0, 0, 0);
+    const afternoonShift = await prisma.shift.create({
+      data: {
+        siteId: site2.id,
+        shiftTypeId: afternoonShiftType.id,
+        employeeId: employee2.id,
+        date: today,
+        startsAt: afternoonStartsAt,
+        endsAt: afternoonEndsAt,
+        status: 'scheduled',
+        requiredCheckinIntervalMins: 20,
+        graceMinutes: 4,
+      },
+    });
+    console.log('Created Afternoon Shift:', afternoonShift.id);
 
-  const overnightShift = await prisma.shift.create({
-    data: {
-      siteId: site3.id,
-      shiftTypeId: nightShiftType.id,
-      guardId: guard3.id,
-      date: today,
-      startsAt: nightShiftStartsAt,
-      endsAt: nightShiftEndsAt,
-      status: 'scheduled',
-      requiredCheckinIntervalMins: 5,
-      graceMinutes: 4,
-    },
-  });
-  console.log('Created Overnight Shift:', overnightShift.id);
+    const nightShiftStartsAt = new Date(today);
+    nightShiftStartsAt.setHours(22, 0, 0, 0);
+    const nightShiftEndsAt = new Date(today);
+    nightShiftEndsAt.setDate(nightShiftEndsAt.getDate() + 1);
+    nightShiftEndsAt.setHours(6, 0, 0, 0);
+
+    const overnightShift = await prisma.shift.create({
+      data: {
+        siteId: site3.id,
+        shiftTypeId: nightShiftType.id,
+        employeeId: employee3.id,
+        date: today,
+        startsAt: nightShiftStartsAt,
+        endsAt: nightShiftEndsAt,
+        status: 'scheduled',
+        requiredCheckinIntervalMins: 5,
+        graceMinutes: 4,
+      },
+    });
+    console.log('Created Overnight Shift:', overnightShift.id);
+  }
 
   console.log('\n--- SEED COMPLETE ---');
   console.log(`Admin Role ID: ${superadminRole.id}`);

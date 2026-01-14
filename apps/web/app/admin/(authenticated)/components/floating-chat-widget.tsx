@@ -7,8 +7,8 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface Conversation {
-  guardId: string;
-  guardName: string;
+  employeeId: string;
+  employeeName: string;
   lastMessage: {
     content: string;
     sender: string;
@@ -19,9 +19,9 @@ interface Conversation {
 
 interface ChatMessage {
   id: string;
-  guardId: string;
+  employeeId: string;
   adminId?: string | null;
-  sender: 'admin' | 'guard';
+  sender: 'admin' | 'employee';
   content: string;
   createdAt: string;
   readAt?: string | null;
@@ -31,19 +31,19 @@ export default function FloatingChatWidget() {
   const { socket, isConnected } = useSocket();
   const [isOpen, setIsOpen] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeGuardId, setActiveGuardId] = useState<string | null>(null);
+  const [activeemployeeId, setActiveemployeeId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [typingGuards, setTypingGuards] = useState<Record<string, boolean>>({});
+  const [typingEmployees, setTypingEmployees] = useState<Record<string, boolean>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Listen for external open chat events
   useEffect(() => {
-    const handleOpenChat = (e: CustomEvent<{ guardId: string }>) => {
+    const handleOpenChat = (e: CustomEvent<{ employeeId: string }>) => {
       setIsOpen(true);
-      handleSelectConversation(e.detail.guardId);
+      handleSelectConversation(e.detail.employeeId);
     };
     window.addEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
     return () => window.removeEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
@@ -60,25 +60,25 @@ export default function FloatingChatWidget() {
       console.error('Failed to fetch conversations', err);
     }
   };
-  const handleSelectConversation = async (guardId: string) => {
-    setActiveGuardId(guardId);
+  const handleSelectConversation = async (employeeId: string) => {
+    setActiveemployeeId(employeeId);
     setIsLoading(true);
 
     // Optimistically clear unread count locally
-    setConversations(prev => prev.map(c => (c.guardId === guardId ? { ...c, unreadCount: 0 } : c)));
+    setConversations(prev => prev.map(c => (c.employeeId === employeeId ? { ...c, unreadCount: 0 } : c)));
 
     try {
-      const res = await fetch(`/api/chat/${guardId}`);
+      const res = await fetch(`/api/chat/${employeeId}`);
       if (res.ok) {
         const data = await res.json();
         const reversed: ChatMessage[] = data.reverse();
         setMessages(reversed);
         if (socket) {
           const unreadIds = reversed
-            .filter((m: ChatMessage) => m.sender === 'guard' && !m.readAt)
+            .filter((m: ChatMessage) => m.sender === 'employee' && !m.readAt)
             .map((m: ChatMessage) => m.id);
           if (unreadIds.length > 0) {
-            socket.emit('mark_read', { guardId, messageIds: unreadIds });
+            socket.emit('mark_read', { employeeId, messageIds: unreadIds });
           }
         }
       }
@@ -98,18 +98,18 @@ export default function FloatingChatWidget() {
     if (socket) {
       socket.on('new_message', (message: ChatMessage) => {
         // If it's for current active conversation, add it
-        if (activeGuardId === message.guardId) {
+        if (activeemployeeId === message.employeeId) {
           setMessages(prev => [...prev, message]);
 
           // Mark as read if we are looking at it
-          if (message.sender === 'guard') {
-            socket.emit('mark_read', { guardId: message.guardId, messageIds: [message.id] });
+          if (message.sender === 'employee') {
+            socket.emit('mark_read', { employeeId: message.employeeId, messageIds: [message.id] });
           }
         }
 
         // Update conversations state locally for immediate feedback
         setConversations(prev => {
-          const index = prev.findIndex(c => c.guardId === message.guardId);
+          const index = prev.findIndex(c => c.employeeId === message.employeeId);
           if (index === -1) {
             // New conversation, need full refresh to get names etc
             fetchConversations();
@@ -118,7 +118,7 @@ export default function FloatingChatWidget() {
 
           const updated = [...prev];
           const conv = updated[index];
-          const isCurrentlyViewing = activeGuardId === message.guardId;
+          const isCurrentlyViewing = activeemployeeId === message.employeeId;
 
           updated[index] = {
             ...conv,
@@ -138,20 +138,20 @@ export default function FloatingChatWidget() {
         });
       });
 
-      socket.on('messages_read', (data: { guardId: string; messageIds?: string[] }) => {
+      socket.on('messages_read', (data: { employeeId: string; messageIds?: string[] }) => {
         // Update local state to reflect that messages were read
-        setConversations(prev => prev.map(c => (c.guardId === data.guardId ? { ...c, unreadCount: 0 } : c)));
+        setConversations(prev => prev.map(c => (c.employeeId === data.employeeId ? { ...c, unreadCount: 0 } : c)));
 
-        // Update individual messages if they were read by the guard
-        if (activeGuardId === data.guardId && data.messageIds) {
+        // Update individual messages if they were read by the employee
+        if (activeemployeeId === data.employeeId && data.messageIds) {
           setMessages(prev =>
             prev.map(m => (data.messageIds?.includes(m.id) ? { ...m, readAt: new Date().toISOString() } : m))
           );
         }
       });
 
-      socket.on('typing', (data: { guardId: string; isTyping: boolean }) => {
-        setTypingGuards(prev => ({ ...prev, [data.guardId]: data.isTyping }));
+      socket.on('typing', (data: { employeeId: string; isTyping: boolean }) => {
+        setTypingEmployees(prev => ({ ...prev, [data.employeeId]: data.isTyping }));
       });
 
       return () => {
@@ -160,39 +160,39 @@ export default function FloatingChatWidget() {
         socket.off('typing');
       };
     }
-  }, [socket, activeGuardId]);
+  }, [socket, activeemployeeId]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, typingGuards]);
+  }, [messages, typingEmployees]);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeGuardId || !socket) return;
+    if (!inputText.trim() || !activeemployeeId || !socket) return;
 
     socket.emit('send_message', {
       content: inputText.trim(),
-      guardId: activeGuardId,
+      employeeId: activeemployeeId,
     });
 
     setInputText('');
 
     // Stop typing
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    socket.emit('typing', { guardId: activeGuardId, isTyping: false });
+    socket.emit('typing', { employeeId: activeemployeeId, isTyping: false });
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInputText(e.target.value);
 
-    if (socket && activeGuardId) {
-      socket.emit('typing', { guardId: activeGuardId, isTyping: true });
+    if (socket && activeemployeeId) {
+      socket.emit('typing', { employeeId: activeemployeeId, isTyping: true });
 
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = setTimeout(() => {
-        socket.emit('typing', { guardId: activeGuardId, isTyping: false });
+        socket.emit('typing', { employeeId: activeemployeeId, isTyping: false });
       }, 3000);
     }
   };
@@ -221,25 +221,25 @@ export default function FloatingChatWidget() {
               ) : (
                 conversations.map(conv => (
                   <button
-                    key={conv.guardId}
-                    onClick={() => handleSelectConversation(conv.guardId)}
+                    key={conv.employeeId}
+                    onClick={() => handleSelectConversation(conv.employeeId)}
                     className={cn(
                       'w-full text-left p-3 border-b border-border/50 hover:bg-muted transition-all flex items-center gap-3 relative',
-                      activeGuardId === conv.guardId && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500'
+                      activeemployeeId === conv.employeeId && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500'
                     )}
                   >
                     <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center shrink-0 relative">
                       <User className="text-muted-foreground" size={16} />
-                      {typingGuards[conv.guardId] && (
+                      {typingEmployees[conv.employeeId] && (
                         <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-card rounded-full animate-pulse" />
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex justify-between items-start">
-                        <p className="font-medium text-foreground text-sm truncate">{conv.guardName}</p>
+                        <p className="font-medium text-foreground text-sm truncate">{conv.employeeName}</p>
                       </div>
                       <p className="text-[10px] text-muted-foreground truncate">
-                        {typingGuards[conv.guardId] ? (
+                        {typingEmployees[conv.employeeId] ? (
                           <span className="text-green-600 dark:text-green-400 font-medium italic">typing...</span>
                         ) : (
                           <>
@@ -261,7 +261,7 @@ export default function FloatingChatWidget() {
 
             {/* Main: Active Chat Area */}
             <div className="flex-1 flex flex-col overflow-hidden bg-muted/30">
-              {activeGuardId ? (
+              {activeemployeeId ? (
                 <>
                   {/* Active Chat Header */}
                   <div className="p-2 px-4 border-b border-border bg-card flex items-center gap-2">
@@ -270,9 +270,9 @@ export default function FloatingChatWidget() {
                     </div>
                     <div className="flex flex-col">
                       <span className="font-medium text-sm leading-tight text-foreground">
-                        {conversations.find(c => c.guardId === activeGuardId)?.guardName}
+                        {conversations.find(c => c.employeeId === activeemployeeId)?.employeeName}
                       </span>
-                      {typingGuards[activeGuardId] && (
+                      {typingEmployees[activeemployeeId] && (
                         <span className="text-[10px] text-green-600 dark:text-green-400 animate-pulse">typing...</span>
                       )}
                     </div>
@@ -340,7 +340,7 @@ export default function FloatingChatWidget() {
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
                   <MessageSquare size={48} className="mb-4 opacity-10" />
-                  <p className="text-sm">Select a guard from the list to start chatting</p>
+                  <p className="text-sm">Select a employee from the list to start chatting</p>
                 </div>
               )}
             </div>

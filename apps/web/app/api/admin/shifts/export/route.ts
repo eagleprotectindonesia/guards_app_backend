@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma, Shift, Guard, Site, ShiftType } from '@prisma/client';
+import { Prisma, Shift, Employee, Site, ShiftType } from '@prisma/client';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { getExportShiftsBatch } from '@/lib/data-access/shifts';
 
@@ -7,13 +7,13 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const startDateStr = searchParams.get('startDate');
   const endDateStr = searchParams.get('endDate');
-  const guardId = searchParams.get('guardId');
+  const employeeId = searchParams.get('employeeId');
   const siteId = searchParams.get('siteId');
 
   const where: Prisma.ShiftWhereInput = {};
 
-  if (guardId) {
-    where.guardId = guardId;
+  if (employeeId) {
+    where.employeeId = employeeId;
   }
 
   if (siteId) {
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         'Shift ID',
         'Site',
         'Shift Type',
-        'Guard',
+        'Employee',
         'Date',
         'Start Time',
         'End Time',
@@ -75,13 +75,13 @@ export async function GET(request: NextRequest) {
             const s = shift as Shift & {
               site: Site;
               shiftType: ShiftType;
-              guard: Guard | null;
+              employee: Employee | null;
               createdBy: { name: string } | null;
             };
 
             const siteName = s.site.name;
             const shiftTypeName = s.shiftType.name;
-            const guardName = s.guard?.name || 'Unassigned';
+            const employeeName = s.employee?.name || 'Unassigned';
             const date = format(new Date(s.date), 'yyyy/MM/dd');
             const startTime = format(new Date(s.startsAt), 'HH:mm');
             const endTime = format(new Date(s.endsAt), 'HH:mm');
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
                 escape(s.id),
                 escape(siteName),
                 escape(shiftTypeName),
-                escape(guardName),
+                escape(employeeName),
                 escape(date),
                 escape(startTime),
                 escape(endTime),

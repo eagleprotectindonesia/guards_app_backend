@@ -36,7 +36,7 @@ export default function AccountScreen() {
   });
 
   useEffect(() => {
-    if (profile?.guard?.mustChangePassword) {
+    if (profile?.employee?.mustChangePassword) {
       // Use a small timeout to avoid synchronous set state in effect warning
       // or simply rely on the fact that this should only happen once
       const timer = setTimeout(() => {
@@ -45,13 +45,13 @@ export default function AccountScreen() {
       }, 0);
       return () => clearTimeout(timer);
     }
-  }, [profile?.guard?.mustChangePassword]);
+  }, [profile?.employee?.mustChangePassword]);
 
   const handleLogout = async () => {
     try {
       // Close socket connection first
       disconnectSocket();
-      await client.post('/api/auth/guard/logout');
+      await client.post('/api/auth/employee/logout');
       router.replace('/(auth)/login');
     } catch {
       router.replace('/(auth)/login');
@@ -72,10 +72,10 @@ export default function AccountScreen() {
 
           <Center className="bg-white p-6 rounded-2xl shadow-sm">
             <Avatar size="2xl" bgColor="$blue600" className="mb-4">
-              <AvatarFallbackText>{profile?.guard?.name || 'G'}</AvatarFallbackText>
+              <AvatarFallbackText>{profile?.employee?.name || 'G'}</AvatarFallbackText>
             </Avatar>
-            <Heading size="lg">{profile?.guard?.name}</Heading>
-            <Text className="text-gray-500">{profile?.guard?.guardCode}</Text>
+            <Heading size="lg">{profile?.employee?.name}</Heading>
+            <Text className="text-gray-500">{profile?.employee?.employeeCode}</Text>
           </Center>
 
           <VStack space="md">

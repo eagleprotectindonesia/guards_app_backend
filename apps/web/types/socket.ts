@@ -2,7 +2,7 @@ import 'socket.io';
 
 export interface SocketAuth {
   id: string;
-  type: 'admin' | 'guard';
+  type: 'admin' | 'employee';
   name: string;
 }
 

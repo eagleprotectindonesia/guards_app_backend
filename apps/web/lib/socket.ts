@@ -48,25 +48,27 @@ export function initSocket(server: HttpServer) {
     if (auth.type === 'admin') {
       socket.join('admin');
     } else {
-      socket.join(`guard:${auth.id}`);
+      socket.join(`employee:${auth.id}`);
     }
 
-    socket.on('send_message', async (data: { content: string; guardId?: string }) => {
+    socket.on('send_message', async (data: { content: string; employeeId?: string; guardId?: string }) => {
       try {
-        if (auth.type === 'guard') {
-          // Guard sending to admins
+        const targetEmployeeId = data.employeeId || data.guardId;
+
+        if (auth.type === 'employee') {
+          // Employee sending to admins
           const message = await saveMessage({
-            guardId: auth.id,
-            sender: 'guard',
+            employeeId: auth.id,
+            sender: 'employee',
             content: data.content,
           });
 
           io.to('admin').emit('new_message', message);
-          // Also send back to guard room (for multi-device sync)
-          io.to(`guard:${auth.id}`).emit('new_message', message);
-        } else if (auth.type === 'admin' && data.guardId) {
+          // Also send back to employee room (for multi-device sync)
+          io.to(`employee:${auth.id}`).emit('new_message', message);
+        } else if (auth.type === 'admin' && targetEmployeeId) {
           // Check for conversation lock
-          const lockKey = `chat_lock:${data.guardId}`;
+          const lockKey = `chat_lock:${targetEmployeeId}`;
           const lockedBy = await redis.get(lockKey);
 
           if (lockedBy && lockedBy !== auth.id) {
@@ -80,20 +82,20 @@ export function initSocket(server: HttpServer) {
 
           // Broadcast lock status to all admins
           io.to('admin').emit('conversation_locked', {
-            guardId: data.guardId,
+            employeeId: targetEmployeeId,
             lockedBy: auth.id,
             expiresAt: Date.now() + LOCK_DURATION * 1000,
           });
 
-          // Admin sending to a specific guard
+          // Admin sending to a specific employee
           const message = await saveMessage({
-            guardId: data.guardId,
+            employeeId: targetEmployeeId,
             adminId: auth.id,
             sender: 'admin',
             content: data.content,
           });
 
-          io.to(`guard:${data.guardId}`).emit('new_message', message);
+          io.to(`employee:${targetEmployeeId}`).emit('new_message', message);
           io.to('admin').emit('new_message', message);
         }
       } catch (error) {
@@ -102,36 +104,36 @@ export function initSocket(server: HttpServer) {
       }
     });
 
-    socket.on('mark_read', async (data: { guardId?: string; messageIds: string[] }) => {
+    socket.on('mark_read', async (data: { employeeId?: string; guardId?: string; messageIds: string[] }) => {
       try {
-        const targetGuardId = auth.type === 'admin' ? data.guardId : auth.id;
+        const targetEmployeeId = auth.type === 'admin' ? (data.employeeId || data.guardId) : auth.id;
 
-        if (!targetGuardId) {
-          console.error('mark_read: Missing guardId');
+        if (!targetEmployeeId) {
+          console.error('mark_read: Missing employeeId');
           return;
         }
 
         await markAsRead(data.messageIds);
 
         if (auth.type === 'admin') {
-          // Notify the guard that admin read their messages
-          io.to(`guard:${targetGuardId}`).emit('messages_read', {
+          // Notify the employee that admin read their messages
+          io.to(`employee:${targetEmployeeId}`).emit('messages_read', {
             messageIds: data.messageIds,
             readBy: auth.id,
           });
           // Also notify admins (to update unread counts in UI)
           io.to('admin').emit('messages_read', {
-            guardId: targetGuardId,
+            employeeId: targetEmployeeId,
             messageIds: data.messageIds,
           });
         } else {
-          // Notify admins that guard read their messages
+          // Notify admins that employee read their messages
           io.to('admin').emit('messages_read', {
-            guardId: targetGuardId,
+            employeeId: targetEmployeeId,
             messageIds: data.messageIds,
           });
-          // Also notify the guard themselves (for other sessions/hooks)
-          io.to(`guard:${targetGuardId}`).emit('messages_read', {
+          // Also notify the employee themselves (for other sessions/hooks)
+          io.to(`employee:${targetEmployeeId}`).emit('messages_read', {
             messageIds: data.messageIds,
           });
         }
@@ -140,11 +142,12 @@ export function initSocket(server: HttpServer) {
       }
     });
 
-    socket.on('typing', (data: { guardId?: string; isTyping: boolean }) => {
-      if (auth.type === 'guard') {
-        io.to('admin').emit('typing', { guardId: auth.id, isTyping: data.isTyping });
-      } else if (auth.type === 'admin' && data.guardId) {
-        io.to(`guard:${data.guardId}`).emit('typing', { isTyping: data.isTyping });
+    socket.on('typing', (data: { employeeId?: string; guardId?: string; isTyping: boolean }) => {
+      const targetEmployeeId = data.employeeId || data.guardId;
+      if (auth.type === 'employee') {
+        io.to('admin').emit('typing', { employeeId: auth.id, isTyping: data.isTyping });
+      } else if (auth.type === 'admin' && targetEmployeeId) {
+        io.to(`employee:${targetEmployeeId}`).emit('typing', { isTyping: data.isTyping });
       }
     });
 

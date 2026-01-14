@@ -2,14 +2,14 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap } from '@vis.gl/react-google-maps';
-import { Alert, Site, Shift, Guard } from '@prisma/client';
+import { Alert, Site, Shift, Employee } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { format } from 'date-fns';
 
 type SiteWithOptionalRelations = Serialized<Site>;
-type GuardWithOptionalRelations = Serialized<Guard>;
+type EmployeeWithOptionalRelations = Serialized<Employee>;
 type ShiftWithOptionalRelations = Serialized<Shift> & {
-  guard?: GuardWithOptionalRelations | null;
+  employee?: EmployeeWithOptionalRelations | null;
 };
 type AlertWithRelations = Serialized<Alert> & {
   site?: SiteWithOptionalRelations;
@@ -121,8 +121,8 @@ export default function AlertMap({ alerts }: AlertMapProps) {
                   </span>
                 </div>
                 <p className="text-xs text-gray-500">{format(new Date(selectedAlert.createdAt), 'PP p')}</p>
-                {selectedAlert.shift?.guard && (
-                  <p className="text-xs text-gray-500 mt-1">Guard: {selectedAlert.shift.guard.name}</p>
+                {selectedAlert.shift?.employee && (
+                  <p className="text-xs text-gray-500 mt-1">Employee: {selectedAlert.shift.employee.name}</p>
                 )}
               </div>
             </InfoWindow>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Shift, Site, ShiftType, Guard, Attendance } from '@prisma/client';
+import { Shift, Site, ShiftType, Employee, Attendance } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { deleteShift, cancelShift } from '../actions';
 import ShiftFilterModal from './shift-filter-modal';
@@ -21,7 +21,7 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 export type ShiftWithRelations = Shift & {
   site: Site;
   shiftType: ShiftType;
-  guard: Guard | null;
+  employee: Employee | null;
   attendance: Attendance | null;
   createdBy?: { name: string } | null;
   lastUpdatedBy?: { name: string } | null;
@@ -31,10 +31,10 @@ type ShiftListProps = {
   shifts: Serialized<ShiftWithRelations>[];
   sites: Serialized<Site>[];
   shiftTypes: Serialized<ShiftType>[];
-  guards: Serialized<Guard>[];
+  employees: Serialized<Employee>[];
   startDate?: string;
   endDate?: string;
-  guardId?: string;
+  employeeId?: string;
   siteId?: string;
   sort?: string;
   page: number;
@@ -45,10 +45,10 @@ type ShiftListProps = {
 export default function ShiftList({
   shifts,
   sites,
-  guards,
+  employees,
   startDate,
   endDate,
-  guardId,
+  employeeId,
   siteId,
   sort = 'desc',
   page,
@@ -110,7 +110,7 @@ export default function ShiftList({
     });
   };
 
-  const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date; siteId: string; guardId: string }) => {
+  const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date; siteId: string; employeeId: string }) => {
     const params = new URLSearchParams(searchParams.toString());
 
     if (filters.startDate) {
@@ -131,10 +131,10 @@ export default function ShiftList({
       params.delete('siteId');
     }
 
-    if (filters.guardId) {
-      params.set('guardId', filters.guardId);
+    if (filters.employeeId) {
+      params.set('employeeId', filters.employeeId);
     } else {
-      params.delete('guardId');
+      params.delete('employeeId');
     }
 
     if (sort) {
@@ -162,7 +162,7 @@ export default function ShiftList({
     }
   };
 
-  const activeFiltersCount = [startDate, endDate, guardId, siteId].filter(Boolean).length;
+  const activeFiltersCount = [startDate, endDate, employeeId, siteId].filter(Boolean).length;
 
   return (
     <div>
@@ -170,14 +170,14 @@ export default function ShiftList({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Shifts</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage guard schedules and assignments.</p>
+          <p className="text-sm text-muted-foreground mt-1">Manage employee schedules and assignments.</p>
         </div>
         <div className="flex gap-2">
           <ShiftExport
             initialFilters={{
               startDate,
               endDate,
-              guardId,
+              employeeId,
               siteId,
             }}
           />
@@ -240,7 +240,7 @@ export default function ShiftList({
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift Type</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Guard</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
                 <th
                   className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
                   onClick={handleSort}
@@ -282,12 +282,12 @@ export default function ShiftList({
                     <td className="py-4 px-6 text-sm font-medium text-foreground">{shift.site.name}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">{shift.shiftType.name}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {shift.guard ? (
+                      {shift.employee ? (
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold border border-border">
-                            {shift.guard.name.substring(0, 2).toUpperCase()}
+                            {shift.employee.name.substring(0, 2).toUpperCase()}
                           </div>
-                          {shift.guard.name}
+                          {shift.employee.name}
                         </div>
                       ) : (
                         <span className="text-muted-foreground/40 italic">Unassigned</span>
@@ -375,10 +375,10 @@ export default function ShiftList({
             startDate,
             endDate,
             siteId,
-            guardId,
+            employeeId,
           }}
           sites={sites}
-          guards={guards}
+          employees={employees}
         />
       )}
 

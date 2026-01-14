@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export const STORAGE_KEYS = {
   TOKEN: 'auth_token',
-  GUARD_INFO: 'guard_info',
+  EMPLOYEE_INFO: 'employee_info',
 };
 
 export const storage = {

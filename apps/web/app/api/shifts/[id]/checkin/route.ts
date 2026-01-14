@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { checkInSchema } from '@/lib/validations';
-import { getAuthenticatedGuard } from '@/lib/guard-auth';
+import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { ZodError } from 'zod';
 import { calculateCheckInWindow } from '@/lib/scheduling';
 import { calculateDistance } from '@/lib/utils';
@@ -11,11 +11,11 @@ import { getShiftById } from '@/lib/data-access/shifts';
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: shiftId } = await params;
 
-  const guard = await getAuthenticatedGuard();
-  if (!guard) {
+  const employee = await getAuthenticatedEmployee();
+  if (!employee) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  const guardId = guard.id;
+  const employeeId = employee.id;
 
   try {
     const json = await req.json();
@@ -29,8 +29,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Shift not found' }, { status: 404 });
     }
 
-    // 2. Validate Guard and Time
-    if (shift.guardId !== guardId) {
+    // 2. Validate Employee and Time
+    if (shift.employeeId !== employeeId) {
       return NextResponse.json({ error: 'Not assigned to this shift' }, { status: 403 });
     }
 
@@ -82,13 +82,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       shift.lastHeartbeatAt
     );
 
-    // Allow check-in only if status is 'open'
-    // 'early' means waiting for next slot (or first slot)
-    // 'completed' means already done
-    // 'late' means missed window, but technically they can still "check in" as late?
-    // The previous logic was strict: "Too late to check in".
-    // "Already checked in".
-
     if (windowResult.status === 'completed') {
       return NextResponse.json({ error: 'Already checked in for this interval' }, { status: 400 });
     }
@@ -107,7 +100,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // 4. Record Checkin and Update Shift
     const checkin = await recordCheckin({
       shiftId: shift.id,
-      guardId: guardId,
+      employeeId: employeeId,
       status,
       source: body.source,
       metadata: body.location,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Alert, Shift, Site, Guard, ShiftType, Admin } from '@prisma/client';
+import { Alert, Shift, Site, Employee, ShiftType, Admin } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import AlertItem from './alert-item';
 import AlertResolutionModal from './alert-resolution-modal';
@@ -9,13 +9,13 @@ import { Check } from 'lucide-react';
 import { useSession } from '../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
-type GuardWithOptionalRelations = Serialized<Guard>;
+type EmployeeWithOptionalRelations = Serialized<Employee>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
 type SiteWithOptionalRelations = Serialized<Site>;
 type AdminWithOptionalRelations = Serialized<Admin>;
 
 type ShiftWithOptionalRelations = Serialized<Shift> & {
-  guard?: GuardWithOptionalRelations | null;
+  employee?: EmployeeWithOptionalRelations | null;
   shiftType?: ShiftTypeWithOptionalRelations;
 };
 

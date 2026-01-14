@@ -6,18 +6,18 @@ import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Serialized } from '@/lib/utils';
 import { X } from 'lucide-react';
-import { Guard } from '@prisma/client';
+import { Employee } from '@prisma/client';
 
 type AttendanceFilterModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (filters: { startDate?: Date; endDate?: Date; guardId: string }) => void;
+  onApply: (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => void;
   initialFilters: {
     startDate?: string;
     endDate?: string;
-    guardId?: string;
+    employeeId?: string;
   };
-  guards: Serialized<Guard>[];
+  employees: Serialized<Employee>[];
 };
 
 export default function AttendanceFilterModal({
@@ -25,7 +25,7 @@ export default function AttendanceFilterModal({
   onClose,
   onApply,
   initialFilters,
-  guards,
+  employees,
 }: AttendanceFilterModalProps) {
   const [startDate, setStartDate] = useState<Date | undefined>(
     initialFilters.startDate ? new Date(initialFilters.startDate) : undefined
@@ -33,13 +33,13 @@ export default function AttendanceFilterModal({
   const [endDate, setEndDate] = useState<Date | undefined>(
     initialFilters.endDate ? new Date(initialFilters.endDate) : undefined
   );
-  const [selectedGuardId, setSelectedGuardId] = useState<string>(initialFilters.guardId || '');
+  const [selectedemployeeId, setSelectedemployeeId] = useState<string>(initialFilters.employeeId || '');
 
   const handleApply = () => {
     onApply({
       startDate,
       endDate,
-      guardId: selectedGuardId,
+      employeeId: selectedemployeeId,
     });
     onClose();
   };
@@ -47,7 +47,7 @@ export default function AttendanceFilterModal({
   const handleClear = () => {
     setStartDate(undefined);
     setEndDate(undefined);
-    setSelectedGuardId('');
+    setSelectedemployeeId('');
   };
 
   if (!isOpen) return null;
@@ -63,19 +63,19 @@ export default function AttendanceFilterModal({
         </div>
 
         <div className="space-y-4">
-          {/* Guard Selection */}
+          {/* Employee Selection */}
           <div>
-            <Label htmlFor="guard">Guard</Label>
+            <Label htmlFor="employee">Employee</Label>
             <select
-              id="guard"
-              value={selectedGuardId}
-              onChange={e => setSelectedGuardId(e.target.value)}
+              id="employee"
+              value={selectedemployeeId}
+              onChange={e => setSelectedemployeeId(e.target.value)}
               className="w-full mt-1 rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground"
             >
-              <option value="" className="bg-card">All Guards</option>
-              {guards.map(guard => (
-                <option key={guard.id} value={guard.id} className="bg-card">
-                  {guard.name}
+              <option value="" className="bg-card">All Employees</option>
+              {employees.map(employee => (
+                <option key={employee.id} value={employee.id} className="bg-card">
+                  {employee.name}
                 </option>
               ))}
             </select>

@@ -1,19 +1,19 @@
 'use client';
 
-import { Alert, Shift, Site, Guard, ShiftType, Admin } from '@prisma/client';
+import { Alert, Shift, Site, Employee, ShiftType, Admin } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { Check, CheckCircle, Clock, Eye, User } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 
 // Define types locally or import if shared (duplicating for now to ensure self-containment)
-type GuardWithOptionalRelations = Serialized<Guard>;
+type EmployeeWithOptionalRelations = Serialized<Employee>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
 type SiteWithOptionalRelations = Serialized<Site>;
 type AdminWithOptionalRelations = Serialized<Admin>;
 
 type ShiftWithOptionalRelations = Serialized<Shift> & {
-  guard?: GuardWithOptionalRelations | null;
+  employee?: EmployeeWithOptionalRelations | null;
   shiftType?: ShiftTypeWithOptionalRelations;
 };
 
@@ -74,15 +74,15 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
             <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
               <span className="flex items-center gap-1">
                 <User className="w-4 h-4 text-muted-foreground/60" />
-                {alert.shift?.guard ? (
+                {alert.shift?.employee ? (
                   <Link
-                    href={`/admin/guards/${alert.shift.guard.id}`}
+                    href={`/admin/employees/${alert.shift.employee.id}`}
                     className="text-blue-600 dark:text-blue-400 hover:underline"
                   >
-                    {alert.shift.guard.name}
+                    {alert.shift.employee.name}
                   </Link>
                 ) : (
-                  'Unassigned Guard'
+                  'Unassigned Employee'
                 )}
               </span>
               <span className="flex items-center gap-1">

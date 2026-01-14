@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Modal from '../../components/modal';
 import { Serialized } from '@/lib/utils';
-import { Site, Guard } from '@prisma/client';
+import { Site, Employee } from '@prisma/client';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { parseISO } from 'date-fns';
@@ -12,18 +12,18 @@ import Select from '../../components/select'; // Import the custom Select compon
 type Props = {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (filters: { startDate?: Date; endDate?: Date; siteId: string; guardId: string }) => void;
+  onApply: (filters: { startDate?: Date; endDate?: Date; siteId: string; employeeId: string }) => void;
   initialFilters: {
     startDate?: string;
     endDate?: string;
     siteId?: string;
-    guardId?: string;
+    employeeId?: string;
   };
   sites: Serialized<Site>[];
-  guards: Serialized<Guard>[];
+  employees: Serialized<Employee>[];
 };
 
-export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilters, sites, guards }: Props) {
+export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilters, sites, employees }: Props) {
   const [startDate, setStartDate] = useState<Date | undefined>(
     initialFilters.startDate ? parseISO(initialFilters.startDate) : undefined
   );
@@ -31,12 +31,12 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
     initialFilters.endDate ? parseISO(initialFilters.endDate) : undefined
   );
   const [siteId, setSiteId] = useState<string>(initialFilters.siteId || '');
-  const [guardId, setGuardId] = useState<string>(initialFilters.guardId || '');
+  const [employeeId, setemployeeId] = useState<string>(initialFilters.employeeId || '');
 
   const siteOptions = [{ value: '', label: 'All Sites' }, ...sites.map(site => ({ value: site.id, label: site.name }))];
-  const guardOptions = [
-    { value: '', label: 'All Guards' },
-    ...guards.map(guard => ({ value: guard.id, label: guard.name })),
+  const employeeOptions = [
+    { value: '', label: 'All Employees' },
+    ...employees.map(employee => ({ value: employee.id, label: employee.name })),
   ];
 
   const handleApply = () => {
@@ -44,7 +44,7 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
       startDate,
       endDate,
       siteId,
-      guardId,
+      employeeId,
     });
     onClose();
   };
@@ -53,7 +53,7 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
     setStartDate(undefined);
     setEndDate(undefined);
     setSiteId('');
-    setGuardId('');
+    setemployeeId('');
   };
 
   return (
@@ -108,19 +108,19 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
           />
         </div>
 
-        {/* Guard Filter */}
+        {/* Employee Filter */}
         <div>
-          <label htmlFor="filter-guard" className="block text-sm font-medium text-foreground mb-1">
-            Guard
+          <label htmlFor="filter-employee" className="block text-sm font-medium text-foreground mb-1">
+            Employee
           </label>
           <Select
-            id="filter-guard"
-            instanceId="filter-guard"
-            options={guardOptions}
-            value={guardOptions.find(option => option.value === guardId)}
-            onChange={selectedOption => setGuardId(selectedOption ? selectedOption.value : '')}
-            placeholder="All Guards"
-            isClearable={false} // Since "All Guards" is an option, clearing isn't necessary.
+            id="filter-employee"
+            instanceId="filter-employee"
+            options={employeeOptions}
+            value={employeeOptions.find(option => option.value === employeeId)}
+            onChange={selectedOption => setemployeeId(selectedOption ? selectedOption.value : '')}
+            placeholder="All Employees"
+            isClearable={false} // Since "All Employees" is an option, clearing isn't necessary.
           />
         </div>
 

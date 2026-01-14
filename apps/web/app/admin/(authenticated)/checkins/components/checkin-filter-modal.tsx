@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Modal from '../../components/modal';
 import { Serialized } from '@/lib/utils';
-import { Guard } from '@prisma/client';
+import { Employee } from '@prisma/client';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { parseISO } from 'date-fns';
@@ -12,34 +12,34 @@ import Select from '../../components/select';
 type Props = {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (filters: { startDate?: Date; endDate?: Date; guardId: string }) => void;
+  onApply: (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => void;
   initialFilters: {
     startDate?: string;
     endDate?: string;
-    guardId?: string;
+    employeeId?: string;
   };
-  guards: Serialized<Guard>[];
+  employees: Serialized<Employee>[];
 };
 
-export default function CheckinFilterModal({ isOpen, onClose, onApply, initialFilters, guards }: Props) {
+export default function CheckinFilterModal({ isOpen, onClose, onApply, initialFilters, employees }: Props) {
   const [startDate, setStartDate] = useState<Date | undefined>(
     initialFilters.startDate ? parseISO(initialFilters.startDate) : undefined
   );
   const [endDate, setEndDate] = useState<Date | undefined>(
     initialFilters.endDate ? parseISO(initialFilters.endDate) : undefined
   );
-  const [guardId, setGuardId] = useState<string>(initialFilters.guardId || '');
+  const [employeeId, setemployeeId] = useState<string>(initialFilters.employeeId || '');
 
-  const guardOptions = [
-    { value: '', label: 'All Guards' },
-    ...guards.map(guard => ({ value: guard.id, label: guard.name })),
+  const employeeOptions = [
+    { value: '', label: 'All Employees' },
+    ...employees.map(employee => ({ value: employee.id, label: employee.name })),
   ];
 
   const handleApply = () => {
     onApply({
       startDate,
       endDate,
-      guardId,
+      employeeId,
     });
     onClose();
   };
@@ -47,7 +47,7 @@ export default function CheckinFilterModal({ isOpen, onClose, onApply, initialFi
   const handleClear = () => {
     setStartDate(undefined);
     setEndDate(undefined);
-    setGuardId('');
+    setemployeeId('');
   };
 
   return (
@@ -86,18 +86,18 @@ export default function CheckinFilterModal({ isOpen, onClose, onApply, initialFi
           </div>
         </div>
 
-        {/* Guard Filter */}
+        {/* Employee Filter */}
         <div>
-          <label htmlFor="filter-guard" className="block text-sm font-medium text-foreground mb-1">
-            Guard
+          <label htmlFor="filter-employee" className="block text-sm font-medium text-foreground mb-1">
+            Employee
           </label>
           <Select
-            id="filter-guard"
-            instanceId="filter-guard"
-            options={guardOptions}
-            value={guardOptions.find(option => option.value === guardId)}
-            onChange={selectedOption => setGuardId(selectedOption ? selectedOption.value : '')}
-            placeholder="All Guards"
+            id="filter-employee"
+            instanceId="filter-employee"
+            options={employeeOptions}
+            value={employeeOptions.find(option => option.value === employeeId)}
+            onChange={selectedOption => setemployeeId(selectedOption ? selectedOption.value : '')}
+            placeholder="All Employees"
             isClearable={false}
           />
         </div>

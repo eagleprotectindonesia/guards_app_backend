@@ -2,52 +2,52 @@
   "name": "Eagle Protect Employee App",
   "short_name": "EP Employee",
   "description": "Aplikasi jadwal dan absensi karyawan Eagle Protect",
-  "start_url": "/guard/login",
-  "scope": "/guard/",
+  "start_url": "/employee/login",
+  "scope": "/employee/",
   "display": "standalone",
   "background_color": "#f3f4f6",
   "theme_color": "#2563eb",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/guard/icons/android-launchericon-48-48.png",
+      "src": "/employee/icons/android-launchericon-48-48.png",
       "sizes": "48x48",
       "type": "image/png"
     },
     {
-      "src": "/guard/icons/android-launchericon-72-72.png",
+      "src": "/employee/icons/android-launchericon-72-72.png",
       "sizes": "72x72",
       "type": "image/png"
     },
     {
-      "src": "/guard/icons/android-launchericon-96-96.png",
+      "src": "/employee/icons/android-launchericon-96-96.png",
       "sizes": "96x96",
       "type": "image/png"
     },
     {
-      "src": "/guard/icons/android-launchericon-144-144.png",
+      "src": "/employee/icons/android-launchericon-144-144.png",
       "sizes": "144x144",
       "type": "image/png"
     },
     {
-      "src": "/guard/icons/180.png",
+      "src": "/employee/icons/180.png",
       "sizes": "180x180",
       "type": "image/png"
     },
     {
-      "src": "/guard/icons/android-launchericon-192-192.png",
+      "src": "/employee/icons/android-launchericon-192-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/guard/icons/android-launchericon-512-512.png",
+      "src": "/employee/icons/android-launchericon-512-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/guard/icons/icon.svg",
+      "src": "/employee/icons/icon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

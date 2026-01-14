@@ -19,7 +19,7 @@ type EmployeesPageProps = {
 };
 
 export default async function EmployeesPage(props: EmployeesPageProps) {
-  await requirePermission(PERMISSIONS.GUARDS.VIEW);
+  await requirePermission(PERMISSIONS.EMPLOYEES.VIEW);
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
   const query = searchParams.q as string | undefined;

@@ -14,7 +14,7 @@
   },
   "dashboard": {
     "welcome": "Welcome,",
-    "guardCode": "Employee Code:",
+    "employeeCode": "Employee Code:",
     "noActiveShift": "You have no active shifts",
     "changePassword": "Change Password",
     "logout": "Logout",

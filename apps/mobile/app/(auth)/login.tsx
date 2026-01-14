@@ -35,7 +35,7 @@ export default function LoginScreen() {
 
   const loginMutation = useMutation({
     mutationFn: async () => {
-      const response = await client.post('/api/auth/guard/login', {
+      const response = await client.post('/api/auth/employee/login', {
         employeeId,
         password,
       });
@@ -45,8 +45,8 @@ export default function LoginScreen() {
       if (data.token) {
         await storage.setItem(STORAGE_KEYS.TOKEN, data.token);
       }
-      if (data.guard) {
-        await storage.setItem(STORAGE_KEYS.GUARD_INFO, data.guard);
+      if (data.employee) {
+        await storage.setItem(STORAGE_KEYS.EMPLOYEE_INFO, data.employee);
       }
       router.replace('/(tabs)');
     },

@@ -61,7 +61,7 @@ export default function AdminDashboard() {
       <header className="mb-6 flex justify-between items-center bg-card p-4 rounded-xl shadow-sm border border-border">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Live Dashboard</h1>
-          <p className="text-sm text-muted-foreground">Real-time monitoring of guards and alerts</p>
+          <p className="text-sm text-muted-foreground">Real-time monitoring of employees and alerts</p>
         </div>
         <div className="flex items-center gap-4">
           <div
@@ -110,11 +110,11 @@ export default function AdminDashboard() {
                 <div className="text-2xl font-bold text-green-700 dark:text-green-400">
                   {activeSites.reduce(
                     (acc, site) =>
-                      acc + site.shifts.filter(s => s.guard && s.attendance && s.attendance.status !== 'absent').length,
+                      acc + site.shifts.filter(s => s.employee && s.attendance && s.attendance.status !== 'absent').length,
                     0
                   )}
                 </div>
-                <div className="text-xs text-green-600 dark:text-green-400 font-medium">Active Guards</div>
+                <div className="text-xs text-green-600 dark:text-green-400 font-medium">Active Employees</div>
               </div>
             </div>
           </div>
@@ -143,7 +143,7 @@ export default function AdminDashboard() {
                         <div key={shift.id} className="text-xs text-muted-foreground flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
                           <span className="truncate">
-                            {shift.guard?.name || 'Unassigned'}
+                            {shift.employee?.name || 'Unassigned'}
                             <span className="text-muted-foreground/60"> ({shift.shiftType?.name})</span>
                           </span>
                         </div>
@@ -180,9 +180,9 @@ export default function AdminDashboard() {
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full ${shift.guard ? 'bg-blue-400' : 'bg-red-400'}`}></div>
+                      <div className={`w-1.5 h-1.5 rounded-full ${shift.employee ? 'bg-blue-400' : 'bg-red-400'}`}></div>
                       <span className="truncate">
-                        {shift.guard?.name || 'Unassigned'}
+                        {shift.employee?.name || 'Unassigned'}
                         <span className="text-muted-foreground/60"> ({shift.shiftType?.name})</span>
                       </span>
                     </div>
