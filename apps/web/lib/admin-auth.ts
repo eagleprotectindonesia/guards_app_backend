@@ -47,7 +47,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
     email: admin.email,
     roleName,
     permissions,
-    isSuperAdmin: roleName === 'Super Admin',
+    isSuperAdmin: roleName === 'superadmin',
   };
 }
 
@@ -65,12 +65,47 @@ export async function requirePermission(permission: PermissionCode | PermissionC
   }
 
   session = session!;
+
+  const permissionCodes = Array.isArray(permission) ? permission : [permission];
+  const uniqueResources = [...new Set(permissionCodes.map(code => code.split(':')[0]))];
+
+  // Auto-create all CRUD permissions for the involved resources
+  const { prisma } = await import('./prisma');
+  const { ACTIONS } = await import('./auth/permissions');
+
+  try {
+    await Promise.all(
+      uniqueResources.map(async (resource) => {
+        if (!resource) return;
+
+        // Ensure all standard CRUD actions exist for this resource
+        await Promise.all(
+          ACTIONS.map(async (action) => {
+            const code = `${resource}:${action}`;
+            await prisma.permission.upsert({
+              where: { code },
+              update: {}, // No update needed if it exists
+              create: {
+                code,
+                resource,
+                action,
+                description: `Auto-generated permission for ${resource}:${action}`,
+              },
+            });
+          })
+        );
+      })
+    );
+  } catch (error) {
+    // We log but don't fail the request if auto-creation fails
+    console.error('[Auth] Failed to auto-create CRUD permissions:', error);
+  }
+
   if (session.isSuperAdmin) {
     return session;
   }
 
-  const permissions = Array.isArray(permission) ? permission : [permission];
-  const hasAllPermissions = permissions.every(p => session.permissions.includes(p));
+  const hasAllPermissions = permissionCodes.every(p => session.permissions.includes(p));
 
   if (!hasAllPermissions) {
     forbidden();

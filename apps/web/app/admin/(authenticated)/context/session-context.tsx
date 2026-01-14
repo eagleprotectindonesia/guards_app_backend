@@ -24,7 +24,7 @@ export function SessionProvider({
     permissions: string[];
   };
 }) {
-  const isSuperAdmin = session.roleName === 'Super Admin';
+  const isSuperAdmin = session.roleName === 'superadmin';
 
   const hasPermission = useMemo(() => {
     return (permission: PermissionCode) => {

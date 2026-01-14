@@ -4,17 +4,31 @@ import bcrypt from 'bcryptjs';
 
 const INITIAL_PERMISSIONS = [
   { action: 'view', resource: 'guards', code: 'guards:view', description: 'Can view guards' },
-  { action: 'manage', resource: 'guards', code: 'guards:manage', description: 'Can create, edit, and delete guards' },
+  { action: 'create', resource: 'guards', code: 'guards:create', description: 'Can create guards' },
+  { action: 'edit', resource: 'guards', code: 'guards:edit', description: 'Can edit guards' },
+  { action: 'delete', resource: 'guards', code: 'guards:delete', description: 'Can delete guards' },
   { action: 'view', resource: 'sites', code: 'sites:view', description: 'Can view sites' },
-  { action: 'manage', resource: 'sites', code: 'sites:manage', description: 'Can create, edit, and delete sites' },
+  { action: 'create', resource: 'sites', code: 'sites:create', description: 'Can create sites' },
+  { action: 'edit', resource: 'sites', code: 'sites:edit', description: 'Can edit sites' },
+  { action: 'delete', resource: 'sites', code: 'sites:delete', description: 'Can delete sites' },
   { action: 'view', resource: 'shifts', code: 'shifts:view', description: 'Can view shifts' },
-  { action: 'manage', resource: 'shifts', code: 'shifts:manage', description: 'Can create, edit, and delete shifts' },
+  { action: 'create', resource: 'shifts', code: 'shifts:create', description: 'Can create shifts' },
+  { action: 'edit', resource: 'shifts', code: 'shifts:edit', description: 'Can edit shifts' },
+  { action: 'delete', resource: 'shifts', code: 'shifts:delete', description: 'Can delete shifts' },
   { action: 'view', resource: 'alerts', code: 'alerts:view', description: 'Can view alerts' },
-  { action: 'manage', resource: 'alerts', code: 'alerts:manage', description: 'Can acknowledge and resolve alerts' },
-  { action: 'view', resource: 'admin_dashboard', code: 'admin_dashboard:view', description: 'Can view admin dashboard' },
-  { action: 'manage', resource: 'rbac', code: 'rbac:manage', description: 'Can manage roles and permissions' },
+  { action: 'edit', resource: 'alerts', code: 'alerts:edit', description: 'Can acknowledge and resolve alerts' },
+  {
+    action: 'view',
+    resource: 'dashboard',
+    code: 'dashboard:view',
+    description: 'Can view admin dashboard',
+  },
+  { action: 'view', resource: 'roles', code: 'roles:view', description: 'Can view roles' },
+  { action: 'create', resource: 'roles', code: 'roles:create', description: 'Can create roles' },
+  { action: 'edit', resource: 'roles', code: 'roles:edit', description: 'Can edit roles' },
+  { action: 'delete', resource: 'roles', code: 'roles:delete', description: 'Can delete roles' },
   { action: 'view', resource: 'chat', code: 'chat:view', description: 'Can view chat messages' },
-  { action: 'send', resource: 'chat', code: 'chat:send', description: 'Can send chat messages' },
+  { action: 'create', resource: 'chat', code: 'chat:create', description: 'Can send chat messages' },
 ];
 
 export async function POST() {
@@ -30,10 +44,10 @@ export async function POST() {
     }
 
     // Use a transaction to ensure RBAC initialization and migration are atomic
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async tx => {
       // 1. Upsert all initial permissions
       const permissions = await Promise.all(
-        INITIAL_PERMISSIONS.map((p) =>
+        INITIAL_PERMISSIONS.map(p =>
           tx.permission.upsert({
             where: { code: p.code },
             update: p,
@@ -47,7 +61,7 @@ export async function POST() {
         where: { name: 'superadmin' },
         update: {
           permissions: {
-            connect: permissions.map((p) => ({ id: p.id })),
+            connect: permissions.map(p => ({ id: p.id })),
           },
         },
         create: {
@@ -55,7 +69,7 @@ export async function POST() {
           description: 'Full system access',
           isSystem: true,
           permissions: {
-            connect: permissions.map((p) => ({ id: p.id })),
+            connect: permissions.map(p => ({ id: p.id })),
           },
         },
       });
@@ -64,9 +78,7 @@ export async function POST() {
         where: { name: 'admin' },
         update: {
           permissions: {
-            connect: permissions
-              .filter((p) => !['rbac:manage'].includes(p.code))
-              .map((p) => ({ id: p.id })),
+            connect: permissions.filter(p => !p.code.startsWith('roles:')).map(p => ({ id: p.id })),
           },
         },
         create: {
@@ -74,9 +86,7 @@ export async function POST() {
           description: 'Standard administrative access',
           isSystem: true,
           permissions: {
-            connect: permissions
-              .filter((p) => !['rbac:manage'].includes(p.code))
-              .map((p) => ({ id: p.id })),
+            connect: permissions.filter(p => !p.code.startsWith('roles:')).map(p => ({ id: p.id })),
           },
         },
       });

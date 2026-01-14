@@ -18,7 +18,7 @@ export const RESOURCES = [
   'dashboard',
 ] as const;
 
-export const ACTIONS = ['view', 'create', 'edit', 'delete', 'manage'] as const;
+export const ACTIONS = ['view', 'create', 'edit', 'delete'] as const;
 
 export type Resource = (typeof RESOURCES)[number];
 export type Action = (typeof ACTIONS)[number];
@@ -59,7 +59,7 @@ export const PERMISSIONS: Record<string, Record<string, PermissionCode>> = {
   },
   ALERTS: {
     VIEW: 'alerts:view',
-    MANAGE: 'alerts:manage', // Ack/Resolve
+    EDIT: 'alerts:edit', // Ack/Resolve
   },
   CHANGELOGS: {
     VIEW: 'changelogs:view',
@@ -75,7 +75,6 @@ export const PERMISSIONS: Record<string, Record<string, PermissionCode>> = {
     CREATE: 'roles:create',
     EDIT: 'roles:edit',
     DELETE: 'roles:delete',
-    MANAGE: 'roles:manage',
   },
   SYSTEM: {
     VIEW_SETTINGS: 'system-settings:view',
