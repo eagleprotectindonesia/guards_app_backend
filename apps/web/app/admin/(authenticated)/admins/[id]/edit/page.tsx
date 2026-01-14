@@ -3,6 +3,8 @@ import { getAllRoles } from '@/lib/data-access/roles';
 import AdminForm from '../../components/admin-form';
 import { serialize } from '@/lib/utils';
 import { notFound } from 'next/navigation';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,6 +13,7 @@ type EditAdminPageProps = {
 };
 
 export default async function EditAdminPage(props: EditAdminPageProps) {
+  await requirePermission(PERMISSIONS.ADMINS.EDIT);
   const params = await props.params;
   const [admin, roles] = await Promise.all([getAdminById(params.id), getAllRoles()]);
 

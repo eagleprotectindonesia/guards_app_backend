@@ -8,15 +8,17 @@ import ConfirmDialog from '../../components/confirm-dialog';
 import ChangePasswordModal from './change-password-modal';
 import BulkCreateModal from './bulk-create-modal';
 import GuardFilterModal from './guard-filter-modal';
-import { DeleteButton } from '../../components/action-buttons';
+import { EditButton, DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { Pencil, Key, Download, Upload, History, MessageSquare } from 'lucide-react';
-import Search from '../../components/search';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
 import { format } from 'date-fns';
+import Search from '../../components/search';
+import { useSession } from '../../context/session-context';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 type GuardWithAdminInfo = Guard & {
   lastUpdatedBy?: { name: string } | null;
@@ -32,7 +34,6 @@ type GuardListProps = {
   sortOrder?: 'asc' | 'desc';
   startDate?: string;
   endDate?: string;
-  isSuperAdmin?: boolean;
 };
 
 export default function GuardList({
@@ -44,15 +45,20 @@ export default function GuardList({
   sortOrder = 'desc',
   startDate,
   endDate,
-  isSuperAdmin = false,
 }: GuardListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { hasPermission } = useSession();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [passwordModalData, setPasswordModalData] = useState<{ id: string; name: string } | null>(null);
   const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+
+  const canCreate = hasPermission(PERMISSIONS.GUARDS.CREATE);
+  const canEdit = hasPermission(PERMISSIONS.GUARDS.EDIT);
+  const canDelete = hasPermission(PERMISSIONS.GUARDS.DELETE);
+  const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
 
   const handleSort = (field: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -95,11 +101,12 @@ export default function GuardList({
   };
 
   const handleDeleteClick = (id: string) => {
+    if (!canDelete) return;
     setDeleteId(id);
   };
 
   const handleConfirmDelete = () => {
-    if (!deleteId) return;
+    if (!deleteId || !canDelete) return;
 
     startTransition(async () => {
       const result = await deleteGuard(deleteId);
@@ -201,13 +208,17 @@ export default function GuardList({
               </span>
             )}
           </button>
-          <button
-            onClick={() => setIsBulkCreateOpen(true)}
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted/50 transition-colors shadow-sm w-full md:w-auto"
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            Upload CSV
-          </button>
+          {canCreate && (
+            <>
+              <button
+                onClick={() => setIsBulkCreateOpen(true)}
+                className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted/50 transition-colors shadow-sm w-full md:w-auto"
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                Upload CSV
+              </button>
+            </>
+          )}
           <button
             onClick={handleExportCSV}
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted/50 transition-colors shadow-sm w-full md:w-auto"
@@ -215,7 +226,7 @@ export default function GuardList({
             <Download className="mr-2 h-4 w-4" />
             Download CSV
           </button>
-          {isSuperAdmin && (
+          {canViewAudit && (
             <Link
               href="/admin/guards/audit"
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted/50 transition-colors shadow-sm w-full md:w-auto"
@@ -224,13 +235,15 @@ export default function GuardList({
               Audit Log
             </Link>
           )}
-          <Link
-            href="/admin/guards/create"
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm shadow-red-500/20 w-full md:w-auto"
-          >
-            <span className="mr-2 text-lg leading-none">+</span>
-            Add Guard
-          </Link>
+          {canCreate && (
+            <Link
+              href="/admin/guards/create"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm shadow-red-500/20 w-full md:w-auto"
+            >
+              <span className="mr-2 text-lg leading-none">+</span>
+              Add Guard
+            </Link>
+          )}
         </div>
       </div>
 
@@ -361,24 +374,22 @@ export default function GuardList({
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-100">
-                        <Link
+                        <EditButton
                           href={`/admin/guards/${guard.id}/edit`}
-                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                          title="Edit"
-                        >
-                          <Pencil className="w-4 h-4" />
-                          <span className="sr-only">Edit</span>
-                        </Link>
+                          disabled={!canEdit}
+                          title={!canEdit ? 'Permission Denied' : 'Edit'}
+                        />
                         <DeleteButton
                           onClick={() => handleDeleteClick(guard.id)}
-                          disabled={!isSuperAdmin || isPending}
-                          title={!isSuperAdmin ? 'Only Super Admins can delete' : 'Delete'}
+                          disabled={!canDelete || isPending}
+                          title={!canDelete ? 'Permission Denied' : 'Delete'}
                         />
                         <button
                           type="button"
                           onClick={() => setPasswordModalData({ id: guard.id, name: guard.name })}
-                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                          title="Change Password"
+                          disabled={!canEdit}
+                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer disabled:text-muted-foreground/30 disabled:cursor-not-allowed"
+                          title={!canEdit ? 'Permission Denied' : 'Change Password'}
                         >
                           <Key className="w-4 h-4" />
                           <span className="sr-only">Change Password</span>

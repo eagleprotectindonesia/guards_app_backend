@@ -5,13 +5,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { LogOut, ChevronLeft, ChevronRight, User } from 'lucide-react';
-import { Admin } from '@prisma/client';
 import { cn } from '@/lib/utils';
 import { ADMIN_NAV_ITEMS, ADMIN_SECONDARY_NAV_ITEMS } from '@/lib/admin-navigation';
 import { useSession } from '../context/session-context';
+import { AdminSession } from '@/lib/admin-auth';
 
 type SidebarProps = {
-  currentAdmin: Admin; // Use more flexible type temporarily
+  currentAdmin: AdminSession; // Use more flexible type temporarily
 };
 
 export default function Sidebar({ currentAdmin }: SidebarProps) {

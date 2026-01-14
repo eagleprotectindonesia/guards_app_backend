@@ -137,8 +137,8 @@ async function main() {
       startsAt: morningStartsAt,
       endsAt: morningEndsAt,
       status: 'scheduled',
-      requiredCheckinIntervalMins: 5,
-      graceMinutes: 5,
+      requiredCheckinIntervalMins: 30,
+      graceMinutes: 4,
     },
   });
   console.log('Created Shift for today (Guard 1):', shiftToday1.id);
@@ -160,8 +160,8 @@ async function main() {
       startsAt: afternoonStartsAt,
       endsAt: afternoonEndsAt,
       status: 'scheduled',
-      requiredCheckinIntervalMins: 5,
-      graceMinutes: 5,
+      requiredCheckinIntervalMins: 20,
+      graceMinutes: 4,
     },
   });
   console.log('Created Afternoon Shift:', afternoonShift.id);
@@ -184,7 +184,7 @@ async function main() {
       endsAt: nightShiftEndsAt,
       status: 'scheduled',
       requiredCheckinIntervalMins: 5,
-      graceMinutes: 5,
+      graceMinutes: 4,
     },
   });
   console.log('Created Overnight Shift:', overnightShift.id);
@@ -206,7 +206,7 @@ async function main() {
       endsAt: morningEndsAt2,
       status: 'scheduled',
       requiredCheckinIntervalMins: 5,
-      graceMinutes: 5,
+      graceMinutes: 4,
     },
   });
   console.log('Created Shift for today (Guard 2):', shiftToday2.id);
@@ -227,7 +227,7 @@ async function main() {
       endsAt: morningEndsAt3,
       status: 'scheduled',
       requiredCheckinIntervalMins: 5,
-      graceMinutes: 5,
+      graceMinutes: 4,
     },
   });
   console.log('Created Shift for today (Guard 3):', shiftToday3.id);

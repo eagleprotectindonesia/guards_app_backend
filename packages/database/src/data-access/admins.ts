@@ -102,7 +102,7 @@ export async function updateAdminWithChangelog(id: string, data: Prisma.AdminUpd
           details: {
             name: data.name ? updatedAdmin.name : undefined,
             email: data.email ? updatedAdmin.email : undefined,
-            roleId: data.roleId ? updatedAdmin.roleId : undefined,
+            roleId: data.roleRef ? updatedAdmin.roleId : undefined,
             note: data.note !== undefined ? updatedAdmin.note : undefined,
             passwordChanged: !!data.hashedPassword,
           },

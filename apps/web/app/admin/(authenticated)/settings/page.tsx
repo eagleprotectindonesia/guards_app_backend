@@ -1,17 +1,13 @@
-import { getAdminSession } from '@/lib/admin-auth';
+import { requirePermission } from '@/lib/admin-auth';
 import { getAllSystemSettings } from '@/lib/data-access/settings';
 import SettingsForm from './components/settings-form';
-import { redirect } from 'next/navigation';
 import { serialize } from '@/lib/utils';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SettingsPage() {
-  const session = await getAdminSession();
-
-  if (!session) {
-    redirect('/admin/login');
-  }
+  const session = await requirePermission(PERMISSIONS.SYSTEM.VIEW_SETTINGS);
 
   const isSuperAdmin = session.isSuperAdmin;
   const allSettings = await getAllSystemSettings();

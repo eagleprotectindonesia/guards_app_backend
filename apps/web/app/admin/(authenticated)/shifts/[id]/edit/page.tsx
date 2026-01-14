@@ -4,10 +4,13 @@ import ShiftForm from '../../components/shift-form';
 import { notFound } from 'next/navigation';
 import { getActiveSites } from '@/lib/data-access/sites';
 import { getActiveGuards } from '@/lib/data-access/guards';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EditShiftPage({ params }: { params: Promise<{ id: string }> }) {
+  await requirePermission(PERMISSIONS.SHIFTS.EDIT);
   const { id } = await params;
 
   const [shift, sites, shiftTypes, guards] = await Promise.all([

@@ -7,7 +7,8 @@ import type { Metadata } from 'next';
 import { getActiveSites } from '@/lib/data-access/sites';
 import { getActiveGuards } from '@/lib/data-access/guards';
 import { getPaginatedShifts } from '@/lib/data-access/shifts';
-import { getAdminSession } from '@/lib/admin-auth';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const metadata: Metadata = {
   title: 'Shifts Management',
@@ -20,7 +21,7 @@ export default async function ShiftsPage({
 }: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
-  const session = await getAdminSession();
+  const session = await requirePermission(PERMISSIONS.SHIFTS.VIEW);
   const resolvedSearchParams = await searchParams;
   const { page, perPage, skip } = getPaginationParams(resolvedSearchParams);
 
@@ -85,7 +86,6 @@ export default async function ShiftsPage({
           page={page}
           perPage={perPage}
           totalCount={totalCount}
-          isSuperAdmin={session?.isSuperAdmin}
         />
       </Suspense>
     </div>

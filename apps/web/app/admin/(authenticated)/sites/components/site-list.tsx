@@ -4,13 +4,16 @@ import { useTransition } from 'react';
 import { Site } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { deleteSite, getAllSitesForExport } from '../actions';
-import { DeleteButton } from '../../components/action-buttons';
+import { EditButton, DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { Pencil, History, Download } from 'lucide-react';
+import { History, Download, Pencil } from 'lucide-react';
 import Search from '../../components/search';
 import { format } from 'date-fns';
+import { useSession } from '../../context/session-context';
+import { PERMISSIONS } from '@/lib/auth/permissions';
+import { useRouter } from 'next/navigation';
 
 type SiteWithAdminInfo = Site & {
   lastUpdatedBy?: { name: string } | null;
@@ -22,13 +25,19 @@ type SiteListProps = {
   page: number;
   perPage: number;
   totalCount: number;
-  isSuperAdmin?: boolean;
 };
 
-export default function SiteList({ sites, page, perPage, totalCount, isSuperAdmin = false }: SiteListProps) {
+export default function SiteList({ sites, page, perPage, totalCount }: SiteListProps) {
   const [isPending, startTransition] = useTransition();
+  const { hasPermission } = useSession();
+
+  const canCreate = hasPermission(PERMISSIONS.SITES.CREATE);
+  const canEdit = hasPermission(PERMISSIONS.SITES.EDIT);
+  const canDelete = hasPermission(PERMISSIONS.SITES.DELETE);
+  const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
 
   const handleDelete = async (id: string) => {
+    if (!canDelete) return;
     if (!window.confirm('Are you sure you want to delete this site? This action cannot be undone.')) {
       return;
     }
@@ -113,7 +122,7 @@ export default function SiteList({ sites, page, perPage, totalCount, isSuperAdmi
             <Download className="mr-2 h-4 w-4" />
             Download CSV
           </button>
-          {isSuperAdmin && (
+          {canViewAudit && (
             <Link
               href="/admin/sites/audit"
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted/50 transition-colors shadow-sm w-full md:w-auto"
@@ -122,13 +131,15 @@ export default function SiteList({ sites, page, perPage, totalCount, isSuperAdmi
               Audit Log
             </Link>
           )}
-          <Link
-            href="/admin/sites/create"
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm shadow-red-500/20 w-full md:w-auto"
-          >
-            <span className="mr-2 text-lg leading-none">+</span>
-            Create Site
-          </Link>
+          {canCreate && (
+            <Link
+              href="/admin/sites/create"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm shadow-red-500/20 w-full md:w-auto"
+            >
+              <span className="mr-2 text-lg leading-none">+</span>
+              Create Site
+            </Link>
+          )}
         </div>
       </div>
 
@@ -215,18 +226,15 @@ export default function SiteList({ sites, page, perPage, totalCount, isSuperAdmi
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-100">
-                        <Link
+                        <EditButton
                           href={`/admin/sites/${site.id}/edit`}
-                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                          title="Edit"
-                        >
-                          <Pencil className="w-4 h-4" />
-                          <span className="sr-only">Edit</span>
-                        </Link>
+                          disabled={!canEdit}
+                          title={!canEdit ? 'Permission Denied' : 'Edit'}
+                        />
                         <DeleteButton
                           onClick={() => handleDelete(site.id)}
-                          disabled={!isSuperAdmin || isPending}
-                          title={!isSuperAdmin ? 'Only Super Admins can delete' : 'Delete'}
+                          disabled={!canDelete || isPending}
+                          title={!canDelete ? 'Permission Denied' : 'Delete'}
                         />
                       </div>
                     </td>

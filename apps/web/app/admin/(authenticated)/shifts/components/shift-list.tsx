@@ -8,13 +8,15 @@ import ShiftFilterModal from './shift-filter-modal';
 import BulkCreateModal from './bulk-create-modal';
 import ShiftExport from './shift-export';
 import ShiftActionModal from './shift-action-modal';
-import { DeleteButton } from '../../components/action-buttons';
+import { EditButton, DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Pencil, Upload, ArrowUpDown, ArrowUp, ArrowDown, History } from 'lucide-react';
+import { Upload, ArrowUpDown, ArrowUp, ArrowDown, History } from 'lucide-react';
+import { useSession } from '../../context/session-context';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export type ShiftWithRelations = Shift & {
   site: Site;
@@ -38,7 +40,6 @@ type ShiftListProps = {
   page: number;
   perPage: number;
   totalCount: number;
-  isSuperAdmin?: boolean;
 };
 
 export default function ShiftList({
@@ -53,17 +54,23 @@ export default function ShiftList({
   page,
   perPage,
   totalCount,
-  isSuperAdmin = false,
 }: ShiftListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { hasPermission, isSuperAdmin } = useSession();
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const canCreate = hasPermission(PERMISSIONS.SHIFTS.CREATE);
+  const canEdit = hasPermission(PERMISSIONS.SHIFTS.EDIT);
+  const canDelete = hasPermission(PERMISSIONS.SHIFTS.DELETE);
+  const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+
   const handleDeleteClick = (id: string) => {
+    if (!canDelete) return;
     setSelectedShiftId(id);
   };
 
@@ -76,7 +83,7 @@ export default function ShiftList({
   };
 
   const handleConfirmDelete = () => {
-    if (!selectedShiftId) return;
+    if (!selectedShiftId || !canDelete) return;
 
     startTransition(async () => {
       const result = await deleteShift(selectedShiftId);
@@ -90,7 +97,7 @@ export default function ShiftList({
   };
 
   const handleCancelShift = (note?: string) => {
-    if (!selectedShiftId) return;
+    if (!selectedShiftId || !canDelete) return;
 
     startTransition(async () => {
       const result = await cancelShift(selectedShiftId, note);
@@ -195,14 +202,16 @@ export default function ShiftList({
               </span>
             )}
           </button>
-          <button
-            onClick={() => setIsBulkCreateOpen(true)}
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
-          >
-            <Upload className="w-4 h-4 mr-2" />
-            Upload CSV
-          </button>
-          {isSuperAdmin && (
+          {canCreate && (
+            <button
+              onClick={() => setIsBulkCreateOpen(true)}
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Upload CSV
+            </button>
+          )}
+          {canViewAudit && (
             <Link
               href="/admin/shifts/audit"
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
@@ -211,13 +220,15 @@ export default function ShiftList({
               Audit Log
             </Link>
           )}
-          <Link
-            href="/admin/shifts/create"
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
-          >
-            <span className="mr-2 text-lg leading-none">+</span>
-            Schedule Shift
-          </Link>
+          {canCreate && (
+            <Link
+              href="/admin/shifts/create"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
+            >
+              <span className="mr-2 text-lg leading-none">+</span>
+              Schedule Shift
+            </Link>
+          )}
         </div>
       </div>
 
@@ -326,21 +337,20 @@ export default function ShiftList({
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-100">
-                        <Link
+                        <EditButton
                           href={`/admin/shifts/${shift.id}/edit`}
-                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                          title="Edit"
-                        >
-                          <Pencil className="w-4 h-4" />
-                          <span className="sr-only">Edit</span>
-                        </Link>
+                          disabled={!canEdit}
+                          title={!canEdit ? 'Permission Denied' : 'Edit'}
+                        />
                         <DeleteButton
                           onClick={() => handleDeleteClick(shift.id)}
-                          disabled={isPending || (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled')}
+                          disabled={isPending || !canDelete || (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled')}
                           title={
-                            !isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled'
-                              ? 'Only in-progress or scheduled shifts can be cancelled'
-                              : 'Actions'
+                            !canDelete 
+                              ? 'Permission Denied'
+                              : (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled'
+                                ? 'Only in-progress or scheduled shifts can be cancelled'
+                                : 'Actions')
                           }
                         />
                       </div>

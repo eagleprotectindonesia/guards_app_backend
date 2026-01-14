@@ -3,10 +3,13 @@ import { serialize } from '@/lib/utils';
 import RoleForm from '../components/role-form';
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CreateRolePage() {
+  await requirePermission(PERMISSIONS.ROLES.CREATE);
   const allPermissions = await getAllPermissions();
 
   return (

@@ -3,10 +3,13 @@ import { serialize } from '@/lib/utils';
 import ShiftForm from '../components/shift-form';
 import { getActiveSites } from '@/lib/data-access/sites';
 import { getActiveGuards } from '@/lib/data-access/guards';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CreateShiftPage() {
+  await requirePermission(PERMISSIONS.SHIFTS.CREATE);
   const [sites, shiftTypes, guards] = await Promise.all([
     getActiveSites(),
     prisma.shiftType.findMany({ orderBy: { name: 'asc' } }),

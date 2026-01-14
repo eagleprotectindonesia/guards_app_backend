@@ -4,6 +4,8 @@ import RoleForm from '../../components/role-form';
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +14,7 @@ type EditRolePageProps = {
 };
 
 export default async function EditRolePage(props: EditRolePageProps) {
+  await requirePermission(PERMISSIONS.ROLES.EDIT);
   const params = await props.params;
   const [role, allPermissions] = await Promise.all([getRoleById(params.id), getAllPermissions()]);
 

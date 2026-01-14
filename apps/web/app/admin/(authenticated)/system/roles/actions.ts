@@ -8,7 +8,12 @@ import {
 import { checkSuperAdmin } from '@/lib/admin-auth';
 import { revalidatePath } from 'next/cache';
 import { ActionState } from '@/types/actions';
-import { createRoleSchema, CreateRoleInput, UpdateRoleInput } from '@/lib/validations';
+import {
+  createRoleSchema,
+  updateRoleSchema,
+  CreateRoleInput,
+  UpdateRoleInput,
+} from '@/lib/validations';
 
 export async function createRole(
   prevState: ActionState<CreateRoleInput>,
@@ -48,7 +53,7 @@ export async function updateRole(
   const admin = await checkSuperAdmin();
   if (!admin) return { success: false, message: 'Unauthorized' };
 
-  const validatedFields = createRoleSchema.safeParse(data);
+  const validatedFields = updateRoleSchema.safeParse(data);
 
   if (!validatedFields.success) {
     return {

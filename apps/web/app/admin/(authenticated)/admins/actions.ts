@@ -61,7 +61,7 @@ export async function createAdmin(
         name,
         email,
         hashedPassword,
-        roleId: roleId,
+        roleRef: { connect: { id: roleId } },
         note: note || null,
       },
       currentAdmin.id
@@ -128,7 +128,7 @@ export async function updateAdmin(
     const data = {
       name,
       email,
-      roleId,
+      roleRef: { connect: { id: roleId } },
       note: note || null,
       ...(newPassword && {
         hashedPassword: await bcrypt.hash(newPassword, 10),

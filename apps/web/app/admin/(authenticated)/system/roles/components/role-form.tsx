@@ -4,7 +4,7 @@ import { Role, Permission } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { createRole, updateRole } from '../actions';
 import { ActionState } from '@/types/actions';
-import { CreateRoleInput, UpdateRoleInput } from '@/lib/validations';
+import { CreateRoleInput } from '@/lib/validations';
 import { useActionState, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -22,7 +22,7 @@ export default function RoleForm({ role, allPermissions }: Props) {
   const [state, formAction, isPending] = useActionState<ActionState<CreateRoleInput>, FormData>(
     async (prevState, formData) => {
       const data: CreateRoleInput = {
-        name: formData.get('name') as string,
+        name: (formData.get('name') as string) || role?.name || 'Default Role',
         description: (formData.get('description') as string) || undefined,
         permissionIds: selectedPermissions,
       };

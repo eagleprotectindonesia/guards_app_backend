@@ -5,11 +5,13 @@ import { ShiftType } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { deleteShiftType } from '../actions';
 import ConfirmDialog from '../../components/confirm-dialog';
-import { DeleteButton } from '../../components/action-buttons';
+import { EditButton, DeleteButton } from '../../components/action-buttons';
 import toast from 'react-hot-toast';
 import PaginationNav from '../../components/pagination-nav';
 import Link from 'next/link';
-import { Pencil, History } from 'lucide-react';
+import { History } from 'lucide-react';
+import { useSession } from '../../context/session-context';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 type ShiftTypeWithAdminInfo = ShiftType & {
   lastUpdatedBy?: { name: string } | null;
@@ -21,7 +23,6 @@ type ShiftTypeListProps = {
   page: number;
   perPage: number;
   totalCount: number;
-  isSuperAdmin?: boolean;
 };
 
 export default function ShiftTypeList({
@@ -29,17 +30,23 @@ export default function ShiftTypeList({
   page,
   perPage,
   totalCount,
-  isSuperAdmin = false,
 }: ShiftTypeListProps) {
+  const { hasPermission } = useSession();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const canCreate = hasPermission(PERMISSIONS.SHIFT_TYPES.CREATE);
+  const canEdit = hasPermission(PERMISSIONS.SHIFT_TYPES.EDIT);
+  const canDelete = hasPermission(PERMISSIONS.SHIFT_TYPES.DELETE);
+  const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+
   const handleDeleteClick = (id: string) => {
+    if (!canDelete) return;
     setDeleteId(id);
   };
 
   const handleConfirmDelete = () => {
-    if (!deleteId) return;
+    if (!deleteId || !canDelete) return;
 
     startTransition(async () => {
       const result = await deleteShiftType(deleteId);
@@ -61,7 +68,7 @@ export default function ShiftTypeList({
           <p className="text-sm text-muted-foreground mt-1">Manage standard shift templates.</p>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
-          {isSuperAdmin && (
+          {canViewAudit && (
             <Link
               href="/admin/shift-types/audit"
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted transition-colors shadow-sm w-full md:w-auto"
@@ -70,13 +77,15 @@ export default function ShiftTypeList({
               Audit Log
             </Link>
           )}
-          <Link
-            href="/admin/shift-types/create"
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30 w-full md:w-auto"
-          >
-            <span className="mr-2 text-lg leading-none">+</span>
-            Add Shift Type
-          </Link>
+          {canCreate && (
+            <Link
+              href="/admin/shift-types/create"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30 w-full md:w-auto"
+            >
+              <span className="mr-2 text-lg leading-none">+</span>
+              Add Shift Type
+            </Link>
+          )}
         </div>
       </div>
 
@@ -143,18 +152,15 @@ export default function ShiftTypeList({
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-100">
-                        <Link
+                        <EditButton
                           href={`/admin/shift-types/${shiftType.id}/edit`}
-                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                          title="Edit"
-                        >
-                          <Pencil className="w-4 h-4" />
-                          <span className="sr-only">Edit</span>
-                        </Link>
+                          disabled={!canEdit}
+                          title={!canEdit ? 'Permission Denied' : 'Edit'}
+                        />
                         <DeleteButton
                           onClick={() => handleDeleteClick(shiftType.id)}
-                          disabled={!isSuperAdmin || isPending}
-                          title={!isSuperAdmin ? 'Only Super Admins can delete' : 'Delete'}
+                          disabled={!canDelete || isPending}
+                          title={!canDelete ? 'Permission Denied' : 'Delete'}
                         />
                       </div>
                     </td>

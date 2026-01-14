@@ -3,7 +3,8 @@ import ShiftTypeList from './components/shift-type-list';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { getPaginatedShiftTypes } from '@/lib/data-access/shift-types';
-import { getAdminSession } from '@/lib/admin-auth';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const metadata: Metadata = {
   title: 'Shift Types Management',
@@ -16,7 +17,7 @@ type ShiftTypesPageProps = {
 };
 
 export default async function ShiftTypesPage(props: ShiftTypesPageProps) {
-  const session = await getAdminSession();
+  await requirePermission(PERMISSIONS.SHIFT_TYPES.VIEW);
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
 
@@ -34,7 +35,6 @@ export default async function ShiftTypesPage(props: ShiftTypesPageProps) {
           page={page}
           perPage={perPage}
           totalCount={totalCount}
-          isSuperAdmin={session?.isSuperAdmin}
         />
       </Suspense>
     </div>

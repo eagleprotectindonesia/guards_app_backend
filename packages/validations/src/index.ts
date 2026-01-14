@@ -164,6 +164,8 @@ export const createRoleSchema = z.object({
   permissionIds: z.array(z.string()).min(1, 'At least one permission is required'),
 });
 
+export const updateRoleSchema = createRoleSchema;
+
 // --- System Settings ---
 export const updateSettingsSchema = z.record(z.string(), z.string());
 
@@ -180,5 +182,5 @@ export type CreateShiftInput = z.infer<typeof createShiftSchema>;
 export type UpdateShiftInput = CreateShiftInput; // Same for now
 export type CheckInInput = z.infer<typeof checkInSchema>;
 export type CreateRoleInput = z.infer<typeof createRoleSchema>;
-export type UpdateRoleInput = CreateRoleInput;
+export type UpdateRoleInput = z.infer<typeof updateRoleSchema>;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;

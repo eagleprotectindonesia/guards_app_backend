@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers';
 import { verifySession } from './auth/session';
 import { AUTH_COOKIES } from './auth/constants';
+import { PermissionCode } from './auth/permissions';
+import { forbidden } from 'next/navigation';
 
 export async function getAdminIdFromToken(): Promise<string> {
   const cookieStore = await cookies();
@@ -47,6 +49,34 @@ export async function getAdminSession(): Promise<AdminSession | null> {
     permissions,
     isSuperAdmin: roleName === 'Super Admin',
   };
+}
+
+/**
+ * Server-side permission check. Throws a forbidden error if the user lacks permission.
+ * Should be called at the top of Server Components or Server Actions.
+ * Supports passing a single permission or an array of permissions (all must be satisfied).
+ */
+export async function requirePermission(permission: PermissionCode | PermissionCode[]): Promise<AdminSession> {
+  let session = await getAdminSession();
+
+  if (!session) {
+    const { redirect } = await import('next/navigation');
+    redirect('/admin/login');
+  }
+
+  session = session!;
+  if (session.isSuperAdmin) {
+    return session;
+  }
+
+  const permissions = Array.isArray(permission) ? permission : [permission];
+  const hasAllPermissions = permissions.every(p => session.permissions.includes(p));
+
+  if (!hasAllPermissions) {
+    forbidden();
+  }
+
+  return session;
 }
 
 /**

@@ -2,6 +2,13 @@ import { getPaginatedAdmins } from '@/lib/data-access/admins';
 import { serialize, getPaginationParams } from '@/lib/utils';
 import AdminList from './components/admin-list';
 import { Suspense } from 'react';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Admins Management',
+};
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +17,7 @@ type AdminsPageProps = {
 };
 
 export default async function AdminsPage(props: AdminsPageProps) {
+  const session = await requirePermission(PERMISSIONS.ADMINS.VIEW);
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
 
@@ -25,7 +33,12 @@ export default async function AdminsPage(props: AdminsPageProps) {
   return (
     <div className="max-w-7xl mx-auto">
       <Suspense fallback={<div>Loading admins...</div>}>
-        <AdminList admins={serializedAdmins} page={page} perPage={perPage} totalCount={totalCount} />
+        <AdminList
+          admins={serializedAdmins}
+          page={page}
+          perPage={perPage}
+          totalCount={totalCount}
+        />
       </Suspense>
     </div>
   );

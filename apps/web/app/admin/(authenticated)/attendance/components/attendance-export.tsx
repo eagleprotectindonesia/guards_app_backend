@@ -7,6 +7,8 @@ import AttendanceExportModal from './attendance-export-modal';
 import { format } from 'date-fns';
 import { Serialized } from '@/lib/utils';
 import { Guard } from '@prisma/client';
+import { useSession } from '../../context/session-context';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 type AttendanceExportProps = {
   initialFilters: {
@@ -18,7 +20,12 @@ type AttendanceExportProps = {
 };
 
 export default function AttendanceExport({ initialFilters, guards }: AttendanceExportProps) {
+  const { hasPermission } = useSession();
   const [isExportOpen, setIsExportOpen] = useState(false);
+
+  const canExport = hasPermission(PERMISSIONS.ATTENDANCE.VIEW);
+
+  if (!canExport) return null;
 
   const performExport = async (startDate: Date, endDate: Date, selectedGuardId?: string) => {
     try {

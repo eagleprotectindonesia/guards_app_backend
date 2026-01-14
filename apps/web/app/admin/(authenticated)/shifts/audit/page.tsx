@@ -6,8 +6,8 @@ import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
-import { getCurrentAdmin } from '@/lib/admin-auth';
-import { redirect } from 'next/navigation';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const metadata: Metadata = {
   title: 'Shift Audit Logs',
@@ -20,10 +20,7 @@ type PageProps = {
 };
 
 export default async function ShiftAuditPage(props: PageProps) {
-  const currentAdmin = await getCurrentAdmin();
-  if (currentAdmin?.role !== 'superadmin') {
-    redirect('/admin/dashboard');
-  }
+  await requirePermission([PERMISSIONS.SHIFTS.VIEW, PERMISSIONS.CHANGELOGS.VIEW]);
 
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);

@@ -3,7 +3,8 @@ import SiteList from './components/site-list';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { getPaginatedSites } from '@/lib/data-access/sites';
-import { getAdminSession } from '@/lib/admin-auth';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const metadata: Metadata = {
   title: 'Sites Management',
@@ -16,7 +17,7 @@ type SitesPageProps = {
 };
 
 export default async function SitesPage(props: SitesPageProps) {
-  const session = await getAdminSession();
+  await requirePermission(PERMISSIONS.SITES.VIEW);
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
   const query = searchParams.q as string | undefined;
@@ -32,13 +33,7 @@ export default async function SitesPage(props: SitesPageProps) {
   return (
     <div className="max-w-7xl mx-auto">
       <Suspense fallback={<div>Loading sites...</div>}>
-        <SiteList
-          sites={serializedSites}
-          page={page}
-          perPage={perPage}
-          totalCount={totalCount}
-          isSuperAdmin={session?.isSuperAdmin}
-        />
+        <SiteList sites={serializedSites} page={page} perPage={perPage} totalCount={totalCount} />
       </Suspense>
     </div>
   );

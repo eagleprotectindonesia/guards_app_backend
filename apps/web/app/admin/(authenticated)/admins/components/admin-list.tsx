@@ -5,11 +5,12 @@ import { Admin } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { deleteAdmin } from '../actions';
 import ConfirmDialog from '../../components/confirm-dialog';
-import { DeleteButton } from '../../components/action-buttons';
+import { EditButton, DeleteButton } from '../../components/action-buttons';
 import toast from 'react-hot-toast';
 import PaginationNav from '../../components/pagination-nav';
 import Link from 'next/link';
-import { Pencil } from 'lucide-react';
+import { useSession } from '../../context/session-context';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 type AdminListProps = {
   admins: Serialized<Admin & { roleRef?: { name: string } | null }>[];
@@ -19,15 +20,21 @@ type AdminListProps = {
 };
 
 export default function AdminList({ admins, page, perPage, totalCount }: AdminListProps) {
+  const { hasPermission } = useSession();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  const canCreate = hasPermission(PERMISSIONS.ADMINS.CREATE);
+  const canEdit = hasPermission(PERMISSIONS.ADMINS.EDIT);
+  const canDelete = hasPermission(PERMISSIONS.ADMINS.DELETE);
+
   const handleDeleteClick = (id: string) => {
+    if (!canDelete) return;
     setDeleteId(id);
   };
 
   const handleConfirmDelete = () => {
-    if (!deleteId) return;
+    if (!deleteId || !canDelete) return;
 
     startTransition(async () => {
       const result = await deleteAdmin(deleteId);
@@ -48,13 +55,15 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
           <h1 className="text-2xl font-bold text-foreground">Admins</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage system administrators.</p>
         </div>
-        <Link
-          href="/admin/admins/create"
-          className="inline-flex items-center justify-center h-10 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/30"
-        >
-          <span className="mr-2 text-lg leading-none">+</span>
-          Add Admin
-        </Link>
+        {canCreate && (
+          <Link
+            href="/admin/admins/create"
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/30"
+          >
+            <span className="mr-2 text-lg leading-none">+</span>
+            Add Admin
+          </Link>
+        )}
       </div>
 
       {/* Table Section */}
@@ -104,18 +113,15 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
                       </td>
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end gap-2 opacity-100">
-                          <Link
+                          <EditButton
                             href={`/admin/admins/${admin.id}/edit`}
-                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer"
-                            title="Edit"
-                          >
-                            <Pencil className="w-4 h-4" />
-                            <span className="sr-only">Edit</span>
-                          </Link>
+                            disabled={!canEdit}
+                            title={isSuperAdmin ? 'Super Admin cannot be edited here' : (!canEdit ? 'Permission Denied' : 'Edit')}
+                          />
                           <DeleteButton
                             onClick={() => handleDeleteClick(admin.id)}
-                            disabled={isPending || isSuperAdmin}
-                            title={isSuperAdmin ? 'Cannot delete a Super Admin' : 'Delete'}
+                            disabled={isPending || !canDelete || isSuperAdmin}
+                            title={isSuperAdmin ? 'Cannot delete a Super Admin' : (!canDelete ? 'Permission Denied' : 'Delete')}
                           />
                         </div>
                       </td>

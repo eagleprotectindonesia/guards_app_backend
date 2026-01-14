@@ -5,6 +5,8 @@ import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
 import { getAllGuards } from '@/lib/data-access/guards';
 import { getPaginatedCheckins } from '@/lib/data-access/checkins';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,6 +15,7 @@ type CheckinsPageProps = {
 };
 
 export default async function CheckinsPage(props: CheckinsPageProps) {
+  await requirePermission(PERMISSIONS.CHECKINS.VIEW);
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
 

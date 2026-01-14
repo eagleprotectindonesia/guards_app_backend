@@ -7,8 +7,8 @@ import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 import { getAllSites } from '@/lib/data-access/sites';
-import { getCurrentAdmin } from '@/lib/admin-auth';
-import { redirect } from 'next/navigation';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const metadata: Metadata = {
   title: 'Site Audit Logs',
@@ -21,10 +21,7 @@ type PageProps = {
 };
 
 export default async function SiteAuditPage(props: PageProps) {
-  const currentAdmin = await getCurrentAdmin();
-  if (currentAdmin?.role !== 'superadmin') {
-    redirect('/admin/dashboard');
-  }
+  await requirePermission([PERMISSIONS.SITES.VIEW, PERMISSIONS.CHANGELOGS.VIEW]);
 
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);

@@ -2,10 +2,13 @@ import { getAllRoles } from '@/lib/data-access/roles';
 import { serialize } from '@/lib/utils';
 import RoleList from './components/role-list';
 import Link from 'next/link';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function RolesPage() {
+  await requirePermission(PERMISSIONS.ROLES.VIEW);
   const roles = await getAllRoles();
 
   return (

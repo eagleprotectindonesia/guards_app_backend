@@ -12,14 +12,19 @@
     "dev": "node --env-file=.env node_modules/.bin/turbo dev --filter=web --filter=worker",
     "dev:mobile": "node --env-file=.env node_modules/.bin/turbo dev",
     "lint": "turbo lint",
-    "test": "turbo test",
+    "test": "jest",
     "postinstall": "if [ -f .env ]; then node --env-file=.env node_modules/.bin/turbo run prisma:generate; else node_modules/.bin/turbo run prisma:generate; fi"
   },
   "devDependencies": {
+    "@types/jest": "^30.0.0",
     "concurrently": "^8.2.2",
     "eslint": "^9",
+    "jest": "^30.2.0",
+    "jest-mock-extended": "^4.0.0",
     "prettier": "^3.3.3",
     "tailwindcss": "^3.4.19",
+    "ts-jest": "^29.4.6",
+    "ts-node": "^10.9.2",
     "turbo": "^2.7.3",
     "typescript": "^5"
   }
