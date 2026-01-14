@@ -1,14 +1,14 @@
 'use client';
 
 import { Serialized } from '@/lib/utils';
-import { createGuard, updateGuard } from '../actions';
+import { createEmployee, updateEmployee } from '../actions';
 import { ActionState } from '@/types/actions';
-import { CreateGuardInput, createGuardSchema, updateGuardSchema } from '@/lib/validations';
+import { CreateEmployeeInput, createEmployeeSchema, updateEmployeeSchema } from '@/lib/validations';
 import { startTransition, useActionState, useEffect, useRef } from 'react';
 import { useForm, Controller, Resolver, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { Guard } from '@prisma/client';
+import { Employee } from '@prisma/client';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useRouter } from 'next/navigation';
 import { PasswordInput } from '@/components/ui/password-input';
@@ -17,15 +17,15 @@ import { E164Number } from 'libphonenumber-js';
 import { format } from 'date-fns';
 
 type Props = {
-  guard?: Serialized<Guard>; // If provided, it's an edit form
+  employee?: Serialized<Employee>; // If provided, it's an edit form
 };
 
-export default function GuardForm({ guard }: Props) {
+export default function EmployeeForm({ employee }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
-  const [state, formAction, isPending] = useActionState<ActionState<CreateGuardInput>, FormData>(
-    guard ? updateGuard.bind(null, guard.id) : createGuard,
+  const [state, formAction, isPending] = useActionState<ActionState<CreateEmployeeInput>, FormData>(
+    employee ? updateEmployee.bind(null, employee.id) : createEmployee,
     { success: false }
   );
 
@@ -36,24 +36,24 @@ export default function GuardForm({ guard }: Props) {
     clearErrors,
     trigger,
     formState: { errors },
-  } = useForm<CreateGuardInput>({
-    resolver: zodResolver(guard ? updateGuardSchema : createGuardSchema) as Resolver<CreateGuardInput>,
+  } = useForm<CreateEmployeeInput>({
+    resolver: zodResolver(employee ? updateEmployeeSchema : createEmployeeSchema) as Resolver<CreateEmployeeInput>,
     defaultValues: {
-      name: guard?.name || '',
-      phone: (guard?.phone as string) || '',
-      id: guard?.id || '',
-      guardCode: guard?.guardCode || '',
-      status: guard?.status ?? true,
-      joinDate: guard?.joinDate ? new Date(guard.joinDate) : undefined,
-      leftDate: guard?.leftDate ? new Date(guard.leftDate) : undefined,
-      note: guard?.note || '',
+      name: employee?.name || '',
+      phone: (employee?.phone as string) || '',
+      id: employee?.id || '',
+      employeeCode: employee?.employeeCode || employee?.employeeCode || '',
+      status: employee?.status ?? true,
+      joinDate: employee?.joinDate ? new Date(employee.joinDate) : undefined,
+      leftDate: employee?.leftDate ? new Date(employee.leftDate) : undefined,
+      note: employee?.note || '',
     },
   });
 
   useEffect(() => {
     if (state.success) {
-      toast.success(state.message || (guard ? 'Guard updated successfully!' : 'Guard created successfully!'));
-      router.push('/admin/guards');
+      toast.success(state.message || (employee ? 'Employee updated successfully!' : 'Employee created successfully!'));
+      router.push('/admin/employees');
     } else if (state.message && !state.success) {
       toast.error(state.message);
     }
@@ -61,11 +61,11 @@ export default function GuardForm({ guard }: Props) {
     if (state.errors) {
       Object.entries(state.errors).forEach(([key, value]) => {
         if (Array.isArray(value) && value.length > 0) {
-          setError(key as Path<CreateGuardInput>, { type: 'server', message: value[0] });
+          setError(key as Path<CreateEmployeeInput>, { type: 'server', message: value[0] });
         }
       });
     }
-  }, [state, guard, router, setError]);
+  }, [state, employee, router, setError]);
 
   const clientAction = async (formData: FormData) => {
     clearErrors();
@@ -86,7 +86,7 @@ export default function GuardForm({ guard }: Props) {
 
   return (
     <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-foreground mb-6">{guard ? 'Edit Guard' : 'Add New Guard'}</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-6">{employee ? 'Edit Employee' : 'Add New Employee'}</h1>
       <form
         ref={formRef}
         onSubmit={e => {
@@ -147,12 +147,12 @@ export default function GuardForm({ guard }: Props) {
                   {...field}
                   type="text"
                   id="id"
-                  readOnly={!!guard}
+                  readOnly={!!employee}
                   maxLength={6}
                   minLength={6}
                   title="Employee ID must be exactly 6 alphanumeric characters"
                   className={`w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all ${
-                    guard ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''
+                    employee ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''
                   }`}
                   placeholder="e.g. EMP001"
                   autoComplete="off"
@@ -166,23 +166,23 @@ export default function GuardForm({ guard }: Props) {
             {errors.id && <p className="text-red-500 text-xs mt-1">{errors.id.message}</p>}
           </div>
 
-          {/* Guard Code Field */}
+          {/* Employee Code Field */}
           <div>
-            <label htmlFor="guardCode" className="block font-medium text-foreground mb-1">
-              Guard Code <span className="text-red-500">*</span>
+            <label htmlFor="employeeCode" className="block font-medium text-foreground mb-1">
+              Employee Code <span className="text-red-500">*</span>
             </label>
             <Controller
               control={control}
-              name="guardCode"
+              name="employeeCode"
               render={({ field }) => (
                 <input
                   {...field}
                   type="text"
-                  id="guardCode"
+                  id="employeeCode"
                   maxLength={12}
-                  title="Guard code must be alphanumeric only, maximum 12 characters"
+                  title="Employee code must be alphanumeric only, maximum 12 characters"
                   className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
-                  placeholder="e.g. G001"
+                  placeholder="e.g. E001"
                   autoComplete="off"
                   onChange={e => {
                     const val = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
@@ -191,7 +191,7 @@ export default function GuardForm({ guard }: Props) {
                 />
               )}
             />
-            {errors.guardCode && <p className="text-red-500 text-xs mt-1">{errors.guardCode.message}</p>}
+            {errors.employeeCode && <p className="text-red-500 text-xs mt-1">{errors.employeeCode.message}</p>}
           </div>
 
           {/* Status Field */}
@@ -274,7 +274,7 @@ export default function GuardForm({ guard }: Props) {
           </div>
 
           {/* Password Field - Only show for creation, not editing */}
-          {!guard && (
+          {!employee && (
             <div className="md:col-span-2">
               <label htmlFor="password" className="block font-medium text-foreground mb-1">
                 Password <span className="text-red-500">*</span>
@@ -300,21 +300,23 @@ export default function GuardForm({ guard }: Props) {
               id="note"
               rows={4}
               className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
-              placeholder="Additional information about the guard"
+              placeholder="Additional information about the employee"
             />
           </div>
         </div>
 
         {/* Error Message */}
         {state.message && !state.success && (
-          <div className="p-3 rounded bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-100 dark:border-red-900/30">{state.message}</div>
+          <div className="p-3 rounded bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-100 dark:border-red-900/30">
+            {state.message}
+          </div>
         )}
 
         {/* Actions */}
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <button
             type="button"
-            onClick={() => router.push('/admin/guards')}
+            onClick={() => router.push('/admin/employees')}
             className="px-6 py-2.5 rounded-lg border border-border text-foreground font-bold text-sm hover:bg-muted transition-colors"
           >
             Cancel
@@ -324,7 +326,7 @@ export default function GuardForm({ guard }: Props) {
             disabled={isPending}
             className="px-6 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/20"
           >
-            {isPending ? 'Saving...' : guard ? 'Save Changes' : 'Create Guard'}
+            {isPending ? 'Saving...' : employee ? 'Save Changes' : 'Create Employee'}
           </button>
         </div>
       </form>

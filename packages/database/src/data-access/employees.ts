@@ -33,11 +33,11 @@ export function getEffectiveStatus(
   return true;
 }
 
-export async function getAllGuards(
-  orderBy: Prisma.GuardOrderByWithRelationInput = { createdAt: 'desc' },
+export async function getAllEmployees(
+  orderBy: Prisma.EmployeeOrderByWithRelationInput = { createdAt: 'desc' },
   includeDeleted = false
 ) {
-  return prisma.guard.findMany({
+  return prisma.employee.findMany({
     where: includeDeleted ? {} : { deletedAt: null },
     orderBy,
     include: {
@@ -55,38 +55,38 @@ export async function getAllGuards(
   });
 }
 
-export async function getActiveGuards() {
-  return prisma.guard.findMany({
+export async function getActiveEmployees() {
+  return prisma.employee.findMany({
     where: { status: true, deletedAt: null },
     orderBy: { name: 'asc' },
   });
 }
 
-export async function getGuardById(id: string) {
-  return prisma.guard.findUnique({
+export async function getEmployeeById(id: string) {
+  return prisma.employee.findUnique({
     where: { id, deletedAt: null },
   });
 }
 
-export async function findGuardByPhone(phone: string) {
-  return prisma.guard.findUnique({
+export async function findEmployeeByPhone(phone: string) {
+  return prisma.employee.findUnique({
     where: { phone, deletedAt: null },
   });
 }
 
-export async function getPaginatedGuards(params: {
-  where: Prisma.GuardWhereInput;
-  orderBy: Prisma.GuardOrderByWithRelationInput;
+export async function getPaginatedEmployees(params: {
+  where: Prisma.EmployeeWhereInput;
+  orderBy: Prisma.EmployeeOrderByWithRelationInput;
   skip: number;
   take: number;
 }) {
   const { where, orderBy, skip, take } = params;
   const finalWhere = { ...where, deletedAt: null };
 
-  const [guards, totalCount] = await prisma.$transaction(
+  const [employees, totalCount] = await prisma.$transaction(
     async tx => {
       return Promise.all([
-        tx.guard.findMany({
+        tx.employee.findMany({
           where: finalWhere,
           orderBy,
           skip,
@@ -104,26 +104,26 @@ export async function getPaginatedGuards(params: {
             },
           },
         }),
-        tx.guard.count({ where: finalWhere }),
+        tx.employee.count({ where: finalWhere }),
       ]);
     },
     { timeout: 5000 }
   );
 
-  return { guards, totalCount };
+  return { employees, totalCount };
 }
 
 /**
  * Direct update without changelog. Use sparingly (e.g., system updates).
  */
-export async function updateGuard(id: string, data: Prisma.GuardUpdateInput) {
-  return prisma.guard.update({
+export async function updateEmployee(id: string, data: Prisma.EmployeeUpdateInput) {
+  return prisma.employee.update({
     where: { id, deletedAt: null },
     data,
   });
 }
 
-export async function createGuardWithChangelog(data: Prisma.GuardCreateInput, adminId: string) {
+export async function createEmployeeWithChangelog(data: Prisma.EmployeeCreateInput, adminId: string) {
   const effectiveStatus = getEffectiveStatus(
     data.status ?? true,
     data.joinDate as Date | string | undefined,
@@ -132,10 +132,11 @@ export async function createGuardWithChangelog(data: Prisma.GuardCreateInput, ad
 
   return prisma.$transaction(
     async tx => {
-      if (data.guardCode && effectiveStatus) {
-        const existing = await tx.guard.findFirst({
+      const code = data.employeeCode;
+      if (code && effectiveStatus) {
+        const existing = await tx.employee.findFirst({
           where: {
-            guardCode: data.guardCode,
+            employeeCode: code,
             status: true,
             deletedAt: null,
           },
@@ -143,11 +144,11 @@ export async function createGuardWithChangelog(data: Prisma.GuardCreateInput, ad
         });
 
         if (existing) {
-          throw new Error(`DUPLICATE_GUARD_CODE:${existing.id}`);
+          throw new Error(`DUPLICATE_EMPLOYEE_CODE:${existing.id}`);
         }
       }
 
-      const createdGuard = await tx.guard.create({
+      const createdEmployee = await tx.employee.create({
         data: {
           ...data,
           status: effectiveStatus,
@@ -157,33 +158,33 @@ export async function createGuardWithChangelog(data: Prisma.GuardCreateInput, ad
       });
 
       // Set Redis flag for password change requirement
-      await redis.set(`guard:${createdGuard.id}:must-change-password`, '1');
+      await redis.set(`employee:${createdEmployee.id}:must-change-password`, '1');
 
       await tx.changelog.create({
         data: {
           action: 'CREATE',
-          entityType: 'Guard',
-          entityId: createdGuard.id,
+          entityType: 'Employee',
+          entityId: createdEmployee.id,
           adminId: adminId,
           details: {
-            name: createdGuard.name,
-            phone: createdGuard.phone,
-            guardCode: createdGuard.guardCode,
-            status: createdGuard.status,
-            joinDate: createdGuard.joinDate,
-            leftDate: createdGuard.leftDate,
-            note: createdGuard.note,
+            name: createdEmployee.name,
+            phone: createdEmployee.phone,
+            employeeCode: createdEmployee.employeeCode,
+            status: createdEmployee.status,
+            joinDate: createdEmployee.joinDate,
+            leftDate: createdEmployee.leftDate,
+            note: createdEmployee.note,
           },
         },
       });
 
-      return createdGuard;
+      return createdEmployee;
     },
     { timeout: 5000 }
   );
 }
 
-export async function updateGuardWithChangelog(id: string, data: Prisma.GuardUpdateInput, adminId: string | null) {
+export async function updateEmployeeWithChangelog(id: string, data: Prisma.EmployeeUpdateInput, adminId: string | null) {
   return prisma.$transaction(
     async tx => {
       // If joinDate or leftDate are not in data, we might need them to calculate effective status
@@ -194,7 +195,7 @@ export async function updateGuardWithChangelog(id: string, data: Prisma.GuardUpd
       let status = data.status;
 
       if (joinDate === undefined || leftDate === undefined || status === undefined) {
-        const current = await tx.guard.findUnique({
+        const current = await tx.employee.findUnique({
           where: { id },
           select: { joinDate: true, leftDate: true, status: true },
         });
@@ -221,10 +222,11 @@ export async function updateGuardWithChangelog(id: string, data: Prisma.GuardUpd
         updateData.tokenVersion = { increment: 1 };
       }
 
-      if (updateData.guardCode && effectiveStatus) {
-        const existing = await tx.guard.findFirst({
+      const code = updateData.employeeCode;
+      if (code && effectiveStatus) {
+        const existing = await tx.employee.findFirst({
           where: {
-            guardCode: updateData.guardCode as string,
+            employeeCode: code as string,
             status: true,
             deletedAt: null,
             NOT: { id },
@@ -233,11 +235,11 @@ export async function updateGuardWithChangelog(id: string, data: Prisma.GuardUpd
         });
 
         if (existing) {
-          throw new Error(`DUPLICATE_GUARD_CODE:${existing.id}`);
+          throw new Error(`DUPLICATE_EMPLOYEE_CODE:${existing.id}`);
         }
       }
 
-      const updatedGuard = await tx.guard.update({
+      const updatedEmployee = await tx.employee.update({
         where: { id },
         data: updateData,
       });
@@ -245,27 +247,27 @@ export async function updateGuardWithChangelog(id: string, data: Prisma.GuardUpd
       await tx.changelog.create({
         data: {
           action: 'UPDATE',
-          entityType: 'Guard',
-          entityId: updatedGuard.id,
+          entityType: 'Employee',
+          entityId: updatedEmployee.id,
           adminId: adminId,
           details: {
-            name: data.name !== undefined ? updatedGuard.name : undefined,
-            phone: data.phone !== undefined ? updatedGuard.phone : undefined,
-            guardCode: data.guardCode !== undefined ? updatedGuard.guardCode : undefined,
-            status: updatedGuard.status,
-            joinDate: data.joinDate !== undefined ? updatedGuard.joinDate : undefined,
-            leftDate: data.leftDate !== undefined ? updatedGuard.leftDate : undefined,
-            note: data.note !== undefined ? updatedGuard.note : undefined,
+            name: data.name !== undefined ? updatedEmployee.name : undefined,
+            phone: data.phone !== undefined ? updatedEmployee.phone : undefined,
+            employeeCode: data.employeeCode !== undefined ? updatedEmployee.employeeCode : undefined,
+            status: updatedEmployee.status,
+            joinDate: data.joinDate !== undefined ? updatedEmployee.joinDate : undefined,
+            leftDate: data.leftDate !== undefined ? updatedEmployee.leftDate : undefined,
+            note: data.note !== undefined ? updatedEmployee.note : undefined,
           },
         },
       });
 
       // If status was set to false, notify active sessions to logout via Redis Stream
-      if (updatedGuard.status === false) {
+      if (updatedEmployee.status === false) {
         try {
           await Promise.all([
             redis.xadd(
-              `guard:stream:${updatedGuard.id}`,
+              `employee:stream:${updatedEmployee.id}`,
               'MAXLEN',
               '~',
               100,
@@ -273,26 +275,26 @@ export async function updateGuardWithChangelog(id: string, data: Prisma.GuardUpd
               'type',
               'session_revoked',
               'newTokenVersion',
-              updatedGuard.tokenVersion.toString()
+              updatedEmployee.tokenVersion.toString()
             ),
             // Update cache for high-frequency polling
-            redis.set(`guard:${updatedGuard.id}:token_version`, updatedGuard.tokenVersion.toString(), 'EX', 3600),
+            redis.set(`employee:${updatedEmployee.id}:token_version`, updatedEmployee.tokenVersion.toString(), 'EX', 3600),
           ]);
         } catch (error) {
           console.error('Failed to notify session revocation:', error);
         }
       }
 
-      return updatedGuard;
+      return updatedEmployee;
     },
     { timeout: 5000 }
   );
 }
 
-export async function updateGuardPasswordWithChangelog(id: string, hashedPassword: string, adminId: string) {
+export async function updateEmployeePasswordWithChangelog(id: string, hashedPassword: string, adminId: string) {
   return prisma.$transaction(
     async tx => {
-      await tx.guard.update({
+      await tx.employee.update({
         where: { id },
         data: {
           hashedPassword,
@@ -303,7 +305,7 @@ export async function updateGuardPasswordWithChangelog(id: string, hashedPasswor
       await tx.changelog.create({
         data: {
           action: 'UPDATE',
-          entityType: 'Guard',
+          entityType: 'Employee',
           entityId: id,
           adminId: adminId,
           details: { field: 'password', status: 'changed' },
@@ -314,24 +316,24 @@ export async function updateGuardPasswordWithChangelog(id: string, hashedPasswor
   );
 }
 
-export async function deleteGuardWithChangelog(id: string, adminId: string) {
+export async function deleteEmployeeWithChangelog(id: string, adminId: string) {
   return prisma.$transaction(
     async tx => {
-      // Fetch guard details before deletion to store in log
-      const guardToDelete = await tx.guard.findUnique({
+      // Fetch employee details before deletion to store in log
+      const employeeToDelete = await tx.employee.findUnique({
         where: { id, deletedAt: null },
         select: { name: true, phone: true, id: true },
       });
 
-      if (!guardToDelete) return;
+      if (!employeeToDelete) return;
 
-      await tx.guard.update({
+      await tx.employee.update({
         where: { id },
         data: {
           deletedAt: new Date(),
           status: false,
           // Append suffix to phone to allow re-registration with same phone
-          phone: `${guardToDelete.phone}#deleted#${id}`,
+          phone: `${employeeToDelete.phone}#deleted#${id}`,
           lastUpdatedBy: { connect: { id: adminId } },
           tokenVersion: { increment: 1 }, // Revoke all sessions
         },
@@ -340,12 +342,12 @@ export async function deleteGuardWithChangelog(id: string, adminId: string) {
       await tx.changelog.create({
         data: {
           action: 'DELETE',
-          entityType: 'Guard',
+          entityType: 'Employee',
           entityId: id,
           adminId: adminId,
           details: {
-            name: guardToDelete.name,
-            phone: guardToDelete.phone,
+            name: employeeToDelete.name,
+            phone: employeeToDelete.phone,
             deletedAt: new Date(),
           },
         },
@@ -354,9 +356,9 @@ export async function deleteGuardWithChangelog(id: string, adminId: string) {
       // Notify active sessions to logout via Redis Stream and cleanup flags
       try {
         await Promise.all([
-          redis.del(`guard:${id}:must-change-password`),
-          redis.del(`guard:${id}:token_version`),
-          redis.xadd(`guard:stream:${id}`, 'MAXLEN', '~', 100, '*', 'type', 'session_revoked', 'reason', 'deleted'),
+          redis.del(`employee:${id}:must-change-password`),
+          redis.del(`employee:${id}:token_version`),
+          redis.xadd(`employee:stream:${id}`, 'MAXLEN', '~', 100, '*', 'type', 'session_revoked', 'reason', 'deleted'),
         ]);
       } catch (error) {
         console.error('Failed to perform Redis cleanup/notification:', error);
@@ -366,8 +368,8 @@ export async function deleteGuardWithChangelog(id: string, adminId: string) {
   );
 }
 
-export async function findExistingGuards(phones: string[], ids: string[]) {
-  return prisma.guard.findMany({
+export async function findExistingEmployees(phones: string[], ids: string[]) {
+  return prisma.employee.findMany({
     where: {
       OR: [{ phone: { in: phones } }, { id: { in: ids } }],
     },
@@ -375,8 +377,8 @@ export async function findExistingGuards(phones: string[], ids: string[]) {
   });
 }
 
-export async function bulkCreateGuardsWithChangelog(guardsData: Prisma.GuardCreateManyInput[], adminId: string) {
-  const finalData = guardsData.map(g => ({
+export async function bulkCreateEmployeesWithChangelog(employeesData: Prisma.EmployeeCreateManyInput[], adminId: string) {
+  const finalData = employeesData.map(g => ({
     ...g,
     status: getEffectiveStatus(
       g.status ?? true,
@@ -389,66 +391,93 @@ export async function bulkCreateGuardsWithChangelog(guardsData: Prisma.GuardCrea
 
   return prisma.$transaction(
     async tx => {
-      // Check for duplicate guard codes in the batch
-      const activeGuardCodes = finalData.filter(g => g.guardCode && g.status === true).map(g => g.guardCode as string);
+      // Check for duplicate employee codes in the batch
+      const activeEmployeeCodes = finalData.filter(g => g.employeeCode && g.status === true).map(g => g.employeeCode as string);
 
-      if (new Set(activeGuardCodes).size !== activeGuardCodes.length) {
-        throw new Error('DUPLICATE_GUARD_CODE_IN_BATCH');
+      if (new Set(activeEmployeeCodes).size !== activeEmployeeCodes.length) {
+        throw new Error('DUPLICATE_EMPLOYEE_CODE_IN_BATCH');
       }
 
-      // Check against existing active guards in DB
-      if (activeGuardCodes.length > 0) {
-        const existing = await tx.guard.findFirst({
+      // Check against existing active employees in DB
+      if (activeEmployeeCodes.length > 0) {
+        const existing = await tx.employee.findFirst({
           where: {
-            guardCode: { in: activeGuardCodes },
+            employeeCode: { in: activeEmployeeCodes },
             status: true,
             deletedAt: null,
           },
-          select: { guardCode: true, id: true },
+          select: { employeeCode: true, id: true },
         });
 
         if (existing) {
-          throw new Error(`DUPLICATE_GUARD_CODE:${existing.guardCode}:${existing.id}`);
+          throw new Error(`DUPLICATE_EMPLOYEE_CODE:${existing.employeeCode}:${existing.id}`);
         }
       }
 
-      const createdGuards = await tx.guard.createManyAndReturn({
+      const createdEmployees = await tx.employee.createManyAndReturn({
         data: finalData,
         select: {
           id: true,
           name: true,
           phone: true,
-          guardCode: true,
+          employeeCode: true,
           status: true,
           joinDate: true,
         },
       });
 
-      // Set Redis flag for password change requirement for each created guard
-      for (const g of createdGuards) {
-        await redis.set(`guard:${g.id}:must-change-password`, '1');
+      // Set Redis flag for password change requirement for each created employee
+      for (const g of createdEmployees) {
+        await redis.set(`employee:${g.id}:must-change-password`, '1');
       }
 
-      // Log the creation event for EACH guard so their individual history is complete
+      // Log the creation event for EACH employee so their individual history is complete
       await tx.changelog.createMany({
-        data: createdGuards.map(g => ({
+        data: createdEmployees.map(g => ({
           action: 'CREATE', // Treat as standard creation for history consistency
-          entityType: 'Guard',
+          entityType: 'Employee',
           entityId: g.id,
           adminId: adminId,
           details: {
             method: 'BULK_UPLOAD',
             name: g.name,
             phone: g.phone,
-            guardCode: g.guardCode,
+            employeeCode: g.employeeCode,
             status: g.status,
             joinDate: g.joinDate,
           },
         })),
       });
 
-      return createdGuards;
+      return createdEmployees;
     },
     { timeout: 15000 }
   );
 }
+
+// --- Backward Compatibility Aliases ---
+
+/** @deprecated Use getAllEmployees */
+export const getAllGuards = getAllEmployees;
+/** @deprecated Use getActiveEmployees */
+export const getActiveGuards = getActiveEmployees;
+/** @deprecated Use getEmployeeById */
+export const getGuardById = getEmployeeById;
+/** @deprecated Use findEmployeeByPhone */
+export const findGuardByPhone = findEmployeeByPhone;
+/** @deprecated Use getPaginatedEmployees */
+export const getPaginatedGuards = getPaginatedEmployees;
+/** @deprecated Use updateEmployee */
+export const updateGuard = updateEmployee;
+/** @deprecated Use createEmployeeWithChangelog */
+export const createGuardWithChangelog = createEmployeeWithChangelog;
+/** @deprecated Use updateEmployeeWithChangelog */
+export const updateGuardWithChangelog = updateEmployeeWithChangelog;
+/** @deprecated Use updateEmployeePasswordWithChangelog */
+export const updateGuardPasswordWithChangelog = updateEmployeePasswordWithChangelog;
+/** @deprecated Use deleteEmployeeWithChangelog */
+export const deleteGuardWithChangelog = deleteEmployeeWithChangelog;
+/** @deprecated Use findExistingEmployees */
+export const findExistingGuards = findExistingEmployees;
+/** @deprecated Use bulkCreateEmployeesWithChangelog */
+export const bulkCreateGuardsWithChangelog = bulkCreateEmployeesWithChangelog;

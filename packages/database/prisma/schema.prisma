@@ -11,11 +11,17 @@ enum AdminRole {
   admin
 }
 
+enum EmployeeRole {
+  guard
+  supervisor
+  manager
+}
+
 model Permission {
   id          String   @id @default(uuid())
   action      String // e.g., "view", "create", "edit", "delete"
-  resource    String // e.g., "guards", "shifts", "admin_dashboard"
-  code        String   @unique // e.g., "guards:view"
+  resource    String // e.g., "employees", "shifts", "admin_dashboard"
+  code        String   @unique // e.g., "employees:view"
   description String?
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -52,11 +58,11 @@ model Admin {
   note               String?     @db.Text
   acknowledgedAlerts Alert[]     @relation("AcknowledgedBy")
   resolvedAlerts     Alert[]     @relation("ResolvedBy")
-  updatedGuards      Guard[]     @relation("GuardLastUpdatedBy")
+  updatedEmployees   Employee[]  @relation("EmployeeLastUpdatedBy")
   updatedSites       Site[]      @relation("SiteLastUpdatedBy")
   updatedShiftTypes  ShiftType[] @relation("ShiftTypeLastUpdatedBy")
   updatedShifts      Shift[]     @relation("ShiftLastUpdatedBy")
-  createdGuards      Guard[]     @relation("GuardCreatedBy")
+  createdEmployees   Employee[]  @relation("EmployeeCreatedBy")
   createdSites       Site[]      @relation("SiteCreatedBy")
   createdShiftTypes  ShiftType[] @relation("ShiftTypeCreatedBy")
   createdShifts      Shift[]     @relation("ShiftCreatedBy")
@@ -70,7 +76,7 @@ model Admin {
 model Changelog {
   id         String   @id @default(uuid())
   action     String // CREATE, UPDATE, DELETE, BULK_CREATE
-  entityType String   @map("entity_type") // e.g., "Guard", "Site"
+  entityType String   @map("entity_type") // e.g., "Employee", "Site"
   entityId   String   @map("entity_id")
   details    Json? // Store changed fields or snapshot
   adminId    String?  @map("admin_id")
@@ -86,7 +92,7 @@ model Changelog {
 
 model ChatMessage {
   id            String         @id @default(uuid())
-  guardId       String         @map("guard_id")
+  employeeId    String         @map("employee_id")
   adminId       String?        @map("admin_id") // If sent by admin
   sender        ChatSenderType
   content       String         @db.Text
@@ -94,25 +100,26 @@ model ChatMessage {
   createdAt     DateTime       @default(now()) @map("created_at")
   readAt        DateTime?      @map("read_at")
 
-  guard Guard  @relation(fields: [guardId], references: [id])
-  admin Admin? @relation(fields: [adminId], references: [id])
+  employee Employee @relation(fields: [employeeId], references: [id])
+  admin    Admin?   @relation(fields: [adminId], references: [id])
 
-  @@index([guardId, createdAt])
+  @@index([employeeId, createdAt])
   @@map("chat_messages")
 }
 
 enum ChatSenderType {
   admin
-  guard
+  employee
 }
 
-model Guard {
+model Employee {
   id              String       @id
   name            String
   phone           String       @unique
-  hashedPassword  String       @map("hashed_password") // Added password field
+  hashedPassword  String       @map("hashed_password")
   tokenVersion    Int          @default(0) @map("token_version")
-  guardCode       String?      @map("guard_code") @db.VarChar(10)
+  employeeCode    String?      @map("employee_code") @db.VarChar(12)
+  role            EmployeeRole @default(guard)
   status          Boolean?     @default(true)
   joinDate        DateTime?    @map("join_date") @db.Date
   leftDate        DateTime?    @map("left_date") @db.Date
@@ -125,14 +132,14 @@ model Guard {
   checkins        Checkin[]
   shifts          Shift[]
   attendances     Attendance[]
-  chatMessages    ChatMessage[] // Relation to chat messages
-  lastUpdatedBy   Admin?       @relation("GuardLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  createdBy       Admin?       @relation("GuardCreatedBy", fields: [createdById], references: [id])
+  chatMessages    ChatMessage[]
+  lastUpdatedBy   Admin?       @relation("EmployeeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  createdBy       Admin?       @relation("EmployeeCreatedBy", fields: [createdById], references: [id])
 
   @@index([status])
   @@index([deletedAt])
-  @@index([guardCode])
-  @@map("guards")
+  @@index([employeeCode])
+  @@map("employees")
 }
 
 model Site {
@@ -181,7 +188,7 @@ model Shift {
   id                          String         @id @default(uuid())
   siteId                      String         @map("site_id")
   shiftTypeId                 String         @map("shift_type_id")
-  guardId                     String?        @map("guard_id")
+  employeeId                  String?        @map("employee_id")
   date                        DateTime       @db.Date
   startsAt                    DateTime       @map("starts_at")
   endsAt                      DateTime       @map("ends_at")
@@ -199,7 +206,7 @@ model Shift {
   note                        String?        @db.Text
   alerts                      Alert[]
   checkins                    Checkin[]
-  guard                       Guard?         @relation(fields: [guardId], references: [id])
+  employee                    Employee?      @relation(fields: [employeeId], references: [id])
   shiftType                   ShiftType      @relation(fields: [shiftTypeId], references: [id])
   site                        Site           @relation(fields: [siteId], references: [id])
   createdBy                   Admin?         @relation("ShiftCreatedBy", fields: [createdById], references: [id])
@@ -207,27 +214,27 @@ model Shift {
   attendance                  Attendance?
 
   @@index([siteId, date])
-  @@index([guardId, date])
-  @@index([guardId, startsAt])
+  @@index([employeeId, date])
+  @@index([employeeId, startsAt])
   @@index([startsAt, endsAt])
-  @@index([guardId, status, startsAt]) // For active shift queries
-  @@index([guardId, status, endsAt]) // For active shift queries with endsAt
-  @@index([guardId, status, date, startsAt]) // For next shifts queries
+  @@index([employeeId, status, startsAt])
+  @@index([employeeId, status, endsAt])
+  @@index([employeeId, status, date, startsAt])
   @@index([deletedAt])
   @@map("shifts")
 }
 
 model Checkin {
-  id        String        @id @default(uuid())
-  shiftId   String        @map("shift_id")
-  guardId   String        @map("guard_id")
-  at        DateTime      @default(now()) @db.Timestamptz(6)
-  source    String?
-  status    CheckInStatus
-  metadata  Json?
-  createdAt DateTime      @default(now()) @map("created_at")
-  guard     Guard         @relation(fields: [guardId], references: [id])
-  shift     Shift         @relation(fields: [shiftId], references: [id])
+  id         String        @id @default(uuid())
+  shiftId    String        @map("shift_id")
+  employeeId String        @map("employee_id")
+  at         DateTime      @default(now()) @db.Timestamptz(6)
+  source     String?
+  status     CheckInStatus
+  metadata   Json?
+  createdAt  DateTime      @default(now()) @map("created_at")
+  employee   Employee      @relation(fields: [employeeId], references: [id])
+  shift      Shift         @relation(fields: [shiftId], references: [id])
 
   @@unique([shiftId, at])
   @@index([createdAt])
@@ -292,7 +299,7 @@ enum AlertResolution {
 model Attendance {
   id         String           @id @default(uuid())
   shiftId    String           @map("shift_id")
-  guardId    String?          @map("guard_id") // Add guardId for direct filtering
+  employeeId String?          @map("employee_id")
   recordedAt DateTime         @default(now()) @map("recorded_at") @db.Timestamptz(6)
   picture    String?
   status     AttendanceStatus
@@ -300,13 +307,13 @@ model Attendance {
   createdAt  DateTime         @default(now()) @map("created_at")
   updatedAt  DateTime         @updatedAt
 
-  shift Shift  @relation(fields: [shiftId], references: [id])
-  guard Guard? @relation(fields: [guardId], references: [id])
+  shift    Shift     @relation(fields: [shiftId], references: [id])
+  employee Employee? @relation(fields: [employeeId], references: [id])
 
-  @@unique([shiftId]) // Ensuring one attendance record per shift
-  @@index([recordedAt]) // For attendance export queries
-  @@index([guardId]) // For direct guard filtering in attendance export
-  @@index([shiftId]) // For joining with shifts table
+  @@unique([shiftId])
+  @@index([recordedAt])
+  @@index([employeeId])
+  @@index([shiftId])
   @@map("attendance")
 }
 

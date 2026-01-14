@@ -2,22 +2,22 @@
 
 import { useActionState, useEffect } from 'react';
 import Modal from '../../components/modal';
-import { updateGuardPassword } from '../actions';
+import { updateEmployeePassword } from '../actions';
 import { ActionState } from '@/types/actions';
-import { UpdateGuardPasswordInput } from '@/lib/validations';
+import { UpdateEmployeePasswordInput } from '@/lib/validations';
 import { PasswordInput } from '@/components/ui/password-input';
 import toast from 'react-hot-toast';
 
 type ChangePasswordModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  guardId: string | null;
-  guardName: string;
+  employeeId: string | null;
+  employeeName: string;
 };
 
-export default function ChangePasswordModal({ isOpen, onClose, guardId, guardName }: ChangePasswordModalProps) {
-  const [state, formAction, isPending] = useActionState<ActionState<UpdateGuardPasswordInput>, FormData>(
-    guardId ? updateGuardPassword.bind(null, guardId) : async () => ({ success: false }),
+export default function ChangePasswordModal({ isOpen, onClose, employeeId, employeeName }: ChangePasswordModalProps) {
+  const [state, formAction, isPending] = useActionState<ActionState<UpdateEmployeePasswordInput>, FormData>(
+    employeeId ? updateEmployeePassword.bind(null, employeeId) : async () => ({ success: false }),
     { success: false }
   );
 
@@ -32,14 +32,10 @@ export default function ChangePasswordModal({ isOpen, onClose, guardId, guardNam
     }
   }, [state, onClose]);
 
-  // Reset state when modal opens/closes or guard changes
-  // Note: useActionState doesn't easily reset, so we rely on the component unmounting/remounting or just keying it.
-  // Ideally, the parent should conditionally render this modal or we key it.
-
-  if (!guardId) return null;
+  if (!employeeId) return null;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={`Change Password for ${guardName}`}>
+    <Modal isOpen={isOpen} onClose={onClose} title={`Change Password for ${employeeName}`}>
       <form action={formAction} className="p-6 space-y-6">
         <div className="space-y-4">
           <div>

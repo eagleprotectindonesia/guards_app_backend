@@ -8,7 +8,7 @@ export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
     include: include || {
       site: true,
       shiftType: true,
-      guard: true,
+      employee: true,
     },
   });
 }
@@ -34,7 +34,7 @@ export async function getPaginatedShifts(params: {
           include: include || {
             site: { select: { name: true } },
             shiftType: { select: { name: true, startTime: true, endTime: true } },
-            guard: { select: { name: true } },
+            employee: { select: { name: true } },
             createdBy: { select: { name: true } },
             lastUpdatedBy: { select: { name: true } },
           },
@@ -48,10 +48,23 @@ export async function getPaginatedShifts(params: {
   return { shifts, totalCount };
 }
 
-export async function checkOverlappingShift(guardId: string, startsAt: Date, endsAt: Date, excludeShiftId?: string) {
+export async function checkOverlappingShift(params: {
+  employeeId?: string;
+  guardId?: string;
+  startsAt: Date;
+  endsAt: Date;
+  excludeShiftId?: string;
+}) {
+  const { employeeId, guardId, startsAt, endsAt, excludeShiftId } = params;
+  const targetEmployeeId = employeeId || guardId;
+
+  if (!targetEmployeeId) {
+    throw new Error('employeeId or guardId is required');
+  }
+
   return prisma.shift.findFirst({
     where: {
-      guardId,
+      employeeId: targetEmployeeId,
       deletedAt: null,
       id: excludeShiftId ? { not: excludeShiftId } : undefined,
       startsAt: { lt: endsAt },
@@ -72,7 +85,7 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
         include: {
           site: true,
           shiftType: true,
-          guard: true,
+          employee: true,
         },
       });
 
@@ -85,7 +98,7 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
           details: {
             site: createdShift.site.name,
             type: createdShift.shiftType.name,
-            guard: createdShift.guard?.name || 'Unassigned',
+            employee: createdShift.employee?.name || 'Unassigned',
             date: createdShift.date,
             startsAt: createdShift.startsAt,
             endsAt: createdShift.endsAt,
@@ -98,9 +111,9 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
     { timeout: 10000 }
   );
 
-  if (result.guardId) {
+  if (result.employeeId) {
     await redis.xadd(
-      `guard:stream:${result.guardId}`,
+      `employee:stream:${result.employeeId}`,
       'MAXLEN',
       '~',
       100,
@@ -129,7 +142,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
         include: {
           site: true,
           shiftType: true,
-          guard: true,
+          employee: true,
         },
       });
 
@@ -142,7 +155,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
           details: {
             site: updatedShift.site.name,
             type: updatedShift.shiftType.name,
-            guard: updatedShift.guard?.name || 'Unassigned',
+            employee: updatedShift.employee?.name || 'Unassigned',
             date: updatedShift.date,
             startsAt: updatedShift.startsAt,
             endsAt: updatedShift.endsAt,
@@ -158,9 +171,9 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
     { timeout: 10000 }
   );
 
-  if (result.guardId) {
+  if (result.employeeId) {
     await redis.xadd(
-      `guard:stream:${result.guardId}`,
+      `employee:stream:${result.employeeId}`,
       'MAXLEN',
       '~',
       100,
@@ -182,7 +195,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
     async tx => {
       const shiftToDelete = await tx.shift.findUnique({
         where: { id, deletedAt: null },
-        include: { site: true, shiftType: true, guard: true },
+        include: { site: true, shiftType: true, employee: true },
       });
 
       if (!shiftToDelete) return null;
@@ -204,7 +217,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
           details: {
             site: shiftToDelete.site.name,
             type: shiftToDelete.shiftType.name,
-            guard: shiftToDelete.guard?.name || 'Unassigned',
+            employee: shiftToDelete.employee?.name || 'Unassigned',
             date: shiftToDelete.date,
             deletedAt: new Date(),
           },
@@ -216,8 +229,8 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
     { timeout: 10000 }
   );
 
-  if (result?.guardId) {
-    await redis.xadd(`guard:stream:${result.guardId}`, 'MAXLEN', '~', 100, '*', 'type', 'shift_updated', 'shiftId', id);
+  if (result?.employeeId) {
+    await redis.xadd(`employee:stream:${result.employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shift_updated', 'shiftId', id);
   }
 
   await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_DELETED', id: id }));
@@ -233,7 +246,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
         include: {
           site: { select: { name: true } },
           shiftType: { select: { name: true } },
-          guard: { select: { name: true } },
+          employee: { select: { name: true } },
         },
       });
 
@@ -247,7 +260,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
             method: 'BULK_UPLOAD',
             site: s.site.name,
             type: s.shiftType.name,
-            guard: s.guard?.name || 'Unassigned',
+            employee: s.employee?.name || 'Unassigned',
             date: s.date,
             startsAt: s.startsAt,
             endsAt: s.endsAt,
@@ -260,10 +273,10 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
     { timeout: 30000 }
   );
 
-  // Notify all affected guards
-  const guardIds = new Set(createdShifts.map(s => s.guardId).filter(Boolean) as string[]);
-  for (const guardId of guardIds) {
-    await redis.xadd(`guard:stream:${guardId}`, 'MAXLEN', '~', 100, '*', 'type', 'shift_updated');
+  // Notify all affected employees
+  const employeeIds = new Set(createdShifts.map(s => s.employeeId).filter(Boolean) as string[]);
+  for (const employeeId of employeeIds) {
+    await redis.xadd(`employee:stream:${employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shift_updated');
   }
 
   return createdShifts;
@@ -278,7 +291,7 @@ export async function getExportShiftsBatch(params: { where: Prisma.ShiftWhereInp
     include: {
       site: true,
       shiftType: true,
-      guard: true,
+      employee: true,
       createdBy: { select: { name: true } },
     },
     ...(cursor && { skip: 1, cursor: { id: cursor } }),
@@ -294,10 +307,10 @@ export async function getActiveShifts(now: Date) {
       status: { in: ['scheduled', 'in_progress'] },
       startsAt: { lte: lookaheadDate },
       endsAt: { gte: now },
-      guardId: { not: null },
+      employeeId: { not: null },
       deletedAt: null,
     },
-    include: { shiftType: true, guard: true, site: true, attendance: true },
+    include: { shiftType: true, employee: true, site: true, attendance: true },
   });
 }
 
@@ -327,7 +340,7 @@ export async function getUpcomingShifts(now: Date, take = 50) {
     },
     include: {
       shiftType: true,
-      guard: true,
+      employee: true,
       site: true,
     },
     orderBy: {
@@ -338,44 +351,47 @@ export async function getUpcomingShifts(now: Date, take = 50) {
 }
 
 /**
- * Fetches the active shift (including 5-min lead-up) and upcoming shifts for a guard.
+ * Fetches the active shift (including 5-min lead-up) and upcoming shifts for an employee.
  * Addresses soft-delete and overlap ordering.
  */
-export async function getGuardActiveAndUpcomingShifts(guardId: string, now: Date) {
+export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now: Date) {
   const LEADUP_MS = 5 * 60000;
 
   // Find shifts that are either currently active or starting within the next 5 minutes
   // Ordered by startsAt asc to pick the current shift first (if multiple are in range during handovers)
   const activeShift = await prisma.shift.findFirst({
     where: {
-      guardId,
+      employeeId,
       deletedAt: null,
       status: { in: ['scheduled', 'in_progress'] },
       startsAt: { lte: new Date(now.getTime() + LEADUP_MS) },
       endsAt: { gte: new Date(now.getTime() - LEADUP_MS) },
     },
-    include: { site: true, shiftType: true, guard: true, attendance: true },
+    include: { site: true, shiftType: true, employee: true, attendance: true },
     orderBy: { startsAt: 'asc' },
   });
 
   // Find the next upcoming shifts
   const nextShifts = await prisma.shift.findMany({
     where: {
-      guardId,
+      employeeId,
       deletedAt: null,
       status: 'scheduled',
       startsAt: { gt: now },
       ...(activeShift ? { NOT: { id: activeShift.id } } : {}),
     },
     orderBy: {
-      startsAt: 'asc',
+      startsAt: 'asc'
     },
     take: 4,
-    include: { site: true, shiftType: true, guard: true, attendance: true },
+    include: { site: true, shiftType: true, employee: true, attendance: true },
   });
 
   return { activeShift, nextShifts };
 }
+
+/** @deprecated Use getEmployeeActiveAndUpcomingShifts */
+export const getGuardActiveAndUpcomingShifts = getEmployeeActiveAndUpcomingShifts;
 
 export async function createMissedCheckinAlert(params: {
   shiftId: string;
@@ -408,7 +424,7 @@ export async function createMissedCheckinAlert(params: {
       where: { id: newAlert.id },
       include: {
         site: true,
-        shift: { include: { guard: true, shiftType: true } },
+        shift: { include: { employee: true, shiftType: true } },
       },
     });
   });

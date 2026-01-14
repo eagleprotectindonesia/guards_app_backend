@@ -5,7 +5,7 @@ export async function getAttendanceByShiftId(shiftId: string) {
   return prisma.attendance.findUnique({
     where: { shiftId },
     include: {
-      guard: {
+      employee: {
         select: {
           name: true,
           phone: true,
@@ -15,21 +15,31 @@ export async function getAttendanceByShiftId(shiftId: string) {
   });
 }
 
+/** @deprecated Use getAttendanceByShiftId and access employee relation */
+export const getAttendanceByShiftIdWithGuard = getAttendanceByShiftId;
+
 export async function recordAttendance(params: {
   shiftId: string;
-  guardId: string;
+  employeeId?: string;
+  // Backward compatibility
+  guardId?: string;
   status: AttendanceStatus;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any;
   updateShiftStatus?: boolean;
 }) {
-  const { shiftId, guardId, status, metadata, updateShiftStatus } = params;
+  const { shiftId, employeeId, guardId, status, metadata, updateShiftStatus } = params;
+  const targetEmployeeId = employeeId || guardId;
+
+  if (!targetEmployeeId) {
+    throw new Error('employeeId or guardId is required');
+  }
 
   return prisma.$transaction(async tx => {
     const attendance = await tx.attendance.create({
       data: {
         shiftId,
-        guardId,
+        employeeId: targetEmployeeId,
         recordedAt: new Date(),
         status,
         metadata,
@@ -66,7 +76,7 @@ export async function getPaginatedAttendance(params: {
         skip,
         take,
         include: {
-          guard: true,
+          employee: true,
           shift: {
             include: {
               site: true,
@@ -95,11 +105,11 @@ export async function getAttendanceExportBatch(params: {
     include: {
       shift: {
         include: {
-          guard: true,
+          employee: true,
           site: true,
         },
       },
-      guard: true,
+      employee: true,
     },
     ...(cursor && { skip: 1, cursor: { id: cursor } }),
   });

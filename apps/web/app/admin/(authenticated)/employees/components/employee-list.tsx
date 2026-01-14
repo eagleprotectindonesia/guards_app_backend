@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Guard } from '@prisma/client';
+import { Employee } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
-import { deleteGuard, getAllGuardsForExport } from '../actions';
+import { deleteEmployee, getAllEmployeesForExport } from '../actions';
 import ConfirmDialog from '../../components/confirm-dialog';
 import ChangePasswordModal from './change-password-modal';
 import BulkCreateModal from './bulk-create-modal';
-import GuardFilterModal from './guard-filter-modal';
+import EmployeeFilterModal from './employee-filter-modal';
 import { EditButton, DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
@@ -20,24 +20,24 @@ import Search from '../../components/search';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
-type GuardWithAdminInfo = Guard & {
+type EmployeeWithAdminInfo = Employee & {
   lastUpdatedBy?: { name: string } | null;
   createdBy?: { name: string } | null;
 };
 
-type GuardListProps = {
-  guards: Serialized<GuardWithAdminInfo>[];
+type EmployeeListProps = {
+  employees: Serialized<EmployeeWithAdminInfo>[];
   page: number;
   perPage: number;
   totalCount: number;
-  sortBy?: 'name' | 'id' | 'guardCode' | 'joinDate';
+  sortBy?: 'name' | 'id' | 'employeeCode' | 'joinDate';
   sortOrder?: 'asc' | 'desc';
   startDate?: string;
   endDate?: string;
 };
 
-export default function GuardList({
-  guards,
+export default function EmployeeList({
+  employees,
   page,
   perPage,
   totalCount,
@@ -45,7 +45,7 @@ export default function GuardList({
   sortOrder = 'desc',
   startDate,
   endDate,
-}: GuardListProps) {
+}: EmployeeListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = useSession();
@@ -78,7 +78,7 @@ export default function GuardList({
     params.set('page', '1');
 
     // Navigate to the new URL
-    router.push(`/admin/guards?${params.toString()}`);
+    router.push(`/admin/employees?${params.toString()}`);
   };
 
   const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date }) => {
@@ -97,7 +97,7 @@ export default function GuardList({
     }
 
     params.set('page', '1');
-    router.push(`/admin/guards?${params.toString()}`);
+    router.push(`/admin/employees?${params.toString()}`);
   };
 
   const handleDeleteClick = (id: string) => {
@@ -109,25 +109,25 @@ export default function GuardList({
     if (!deleteId || !canDelete) return;
 
     startTransition(async () => {
-      const result = await deleteGuard(deleteId);
+      const result = await deleteEmployee(deleteId);
       if (result.success) {
-        toast.success('Guard deleted successfully!');
+        toast.success('Employee deleted successfully!');
         setDeleteId(null);
       } else {
-        toast.error(result.message || 'Failed to delete guard.');
+        toast.error(result.message || 'Failed to delete employee.');
       }
     });
   };
 
   const handleExportCSV = async () => {
     try {
-      const guards = await getAllGuardsForExport();
+      const employees = await getAllEmployeesForExport();
 
       const headers = [
         'Name',
         'Phone',
         'Employee ID',
-        'Guard Code',
+        'Employee Code',
         'Status',
         'Joined Date',
         'Left Date',
@@ -139,21 +139,21 @@ export default function GuardList({
       ];
       const csvContent = [
         headers.join(','),
-        ...guards.map(guard => {
-          const phone = guard.phone.split('#')[0];
+        ...employees.map(employee => {
+          const phone = employee.phone.split('#')[0];
           return [
-            `"${guard.name}"`,
+            `"${employee.name}"`,
             `"${phone}"`,
-            `"${guard.id}"`,
-            `"${guard.guardCode || ''}"`,
-            guard.status ? 'Active' : 'Inactive',
-            `"${guard.joinDate ? format(new Date(guard.joinDate), 'yyyy/MM/dd') : ''}"`,
-            `"${guard.leftDate ? format(new Date(guard.leftDate), 'yyyy/MM/dd') : ''}"`,
-            `"${guard.note ? guard.note.replace(/"/g, '""') : ''}"`,
-            `"${guard.createdBy?.name || ''}"`,
-            `"${format(new Date(guard.createdAt), 'yyyy/MM/dd HH:mm')}"`,
-            `"${guard.lastUpdatedBy?.name || ''}"`,
-            `"${guard.deletedAt ? format(new Date(guard.deletedAt), 'yyyy/MM/dd HH:mm') : ''}"`,
+            `"${employee.id}"`,
+            `"${employee.employeeCode || ''}"`,
+            employee.status ? 'Active' : 'Inactive',
+            `"${employee.joinDate ? format(new Date(employee.joinDate), 'yyyy/MM/dd') : ''}"`,
+            `"${employee.leftDate ? format(new Date(employee.leftDate), 'yyyy/MM/dd') : ''}"`,
+            `"${employee.note ? employee.note.replace(/"/g, '""') : ''}"`,
+            `"${employee.createdBy?.name || ''}"`,
+            `"${format(new Date(employee.createdAt), 'yyyy/MM/dd HH:mm')}"`,
+            `"${employee.lastUpdatedBy?.name || ''}"`,
+            `"${employee.deletedAt ? format(new Date(employee.deletedAt), 'yyyy/MM/dd HH:mm') : ''}"`,
           ].join(',');
         }),
       ].join('\n');
@@ -162,14 +162,14 @@ export default function GuardList({
       const link = document.createElement('a');
       const url = URL.createObjectURL(blob);
       link.setAttribute('href', url);
-      link.setAttribute('download', `guards_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', `employees_export_${new Date().toISOString().split('T')[0]}.csv`);
       link.style.visibility = 'hidden';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch (error) {
-      console.error('Failed to export guards:', error);
-      toast.error('Failed to export guards.');
+      console.error('Failed to export employees:', error);
+      toast.error('Failed to export employees.');
     }
   };
 
@@ -180,12 +180,12 @@ export default function GuardList({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Guards</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage security personnel and contact info.</p>
+          <h1 className="text-2xl font-bold text-foreground">Employees</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage personnel and contact info.</p>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
           <div className="w-full md:w-64">
-            <Search placeholder="Search guards..." />
+            <Search placeholder="Search employees..." />
           </div>
           <button
             onClick={() => setIsFilterOpen(true)}
@@ -228,7 +228,7 @@ export default function GuardList({
           </button>
           {canViewAudit && (
             <Link
-              href="/admin/guards/audit"
+              href="/admin/employees/audit"
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted/50 transition-colors shadow-sm w-full md:w-auto"
             >
               <History className="mr-2 h-4 w-4" />
@@ -237,11 +237,11 @@ export default function GuardList({
           )}
           {canCreate && (
             <Link
-              href="/admin/guards/create"
+              href="/admin/employees/create"
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm shadow-red-500/20 w-full md:w-auto"
             >
               <span className="mr-2 text-lg leading-none">+</span>
-              Add Guard
+              Add Employee
             </Link>
           )}
         </div>
@@ -273,8 +273,8 @@ export default function GuardList({
                   Phone
                 </th>
                 <SortableHeader
-                  label="Guard Code"
-                  field="guardCode"
+                  label="Employee Code"
+                  field="employeeCode"
                   currentSortBy={sortBy}
                   currentSortOrder={sortOrder}
                   onSort={handleSort}
@@ -307,29 +307,29 @@ export default function GuardList({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {guards.length === 0 ? (
+              {employees.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-8 text-center text-muted-foreground">
-                    No guards found. Add one to get started.
+                    No employees found. Add one to get started.
                   </td>
                 </tr>
               ) : (
-                guards.map(guard => (
-                  <tr key={guard.id} className="hover:bg-muted/30 transition-colors group">
-                    <td className="py-4 px-6 text-sm text-muted-foreground">{guard.id}</td>
+                employees.map(employee => (
+                  <tr key={employee.id} className="hover:bg-muted/30 transition-colors group">
+                    <td className="py-4 px-6 text-sm text-muted-foreground">{employee.id}</td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       <div className="flex items-center gap-3">
                         {/* Avatar Placeholder */}
                         <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center text-xs font-bold">
-                          {guard.name.substring(0, 2).toUpperCase()}
+                          {employee.name.substring(0, 2).toUpperCase()}
                         </div>
-                        {guard.name}
+                        {employee.name}
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono">{guard.phone}</td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">{guard.guardCode || '-'}</td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono">{employee.phone}</td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground">{employee.employeeCode || '-'}</td>
                     <td className="py-4 px-6 text-sm">
-                      {guard.status !== false ? (
+                      {employee.status !== false ? (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
                           Active
                         </span>
@@ -340,53 +340,53 @@ export default function GuardList({
                       )}
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {format(new Date(guard.joinDate || guard.createdAt), 'yyyy/MM/dd')}
+                      {format(new Date(employee.joinDate || employee.createdAt), 'yyyy/MM/dd')}
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {guard.leftDate ? format(new Date(guard.leftDate), 'yyyy/MM/dd') : '-'}
+                      {employee.leftDate ? format(new Date(employee.leftDate), 'yyyy/MM/dd') : '-'}
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
-                      <div className="max-w-[200px] whitespace-normal wrap-break-words">{guard.note || '-'}</div>
+                      <div className="max-w-[200px] whitespace-normal wrap-break-words">{employee.note || '-'}</div>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground text-center">
                       <div className="flex flex-col items-center gap-1">
                         <div 
                           className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
-                            guard.createdBy?.name 
+                            employee.createdBy?.name 
                               ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30' 
                               : 'text-muted-foreground/50'
                           }`} 
                           title="Created By"
                         >
-                          {guard.createdBy?.name || '-'}
+                          {employee.createdBy?.name || '-'}
                         </div>
                         <div 
                           className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
-                            guard.lastUpdatedBy?.name 
+                            employee.lastUpdatedBy?.name 
                               ? 'bg-muted text-foreground border border-border' 
                               : 'text-muted-foreground/50'
                           }`} 
                           title="Last Updated By"
                         >
-                          {guard.lastUpdatedBy?.name || '-'}
+                          {employee.lastUpdatedBy?.name || '-'}
                         </div>
                       </div>
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-2 opacity-100">
                         <EditButton
-                          href={`/admin/guards/${guard.id}/edit`}
+                          href={`/admin/employees/${employee.id}/edit`}
                           disabled={!canEdit}
                           title={!canEdit ? 'Permission Denied' : 'Edit'}
                         />
                         <DeleteButton
-                          onClick={() => handleDeleteClick(guard.id)}
+                          onClick={() => handleDeleteClick(employee.id)}
                           disabled={!canDelete || isPending}
                           title={!canDelete ? 'Permission Denied' : 'Delete'}
                         />
                         <button
                           type="button"
-                          onClick={() => setPasswordModalData({ id: guard.id, name: guard.name })}
+                          onClick={() => setPasswordModalData({ id: employee.id, name: employee.name })}
                           disabled={!canEdit}
                           className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer disabled:text-muted-foreground/30 disabled:cursor-not-allowed"
                           title={!canEdit ? 'Permission Denied' : 'Change Password'}
@@ -396,9 +396,9 @@ export default function GuardList({
                         </button>
                         <button
                           type="button"
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-admin-chat', { detail: { guardId: guard.id } }))}
+                          onClick={() => window.dispatchEvent(new CustomEvent('open-admin-chat', { detail: { employeeId: employee.id } }))}
                           className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer"
-                          title="Chat with Guard"
+                          title="Chat with Employee"
                         >
                           <MessageSquare className="w-4 h-4" />
                           <span className="sr-only">Chat</span>
@@ -419,15 +419,15 @@ export default function GuardList({
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={handleConfirmDelete}
-        title="Delete Guard"
-        description="Are you sure you want to delete this guard? This action cannot be undone and will remove all associated history."
-        confirmText="Delete Guard"
+        title="Delete Employee"
+        description="Are you sure you want to delete this employee? This action cannot be undone and will remove all associated history."
+        confirmText="Delete Employee"
         isPending={isPending}
       />
 
       <BulkCreateModal isOpen={isBulkCreateOpen} onClose={() => setIsBulkCreateOpen(false)} />
 
-      <GuardFilterModal
+      <EmployeeFilterModal
         isOpen={isFilterOpen}
         onClose={() => setIsFilterOpen(false)}
         onApply={handleApplyFilter}
@@ -441,8 +441,8 @@ export default function GuardList({
         <ChangePasswordModal
           isOpen={true}
           onClose={() => setPasswordModalData(null)}
-          guardId={passwordModalData.id}
-          guardName={passwordModalData.name}
+          employeeId={passwordModalData.id}
+          employeeName={passwordModalData.name}
         />
       )}
     </div>

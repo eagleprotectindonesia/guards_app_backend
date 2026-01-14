@@ -10,11 +10,11 @@ export type ShiftStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' |
 export type CheckInStatus = 'on_time' | 'late' | 'invalid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification';
 
-export interface Guard {
+export interface Employee {
   id: string;
   name: string;
   phone: string;
-  guardCode?: string | null;
+  employeeCode?: string | null;
   status?: boolean | null;
   joinDate?: string | Date | null;
   leftDate?: string | Date | null;
@@ -22,6 +22,9 @@ export interface Guard {
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }
+
+// Deprecated: Use Employee instead
+export type Guard = Employee & { guardCode?: string | null };
 
 export interface Site {
   id: string;
@@ -44,18 +47,23 @@ export interface ShiftType {
 export interface Attendance {
   id: string;
   shiftId: string;
-  guardId?: string | null;
+  employeeId?: string | null;
   recordedAt: string | Date;
   picture?: string | null;
   status: AttendanceStatus;
   metadata?: any;
 }
 
+// Deprecated: Use Attendance with employeeId
+export interface GuardAttendance extends Attendance {
+  guardId?: string | null;
+}
+
 export interface Shift {
   id: string;
   siteId: string;
   shiftTypeId: string;
-  guardId?: string | null;
+  employeeId?: string | null;
   date: string | Date;
   startsAt: string | Date;
   endsAt: string | Date;
@@ -70,9 +78,19 @@ export interface Shift {
   updatedAt?: string | Date;
 }
 
+// Deprecated: Use Shift with employeeId
+export interface GuardShift extends Shift {
+  guardId?: string | null;
+}
+
 export interface ShiftWithRelations extends Shift {
   site: Site;
   shiftType: ShiftType;
-  guard?: Guard | null;
+  employee?: Employee | null;
   attendance?: Attendance | null;
+}
+
+// Deprecated: Use ShiftWithRelations
+export interface GuardShiftWithRelations extends ShiftWithRelations {
+  guard?: Guard | null;
 }

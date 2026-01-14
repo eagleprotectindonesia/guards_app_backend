@@ -1,36 +1,36 @@
 'use server';
 
 import {
-  getAllGuards,
-  createGuardWithChangelog,
-  updateGuardWithChangelog,
-  updateGuardPasswordWithChangelog,
-  deleteGuardWithChangelog,
-  findExistingGuards,
-  bulkCreateGuardsWithChangelog,
-} from '@/lib/data-access/guards';
+  getAllEmployees,
+  createEmployeeWithChangelog,
+  updateEmployeeWithChangelog,
+  updateEmployeePasswordWithChangelog,
+  deleteEmployeeWithChangelog,
+  findExistingEmployees,
+  bulkCreateEmployeesWithChangelog,
+} from '@/lib/data-access/employees';
 import {
-  createGuardSchema,
-  updateGuardSchema,
-  updateGuardPasswordSchema,
-  CreateGuardInput,
-  UpdateGuardInput,
-  UpdateGuardPasswordInput,
+  createEmployeeSchema,
+  updateEmployeeSchema,
+  updateEmployeePasswordSchema,
+  CreateEmployeeInput,
+  UpdateEmployeeInput,
+  UpdateEmployeePasswordInput,
 } from '@/lib/validations';
 import { hashPassword, serialize, Serialized } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
-import { Guard, Prisma } from '@prisma/client';
+import { Employee, Prisma } from '@prisma/client';
 import { parse, isValid } from 'date-fns';
 import { parsePhoneNumberWithError } from 'libphonenumber-js';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { ActionState } from '@/types/actions';
 
-export async function getAllGuardsForExport(): Promise<
-  Serialized<Guard & { lastUpdatedBy?: { name: string } | null; createdBy?: { name: string } | null }>[]
+export async function getAllEmployeesForExport(): Promise<
+  Serialized<Employee & { lastUpdatedBy?: { name: string } | null; createdBy?: { name: string } | null }>[]
 > {
-  const guards = await getAllGuards(undefined, true);
-  return serialize(guards);
+  const employees = await getAllEmployees(undefined, true);
+  return serialize(employees);
 }
 
 type PrismaUniqueConstraintMeta = {
@@ -43,16 +43,16 @@ type PrismaUniqueConstraintMeta = {
   };
 };
 
-export async function createGuard(
-  prevState: ActionState<CreateGuardInput>,
+export async function createEmployee(
+  prevState: ActionState<CreateEmployeeInput>,
   formData: FormData
-): Promise<ActionState<CreateGuardInput>> {
+): Promise<ActionState<CreateEmployeeInput>> {
   const adminId = await getAdminIdFromToken();
-  const validatedFields = createGuardSchema.safeParse({
+  const validatedFields = createEmployeeSchema.safeParse({
     name: formData.get('name'),
     phone: formData.get('phone'),
     id: formData.get('id')?.toString() || undefined,
-    guardCode: formData.get('guardCode')?.toString() || undefined,
+    employeeCode: formData.get('employeeCode')?.toString() || formData.get('guardCode')?.toString() || undefined,
     status: formData.get('status') === 'true' ? true : formData.get('status') === 'false' ? false : undefined,
     joinDate: formData.get('joinDate')?.toString() || undefined,
     leftDate: formData.get('leftDate')?.toString() || undefined,
@@ -63,7 +63,7 @@ export async function createGuard(
   if (!validatedFields.success) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Missing Fields. Failed to Create Guard.',
+      message: 'Missing Fields. Failed to Create Employee.',
       success: false,
     };
   }
@@ -74,16 +74,16 @@ export async function createGuard(
     // Hash the password if provided
     const dataToCreate = {
       ...restData,
-      hashedPassword: await hashPassword(password),
-    };
+      hashedPassword: await hashPassword(password!),
+    } as Prisma.EmployeeCreateInput;
 
-    await createGuardWithChangelog(dataToCreate, adminId!);
+    await createEmployeeWithChangelog(dataToCreate, adminId!)
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('DUPLICATE_GUARD_CODE')) {
+    if (error instanceof Error && error.message.startsWith('DUPLICATE_EMPLOYEE_CODE')) {
       const parts = error.message.split(':');
       const conflictId = parts[1];
       return {
-        message: `This guard code is already in use by another active guard (ID: ${conflictId}).`,
+        message: `This employee code is already in use by another active employee (ID: ${conflictId}).`,
         success: false,
       };
     }
@@ -95,43 +95,43 @@ export async function createGuard(
 
         if (fields?.includes('phone')) {
           return {
-            message: 'A guard with this phone number already exists.',
+            message: 'An employee with this phone number already exists.',
             success: false,
           };
         }
         if (fields?.includes('id')) {
           return {
-            message: 'A guard with this ID already exists.',
+            message: 'An employee with this ID already exists.',
             success: false,
           };
         }
         return {
-          message: 'A guard with these unique details already exists.',
+          message: 'An employee with these unique details already exists.',
           success: false,
         };
       }
     }
     console.error('Database Error:', error);
     return {
-      message: 'Database Error: Failed to Create Guard.',
+      message: 'Database Error: Failed to Create Employee.',
       success: false,
     };
   }
 
-  revalidatePath('/admin/guards');
-  return { success: true, message: 'Guard created successfully' };
+  revalidatePath('/admin/employees');
+  return { success: true, message: 'Employee created successfully' };
 }
 
-export async function updateGuard(
+export async function updateEmployee(
   id: string,
-  prevState: ActionState<UpdateGuardInput>,
+  prevState: ActionState<UpdateEmployeeInput>,
   formData: FormData
-): Promise<ActionState<UpdateGuardInput>> {
+): Promise<ActionState<UpdateEmployeeInput>> {
   const adminId = await getAdminIdFromToken();
-  const validatedFields = updateGuardSchema.safeParse({
+  const validatedFields = updateEmployeeSchema.safeParse({
     name: formData.get('name'),
     phone: formData.get('phone'),
-    guardCode: formData.get('guardCode')?.toString() || undefined,
+    employeeCode: formData.get('employeeCode')?.toString() || formData.get('guardCode')?.toString() || undefined,
     status: formData.get('status') === 'true' ? true : formData.get('status') === 'false' ? false : undefined,
     joinDate: formData.get('joinDate')?.toString() || undefined,
     leftDate: formData.get('leftDate')?.toString() || null,
@@ -141,19 +141,19 @@ export async function updateGuard(
   if (!validatedFields.success) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Missing Fields. Failed to Update Guard.',
+      message: 'Missing Fields. Failed to Update Employee.',
       success: false,
     };
   }
 
   try {
-    await updateGuardWithChangelog(id, validatedFields.data, adminId!);
+    await updateEmployeeWithChangelog(id, validatedFields.data as Prisma.EmployeeUpdateInput, adminId!)
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('DUPLICATE_GUARD_CODE')) {
+    if (error instanceof Error && error.message.startsWith('DUPLICATE_EMPLOYEE_CODE')) {
       const parts = error.message.split(':');
       const conflictId = parts[1];
       return {
-        message: `This guard code is already in use by another active guard (ID: ${conflictId}).`,
+        message: `This employee code is already in use by another active employee (ID: ${conflictId}).`,
         success: false,
       };
     }
@@ -164,33 +164,33 @@ export async function updateGuard(
 
         if (fields?.includes('phone')) {
           return {
-            message: 'A guard with this phone number already exists.',
+            message: 'An employee with this phone number already exists.',
             success: false,
           };
         }
         return {
-          message: 'A guard with these unique details already exists.',
+          message: 'An employee with these unique details already exists.',
           success: false,
         };
       }
     }
     console.error('Database Error:', error);
     return {
-      message: 'Database Error: Failed to Update Guard.',
+      message: 'Database Error: Failed to Update Employee.',
       success: false,
     };
   }
 
-  revalidatePath('/admin/guards');
-  return { success: true, message: 'Guard updated successfully' };
+  revalidatePath('/admin/employees');
+  return { success: true, message: 'Employee updated successfully' };
 }
 
-export async function updateGuardPassword(
+export async function updateEmployeePassword(
   id: string,
-  prevState: ActionState<UpdateGuardPasswordInput>,
+  prevState: ActionState<UpdateEmployeePasswordInput>,
   formData: FormData
-): Promise<ActionState<UpdateGuardPasswordInput>> {
-  const validatedFields = updateGuardPasswordSchema.safeParse({
+): Promise<ActionState<UpdateEmployeePasswordInput>> {
+  const validatedFields = updateEmployeePasswordSchema.safeParse({
     password: formData.get('password'),
     confirmPassword: formData.get('confirmPassword'),
   });
@@ -207,7 +207,7 @@ export async function updateGuardPassword(
     const hashedPassword = await hashPassword(validatedFields.data.password);
     const adminId = await getAdminIdFromToken();
 
-    await updateGuardPasswordWithChangelog(id, hashedPassword, adminId!);
+    await updateEmployeePasswordWithChangelog(id, hashedPassword, adminId!)
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -216,23 +216,23 @@ export async function updateGuardPassword(
     };
   }
 
-  revalidatePath('/admin/guards');
+  revalidatePath('/admin/employees');
   return { success: true, message: 'Password updated successfully' };
 }
 
-export async function deleteGuard(id: string) {
+export async function deleteEmployee(id: string) {
   try {
     const adminId = await getAdminIdFromToken();
-    await deleteGuardWithChangelog(id, adminId!);
-    revalidatePath('/admin/guards');
+    await deleteEmployeeWithChangelog(id, adminId!)
+    revalidatePath('/admin/employees');
     return { success: true };
   } catch (error) {
     console.error('Database Error:', error);
-    return { success: false, message: 'Failed to delete guard' };
+    return { success: false, message: 'Failed to delete employee' };
   }
 }
 
-export async function bulkCreateGuards(
+export async function bulkCreateEmployees(
   formData: FormData
 ): Promise<{ success: boolean; message?: string; errors?: string[] }> {
   const adminId = await getAdminIdFromToken();
@@ -249,12 +249,12 @@ export async function bulkCreateGuards(
   }
 
   const errors: string[] = [];
-  const guardsToCreate: Prisma.GuardCreateManyInput[] = [];
+  const employeesToCreate: Prisma.EmployeeCreateManyInput[] = [];
   const phonesToCheck: string[] = [];
   const idsToCheck: string[] = [];
   const phoneToRow = new Map<string, number>();
   const idToRow = new Map<string, number>();
-  const guardCodeToRow = new Map<string, number>();
+  const employeeCodeToRow = new Map<string, number>();
 
   // Skip header row
   const startRow = 1;
@@ -264,14 +264,14 @@ export async function bulkCreateGuards(
     // Simple CSV split, handling basic quotes stripping
     const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
 
-    // Expected: Name, Phone, ID (was Employee ID), Guard Code, Note, Join Date, Password
+    // Expected: Name, Phone, ID (Employee ID), Employee Code, Note, Join Date, Password
     // At minimum, Name, Phone, ID, Password, and Join Date are required.
     if (cols.length < 4) {
-      errors.push(`Row ${i + 1}: Insufficient columns. Name, Phone, Guard ID, Password, and Join Date are required.`);
+      errors.push(`Row ${i + 1}: Insufficient columns. Name, Phone, Employee ID, Password, and Join Date are required.`);
       continue;
     }
 
-    const [name, phoneRaw, id, guardCode, note, joinDateStr, password] = cols;
+    const [name, phoneRaw, id, employeeCode, note, joinDateStr, password] = cols;
     let phone = phoneRaw;
 
     if (phone && !phone.startsWith('+')) {
@@ -279,17 +279,17 @@ export async function bulkCreateGuards(
     }
 
     if (!name || !phone || !id) {
-      errors.push(`Row ${i + 1}: Name, Phone, and Guard ID are required.`);
+      errors.push(`Row ${i + 1}: Name, Phone, and Employee ID are required.`);
       continue;
     }
 
     // Validate ID length and alphanumeric (using same rules as schema for consistency)
     if (id.length !== 6) {
-      errors.push(`Row ${i + 1}: Guard ID must be exactly 6 characters.`);
+      errors.push(`Row ${i + 1}: Employee ID must be exactly 6 characters.`);
       continue;
     }
     if (!/^[a-zA-Z0-9]*$/.test(id)) {
-      errors.push(`Row ${i + 1}: Guard ID must be alphanumeric only.`);
+      errors.push(`Row ${i + 1}: Employee ID must be alphanumeric only.`);
       continue;
     }
 
@@ -347,32 +347,32 @@ export async function bulkCreateGuards(
       joinDateISO = d.toISOString();
     }
 
-    // Validate guard code if provided
-    let guardCodeValue: string | undefined = undefined;
-    if (guardCode) {
-      if (!/^[a-zA-Z0-9]*$/.test(guardCode)) {
-        errors.push(`Row ${i + 1}: Guard code must be alphanumeric only.`);
+    // Validate employee code if provided
+    let employeeCodeValue: string | undefined = undefined;
+    if (employeeCode) {
+      if (!/^[a-zA-Z0-9]*$/.test(employeeCode)) {
+        errors.push(`Row ${i + 1}: Employee code must be alphanumeric only.`);
         continue;
       }
-      if (guardCode.length > 12) {
-        errors.push(`Row ${i + 1}: Guard code must be at most 12 characters.`);
+      if (employeeCode.length > 12) {
+        errors.push(`Row ${i + 1}: Employee code must be at most 12 characters.`);
         continue;
       }
-      guardCodeValue = guardCode;
+      employeeCodeValue = employeeCode;
     }
 
     const inputData = {
       name,
       phone,
       id,
-      guardCode: guardCodeValue,
+      employeeCode: employeeCodeValue,
       note: note || undefined,
       joinDate: joinDateISO,
       password: password,
     };
 
     // Use schema for validation
-    const validationResult = createGuardSchema.safeParse(inputData);
+    const validationResult = createEmployeeSchema.safeParse(inputData);
 
     if (!validationResult.success) {
       const fieldErrors = validationResult.error.flatten().fieldErrors;
@@ -389,16 +389,16 @@ export async function bulkCreateGuards(
     }
 
     if (idsToCheck.includes(id)) {
-      errors.push(`Row ${i + 1}: Duplicate Guard ID '${id}' in file.`);
+      errors.push(`Row ${i + 1}: Duplicate Employee ID '${id}' in file.`);
       continue;
     }
 
-    if (guardCodeValue) {
-      if (guardCodeToRow.has(guardCodeValue)) {
-        errors.push(`Row ${i + 1}: Duplicate guard code '${guardCodeValue}' in file.`);
+    if (employeeCodeValue) {
+      if (employeeCodeToRow.has(employeeCodeValue)) {
+        errors.push(`Row ${i + 1}: Duplicate employee code '${employeeCodeValue}' in file.`);
         continue;
       }
-      guardCodeToRow.set(guardCodeValue, i + 1);
+      employeeCodeToRow.set(employeeCodeValue, i + 1);
     }
 
     phonesToCheck.push(phone);
@@ -406,17 +406,17 @@ export async function bulkCreateGuards(
     phoneToRow.set(phone, i + 1);
     idToRow.set(id, i + 1);
 
-    // Hash the password for this specific guard
-    const hashedPasswordForGuard = await hashPassword(validationResult.data.password);
+    // Hash the password for this specific employee
+    const hashedPasswordForEmployee = await hashPassword(validationResult.data.password);
 
-    guardsToCreate.push({
+    employeesToCreate.push({
       name: validationResult.data.name,
       phone: validationResult.data.phone,
       id: validationResult.data.id,
-      guardCode: validationResult.data.guardCode || null,
+      employeeCode: validationResult.data.employeeCode || null,
       note: validationResult.data.note || null,
       joinDate: validationResult.data.joinDate as unknown as Date,
-      hashedPassword: hashedPasswordForGuard,
+      hashedPassword: hashedPasswordForEmployee,
       status: true,
       lastUpdatedById: adminId || null,
     });
@@ -426,24 +426,24 @@ export async function bulkCreateGuards(
     return { success: false, message: 'Validation failed.', errors };
   }
 
-  if (guardsToCreate.length === 0) {
-    return { success: false, message: 'No valid guards found to create.' };
+  if (employeesToCreate.length === 0) {
+    return { success: false, message: 'No valid employees found to create.' };
   }
 
   try {
     // Check for existing phones or IDs in DB
-    const existingGuards = await findExistingGuards(phonesToCheck, idsToCheck);
+    const existingEmployees = await findExistingEmployees(phonesToCheck, idsToCheck);
 
-    if (existingGuards.length > 0) {
+    if (existingEmployees.length > 0) {
       const existingErrors: string[] = [];
-      existingGuards.forEach(g => {
+      existingEmployees.forEach(g => {
         if (phonesToCheck.includes(g.phone)) {
           const row = phoneToRow.get(g.phone);
           existingErrors.push(`Row ${row}: Phone '${g.phone}' is already registered.`);
         }
         if (idsToCheck.includes(g.id)) {
           const row = idToRow.get(g.id);
-          existingErrors.push(`Row ${row}: Guard ID '${g.id}' is already registered.`);
+          existingErrors.push(`Row ${row}: Employee ID '${g.id}' is already registered.`);
         }
       });
       return {
@@ -453,30 +453,44 @@ export async function bulkCreateGuards(
       };
     }
 
-    const finalData = guardsToCreate.map(g => ({
+    const finalData = employeesToCreate.map(g => ({
       ...g,
       joinDate: g.joinDate ? new Date(g.joinDate) : undefined,
     }));
 
-    await bulkCreateGuardsWithChangelog(finalData, adminId!);
+    await bulkCreateEmployeesWithChangelog(finalData, adminId!)
 
-    revalidatePath('/admin/guards');
-    return { success: true, message: `Successfully created ${guardsToCreate.length} guards.` };
+    revalidatePath('/admin/employees');
+    return { success: true, message: `Successfully created ${employeesToCreate.length} employees.` };
   } catch (error) {
     if (error instanceof Error) {
-      if (error.message === 'DUPLICATE_GUARD_CODE_IN_BATCH') {
-        return { success: false, message: 'Duplicate guard codes found within the uploaded file for active guards.' };
+      if (error.message === 'DUPLICATE_EMPLOYEE_CODE_IN_BATCH') {
+        return { success: false, message: 'Duplicate employee codes found within the uploaded file for active employees.' };
       }
-      if (error.message.startsWith('DUPLICATE_GUARD_CODE:')) {
+      if (error.message.startsWith('DUPLICATE_EMPLOYEE_CODE:')) {
         const parts = error.message.split(':');
         const code = parts[1];
         const conflictId = parts[2];
-        const row = guardCodeToRow.get(code);
+        const row = employeeCodeToRow.get(code);
         const rowPrefix = row ? `Row ${row}: ` : '';
-        return { success: false, message: `${rowPrefix}Guard code '${code}' is already in use by another active guard (ID: ${conflictId}).` };
+        return { success: false, message: `${rowPrefix}Employee code '${code}' is already in use by another active employee (ID: ${conflictId}).` };
       }
     }
     console.error('Bulk Create Error:', error);
     return { success: false, message: 'Database error during bulk creation.' };
   }
 }
+
+// --- Backward Compatibility Aliases ---
+/** @deprecated Use getAllEmployeesForExport */
+export const getAllGuardsForExport = getAllEmployeesForExport;
+/** @deprecated Use createEmployee */
+export const createGuard = createEmployee;
+/** @deprecated Use updateEmployee */
+export const updateGuard = updateEmployee;
+/** @deprecated Use updateEmployeePassword */
+export const updateGuardPassword = updateEmployeePassword;
+/** @deprecated Use deleteEmployee */
+export const deleteGuard = deleteEmployee;
+/** @deprecated Use bulkCreateEmployees */
+export const bulkCreateGuards = bulkCreateEmployees;

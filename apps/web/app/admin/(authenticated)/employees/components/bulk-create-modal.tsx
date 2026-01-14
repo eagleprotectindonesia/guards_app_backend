@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef } from 'react';
 import Modal from '../../components/modal';
-import { bulkCreateGuards } from '../actions';
+import { bulkCreateEmployees } from '../actions';
 import toast from 'react-hot-toast';
 
 type BulkCreateModalProps = {
@@ -36,14 +36,14 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
     formData.append('file', file);
 
     startTransition(async () => {
-      const result = await bulkCreateGuards(formData);
+      const result = await bulkCreateEmployees(formData);
       if (result.success) {
-        toast.success(result.message || 'Guards created successfully!');
+        toast.success(result.message || 'Employees created successfully!');
         onClose();
         setFile(null);
         setValidationErrors([]);
       } else {
-        setError(result.message || 'Failed to create guards.');
+        setError(result.message || 'Failed to create employees.');
         if (result.errors && Array.isArray(result.errors)) {
           setValidationErrors(result.errors);
         }
@@ -53,12 +53,12 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
 
   const handleDownloadExample = () => {
     // Create CSV content with headers only
-    const csvContent = 'Name,Phone,Employee ID,Guard Code,Note,Join Date (YYYY-MM-DD),Password\n';
+    const csvContent = 'Name,Phone,Employee ID,Employee Code,Note,Join Date (YYYY-MM-DD),Password\n';
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', 'guards_example.csv');
+    link.setAttribute('download', 'employees_example.csv');
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -66,7 +66,7 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Bulk Create Guards">
+    <Modal isOpen={isOpen} onClose={onClose} title="Bulk Create Employees">
       <form onSubmit={handleSubmit} className="space-y-4 p-4 text-foreground">
         <div>
           <div className="flex justify-between items-center mb-2">
@@ -82,10 +82,10 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
             </button>
           </div>
           <code className="text-xs bg-muted p-2 rounded block border border-border">
-            Name, Phone, Employee ID, Guard Code, Note, Join Date (YYYY-MM-DD), Password
+            Name, Phone, Employee ID, Employee Code, Note, Join Date (YYYY-MM-DD), Password
           </code>
           <p className="text-xs text-muted-foreground/60 mt-1">
-            Note: Each guard must have a unique password provided in the CSV file.
+            Note: Each employee must have a unique password provided in the CSV file.
           </p>
         </div>
 

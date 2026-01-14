@@ -31,8 +31,8 @@ export const updateAdminSchema = z.object({
   note: z.string().optional(),
 });
 
-// --- Guard ---
-export const createGuardSchema = z.object({
+// --- Employee ---
+export const createEmployeeSchema = z.object({
   name: z.string().min(1),
   phone: z
     .string()
@@ -63,12 +63,14 @@ export const createGuardSchema = z.object({
     .string()
     .length(6, 'Employee ID (System ID) must be exactly 6 characters')
     .regex(/^[a-zA-Z0-9]*$/, 'Employee ID must be alphanumeric only'),
-  guardCode: z
+  employeeCode: z
     .string()
     .min(1)
-    .max(10)
-    .regex(/^[a-zA-Z0-9]*$/, 'Guard code must be alphanumeric only')
+    .max(12)
+    .regex(/^[a-zA-Z0-9]*$/, 'Employee code must be alphanumeric only')
     .optional(),
+  // For backward compatibility
+  guardCode: z.string().max(12).optional(),
   status: z.boolean().optional(),
   joinDate: z.coerce.date(),
   leftDate: z.coerce.date().optional(),
@@ -76,7 +78,10 @@ export const createGuardSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters long'), // Required for creation
 });
 
-export const updateGuardSchema = z.object({
+// Deprecated: Use createEmployeeSchema
+export const createGuardSchema = createEmployeeSchema;
+
+export const updateEmployeeSchema = z.object({
   id: z.string().optional(), // Allow id in the schema for form compatibility
   name: z.string().min(1),
   phone: z
@@ -104,11 +109,13 @@ export const updateGuardSchema = z.object({
         message: 'Phone number must be between 6 and 17 characters',
       }
     ),
-  guardCode: z
+  employeeCode: z
     .string()
     .max(12)
-    .regex(/^[a-zA-Z0-9]*$/, 'Guard code must be alphanumeric only')
+    .regex(/^[a-zA-Z0-9]*$/, 'Employee code must be alphanumeric only')
     .optional(),
+  // For backward compatibility
+  guardCode: z.string().max(12).optional(),
   status: z.boolean().optional(),
   joinDate: z.coerce.date(),
   leftDate: z.coerce.date().nullable().optional(),
@@ -116,7 +123,10 @@ export const updateGuardSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters long').optional(), // Optional for updates
 });
 
-export const updateGuardPasswordSchema = z
+// Deprecated: Use updateEmployeeSchema
+export const updateGuardSchema = updateEmployeeSchema;
+
+export const updateEmployeePasswordSchema = z
   .object({
     password: z.string().min(6, 'Password must be at least 6 characters long'),
     confirmPassword: z.string().min(6, 'Password must be at least 6 characters long'),
@@ -125,6 +135,9 @@ export const updateGuardPasswordSchema = z
     message: "Passwords don't match",
     path: ['confirmPassword'],
   });
+
+// Deprecated: Use updateEmployeePasswordSchema
+export const updateGuardPasswordSchema = updateEmployeePasswordSchema;
 
 // --- Shift Type ---
 const timeFormat = z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:mm format');
@@ -139,11 +152,16 @@ export const createShiftTypeSchema = z.object({
 export const createShiftSchema = z.object({
   siteId: z.uuid(),
   shiftTypeId: z.uuid(),
-  guardId: z.string().min(1),
-  date: z.iso.date(), // Expects "YYYY-MM-DD"
+  employeeId: z.string().min(1).optional(),
+  // For backward compatibility
+  guardId: z.string().min(1).optional(),
+  date: z.string().min(1), // Expects "YYYY-MM-DD"
   requiredCheckinIntervalMins: z.number().int().min(5).default(60),
   graceMinutes: z.number().int().min(1).default(15),
   note: z.string().optional(),
+}).refine(data => data.employeeId || data.guardId, {
+  message: "Employee ID or Guard ID is required",
+  path: ["employeeId"]
 });
 
 // --- Checkin ---

@@ -42,7 +42,7 @@ export async function resolveAlert(params: {
         ackAdmin: true,
         shift: {
           include: {
-            guard: true,
+            employee: true,
             shiftType: true,
           },
         },
@@ -79,7 +79,7 @@ export async function resolveAlert(params: {
           const newAttendance = await tx.attendance.create({
             data: {
               shiftId: alert.shiftId,
-              guardId: alert.shift.guardId,
+              employeeId: alert.shift.employeeId,
               recordedAt: new Date(),
               status: 'late',
               metadata: { note: 'Auto-created via alert forgiveness' },
@@ -106,7 +106,7 @@ export async function resolveAlert(params: {
           await tx.attendance.create({
             data: {
               shiftId: alert.shiftId,
-              guardId: alert.shift.guardId,
+              employeeId: alert.shift.employeeId,
               recordedAt: new Date(),
               status: 'absent',
               metadata: { note: 'Auto-created via alert resolution (absent)' },

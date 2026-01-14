@@ -1,24 +1,24 @@
 import { serialize, getPaginationParams } from '@/lib/utils';
-import GuardList from './components/guard-list';
+import EmployeeList from './components/employee-list';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { parseISO, isValid } from 'date-fns';
 import type { Metadata } from 'next';
-import { getPaginatedGuards } from '@/lib/data-access/guards';
+import { getPaginatedEmployees } from '@/lib/data-access/employees';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const metadata: Metadata = {
-  title: 'Guards Management',
+  title: 'Employees Management',
 };
 
 export const dynamic = 'force-dynamic';
 
-type GuardsPageProps = {
+type EmployeesPageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export default async function GuardsPage(props: GuardsPageProps) {
+export default async function EmployeesPage(props: EmployeesPageProps) {
   await requirePermission(PERMISSIONS.GUARDS.VIEW);
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
@@ -35,19 +35,19 @@ export default async function GuardsPage(props: GuardsPageProps) {
       : 'desc';
 
   // Validate sortBy field to prevent SQL injection
-  const validSortFields = ['name', 'id', 'guardCode', 'joinDate'];
+  const validSortFields = ['name', 'id', 'employeeCode', 'joinDate'];
   const sortField = validSortFields.includes(sortBy)
-    ? (sortBy as 'name' | 'id' | 'guardCode' | 'joinDate')
+    ? (sortBy as 'name' | 'id' | 'employeeCode' | 'joinDate')
     : 'joinDate';
 
-  const where: Prisma.GuardWhereInput = {};
+  const where: Prisma.EmployeeWhereInput = {};
 
   if (query) {
     where.OR = [
       { name: { contains: query, mode: 'insensitive' } },
       { phone: { contains: query, mode: 'insensitive' } },
       { id: { contains: query, mode: 'insensitive' } },
-      { guardCode: { contains: query, mode: 'insensitive' } },
+      { employeeCode: { contains: query, mode: 'insensitive' } },
     ];
   }
 
@@ -68,20 +68,20 @@ export default async function GuardsPage(props: GuardsPageProps) {
     }
   }
 
-  const { guards, totalCount } = await getPaginatedGuards({
+  const { employees, totalCount } = await getPaginatedEmployees({
     where,
     orderBy: { [sortField]: sortOrder as 'asc' | 'desc' },
     skip,
     take: perPage,
   });
 
-  const serializedGuards = serialize(guards);
+  const serializedEmployees = serialize(employees);
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading guards...</div>}>
-        <GuardList
-          guards={serializedGuards}
+      <Suspense fallback={<div>Loading employees...</div>}>
+        <EmployeeList
+          employees={serializedEmployees}
           page={page}
           perPage={perPage}
           totalCount={totalCount}

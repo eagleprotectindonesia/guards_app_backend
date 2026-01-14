@@ -1,9 +1,9 @@
 {
   "login": {
-    "title": "Portal Guard",
+    "title": "Portal Karyawan",
     "subtitle": "Masuk untuk mengelola shift dan kehadiran Anda.",
     "employeeIdLabel": "ID Karyawan",
-    "employeeIdPlaceholder": "Masukkan ID Guard Anda",
+    "employeeIdPlaceholder": "Masukkan ID Karyawan Anda",
     "passwordLabel": "Kata Sandi",
     "passwordPlaceholder": "Masukkan kata sandi Anda",
     "submitButton": "Masuk",
@@ -14,7 +14,7 @@
   },
   "dashboard": {
     "welcome": "Selamat Datang,",
-    "guardCode": "Kode Guard:",
+    "guardCode": "Kode Karyawan:",
     "noActiveShift": "Anda tidak memiliki shift aktif",
     "changePassword": "Ubah Kata Sandi",
     "logout": "Keluar",
@@ -99,7 +99,7 @@
     "account": "Akun"
   },
   "chat": {
-    "title": "Pesan Dummy",
+    "title": "Pesan",
     "noMessages": "Belum ada pesan"
   },
   "account": {

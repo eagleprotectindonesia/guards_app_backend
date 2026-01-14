@@ -10,7 +10,9 @@ export async function getCheckinsByShiftId(shiftId: string) {
 
 export async function recordCheckin(params: {
   shiftId: string;
-  guardId: string;
+  employeeId?: string;
+  // Backward compatibility
+  guardId?: string;
   status: CheckInStatus;
   source?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -22,13 +24,18 @@ export async function recordCheckin(params: {
     checkInStatus: CheckInStatus;
   };
 }) {
-  const { shiftId, guardId, status, source, metadata, now, shiftUpdateData } = params;
+  const { shiftId, employeeId, guardId, status, source, metadata, now, shiftUpdateData } = params;
+  const targetEmployeeId = employeeId || guardId;
+
+  if (!targetEmployeeId) {
+    throw new Error('employeeId or guardId is required');
+  }
 
   return prisma.$transaction(async tx => {
     const checkin = await tx.checkin.create({
       data: {
         shiftId,
-        guardId,
+        employeeId: targetEmployeeId,
         status,
         source: source || 'api',
         metadata,
@@ -64,7 +71,7 @@ export async function getPaginatedCheckins(params: {
         skip,
         take,
         include: {
-          guard: true,
+          employee: true,
           shift: {
             include: {
               site: true,
@@ -90,7 +97,7 @@ export async function getCheckinExportBatch(params: {
     where,
     orderBy: { id: 'asc' },
     include: {
-      guard: true,
+      employee: true,
       shift: {
         include: {
           site: true,

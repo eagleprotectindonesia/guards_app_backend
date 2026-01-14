@@ -16,7 +16,7 @@ type Props = {
   };
 };
 
-export default function GuardFilterModal({ isOpen, onClose, onApply, initialFilters }: Props) {
+export default function EmployeeFilterModal({ isOpen, onClose, onApply, initialFilters }: Props) {
   const [startDate, setStartDate] = useState<Date | undefined>(
     initialFilters.startDate ? parseISO(initialFilters.startDate) : undefined
   );
@@ -38,7 +38,7 @@ export default function GuardFilterModal({ isOpen, onClose, onApply, initialFilt
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Filter Guards">
+    <Modal isOpen={isOpen} onClose={onClose} title="Filter Employees">
       <div className="flex flex-col justify-between p-4 min-h-96">
         {/* Date Range */}
         <div>
