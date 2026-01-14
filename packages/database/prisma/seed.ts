@@ -4,7 +4,64 @@ import bcrypt from 'bcryptjs';
 async function main() {
   console.log('Seeding database...');
 
-  // 1. Create Sites
+  // 1. Create Permissions
+  console.log('Creating permissions...');
+  const permissionsData = [
+    { action: 'view', resource: 'guards', code: 'guards:view', description: 'Can view guards' },
+    { action: 'manage', resource: 'guards', code: 'guards:manage', description: 'Can create, edit, and delete guards' },
+    { action: 'view', resource: 'sites', code: 'sites:view', description: 'Can view sites' },
+    { action: 'manage', resource: 'sites', code: 'sites:manage', description: 'Can create, edit, and delete sites' },
+    { action: 'view', resource: 'shifts', code: 'shifts:view', description: 'Can view shifts' },
+    { action: 'manage', resource: 'shifts', code: 'shifts:manage', description: 'Can create, edit, and delete shifts' },
+    { action: 'view', resource: 'alerts', code: 'alerts:view', description: 'Can view alerts' },
+    { action: 'manage', resource: 'alerts', code: 'alerts:manage', description: 'Can acknowledge and resolve alerts' },
+    { action: 'view', resource: 'admin_dashboard', code: 'admin_dashboard:view', description: 'Can view admin dashboard' },
+    { action: 'manage', resource: 'rbac', code: 'rbac:manage', description: 'Can manage roles and permissions' },
+    { action: 'view', resource: 'chat', code: 'chat:view', description: 'Can view chat messages' },
+    { action: 'send', resource: 'chat', code: 'chat:send', description: 'Can send chat messages' },
+  ];
+
+  const createdPermissions = await Promise.all(
+    permissionsData.map((p) =>
+      prisma.permission.upsert({
+        where: { code: p.code },
+        update: p,
+        create: p,
+      })
+    )
+  );
+
+  // 2. Create Roles
+  console.log('Creating roles...');
+  const superadminRole = await prisma.role.upsert({
+    where: { name: 'superadmin' },
+    update: {},
+    create: {
+      name: 'superadmin',
+      description: 'Full system access',
+      isSystem: true,
+      permissions: {
+        connect: createdPermissions.map((p) => ({ id: p.id })),
+      },
+    },
+  });
+
+  const adminRole = await prisma.role.upsert({
+    where: { name: 'admin' },
+    update: {},
+    create: {
+      name: 'admin',
+      description: 'Standard administrative access',
+      isSystem: true,
+      permissions: {
+        connect: createdPermissions
+          .filter((p) => !['rbac:manage'].includes(p.code))
+          .map((p) => ({ id: p.id })),
+      },
+    },
+  });
+
+  // 3. Create Sites
   const site1 = await prisma.site.create({
     data: {
       name: 'Headquarters',
@@ -38,15 +95,15 @@ async function main() {
   });
   console.log('Created Site 3:', site3.id);
 
-  // 2. Create Guards
-  const guardPassword = '123456'; // Default password for the seeded guards
-  const hashedGuardPassword = await bcrypt.hash(guardPassword, 10); // Hash the password
+  // 4. Create Guards
+  const guardPassword = '123456'; 
+  const hashedGuardPassword = await bcrypt.hash(guardPassword, 10);
 
   const guard1 = await prisma.guard.create({
     data: {
       id: 'EMP001',
       name: 'Jackie Chan',
-      phone: '+62551234567', // Ensure unique phone number
+      phone: '+62551234567',
       hashedPassword: hashedGuardPassword,
       guardCode: '00001',
     },
@@ -57,7 +114,7 @@ async function main() {
     data: {
       id: 'EMP002',
       name: 'Bruce Lee',
-      phone: '+625551234568', // Ensure unique phone number
+      phone: '+625551234568',
       hashedPassword: hashedGuardPassword,
       guardCode: '00002',
     },
@@ -68,16 +125,16 @@ async function main() {
     data: {
       id: 'EMP003',
       name: 'Chuck Norris',
-      phone: '+625551234569', // Ensure unique phone number
+      phone: '+625551234569',
       hashedPassword: hashedGuardPassword,
       guardCode: '00003',
     },
   });
   console.log('Created Guard 3:', guard3.id);
 
-  // 3. Create Admin
-  const adminPassword = 'password123'; // Default password for the seeded admin
-  const hashedAdminPassword = await bcrypt.hash(adminPassword, 10); // Hash the password
+  // 5. Create Admin
+  const adminPassword = 'password123';
+  const hashedAdminPassword = await bcrypt.hash(adminPassword, 10);
 
   const admin = await prisma.admin.create({
     data: {
@@ -85,11 +142,12 @@ async function main() {
       email: 'admin@example.com',
       hashedPassword: hashedAdminPassword,
       role: 'superadmin',
+      roleId: superadminRole.id,
     },
   });
   console.log('Created Admin:', admin.id);
 
-  // 4. Create Shift Types
+  // 6. Create Shift Types
   const morningShiftType = await prisma.shiftType.create({
     data: {
       name: 'Morning Shift',
@@ -103,7 +161,7 @@ async function main() {
     data: {
       name: 'Afternoon Shift',
       startTime: '16:00',
-      endTime: '00:00', // 12:00 AM (midnight)
+      endTime: '00:00',
     },
   });
   console.log('Created Afternoon Shift Type:', afternoonShiftType.id);
@@ -112,21 +170,19 @@ async function main() {
     data: {
       name: 'Night Shift',
       startTime: '22:00',
-      endTime: '06:00', // Overnight shift
+      endTime: '06:00',
     },
   });
   console.log('Created Night Shift Type:', nightShiftType.id);
 
-  // 5. Create shifts for today
+  // 7. Create shifts for today
   const today = new Date();
-  today.setHours(0, 0, 0, 0); // Normalize to start of day for date field
+  today.setHours(0, 0, 0, 0);
 
-  // Calculate startsAt and endsAt for morning shift
   const morningStartsAt = new Date(today);
-  morningStartsAt.setHours(8, 0, 0, 0); // 08:00 AM
-
+  morningStartsAt.setHours(8, 0, 0, 0);
   const morningEndsAt = new Date(today);
-  morningEndsAt.setHours(16, 0, 0, 0); // 04:00 PM
+  morningEndsAt.setHours(16, 0, 0, 0);
 
   const shiftToday1 = await prisma.shift.create({
     data: {
@@ -143,13 +199,11 @@ async function main() {
   });
   console.log('Created Shift for today (Guard 1):', shiftToday1.id);
 
-  // Afternoon shift
   const afternoonStartsAt = new Date(today);
-  afternoonStartsAt.setHours(16, 0, 0, 0); // 04:00 PM
-
+  afternoonStartsAt.setHours(16, 0, 0, 0);
   const afternoonEndsAt = new Date(today);
-  afternoonEndsAt.setDate(afternoonEndsAt.getDate() + 1); // Next day
-  afternoonEndsAt.setHours(0, 0, 0, 0); // 12:00 AM (midnight)
+  afternoonEndsAt.setDate(afternoonEndsAt.getDate() + 1);
+  afternoonEndsAt.setHours(0, 0, 0, 0);
 
   const afternoonShift = await prisma.shift.create({
     data: {
@@ -166,20 +220,18 @@ async function main() {
   });
   console.log('Created Afternoon Shift:', afternoonShift.id);
 
-  // Night shift
   const nightShiftStartsAt = new Date(today);
-  nightShiftStartsAt.setHours(22, 0, 0, 0); // 10:00 PM today
-
+  nightShiftStartsAt.setHours(22, 0, 0, 0);
   const nightShiftEndsAt = new Date(today);
-  nightShiftEndsAt.setDate(nightShiftEndsAt.getDate() + 1); // Next day
-  nightShiftEndsAt.setHours(6, 0, 0, 0); // 06:00 AM next day
+  nightShiftEndsAt.setDate(nightShiftEndsAt.getDate() + 1);
+  nightShiftEndsAt.setHours(6, 0, 0, 0);
 
   const overnightShift = await prisma.shift.create({
     data: {
       siteId: site3.id,
       shiftTypeId: nightShiftType.id,
       guardId: guard3.id,
-      date: today, // Shift's 'date' is the start date
+      date: today,
       startsAt: nightShiftStartsAt,
       endsAt: nightShiftEndsAt,
       status: 'scheduled',
@@ -189,64 +241,16 @@ async function main() {
   });
   console.log('Created Overnight Shift:', overnightShift.id);
 
-  // Additional shifts for variety
-  const morningStartsAt2 = new Date(today);
-  morningStartsAt2.setHours(8, 0, 0, 0); // 08:00 AM
-
-  const morningEndsAt2 = new Date(today);
-  morningEndsAt2.setHours(16, 0, 0, 0); // 04:00 PM
-
-  const shiftToday2 = await prisma.shift.create({
-    data: {
-      siteId: site2.id,
-      shiftTypeId: morningShiftType.id,
-      guardId: guard2.id,
-      date: today,
-      startsAt: morningStartsAt2,
-      endsAt: morningEndsAt2,
-      status: 'scheduled',
-      requiredCheckinIntervalMins: 5,
-      graceMinutes: 4,
-    },
-  });
-  console.log('Created Shift for today (Guard 2):', shiftToday2.id);
-
-  const morningStartsAt3 = new Date(today);
-  morningStartsAt3.setHours(8, 0, 0, 0); // 08:00 AM
-
-  const morningEndsAt3 = new Date(today);
-  morningEndsAt3.setHours(16, 0, 0, 0); // 04:00 PM
-
-  const shiftToday3 = await prisma.shift.create({
-    data: {
-      siteId: site3.id,
-      shiftTypeId: morningShiftType.id,
-      guardId: guard3.id,
-      date: today,
-      startsAt: morningStartsAt3,
-      endsAt: morningEndsAt3,
-      status: 'scheduled',
-      requiredCheckinIntervalMins: 5,
-      graceMinutes: 4,
-    },
-  });
-  console.log('Created Shift for today (Guard 3):', shiftToday3.id);
-
   console.log('\n--- SEED COMPLETE ---');
-  console.log(`Guard 1 ID (Use this in Guard UI): ${guard1.id}`);
-  console.log(`Guard 2 ID (Use this in Guard UI): ${guard2.id}`);
-  console.log(`Guard 3 ID (Use this in Guard UI): ${guard3.id}`);
-  console.log(`Admin Email (Use this for Admin login): ${admin.email}`);
-  console.log(`Site 1 ID (Use this in Admin Dashboard): ${site1.id}`);
-  console.log(`Site 2 ID (Use this in Admin Dashboard): ${site2.id}`);
-  console.log(`Site 3 ID (Use this in Admin Dashboard): ${site3.id}`);
+  console.log(`Admin Role ID: ${superadminRole.id}`);
+  console.log(`Admin User Email: ${admin.email}`);
 }
 
 main()
   .then(async () => {
     await prisma.$disconnect();
   })
-  .catch(async e => {
+  .catch(async (e) => {
     console.error(e);
     await prisma.$disconnect();
     process.exit(1);
