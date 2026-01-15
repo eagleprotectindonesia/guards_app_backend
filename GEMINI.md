@@ -50,6 +50,7 @@ Refer to `GUARD_CHECKIN_ALERTING.md` for detailed logic on:
 -   **Styling:** Use Tailwind CSS utility classes.
 -   **State Management:** Server-state first (React Server Components), client state via hooks/context where necessary.
 -   **Real-time:** Uses Server-Sent Events (SSE) for admin dashboard updates.
+-   **Next.js Proxy:** This project uses `proxy.ts` (Next.js 16+ convention) instead of `middleware.ts` for request interception and auth verification.
 
 ## Important Files
 -   `GUARD_CHECKIN_ALERTING.md`: **MUST READ** for any changes to check-in/alert logic.
