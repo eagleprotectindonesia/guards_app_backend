@@ -4,7 +4,7 @@ import { getAllEmployees } from '@/lib/data-access/employees';
 export async function GET() {
   // Note: Auth check (Admin only) is handled by proxy.ts
   try {
-    const employees = await getAllEmployees({ name: 'asc' });
+    const employees = await getAllEmployees({ firstName: 'asc' });
     return NextResponse.json(employees);
   } catch (error) {
     console.error('Error fetching employees:', error);

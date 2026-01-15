@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import Redis from 'ioredis';
-import { Employee, Site, ShiftType, Attendance } from '@prisma/client';
+import { Site, ShiftType, Attendance } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 
 export const dynamic = 'force-dynamic';
 
 type ShiftWithRelations = {
   id: string;
-  employee: Employee;
+  employee: ExtendedEmployee;
   shiftType: ShiftType;
   startsAt: Date;
   endsAt: Date;
@@ -96,7 +97,7 @@ export async function GET(req: Request) {
           }
           activeSitesMap.get(shift.siteId)?.shifts.push({
             id: shift.id,
-            employee: shift.employee as Employee,
+            employee: shift.employee as ExtendedEmployee,
             shiftType: shift.shiftType,
             startsAt: shift.startsAt,
             endsAt: shift.endsAt,

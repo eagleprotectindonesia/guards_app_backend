@@ -10,12 +10,29 @@ export type ShiftStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' |
 export type CheckInStatus = 'on_time' | 'late' | 'invalid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification';
 
-export interface Employee {
+export interface Department {
   id: string;
   name: string;
+}
+
+export interface Designation {
+  id: string;
+  name: string;
+  departmentId: string;
+}
+
+export interface Employee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  name: string; // Computed/Backward compatibility
   phone: string;
   employeeCode?: string | null;
   status?: boolean | null;
+  departmentId?: string | null;
+  designationId?: string | null;
+  department?: Department | null;
+  designation?: Designation | null;
   joinDate?: string | Date | null;
   leftDate?: string | Date | null;
   note?: string | null;

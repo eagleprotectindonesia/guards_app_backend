@@ -23,7 +23,7 @@ export class EmployeeStatusProcessor {
         const shouldBeActive = getEffectiveStatus(true, employee.joinDate, employee.leftDate);
 
         if (!shouldBeActive) {
-          console.log(`[EmployeeStatusProcessor] Deactivating employee ${employee.name} (${employee.id})`);
+          console.log(`[EmployeeStatusProcessor] Deactivating employee ${employee.firstName} ${employee.lastName} (${employee.id})`);
           
           await updateEmployeeWithChangelog(
             employee.id,

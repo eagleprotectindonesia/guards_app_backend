@@ -7,7 +7,8 @@ export async function getAttendanceByShiftId(shiftId: string) {
     include: {
       employee: {
         select: {
-          name: true,
+          firstName: true,
+          lastName: true,
           phone: true,
         },
       },

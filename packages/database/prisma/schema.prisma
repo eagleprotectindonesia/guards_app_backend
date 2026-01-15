@@ -17,6 +17,12 @@ enum EmployeeRole {
   manager
 }
 
+enum EmployeeTitle {
+  Mr
+  Miss
+  Mrs
+}
+
 model Permission {
   id          String   @id @default(uuid())
   action      String // e.g., "view", "create", "edit", "delete"
@@ -112,15 +118,45 @@ enum ChatSenderType {
   employee
 }
 
+model Department {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  designations Designation[]
+  employees    Employee[]
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@map("departments")
+}
+
+model Designation {
+  id           String     @id @default(uuid())
+  name         String
+  departmentId String     @map("department_id")
+  department   Department @relation(fields: [departmentId], references: [id])
+  employees    Employee[]
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  @@unique([name, departmentId])
+  @@map("designations")
+}
+
 model Employee {
   id              String       @id
-  name            String
+  title           EmployeeTitle @default(Mr)
+  firstName       String       @map("first_name")
+  lastName        String?      @map("last_name")
   phone           String       @unique
   hashedPassword  String       @map("hashed_password")
   tokenVersion    Int          @default(0) @map("token_version")
   employeeCode    String?      @map("employee_code") @db.VarChar(12)
   role            EmployeeRole @default(guard)
   status          Boolean?     @default(true)
+  departmentId    String?      @map("department_id")
+  designationId   String?      @map("designation_id")
+  department      Department?  @relation(fields: [departmentId], references: [id])
+  designation     Designation? @relation(fields: [designationId], references: [id])
   joinDate        DateTime?    @map("join_date") @db.Date
   leftDate        DateTime?    @map("left_date") @db.Date
   note            String?      @db.Text

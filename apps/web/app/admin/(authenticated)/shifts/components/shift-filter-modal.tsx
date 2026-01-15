@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import Modal from '../../components/modal';
 import { Serialized } from '@/lib/utils';
-import { Site, Employee } from '@prisma/client';
+import { Site } from '@prisma/client';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { parseISO } from 'date-fns';
 import Select from '../../components/select'; // Import the custom Select component
+import { ExtendedEmployee } from '@repo/database';
 
 type Props = {
   isOpen: boolean;
@@ -20,7 +21,7 @@ type Props = {
     employeeId?: string;
   };
   sites: Serialized<Site>[];
-  employees: Serialized<Employee>[];
+  employees: Serialized<ExtendedEmployee>[];
 };
 
 export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilters, sites, employees }: Props) {
@@ -36,7 +37,7 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
   const siteOptions = [{ value: '', label: 'All Sites' }, ...sites.map(site => ({ value: site.id, label: site.name }))];
   const employeeOptions = [
     { value: '', label: 'All Employees' },
-    ...employees.map(employee => ({ value: employee.id, label: employee.name })),
+    ...employees.map(employee => ({ value: employee.id, label: employee.fullName })),
   ];
 
   const handleApply = () => {
@@ -126,7 +127,11 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
 
         {/* Actions */}
         <div className="flex justify-between pt-6">
-          <button type="button" onClick={handleClear} className="text-sm text-muted-foreground hover:text-foreground underline">
+          <button
+            type="button"
+            onClick={handleClear}
+            className="text-sm text-muted-foreground hover:text-foreground underline"
+          >
             Clear Filters
           </button>
           <div className="flex gap-2">

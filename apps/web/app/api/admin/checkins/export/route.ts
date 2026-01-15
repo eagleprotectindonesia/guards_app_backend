@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
             const metadata = item.metadata as { lat?: number; lng?: number } | null;
             const lat = metadata?.lat?.toFixed(6) || '';
             const lng = metadata?.lng?.toFixed(6) || '';
-            const employeeName = item.employee.name;
+            const employeeName = `${item.employee.firstName} ${item.employee.lastName}`;
             const siteName = item.shift.site.name;
             const shiftDate = format(new Date(item.shift.date), 'yyyy/MM/dd');
             const checkinDate = format(new Date(item.at), 'yyyy/MM/dd');

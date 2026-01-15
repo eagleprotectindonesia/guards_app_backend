@@ -6,7 +6,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { parseISO } from 'date-fns';
 import { Serialized } from '@/lib/utils';
-import { Employee } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 import Select from '../../components/select';
 
 type Props = {
@@ -19,7 +19,7 @@ type Props = {
     action?: string | null;
     entityId?: string | null;
   };
-  employees?: Serialized<Employee>[];
+  employees?: Serialized<ExtendedEmployee>[];
 };
 
 export default function EmployeeChangelogFilterModal({ 
@@ -40,7 +40,7 @@ export default function EmployeeChangelogFilterModal({
 
   const employeeOptions = [
     { value: '', label: 'All Employees' },
-    ...employees.map(employee => ({ value: employee.id, label: employee.name })),
+    ...employees.map(employee => ({ value: employee.id, label: employee.fullName })),
   ];
 
   const handleApply = () => {

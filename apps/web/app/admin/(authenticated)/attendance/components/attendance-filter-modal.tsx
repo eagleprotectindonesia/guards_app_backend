@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Serialized } from '@/lib/utils';
 import { X } from 'lucide-react';
-import { Employee } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 
 type AttendanceFilterModalProps = {
   isOpen: boolean;
@@ -17,7 +17,7 @@ type AttendanceFilterModalProps = {
     endDate?: string;
     employeeId?: string;
   };
-  employees: Serialized<Employee>[];
+  employees: Serialized<ExtendedEmployee>[];
 };
 
 export default function AttendanceFilterModal({
@@ -75,7 +75,7 @@ export default function AttendanceFilterModal({
               <option value="" className="bg-card">All Employees</option>
               {employees.map(employee => (
                 <option key={employee.id} value={employee.id} className="bg-card">
-                  {employee.name}
+                  {employee.fullName}
                 </option>
               ))}
             </select>

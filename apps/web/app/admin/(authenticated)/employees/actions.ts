@@ -19,18 +19,29 @@ import {
 } from '@/lib/validations';
 import { hashPassword, serialize, Serialized } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
-import { Employee, Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import { ExtendedEmployee, EmployeeWithRelations } from '@repo/database';
 import { parse, isValid } from 'date-fns';
 import { parsePhoneNumberWithError } from 'libphonenumber-js';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { ActionState } from '@/types/actions';
+import { getAllDepartments } from '@/lib/data-access/departments';
+import { getAllDesignations } from '@/lib/data-access/designations';
 
 export async function getAllEmployeesForExport(): Promise<
-  Serialized<Employee & { lastUpdatedBy?: { name: string } | null; createdBy?: { name: string } | null }>[]
+  Serialized<EmployeeWithRelations>[]
 > {
   const employees = await getAllEmployees(undefined, true);
   return serialize(employees);
+}
+
+export async function getDepartmentsAndDesignations() {
+  const [departments, designations] = await Promise.all([
+    getAllDepartments(),
+    getAllDesignations(),
+  ]);
+  return { departments: serialize(departments), designations: serialize(designations) };
 }
 
 type PrismaUniqueConstraintMeta = {
@@ -49,11 +60,15 @@ export async function createEmployee(
 ): Promise<ActionState<CreateEmployeeInput>> {
   const adminId = await getAdminIdFromToken();
   const validatedFields = createEmployeeSchema.safeParse({
-    name: formData.get('name'),
+    title: formData.get('title')?.toString() || undefined,
+    firstName: formData.get('firstName'),
+    lastName: formData.get('lastName'),
     phone: formData.get('phone'),
     id: formData.get('id')?.toString() || undefined,
-    employeeCode: formData.get('employeeCode')?.toString() || formData.get('employeeCode')?.toString() || undefined,
+    employeeCode: formData.get('employeeCode')?.toString() || undefined,
     status: formData.get('status') === 'true' ? true : formData.get('status') === 'false' ? false : undefined,
+    departmentId: formData.get('departmentId')?.toString() || undefined,
+    designationId: formData.get('designationId')?.toString() || undefined,
     joinDate: formData.get('joinDate')?.toString() || undefined,
     leftDate: formData.get('leftDate')?.toString() || undefined,
     note: formData.get('note')?.toString() || undefined,
@@ -68,14 +83,16 @@ export async function createEmployee(
     };
   }
 
-  const { password, ...restData } = validatedFields.data;
+  const { password, departmentId, designationId, ...restData } = validatedFields.data;
 
   try {
     // Hash the password if provided
-    const dataToCreate = {
+    const dataToCreate: Prisma.EmployeeCreateInput = {
       ...restData,
       hashedPassword: await hashPassword(password!),
-    } as Prisma.EmployeeCreateInput;
+      ...(departmentId && { department: { connect: { id: departmentId } } }),
+      ...(designationId && { designation: { connect: { id: designationId } } }),
+    };
 
     await createEmployeeWithChangelog(dataToCreate, adminId!);
   } catch (error) {
@@ -129,10 +146,14 @@ export async function updateEmployee(
 ): Promise<ActionState<UpdateEmployeeInput>> {
   const adminId = await getAdminIdFromToken();
   const validatedFields = updateEmployeeSchema.safeParse({
-    name: formData.get('name'),
+    title: formData.get('title')?.toString() || undefined,
+    firstName: formData.get('firstName'),
+    lastName: formData.get('lastName'),
     phone: formData.get('phone'),
-    employeeCode: formData.get('employeeCode')?.toString() || formData.get('employeeCode')?.toString() || undefined,
+    employeeCode: formData.get('employeeCode')?.toString() || undefined,
     status: formData.get('status') === 'true' ? true : formData.get('status') === 'false' ? false : undefined,
+    departmentId: formData.get('departmentId')?.toString() || undefined,
+    designationId: formData.get('designationId')?.toString() || undefined,
     joinDate: formData.get('joinDate')?.toString() || undefined,
     leftDate: formData.get('leftDate')?.toString() || null,
     note: formData.get('note')?.toString() || null,
@@ -146,8 +167,16 @@ export async function updateEmployee(
     };
   }
 
+  const { departmentId, designationId, ...restData } = validatedFields.data;
+
   try {
-    await updateEmployeeWithChangelog(id, validatedFields.data as Prisma.EmployeeUpdateInput, adminId!);
+    const dataToUpdate: Prisma.EmployeeUpdateInput = {
+      ...restData,
+      department: departmentId ? { connect: { id: departmentId } } : { disconnect: true },
+      designation: designationId ? { connect: { id: designationId } } : { disconnect: true },
+    };
+
+    await updateEmployeeWithChangelog(id, dataToUpdate, adminId!);
   } catch (error) {
     if (error instanceof Error && error.message.startsWith('DUPLICATE_EMPLOYEE_CODE')) {
       const parts = error.message.split(':');
@@ -264,24 +293,23 @@ export async function bulkCreateEmployees(
     // Simple CSV split, handling basic quotes stripping
     const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
 
-    // Expected: Name, Phone, ID (Employee ID), Employee Code, Note, Join Date, Password
-    // At minimum, Name, Phone, ID, Password, and Join Date are required.
-    if (cols.length < 4) {
+    // Expected: First Name, Last Name, Phone, ID (Employee ID), Employee Code, Note, Join Date, Password
+    if (cols.length < 5) {
       errors.push(
-        `Row ${i + 1}: Insufficient columns. Name, Phone, Employee ID, Password, and Join Date are required.`
+        `Row ${i + 1}: Insufficient columns. First Name, Last Name, Phone, Employee ID, Password, and Join Date are required.`
       );
       continue;
     }
 
-    const [name, phoneRaw, id, employeeCode, note, joinDateStr, password] = cols;
+    const [firstName, lastName, phoneRaw, id, employeeCode, note, joinDateStr, password] = cols;
     let phone = phoneRaw;
 
     if (phone && !phone.startsWith('+')) {
       phone = '+' + phone;
     }
 
-    if (!name || !phone || !id) {
-      errors.push(`Row ${i + 1}: Name, Phone, and Employee ID are required.`);
+    if (!firstName || !lastName || !phone || !id) {
+      errors.push(`Row ${i + 1}: First Name, Last Name, Phone, and Employee ID are required.`);
       continue;
     }
 
@@ -364,7 +392,8 @@ export async function bulkCreateEmployees(
     }
 
     const inputData = {
-      name,
+      firstName,
+      lastName,
       phone,
       id,
       employeeCode: employeeCodeValue,
@@ -412,7 +441,8 @@ export async function bulkCreateEmployees(
     const hashedPasswordForEmployee = await hashPassword(validationResult.data.password);
 
     employeesToCreate.push({
-      name: validationResult.data.name,
+      firstName: validationResult.data.firstName,
+      lastName: validationResult.data.lastName,
       phone: validationResult.data.phone,
       id: validationResult.data.id,
       employeeCode: validationResult.data.employeeCode || null,

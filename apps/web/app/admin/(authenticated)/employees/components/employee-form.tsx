@@ -4,23 +4,33 @@ import { Serialized } from '@/lib/utils';
 import { createEmployee, updateEmployee } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateEmployeeInput, createEmployeeSchema, updateEmployeeSchema } from '@/lib/validations';
-import { startTransition, useActionState, useEffect, useRef } from 'react';
+import { startTransition, useActionState, useEffect, useRef, useMemo } from 'react';
 import { useForm, Controller, Resolver, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { Employee } from '@prisma/client';
+import { Department, Designation } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useRouter } from 'next/navigation';
 import { PasswordInput } from '@/components/ui/password-input';
 import PhoneInput from '@/components/ui/phone-input';
 import { E164Number } from 'libphonenumber-js';
 import { format } from 'date-fns';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 type Props = {
-  employee?: Serialized<Employee>; // If provided, it's an edit form
+  employee?: Serialized<ExtendedEmployee>; // If provided, it's an edit form
+  departments?: Serialized<Department>[];
+  designations?: Serialized<Designation>[];
 };
 
-export default function EmployeeForm({ employee }: Props) {
+export default function EmployeeForm({ employee, departments = [], designations = [] }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -35,20 +45,35 @@ export default function EmployeeForm({ employee }: Props) {
     setError,
     clearErrors,
     trigger,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateEmployeeInput>({
     resolver: zodResolver(employee ? updateEmployeeSchema : createEmployeeSchema) as Resolver<CreateEmployeeInput>,
     defaultValues: {
-      name: employee?.name || '',
+      title: (employee?.title as 'Mr' | 'Miss' | 'Mrs') || 'Mr',
+      firstName: employee?.firstName || '',
+      lastName: employee?.lastName || '',
       phone: (employee?.phone as string) || '',
       id: employee?.id || '',
       employeeCode: employee?.employeeCode || employee?.employeeCode || '',
       status: employee?.status ?? true,
+      departmentId: employee?.departmentId || '',
+      designationId: employee?.designationId || '',
       joinDate: employee?.joinDate ? new Date(employee.joinDate) : undefined,
       leftDate: employee?.leftDate ? new Date(employee.leftDate) : undefined,
       note: employee?.note || '',
     },
   });
+
+  const [firstName, lastName, selectedDepartmentId] = watch(['firstName', 'lastName', 'departmentId']);
+
+  const fullName = `${firstName || ''} ${lastName || ''}`.trim();
+
+  const filteredDesignations = useMemo(() => {
+    if (!selectedDepartmentId) return [];
+    return designations.filter(d => d.departmentId === selectedDepartmentId);
+  }, [selectedDepartmentId, designations]);
 
   useEffect(() => {
     if (state.success) {
@@ -97,19 +122,97 @@ export default function EmployeeForm({ employee }: Props) {
         autoComplete="off"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Name Field */}
+          {/* Title & Full Name Row */}
+          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-4 gap-8">
+            {/* Title Field */}
+            <div className="md:col-span-1">
+              <label htmlFor="title" className="block font-medium text-foreground mb-1">
+                Title <span className="text-red-500">*</span>
+              </label>
+              <Controller
+                control={control}
+                name="title"
+                render={({ field }) => (
+                                  <Select
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value ?? undefined}
+                                    value={field.value ?? undefined}
+                                    name={field.name}
+                                  >                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Title" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Mr">Mr</SelectItem>
+                      <SelectItem value="Miss">Miss</SelectItem>
+                      <SelectItem value="Mrs">Mrs</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
+            </div>
+
+            {/* Full Name Field */}
+            <div className="md:col-span-3">
+              <label htmlFor="fullName" className="block font-medium text-foreground mb-1">
+                Full Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="fullName"
+                defaultValue={fullName}
+                onChange={e => {
+                  const value = e.target.value;
+                  const trimmed = value.trim();
+
+                  if (trimmed.length <= 15) {
+                    setValue('firstName', trimmed, { shouldValidate: true });
+                    setValue('lastName', '', { shouldValidate: true });
+                  } else {
+                    const first15 = trimmed.substring(0, 15);
+                    const lastSpaceIndex = first15.lastIndexOf(' ');
+
+                    if (lastSpaceIndex !== -1) {
+                      setValue('firstName', trimmed.substring(0, lastSpaceIndex), { shouldValidate: true });
+                      setValue('lastName', trimmed.substring(lastSpaceIndex + 1), { shouldValidate: true });
+                    } else {
+                      setValue('firstName', trimmed.substring(0, 15), { shouldValidate: true });
+                      setValue('lastName', trimmed.substring(15), { shouldValidate: true });
+                    }
+                  }
+                }}
+                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
+                placeholder="e.g. John Doe"
+              />
+            </div>
+          </div>
+
+          {/* Hidden inputs for form submission */}
+          <input type="hidden" {...register('firstName')} />
+          <input type="hidden" {...register('lastName')} />
+
+          {/* First Name Field (Disabled) */}
           <div>
-            <label htmlFor="name" className="block font-medium text-foreground mb-1">
-              Full Name <span className="text-red-500">*</span>
-            </label>
+            <label className="block font-medium text-muted-foreground mb-1">First Name</label>
             <input
-              {...register('name')}
               type="text"
-              id="name"
-              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
-              placeholder="e.g. John Doe"
+              disabled
+              value={firstName}
+              className="w-full h-10 px-3 rounded-lg border border-border bg-muted text-muted-foreground cursor-not-allowed outline-none transition-all"
             />
-            {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+            {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName.message}</p>}
+          </div>
+
+          {/* Last Name Field (Disabled) */}
+          <div>
+            <label className="block font-medium text-muted-foreground mb-1">Last Name</label>
+            <input
+              type="text"
+              disabled
+              value={lastName}
+              className="w-full h-10 px-3 rounded-lg border border-border bg-muted text-muted-foreground cursor-not-allowed outline-none transition-all"
+            />
+            {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName.message}</p>}
           </div>
 
           {/* Phone Field */}
@@ -224,6 +327,72 @@ export default function EmployeeForm({ employee }: Props) {
                 </div>
               )}
             />
+          </div>
+
+          {/* Department Field */}
+          <div>
+            <label htmlFor="departmentId" className="block font-medium text-foreground mb-1">
+              Department
+            </label>
+            <Controller
+              control={control}
+              name="departmentId"
+              render={({ field }) => (
+                <Select
+                  onValueChange={value => {
+                    field.onChange(value);
+                    setValue('designationId', '');
+                  }}
+                  defaultValue={field.value ?? undefined}
+                  value={field.value ?? undefined}
+                  name={field.name}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map(dept => (
+                      <SelectItem key={dept.id} value={dept.id}>
+                        {dept.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.departmentId && <p className="text-red-500 text-xs mt-1">{errors.departmentId.message}</p>}
+          </div>
+
+          {/* Designation Field */}
+          <div>
+            <label htmlFor="designationId" className="block font-medium text-foreground mb-1">
+              Designation
+            </label>
+            <Controller
+              control={control}
+              name="designationId"
+              render={({ field }) => (
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value ?? undefined}
+                  value={field.value ?? undefined}
+                  name={field.name}
+                  disabled={!selectedDepartmentId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Designation" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredDesignations.map(desig => (
+                      <SelectItem key={desig.id} value={desig.id}>
+                        {desig.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            {errors.designationId && <p className="text-red-500 text-xs mt-1">{errors.designationId.message}</p>}
           </div>
 
           {/* Join Date Field */}

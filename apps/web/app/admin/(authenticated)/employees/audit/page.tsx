@@ -82,7 +82,7 @@ export default async function EmployeeAuditPage(props: PageProps) {
       },
     }),
     prisma.changelog.count({ where }),
-    getAllEmployees({ name: 'asc' }),
+    getAllEmployees({ firstName: 'asc' }),
   ]);
 
   const serializedChangelogs = serialize(changelogs);

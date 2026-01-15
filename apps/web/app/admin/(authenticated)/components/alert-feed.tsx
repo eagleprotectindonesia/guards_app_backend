@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Alert, Shift, Site, Employee, ShiftType, Admin } from '@prisma/client';
+import { Alert, Shift, Site, ShiftType, Admin } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import AlertItem from './alert-item';
 import AlertResolutionModal from './alert-resolution-modal';
@@ -9,7 +10,7 @@ import { Check } from 'lucide-react';
 import { useSession } from '../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
-type EmployeeWithOptionalRelations = Serialized<Employee>;
+type EmployeeWithOptionalRelations = Serialized<ExtendedEmployee>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
 type SiteWithOptionalRelations = Serialized<Site>;
 type AdminWithOptionalRelations = Serialized<Admin>;

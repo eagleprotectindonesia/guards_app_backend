@@ -13,7 +13,8 @@ export async function saveMessage(data: {
       employee: {
         select: {
           id: true,
-          name: true,
+          firstName: true,
+          lastName: true,
         },
       },
       admin: {
@@ -55,12 +56,7 @@ export async function getConversationList() {
     },
     distinct: ['employeeId'],
     include: {
-      employee: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
+      employee: true,
     },
   });
 
@@ -82,7 +78,7 @@ export async function getConversationList() {
 
   return conversations.map((conv) => ({
     employeeId: conv.employeeId,
-    employeeName: conv.employee.name,
+    employeeName: conv.employee.fullName,
     lastMessage: {
       content: conv.content,
       sender: conv.sender,

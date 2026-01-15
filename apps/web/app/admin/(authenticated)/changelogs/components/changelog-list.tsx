@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, ComponentType } from 'react';
-import { Changelog, Prisma, Employee, Site, ShiftType } from '@prisma/client';
+import { Changelog, Prisma, Site, ShiftType } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import PaginationNav from '../../components/pagination-nav';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
@@ -19,7 +20,7 @@ type FilterModalProps = {
   onClose: () => void;
   onApply: (filters: Record<string, string | Date | null | undefined>) => void;
   initialFilters: Record<string, string | null>;
-  employees?: Serialized<Employee>[];
+  employees?: Serialized<ExtendedEmployee>[];
   sites?: Serialized<Site>[];
   shiftTypes?: Serialized<ShiftType>[];
 };
@@ -35,7 +36,7 @@ type ChangelogListProps = {
   fixedEntityType?: string;
   showEntityName?: boolean;
   FilterModal: ComponentType<FilterModalProps>;
-  employees?: Serialized<Employee>[];
+  employees?: Serialized<ExtendedEmployee>[];
   sites?: Serialized<Site>[];
   shiftTypes?: Serialized<ShiftType>[];
 };

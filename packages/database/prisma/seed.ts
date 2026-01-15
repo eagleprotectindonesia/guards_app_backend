@@ -113,7 +113,31 @@ async function main() {
   });
   console.log('Created Site 3:', site3.id);
 
-  // 4. Create Employees
+  // 4. Create Departments and Designations
+  console.log('Creating departments and designations...');
+  const opsDept = await prisma.department.upsert({
+    where: { name: 'Operations' },
+    update: {},
+    create: {
+      name: 'Operations',
+    },
+  });
+
+  const guardDesignation = await prisma.designation.upsert({
+    where: { 
+      name_departmentId: {
+        name: 'Security Guard',
+        departmentId: opsDept.id
+      }
+    },
+    update: {},
+    create: {
+      name: 'Security Guard',
+      departmentId: opsDept.id,
+    },
+  });
+
+  // 5. Create Employees
   const employeePassword = '123456'; 
   const hashedEmployeePassword = await bcrypt.hash(employeePassword, 10);
 
@@ -122,10 +146,13 @@ async function main() {
     update: {},
     create: {
       id: 'EMP001',
-      name: 'Jackie Chan',
+      firstName: 'Jackie',
+      lastName: 'Chan',
       phone: '+62551234567',
       hashedPassword: hashedEmployeePassword,
       employeeCode: '00001',
+      departmentId: opsDept.id,
+      designationId: guardDesignation.id,
     },
   });
   console.log('Created Employee 1:', employee1.id);
@@ -135,10 +162,13 @@ async function main() {
     update: {},
     create: {
       id: 'EMP002',
-      name: 'Bruce Lee',
+      firstName: 'Bruce',
+      lastName: 'Lee',
       phone: '+625551234568',
       hashedPassword: hashedEmployeePassword,
       employeeCode: '00002',
+      departmentId: opsDept.id,
+      designationId: guardDesignation.id,
     },
   });
   console.log('Created Employee 2:', employee2.id);
@@ -148,15 +178,18 @@ async function main() {
     update: {},
     create: {
       id: 'EMP003',
-      name: 'Chuck Norris',
+      firstName: 'Chuck',
+      lastName: 'Norris',
       phone: '+625551234569',
       hashedPassword: hashedEmployeePassword,
       employeeCode: '00003',
+      departmentId: opsDept.id,
+      designationId: guardDesignation.id,
     },
   });
   console.log('Created Employee 3:', employee3.id);
 
-  // 5. Create Admin
+  // 6. Create Admin
   const adminPassword = 'password123';
   const hashedAdminPassword = await bcrypt.hash(adminPassword, 10);
 

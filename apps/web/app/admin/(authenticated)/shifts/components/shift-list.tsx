@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Shift, Site, ShiftType, Employee, Attendance } from '@prisma/client';
+import { Shift, Site, ShiftType, Attendance } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import { deleteShift, cancelShift } from '../actions';
 import ShiftFilterModal from './shift-filter-modal';
@@ -21,7 +22,7 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 export type ShiftWithRelations = Shift & {
   site: Site;
   shiftType: ShiftType;
-  employee: Employee | null;
+  employee: ExtendedEmployee | null;
   attendance: Attendance | null;
   createdBy?: { name: string } | null;
   lastUpdatedBy?: { name: string } | null;
@@ -31,7 +32,7 @@ type ShiftListProps = {
   shifts: Serialized<ShiftWithRelations>[];
   sites: Serialized<Site>[];
   shiftTypes: Serialized<ShiftType>[];
-  employees: Serialized<Employee>[];
+  employees: Serialized<ExtendedEmployee>[];
   startDate?: string;
   endDate?: string;
   employeeId?: string;
@@ -277,86 +278,88 @@ export default function ShiftList({
                   </td>
                 </tr>
               ) : (
-                shifts.map(shift => (
-                  <tr key={shift.id} className="hover:bg-muted/30 transition-colors group">
-                    <td className="py-4 px-6 text-sm font-medium text-foreground">{shift.site.name}</td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">{shift.shiftType.name}</td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {shift.employee ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold border border-border">
-                            {shift.employee.name.substring(0, 2).toUpperCase()}
+                shifts.map(shift => {
+                  return (
+                    <tr key={shift.id} className="hover:bg-muted/30 transition-colors group">
+                      <td className="py-4 px-6 text-sm font-medium text-foreground">{shift.site.name}</td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">{shift.shiftType.name}</td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
+                        {shift.employee ? (
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold border border-border">
+                              {shift.employee.firstName.substring(0, 1).toUpperCase()}{shift.employee.lastName.substring(0, 1).toUpperCase()}
+                            </div>
+                            {shift.employee.fullName}
                           </div>
-                          {shift.employee.name}
+                        ) : (
+                          <span className="text-muted-foreground/40 italic">Unassigned</span>
+                        )}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
+                        <div className="font-medium text-foreground">{format(new Date(shift.startsAt), 'yyyy/MM/dd')}</div>
+                        <div className="text-xs text-muted-foreground/80">
+                          {format(new Date(shift.startsAt), 'HH:mm')} - {format(new Date(shift.endsAt), 'HH:mm')}
                         </div>
-                      ) : (
-                        <span className="text-muted-foreground/40 italic">Unassigned</span>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">
-                      <div className="font-medium text-foreground">{format(new Date(shift.startsAt), 'yyyy/MM/dd')}</div>
-                      <div className="text-xs text-muted-foreground/80">
-                        {format(new Date(shift.startsAt), 'HH:mm')} - {format(new Date(shift.endsAt), 'HH:mm')}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6 text-sm">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                          shift.status
-                        )}`}
-                      >
-                        {shift.status.replace('_', ' ').toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">
-                      <div className="max-w-[200px] whitespace-normal wrap-break-words text-xs">{shift.note || '-'}</div>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <div 
-                          className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
-                            shift.createdBy?.name 
-                              ? 'bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' 
-                              : 'text-muted-foreground/40'
-                          }`} 
-                          title="Created By"
+                      </td>
+                      <td className="py-4 px-6 text-sm">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                            shift.status
+                          )}`}
                         >
-                          {shift.createdBy?.name || '-'}
+                          {shift.status.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
+                        <div className="max-w-[200px] whitespace-normal wrap-break-words text-xs">{shift.note || '-'}</div>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <div 
+                            className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                              shift.createdBy?.name 
+                                ? 'bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' 
+                                : 'text-muted-foreground/40'
+                            }`} 
+                            title="Created By"
+                          >
+                            {shift.createdBy?.name || '-'}
+                          </div>
+                          <div 
+                            className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                              shift.lastUpdatedBy?.name 
+                                ? 'bg-muted text-muted-foreground border border-border' 
+                                : 'text-muted-foreground/40'
+                            }`} 
+                            title="Last Updated By"
+                          >
+                            {shift.lastUpdatedBy?.name || '-'}
+                          </div>
                         </div>
-                        <div 
-                          className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
-                            shift.lastUpdatedBy?.name 
-                              ? 'bg-muted text-muted-foreground border border-border' 
-                              : 'text-muted-foreground/40'
-                          }`} 
-                          title="Last Updated By"
-                        >
-                          {shift.lastUpdatedBy?.name || '-'}
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-100">
+                          <EditButton
+                            href={`/admin/shifts/${shift.id}/edit`}
+                            disabled={!canEdit}
+                            title={!canEdit ? 'Permission Denied' : 'Edit'}
+                          />
+                          <DeleteButton
+                            onClick={() => handleDeleteClick(shift.id)}
+                            disabled={isPending || !canDelete || (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled')}
+                            title={
+                              !canDelete 
+                                ? 'Permission Denied'
+                                : (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled'
+                                  ? 'Only in-progress or scheduled shifts can be cancelled'
+                                  : 'Actions')
+                            }
+                          />
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-100">
-                        <EditButton
-                          href={`/admin/shifts/${shift.id}/edit`}
-                          disabled={!canEdit}
-                          title={!canEdit ? 'Permission Denied' : 'Edit'}
-                        />
-                        <DeleteButton
-                          onClick={() => handleDeleteClick(shift.id)}
-                          disabled={isPending || !canDelete || (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled')}
-                          title={
-                            !canDelete 
-                              ? 'Permission Denied'
-                              : (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled'
-                                ? 'Only in-progress or scheduled shifts can be cancelled'
-                                : 'Actions')
-                          }
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

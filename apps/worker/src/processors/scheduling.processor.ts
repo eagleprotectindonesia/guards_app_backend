@@ -1,6 +1,6 @@
-import { Shift, ShiftType, Employee, Site, Attendance } from '@prisma/client';
+import { Shift, ShiftType, Site, Attendance } from '@prisma/client';
 import { calculateCheckInWindow, CHECK_SHIFTS_JOB_NAME } from '@repo/shared';
-import { db as prisma } from '@repo/database';
+import { db as prisma, ExtendedEmployee } from '@repo/database';
 import { getActiveShifts, getShiftsUpdates, getUpcomingShifts, createMissedCheckinAlert } from '@repo/database';
 import { Job } from 'bullmq';
 import { getRedisConnection } from '../infrastructure/redis';
@@ -13,7 +13,7 @@ const ATTENDANCE_GRACE_PERIOD_MINS = 5;
 // Types
 type CachedShift = Shift & {
   shiftType: ShiftType;
-  employee: Employee | null;
+  employee: ExtendedEmployee | null;
   site: Site;
   attendance: Attendance | null;
   lastAttentionIndexSent?: number;
@@ -26,7 +26,7 @@ type ShiftState = {
 
 type BroadcastedShift = {
   id: string;
-  employee: Employee | null;
+  employee: ExtendedEmployee | null;
   shiftType: ShiftType;
   startsAt: Date;
   endsAt: Date;

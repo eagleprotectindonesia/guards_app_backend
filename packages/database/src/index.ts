@@ -1,5 +1,6 @@
 export { PrismaClient, Prisma } from './client';
 export { db, db as prisma } from './client';
+export type { ExtendedEmployee, ExtendedPrismaClient, EmployeeWithRelations } from './client';
 export { redis } from './redis';
 export * from './data-access/admins';
 export * from './data-access/alerts';
@@ -11,3 +12,5 @@ export * from './data-access/shift-types';
 export * from './data-access/shifts';
 export * from './data-access/sites';
 export * from './data-access/roles';
+export * from './data-access/departments';
+export * from './data-access/designations';

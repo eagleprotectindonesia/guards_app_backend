@@ -48,7 +48,7 @@ export default async function CheckinsPage(props: CheckinsPageProps) {
       skip,
       take: perPage,
     }),
-    getAllEmployees({ name: 'asc' }),
+    getAllEmployees({ firstName: 'asc' }),
   ]);
 
   const serializedCheckins = serialize(checkins);

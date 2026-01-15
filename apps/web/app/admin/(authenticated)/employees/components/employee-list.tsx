@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Employee } from '@prisma/client';
+import { EmployeeWithRelations } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import { deleteEmployee, getAllEmployeesForExport } from '../actions';
 import ConfirmDialog from '../../components/confirm-dialog';
@@ -20,17 +20,12 @@ import Search from '../../components/search';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
-type EmployeeWithAdminInfo = Employee & {
-  lastUpdatedBy?: { name: string } | null;
-  createdBy?: { name: string } | null;
-};
-
 type EmployeeListProps = {
-  employees: Serialized<EmployeeWithAdminInfo>[];
+  employees: Serialized<EmployeeWithRelations>[];
   page: number;
   perPage: number;
   totalCount: number;
-  sortBy?: 'name' | 'id' | 'employeeCode' | 'joinDate';
+  sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   startDate?: string;
   endDate?: string;
@@ -121,13 +116,17 @@ export default function EmployeeList({
 
   const handleExportCSV = async () => {
     try {
-      const employees = await getAllEmployeesForExport();
+      const employeesData = await getAllEmployeesForExport();
 
       const headers = [
-        'Name',
+        'Title',
+        'First Name',
+        'Last Name',
         'Phone',
         'Employee ID',
         'Employee Code',
+        'Department',
+        'Designation',
         'Status',
         'Joined Date',
         'Left Date',
@@ -139,13 +138,17 @@ export default function EmployeeList({
       ];
       const csvContent = [
         headers.join(','),
-        ...employees.map(employee => {
+        ...employeesData.map(employee => {
           const phone = employee.phone.split('#')[0];
           return [
-            `"${employee.name}"`,
+            `"${employee.title || ''}"`,
+            `"${employee.firstName}"`,
+            `"${employee.lastName}"`,
             `"${phone}"`,
             `"${employee.id}"`,
             `"${employee.employeeCode || ''}"`,
+            `"${employee.department?.name || ''}"`,
+            `"${employee.designation?.name || ''}"`,
             employee.status ? 'Active' : 'Inactive',
             `"${employee.joinDate ? format(new Date(employee.joinDate), 'yyyy/MM/dd') : ''}"`,
             `"${employee.leftDate ? format(new Date(employee.leftDate), 'yyyy/MM/dd') : ''}"`,
@@ -190,7 +193,9 @@ export default function EmployeeList({
           <button
             onClick={() => setIsFilterOpen(true)}
             className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted/50 transition-colors shadow-sm w-full md:w-auto ${
-              activeFiltersCount > 0 ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-900/30' : ''
+              activeFiltersCount > 0
+                ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-900/20 dark:border-red-900/30'
+                : ''
             }`}
           >
             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -262,8 +267,8 @@ export default function EmployeeList({
                   className="text-center"
                 />
                 <SortableHeader
-                  label="Name"
-                  field="name"
+                  label="Full Name"
+                  field="firstName"
                   currentSortBy={sortBy}
                   currentSortOrder={sortOrder}
                   onSort={handleSort}
@@ -281,6 +286,9 @@ export default function EmployeeList({
                   className="text-center"
                 />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
+                  Dept / Desig
+                </th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
                   Status
                 </th>
                 <SortableHeader
@@ -292,9 +300,9 @@ export default function EmployeeList({
                   className="text-center"
                 />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
-                  Left Date
+                  {' '}
+                  Note
                 </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">Note</th>
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-blue-600 dark:text-blue-400">Created By</span>
@@ -314,99 +322,106 @@ export default function EmployeeList({
                   </td>
                 </tr>
               ) : (
-                employees.map(employee => (
-                  <tr key={employee.id} className="hover:bg-muted/30 transition-colors group">
-                    <td className="py-4 px-6 text-sm text-muted-foreground">{employee.id}</td>
-                    <td className="py-4 px-6 text-sm font-medium text-foreground">
-                      <div className="flex items-center gap-3">
-                        {/* Avatar Placeholder */}
-                        <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 flex items-center justify-center text-xs font-bold">
-                          {employee.name.substring(0, 2).toUpperCase()}
+                employees.map(employee => {
+                  return (
+                    <tr key={employee.id} className="hover:bg-muted/30 transition-colors group">
+                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">{employee.id}</td>
+                      <td className="py-4 px-6 text-sm font-medium text-foreground text-center">
+                        {employee.title}. {employee.fullName}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground font-mono text-center">
+                        {employee.phone}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">
+                        {employee.employeeCode || '-'}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-foreground font-medium">{employee.department?.name || '-'}</span>
+                          <span className="text-[10px] text-muted-foreground">{employee.designation?.name || '-'}</span>
                         </div>
-                        {employee.name}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono">{employee.phone}</td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">{employee.employeeCode || '-'}</td>
-                    <td className="py-4 px-6 text-sm">
-                      {employee.status !== false ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
-                          Active
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400">
-                          Inactive
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {format(new Date(employee.joinDate || employee.createdAt), 'yyyy/MM/dd')}
-                    </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {employee.leftDate ? format(new Date(employee.leftDate), 'yyyy/MM/dd') : '-'}
-                    </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">
-                      <div className="max-w-[200px] whitespace-normal wrap-break-words">{employee.note || '-'}</div>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">
-                      <div className="flex flex-col items-center gap-1">
-                        <div 
-                          className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
-                            employee.createdBy?.name 
-                              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30' 
-                              : 'text-muted-foreground/50'
-                          }`} 
-                          title="Created By"
-                        >
-                          {employee.createdBy?.name || '-'}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-center">
+                        {employee.status !== false ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400">
+                            Inactive
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">
+                        {format(new Date(employee.joinDate || employee.createdAt), 'yyyy/MM/dd')}
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
+                        <div className="max-w-[150px] whitespace-normal wrap-break-words">{employee.note || '-'}</div>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <div
+                            className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                              employee.createdBy?.name
+                                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30'
+                                : 'text-muted-foreground/50'
+                            }`}
+                            title="Created By"
+                          >
+                            {employee.createdBy?.name || '-'}
+                          </div>
+                          <div
+                            className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                              employee.lastUpdatedBy?.name
+                                ? 'bg-muted text-foreground border border-border'
+                                : 'text-muted-foreground/50'
+                            }`}
+                            title="Last Updated By"
+                          >
+                            {employee.lastUpdatedBy?.name || '-'}
+                          </div>
                         </div>
-                        <div 
-                          className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
-                            employee.lastUpdatedBy?.name 
-                              ? 'bg-muted text-foreground border border-border' 
-                              : 'text-muted-foreground/50'
-                          }`} 
-                          title="Last Updated By"
-                        >
-                          {employee.lastUpdatedBy?.name || '-'}
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-100">
+                          <EditButton
+                            href={`/admin/employees/${employee.id}/edit`}
+                            disabled={!canEdit}
+                            title={!canEdit ? 'Permission Denied' : 'Edit'}
+                          />
+                          <DeleteButton
+                            onClick={() => handleDeleteClick(employee.id)}
+                            disabled={!canDelete || isPending}
+                            title={!canDelete ? 'Permission Denied' : 'Delete'}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setPasswordModalData({ id: employee.id, name: employee.fullName })}
+                            disabled={!canEdit}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer disabled:text-muted-foreground/30 disabled:cursor-not-allowed"
+                            title={!canEdit ? 'Permission Denied' : 'Change Password'}
+                          >
+                            <Key className="w-4 h-4" />
+                            <span className="sr-only">Change Password</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              window.dispatchEvent(
+                                new CustomEvent('open-admin-chat', { detail: { employeeId: employee.id } })
+                              )
+                            }
+                            className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer"
+                            title="Chat with Employee"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                            <span className="sr-only">Chat</span>
+                          </button>
                         </div>
-                      </div>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-100">
-                        <EditButton
-                          href={`/admin/employees/${employee.id}/edit`}
-                          disabled={!canEdit}
-                          title={!canEdit ? 'Permission Denied' : 'Edit'}
-                        />
-                        <DeleteButton
-                          onClick={() => handleDeleteClick(employee.id)}
-                          disabled={!canDelete || isPending}
-                          title={!canDelete ? 'Permission Denied' : 'Delete'}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setPasswordModalData({ id: employee.id, name: employee.name })}
-                          disabled={!canEdit}
-                          className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer disabled:text-muted-foreground/30 disabled:cursor-not-allowed"
-                          title={!canEdit ? 'Permission Denied' : 'Change Password'}
-                        >
-                          <Key className="w-4 h-4" />
-                          <span className="sr-only">Change Password</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => window.dispatchEvent(new CustomEvent('open-admin-chat', { detail: { employeeId: employee.id } }))}
-                          className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-900/30 rounded-lg transition-colors cursor-pointer"
-                          title="Chat with Employee"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                          <span className="sr-only">Chat</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

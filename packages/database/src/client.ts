@@ -31,6 +31,36 @@ const createPrismaClient = () => {
   });
 };
 
-export const db = globalForPrisma.prisma || createPrismaClient();
+const prismaInstance = globalForPrisma.prisma || createPrismaClient();
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = db;
+if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prismaInstance;
+
+export const db = prismaInstance.$extends({
+  result: {
+    employee: {
+      fullName: {
+        needs: { firstName: true, lastName: true },
+        compute(employee) {
+          return `${employee.firstName} ${employee.lastName || ''}`.trim();
+        },
+      },
+    },
+  },
+});
+
+export type ExtendedPrismaClient = typeof db;
+
+export type ExtendedEmployee = NonNullable<Prisma.Result<typeof db.employee, {}, 'findUnique'>>;
+
+export type EmployeeWithRelations = NonNullable<Prisma.Result<
+  typeof db.employee,
+  {
+    include: {
+      department: true;
+      designation: true;
+      lastUpdatedBy: { select: { name: true } };
+      createdBy: { select: { name: true } };
+    };
+  },
+  'findUnique'
+>>;

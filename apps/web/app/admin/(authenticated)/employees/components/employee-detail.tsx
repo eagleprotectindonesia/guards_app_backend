@@ -1,8 +1,8 @@
 import { Serialized } from '@/lib/utils';
-import { Employee } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 
 type Props = {
-  employee: Serialized<Employee>;
+  employee: Serialized<ExtendedEmployee>;
 };
 
 const formatDate = (date: string | null) => {
@@ -24,7 +24,7 @@ export default function EmployeeDetail({ employee }: Props) {
           <div>
             <label className="block font-medium text-foreground mb-1">Full Name</label>
             <div className="w-full h-10 px-3 rounded-lg border border-border bg-muted/50 text-foreground flex items-center">
-              {employee.name}
+              {employee.fullName}
             </div>
           </div>
 

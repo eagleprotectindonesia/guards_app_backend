@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 import { startOfDay, endOfDay, format } from 'date-fns';
 
 const include = {
@@ -10,7 +11,11 @@ const include = {
   resolverAdmin: true,
 } satisfies Prisma.AlertInclude;
 
-type AlertWithRels = Prisma.AlertGetPayload<{ include: typeof include }>;
+type AlertWithRels = Omit<Prisma.AlertGetPayload<{ include: typeof include }>, 'shift'> & {
+  shift: (Omit<NonNullable<Prisma.AlertGetPayload<{ include: typeof include }>['shift']>, 'employee'> & {
+    employee: ExtendedEmployee | null;
+  }) | null;
+};
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -85,7 +90,7 @@ export async function GET(request: NextRequest) {
             };
 
             const siteName = alert.site.name;
-            const employeeName = alert.shift?.employee?.name || 'Unassigned';
+            const employeeName = alert.shift?.employee?.fullName || 'Unassigned';
 
             const createdAt = format(new Date(alert.createdAt), 'yyyy/MM/dd HH:mm');
             const windowStart = format(new Date(alert.windowStart), 'yyyy/MM/dd HH:mm');

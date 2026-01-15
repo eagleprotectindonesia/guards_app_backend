@@ -39,11 +39,14 @@ export async function authenticateSocket(handshake: {
     if (!employeeToken) return null;
     const { isValid, userId } = await verifySession(employeeToken, 'employee');
     if (isValid && userId) {
-      const employee = await prisma.employee.findUnique({ where: { id: userId }, select: { name: true } });
+      const employee = await prisma.employee.findUnique({ 
+        where: { id: userId }, 
+        select: { firstName: true, lastName: true } 
+      });
       return {
         type: 'employee' as const,
         id: userId,
-        name: employee?.name || 'Employee',
+        name: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
       };
     }
     return null;

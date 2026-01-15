@@ -95,7 +95,7 @@ export async function POST(req: Request) {
       token, // Return token for mobile clients
       employee: {
         id: employee.id,
-        name: employee.name
+        name: employee.fullName
       }
     }, { status: 200 });
   } catch (error) {

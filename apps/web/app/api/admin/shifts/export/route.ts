@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Prisma, Shift, Employee, Site, ShiftType } from '@prisma/client';
+import { Prisma, Shift, Site, ShiftType } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { getExportShiftsBatch } from '@/lib/data-access/shifts';
 
@@ -75,13 +76,13 @@ export async function GET(request: NextRequest) {
             const s = shift as Shift & {
               site: Site;
               shiftType: ShiftType;
-              employee: Employee | null;
+              employee: ExtendedEmployee | null;
               createdBy: { name: string } | null;
             };
 
             const siteName = s.site.name;
             const shiftTypeName = s.shiftType.name;
-            const employeeName = s.employee?.name || 'Unassigned';
+            const employeeName = s.employee?.fullName || 'Unassigned';
             const date = format(new Date(s.date), 'yyyy/MM/dd');
             const startTime = format(new Date(s.startsAt), 'HH:mm');
             const endTime = format(new Date(s.endsAt), 'HH:mm');

@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
             const metadata = (att.metadata as { location: { lat?: number; lng?: number } })?.location;
             const lat = metadata?.lat?.toFixed(6) || '';
             const lng = metadata?.lng?.toFixed(6) || '';
-            const employeeName = att.employee?.name || 'Unknown';
+            const employeeName = att.employee?.fullName || 'Unknown';
             const employeeId = att.employee?.id || 'N/A';
             const siteName = att.shift.site.name;
             const shiftDate = format(new Date(att.shift.date), 'yyyy/MM/dd');

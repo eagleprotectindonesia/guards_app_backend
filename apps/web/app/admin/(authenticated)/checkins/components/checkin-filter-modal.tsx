@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Modal from '../../components/modal';
 import { Serialized } from '@/lib/utils';
-import { Employee } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { parseISO } from 'date-fns';
@@ -18,7 +18,7 @@ type Props = {
     endDate?: string;
     employeeId?: string;
   };
-  employees: Serialized<Employee>[];
+  employees: Serialized<ExtendedEmployee>[];
 };
 
 export default function CheckinFilterModal({ isOpen, onClose, onApply, initialFilters, employees }: Props) {
@@ -32,7 +32,7 @@ export default function CheckinFilterModal({ isOpen, onClose, onApply, initialFi
 
   const employeeOptions = [
     { value: '', label: 'All Employees' },
-    ...employees.map(employee => ({ value: employee.id, label: employee.name })),
+    ...employees.map(employee => ({ value: employee.id, label: employee.fullName })),
   ];
 
   const handleApply = () => {

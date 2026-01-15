@@ -41,6 +41,8 @@ export async function getAllEmployees(
     where: includeDeleted ? {} : { deletedAt: null },
     orderBy,
     include: {
+      department: true,
+      designation: true,
       lastUpdatedBy: {
         select: {
           name: true,
@@ -58,19 +60,31 @@ export async function getAllEmployees(
 export async function getActiveEmployees() {
   return prisma.employee.findMany({
     where: { status: true, deletedAt: null },
-    orderBy: { name: 'asc' },
+    orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    include: {
+      department: true,
+      designation: true,
+    },
   });
 }
 
 export async function getEmployeeById(id: string) {
   return prisma.employee.findUnique({
     where: { id, deletedAt: null },
+    include: {
+      department: true,
+      designation: true,
+    },
   });
 }
 
 export async function findEmployeeByPhone(phone: string) {
   return prisma.employee.findUnique({
     where: { phone, deletedAt: null },
+    include: {
+      department: true,
+      designation: true,
+    },
   });
 }
 
@@ -92,6 +106,8 @@ export async function getPaginatedEmployees(params: {
           skip,
           take,
           include: {
+            department: true,
+            designation: true,
             lastUpdatedBy: {
               select: {
                 name: true,
@@ -167,10 +183,13 @@ export async function createEmployeeWithChangelog(data: Prisma.EmployeeCreateInp
           entityId: createdEmployee.id,
           adminId: adminId,
           details: {
-            name: createdEmployee.name,
+            firstName: createdEmployee.firstName,
+            lastName: createdEmployee.lastName,
             phone: createdEmployee.phone,
             employeeCode: createdEmployee.employeeCode,
             status: createdEmployee.status,
+            departmentId: createdEmployee.departmentId,
+            designationId: createdEmployee.designationId,
             joinDate: createdEmployee.joinDate,
             leftDate: createdEmployee.leftDate,
             note: createdEmployee.note,
@@ -184,7 +203,11 @@ export async function createEmployeeWithChangelog(data: Prisma.EmployeeCreateInp
   );
 }
 
-export async function updateEmployeeWithChangelog(id: string, data: Prisma.EmployeeUpdateInput, adminId: string | null) {
+export async function updateEmployeeWithChangelog(
+  id: string,
+  data: Prisma.EmployeeUpdateInput,
+  adminId: string | null
+) {
   return prisma.$transaction(
     async tx => {
       // If joinDate or leftDate are not in data, we might need them to calculate effective status
@@ -209,7 +232,7 @@ export async function updateEmployeeWithChangelog(id: string, data: Prisma.Emplo
       const effectiveStatus = getEffectiveStatus((status as boolean | undefined) ?? true, joinDate, leftDate);
 
       // If status is being set to false (or calculated as false), increment tokenVersion to revoke sessions
-      const updateData = {
+      const updateData: Prisma.EmployeeUpdateInput = {
         ...data,
         status: effectiveStatus,
       };
@@ -251,10 +274,14 @@ export async function updateEmployeeWithChangelog(id: string, data: Prisma.Emplo
           entityId: updatedEmployee.id,
           adminId: adminId,
           details: {
-            name: data.name !== undefined ? updatedEmployee.name : undefined,
+            firstName: data.firstName !== undefined ? updatedEmployee.firstName : undefined,
+            lastName: data.lastName !== undefined ? updatedEmployee.lastName : undefined,
+            fullName: updatedEmployee.fullName,
             phone: data.phone !== undefined ? updatedEmployee.phone : undefined,
             employeeCode: data.employeeCode !== undefined ? updatedEmployee.employeeCode : undefined,
             status: updatedEmployee.status,
+            departmentId: data.department !== undefined ? updatedEmployee.departmentId : undefined,
+            designationId: data.designation !== undefined ? updatedEmployee.designationId : undefined,
             joinDate: data.joinDate !== undefined ? updatedEmployee.joinDate : undefined,
             leftDate: data.leftDate !== undefined ? updatedEmployee.leftDate : undefined,
             note: data.note !== undefined ? updatedEmployee.note : undefined,
@@ -278,7 +305,12 @@ export async function updateEmployeeWithChangelog(id: string, data: Prisma.Emplo
               updatedEmployee.tokenVersion.toString()
             ),
             // Update cache for high-frequency polling
-            redis.set(`employee:${updatedEmployee.id}:token_version`, updatedEmployee.tokenVersion.toString(), 'EX', 3600),
+            redis.set(
+              `employee:${updatedEmployee.id}:token_version`,
+              updatedEmployee.tokenVersion.toString(),
+              'EX',
+              3600
+            ),
           ]);
         } catch (error) {
           console.error('Failed to notify session revocation:', error);
@@ -322,7 +354,7 @@ export async function deleteEmployeeWithChangelog(id: string, adminId: string) {
       // Fetch employee details before deletion to store in log
       const employeeToDelete = await tx.employee.findUnique({
         where: { id, deletedAt: null },
-        select: { name: true, phone: true, id: true },
+        select: { firstName: true, lastName: true, phone: true, id: true },
       });
 
       if (!employeeToDelete) return;
@@ -346,7 +378,8 @@ export async function deleteEmployeeWithChangelog(id: string, adminId: string) {
           entityId: id,
           adminId: adminId,
           details: {
-            name: employeeToDelete.name,
+            firstName: employeeToDelete.firstName,
+            lastName: employeeToDelete.lastName,
             phone: employeeToDelete.phone,
             deletedAt: new Date(),
           },
@@ -377,7 +410,10 @@ export async function findExistingEmployees(phones: string[], ids: string[]) {
   });
 }
 
-export async function bulkCreateEmployeesWithChangelog(employeesData: Prisma.EmployeeCreateManyInput[], adminId: string) {
+export async function bulkCreateEmployeesWithChangelog(
+  employeesData: Prisma.EmployeeCreateManyInput[],
+  adminId: string
+) {
   const finalData = employeesData.map(g => ({
     ...g,
     status: getEffectiveStatus(
@@ -392,7 +428,9 @@ export async function bulkCreateEmployeesWithChangelog(employeesData: Prisma.Emp
   return prisma.$transaction(
     async tx => {
       // Check for duplicate employee codes in the batch
-      const activeEmployeeCodes = finalData.filter(g => g.employeeCode && g.status === true).map(g => g.employeeCode as string);
+      const activeEmployeeCodes = finalData
+        .filter(g => g.employeeCode && g.status === true)
+        .map(g => g.employeeCode as string);
 
       if (new Set(activeEmployeeCodes).size !== activeEmployeeCodes.length) {
         throw new Error('DUPLICATE_EMPLOYEE_CODE_IN_BATCH');
@@ -418,7 +456,8 @@ export async function bulkCreateEmployeesWithChangelog(employeesData: Prisma.Emp
         data: finalData,
         select: {
           id: true,
-          name: true,
+          firstName: true,
+          lastName: true,
           phone: true,
           employeeCode: true,
           status: true,
@@ -440,7 +479,8 @@ export async function bulkCreateEmployeesWithChangelog(employeesData: Prisma.Emp
           adminId: adminId,
           details: {
             method: 'BULK_UPLOAD',
-            name: g.name,
+            firstName: g.firstName,
+            lastName: g.lastName,
             phone: g.phone,
             employeeCode: g.employeeCode,
             status: g.status,

@@ -1,14 +1,15 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { Alert, Employee, Shift, ShiftType, Site, Attendance } from '@prisma/client';
+import { Alert, Shift, ShiftType, Site, Attendance } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import { useSession } from './session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 // --- Types ---
 
-type EmployeeWithOptionalRelations = Serialized<Employee>;
+type EmployeeWithOptionalRelations = Serialized<ExtendedEmployee>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
 type SiteWithOptionalRelations = Serialized<Site>;
 type AttendanceWithOptionalRelations = Serialized<Attendance>;
@@ -55,6 +56,8 @@ interface AlertContextType {
   upcomingShifts: UpcomingShift[];
   connectionStatus: string;
   lastAlertEvent: SSEAlertData | null;
+  isMuted: boolean;
+  setIsMuted: (muted: boolean) => void;
   acknowledgeAlert: (alertId: string) => void;
   resolveAlert: (alertId: string) => void;
 }
@@ -67,6 +70,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   const [upcomingShifts, setUpcomingShifts] = useState<UpcomingShift[]>([]);
   const [connectionStatus, setConnectionStatus] = useState('Connecting...');
   const [lastAlertEvent, setLastAlertEvent] = useState<SSEAlertData | null>(null);
+  const [isMuted, setIsMuted] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const { hasPermission } = useSession();
 
@@ -187,6 +191,8 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
         upcomingShifts,
         connectionStatus,
         lastAlertEvent,
+        isMuted,
+        setIsMuted,
         acknowledgeAlert,
         resolveAlert,
       }}

@@ -35,16 +35,20 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
       : 'desc';
 
   // Validate sortBy field to prevent SQL injection
-  const validSortFields = ['name', 'id', 'employeeCode', 'joinDate'];
-  const sortField = validSortFields.includes(sortBy)
-    ? (sortBy as 'name' | 'id' | 'employeeCode' | 'joinDate')
+  const validSortFields = ['firstName', 'lastName', 'id', 'employeeCode', 'joinDate'];
+  let sortField: string = validSortFields.includes(sortBy)
+    ? sortBy
     : 'joinDate';
+  
+  // Handle backward compatibility or simplified sorting
+  if (sortBy === 'name') sortField = 'firstName';
 
   const where: Prisma.EmployeeWhereInput = {};
 
   if (query) {
     where.OR = [
-      { name: { contains: query, mode: 'insensitive' } },
+      { firstName: { contains: query, mode: 'insensitive' } },
+      { lastName: { contains: query, mode: 'insensitive' } },
       { phone: { contains: query, mode: 'insensitive' } },
       { id: { contains: query, mode: 'insensitive' } },
       { employeeCode: { contains: query, mode: 'insensitive' } },

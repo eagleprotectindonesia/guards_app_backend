@@ -3,6 +3,8 @@ import { isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js
 
 export const ShiftStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 'missed', 'cancelled']);
 
+export const EmployeeTitleEnum = z.enum(['Mr', 'Miss', 'Mrs']);
+
 // --- Site ---
 export const createSiteSchema = z.object({
   name: z.string().min(1),
@@ -32,8 +34,13 @@ export const updateAdminSchema = z.object({
 });
 
 // --- Employee ---
+const emptyStringToNull = z.literal('').transform(() => null);
+const uuidOrEmpty = z.union([z.string().uuid(), emptyStringToNull]);
+
 export const createEmployeeSchema = z.object({
-  name: z.string().min(1),
+  title: EmployeeTitleEnum,
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().optional(),
   phone: z
     .string()
     .min(1, 'Phone number is required')
@@ -72,6 +79,8 @@ export const createEmployeeSchema = z.object({
   // For backward compatibility
   guardCode: z.string().max(12).optional(),
   status: z.boolean().optional(),
+  departmentId: uuidOrEmpty.nullable().optional(),
+  designationId: uuidOrEmpty.nullable().optional(),
   joinDate: z.coerce.date(),
   leftDate: z.coerce.date().optional(),
   note: z.string().optional(),
@@ -83,7 +92,9 @@ export const createGuardSchema = createEmployeeSchema;
 
 export const updateEmployeeSchema = z.object({
   id: z.string().optional(), // Allow id in the schema for form compatibility
-  name: z.string().min(1),
+  title: EmployeeTitleEnum,
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().optional(),
   phone: z
     .string()
     .min(1, 'Phone number is required')
@@ -117,6 +128,8 @@ export const updateEmployeeSchema = z.object({
   // For backward compatibility
   guardCode: z.string().max(12).optional(),
   status: z.boolean().optional(),
+  departmentId: uuidOrEmpty.nullable().optional(),
+  designationId: uuidOrEmpty.nullable().optional(),
   joinDate: z.coerce.date(),
   leftDate: z.coerce.date().nullable().optional(),
   note: z.string().nullable().optional(),

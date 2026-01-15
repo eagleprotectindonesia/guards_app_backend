@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Bell, X } from 'lucide-react';
 
 export default function GlobalAlertManager() {
-  const { alerts } = useAlerts();
+  const { alerts, isMuted } = useAlerts();
   const pathname = usePathname();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -49,7 +49,7 @@ export default function GlobalAlertManager() {
         if (playPromise !== undefined) {
           playPromise
             .then(() => {
-              if (!hasActiveAlerts) {
+              if (!hasActiveAlerts || isMuted) {
                 audioRef.current?.pause();
                 if (audioRef.current) audioRef.current.currentTime = 0;
               }
@@ -70,13 +70,13 @@ export default function GlobalAlertManager() {
       document.removeEventListener('click', unlockAudio);
       document.removeEventListener('keydown', unlockAudio);
     };
-  }, [hasActiveAlerts]);
+  }, [hasActiveAlerts, isMuted]);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    if (hasActiveAlerts) {
+    if (hasActiveAlerts && !isMuted) {
       if (audio.paused) {
         audio.play().catch(() => {
           // Autoplay prevented.
@@ -89,7 +89,7 @@ export default function GlobalAlertManager() {
         audio.currentTime = 0;
       }
     }
-  }, [hasActiveAlerts]);
+  }, [hasActiveAlerts, isMuted]);
 
   const isOnDashboard = pathname === '/admin/dashboard';
   const isOnAlertsPage = pathname === '/admin/alerts';

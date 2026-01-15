@@ -41,7 +41,8 @@ export async function createShift(
     };
   }
 
-  const { date, shiftTypeId, siteId, employeeId, requiredCheckinIntervalMins, graceMinutes, note } = validatedFields.data;
+  const { date, shiftTypeId, siteId, employeeId, requiredCheckinIntervalMins, graceMinutes, note } =
+    validatedFields.data;
 
   try {
     // Fetch ShiftType to calculate startsAt and endsAt
@@ -157,7 +158,8 @@ export async function updateShift(
     };
   }
 
-  const { date, shiftTypeId, siteId, employeeId, requiredCheckinIntervalMins, graceMinutes, note } = validatedFields.data;
+  const { date, shiftTypeId, siteId, employeeId, requiredCheckinIntervalMins, graceMinutes, note } =
+    validatedFields.data;
 
   try {
     const shiftType = await prisma.shiftType.findUnique({
@@ -306,7 +308,7 @@ export async function bulkCreateShifts(
 
   const siteMap = new Map(sites.map(s => [s.name.toLowerCase(), s.id]));
   const shiftTypeMap = new Map(shiftTypes.map(st => [st.name.toLowerCase(), st]));
-  const employeeMap = new Map(employees.map(g => [g.name.toLowerCase(), g.id]));
+  const employeeMap = new Map(employees.map(g => [`${g.firstName} ${g.lastName}`.toLowerCase(), g.id]));
 
   const errors: string[] = [];
   const shiftsToCreate: Prisma.ShiftCreateManyInput[] = [];

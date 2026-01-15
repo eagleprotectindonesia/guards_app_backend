@@ -34,7 +34,7 @@ export async function getPaginatedShifts(params: {
           include: include || {
             site: { select: { name: true } },
             shiftType: { select: { name: true, startTime: true, endTime: true } },
-            employee: { select: { name: true } },
+            employee: { select: { firstName: true, lastName: true } },
             createdBy: { select: { name: true } },
             lastUpdatedBy: { select: { name: true } },
           },
@@ -89,6 +89,8 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
         },
       });
 
+      const emp = createdShift.employee as any;
+
       await tx.changelog.create({
         data: {
           action: 'CREATE',
@@ -98,7 +100,7 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
           details: {
             site: createdShift.site.name,
             type: createdShift.shiftType.name,
-            employee: createdShift.employee?.name || 'Unassigned',
+            employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
             date: createdShift.date,
             startsAt: createdShift.startsAt,
             endsAt: createdShift.endsAt,
@@ -146,6 +148,8 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
         },
       });
 
+      const emp = updatedShift.employee as any;
+
       await tx.changelog.create({
         data: {
           action: 'UPDATE',
@@ -155,7 +159,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
           details: {
             site: updatedShift.site.name,
             type: updatedShift.shiftType.name,
-            employee: updatedShift.employee?.name || 'Unassigned',
+            employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
             date: updatedShift.date,
             startsAt: updatedShift.startsAt,
             endsAt: updatedShift.endsAt,
@@ -208,6 +212,8 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
         },
       });
 
+      const emp = shiftToDelete.employee as any;
+
       await tx.changelog.create({
         data: {
           action: 'DELETE',
@@ -217,7 +223,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
           details: {
             site: shiftToDelete.site.name,
             type: shiftToDelete.shiftType.name,
-            employee: shiftToDelete.employee?.name || 'Unassigned',
+            employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
             date: shiftToDelete.date,
             deletedAt: new Date(),
           },
@@ -246,26 +252,29 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
         include: {
           site: { select: { name: true } },
           shiftType: { select: { name: true } },
-          employee: { select: { name: true } },
+          employee: { select: { firstName: true, lastName: true } },
         },
       });
 
       await tx.changelog.createMany({
-        data: results.map(s => ({
-          action: 'CREATE',
-          entityType: 'Shift',
-          entityId: s.id,
-          adminId: adminId,
-          details: {
-            method: 'BULK_UPLOAD',
-            site: s.site.name,
-            type: s.shiftType.name,
-            employee: s.employee?.name || 'Unassigned',
-            date: s.date,
-            startsAt: s.startsAt,
-            endsAt: s.endsAt,
-          },
-        })),
+        data: results.map(s => {
+          const emp = s.employee as any;
+          return {
+            action: 'CREATE',
+            entityType: 'Shift',
+            entityId: s.id,
+            adminId: adminId,
+            details: {
+              method: 'BULK_UPLOAD',
+              site: s.site.name,
+              type: s.shiftType.name,
+              employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
+              date: s.date,
+              startsAt: s.startsAt,
+              endsAt: s.endsAt,
+            },
+          };
+        }),
       });
 
       return results;

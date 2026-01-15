@@ -143,7 +143,7 @@ export default function AdminDashboard() {
                         <div key={shift.id} className="text-xs text-muted-foreground flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
                           <span className="truncate">
-                            {shift.employee?.name || 'Unassigned'}
+                            {shift.employee?.fullName || 'Unassigned'}
                             <span className="text-muted-foreground/60"> ({shift.shiftType?.name})</span>
                           </span>
                         </div>
@@ -182,7 +182,7 @@ export default function AdminDashboard() {
                     <div className="text-xs text-muted-foreground flex items-center gap-2">
                       <div className={`w-1.5 h-1.5 rounded-full ${shift.employee ? 'bg-blue-400' : 'bg-red-400'}`}></div>
                       <span className="truncate">
-                        {shift.employee?.name || 'Unassigned'}
+                        {shift.employee?.fullName || 'Unassigned'}
                         <span className="text-muted-foreground/60"> ({shift.shiftType?.name})</span>
                       </span>
                     </div>

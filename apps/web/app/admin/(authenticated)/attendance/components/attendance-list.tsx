@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Attendance, Employee, Shift, ShiftType, Site } from '@prisma/client';
+import { Attendance, Shift, ShiftType, Site } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import PaginationNav from '../../components/pagination-nav';
 import { MapPin, Clock, Filter, Calendar } from 'lucide-react';
@@ -36,7 +37,7 @@ export type AttendanceWithRelations = Omit<Attendance, 'metadata'> & {
     shiftType: ShiftType;
   };
   metadata: AttendanceMetadata;
-  employee: Employee | null;
+  employee: ExtendedEmployee | null;
 };
 
 type AttendanceListProps = {
@@ -44,7 +45,7 @@ type AttendanceListProps = {
   page: number;
   perPage: number;
   totalCount: number;
-  employees: Serialized<Employee>[];
+  employees: Serialized<ExtendedEmployee>[];
   initialFilters: {
     startDate?: string;
     endDate?: string;
@@ -143,9 +144,9 @@ export default function AttendanceList({
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">
-                          {attendance.employee?.name.substring(0, 2).toUpperCase() || '??'}
+                          {attendance.employee?.fullName.substring(0, 2).toUpperCase() || '??'}
                         </div>
-                        {attendance.employee?.name || 'Unknown Employee'}
+                        {attendance.employee?.fullName || 'Unknown Employee'}
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">

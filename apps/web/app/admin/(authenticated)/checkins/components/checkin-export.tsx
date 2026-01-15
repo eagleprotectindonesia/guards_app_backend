@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import CheckinExportModal from './checkin-export-modal';
 import { format } from 'date-fns';
 import { Serialized } from '@/lib/utils';
-import { Employee } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
@@ -16,7 +16,7 @@ type CheckinExportProps = {
     endDate?: string;
     employeeId?: string;
   };
-  employees: Serialized<Employee>[];
+  employees: Serialized<ExtendedEmployee>[];
 };
 
 export default function CheckinExport({ initialFilters, employees }: CheckinExportProps) {

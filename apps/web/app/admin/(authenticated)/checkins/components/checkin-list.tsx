@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Checkin, Employee, Shift, Site } from '@prisma/client';
+import { Checkin, Shift, Site } from '@prisma/client';
+import { ExtendedEmployee } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import PaginationNav from '../../components/pagination-nav';
 import { MapPin, Clock, Filter } from 'lucide-react'; // Added Globe icon
@@ -31,7 +32,7 @@ function hasValidLocation(metadata: JsonValue): metadata is CheckinMetadata {
 }
 
 type CheckinWithRelations = Checkin & {
-  employee: Employee;
+  employee: ExtendedEmployee;
   shift: Shift & {
     site: Site;
   };
@@ -42,7 +43,7 @@ type CheckinListProps = {
   page: number;
   perPage: number;
   totalCount: number;
-  employees: Serialized<Employee>[];
+  employees: Serialized<ExtendedEmployee>[];
   initialFilters: {
     startDate?: string;
     endDate?: string;
@@ -132,9 +133,9 @@ export default function CheckinList({ checkins, page, perPage, totalCount, emplo
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">
-                          {checkin.employee.name.substring(0, 2).toUpperCase()}
+                          {checkin.employee.fullName.substring(0, 2).toUpperCase()}
                         </div>
-                        {checkin.employee.name}
+                        {checkin.employee.fullName}
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
@@ -200,3 +201,4 @@ export default function CheckinList({ checkins, page, perPage, totalCount, emplo
     </div>
   );
 }
+

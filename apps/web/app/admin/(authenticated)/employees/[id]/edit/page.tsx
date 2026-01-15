@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { getEmployeeById } from '@/lib/data-access/employees';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { getDepartmentsAndDesignations } from '../../actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,10 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
   await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
   const { id } = await params;
 
-  const employee = await getEmployeeById(id);
+  const [employee, { departments, designations }] = await Promise.all([
+    getEmployeeById(id),
+    getDepartmentsAndDesignations(),
+  ]);
 
   if (!employee) {
     notFound();
@@ -21,7 +25,11 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
 
   return (
     <div className="max-w-6xl mx-auto py-8">
-      <EmployeeForm employee={serializedEmployee} />
+      <EmployeeForm 
+        employee={serializedEmployee} 
+        departments={departments} 
+        designations={designations} 
+      />
     </div>
   );
 }
