@@ -9,6 +9,8 @@ import {
   User,
   UserCog,
   Settings,
+  Building2,
+  Briefcase,
   type LucideIcon,
 } from 'lucide-react';
 import { PermissionCode } from './auth/permissions';
@@ -24,6 +26,8 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, requiredPermission: 'dashboard:view' },
   { name: 'Sites', href: '/admin/sites', icon: MapPin, requiredPermission: 'sites:view' },
   { name: 'Employees', href: '/admin/employees', icon: Users, requiredPermission: 'employees:view' },
+  { name: 'Departments', href: '/admin/departments', icon: Building2, requiredPermission: 'departments:view' },
+  { name: 'Designations', href: '/admin/designations', icon: Briefcase, requiredPermission: 'designations:view' },
   { name: 'Shift Types', href: '/admin/shift-types', icon: Layers, requiredPermission: 'shift-types:view' },
   { name: 'Shifts', href: '/admin/shifts', icon: Calendar, requiredPermission: 'shifts:view' },
   { name: 'Attendance', href: '/admin/attendance', icon: ClipboardCheck, requiredPermission: 'attendance:view' },
@@ -42,6 +46,8 @@ export const ADMIN_LABEL_MAP: Record<string, string> = {
   dashboard: 'Dashboard',
   employees: 'Employees',
   guards: 'Employees', // Backward compatibility
+  departments: 'Departments',
+  designations: 'Designations',
   sites: 'Sites',
   'shift-types': 'Shift Types',
   shifts: 'Shifts',

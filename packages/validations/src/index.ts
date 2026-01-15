@@ -197,6 +197,23 @@ export const createRoleSchema = z.object({
 
 export const updateRoleSchema = createRoleSchema;
 
+// --- Department ---
+export const createDepartmentSchema = z.object({
+  name: z.string().min(1, 'Department name is required'),
+  note: z.string().optional(),
+});
+
+export const updateDepartmentSchema = createDepartmentSchema;
+
+// --- Designation ---
+export const createDesignationSchema = z.object({
+  name: z.string().min(1, 'Designation name is required'),
+  departmentId: z.string().uuid('Invalid department ID'),
+  note: z.string().optional(),
+});
+
+export const updateDesignationSchema = createDesignationSchema;
+
 // --- System Settings ---
 export const updateSettingsSchema = z.record(z.string(), z.string());
 
@@ -220,4 +237,8 @@ export type UpdateShiftInput = CreateShiftInput; // Same for now
 export type CheckInInput = z.infer<typeof checkInSchema>;
 export type CreateRoleInput = z.infer<typeof createRoleSchema>;
 export type UpdateRoleInput = z.infer<typeof updateRoleSchema>;
+export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>;
+export type UpdateDepartmentInput = CreateDepartmentInput;
+export type CreateDesignationInput = z.infer<typeof createDesignationSchema>;
+export type UpdateDesignationInput = CreateDesignationInput;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;

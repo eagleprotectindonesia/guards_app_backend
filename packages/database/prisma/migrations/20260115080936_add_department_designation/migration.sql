@@ -21,8 +21,10 @@ ALTER COLUMN "employee_code" SET DATA TYPE VARCHAR(12);
 CREATE TABLE "departments" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "note" TEXT,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
+    "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "departments_pkey" PRIMARY KEY ("id")
 );
@@ -31,15 +33,23 @@ CREATE TABLE "departments" (
 CREATE TABLE "designations" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "note" TEXT,
     "department_id" TEXT NOT NULL,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
+    "deleted_at" TIMESTAMP(3),
 
     CONSTRAINT "designations_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
 CREATE UNIQUE INDEX "departments_name_key" ON "departments"("name");
+
+-- CreateIndex
+CREATE INDEX "departments_deleted_at_idx" ON "departments"("deleted_at");
+
+-- CreateIndex
+CREATE INDEX "designations_deleted_at_idx" ON "designations"("deleted_at");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "designations_name_department_id_key" ON "designations"("name", "department_id");

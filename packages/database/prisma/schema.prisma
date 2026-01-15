@@ -121,24 +121,29 @@ enum ChatSenderType {
 model Department {
   id           String        @id @default(uuid())
   name         String        @unique
+  note         String?       @db.Text
   designations Designation[]
   employees    Employee[]
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
+  deletedAt    DateTime?     @map("deleted_at")
 
+  @@index([deletedAt])
   @@map("departments")
 }
 
 model Designation {
   id           String     @id @default(uuid())
   name         String
+  note         String?    @db.Text
   departmentId String     @map("department_id")
   department   Department @relation(fields: [departmentId], references: [id])
   employees    Employee[]
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
+  deletedAt    DateTime?  @map("deleted_at")
 
-  @@unique([name, departmentId])
+  @@index([deletedAt])
   @@map("designations")
 }
 

@@ -16,6 +16,8 @@ export const RESOURCES = [
   'roles',
   'system-settings',
   'dashboard',
+  'departments',
+  'designations',
 ] as const;
 
 export const ACTIONS = ['view', 'create', 'edit', 'delete'] as const;
@@ -86,6 +88,18 @@ export const PERMISSIONS = {
   SYSTEM: {
     VIEW_SETTINGS: 'system-settings:view',
     EDIT_SETTINGS: 'system-settings:edit',
+  },
+  DEPARTMENTS: {
+    VIEW: 'departments:view',
+    CREATE: 'departments:create',
+    EDIT: 'departments:edit',
+    DELETE: 'departments:delete',
+  },
+  DESIGNATIONS: {
+    VIEW: 'designations:view',
+    CREATE: 'designations:create',
+    EDIT: 'designations:edit',
+    DELETE: 'designations:delete',
   },
 } satisfies Record<string, Record<string, PermissionCode>>;
 

@@ -13,12 +13,14 @@ export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verifica
 export interface Department {
   id: string;
   name: string;
+  note?: string | null;
 }
 
 export interface Designation {
   id: string;
   name: string;
   departmentId: string;
+  note?: string | null;
 }
 
 export interface Employee {
