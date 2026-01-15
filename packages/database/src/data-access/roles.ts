@@ -1,4 +1,5 @@
 import { db as prisma } from '../client';
+import { redis } from '../redis';
 
 export async function getAllRoles() {
   return prisma.role.findMany({
@@ -42,19 +43,36 @@ export async function updateRole(
   id: string,
   data: { name: string; description?: string | null; permissionIds: string[] }
 ) {
-  return prisma.role.update({
-    where: { id },
-    data: {
-      name: data.name,
-      description: data.description,
-      permissions: {
-        set: data.permissionIds.map(id => ({ id })),
+  const result = await prisma.$transaction(async tx => {
+    const updatedRole = await tx.role.update({
+      where: { id },
+      data: {
+        name: data.name,
+        description: data.description,
+        permissions: {
+          set: data.permissionIds.map(id => ({ id })),
+        },
       },
-    },
-    include: {
-      permissions: true,
-    },
+      include: {
+        permissions: true,
+      },
+    });
+
+    // Find all affected admins
+    const admins = await tx.admin.findMany({
+      where: { roleId: id },
+      select: { id: true },
+    });
+
+    if (admins.length > 0) {
+      const keys = admins.map(admin => `admin:permissions:${admin.id}`);
+      await redis.del(...keys);
+    }
+
+    return updatedRole;
   });
+
+  return result;
 }
 
 export async function deleteRole(id: string) {

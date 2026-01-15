@@ -5,4 +5,4 @@ export const AUTH_COOKIES = {
   EMPLOYEE: 'employee_token',
 } as const;
 
-export const SESSION_CACHE_TTL = 3600; // 1 hour
+export const SESSION_CACHE_TTL = 10 * 3600; // 10 hour

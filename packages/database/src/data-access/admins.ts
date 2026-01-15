@@ -115,6 +115,12 @@ export async function updateAdminWithChangelog(id: string, data: Prisma.AdminUpd
         await redis.del(cacheKey);
       }
 
+      // If role was changed, invalidate permissions cache
+      if (data.roleRef) {
+        const permsCacheKey = `admin:permissions:${id}`;
+        await redis.del(permsCacheKey);
+      }
+
       return updatedAdmin;
     },
     { timeout: 5000 }
@@ -156,7 +162,8 @@ export async function deleteAdminWithChangelog(id: string, deleterId: string) {
 
       // Invalidate Redis cache for this admin
       const cacheKey = `admin:token_version:${id}`;
-      await redis.del(cacheKey);
+      const permsCacheKey = `admin:permissions:${id}`;
+      await redis.del(cacheKey, permsCacheKey);
 
       return updatedAdmin;
     },
