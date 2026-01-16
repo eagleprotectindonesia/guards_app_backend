@@ -24,7 +24,7 @@ export interface NavItem {
 }
 
 export const ADMIN_NAV_ITEMS: NavItem[] = [
-  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard, requiredPermission: 'dashboard:view' },
+  { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Sites', href: '/admin/sites', icon: MapPin, requiredPermission: 'sites:view' },
   { name: 'Offices', href: '/admin/offices', icon: Hotel, requiredPermission: 'offices:view' },
   { name: 'Employees', href: '/admin/employees', icon: Users, requiredPermission: 'employees:view' },

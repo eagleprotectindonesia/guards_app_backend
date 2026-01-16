@@ -2,6 +2,7 @@ import { db as prisma } from '../client';
 import { redis } from '../redis';
 import { Prisma } from '@prisma/client';
 import { isValid, startOfDay, isAfter, isBefore, parseISO } from 'date-fns';
+import { deleteFutureShiftsByEmployee } from './shifts';
 
 /**
  * Helper to calculate effective status based on join and left dates.
@@ -267,6 +268,12 @@ export async function updateEmployeeWithChangelog(
       const designationConnectId = data.designation?.connect?.id;
       const designationDisconnect = data.designation?.disconnect;
 
+      // Get current employee state for role comparison
+      const currentEmployee = await tx.employee.findUnique({
+        where: { id },
+        select: { role: true },
+      });
+
       if (designationConnectId) {
         const designation = await tx.designation.findUnique({
           where: { id: designationConnectId },
@@ -274,6 +281,16 @@ export async function updateEmployeeWithChangelog(
         });
         if (designation) {
           updateData.role = designation.role;
+
+          // If role changes from on_site to office, delete all future shifts
+          if (currentEmployee?.role === 'on_site' && designation.role === 'office') {
+            await deleteFutureShiftsByEmployee(id, adminId || '', tx);
+          }
+
+          // If role changes from office to on_site, nullify the office assignment
+          if (currentEmployee?.role === 'office' && designation.role === 'on_site') {
+            updateData.office = { disconnect: true };
+          }
         }
       } else if (designationDisconnect) {
         updateData.role = null;

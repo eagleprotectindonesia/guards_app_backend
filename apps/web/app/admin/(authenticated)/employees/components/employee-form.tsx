@@ -16,13 +16,7 @@ import { PasswordInput } from '@/components/ui/password-input';
 import PhoneInput from '@/components/ui/phone-input';
 import { E164Number } from 'libphonenumber-js';
 import { format } from 'date-fns';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 type Props = {
   employee?: Serialized<ExtendedEmployee>; // If provided, it's an edit form
@@ -31,12 +25,7 @@ type Props = {
   offices?: Serialized<Office>[];
 };
 
-export default function EmployeeForm({ 
-  employee, 
-  departments = [], 
-  designations = [],
-  offices = []
-}: Props) {
+export default function EmployeeForm({ employee, departments = [], designations = [], offices = [] }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -70,14 +59,15 @@ export default function EmployeeForm({
       joinDate: employee?.joinDate ? new Date(employee.joinDate) : undefined,
       leftDate: employee?.leftDate ? new Date(employee.leftDate) : undefined,
       note: employee?.note || '',
+      password: employee ? undefined : '123456',
     },
   });
 
   const [firstName, lastName, selectedDepartmentId, selectedDesignationId] = watch([
-    'firstName', 
-    'lastName', 
+    'firstName',
+    'lastName',
     'departmentId',
-    'designationId'
+    'designationId',
   ]);
 
   const fullName = `${firstName || ''} ${lastName || ''}`.trim();
@@ -111,6 +101,7 @@ export default function EmployeeForm({
 
   const clientAction = async (formData: FormData) => {
     clearErrors();
+
     const isValid = await trigger();
     if (isValid) {
       startTransition(() => {
@@ -119,6 +110,8 @@ export default function EmployeeForm({
     } else {
       // Scroll to the first error
       const firstError = Object.keys(errors)[0];
+      console.log('firstError', firstError);
+
       if (firstError) {
         const element = document.getElementById(firstError);
         element?.scrollIntoView({ behavior: 'smooth', block: 'center' });

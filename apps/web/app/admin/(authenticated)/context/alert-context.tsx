@@ -72,9 +72,34 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   const [lastAlertEvent, setLastAlertEvent] = useState<SSEAlertData | null>(null);
   const [isMuted, setIsMuted] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
-  const { hasPermission } = useSession();
+  const { hasPermission, userId } = useSession();
+  const isInitialized = useRef(false);
 
   const canViewAlerts = hasPermission(PERMISSIONS.ALERTS.VIEW);
+
+  // Load/Sync isMuted with localStorage
+  useEffect(() => {
+    if (!userId) return;
+
+    if (!isInitialized.current) {
+      const savedMuted = localStorage.getItem('alerts_muted');
+      const savedUserId = localStorage.getItem('alerts_muted_user_id');
+
+      if (savedUserId === userId) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setIsMuted(savedMuted === 'true');
+      } else {
+        // Clean upon login (new user or fresh login)
+        setIsMuted(false);
+        localStorage.setItem('alerts_muted', 'false');
+        localStorage.setItem('alerts_muted_user_id', userId);
+      }
+      isInitialized.current = true;
+    } else {
+      localStorage.setItem('alerts_muted', isMuted.toString());
+      localStorage.setItem('alerts_muted_user_id', userId);
+    }
+  }, [isMuted, userId]);
 
   useEffect(() => {
     // Only connect if the user has permission to view alerts or the dashboard

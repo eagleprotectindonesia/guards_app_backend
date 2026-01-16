@@ -244,6 +244,113 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
   return result;
 }
 
+/**
+ * Soft deletes all future shifts for an employee.
+ * Used when an employee's role changes from on_site to office.
+ */
+export async function deleteFutureShiftsByEmployee(employeeId: string, adminId: string, tx: any) {
+  const now = new Date();
+  
+  // Find future shifts to log them (optional but good for history)
+  const futureShifts: { id: string }[] = await tx.shift.findMany({
+    where: {
+      employeeId,
+      startsAt: { gt: now },
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+
+  if (futureShifts.length === 0) return 0;
+
+  const shiftIds = futureShifts.map((s: { id: string }) => s.id);
+
+  await tx.shift.updateMany({
+    where: {
+      id: { in: shiftIds },
+    },
+    data: {
+      deletedAt: now,
+      lastUpdatedById: adminId,
+    },
+  });
+
+  // Log in changelog
+  await tx.changelog.create({
+    data: {
+      action: 'BULK_DELETE',
+      entityType: 'Shift',
+      entityId: `employee:${employeeId}`,
+      adminId: adminId,
+      details: {
+        reason: 'ROLE_CHANGE_TO_OFFICE',
+        count: shiftIds.length,
+        shiftIds,
+      },
+    },
+  });
+
+  // Notify employee via stream
+  await redis.xadd(`employee:stream:${employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shifts_deleted', 'reason', 'role_change');
+
+  return shiftIds.length;
+}
+
+/**
+ * Soft deletes all future shifts for all employees of a designation.
+ * Used when a designation's role changes from on_site to office.
+ */
+export async function deleteFutureShiftsByDesignation(designationId: string, adminId: string, tx: any) {
+  const now = new Date();
+
+  const futureShifts: { id: string; employeeId: string | null }[] = await tx.shift.findMany({
+    where: {
+      employee: {
+        designationId,
+      },
+      startsAt: { gt: now },
+      deletedAt: null,
+    },
+    select: { id: true, employeeId: true },
+  });
+
+  if (futureShifts.length === 0) return 0;
+
+  const shiftIds = futureShifts.map((s: { id: string }) => s.id);
+  const employeeIds = Array.from(new Set(futureShifts.map((s: { employeeId: string | null }) => s.employeeId).filter((id: string | null): id is string => !!id)));
+
+  await tx.shift.updateMany({
+    where: {
+      id: { in: shiftIds },
+    },
+    data: {
+      deletedAt: now,
+      lastUpdatedById: adminId,
+    },
+  });
+
+  await tx.changelog.create({
+    data: {
+      action: 'BULK_DELETE',
+      entityType: 'Shift',
+      entityId: `designation:${designationId}`,
+      adminId: adminId,
+      details: {
+        reason: 'DESIGNATION_ROLE_CHANGE_TO_OFFICE',
+        count: shiftIds.length,
+        shiftIds,
+      },
+    },
+  });
+
+  // Notify all affected employees
+  for (const employeeId of employeeIds) {
+    await redis.xadd(`employee:stream:${employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shifts_deleted', 'reason', 'role_change');
+  }
+
+  return shiftIds.length;
+}
+
 export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.ShiftCreateManyInput[], adminId: string) {
   const createdShifts = await prisma.$transaction(
     async tx => {

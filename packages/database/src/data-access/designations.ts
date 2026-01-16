@@ -1,5 +1,6 @@
 import { db as prisma } from '../client';
 import { Prisma, EmployeeRole } from '@prisma/client';
+import { deleteFutureShiftsByDesignation } from './shifts';
 
 export async function getAllDesignations(includeDeleted = false) {
   return prisma.designation.findMany({
@@ -55,6 +56,12 @@ export async function createDesignation(data: Prisma.DesignationUncheckedCreateI
 
 export async function updateDesignation(id: string, data: Prisma.DesignationUncheckedUpdateInput, adminId: string) {
   return prisma.$transaction(async tx => {
+    // Get current designation state for role comparison
+    const currentDesignation = await tx.designation.findUnique({
+      where: { id, deletedAt: null },
+      select: { role: true },
+    });
+
     const designation = await tx.designation.update({
       where: { id, deletedAt: null },
       data,
@@ -66,6 +73,19 @@ export async function updateDesignation(id: string, data: Prisma.DesignationUnch
         where: { designationId: id, deletedAt: null },
         data: { role: data.role as EmployeeRole },
       });
+
+      // If role changes from on_site to office, delete all future shifts for all affected employees
+      if (currentDesignation?.role === 'on_site' && data.role === 'office') {
+        await deleteFutureShiftsByDesignation(id, adminId, tx);
+      }
+
+      // If role changes from office to on_site, nullify the office assignment for all affected employees
+      if (currentDesignation?.role === 'office' && data.role === 'on_site') {
+        await tx.employee.updateMany({
+          where: { designationId: id, deletedAt: null },
+          data: { officeId: null },
+        });
+      }
     }
 
     await tx.changelog.create({
