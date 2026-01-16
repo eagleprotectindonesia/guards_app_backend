@@ -21,6 +21,9 @@ export async function GET() {
     mustChangePassword: !!mustChangePassword,
     department: employeeAuth.department,
     designation: employeeAuth.designation,
+    role: employeeAuth.role,
+    officeId: employeeAuth.officeId,
+    office: employeeAuth.office,
   };
 
   return NextResponse.json({ 

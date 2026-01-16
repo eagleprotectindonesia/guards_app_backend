@@ -12,7 +12,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
   await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
   const { id } = await params;
 
-  const [employee, { departments, designations }] = await Promise.all([
+  const [employee, { departments, designations, offices }] = await Promise.all([
     getEmployeeById(id),
     getDepartmentsAndDesignations(),
   ]);
@@ -29,6 +29,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
         employee={serializedEmployee} 
         departments={departments} 
         designations={designations} 
+        offices={offices}
       />
     </div>
   );

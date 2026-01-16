@@ -1,11 +1,11 @@
 import { serialize, getPaginationParams, Serialized } from '@/lib/utils';
-import AttendanceList, { AttendanceWithRelations } from './components/attendance-list';
-import AttendanceTabs from './components/attendance-tabs';
+import OfficeAttendanceList, { OfficeAttendanceWithRelations } from './components/office-attendance-list';
+import AttendanceTabs from '../components/attendance-tabs';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
 import { getAllEmployees } from '@/lib/data-access/employees';
-import { getPaginatedAttendance } from '@/lib/data-access/attendance';
+import { getPaginatedOfficeAttendance } from '@/lib/data-access/office-attendance';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
@@ -15,7 +15,7 @@ type AttendancePageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export default async function AttendancePage(props: AttendancePageProps) {
+export default async function OfficeAttendancePage(props: AttendancePageProps) {
   await requirePermission(PERMISSIONS.ATTENDANCE.VIEW);
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
@@ -26,7 +26,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
   const to = typeof searchParams.to === 'string' ? searchParams.to : undefined;
 
   // Build where clause for attendance records
-  const where: Prisma.AttendanceWhereInput = {};
+  const where: Prisma.OfficeAttendanceWhereInput = {};
 
   if (employeeId) {
     where.employeeId = employeeId;
@@ -43,7 +43,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
   }
 
   const [{ attendances, totalCount }, employees] = await Promise.all([
-    getPaginatedAttendance({
+    getPaginatedOfficeAttendance({
       where,
       orderBy: { recordedAt: 'desc' },
       skip,
@@ -52,7 +52,6 @@ export default async function AttendancePage(props: AttendancePageProps) {
     getAllEmployees({ firstName: 'asc' }),
   ]);
 
-  const serializedAttendances = serialize(attendances) as Serialized<AttendanceWithRelations>[];
   const serializedEmployees = serialize(employees);
 
   const initialFilters = {
@@ -64,9 +63,9 @@ export default async function AttendancePage(props: AttendancePageProps) {
   return (
     <div className="max-w-7xl mx-auto py-8">
       <AttendanceTabs />
-      <Suspense fallback={<div>Loading attendances...</div>}>
-        <AttendanceList
-          attendances={serializedAttendances}
+      <Suspense fallback={<div>Loading office attendances...</div>}>
+        <OfficeAttendanceList
+          attendances={serialize(attendances) as Serialized<OfficeAttendanceWithRelations>[]}
           page={page}
           perPage={perPage}
           totalCount={totalCount}

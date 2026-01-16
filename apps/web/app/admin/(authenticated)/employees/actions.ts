@@ -28,6 +28,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/client';
 import { ActionState } from '@/types/actions';
 import { getAllDepartments } from '@/lib/data-access/departments';
 import { getAllDesignations } from '@/lib/data-access/designations';
+import { getAllOffices } from '@/lib/data-access/offices';
 
 export async function getAllEmployeesForExport(): Promise<
   Serialized<EmployeeWithRelations>[]
@@ -37,11 +38,16 @@ export async function getAllEmployeesForExport(): Promise<
 }
 
 export async function getDepartmentsAndDesignations() {
-  const [departments, designations] = await Promise.all([
+  const [departments, designations, offices] = await Promise.all([
     getAllDepartments(),
     getAllDesignations(),
+    getAllOffices(),
   ]);
-  return { departments: serialize(departments), designations: serialize(designations) };
+  return { 
+    departments: serialize(departments), 
+    designations: serialize(designations),
+    offices: serialize(offices)
+  };
 }
 
 type PrismaUniqueConstraintMeta = {
@@ -69,6 +75,7 @@ export async function createEmployee(
     status: formData.get('status') === 'true' ? true : formData.get('status') === 'false' ? false : undefined,
     departmentId: formData.get('departmentId')?.toString() || undefined,
     designationId: formData.get('designationId')?.toString() || undefined,
+    officeId: formData.get('officeId')?.toString() || undefined,
     joinDate: formData.get('joinDate')?.toString() || undefined,
     leftDate: formData.get('leftDate')?.toString() || undefined,
     note: formData.get('note')?.toString() || undefined,
@@ -83,7 +90,7 @@ export async function createEmployee(
     };
   }
 
-  const { password, departmentId, designationId, ...restData } = validatedFields.data;
+  const { password, departmentId, designationId, officeId, ...restData } = validatedFields.data;
 
   try {
     // Hash the password if provided
@@ -92,6 +99,7 @@ export async function createEmployee(
       hashedPassword: await hashPassword(password!),
       ...(departmentId && { department: { connect: { id: departmentId } } }),
       ...(designationId && { designation: { connect: { id: designationId } } }),
+      ...(officeId && { office: { connect: { id: officeId } } }),
     };
 
     await createEmployeeWithChangelog(dataToCreate, adminId!);
@@ -154,6 +162,7 @@ export async function updateEmployee(
     status: formData.get('status') === 'true' ? true : formData.get('status') === 'false' ? false : undefined,
     departmentId: formData.get('departmentId')?.toString() || undefined,
     designationId: formData.get('designationId')?.toString() || undefined,
+    officeId: formData.get('officeId')?.toString() || undefined,
     joinDate: formData.get('joinDate')?.toString() || undefined,
     leftDate: formData.get('leftDate')?.toString() || null,
     note: formData.get('note')?.toString() || null,
@@ -167,13 +176,14 @@ export async function updateEmployee(
     };
   }
 
-  const { departmentId, designationId, ...restData } = validatedFields.data;
+  const { departmentId, designationId, officeId, ...restData } = validatedFields.data;
 
   try {
     const dataToUpdate: Prisma.EmployeeUpdateInput = {
       ...restData,
       department: departmentId ? { connect: { id: departmentId } } : { disconnect: true },
       designation: designationId ? { connect: { id: designationId } } : { disconnect: true },
+      office: officeId ? { connect: { id: officeId } } : { disconnect: true },
     };
 
     await updateEmployeeWithChangelog(id, dataToUpdate, adminId!);

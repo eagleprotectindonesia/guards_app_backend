@@ -112,5 +112,16 @@
   "account": {
     "title": "Account",
     "settings": "Settings"
+  },
+  "officeAttendance": {
+    "title": "Office Attendance",
+    "notRecorded": "You haven't recorded your attendance today.",
+    "clockedIn": "Clocked In ({{time}})",
+    "clockIn": "Clock In",
+    "clockOut": "Clock Out",
+    "clockOutSuccess": "Successfully clocked out",
+    "history": "Today's History",
+    "in": "In",
+    "out": "Out"
   }
 }

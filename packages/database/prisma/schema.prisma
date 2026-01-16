@@ -65,10 +65,12 @@ model Admin {
   resolvedAlerts     Alert[]     @relation("ResolvedBy")
   updatedEmployees   Employee[]  @relation("EmployeeLastUpdatedBy")
   updatedSites       Site[]      @relation("SiteLastUpdatedBy")
+  updatedOffices     Office[]    @relation("OfficeLastUpdatedBy")
   updatedShiftTypes  ShiftType[] @relation("ShiftTypeLastUpdatedBy")
   updatedShifts      Shift[]     @relation("ShiftLastUpdatedBy")
   createdEmployees   Employee[]  @relation("EmployeeCreatedBy")
   createdSites       Site[]      @relation("SiteCreatedBy")
+  createdOffices     Office[]    @relation("OfficeCreatedBy")
   createdShiftTypes  ShiftType[] @relation("ShiftTypeCreatedBy")
   createdShifts      Shift[]     @relation("ShiftCreatedBy")
   changelogs         Changelog[]
@@ -161,8 +163,10 @@ model Employee {
   status          Boolean?     @default(true)
   departmentId    String?      @map("department_id")
   designationId   String?      @map("designation_id")
+  officeId        String?      @map("office_id")
   department      Department?  @relation(fields: [departmentId], references: [id])
   designation     Designation? @relation(fields: [designationId], references: [id])
+  office          Office?      @relation(fields: [officeId], references: [id])
   joinDate        DateTime?    @map("join_date") @db.Date
   leftDate        DateTime?    @map("left_date") @db.Date
   note            String?      @db.Text
@@ -174,6 +178,7 @@ model Employee {
   checkins        Checkin[]
   shifts          Shift[]
   attendances     Attendance[]
+  officeAttendances OfficeAttendance[]
   chatMessages    ChatMessage[]
   lastUpdatedBy   Admin?       @relation("EmployeeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
   createdBy       Admin?       @relation("EmployeeCreatedBy", fields: [createdById], references: [id])
@@ -206,6 +211,29 @@ model Site {
   @@index([status])
   @@index([deletedAt])
   @@map("sites")
+}
+
+model Office {
+  id              String    @id @default(uuid())
+  name            String
+  address         String?
+  latitude        Float?
+  longitude       Float?
+  status          Boolean?  @default(true)
+  lastUpdatedById String?   @map("last_updated_by_id")
+  createdById     String?   @map("created_by_id")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime? @map("deleted_at")
+  note            String?   @db.Text
+  officeAttendances OfficeAttendance[]
+  employees       Employee[]
+  lastUpdatedBy   Admin?    @relation("OfficeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  createdBy       Admin?    @relation("OfficeCreatedBy", fields: [createdById], references: [id])
+
+  @@index([status])
+  @@index([deletedAt])
+  @@map("offices")
 }
 
 model ShiftType {
@@ -372,4 +400,25 @@ enum AttendanceStatus {
   absent
   late
   pending_verification
+  clocked_out
+}
+
+model OfficeAttendance {
+  id         String           @id @default(uuid())
+  officeId   String           @map("office_id")
+  employeeId String           @map("employee_id")
+  recordedAt DateTime         @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  picture    String?
+  status     AttendanceStatus
+  metadata   Json?
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt
+
+  office     Office    @relation(fields: [officeId], references: [id])
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+
+  @@index([recordedAt])
+  @@index([employeeId])
+  @@index([officeId])
+  @@map("office_attendance")
 }

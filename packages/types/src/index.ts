@@ -8,7 +8,7 @@ export type ActionState<T = Record<string, unknown>> = {
 
 export type ShiftStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' | 'cancelled';
 export type CheckInStatus = 'on_time' | 'late' | 'invalid';
-export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification';
+export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification' | 'clocked_out';
 export type EmployeeRole = 'on_site' | 'office';
 
 export interface Department {
@@ -25,6 +25,16 @@ export interface Designation {
   note?: string | null;
 }
 
+export interface Office {
+  id: string;
+  name: string;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  status?: boolean | null;
+  note?: string | null;
+}
+
 export interface Employee {
   id: string;
   firstName: string;
@@ -36,8 +46,10 @@ export interface Employee {
   status?: boolean | null;
   departmentId?: string | null;
   designationId?: string | null;
+  officeId?: string | null;
   department?: Department | null;
   designation?: Designation | null;
+  office?: Office | null;
   joinDate?: string | Date | null;
   leftDate?: string | Date | null;
   note?: string | null;
@@ -74,6 +86,18 @@ export interface Attendance {
   picture?: string | null;
   status: AttendanceStatus;
   metadata?: any;
+}
+
+export interface OfficeAttendance {
+  id: string;
+  officeId: string;
+  employeeId: string;
+  recordedAt: string | Date;
+  picture?: string | null;
+  status: AttendanceStatus;
+  metadata?: any;
+  office?: Office | null;
+  employee?: Employee | null;
 }
 
 // Deprecated: Use Attendance with employeeId

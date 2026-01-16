@@ -6,6 +6,7 @@ async function main() {
   const resources = [
     'employees',
     'sites',
+    'offices',
     'shifts',
     'shift-types',
     'attendance',
@@ -16,6 +17,8 @@ async function main() {
     'roles',
     'system-settings',
     'dashboard',
+    'departments',
+    'designations',
   ];
 
   const actions = ['view', 'create', 'edit', 'delete'];

@@ -13,7 +13,7 @@ export default async function CreateShiftPage() {
   const [sites, shiftTypes, employees] = await Promise.all([
     getActiveSites(),
     prisma.shiftType.findMany({ orderBy: { name: 'asc' } }),
-    getActiveEmployees(),
+    getActiveEmployees('on_site'),
   ]);
 
   return (

@@ -6,6 +6,7 @@
 export const RESOURCES = [
   'employees',
   'sites',
+  'offices',
   'shifts',
   'shift-types',
   'attendance',
@@ -46,6 +47,12 @@ export const PERMISSIONS = {
     CREATE: 'sites:create',
     EDIT: 'sites:edit',
     DELETE: 'sites:delete',
+  },
+  OFFICES: {
+    VIEW: 'offices:view',
+    CREATE: 'offices:create',
+    EDIT: 'offices:edit',
+    DELETE: 'offices:delete',
   },
   SHIFTS: {
     VIEW: 'shifts:view',

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEmployeeApi } from './use-employee-api';
 import { ShiftWithRelations } from '@/app/admin/(authenticated)/shifts/components/shift-list';
 import { CheckInWindowResult } from '@/lib/scheduling';
+import { OfficeAttendance } from '@repo/types';
 
 export type ShiftWithCheckInWindow = ShiftWithRelations & { checkInWindow?: CheckInWindowResult };
 
@@ -31,7 +32,15 @@ export function useProfile() {
       const res = await fetchWithAuth('/api/my/profile');
       if (!res.ok) throw new Error('Failed to fetch profile');
       const data = await res.json();
-      return (data.employee || data.guard) as { id: string; name: string; employeeCode?: string; mustChangePassword: boolean };
+      return (data.employee || data.guard) as { 
+        id: string; 
+        name: string; 
+        employeeCode?: string; 
+        mustChangePassword: boolean;
+        role?: 'on_site' | 'office';
+        officeId?: string;
+        office?: { id: string; name: string; latitude?: number; longitude?: number };
+      };
     },
   });
 }
@@ -155,6 +164,54 @@ export function useRecordAttendance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employee', 'active-shift'] });
+    },
+  });
+}
+
+export function useOfficeAttendance() {
+  const { fetchWithAuth } = useEmployeeApi();
+
+  return useQuery({
+    queryKey: ['employee', 'office-attendance', 'today'],
+    queryFn: async () => {
+      const res = await fetchWithAuth('/api/my/office-attendance/today');
+      if (!res.ok) throw new Error('Failed to fetch today office attendance');
+      const data = await res.json();
+      return data.attendances as OfficeAttendance[];
+    },
+  });
+}
+
+export function useRecordOfficeAttendance() {
+  const { fetchWithAuth } = useEmployeeApi();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ 
+      officeId, 
+      location,
+      status = 'present' 
+    }: { 
+      officeId: string; 
+      location?: { lat: number; lng: number };
+      status?: 'present' | 'clocked_out';
+    }) => {
+      const res = await fetchWithAuth('/api/my/office-attendance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ officeId, location, status }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || data.message || 'Gagal merekam kehadiran kantor');
+      }
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee', 'office-attendance'] });
     },
   });
 }

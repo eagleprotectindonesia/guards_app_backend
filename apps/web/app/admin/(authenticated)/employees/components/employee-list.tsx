@@ -127,6 +127,7 @@ export default function EmployeeList({
         'Employee Code',
         'Department',
         'Designation',
+        'Office',
         'Status',
         'Joined Date',
         'Left Date',
@@ -149,6 +150,7 @@ export default function EmployeeList({
             `"${employee.employeeCode || ''}"`,
             `"${employee.department?.name || ''}"`,
             `"${employee.designation?.name || ''}"`,
+            `"${employee.office?.name || ''}"`,
             employee.status ? 'Active' : 'Inactive',
             `"${employee.joinDate ? format(new Date(employee.joinDate), 'yyyy/MM/dd') : ''}"`,
             `"${employee.leftDate ? format(new Date(employee.leftDate), 'yyyy/MM/dd') : ''}"`,
@@ -286,7 +288,7 @@ export default function EmployeeList({
                   className="text-center"
                 />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
-                  Dept / Desig
+                  Dept / Desig / Office
                 </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
                   Status
@@ -339,6 +341,9 @@ export default function EmployeeList({
                         <div className="flex flex-col gap-0.5">
                           <span className="text-foreground font-medium">{employee.department?.name || '-'}</span>
                           <span className="text-[10px] text-muted-foreground">{employee.designation?.name || '-'}</span>
+                          {employee.office && (
+                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold italic">{employee.office.name}</span>
+                          )}
                         </div>
                       </td>
                       <td className="py-4 px-6 text-sm text-center">

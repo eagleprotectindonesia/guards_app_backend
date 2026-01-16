@@ -83,6 +83,7 @@ export const createEmployeeSchema = z.object({
   status: z.boolean().optional(),
   departmentId: uuidOrEmpty.nullable().optional(),
   designationId: uuidOrEmpty.nullable().optional(),
+  officeId: uuidOrEmpty.nullable().optional(),
   joinDate: z.coerce.date(),
   leftDate: z.coerce.date().optional(),
   note: z.string().optional(),
@@ -132,6 +133,7 @@ export const updateEmployeeSchema = z.object({
   status: z.boolean().optional(),
   departmentId: uuidOrEmpty.nullable().optional(),
   designationId: uuidOrEmpty.nullable().optional(),
+  officeId: uuidOrEmpty.nullable().optional(),
   joinDate: z.coerce.date(),
   leftDate: z.coerce.date().nullable().optional(),
   note: z.string().nullable().optional(),
@@ -220,6 +222,29 @@ export const updateDesignationSchema = createDesignationSchema;
 // --- System Settings ---
 export const updateSettingsSchema = z.record(z.string(), z.string());
 
+// --- Office ---
+export const createOfficeSchema = z.object({
+  name: z.string().min(1),
+  address: z.string().optional(),
+  latitude: z.number(),
+  longitude: z.number(),
+  status: z.boolean().optional(),
+  note: z.string().optional(),
+});
+
+export const updateOfficeSchema = createOfficeSchema;
+
+// --- Office Attendance ---
+export const createOfficeAttendanceSchema = z.object({
+  officeId: z.string().uuid(),
+  employeeId: z.string().min(1),
+  location: z.object({
+    lat: z.number(),
+    lng: z.number(),
+  }).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
+});
+
 export type CreateSiteInput = z.infer<typeof createSiteSchema>;
 export type UpdateSiteInput = CreateSiteInput; // Same for now
 export type CreateAdminInput = z.infer<typeof createAdminSchema>;
@@ -245,3 +270,6 @@ export type UpdateDepartmentInput = CreateDepartmentInput;
 export type CreateDesignationInput = z.infer<typeof createDesignationSchema>;
 export type UpdateDesignationInput = CreateDesignationInput;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
+export type CreateOfficeInput = z.infer<typeof createOfficeSchema>;
+export type UpdateOfficeInput = z.infer<typeof updateOfficeSchema>;
+export type CreateOfficeAttendanceInput = z.infer<typeof createOfficeAttendanceSchema>;

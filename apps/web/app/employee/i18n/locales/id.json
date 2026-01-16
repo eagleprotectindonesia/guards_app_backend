@@ -112,5 +112,16 @@
   "account": {
     "title": "Akun",
     "settings": "Pengaturan"
+  },
+  "officeAttendance": {
+    "title": "Kehadiran Kantor",
+    "notRecorded": "Anda belum melakukan presensi hari ini.",
+    "clockedIn": "Sudah Masuk ({{time}})",
+    "clockIn": "Clock In (Masuk)",
+    "clockOut": "Clock Out (Keluar)",
+    "clockOutSuccess": "Berhasil keluar",
+    "history": "Riwayat Hari Ini",
+    "in": "Masuk",
+    "out": "Keluar"
   }
 }

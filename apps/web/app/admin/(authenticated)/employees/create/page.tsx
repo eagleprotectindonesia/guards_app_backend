@@ -7,11 +7,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function CreateEmployeePage() {
   await requirePermission(PERMISSIONS.EMPLOYEES.CREATE);
-  const { departments, designations } = await getDepartmentsAndDesignations();
+  const { departments, designations, offices } = await getDepartmentsAndDesignations();
 
   return (
     <div className="max-w-6xl mx-auto py-8">
-      <EmployeeForm departments={departments} designations={designations} />
+      <EmployeeForm departments={departments} designations={designations} offices={offices} />
     </div>
   );
 }

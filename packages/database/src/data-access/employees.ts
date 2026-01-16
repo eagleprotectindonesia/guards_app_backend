@@ -43,6 +43,7 @@ export async function getAllEmployees(
     include: {
       department: true,
       designation: true,
+      office: true,
       lastUpdatedBy: {
         select: {
           name: true,
@@ -57,13 +58,18 @@ export async function getAllEmployees(
   });
 }
 
-export async function getActiveEmployees() {
+export async function getActiveEmployees(role?: import('@prisma/client').EmployeeRole) {
   return prisma.employee.findMany({
-    where: { status: true, deletedAt: null },
+    where: { 
+      status: true, 
+      deletedAt: null,
+      ...(role && { role }),
+    },
     orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
     include: {
       department: true,
       designation: true,
+      office: true,
     },
   });
 }
@@ -74,6 +80,7 @@ export async function getEmployeeById(id: string) {
     include: {
       department: true,
       designation: true,
+      office: true,
     },
   });
 }
@@ -84,6 +91,7 @@ export async function findEmployeeByPhone(phone: string) {
     include: {
       department: true,
       designation: true,
+      office: true,
     },
   });
 }
@@ -108,6 +116,7 @@ export async function getPaginatedEmployees(params: {
           include: {
             department: true,
             designation: true,
+            office: true,
             lastUpdatedBy: {
               select: {
                 name: true,
@@ -205,6 +214,7 @@ export async function createEmployeeWithChangelog(data: Prisma.EmployeeCreateInp
             status: createdEmployee.status,
             departmentId: createdEmployee.departmentId,
             designationId: createdEmployee.designationId,
+            officeId: createdEmployee.officeId,
             role: createdEmployee.role,
             joinDate: createdEmployee.joinDate,
             leftDate: createdEmployee.leftDate,
@@ -314,6 +324,7 @@ export async function updateEmployeeWithChangelog(
             status: updatedEmployee.status,
             departmentId: data.department !== undefined ? updatedEmployee.departmentId : undefined,
             designationId: data.designation !== undefined ? updatedEmployee.designationId : undefined,
+            officeId: data.office !== undefined ? updatedEmployee.officeId : undefined,
             joinDate: data.joinDate !== undefined ? updatedEmployee.joinDate : undefined,
             leftDate: data.leftDate !== undefined ? updatedEmployee.leftDate : undefined,
             note: data.note !== undefined ? updatedEmployee.note : undefined,

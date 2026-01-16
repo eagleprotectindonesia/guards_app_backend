@@ -17,7 +17,7 @@ export default async function EditShiftPage({ params }: { params: Promise<{ id: 
     prisma.shift.findUnique({ where: { id } }),
     getActiveSites(),
     prisma.shiftType.findMany({ orderBy: { name: 'asc' } }),
-    getActiveEmployees(),
+    getActiveEmployees('on_site'),
   ]);
 
   if (!shift) {

@@ -14,3 +14,6 @@ export * from './data-access/sites';
 export * from './data-access/roles';
 export * from './data-access/departments';
 export * from './data-access/designations';
+export * from './data-access/offices';
+export * from './data-access/office-attendance';
+

@@ -8,7 +8,7 @@ import { startTransition, useActionState, useEffect, useRef, useMemo } from 'rea
 import { useForm, Controller, Resolver, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { Department, Designation } from '@prisma/client';
+import { Department, Designation, Office } from '@prisma/client';
 import { ExtendedEmployee } from '@repo/database';
 import { DatePicker } from '@/components/ui/date-picker';
 import { useRouter } from 'next/navigation';
@@ -28,9 +28,15 @@ type Props = {
   employee?: Serialized<ExtendedEmployee>; // If provided, it's an edit form
   departments?: Serialized<Department>[];
   designations?: Serialized<Designation>[];
+  offices?: Serialized<Office>[];
 };
 
-export default function EmployeeForm({ employee, departments = [], designations = [] }: Props) {
+export default function EmployeeForm({ 
+  employee, 
+  departments = [], 
+  designations = [],
+  offices = []
+}: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -56,17 +62,23 @@ export default function EmployeeForm({ employee, departments = [], designations 
       lastName: employee?.lastName || '',
       phone: (employee?.phone as string) || '',
       id: employee?.id || '',
-      employeeCode: employee?.employeeCode || employee?.employeeCode || '',
+      employeeCode: employee?.employeeCode || '',
       status: employee?.status ?? true,
       departmentId: employee?.departmentId || '',
       designationId: employee?.designationId || '',
+      officeId: employee?.officeId || '',
       joinDate: employee?.joinDate ? new Date(employee.joinDate) : undefined,
       leftDate: employee?.leftDate ? new Date(employee.leftDate) : undefined,
       note: employee?.note || '',
     },
   });
 
-  const [firstName, lastName, selectedDepartmentId] = watch(['firstName', 'lastName', 'departmentId']);
+  const [firstName, lastName, selectedDepartmentId, selectedDesignationId] = watch([
+    'firstName', 
+    'lastName', 
+    'departmentId',
+    'designationId'
+  ]);
 
   const fullName = `${firstName || ''} ${lastName || ''}`.trim();
 
@@ -74,6 +86,11 @@ export default function EmployeeForm({ employee, departments = [], designations 
     if (!selectedDepartmentId) return [];
     return designations.filter(d => d.departmentId === selectedDepartmentId);
   }, [selectedDepartmentId, designations]);
+
+  const isOfficeRole = useMemo(() => {
+    const designation = designations.find(d => d.id === selectedDesignationId);
+    return designation?.role === 'office';
+  }, [selectedDesignationId, designations]);
 
   useEffect(() => {
     if (state.success) {
@@ -133,12 +150,13 @@ export default function EmployeeForm({ employee, departments = [], designations 
                 control={control}
                 name="title"
                 render={({ field }) => (
-                                  <Select
-                                    onValueChange={field.onChange}
-                                    defaultValue={field.value ?? undefined}
-                                    value={field.value ?? undefined}
-                                    name={field.name}
-                                  >                    <SelectTrigger className="w-full">
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value ?? undefined}
+                    value={field.value ?? undefined}
+                    name={field.name}
+                  >
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select Title" />
                     </SelectTrigger>
                     <SelectContent>
@@ -394,6 +412,39 @@ export default function EmployeeForm({ employee, departments = [], designations 
             />
             {errors.designationId && <p className="text-red-500 text-xs mt-1">{errors.designationId.message}</p>}
           </div>
+
+          {/* Office Field - Only show if designation role is office */}
+          {isOfficeRole && (
+            <div>
+              <label htmlFor="officeId" className="block font-medium text-foreground mb-1">
+                Office
+              </label>
+              <Controller
+                control={control}
+                name="officeId"
+                render={({ field }) => (
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value ?? undefined}
+                    value={field.value ?? undefined}
+                    name={field.name}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Office" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {offices.map(office => (
+                        <SelectItem key={office.id} value={office.id}>
+                          {office.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {errors.officeId && <p className="text-red-500 text-xs mt-1">{errors.officeId.message}</p>}
+            </div>
+          )}
 
           {/* Join Date Field */}
           <div>
