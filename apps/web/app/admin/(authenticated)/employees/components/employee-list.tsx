@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { EmployeeWithRelations } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import { deleteEmployee, getAllEmployeesForExport } from '../actions';
+import { Department, Office } from '@prisma/client';
 import ConfirmDialog from '../../components/confirm-dialog';
 import ChangePasswordModal from './change-password-modal';
 import BulkCreateModal from './bulk-create-modal';
@@ -29,6 +30,10 @@ type EmployeeListProps = {
   sortOrder?: 'asc' | 'desc';
   startDate?: string;
   endDate?: string;
+  departmentId?: string;
+  officeId?: string;
+  departments: Serialized<Department>[];
+  offices: Serialized<Office>[];
 };
 
 export default function EmployeeList({
@@ -40,6 +45,10 @@ export default function EmployeeList({
   sortOrder = 'desc',
   startDate,
   endDate,
+  departmentId,
+  officeId,
+  departments,
+  offices,
 }: EmployeeListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -76,7 +85,7 @@ export default function EmployeeList({
     router.push(`/admin/employees?${params.toString()}`);
   };
 
-  const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date }) => {
+  const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date; departmentId?: string; officeId?: string }) => {
     const params = new URLSearchParams(searchParams.toString());
 
     if (filters.startDate) {
@@ -89,6 +98,18 @@ export default function EmployeeList({
       params.set('endDate', format(filters.endDate, 'yyyy-MM-dd'));
     } else {
       params.delete('endDate');
+    }
+
+    if (filters.departmentId) {
+      params.set('departmentId', filters.departmentId);
+    } else {
+      params.delete('departmentId');
+    }
+
+    if (filters.officeId) {
+      params.set('officeId', filters.officeId);
+    } else {
+      params.delete('officeId');
     }
 
     params.set('page', '1');
@@ -178,7 +199,7 @@ export default function EmployeeList({
     }
   };
 
-  const activeFiltersCount = [startDate, endDate].filter(Boolean).length;
+  const activeFiltersCount = [startDate, endDate, departmentId, officeId].filter(Boolean).length;
 
   return (
     <div>
@@ -451,9 +472,13 @@ export default function EmployeeList({
         isOpen={isFilterOpen}
         onClose={() => setIsFilterOpen(false)}
         onApply={handleApplyFilter}
+        departments={departments}
+        offices={offices}
         initialFilters={{
           startDate,
           endDate,
+          departmentId,
+          officeId,
         }}
       />
 

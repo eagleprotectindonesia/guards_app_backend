@@ -7,6 +7,8 @@ import type { Metadata } from 'next';
 import { getPaginatedEmployees } from '@/lib/data-access/employees';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { getAllDepartments } from '@/lib/data-access/departments';
+import { getAllOffices } from '@/lib/data-access/offices';
 
 export const metadata: Metadata = {
   title: 'Employees Management',
@@ -25,6 +27,8 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
   const query = searchParams.q as string | undefined;
   const startDateParam = searchParams.startDate as string | undefined;
   const endDateParam = searchParams.endDate as string | undefined;
+  const departmentId = searchParams.departmentId as string | undefined;
+  const officeId = searchParams.officeId as string | undefined;
 
   // Handle sorting parameters
   const sortBy = typeof searchParams.sortBy === 'string' ? searchParams.sortBy : 'joinDate'; // Default to joinDate
@@ -55,6 +59,14 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
     ];
   }
 
+  if (departmentId) {
+    where.departmentId = departmentId;
+  }
+
+  if (officeId) {
+    where.officeId = officeId;
+  }
+
   // Date Range Filter logic
   if (startDateParam || endDateParam) {
     where.joinDate = {};
@@ -72,12 +84,16 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
     }
   }
 
-  const { employees, totalCount } = await getPaginatedEmployees({
-    where,
-    orderBy: { [sortField]: sortOrder as 'asc' | 'desc' },
-    skip,
-    take: perPage,
-  });
+  const [{ employees, totalCount }, departments, offices] = await Promise.all([
+    getPaginatedEmployees({
+      where,
+      orderBy: { [sortField]: sortOrder as 'asc' | 'desc' },
+      skip,
+      take: perPage,
+    }),
+    getAllDepartments(),
+    getAllOffices(),
+  ]);
 
   const serializedEmployees = serialize(employees);
 
@@ -93,6 +109,10 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
           sortOrder={sortOrder}
           startDate={startDateParam}
           endDate={endDateParam}
+          departmentId={departmentId}
+          officeId={officeId}
+          departments={serialize(departments)}
+          offices={serialize(offices)}
         />
       </Suspense>
     </div>

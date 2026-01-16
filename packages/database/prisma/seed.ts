@@ -123,39 +123,51 @@ async function main() {
     },
   });
 
-  const guardDesignation = await prisma.designation.upsert({
-    where: { 
-      name_departmentId: {
-        name: 'Security Guard',
-        departmentId: opsDept.id
-      }
-    },
-    update: {
-      role: 'on_site',
-    },
-    create: {
+  let guardDesignation = await prisma.designation.findFirst({
+    where: {
       name: 'Security Guard',
       departmentId: opsDept.id,
-      role: 'on_site',
+      deletedAt: null,
     },
   });
 
-  const officeDesignation = await prisma.designation.upsert({
+  if (guardDesignation) {
+    guardDesignation = await prisma.designation.update({
+      where: { id: guardDesignation.id },
+      data: { role: 'on_site' },
+    });
+  } else {
+    guardDesignation = await prisma.designation.create({
+      data: {
+        name: 'Security Guard',
+        departmentId: opsDept.id,
+        role: 'on_site',
+      },
+    });
+  }
+
+  let officeDesignation = await prisma.designation.findFirst({
     where: {
-      name_departmentId: {
-        name: 'Office Staff',
-        departmentId: opsDept.id
-      }
-    },
-    update: {
-      role: 'office',
-    },
-    create: {
       name: 'Office Staff',
       departmentId: opsDept.id,
-      role: 'office',
+      deletedAt: null,
     },
   });
+
+  if (officeDesignation) {
+    officeDesignation = await prisma.designation.update({
+      where: { id: officeDesignation.id },
+      data: { role: 'office' },
+    });
+  } else {
+    officeDesignation = await prisma.designation.create({
+      data: {
+        name: 'Office Staff',
+        departmentId: opsDept.id,
+        role: 'office',
+      },
+    });
+  }
 
   // 5. Create Employees
   const employeePassword = '123456'; 

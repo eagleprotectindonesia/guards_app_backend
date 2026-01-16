@@ -145,7 +145,6 @@ model Designation {
   updatedAt    DateTime   @updatedAt @map("updated_at")
   deletedAt    DateTime?  @map("deleted_at")
 
-  @@unique([name, departmentId])
   @@index([deletedAt])
   @@map("designations")
 }
@@ -186,6 +185,7 @@ model Employee {
   @@index([status])
   @@index([deletedAt])
   @@index([employeeCode])
+  @@index([officeId])
   @@map("employees")
 }
 
@@ -283,13 +283,11 @@ model Shift {
   lastUpdatedBy               Admin?         @relation("ShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
   attendance                  Attendance?
 
-  @@index([siteId, date])
-  @@index([employeeId, date])
+  @@index([siteId])
   @@index([employeeId, startsAt])
   @@index([startsAt, endsAt])
   @@index([employeeId, status, startsAt])
   @@index([employeeId, status, endsAt])
-  @@index([employeeId, status, date, startsAt])
   @@index([deletedAt])
   @@map("shifts")
 }
@@ -383,7 +381,6 @@ model Attendance {
   @@unique([shiftId])
   @@index([recordedAt])
   @@index([employeeId])
-  @@index([shiftId])
   @@map("attendance")
 }
 

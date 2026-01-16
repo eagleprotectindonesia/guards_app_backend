@@ -33,6 +33,19 @@ export async function getDesignationsByDepartment(departmentId: string, includeD
 
 export async function createDesignation(data: Prisma.DesignationUncheckedCreateInput, adminId: string) {
   return prisma.$transaction(async tx => {
+    // Check for duplicate name in the same department (active only)
+    const existing = await tx.designation.findFirst({
+      where: {
+        name: data.name,
+        departmentId: data.departmentId,
+        deletedAt: null,
+      },
+    });
+
+    if (existing) {
+      throw new Error(`Designation with name "${data.name}" already exists in this department.`);
+    }
+
     const designation = await tx.designation.create({ data });
 
     await tx.changelog.create({
@@ -56,11 +69,35 @@ export async function createDesignation(data: Prisma.DesignationUncheckedCreateI
 
 export async function updateDesignation(id: string, data: Prisma.DesignationUncheckedUpdateInput, adminId: string) {
   return prisma.$transaction(async tx => {
-    // Get current designation state for role comparison
+    // Get current designation state for role comparison and name validation
     const currentDesignation = await tx.designation.findUnique({
       where: { id, deletedAt: null },
-      select: { role: true },
+      select: { role: true, name: true, departmentId: true },
     });
+
+    if (!currentDesignation) {
+      throw new Error('Designation not found.');
+    }
+
+    // Check for duplicate name if name or department is being updated
+    if ((data.name && data.name !== currentDesignation.name) || 
+        (data.departmentId && data.departmentId !== currentDesignation.departmentId)) {
+      const name = (data.name as string) || currentDesignation.name;
+      const departmentId = (data.departmentId as string) || currentDesignation.departmentId;
+
+      const existing = await tx.designation.findFirst({
+        where: {
+          name,
+          departmentId,
+          deletedAt: null,
+          id: { not: id },
+        },
+      });
+
+      if (existing) {
+        throw new Error(`Designation with name "${name}" already exists in this department.`);
+      }
+    }
 
     const designation = await tx.designation.update({
       where: { id, deletedAt: null },
