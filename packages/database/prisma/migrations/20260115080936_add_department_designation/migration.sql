@@ -5,17 +5,38 @@
   - Added the required column `first_name` to the `employees` table without a default value. This is not possible if the table is not empty.
 
 */
--- CreateEnum
-CREATE TYPE "EmployeeTitle" AS ENUM ('Mr', 'Miss', 'Mrs');
+ -- 1. Create the Enum first
+ CREATE TYPE "EmployeeTitle" AS ENUM ('Mr', 'Miss', 'Mrs');
+ 
+ -- 2. Add new columns as NULLABLE first
+ ALTER TABLE "employees" ADD COLUMN "first_name" TEXT;
+ ALTER TABLE "employees" ADD COLUMN "last_name" TEXT;
+ ALTER TABLE "employees" ADD COLUMN "title" "EmployeeTitle" NOT NULL DEFAULT 'Mr';
+ ALTER TABLE "employees" ADD COLUMN "department_id" TEXT;
+ ALTER TABLE "employees" ADD COLUMN "designation_id" TEXT;
 
--- AlterTable
-ALTER TABLE "employees" DROP COLUMN "name",
-ADD COLUMN     "department_id" TEXT,
-ADD COLUMN     "designation_id" TEXT,
-ADD COLUMN     "first_name" TEXT NOT NULL,
-ADD COLUMN     "last_name" TEXT,
-ADD COLUMN     "title" "EmployeeTitle" NOT NULL DEFAULT 'Mr',
-ALTER COLUMN "employee_code" SET DATA TYPE VARCHAR(12);
+-- 3. Data Migration: Split the existing 'name' into 'first_name' and 'last_name'
+-- This logic takes the first word as first_name and the rest as last_name
+UPDATE "employees"
+SET "first_name" = CASE
+    WHEN position(' ' in "name") > 0 THEN substring("name" from 1 for position(' ' in "name") - 1)
+    ELSE "name"
+END,
+"last_name" = CASE
+    WHEN position(' ' in "name") > 0 THEN substring("name" from position(' ' in "name") + 1)
+    ELSE NULL
+END;
+
+-- 4. Enforce NOT NULL on first_name after data is populated
+-- If some names were empty, provide a fallback to avoid errors
+UPDATE "employees" SET "first_name" = 'Employee' WHERE "first_name" IS NULL OR "first_name" = '';
+ALTER TABLE "employees" ALTER COLUMN "first_name" SET NOT NULL;
+
+-- 5. Drop the old 'name' column
+ALTER TABLE "employees" DROP COLUMN "name";
+
+-- 6. Apply other schema changes
+ALTER TABLE "employees" ALTER COLUMN "employee_code" SET DATA TYPE VARCHAR(12);
 
 -- CreateTable
 CREATE TABLE "departments" (
