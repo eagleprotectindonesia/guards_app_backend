@@ -68,6 +68,7 @@ export default function DesignationList({ designations }: DesignationListProps) 
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Department</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Role</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
                   Actions
@@ -77,7 +78,7 @@ export default function DesignationList({ designations }: DesignationListProps) 
             <tbody className="divide-y divide-border">
               {designations.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
                     No designations found. Create one to get started.
                   </td>
                 </tr>
@@ -88,6 +89,15 @@ export default function DesignationList({ designations }: DesignationListProps) 
                     <td className="py-4 px-6 text-sm">
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400">
                         {desig.department.name}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6 text-sm">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        desig.role === 'on_site' 
+                          ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' 
+                          : 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400'
+                      }`}>
+                        {desig.role === 'on_site' ? 'On Site' : 'Office'}
                       </span>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">

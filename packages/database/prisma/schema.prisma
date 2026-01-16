@@ -12,9 +12,8 @@ enum AdminRole {
 }
 
 enum EmployeeRole {
-  guard
-  supervisor
-  manager
+  on_site
+  office
 }
 
 enum EmployeeTitle {
@@ -135,6 +134,7 @@ model Department {
 model Designation {
   id           String     @id @default(uuid())
   name         String
+  role         EmployeeRole @default(on_site)
   note         String?    @db.Text
   departmentId String     @map("department_id")
   department   Department @relation(fields: [departmentId], references: [id])
@@ -143,6 +143,7 @@ model Designation {
   updatedAt    DateTime   @updatedAt @map("updated_at")
   deletedAt    DateTime?  @map("deleted_at")
 
+  @@unique([name, departmentId])
   @@index([deletedAt])
   @@map("designations")
 }
@@ -156,7 +157,7 @@ model Employee {
   hashedPassword  String       @map("hashed_password")
   tokenVersion    Int          @default(0) @map("token_version")
   employeeCode    String?      @map("employee_code") @db.VarChar(12)
-  role            EmployeeRole @default(guard)
+  role            EmployeeRole?
   status          Boolean?     @default(true)
   departmentId    String?      @map("department_id")
   designationId   String?      @map("designation_id")

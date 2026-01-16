@@ -130,10 +130,30 @@ async function main() {
         departmentId: opsDept.id
       }
     },
-    update: {},
+    update: {
+      role: 'on_site',
+    },
     create: {
       name: 'Security Guard',
       departmentId: opsDept.id,
+      role: 'on_site',
+    },
+  });
+
+  const officeDesignation = await prisma.designation.upsert({
+    where: {
+      name_departmentId: {
+        name: 'Office Staff',
+        departmentId: opsDept.id
+      }
+    },
+    update: {
+      role: 'office',
+    },
+    create: {
+      name: 'Office Staff',
+      departmentId: opsDept.id,
+      role: 'office',
     },
   });
 

@@ -9,6 +9,7 @@ export type ActionState<T = Record<string, unknown>> = {
 export type ShiftStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' | 'cancelled';
 export type CheckInStatus = 'on_time' | 'late' | 'invalid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification';
+export type EmployeeRole = 'on_site' | 'office';
 
 export interface Department {
   id: string;
@@ -19,6 +20,7 @@ export interface Department {
 export interface Designation {
   id: string;
   name: string;
+  role: EmployeeRole;
   departmentId: string;
   note?: string | null;
 }
@@ -30,6 +32,7 @@ export interface Employee {
   name: string; // Computed/Backward compatibility
   phone: string;
   employeeCode?: string | null;
+  role: EmployeeRole;
   status?: boolean | null;
   departmentId?: string | null;
   designationId?: string | null;

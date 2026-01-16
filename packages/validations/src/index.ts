@@ -5,6 +5,8 @@ export const ShiftStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 
 
 export const EmployeeTitleEnum = z.enum(['Mr', 'Miss', 'Mrs']);
 
+export const EmployeeRoleEnum = z.enum(['on_site', 'office']);
+
 // --- Site ---
 export const createSiteSchema = z.object({
   name: z.string().min(1),
@@ -208,6 +210,7 @@ export const updateDepartmentSchema = createDepartmentSchema;
 // --- Designation ---
 export const createDesignationSchema = z.object({
   name: z.string().min(1, 'Designation name is required'),
+  role: EmployeeRoleEnum,
   departmentId: z.string().uuid('Invalid department ID'),
   note: z.string().optional(),
 });

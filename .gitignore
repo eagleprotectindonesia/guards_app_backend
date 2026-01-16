@@ -49,3 +49,5 @@ packages/database/src/generated
 
 # project specific
 certificates
+
+conductor

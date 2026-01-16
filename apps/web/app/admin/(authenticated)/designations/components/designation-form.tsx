@@ -51,6 +51,23 @@ export default function DesignationForm({ designation, departments }: Props) {
         </div>
 
         <div>
+          <label htmlFor="role" className="block font-medium text-foreground mb-1">
+            Role Type
+          </label>
+          <select
+            name="role"
+            id="role"
+            defaultValue={designation?.role || 'on_site'}
+            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+            required
+          >
+            <option value="on_site">On Site</option>
+            <option value="office">Office</option>
+          </select>
+          {state.errors?.role && <p className="text-red-500 text-xs mt-1">{state.errors.role[0]}</p>}
+        </div>
+
+        <div>
           <label htmlFor="departmentId" className="block font-medium text-foreground mb-1">
             Department
           </label>

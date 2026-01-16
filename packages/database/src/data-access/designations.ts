@@ -1,5 +1,5 @@
 import { db as prisma } from '../client';
-import { Prisma } from '@prisma/client';
+import { Prisma, EmployeeRole } from '@prisma/client';
 
 export async function getAllDesignations(includeDeleted = false) {
   return prisma.designation.findMany({
@@ -30,7 +30,7 @@ export async function getDesignationsByDepartment(departmentId: string, includeD
   });
 }
 
-export async function createDesignation(data: Prisma.DesignationCreateUncheckedCreateInput, adminId: string) {
+export async function createDesignation(data: Prisma.DesignationUncheckedCreateInput, adminId: string) {
   return prisma.$transaction(async tx => {
     const designation = await tx.designation.create({ data });
 
@@ -42,6 +42,7 @@ export async function createDesignation(data: Prisma.DesignationCreateUncheckedC
         adminId,
         details: { 
           name: designation.name,
+          role: designation.role,
           departmentId: designation.departmentId,
           note: designation.note
         },
@@ -52,12 +53,20 @@ export async function createDesignation(data: Prisma.DesignationCreateUncheckedC
   });
 }
 
-export async function updateDesignation(id: string, data: Prisma.DesignationUpdateUncheckedUpdateInput, adminId: string) {
+export async function updateDesignation(id: string, data: Prisma.DesignationUncheckedUpdateInput, adminId: string) {
   return prisma.$transaction(async tx => {
     const designation = await tx.designation.update({
       where: { id, deletedAt: null },
       data,
     });
+
+    // If role is updated, propagate to all employees with this designation
+    if (data.role && typeof data.role === 'string') {
+      await tx.employee.updateMany({
+        where: { designationId: id, deletedAt: null },
+        data: { role: data.role as EmployeeRole },
+      });
+    }
 
     await tx.changelog.create({
       data: {
@@ -67,6 +76,7 @@ export async function updateDesignation(id: string, data: Prisma.DesignationUpda
         adminId,
         details: { 
           name: designation.name,
+          role: designation.role,
           departmentId: designation.departmentId,
           note: designation.note
         },

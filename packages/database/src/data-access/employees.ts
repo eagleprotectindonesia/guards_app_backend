@@ -148,6 +148,20 @@ export async function createEmployeeWithChangelog(data: Prisma.EmployeeCreateInp
 
   return prisma.$transaction(
     async tx => {
+      // Logic to sync role from designation
+      let roleToSet = data.role; // Default to provided role if any
+      const designationId = data.designation?.connect?.id;
+
+      if (designationId) {
+        const designation = await tx.designation.findUnique({
+          where: { id: designationId },
+          select: { role: true },
+        });
+        if (designation) {
+          roleToSet = designation.role;
+        }
+      }
+
       const code = data.employeeCode;
       if (code && effectiveStatus) {
         const existing = await tx.employee.findFirst({
@@ -167,6 +181,7 @@ export async function createEmployeeWithChangelog(data: Prisma.EmployeeCreateInp
       const createdEmployee = await tx.employee.create({
         data: {
           ...data,
+          role: roleToSet,
           status: effectiveStatus,
           lastUpdatedBy: { connect: { id: adminId } },
           createdBy: { connect: { id: adminId } },
@@ -190,6 +205,7 @@ export async function createEmployeeWithChangelog(data: Prisma.EmployeeCreateInp
             status: createdEmployee.status,
             departmentId: createdEmployee.departmentId,
             designationId: createdEmployee.designationId,
+            role: createdEmployee.role,
             joinDate: createdEmployee.joinDate,
             leftDate: createdEmployee.leftDate,
             note: createdEmployee.note,
@@ -236,6 +252,22 @@ export async function updateEmployeeWithChangelog(
         ...data,
         status: effectiveStatus,
       };
+
+      // Logic to sync role from designation
+      const designationConnectId = data.designation?.connect?.id;
+      const designationDisconnect = data.designation?.disconnect;
+
+      if (designationConnectId) {
+        const designation = await tx.designation.findUnique({
+          where: { id: designationConnectId },
+          select: { role: true },
+        });
+        if (designation) {
+          updateData.role = designation.role;
+        }
+      } else if (designationDisconnect) {
+        updateData.role = null;
+      }
 
       if (adminId) {
         updateData.lastUpdatedBy = { connect: { id: adminId } };
@@ -414,19 +446,37 @@ export async function bulkCreateEmployeesWithChangelog(
   employeesData: Prisma.EmployeeCreateManyInput[],
   adminId: string
 ) {
-  const finalData = employeesData.map(g => ({
-    ...g,
-    status: getEffectiveStatus(
-      g.status ?? true,
-      g.joinDate as Date | string | undefined,
-      g.leftDate as Date | string | undefined
-    ),
-    createdById: adminId,
-    lastUpdatedById: adminId,
-  }));
-
   return prisma.$transaction(
     async tx => {
+      // 1. Resolve roles from designations if present in input
+      const designationIds = employeesData
+        .map(e => e.designationId)
+        .filter((id): id is string => !!id);
+
+      const uniqueDesignationIds = Array.from(new Set(designationIds));
+      let designationRoleMap = new Map<string, import('@prisma/client').EmployeeRole>();
+
+      if (uniqueDesignationIds.length > 0) {
+        const designations = await tx.designation.findMany({
+          where: { id: { in: uniqueDesignationIds } },
+          select: { id: true, role: true },
+        });
+        designationRoleMap = new Map(designations.map(d => [d.id, d.role]));
+      }
+
+      // 2. Prepare final data with roles
+      const finalData = employeesData.map(g => ({
+        ...g,
+        role: g.designationId ? designationRoleMap.get(g.designationId) ?? null : null,
+        status: getEffectiveStatus(
+          g.status ?? true,
+          g.joinDate as Date | string | undefined,
+          g.leftDate as Date | string | undefined
+        ),
+        createdById: adminId,
+        lastUpdatedById: adminId,
+      }));
+
       // Check for duplicate employee codes in the batch
       const activeEmployeeCodes = finalData
         .filter(g => g.employeeCode && g.status === true)
@@ -462,6 +512,7 @@ export async function bulkCreateEmployeesWithChangelog(
           employeeCode: true,
           status: true,
           joinDate: true,
+          role: true,
         },
       });
 
@@ -485,6 +536,7 @@ export async function bulkCreateEmployeesWithChangelog(
             employeeCode: g.employeeCode,
             status: g.status,
             joinDate: g.joinDate,
+            role: g.role,
           },
         })),
       });

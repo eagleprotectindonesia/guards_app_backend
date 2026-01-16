@@ -18,6 +18,7 @@ export async function createDesignationAction(
   const adminId = await getAdminIdFromToken();
   const validatedFields = createDesignationSchema.safeParse({
     name: formData.get('name'),
+    role: formData.get('role'),
     departmentId: formData.get('departmentId'),
     note: formData.get('note'),
   });
@@ -53,6 +54,7 @@ export async function updateDesignationAction(
   const adminId = await getAdminIdFromToken();
   const validatedFields = createDesignationSchema.safeParse({
     name: formData.get('name'),
+    role: formData.get('role'),
     departmentId: formData.get('departmentId'),
     note: formData.get('note'),
   });
