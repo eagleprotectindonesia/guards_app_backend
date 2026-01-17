@@ -19,6 +19,29 @@ export async function getDepartmentById(id: string) {
   });
 }
 
+export async function getPaginatedDepartments(params: {
+  where?: Prisma.DepartmentWhereInput;
+  orderBy?: Prisma.DepartmentOrderByWithRelationInput;
+  skip?: number;
+  take?: number;
+}) {
+  const { where, orderBy, skip, take } = params;
+
+  const [departments, totalCount] = await Promise.all([
+    prisma.department.findMany({
+      where: { ...where, deletedAt: null },
+      orderBy: orderBy || { name: 'asc' },
+      skip,
+      take,
+    }),
+    prisma.department.count({
+      where: { ...where, deletedAt: null },
+    }),
+  ]);
+
+  return { departments, totalCount };
+}
+
 export async function createDepartment(data: Prisma.DepartmentCreateInput, adminId: string) {
   return prisma.$transaction(async tx => {
     const department = await tx.department.create({ data });

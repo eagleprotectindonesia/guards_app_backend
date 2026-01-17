@@ -31,6 +31,32 @@ export async function getDesignationsByDepartment(departmentId: string, includeD
   });
 }
 
+export async function getPaginatedDesignations(params: {
+  where?: Prisma.DesignationWhereInput;
+  orderBy?: Prisma.DesignationOrderByWithRelationInput;
+  skip?: number;
+  take?: number;
+}) {
+  const { where, orderBy, skip, take } = params;
+
+  const [designations, totalCount] = await Promise.all([
+    prisma.designation.findMany({
+      where: { ...where, deletedAt: null },
+      orderBy: orderBy || { name: 'asc' },
+      skip,
+      take,
+      include: {
+        department: true,
+      },
+    }),
+    prisma.designation.count({
+      where: { ...where, deletedAt: null },
+    }),
+  ]);
+
+  return { designations, totalCount };
+}
+
 export async function createDesignation(data: Prisma.DesignationUncheckedCreateInput, adminId: string) {
   return prisma.$transaction(async tx => {
     // Check for duplicate name in the same department (active only)

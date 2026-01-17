@@ -1,6 +1,6 @@
 import { db as prisma } from '../client';
 import { redis } from '../redis';
-import { Prisma } from '@prisma/client';
+import { EmployeeRole, Prisma } from '@prisma/client';
 import { isValid, startOfDay, isAfter, isBefore, parseISO } from 'date-fns';
 import { deleteFutureShiftsByEmployee } from './shifts';
 
@@ -59,10 +59,10 @@ export async function getAllEmployees(
   });
 }
 
-export async function getActiveEmployees(role?: import('@prisma/client').EmployeeRole) {
+export async function getActiveEmployees(role?: EmployeeRole) {
   return prisma.employee.findMany({
-    where: { 
-      status: true, 
+    where: {
+      status: true,
       deletedAt: null,
       ...(role && { role }),
     },
@@ -492,9 +492,7 @@ export async function bulkCreateEmployeesWithChangelog(
   return prisma.$transaction(
     async tx => {
       // 1. Resolve roles from designations if present in input
-      const designationIds = employeesData
-        .map(e => e.designationId)
-        .filter((id): id is string => !!id);
+      const designationIds = employeesData.map(e => e.designationId).filter((id): id is string => !!id);
 
       const uniqueDesignationIds = Array.from(new Set(designationIds));
       let designationRoleMap = new Map<string, import('@prisma/client').EmployeeRole>();
@@ -510,7 +508,7 @@ export async function bulkCreateEmployeesWithChangelog(
       // 2. Prepare final data with roles
       const finalData = employeesData.map(g => ({
         ...g,
-        role: g.designationId ? designationRoleMap.get(g.designationId) ?? null : null,
+        role: g.designationId ? (designationRoleMap.get(g.designationId) ?? null) : null,
         status: getEffectiveStatus(
           g.status ?? true,
           g.joinDate as Date | string | undefined,
@@ -589,30 +587,3 @@ export async function bulkCreateEmployeesWithChangelog(
     { timeout: 15000 }
   );
 }
-
-// --- Backward Compatibility Aliases ---
-
-/** @deprecated Use getAllEmployees */
-export const getAllGuards = getAllEmployees;
-/** @deprecated Use getActiveEmployees */
-export const getActiveGuards = getActiveEmployees;
-/** @deprecated Use getEmployeeById */
-export const getGuardById = getEmployeeById;
-/** @deprecated Use findEmployeeByPhone */
-export const findGuardByPhone = findEmployeeByPhone;
-/** @deprecated Use getPaginatedEmployees */
-export const getPaginatedGuards = getPaginatedEmployees;
-/** @deprecated Use updateEmployee */
-export const updateGuard = updateEmployee;
-/** @deprecated Use createEmployeeWithChangelog */
-export const createGuardWithChangelog = createEmployeeWithChangelog;
-/** @deprecated Use updateEmployeeWithChangelog */
-export const updateGuardWithChangelog = updateEmployeeWithChangelog;
-/** @deprecated Use updateEmployeePasswordWithChangelog */
-export const updateGuardPasswordWithChangelog = updateEmployeePasswordWithChangelog;
-/** @deprecated Use deleteEmployeeWithChangelog */
-export const deleteGuardWithChangelog = deleteEmployeeWithChangelog;
-/** @deprecated Use findExistingEmployees */
-export const findExistingGuards = findExistingEmployees;
-/** @deprecated Use bulkCreateEmployeesWithChangelog */
-export const bulkCreateGuardsWithChangelog = bulkCreateEmployeesWithChangelog;
