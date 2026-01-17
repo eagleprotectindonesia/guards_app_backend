@@ -37,7 +37,8 @@ export async function GET(request: NextRequest) {
     ]);
 
     const safeSites = sites.map(site => {
-      const { lastUpdatedById: _lubi, createdById: _cbi, ...safeSite } = site;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { lastUpdatedById: _, createdById: __, deletedAt, ...safeSite } = site;
       return safeSite;
     });
 

@@ -51,7 +51,7 @@ describe('Middleware - External API Auth', () => {
     const req = new NextRequest(new URL('http://localhost/api/external/v1/employees'));
     
     const response = await proxy(req);
-    const data = await (response as any).json?.();
+    const data = await response.json();
 
     expect(response.status).toBe(401);
     expect(data?.error).toBe('Unauthorized: Missing API Key');
@@ -65,7 +65,7 @@ describe('Middleware - External API Auth', () => {
     (validateApiKeyInDb as jest.Mock).mockResolvedValue(null);
 
     const response = await proxy(req);
-    const data = await (response as any).json?.();
+    const data = await response.json();
 
     expect(response.status).toBe(401);
     expect(data?.error).toBe('Unauthorized: Invalid API Key');

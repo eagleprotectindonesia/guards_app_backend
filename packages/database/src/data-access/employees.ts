@@ -115,9 +115,24 @@ export async function getPaginatedEmployees(params: {
           skip,
           take,
           include: {
-            department: true,
-            designation: true,
-            office: true,
+            department: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            designation: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            office: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
             lastUpdatedBy: {
               select: {
                 name: true,

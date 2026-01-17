@@ -56,9 +56,9 @@ export type EmployeeWithRelations = NonNullable<Prisma.Result<
   typeof db.employee,
   {
     include: {
-      department: true;
-      designation: true;
-      office: true;
+      department: { select: { id: true; name: true } };
+      designation: { select: { id: true; name: true } };
+      office: { select: { id: true; name: true } };
       lastUpdatedBy: { select: { name: true } };
       createdBy: { select: { name: true } };
     };

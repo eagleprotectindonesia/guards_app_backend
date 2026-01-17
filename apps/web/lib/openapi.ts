@@ -1,8 +1,11 @@
 import {
   OpenAPIRegistry,
   OpenApiGeneratorV3,
+  extendZodWithOpenApi,
 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
+
+extendZodWithOpenApi(z);
 
 export const registry = new OpenAPIRegistry();
 
@@ -20,6 +23,11 @@ const PaginationSchema = registry.register('Pagination', z.object({
   limit: z.number(),
   totalPages: z.number(),
 }));
+
+const RelationSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
 
 // --- Employee ---
 const EmployeeSchema = registry.register('Employee', z.object({
@@ -40,6 +48,9 @@ const EmployeeSchema = registry.register('Employee', z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   deletedAt: z.string().nullable(),
+  department: RelationSchema.nullable(),
+  designation: RelationSchema.nullable(),
+  office: RelationSchema.nullable(),
 }));
 
 registry.registerPath({

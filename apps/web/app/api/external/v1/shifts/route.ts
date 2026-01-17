@@ -47,21 +47,22 @@ export async function GET(request: NextRequest) {
         take: limit,
         include: {
           site: {
-            select: { id: true, name: true }
+            select: { id: true, name: true },
           },
           employee: {
-            select: { id: true, firstName: true, lastName: true }
+            select: { id: true, firstName: true, lastName: true },
           },
           shiftType: {
-            select: { id: true, name: true, startTime: true, endTime: true }
-          }
-        }
+            select: { id: true, name: true, startTime: true, endTime: true },
+          },
+        },
       }),
       prisma.shift.count({ where }),
     ]);
 
     const safeShifts = shifts.map(shift => {
-      const { lastUpdatedById: _lubi, createdById: _cbi, ...safeShift } = shift;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { lastUpdatedById, createdById, deletedAt, ...safeShift } = shift;
       return safeShift;
     });
 

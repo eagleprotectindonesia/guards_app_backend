@@ -46,13 +46,8 @@ export async function GET(request: NextRequest) {
 
     // Strip sensitive data
     const safeEmployees = employees.map(emp => {
-      const { 
-        hashedPassword: _hp, 
-        tokenVersion: _tv, 
-        lastUpdatedById: _lubi, 
-        createdById: _cbi, 
-        ...safeEmp 
-      } = emp;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { hashedPassword, tokenVersion, lastUpdatedById, createdById, deletedAt, ...safeEmp } = emp;
       return safeEmp;
     });
 

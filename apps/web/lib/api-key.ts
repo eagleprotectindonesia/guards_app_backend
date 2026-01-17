@@ -61,7 +61,7 @@ export async function validateApiKeyInDb(rawKey: string) {
   prisma.apiKey.update({
     where: { id: apiKeyEntry.id },
     data: { lastUsedAt: new Date() }
-  }).catch(err => console.error('Failed to update API key lastUsedAt:', err));
+  }).catch(_err => console.error('Failed to update API key lastUsedAt:', _err));
 
   return apiKeyEntry;
 }
