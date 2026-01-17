@@ -53,7 +53,7 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
 
   const handleDownloadExample = () => {
     // Create CSV content with headers only
-    const csvContent = 'Name,Phone,Employee ID,Employee Code,Note,Join Date (YYYY-MM-DD),Password\n';
+    const csvContent = 'Title,First Name,Last Name,Phone,Employee ID,Employee Code,Note,Join Date (YYYY-MM-DD),Password,Department,Designation,Office\n';
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -81,11 +81,11 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
               Download Example
             </button>
           </div>
-          <code className="text-xs bg-muted p-2 rounded block border border-border">
-            Name, Phone, Employee ID, Employee Code, Note, Join Date (YYYY-MM-DD), Password
+          <code className="text-xs bg-muted p-2 rounded block border border-border whitespace-pre-wrap overflow-x-auto">
+            Title, First Name, Last Name, Phone, Employee ID, Employee Code, Note, Join Date (YYYY-MM-DD), Password, Department, Designation, Office
           </code>
           <p className="text-xs text-muted-foreground/60 mt-1">
-            Note: Each employee must have a unique password provided in the CSV file.
+            Note: Titles must be one of: Mr, Miss, Mrs. Department, Designation, and Office names must match existing records exactly (case-insensitive).
           </p>
         </div>
 

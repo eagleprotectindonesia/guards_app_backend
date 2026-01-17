@@ -20,7 +20,7 @@ import {
 import { hashPassword, serialize, Serialized } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { Prisma } from '@prisma/client';
-import { ExtendedEmployee, EmployeeWithRelations } from '@repo/database';
+import { EmployeeWithRelations } from '@repo/database';
 import { parse, isValid } from 'date-fns';
 import { parsePhoneNumberWithError } from 'libphonenumber-js';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
@@ -280,6 +280,16 @@ export async function bulkCreateEmployees(
     return { success: false, message: 'No file provided.' };
   }
 
+  const [allDepts, allDesigs, allOffices] = await Promise.all([
+    getAllDepartments(),
+    getAllDesignations(),
+    getAllOffices(),
+  ]);
+
+  const deptMap = new Map(allDepts.map(d => [d.name.toLowerCase(), d.id]));
+  const officeMap = new Map(allOffices.map(o => [o.name.toLowerCase(), o.id]));
+  const desigMap = new Map(allDesigs.map(d => [d.name.toLowerCase(), d.id]));
+
   const text = await file.text();
   const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
 
@@ -303,24 +313,67 @@ export async function bulkCreateEmployees(
     // Simple CSV split, handling basic quotes stripping
     const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
 
-    // Expected: First Name, Last Name, Phone, ID (Employee ID), Employee Code, Note, Join Date, Password
-    if (cols.length < 5) {
+    // Expected: Title, First Name, Last Name, Phone, ID (Employee ID), Employee Code, Note, Join Date, Password, Department, Designation, Office
+    if (cols.length < 9) {
       errors.push(
-        `Row ${i + 1}: Insufficient columns. First Name, Last Name, Phone, Employee ID, Password, and Join Date are required.`
+        `Row ${i + 1}: Insufficient columns. Expected at least 9 columns (Title, First Name, Last Name, Phone, Employee ID, Employee Code, Note, Join Date, Password).`
       );
       continue;
     }
 
-    const [firstName, lastName, phoneRaw, id, employeeCode, note, joinDateStr, password] = cols;
+    const [
+      title,
+      firstName,
+      lastName,
+      phoneRaw,
+      id,
+      employeeCode,
+      note,
+      joinDateStr,
+      password,
+      deptName,
+      desigName,
+      officeName,
+    ] = cols;
     let phone = phoneRaw;
 
     if (phone && !phone.startsWith('+')) {
       phone = '+' + phone;
     }
 
-    if (!firstName || !lastName || !phone || !id) {
-      errors.push(`Row ${i + 1}: First Name, Last Name, Phone, and Employee ID are required.`);
+    if (!title || !firstName || !phone || !id) {
+      errors.push(`Row ${i + 1}: Title, First Name, Phone, and Employee ID are required.`);
       continue;
+    }
+
+    // Resolve Department
+    let departmentId: string | undefined = undefined;
+    if (deptName) {
+      departmentId = deptMap.get(deptName.toLowerCase());
+      if (!departmentId) {
+        errors.push(`Row ${i + 1}: Department '${deptName}' not found.`);
+        continue;
+      }
+    }
+
+    // Resolve Designation
+    let designationId: string | undefined = undefined;
+    if (desigName) {
+      designationId = desigMap.get(desigName.toLowerCase());
+      if (!designationId) {
+        errors.push(`Row ${i + 1}: Designation '${desigName}' not found.`);
+        continue;
+      }
+    }
+
+    // Resolve Office
+    let officeId: string | undefined = undefined;
+    if (officeName) {
+      officeId = officeMap.get(officeName.toLowerCase());
+      if (!officeId) {
+        errors.push(`Row ${i + 1}: Office '${officeName}' not found.`);
+        continue;
+      }
     }
 
     // Validate ID length and alphanumeric (using same rules as schema for consistency)
@@ -402,14 +455,18 @@ export async function bulkCreateEmployees(
     }
 
     const inputData = {
+      title,
       firstName,
-      lastName,
+      lastName: lastName || undefined,
       phone,
       id,
       employeeCode: employeeCodeValue,
       note: note || undefined,
       joinDate: joinDateISO,
       password: password,
+      departmentId,
+      designationId,
+      officeId,
     };
 
     // Use schema for validation
@@ -451,14 +508,18 @@ export async function bulkCreateEmployees(
     const hashedPasswordForEmployee = await hashPassword(validationResult.data.password);
 
     employeesToCreate.push({
+      title: validationResult.data.title,
       firstName: validationResult.data.firstName,
-      lastName: validationResult.data.lastName,
+      lastName: validationResult.data.lastName || null,
       phone: validationResult.data.phone,
       id: validationResult.data.id,
       employeeCode: validationResult.data.employeeCode || null,
       note: validationResult.data.note || null,
       joinDate: validationResult.data.joinDate as unknown as Date,
       hashedPassword: hashedPasswordForEmployee,
+      departmentId: validationResult.data.departmentId || null,
+      designationId: validationResult.data.designationId || null,
+      officeId: validationResult.data.officeId || null,
       status: true,
       lastUpdatedById: adminId || null,
     });
