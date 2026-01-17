@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { verifySession } from '@/lib/auth/session';
 import { AUTH_COOKIES } from '@/lib/auth/constants';
+import { validateApiKeyInDb } from '@/lib/api-key';
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -9,8 +10,26 @@ export async function proxy(request: NextRequest) {
   const isAdminPath = pathname.startsWith('/admin');
   const isAdminApiPath = pathname.startsWith('/api/admin');
   const isLoginPage = pathname === '/admin/login';
+  const isExternalApiPath = pathname.startsWith('/api/external');
 
-  // 2. Only check if it's an admin path and NOT the login page
+  // 2. Handle External API Auth
+  if (isExternalApiPath) {
+    const apiKey = request.headers.get('X-API-KEY');
+
+    if (!apiKey) {
+      return NextResponse.json({ error: 'Unauthorized: Missing API Key' }, { status: 401 });
+    }
+
+    const keyEntry = await validateApiKeyInDb(apiKey);
+
+    if (!keyEntry) {
+      return NextResponse.json({ error: 'Unauthorized: Invalid API Key' }, { status: 401 });
+    }
+
+    return NextResponse.next();
+  }
+
+  // 3. Only check if it's an admin path and NOT the login page
   if ((isAdminPath || isAdminApiPath) && !isLoginPage) {
     const token = request.cookies.get(AUTH_COOKIES.ADMIN)?.value;
 
@@ -43,5 +62,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/api/admin/:path*'],
+  matcher: ['/admin/:path*', '/api/admin/:path*', '/api/external/:path*'],
 };
