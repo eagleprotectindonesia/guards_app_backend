@@ -10,9 +10,10 @@ export async function proxy(request: NextRequest) {
   const isAdminPath = pathname.startsWith('/admin');
   const isAdminApiPath = pathname.startsWith('/api/admin');
   const isLoginPage = pathname === '/admin/login';
-  const isExternalApiPath = pathname.startsWith('/api/external');
+  const isExternalApiPath = pathname.startsWith('/api/external/v1') && pathname !== '/api/external/v1/openapi.json';
+  const isExternalDocsPath = pathname === '/api/external/docs';
 
-  // 2. Handle External API Auth
+  // 2. Handle External API Auth (API Key)
   if (isExternalApiPath) {
     const apiKey = request.headers.get('X-API-KEY');
 
@@ -29,8 +30,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // 3. Only check if it's an admin path and NOT the login page
-  if ((isAdminPath || isAdminApiPath) && !isLoginPage) {
+  // 3. Handle Admin Session Auth (for admin paths AND external docs)
+  if (((isAdminPath || isAdminApiPath) && !isLoginPage) || isExternalDocsPath) {
     const token = request.cookies.get(AUTH_COOKIES.ADMIN)?.value;
 
     let isValid = false;
@@ -46,7 +47,7 @@ export async function proxy(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
       }
 
-      // If it's a page request, redirect to login
+      // If it's a page request (admin page or external docs), redirect to login
       const loginUrl = new URL('/admin/login', request.url);
 
       const response = NextResponse.redirect(loginUrl);
