@@ -419,3 +419,15 @@ model OfficeAttendance {
   @@index([officeId])
   @@map("office_attendance")
 }
+
+model ApiKey {
+  id         String   @id @default(uuid())
+  name       String
+  key        String   @unique // Hashed key
+  status     Boolean  @default(true)
+  lastUsedAt DateTime? @map("last_used_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("api_keys")
+}
