@@ -76,13 +76,15 @@ export async function updateRole(
 }
 
 export async function deleteRole(id: string) {
-  // Check if it's assigned to any admins first?
-  // Prisma will throw if there's a restriction, but let's just do it.
-  const adminCount = await prisma.admin.count({
-    where: { roleId: id },
+  // Check if it's assigned to any active (unsoftdeleted) admins first
+  const activeAdminCount = await prisma.admin.count({
+    where: {
+      roleId: id,
+      deletedAt: null,
+    },
   });
 
-  if (adminCount > 0) {
+  if (activeAdminCount > 0) {
     throw new Error('Cannot delete role that is assigned to active administrators.');
   }
 
@@ -94,7 +96,28 @@ export async function deleteRole(id: string) {
     throw new Error('Cannot delete system roles.');
   }
 
-  return prisma.role.delete({
-    where: { id },
+  return prisma.$transaction(async tx => {
+    // Find all affected (soft-deleted) admins for cache invalidation
+    const admins = await tx.admin.findMany({
+      where: { roleId: id },
+      select: { id: true },
+    });
+
+    if (admins.length > 0) {
+      const keys = admins.flatMap(admin => [
+        `admin:permissions:${admin.id}`,
+        `admin:token_version:${admin.id}`,
+      ]);
+      await redis.del(...keys);
+
+      // Cascade delete these admins
+      await tx.admin.deleteMany({
+        where: { roleId: id },
+      });
+    }
+
+    return tx.role.delete({
+      where: { id },
+    });
   });
 }
