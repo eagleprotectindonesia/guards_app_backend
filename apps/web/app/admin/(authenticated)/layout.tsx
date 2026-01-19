@@ -5,7 +5,6 @@ import { Toaster } from 'react-hot-toast';
 import { getAdminSession } from '@/lib/admin-auth';
 import { AlertProvider } from './context/alert-context';
 import { SessionProvider } from './context/session-context';
-import GlobalAlertManager from './components/global-alert-manager';
 import { Metadata } from 'next';
 import { AdminBreadcrumb } from './components/admin-breadcrumb';
 import { SocketProvider } from '@/components/socket-provider';
@@ -50,7 +49,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               </div>
               <main className="flex-1 p-8 overflow-y-auto">{children}</main>
             </div>
-            <GlobalAlertManager />
             <FloatingChatWidget />
           </div>
         </AlertProvider>
