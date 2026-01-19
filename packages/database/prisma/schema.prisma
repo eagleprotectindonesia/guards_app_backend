@@ -52,6 +52,7 @@ model Admin {
   id                 String      @id @default(uuid())
   name               String
   email              String      @unique
+  profileImage       String?     @map("profile_image")
   hashedPassword     String      @map("hashed_password")
   twoFactorSecret    String?     @map("two_factor_secret")
   twoFactorEnabled   Boolean     @default(false) @map("two_factor_enabled")

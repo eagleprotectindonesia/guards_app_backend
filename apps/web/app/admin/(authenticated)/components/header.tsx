@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { ModeToggle } from '@/components/mode-toggle';
 import AlertNotifications from './alert-notifications';
+import { AdminSession } from '@/lib/admin-auth';
+import AdminProfileDropdown from './admin-profile-dropdown';
 
 function DigitalClock() {
   const [time, setTime] = useState<Date | null>(null);
@@ -45,7 +47,7 @@ function DigitalClock() {
   );
 }
 
-export default function Header() {
+export default function Header({ currentAdmin }: { currentAdmin: AdminSession }) {
   return (
     <header className="h-16 bg-background border-b border-border px-8 flex items-center justify-between sticky top-0 z-10">
       <div className="flex items-center gap-6">
@@ -55,6 +57,7 @@ export default function Header() {
       <div className="flex items-center gap-4">
         <AlertNotifications />
         <ModeToggle />
+        <AdminProfileDropdown currentAdmin={currentAdmin} />
       </div>
     </header>
   );

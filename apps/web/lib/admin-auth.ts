@@ -18,6 +18,7 @@ export interface AdminSession {
   id: string;
   name: string;
   email: string;
+  profileImage: string | null;
   roleName: string | null;
   permissions: string[];
   isSuperAdmin: boolean;
@@ -36,7 +37,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
   const { prisma } = await import('./prisma');
   const admin = await prisma.admin.findUnique({
     where: { id: userId },
-    select: { name: true, email: true },
+    select: { name: true, email: true, profileImage: true },
   });
 
   if (!admin) return null;
@@ -45,6 +46,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
     id: userId,
     name: admin.name,
     email: admin.email,
+    profileImage: admin.profileImage,
     roleName,
     permissions,
     isSuperAdmin: roleName === 'superadmin',

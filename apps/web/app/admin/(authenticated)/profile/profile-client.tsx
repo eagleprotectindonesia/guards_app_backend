@@ -13,6 +13,7 @@ interface ProfileClientProps {
   admin: {
     name: string;
     email: string;
+    profileImage?: string | null;
     twoFactorEnabled: boolean;
   };
 }
@@ -28,6 +29,8 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
   
   const [setupData, setSetupData] = useState<{ secret: string; qrCode: string } | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
+
+  const initials = admin.name.substring(0, 2).toUpperCase();
 
   const handlePasswordSubmit = async (formData: FormData) => {
     startPasswordTransition(async () => {

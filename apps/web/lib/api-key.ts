@@ -23,17 +23,14 @@ export function hashApiKey(key: string): string {
  */
 export function validateApiKey(rawKey: string, hashedKey: string): boolean {
   if (!rawKey || !hashedKey) return false;
-  
+
   const rawHash = hashApiKey(rawKey);
-  
+
   // Use timing-safe comparison to prevent timing attacks
   // Although for API keys this is less critical than passwords, it's good practice.
   try {
-    return crypto.timingSafeEqual(
-      Buffer.from(rawHash, 'hex'),
-      Buffer.from(hashedKey, 'hex')
-    );
-  } catch (e) {
+    return crypto.timingSafeEqual(Buffer.from(rawHash, 'hex'), Buffer.from(hashedKey, 'hex'));
+  } catch {
     return false;
   }
 }
@@ -50,7 +47,7 @@ export async function validateApiKeyInDb(rawKey: string) {
   const hashedKey = hashApiKey(rawKey);
 
   const apiKeyEntry = await prisma.apiKey.findUnique({
-    where: { key: hashedKey, status: true }
+    where: { key: hashedKey, status: true },
   });
 
   if (!apiKeyEntry) {
@@ -58,10 +55,12 @@ export async function validateApiKeyInDb(rawKey: string) {
   }
 
   // Update last used timestamp in the background
-  prisma.apiKey.update({
-    where: { id: apiKeyEntry.id },
-    data: { lastUsedAt: new Date() }
-  }).catch(_err => console.error('Failed to update API key lastUsedAt:', _err));
+  prisma.apiKey
+    .update({
+      where: { id: apiKeyEntry.id },
+      data: { lastUsedAt: new Date() },
+    })
+    .catch(_err => console.error('Failed to update API key lastUsedAt:', _err));
 
   return apiKeyEntry;
 }

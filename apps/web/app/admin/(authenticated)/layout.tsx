@@ -41,9 +41,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               containerStyle={{ zIndex: 99999 }}
               toastOptions={{ style: { zIndex: 99999 } }}
             />
-            <Sidebar currentAdmin={session} />
+            <Sidebar />
             <div className="flex-1 flex flex-col">
-              <Header />
+              <Header currentAdmin={session} />
               <div className="px-8 pt-4">
                 <AdminBreadcrumb />
               </div>

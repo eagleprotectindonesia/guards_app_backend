@@ -6,7 +6,6 @@ import {
   Bell,
   Layers,
   ClipboardCheck,
-  User,
   UserCog,
   Settings,
   Building2,
@@ -41,7 +40,6 @@ export const ADMIN_SECONDARY_NAV_ITEMS: NavItem[] = [
   { name: 'Admins', href: '/admin/admins', icon: UserCog, requiredPermission: 'admins:view' },
   { name: 'Roles', href: '/admin/system/roles', icon: UserCog, requiredPermission: 'roles:view' },
   { name: 'Settings', href: '/admin/settings', icon: Settings, requiredPermission: 'system-settings:view' },
-  { name: 'Profile', href: '/admin/profile', icon: User },
 ];
 
 export const ADMIN_LABEL_MAP: Record<string, string> = {

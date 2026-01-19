@@ -22,6 +22,7 @@ export default async function ProfilePage() {
       admin={{
         name: admin.name,
         email: admin.email,
+        profileImage: admin.profileImage,
         twoFactorEnabled: admin.twoFactorEnabled,
       }}
     />
