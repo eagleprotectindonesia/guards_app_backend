@@ -2,7 +2,7 @@
 module.exports = {
   testEnvironment: "node",
   transform: {
-    "^.+.tsx?$": ["ts-jest", {
+    "^.+\\.tsx?$": ["ts-jest", {
       isolatedModules: true,
       diagnostics: {
         ignoreCodes: [151001]
@@ -19,7 +19,11 @@ module.exports = {
         }
       }
     }],
+    "^.+\\.jsx?$": "ts-jest",
   },
+  transformIgnorePatterns: [
+    "node_modules/(?!(@scure|otplib|@otplib|qrcode|@noble)/)"
+  ],
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/apps/web/$1",
     "^@repo/database$": "<rootDir>/packages/database/src",

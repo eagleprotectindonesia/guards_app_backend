@@ -11,6 +11,7 @@ import PaginationNav from '../../components/pagination-nav';
 import Link from 'next/link';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { ShieldCheck, ShieldAlert } from 'lucide-react';
 
 type AdminListProps = {
   admins: Serialized<Admin & { roleRef?: { name: string } | null }>[];
@@ -75,6 +76,7 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Email</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Role</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">2FA</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
                   Actions
@@ -84,7 +86,7 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
             <tbody className="divide-y divide-border">
               {admins.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     No admins found. Add one to get started.
                   </td>
                 </tr>
@@ -107,6 +109,19 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
                         >
                           {roleName}
                         </span>
+                      </td>
+                      <td className="py-4 px-6 text-center">
+                        <div className="flex justify-center">
+                          {admin.twoFactorEnabled ? (
+                            <span title="2FA Enabled">
+                              <ShieldCheck className="w-5 h-5 text-green-500" />
+                            </span>
+                          ) : (
+                            <span title="2FA Disabled">
+                              <ShieldAlert className="w-5 h-5 text-amber-500" />
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">
                         <div className="max-w-[200px] whitespace-normal wrap-break-words">{admin.note || '-'}</div>

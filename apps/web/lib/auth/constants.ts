@@ -2,6 +2,7 @@ export const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
 export const AUTH_COOKIES = {
   ADMIN: 'admin_token',
+  ADMIN_2FA_PENDING: 'admin_2fa_pending',
   EMPLOYEE: 'employee_token',
 } as const;
 

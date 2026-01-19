@@ -175,3 +175,27 @@ export async function deleteAdmin(id: string) {
     return { success: false, message: 'Failed to delete admin' };
   }
 }
+
+export async function disableAdmin2FA(id: string) {
+  const currentAdmin = await checkSuperAdmin();
+  if (!currentAdmin) {
+    return { success: false, message: 'Unauthorized: Only Super Admins can disable 2FA.' };
+  }
+
+  try {
+    await updateAdminWithChangelog(
+      id,
+      {
+        twoFactorSecret: null,
+        twoFactorEnabled: false,
+      },
+      currentAdmin.id
+    );
+
+    revalidatePath('/admin/admins');
+    return { success: true, message: '2FA disabled successfully for this admin.' };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return { success: false, message: 'Failed to disable 2FA' };
+  }
+}

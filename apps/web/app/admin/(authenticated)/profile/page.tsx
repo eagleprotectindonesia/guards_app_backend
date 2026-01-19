@@ -17,5 +17,13 @@ export default async function ProfilePage() {
 
   if (!admin) redirect('/admin/login');
 
-  return <ProfileClient admin={{ name: admin.name, email: admin.email }} />;
+  return (
+    <ProfileClient
+      admin={{
+        name: admin.name,
+        email: admin.email,
+        twoFactorEnabled: admin.twoFactorEnabled,
+      }}
+    />
+  );
 }

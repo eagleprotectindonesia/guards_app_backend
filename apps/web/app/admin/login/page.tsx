@@ -28,6 +28,13 @@ export default function AdminLogin() {
         throw new Error(data.error || 'Login failed');
       }
 
+      const data = await response.json();
+
+      if (data.requires2FA) {
+        router.push('/admin/login/verify');
+        return;
+      }
+
       // Assuming successful login, redirect to admin dashboard
       router.push('/admin/dashboard');
     } catch (err: unknown) {

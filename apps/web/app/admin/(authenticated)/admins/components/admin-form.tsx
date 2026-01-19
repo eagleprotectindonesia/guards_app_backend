@@ -1,14 +1,15 @@
 'use client';
 
 import { Serialized } from '@/lib/utils';
-import { createAdmin, updateAdmin } from '../actions';
+import { createAdmin, updateAdmin, disableAdmin2FA } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateAdminInput } from '@/lib/validations';
-import { useActionState, useEffect } from 'react';
+import { useActionState, useEffect, useTransition } from 'react';
 import toast from 'react-hot-toast';
 import { Admin, Role } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 import { PasswordInput } from '@/components/ui/password-input';
+import { ShieldAlert } from 'lucide-react';
 
 type Props = {
   admin?: Serialized<Admin & { roleRef?: { id: string; name: string } | null }>;
@@ -17,6 +18,7 @@ type Props = {
 
 export default function AdminForm({ admin, roles }: Props) {
   const router = useRouter();
+  const [isPending2FA, start2FATransition] = useTransition();
   const [state, formAction, isPending] = useActionState<ActionState<CreateAdminInput>, FormData>(
     admin ? updateAdmin.bind(null, admin.id) : createAdmin,
     { success: false }
@@ -31,9 +33,39 @@ export default function AdminForm({ admin, roles }: Props) {
     }
   }, [state, admin, router]);
 
+  const handleDisable2FA = () => {
+    if (!admin) return;
+    if (!confirm(`Are you sure you want to disable 2FA for ${admin.name}?`)) return;
+
+    start2FATransition(async () => {
+      const result = await disableAdmin2FA(admin.id);
+      if (result.success) {
+        toast.success(result.message || '2FA disabled successfully');
+        router.refresh();
+      } else {
+        toast.error(result.message || 'Failed to disable 2FA');
+      }
+    });
+  };
+
   return (
     <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-foreground mb-6">{admin ? 'Edit Admin' : 'Add New Admin'}</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-foreground">{admin ? 'Edit Admin' : 'Add New Admin'}</h1>
+        
+        {admin?.twoFactorEnabled && (
+          <button
+            type="button"
+            onClick={handleDisable2FA}
+            disabled={isPending2FA}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors disabled:opacity-50"
+          >
+            <ShieldAlert className="w-4 h-4" />
+            {isPending2FA ? 'Disabling...' : 'Disable 2FA'}
+          </button>
+        )}
+      </div>
+
       <form action={formAction} className="space-y-6">
         {/* Name Field */}
         <div>

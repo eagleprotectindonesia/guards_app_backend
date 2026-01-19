@@ -3,8 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { redis } from '@/lib/redis';
 import { findAdminByEmail } from '@/lib/data-access/admins';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey'; // Replace with a strong, random key in production
+import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
 
 export async function POST(req: Request) {
   try {
@@ -43,6 +42,35 @@ export async function POST(req: Request) {
       });
     }
 
+    // Check if 2FA is enabled
+    if (admin.twoFactorEnabled) {
+      const response = new NextResponse(JSON.stringify({ 
+        message: '2FA required',
+        requires2FA: true 
+      }), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      // Set a short-lived temporary token for 2FA verification
+      const tempToken = jwt.sign(
+        { adminId: admin.id, pending2FA: true }, 
+        JWT_SECRET, 
+        { expiresIn: '5m' }
+      );
+
+      response.cookies.set(AUTH_COOKIES.ADMIN_2FA_PENDING, tempToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: 300, // 5 minutes
+        path: '/',
+      });
+
+      return response;
+    }
+
     // Cache token version in Redis
     const cacheKey = `admin:token_version:${admin.id}`;
     await redis.set(cacheKey, admin.tokenVersion.toString(), 'EX', 3600); // 1 hour
@@ -57,7 +85,7 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json',
       },
     });
-    response.cookies.set('admin_token', token, {
+    response.cookies.set(AUTH_COOKIES.ADMIN, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 30 * 24 * 60 * 60, // 30 days

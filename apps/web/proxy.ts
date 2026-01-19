@@ -9,7 +9,7 @@ export async function proxy(request: NextRequest) {
   // 1. Define protected paths
   const isAdminPath = pathname.startsWith('/admin');
   const isAdminApiPath = pathname.startsWith('/api/admin');
-  const isLoginPage = pathname === '/admin/login';
+  const isLoginPage = pathname === '/admin/login' || pathname === '/admin/login/verify';
   const isExternalApiPath = pathname.startsWith('/api/external/v1') && pathname !== '/api/external/v1/openapi.json';
   const isExternalDocsPath = pathname === '/api/external/docs';
 
