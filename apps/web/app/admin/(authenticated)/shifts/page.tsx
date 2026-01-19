@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { serialize, getPaginationParams } from '@/lib/utils';
 import ShiftList from './components/shift-list';
-import { parseISO, startOfDay, endOfDay } from 'date-fns';
+import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { getActiveSites } from '@/lib/data-access/sites';
@@ -25,7 +25,11 @@ export default async function ShiftsPage({
   const resolvedSearchParams = await searchParams;
   const { page, perPage, skip } = getPaginationParams(resolvedSearchParams);
 
-  const startDate = typeof resolvedSearchParams.startDate === 'string' ? resolvedSearchParams.startDate : undefined;
+  // Default startDate to today if not provided
+  const startDate =
+    typeof resolvedSearchParams.startDate === 'string'
+      ? resolvedSearchParams.startDate
+      : format(new Date(), 'yyyy-MM-dd');
   const endDate = typeof resolvedSearchParams.endDate === 'string' ? resolvedSearchParams.endDate : undefined;
   const employeeId = typeof resolvedSearchParams.employeeId === 'string' ? resolvedSearchParams.employeeId : undefined;
   const siteId = typeof resolvedSearchParams.siteId === 'string' ? resolvedSearchParams.siteId : undefined;

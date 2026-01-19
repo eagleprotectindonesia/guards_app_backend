@@ -15,7 +15,7 @@ export function generate2FASecret(): string {
  */
 export async function generateQRCode(email: string, secret: string): Promise<string> {
   const otpauth = generateURI({
-    issuer: 'EP Guard Scheduling',
+    issuer: 'crm.eagleprotect.id',
     label: email,
     secret,
   });
@@ -31,7 +31,7 @@ export async function verify2FAToken(token: string, secret: string): Promise<boo
   if (!token || token.length !== 6 || !/^\d+$/.test(token)) {
     return false;
   }
-  
+
   try {
     const result = await verify({ token, secret });
     return result.valid;
