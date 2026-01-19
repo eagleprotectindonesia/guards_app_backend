@@ -72,10 +72,9 @@ async function main() {
 
   // 3. Create Sites
   const site1 = await prisma.site.upsert({
-    where: { id: 'site-hq' },
+    where: { name: 'Headquarters' },
     update: {},
     create: {
-      id: 'site-hq',
       name: 'Headquarters',
       clientName: 'Headquarters Owner',
       address: 'Jl. Umalas 1 Gg. XXII, Kerobokan Kelod, Kec. Kuta Utara, Kabupaten Badung, Bali, Indonesia',
@@ -86,10 +85,9 @@ async function main() {
   console.log('Created Site 1:', site1.id);
 
   const site2 = await prisma.site.upsert({
-    where: { id: 'site-downtown' },
+    where: { name: 'Downtown Branch' },
     update: {},
     create: {
-      id: 'site-downtown',
       name: 'Downtown Branch',
       clientName: 'Downtown Branch Owner',
       address: 'Pemogan, Denpasar Selatan, Denpasar City, Bali, Indonesia',
@@ -100,10 +98,9 @@ async function main() {
   console.log('Created Site 2:', site2.id);
 
   const site3 = await prisma.site.upsert({
-    where: { id: 'site-lilu' },
+    where: { name: 'Lilu Rental' },
     update: {},
     create: {
-      id: 'site-lilu',
       name: 'Lilu Rental',
       clientName: 'Warehouse Manager',
       address: 'Jl. Mahendradatta Utara No.758, Tegal Kertha, Kec. Denpasar Bar., Kota Denpasar, Bali 80361, Indonesia',
@@ -240,10 +237,9 @@ async function main() {
 
   // 6. Create Shift Types
   const morningShiftType = await prisma.shiftType.upsert({
-    where: { id: 'shift-morning' },
+    where: { name: 'Morning Shift' },
     update: {},
     create: {
-      id: 'shift-morning',
       name: 'Morning Shift',
       startTime: '08:00',
       endTime: '16:00',
@@ -252,10 +248,9 @@ async function main() {
   console.log('Created Morning Shift Type:', morningShiftType.id);
 
   const afternoonShiftType = await prisma.shiftType.upsert({
-    where: { id: 'shift-afternoon' },
+    where: { name: 'Afternoon Shift' },
     update: {},
     create: {
-      id: 'shift-afternoon',
       name: 'Afternoon Shift',
       startTime: '16:00',
       endTime: '00:00',
@@ -264,10 +259,9 @@ async function main() {
   console.log('Created Afternoon Shift Type:', afternoonShiftType.id);
 
   const nightShiftType = await prisma.shiftType.upsert({
-    where: { id: 'shift-night' },
+    where: { name: 'Night Shift' },
     update: {},
     create: {
-      id: 'shift-night',
       name: 'Night Shift',
       startTime: '22:00',
       endTime: '06:00',

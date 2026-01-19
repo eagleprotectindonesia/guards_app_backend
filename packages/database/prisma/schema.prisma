@@ -193,7 +193,7 @@ model Employee {
 
 model Site {
   id              String    @id @default(uuid())
-  name            String
+  name            String    @unique
   clientName      String?   @map("client_name")
   address         String?
   latitude        Float?
@@ -240,7 +240,7 @@ model Office {
 
 model ShiftType {
   id              String    @id @default(uuid())
-  name            String
+  name            String    @unique
   startTime       String    @map("start_time")
   endTime         String    @map("end_time")
   lastUpdatedById String?   @map("last_updated_by_id")
