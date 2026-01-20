@@ -22,7 +22,6 @@ export default function AdminDashboard() {
     upcomingShifts: allUpcomingShifts,
     connectionStatus,
     acknowledgeAlert,
-    resolveAlert,
   } = useAlerts();
 
   // Fetch all sites for the dropdown (static list)
@@ -36,10 +35,6 @@ export default function AdminDashboard() {
 
   const handleAcknowledge = async (alertId: string) => {
     acknowledgeAlert(alertId);
-  };
-
-  const handleResolve = (alertId: string) => {
-    resolveAlert(alertId);
   };
 
   const siteOptions = [
@@ -200,7 +195,7 @@ export default function AdminDashboard() {
           <AlertFeed
             alerts={alerts}
             onAcknowledge={handleAcknowledge}
-            onResolve={handleResolve}
+            onResolve={() => {}}
             showSiteFilter={true}
             selectedSiteId={selectedSiteId}
             onSiteSelect={setSelectedSiteId}

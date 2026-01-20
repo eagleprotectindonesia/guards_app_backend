@@ -92,8 +92,8 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
             message = t('checkin.openStatus');
             isWindowOpen = true;
           } else {
-            message = t('checkin.missed');
-            isWindowOpen = false;
+            message = t('checkin.lateStatus', { defaultValue: 'You are late for this check-in' });
+            isWindowOpen = true;
             fetchShift().catch(console.error);
           }
         }
@@ -104,19 +104,14 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
           message = t('checkin.remainingTime', { time: diff });
           isWindowOpen = true;
         } else {
-          message = t('checkin.missed');
-          isWindowOpen = false;
+          message = t('checkin.lateStatus', { defaultValue: 'You are late for this check-in' });
+          isWindowOpen = true;
           fetchShift().catch(console.error);
         }
       } else if (window.status === 'late') {
-        // Late for current, waiting for next
-        const diff = Math.ceil((nextSlotStartMs - now) / 1000);
-        if (diff > 0) {
-          message = t('checkin.nextIn', { time: formatTime(diff) });
-        } else {
-          message = t('checkin.preparingNext');
-        }
-        isWindowOpen = false;
+        // Late for current, but now we allow check-in
+        message = t('checkin.lateStatus', { defaultValue: 'You are late for this check-in' });
+        isWindowOpen = true;
       }
 
       setTimeLeft(message);
@@ -188,6 +183,8 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
   }
 
   const { checkInWindow } = activeShift;
+  const isLate = checkInWindow.status === 'late' || (checkInWindow.status === 'open' && timeLeft.includes('late'));
+
   // Display nextDue based on status
   let nextDueDisplay = new Date(checkInWindow.nextSlotStart);
   if (checkInWindow.status === 'open' || checkInWindow.status === 'early') {
@@ -199,7 +196,9 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
       <CardContent className="pt-6">
         <div className="mb-6">
           {canCheckIn ? (
-            <h2 className="text-2xl font-bold text-green-600 mb-2">{t('checkin.titleOpen')}</h2>
+            <h2 className={`text-2xl font-bold mb-2 ${isLate ? 'text-amber-600' : 'text-green-600'}`}>
+              {isLate ? t('checkin.titleLate', { defaultValue: 'Late Check-in' }) : t('checkin.titleOpen')}
+            </h2>
           ) : (
             <>
               <p className="font-semibold text-gray-500">{t('checkin.titleNext')}:</p>
@@ -209,15 +208,17 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
               <p className="text-sm font-bold text-gray-400 mt-1">{t('attendance.requiredTitle')}: {activeShift.graceMinutes} {t('common.minutes')}</p>
             </>
           )}
-          <p className={`text-sm font-semibold mt-2 ${canCheckIn ? 'text-green-600' : 'text-amber-600'}`}>{timeLeft}</p>
+          <p className={`text-sm font-semibold mt-2 ${canCheckIn && !isLate ? 'text-green-600' : 'text-amber-600'}`}>{timeLeft}</p>
         </div>
 
         {canCheckIn && (
           <button
             onClick={handleCheckIn}
-            className="w-full text-lg font-bold py-4 rounded-lg shadow transition-all active:scale-95 bg-green-600 hover:bg-green-700 text-white"
+            className={`w-full text-lg font-bold py-4 rounded-lg shadow transition-all active:scale-95 text-white ${
+              isLate ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'
+            }`}
           >
-            {t('checkin.submitButton')}
+            {isLate ? t('checkin.submitLateButton', { defaultValue: 'Submit Late Check-in' }) : t('checkin.submitButton')}
           </button>
         )}
 

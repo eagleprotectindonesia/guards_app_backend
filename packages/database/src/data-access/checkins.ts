@@ -1,5 +1,6 @@
 import { db as prisma } from "../client";
-import { Prisma, CheckInStatus } from '@prisma/client';
+import { Prisma, CheckInStatus, AlertReason } from '@prisma/client';
+import { autoResolveAlert } from "./alerts";
 
 export async function getCheckinsByShiftId(shiftId: string) {
   return prisma.checkin.findMany({
@@ -51,7 +52,14 @@ export async function recordCheckin(params: {
       },
     });
 
-    return checkin;
+    // Auto-resolve missed check-in alerts
+    const resolvedAlert = await autoResolveAlert({
+      shiftId,
+      reason: AlertReason.missed_checkin,
+      tx,
+    });
+
+    return { checkin, resolvedAlert };
   });
 }
 

@@ -5,6 +5,7 @@ import { calculateDistance } from '@/lib/utils';
 import { getSystemSetting } from '@/lib/data-access/settings';
 import { recordAttendance } from '@/lib/data-access/attendance';
 import { getShiftById } from '@/lib/data-access/shifts';
+import { redis } from '@/lib/redis';
 
 // Define a schema for the incoming request body
 const attendanceSchema = z.object({
@@ -85,14 +86,29 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     // Prepare metadata if location data is present
     const metadata = parsedBody.location ? { location: parsedBody.location } : undefined;
 
+    // Determine if late
+    const now = new Date();
+    const graceMs = shift.graceMinutes * 60000;
+    const isLate = now.getTime() > shift.startsAt.getTime() + graceMs;
+    const status: 'present' | 'late' = isLate ? 'late' : 'present';
+
     // 3. Record Attendance and Update Shift
-    const attendance = await recordAttendance({
+    const { attendance, resolvedAlert } = await recordAttendance({
       shiftId: shift.id,
       employeeId: shift.employeeId!,
-      status: 'present',
+      status,
       metadata,
       updateShiftStatus: shift.status === 'scheduled',
     });
+
+    // If an alert was auto-resolved, publish the update to Redis for real-time UI updates
+    if (resolvedAlert) {
+      const payload = {
+        type: 'alert_updated',
+        alert: resolvedAlert,
+      };
+      await redis.publish(`alerts:site:${resolvedAlert.siteId}`, JSON.stringify(payload));
+    }
 
     return NextResponse.json({ attendance }, { status: 201 });
   } catch (error: unknown) {

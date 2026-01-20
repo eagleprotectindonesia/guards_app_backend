@@ -6,7 +6,6 @@ import AlertFeed, { AlertWithRelations } from '../components/alert-feed';
 import PaginationNav from '../components/pagination-nav';
 import AlertExport from '../components/alert-export';
 import { useAlerts } from '../context/alert-context';
-import { $Enums } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -75,21 +74,6 @@ export default function AdminAlertsPage() {
     }
   }, [lastAlertEvent, page]);
 
-  const handleResolve = (alertId: string, resolutionData?: { outcome: string; note: string }) => {
-    setAlerts(prev =>
-      prev.map(a => {
-        if (a.id !== alertId) return a;
-        return {
-          ...a,
-          resolvedAt: new Date().toISOString() ,
-          resolutionType: resolutionData?.outcome as $Enums.AlertResolution,
-          resolutionNote: resolutionData?.note || '',
-          status: 'resolved',
-        };
-      })
-    );
-  };
-
   const handleAcknowledge = async (alertId: string) => {
     try {
       // Optimistically update the acknowledged status
@@ -140,7 +124,7 @@ export default function AdminAlertsPage() {
         <AlertFeed
           alerts={alerts}
           onAcknowledge={handleAcknowledge}
-          onResolve={handleResolve}
+          onResolve={() => {}}
           showResolutionDetails={true}
         />
         <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />

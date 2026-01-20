@@ -5,7 +5,6 @@ import { Alert, Shift, Site, ShiftType, Admin } from '@prisma/client';
 import { ExtendedEmployee } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import AlertItem from './alert-item';
-import AlertResolutionModal from './alert-resolution-modal';
 import { Check } from 'lucide-react';
 import { useSession } from '../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
@@ -31,7 +30,6 @@ export type AlertWithRelations = Serialized<Alert> & {
 type AlertFeedProps = {
   alerts: AlertWithRelations[];
   onAcknowledge: (alertId: string) => Promise<void>;
-  onResolve: (alertId: string, resolutionData?: { outcome: string; note: string }) => void;
   showSiteFilter?: boolean;
   selectedSiteId?: string;
   onSiteSelect?: (siteId: string) => void;
@@ -41,14 +39,12 @@ type AlertFeedProps = {
 export default function AlertFeed({
   alerts,
   onAcknowledge,
-  onResolve,
   showSiteFilter = false,
   selectedSiteId,
   onSiteSelect,
   showResolutionDetails = false,
 }: AlertFeedProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'attendance' | 'checkin'>('all');
-  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null);
   const { hasPermission } = useSession();
 
   if (!hasPermission(PERMISSIONS.ALERTS.VIEW)) {
@@ -67,25 +63,6 @@ export default function AlertFeed({
     }
     return true;
   });
-
-  const handleConfirmResolution = async (outcome: 'resolve' | 'forgive', note: string) => {
-    if (!selectedAlertId) return;
-
-    try {
-      const body = { outcome, note };
-      await fetch(`/api/admin/alerts/${selectedAlertId}/resolve`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      onResolve(selectedAlertId, { outcome, note }); // Notify parent component of resolution
-
-      setSelectedAlertId(null);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleAcknowledge = async (alertId: string) => {
     try {
@@ -156,19 +133,12 @@ export default function AlertFeed({
               key={alert.id}
               alert={alert}
               onAcknowledge={handleAcknowledge}
-              onResolve={() => setSelectedAlertId(alert.id)} // Internal handler to open modal
+              onResolve={() => {}} // No-op since manual resolution is removed
               showResolutionDetails={showResolutionDetails}
             />
           ))}
         </div>
       )}
-
-      <AlertResolutionModal
-        isOpen={!!selectedAlertId}
-        onClose={() => setSelectedAlertId(null)}
-        onConfirm={handleConfirmResolution}
-        alertType={alerts.find(a => a.id === selectedAlertId)?.reason}
-      />
     </>
   );
 }

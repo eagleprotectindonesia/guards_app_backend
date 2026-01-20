@@ -121,25 +121,23 @@ export function AttendanceRecord({
           <p className={`mt-2 text-sm ${messageType === 'success' ? 'text-green-600' : 'text-red-600'}`}>{message}</p>
         )}
 
-        {!hasAttendance && !isLateTime && (
+        {!hasAttendance && (
           <>
             <Button
               onClick={handleRecordAttendance}
               disabled={attendanceMutation.isPending || !canRecordAttendance}
-              className="mt-4 w-full"
+              className={`mt-4 w-full ${isLateTime ? 'bg-red-600 hover:bg-red-700' : ''}`}
             >
-              {attendanceMutation.isPending ? t('attendance.recording') : t('attendance.submitButton')}
+              {attendanceMutation.isPending 
+                ? t('attendance.recording') 
+                : isLateTime 
+                  ? t('attendance.submitLateButton', { defaultValue: 'Record Late Attendance' })
+                  : t('attendance.submitButton')}
             </Button>
             {!canRecordAttendance && (
               <p className="text-sm text-gray-500 font-semibold mt-2">{t('attendance.alreadyRecorded')}</p>
             )}
           </>
-        )}
-
-        {isLateTime && !hasAttendance && (
-          <p className="text-red-600 mt-2 font-medium">
-            <i>{t('attendance.lateMessage')}</i>
-          </p>
         )}
       </CardContent>
     </Card>

@@ -1,5 +1,6 @@
 import { db as prisma } from "../client";
-import { Prisma, AttendanceStatus } from '@prisma/client';
+import { Prisma, AttendanceStatus, AlertReason } from '@prisma/client';
+import { autoResolveAlert } from "./alerts";
 
 export async function getAttendanceByShiftId(shiftId: string) {
   return prisma.attendance.findUnique({
@@ -57,7 +58,14 @@ export async function recordAttendance(params: {
       },
     });
 
-    return attendance;
+    // Auto-resolve missed attendance alerts
+    const resolvedAlert = await autoResolveAlert({
+      shiftId,
+      reason: AlertReason.missed_attendance,
+      tx,
+    });
+
+    return { attendance, resolvedAlert };
   });
 }
 

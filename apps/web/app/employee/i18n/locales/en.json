@@ -50,9 +50,10 @@
     "recordedAt": "Attendance recorded at {{date}}",
     "notRecordedTitle": "Attendance Not Recorded",
     "requiredTitle": "Attendance Required",
-    "lateMessage": "Attendance deadline missed. Please contact your administrator.",
+    "lateMessage": "Attendance deadline missed. Please record late attendance.",
     "requiredMessage": "Please record your attendance to start the shift.",
     "submitButton": "Record Attendance",
+    "submitLateButton": "Record Late Attendance",
     "alreadyRecorded": "Attendance already recorded for this shift."
   },
   "checkin": {
@@ -66,13 +67,16 @@
     "openStatus": "Check-in OPEN",
     "missed": "Window missed",
     "remainingTime": "Remaining time: {{time}} seconds",
+    "lateStatus": "You are late for this check-in",
     "gettingLocation": "Getting location...",
     "locationRequired": "Location is required.",
     "processing": "Checking in...",
     "locationError": "Failed to get location",
     "titleOpen": "Check-in Open!",
+    "titleLate": "Late Check-in",
     "titleNext": "Next Check-in",
-    "submitButton": "CHECK IN NOW"
+    "submitButton": "CHECK IN NOW",
+    "submitLateButton": "SUBMIT LATE CHECK-IN"
   },
   "passwordChange": {
     "successTitle": "Success",

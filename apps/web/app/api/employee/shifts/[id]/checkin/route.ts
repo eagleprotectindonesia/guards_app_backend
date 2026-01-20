@@ -7,6 +7,7 @@ import { calculateDistance } from '@/lib/utils';
 import { getSystemSetting } from '@/lib/data-access/settings';
 import { recordCheckin } from '@/lib/data-access/checkins';
 import { getShiftById } from '@/lib/data-access/shifts';
+import { redis } from '@/lib/redis';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: shiftId } = await params;
@@ -86,19 +87,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Already checked in for this interval' }, { status: 400 });
     }
 
-    if (windowResult.status === 'late') {
-      return NextResponse.json({ error: 'Too late to check in for this interval' }, { status: 400 });
-    }
-
     if (windowResult.status === 'early') {
       return NextResponse.json({ error: 'Too early to check in' }, { status: 400 });
     }
 
-    const status: 'on_time' | 'late' = 'on_time'; // If window is 'open', it's on time.
+    const status: 'on_time' | 'late' = windowResult.status === 'late' ? 'late' : 'on_time';
     const isLastSlot = windowResult.isLastSlot;
 
     // 4. Record Checkin and Update Shift
-    const checkin = await recordCheckin({
+    const { checkin, resolvedAlert } = await recordCheckin({
       shiftId: shift.id,
       employeeId: employeeId,
       status,
@@ -112,6 +109,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         ...(isLastSlot && { status: 'completed' as const }),
       },
     });
+
+    // If an alert was auto-resolved, publish the update to Redis for real-time UI updates
+    if (resolvedAlert) {
+      const payload = {
+        type: 'alert_updated',
+        alert: resolvedAlert,
+      };
+      await redis.publish(`alerts:site:${resolvedAlert.siteId}`, JSON.stringify(payload));
+    }
 
     return NextResponse.json({
       checkin,

@@ -59,7 +59,6 @@ interface AlertContextType {
   isMuted: boolean;
   setIsMuted: (muted: boolean) => void;
   acknowledgeAlert: (alertId: string) => void;
-  resolveAlert: (alertId: string) => void;
 }
 
 const AlertContext = createContext<AlertContextType | undefined>(undefined);
@@ -192,10 +191,6 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     };
   }, [canViewAlerts]);
 
-  const resolveAlert = (alertId: string) => {
-    setAlerts(prev => prev.filter(a => a.id !== alertId));
-  };
-
   const acknowledgeAlert = (alertId: string) => {
     setAlerts(prev =>
       prev.map(a => {
@@ -219,7 +214,6 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
         isMuted,
         setIsMuted,
         acknowledgeAlert,
-        resolveAlert,
       }}
     >
       {children}

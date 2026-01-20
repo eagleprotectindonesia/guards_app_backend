@@ -151,15 +151,6 @@ export default function AlertItem({ alert, onAcknowledge, onResolve, showResolut
                 </button>
               )}
 
-              {!isResolved && (
-                <button
-                  onClick={() => onResolve(alert.id)}
-                  className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 shadow-sm shadow-green-500/30 transition-all focus:ring-2 focus:ring-green-500 focus:ring-offset-1"
-                >
-                  Resolve
-                </button>
-              )}
-
               {isResolved && (
                 <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 font-medium text-sm bg-green-50 dark:bg-green-950/20 px-3 py-1 rounded-full border border-green-100 dark:border-green-900/40">
                   <Check className="w-4 h-4" />

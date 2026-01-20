@@ -1,5 +1,5 @@
 import { db as prisma } from "../client";
-import { ShiftStatus, AlertResolution } from '@prisma/client';
+import { ShiftStatus, AlertResolution, Prisma, AlertReason } from '@prisma/client';
 
 export async function getAlertById(id: string) {
   return prisma.alert.findUnique({
@@ -124,5 +124,48 @@ export async function resolveAlert(params: {
     }
 
     return updatedAlert;
+  });
+}
+
+export async function autoResolveAlert(params: {
+  shiftId: string;
+  reason: AlertReason;
+  tx?: any;
+}) {
+  const { shiftId, reason, tx } = params;
+  const client = tx || prisma;
+
+  // Find the most recent open alert for this shift and reason
+  const alert = await client.alert.findFirst({
+    where: {
+      shiftId,
+      reason,
+      resolvedAt: null,
+    },
+    orderBy: {
+      windowStart: 'desc',
+    },
+  });
+
+  if (!alert) return null;
+
+  return client.alert.update({
+    where: { id: alert.id },
+    data: {
+      resolvedAt: new Date(),
+      resolutionType: 'auto',
+      resolutionNote: 'Auto-resolved by employee late action',
+    },
+    include: {
+      site: true,
+      resolverAdmin: true,
+      ackAdmin: true,
+      shift: {
+        include: {
+          employee: true,
+          shiftType: true,
+        },
+      },
+    },
   });
 }
