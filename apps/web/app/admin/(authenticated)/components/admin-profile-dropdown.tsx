@@ -24,7 +24,7 @@ export default function AdminProfileDropdown({ currentAdmin }: AdminProfileDropd
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', {
+      await fetch('/api/admin/auth/logout', {
         method: 'POST',
       });
       router.push('/admin/login');

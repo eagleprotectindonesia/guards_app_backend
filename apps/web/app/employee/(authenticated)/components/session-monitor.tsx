@@ -19,7 +19,7 @@ export default function SessionMonitor() {
       eventSource.addEventListener('force_logout', async () => {
         try {
           // Perform logout
-          await fetch('/api/auth/employee/logout', { method: 'POST' });
+          await fetch('/api/employee/auth/logout', { method: 'POST' });
           // Redirect to login
           router.push('/employee/login?reason=concurrent_login');
         } catch (error) {

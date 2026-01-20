@@ -35,7 +35,7 @@ export default function LoginScreen() {
 
   const loginMutation = useMutation({
     mutationFn: async () => {
-      const response = await client.post('/api/auth/employee/login', {
+      const response = await client.post('/api/employee/auth/login', {
         employeeId,
         password,
       });

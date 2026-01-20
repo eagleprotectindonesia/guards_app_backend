@@ -60,7 +60,7 @@ A background worker runs continuously to monitor active shifts.
 
 ### B. Guard Workflow
 
-#### 1. Attendance (`/api/shifts/[id]/attendance`)
+#### 1. Attendance (`/api/employee/shifts/[id]/attendance`)
 Before performing routine check-ins, a guard must record attendance.
 -   **Validation**:
     -   **Location**: Validates distance against `MAX_CHECKIN_DISTANCE_METERS` relative to Site coordinates.
@@ -69,7 +69,7 @@ Before performing routine check-ins, a guard must record attendance.
     -   Creates `Attendance` record.
     -   Updates Shift status to `in_progress`.
 
-#### 2. Check-ins (`/api/shifts/[id]/checkin`)
+#### 2. Check-ins (`/api/employee/shifts/[id]/checkin`)
 Guards perform recurring check-ins based on the shift's interval.
 -   **Window Logic (`lib/scheduling.ts`)**:
     -   **Open**: Current time is within `[SlotStart, SlotStart + Grace]`.
@@ -97,12 +97,12 @@ Admins monitor operations via a Server-Sent Events (SSE) stream.
 
 ## 3. API Reference
 
-### `POST /api/shifts/[id]/attendance`
+### `POST /api/employee/shifts/[id]/attendance`
 records the initial presence for a shift.
 -   **Body**: `{ "location": { "lat": number, "lng": number } }`
 -   **Checks**: Distance <= `MAX_CHECKIN_DISTANCE_METERS`.
 
-### `POST /api/shifts/[id]/checkin`
+### `POST /api/employee/shifts/[id]/checkin`
 Records a routine check-in.
 -   **Body**: `{ "location": { "lat": number, "lng": number }, "source": "web" }`
 -   **Response**: `{ "checkin": object, "next_due_at": ISOString, "status": "on_time" }`

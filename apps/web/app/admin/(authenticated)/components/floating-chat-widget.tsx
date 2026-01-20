@@ -52,7 +52,7 @@ export default function FloatingChatWidget() {
   // Fetch conversations list
   const fetchConversations = async () => {
     try {
-      const res = await fetch('/api/chat/conversations');
+      const res = await fetch('/api/shared/chat/conversations');
       if (res.ok) {
         const data = await res.json();
         setConversations(data);
@@ -69,7 +69,7 @@ export default function FloatingChatWidget() {
     setConversations(prev => prev.map(c => (c.employeeId === employeeId ? { ...c, unreadCount: 0 } : c)));
 
     try {
-      const res = await fetch(`/api/chat/${employeeId}`);
+      const res = await fetch(`/api/shared/chat/${employeeId}`);
       if (res.ok) {
         const data = await res.json();
         const reversed: ChatMessage[] = data.reverse();

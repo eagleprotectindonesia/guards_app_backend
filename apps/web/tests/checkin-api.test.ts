@@ -1,4 +1,4 @@
-import { POST } from '../app/api/shifts/[id]/checkin/route';
+import { POST } from '../app/api/employee/shifts/[id]/checkin/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { getShiftById } from '@/lib/data-access/shifts';
 import { recordCheckin } from '@/lib/data-access/checkins';
@@ -36,7 +36,7 @@ jest.mock('next/server', () => {
   };
 });
 
-describe('POST /api/shifts/[id]/checkin - Last Slot Case', () => {
+describe('POST /api/employee/shifts/[id]/checkin - Last Slot Case', () => {
   const shiftId = 'shift-123';
   const employeeId = 'employee-456';
 
@@ -69,7 +69,7 @@ describe('POST /api/shifts/[id]/checkin - Last Slot Case', () => {
     (getSystemSetting as jest.Mock).mockResolvedValue(null);
     (recordCheckin as jest.Mock).mockResolvedValue({ id: 'checkin-1' });
 
-    const req = new Request(`http://localhost/api/shifts/${shiftId}/checkin`, {
+    const req = new Request(`http://localhost/api/employee/shifts/${shiftId}/checkin`, {
       method: 'POST',
       body: JSON.stringify({ source: 'web' }),
     });
@@ -116,7 +116,7 @@ describe('POST /api/shifts/[id]/checkin - Last Slot Case', () => {
     (getShiftById as jest.Mock).mockResolvedValue(mockShift);
     (getSystemSetting as jest.Mock).mockResolvedValue(null);
 
-    const req = new Request(`http://localhost/api/shifts/${shiftId}/checkin`, {
+    const req = new Request(`http://localhost/api/employee/shifts/${shiftId}/checkin`, {
       method: 'POST',
       body: JSON.stringify({ source: 'web' }),
     });

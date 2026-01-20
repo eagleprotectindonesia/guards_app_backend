@@ -30,7 +30,7 @@ export default function AccountScreen() {
   const { data: profile } = useQuery({
     queryKey: ['profile'],
     queryFn: async () => {
-      const res = await client.get('/api/my/profile');
+      const res = await client.get('/api/employee/my/profile');
       return res.data;
     },
   });
@@ -51,7 +51,7 @@ export default function AccountScreen() {
     try {
       // Close socket connection first
       disconnectSocket();
-      await client.post('/api/auth/employee/logout');
+      await client.post('/api/employee/auth/logout');
       router.replace('/(auth)/login');
     } catch {
       router.replace('/(auth)/login');

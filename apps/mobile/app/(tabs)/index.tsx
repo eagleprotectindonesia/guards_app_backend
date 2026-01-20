@@ -46,7 +46,7 @@ export default function HomeScreen() {
   const { data: profile } = useQuery<ProfileData>({
     queryKey: ['profile'],
     queryFn: async () => {
-      const res = await client.get('/api/my/profile');
+      const res = await client.get('/api/employee/my/profile');
       return res.data;
     },
   });
@@ -59,7 +59,7 @@ export default function HomeScreen() {
   } = useQuery<ActiveShiftData>({
     queryKey: ['active-shift'],
     queryFn: async () => {
-      const res = await client.get('/api/my/active-shift');
+      const res = await client.get('/api/employee/my/active-shift');
       return res.data;
     },
     refetchInterval: 30000, // Poll every 30s

@@ -9,7 +9,7 @@ export function useChatUnread() {
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ['chat', 'unread'],
     queryFn: async () => {
-      const response = await client.get('/api/chat/unread');
+      const response = await client.get('/api/shared/chat/unread');
       return response.data.count as number;
     },
   });

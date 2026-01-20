@@ -22,7 +22,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
 
   const checkInMutation = useMutation({
     mutationFn: async (location: { lat: number; lng: number }) => {
-      const response = await client.post(`/api/shifts/${activeShift.id}/checkin`, {
+      const response = await client.post(`/api/employee/shifts/${activeShift.id}/checkin`, {
         source: 'mobile-app',
         location,
       });
@@ -64,7 +64,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
     const updateTimer = () => {
       const window = activeShift.checkInWindow;
       if (!window) return;
-      
+
       const now = Date.now();
       const currentSlotStart = new Date(window.currentSlotStart).getTime();
       const currentSlotEnd = new Date(window.currentSlotEnd).getTime();

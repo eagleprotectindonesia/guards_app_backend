@@ -15,18 +15,43 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: '/api/guard/:path*',
-        destination: '/api/employee/:path*',
+        source: '/api/auth/employee/:path*',
+        destination: '/api/employee/auth/:path*',
         permanent: true,
       },
       {
-        source: '/api/auth/guard/:path*',
-        destination: '/api/auth/employee/:path*',
+        source: '/api/auth/login',
+        destination: '/api/admin/auth/login',
         permanent: true,
       },
       {
-        source: '/guard/:path*',
-        destination: '/employee/:path*',
+        source: '/api/auth/logout',
+        destination: '/api/admin/auth/logout',
+        permanent: true,
+      },
+      {
+        source: '/api/auth/verify-2fa',
+        destination: '/api/admin/auth/verify-2fa',
+        permanent: true,
+      },
+      {
+        source: '/api/chat/:path*',
+        destination: '/api/shared/chat/:path*',
+        permanent: true,
+      },
+      {
+        source: '/api/upload/:path*',
+        destination: '/api/shared/upload/:path*',
+        permanent: true,
+      },
+      {
+        source: '/api/my/:path*',
+        destination: '/api/employee/my/:path*',
+        permanent: true,
+      },
+      {
+        source: '/api/shifts/:path*',
+        destination: '/api/employee/shifts/:path*',
         permanent: true,
       },
     ];

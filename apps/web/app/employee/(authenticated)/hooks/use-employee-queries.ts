@@ -29,7 +29,7 @@ export function useProfile() {
   return useQuery({
     queryKey: ['employee', 'profile'],
     queryFn: async () => {
-      const res = await fetchWithAuth('/api/my/profile');
+      const res = await fetchWithAuth('/api/employee/my/profile');
       if (!res.ok) throw new Error('Failed to fetch profile');
       const data = await res.json();
       return (data.employee || data.guard) as { 
@@ -51,7 +51,7 @@ export function useActiveShift() {
   return useQuery({
     queryKey: ['employee', 'active-shift'],
     queryFn: async () => {
-      const res = await fetchWithAuth('/api/my/active-shift');
+      const res = await fetchWithAuth('/api/employee/my/active-shift');
       if (!res.ok) throw new Error('Failed to fetch active shift');
       const data = await res.json();
       
@@ -81,7 +81,7 @@ export function useLogout() {
 
   return useMutation({
     mutationFn: async () => {
-      const res = await fetchWithAuth('/api/auth/employee/logout', { method: 'POST' });
+      const res = await fetchWithAuth('/api/employee/auth/logout', { method: 'POST' });
       if (!res.ok) throw new Error('Logout failed');
       return res.json();
     },
@@ -96,7 +96,7 @@ export function useLogin() {
 
   return useMutation({
     mutationFn: async ({ employeeId, password }: Record<string, string>) => {
-      const res = await fetch('/api/auth/employee/login', {
+      const res = await fetch('/api/employee/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +120,7 @@ export function useCheckIn() {
 
   return useMutation({
     mutationFn: async ({ shiftId, location }: { shiftId: string; location?: { lat: number; lng: number } }) => {
-      const res = await fetchWithAuth(`/api/shifts/${shiftId}/checkin`, {
+      const res = await fetchWithAuth(`/api/employee/shifts/${shiftId}/checkin`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -148,7 +148,7 @@ export function useRecordAttendance() {
 
   return useMutation({
     mutationFn: async ({ shiftId, location }: { shiftId: string; location?: { lat: number; lng: number } }) => {
-      const res = await fetchWithAuth(`/api/shifts/${shiftId}/attendance`, {
+      const res = await fetchWithAuth(`/api/employee/shifts/${shiftId}/attendance`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -174,7 +174,7 @@ export function useOfficeAttendance() {
   return useQuery({
     queryKey: ['employee', 'office-attendance', 'today'],
     queryFn: async () => {
-      const res = await fetchWithAuth('/api/my/office-attendance/today');
+      const res = await fetchWithAuth('/api/employee/my/office-attendance/today');
       if (!res.ok) throw new Error('Failed to fetch today office attendance');
       const data = await res.json();
       return data.attendances as OfficeAttendance[];
@@ -196,7 +196,7 @@ export function useRecordOfficeAttendance() {
       location?: { lat: number; lng: number };
       status?: 'present' | 'clocked_out';
     }) => {
-      const res = await fetchWithAuth('/api/my/office-attendance', {
+      const res = await fetchWithAuth('/api/employee/my/office-attendance', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -221,7 +221,7 @@ export function useChangePassword() {
 
   return useMutation({
     mutationFn: async (data: Record<string, string>) => {
-      const res = await fetchWithAuth('/api/my/change-password', {
+      const res = await fetchWithAuth('/api/employee/my/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -26,7 +26,7 @@ export default function Verify2FA() {
     setIsPending(true);
 
     try {
-      const response = await fetch('/api/auth/verify-2fa', {
+      const response = await fetch('/api/admin/auth/verify-2fa', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

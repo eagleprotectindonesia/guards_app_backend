@@ -20,7 +20,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
 
   const attendanceMutation = useMutation({
     mutationFn: async (location: { lat: number; lng: number }) => {
-      const response = await client.post(`/api/shifts/${shift.id}/attendance`, {
+      const response = await client.post(`/api/employee/shifts/${shift.id}/attendance`, {
         shiftId: shift.id,
         location,
       });

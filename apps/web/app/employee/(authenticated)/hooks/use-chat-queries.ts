@@ -22,7 +22,7 @@ export function useChatMessages(employeeId?: string) {
   return useInfiniteQuery({
     queryKey: ['chat', 'messages', employeeId],
     queryFn: async ({ pageParam }) => {
-      const url = new URL(`/api/chat/${employeeId}`, window.location.origin);
+      const url = new URL(`/api/shared/chat/${employeeId}`, window.location.origin);
       url.searchParams.set('limit', '20');
       if (pageParam) {
         url.searchParams.set('cursor', pageParam);
@@ -47,7 +47,7 @@ export function useUnreadCount() {
   return useQuery({
     queryKey: ['chat', 'unread'],
     queryFn: async () => {
-      const res = await fetchWithAuth('/api/chat/unread?role=employee');
+      const res = await fetchWithAuth('/api/shared/chat/unread?role=employee');
       if (!res.ok) throw new Error('Failed to fetch unread count');
       return res.json() as Promise<{ count: number }>;
     },

@@ -70,7 +70,7 @@ export default function ChatScreen() {
   } = useInfiniteQuery({
     queryKey: ['chat', 'messages', employeeInfo?.id],
     queryFn: async ({ pageParam }) => {
-      const response = await client.get(`/api/chat/${employeeInfo.id}`, {
+      const response = await client.get(`/api/shared/chat/${employeeInfo.id}`, {
         params: {
           limit: 15,
           cursor: pageParam,
