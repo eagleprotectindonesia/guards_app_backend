@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Loader2, Image as ImageIcon, X, Paperclip } from 'lucide-react';
+import { Send, Loader2, X, Paperclip, Camera } from 'lucide-react';
 import { format } from 'date-fns';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { useSocket } from '@/components/socket-provider';
@@ -10,10 +10,12 @@ import { useProfile } from '../hooks/use-employee-queries';
 import { useChatMessages, ChatMessage } from '../hooks/use-chat-queries';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { TFunction } from 'i18next';
 import { uploadToS3 } from '@/lib/upload';
 import { toast } from 'react-hot-toast';
+import { optimizeImage } from '@/lib/image-utils';
 
 export default function ChatPage() {
   const { t } = useTranslation();
@@ -26,11 +28,14 @@ export default function ChatPage() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [viewerImage, setViewerImage] = useState<string | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const observerTarget = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const hasInitialScrolled = useRef(false);
   const pendingReadIds = useRef<Set<string>>(new Set());
   const readTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -162,7 +167,7 @@ export default function ChatPage() {
     }
   }, [lastMessageId, scrollToBottom]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
@@ -171,11 +176,23 @@ export default function ChatPage() {
       toast.error(t('chat.error_images_only', 'Only image files are allowed'));
     }
 
-    const currentFiles = [...selectedFiles, ...validFiles].slice(0, 4);
-    setSelectedFiles(currentFiles);
+    if (validFiles.length === 0) return;
 
-    const newPreviews = validFiles.map(file => URL.createObjectURL(file));
-    setPreviews(prev => [...prev, ...newPreviews].slice(0, 4));
+    setIsOptimizing(true);
+    try {
+      const optimizedFiles = await Promise.all(validFiles.map(file => optimizeImage(file)));
+
+      const currentFiles = [...selectedFiles, ...optimizedFiles].slice(0, 4);
+      setSelectedFiles(currentFiles);
+
+      const newPreviews = optimizedFiles.map(file => URL.createObjectURL(file));
+      setPreviews(prev => [...prev, ...newPreviews].slice(0, 4));
+    } catch (error) {
+      console.error('Image optimization failed:', error);
+      toast.error(t('chat.optimization_failed', 'Failed to process images'));
+    } finally {
+      setIsOptimizing(false);
+    }
 
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -188,7 +205,8 @@ export default function ChatPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!inputText.trim() && selectedFiles.length === 0) || !socket || !isConnected || !employeeId || isUploading) return;
+    if ((!inputText.trim() && selectedFiles.length === 0) || !socket || !isConnected || !employeeId || isUploading)
+      return;
 
     setIsUploading(true);
     try {
@@ -244,7 +262,13 @@ export default function ChatPage() {
           </div>
 
           {messages.map(message => (
-            <ChatMessageItem key={message.id} message={message} onVisible={queueMarkRead} t={t} />
+            <ChatMessageItem
+              key={message.id}
+              message={message}
+              onVisible={queueMarkRead}
+              onImageClick={setViewerImage}
+              t={t}
+            />
           ))}
           <div ref={messagesEndRef} className="h-1" />
         </div>
@@ -279,16 +303,36 @@ export default function ChatPage() {
             multiple
             className="hidden"
           />
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={selectedFiles.length >= 4 || isUploading}
-            className="rounded-full h-10 w-10 shrink-0 text-gray-500 hover:text-blue-600 hover:bg-blue-50"
-          >
-            <Paperclip className="h-5 w-5" />
-          </Button>
+          <input
+            type="file"
+            ref={cameraInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+          />
+          <div className="flex items-center">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={selectedFiles.length >= 4 || isUploading || isOptimizing}
+              className="rounded-full h-9 w-6 shrink-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+            >
+              <Paperclip className="h-5 w-5" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => cameraInputRef.current?.click()}
+              disabled={selectedFiles.length >= 4 || isUploading || isOptimizing}
+              className="rounded-full h-9 w-6 shrink-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+            >
+              {isOptimizing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
+            </Button>
+          </div>
 
           <input
             type="text"
@@ -296,11 +340,11 @@ export default function ChatPage() {
             onChange={e => setInputText(e.target.value)}
             placeholder={t('chat.placeholder', 'Type a message...')}
             className="flex-1 px-2 py-2 bg-transparent border-none text-sm focus:ring-0 outline-none"
-            disabled={isUploading}
+            disabled={isUploading || isOptimizing}
           />
           <Button
             type="submit"
-            disabled={(!inputText.trim() && selectedFiles.length === 0) || !isConnected || isUploading}
+            disabled={(!inputText.trim() && selectedFiles.length === 0) || !isConnected || isUploading || isOptimizing}
             size="icon"
             className="rounded-full h-10 w-10 shrink-0 bg-blue-600 hover:bg-blue-700 shadow-md transition-all active:scale-95 disabled:opacity-50"
           >
@@ -308,6 +352,23 @@ export default function ChatPage() {
           </Button>
         </form>
       </div>
+
+      <Dialog open={!!viewerImage} onOpenChange={open => !open && setViewerImage(null)}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none shadow-none [&>button[data-slot=dialog-close]]:bg-black/50 [&>button[data-slot=dialog-close]]:text-white [&>button[data-slot=dialog-close]]:hover:bg-black/70 [&>button[data-slot=dialog-close]]:rounded-full [&>button[data-slot=dialog-close]]:p-2 [&>button[data-slot=dialog-close]]:top-4 [&>button[data-slot=dialog-close]]:right-4 [&>button[data-slot=dialog-close]]:opacity-100 [&>button[data-slot=dialog-close]_svg]:size-6">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{t('chat.image_viewer', 'Image Viewer')}</DialogTitle>
+          </DialogHeader>
+          {viewerImage && (
+            <div className="relative flex items-center justify-center min-h-[50vh]">
+              <img
+                src={viewerImage}
+                alt="Full size"
+                className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -315,10 +376,12 @@ export default function ChatPage() {
 function ChatMessageItem({
   message,
   onVisible,
+  onImageClick,
   t,
 }: {
   message: ChatMessage;
   onVisible: (id: string) => void;
+  onImageClick: (url: string) => void;
   t: TFunction<'translation', undefined>;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -363,7 +426,7 @@ function ChatMessageItem({
                 src={url}
                 alt={`Attachment ${i + 1}`}
                 className="w-full aspect-video object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => window.open(url, '_blank')}
+                onClick={() => onImageClick(url)}
               />
             ))}
           </div>
