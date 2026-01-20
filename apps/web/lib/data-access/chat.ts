@@ -6,6 +6,7 @@ export async function saveMessage(data: {
   adminId?: string;
   sender: ChatSenderType;
   content: string;
+  attachments?: string[];
 }) {
   return prisma.chatMessage.create({
     data,
@@ -113,7 +114,7 @@ export async function markAsRead(messageIds: string[]) {
 
 // --- Backward Compatibility Aliases ---
 /** @deprecated Use saveMessage with employeeId */
-export async function saveGuardMessage(data: { guardId: string; adminId?: string; sender: ChatSenderType; content: string }) {
+export async function saveGuardMessage(data: { guardId: string; adminId?: string; sender: ChatSenderType; content: string; attachments?: string[] }) {
   const { guardId, ...rest } = data;
   return saveMessage({ employeeId: guardId, ...rest });
 }

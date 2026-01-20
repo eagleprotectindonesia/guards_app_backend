@@ -101,14 +101,14 @@ model Changelog {
 }
 
 model ChatMessage {
-  id            String         @id @default(uuid())
-  employeeId    String         @map("employee_id")
-  adminId       String?        @map("admin_id") // If sent by admin
-  sender        ChatSenderType
-  content       String         @db.Text
-  attachmentUrl String?        @map("attachment_url")
-  createdAt     DateTime       @default(now()) @map("created_at")
-  readAt        DateTime?      @map("read_at")
+  id          String         @id @default(uuid())
+  employeeId  String         @map("employee_id")
+  adminId     String?        @map("admin_id") // If sent by admin
+  sender      ChatSenderType
+  content     String         @db.Text
+  attachments String[]
+  createdAt   DateTime       @default(now()) @map("created_at")
+  readAt      DateTime?      @map("read_at")
 
   employee Employee @relation(fields: [employeeId], references: [id])
   admin    Admin?   @relation(fields: [adminId], references: [id])

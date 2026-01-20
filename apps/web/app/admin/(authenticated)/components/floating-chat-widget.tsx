@@ -23,6 +23,7 @@ interface ChatMessage {
   adminId?: string | null;
   sender: 'admin' | 'employee';
   content: string;
+  attachments: string[];
   createdAt: string;
   readAt?: string | null;
 }
@@ -301,6 +302,22 @@ export default function FloatingChatWidget() {
                                 : 'bg-card border border-border text-foreground rounded-tl-none'
                             )}
                           >
+                            {msg.attachments && msg.attachments.length > 0 && (
+                              <div className={cn(
+                                "grid gap-1 mb-2",
+                                msg.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                              )}>
+                                {msg.attachments.map((url, i) => (
+                                  <img
+                                    key={i}
+                                    src={url}
+                                    alt={`Attachment ${i + 1}`}
+                                    className="w-full aspect-video object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() => window.open(url, '_blank')}
+                                  />
+                                ))}
+                              </div>
+                            )}
                             {msg.content}
                           </div>
                           <div className="flex items-center gap-1 px-1 mt-1">

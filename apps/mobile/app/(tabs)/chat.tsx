@@ -6,7 +6,8 @@ import {
   StyleSheet, 
   TextInput, 
   TouchableOpacity, 
-  View 
+  View,
+  Image
 } from 'react-native';
 import { 
   VStack, 
@@ -34,6 +35,7 @@ interface ChatMessage {
   adminId?: string | null;
   sender: 'admin' | 'employee';
   content: string;
+  attachments: string[];
   createdAt: string;
   readAt?: string | null;
   admin?: {
@@ -210,6 +212,21 @@ export default function ChatScreen() {
           styles.messageBubble,
           isMe ? styles.myBubble : styles.theirBubble
         ]}>
+          {item.attachments && item.attachments.length > 0 && (
+            <View style={styles.attachmentsContainer}>
+              {item.attachments.map((url, i) => (
+                <Image
+                  key={i}
+                  source={{ uri: url }}
+                  style={[
+                    styles.attachmentImage,
+                    item.attachments.length > 1 && styles.multiAttachmentImage
+                  ]}
+                  resizeMode="cover"
+                />
+              ))}
+            </View>
+          )}
           <Text style={[
             styles.messageText,
             isMe ? styles.myText : styles.theirText
@@ -372,5 +389,21 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#93C5FD',
+  },
+  attachmentsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+    marginBottom: 8,
+    width: 200,
+  },
+  attachmentImage: {
+    width: 200,
+    height: 150,
+    borderRadius: 8,
+  },
+  multiAttachmentImage: {
+    width: 98,
+    height: 98,
   }
 });

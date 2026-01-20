@@ -76,7 +76,9 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Email</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Role</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">2FA</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
+                  2FA
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
                   Actions
@@ -117,9 +119,7 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
                               <ShieldCheck className="w-5 h-5 text-green-500" />
                             </span>
                           ) : (
-                            <span title="2FA Disabled">
-                              <ShieldAlert className="w-5 h-5 text-amber-500" />
-                            </span>
+                            '-'
                           )}
                         </div>
                       </td>
@@ -131,12 +131,20 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
                           <EditButton
                             href={`/admin/admins/${admin.id}/edit`}
                             disabled={!canEdit}
-                            title={isSuperAdmin ? 'Super Admin cannot be edited here' : (!canEdit ? 'Permission Denied' : 'Edit')}
+                            title={
+                              isSuperAdmin
+                                ? 'Super Admin cannot be edited here'
+                                : !canEdit
+                                  ? 'Permission Denied'
+                                  : 'Edit'
+                            }
                           />
                           <DeleteButton
                             onClick={() => handleDeleteClick(admin.id)}
                             disabled={isPending || !canDelete || isSuperAdmin}
-                            title={isSuperAdmin ? 'Cannot delete a Super Admin' : (!canDelete ? 'Permission Denied' : 'Delete')}
+                            title={
+                              isSuperAdmin ? 'Cannot delete a Super Admin' : !canDelete ? 'Permission Denied' : 'Delete'
+                            }
                           />
                         </div>
                       </td>

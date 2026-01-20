@@ -252,7 +252,7 @@ function ChatMessageItem({
   t: TFunction<"translation", undefined>;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const isMe = message.sender === 'guard';
+  const isMe = message.sender === 'guard' || message.sender === 'employee';
 
   useEffect(() => {
     // Only observe admin messages that aren't read yet
@@ -293,6 +293,22 @@ function ChatMessageItem({
             : "bg-white text-gray-900 border border-gray-100 rounded-tl-none"
         )}
       >
+        {message.attachments && message.attachments.length > 0 && (
+          <div className={cn(
+            "grid gap-1.5 mb-2",
+            message.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
+          )}>
+            {message.attachments.map((url, i) => (
+              <img
+                key={i}
+                src={url}
+                alt={`Attachment ${i + 1}`}
+                className="w-full aspect-video object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                onClick={() => window.open(url, '_blank')}
+              />
+            ))}
+          </div>
+        )}
         <p className="whitespace-pre-wrap break-words">{message.content}</p>
       </div>
       <div className="flex items-center mt-1 gap-1 px-1">

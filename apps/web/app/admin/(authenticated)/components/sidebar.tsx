@@ -40,10 +40,17 @@ export default function Sidebar() {
         >
           <div className={cn('relative h-10 transition-all duration-300', isCollapsed ? 'w-10' : 'w-48')}>
             <Image
+              src="/eagle-protect-long-logo-red-black.svg"
+              alt="Eagle Protect"
+              fill
+              className="object-contain object-left dark:hidden"
+              priority
+            />
+            <Image
               src="/eagle-protect-long-logo-red-white.svg"
               alt="Eagle Protect"
               fill
-              className="object-contain object-left dark:brightness-110"
+              className="object-contain object-left hidden dark:block"
               priority
             />
           </div>

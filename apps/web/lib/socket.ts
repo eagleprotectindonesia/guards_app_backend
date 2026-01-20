@@ -51,9 +51,15 @@ export function initSocket(server: HttpServer) {
       socket.join(`employee:${auth.id}`);
     }
 
-    socket.on('send_message', async (data: { content: string; employeeId?: string; guardId?: string }) => {
+    socket.on('send_message', async (data: { content: string; employeeId?: string; guardId?: string; attachments?: string[] }) => {
       try {
         const targetEmployeeId = data.employeeId || data.guardId;
+
+        // Enforce max 4 attachments
+        if (data.attachments && data.attachments.length > 4) {
+          socket.emit('error', { message: 'Maximum 4 attachments allowed' });
+          return;
+        }
 
         if (auth.type === 'employee') {
           // Employee sending to admins
@@ -61,6 +67,7 @@ export function initSocket(server: HttpServer) {
             employeeId: auth.id,
             sender: 'employee',
             content: data.content,
+            attachments: data.attachments,
           });
 
           io.to('admin').emit('new_message', message);
@@ -93,6 +100,7 @@ export function initSocket(server: HttpServer) {
             adminId: auth.id,
             sender: 'admin',
             content: data.content,
+            attachments: data.attachments,
           });
 
           io.to(`employee:${targetEmployeeId}`).emit('new_message', message);

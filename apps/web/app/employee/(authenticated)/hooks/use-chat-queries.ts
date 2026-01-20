@@ -7,6 +7,7 @@ export interface ChatMessage {
   adminId?: string | null;
   sender: 'admin' | 'guard' | 'employee';
   content: string;
+  attachments: string[];
   createdAt: string;
   readAt?: string | null;
   admin?: {
