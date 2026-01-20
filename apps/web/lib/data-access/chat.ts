@@ -1,5 +1,21 @@
 import { db as prisma } from '@/lib/prisma';
 import { ChatSenderType } from '@prisma/client';
+import { getCachedPresignedDownloadUrl } from '@/lib/s3';
+
+async function enrichMessageWithUrls<T extends { attachments?: string[] }>(message: T): Promise<T> {
+  if (message.attachments && message.attachments.length > 0) {
+    const enrichedAttachments = await Promise.all(
+      message.attachments.map(async (keyOrUrl) => {
+        // If it's already a full URL (legacy or external), return as is
+        if (keyOrUrl.startsWith('http')) return keyOrUrl;
+        // Otherwise treat as S3 key and get presigned URL
+        return getCachedPresignedDownloadUrl(keyOrUrl);
+      })
+    );
+    return { ...message, attachments: enrichedAttachments };
+  }
+  return message;
+}
 
 export async function saveMessage(data: {
   employeeId: string;
@@ -8,7 +24,7 @@ export async function saveMessage(data: {
   content: string;
   attachments?: string[];
 }) {
-  return prisma.chatMessage.create({
+  const message = await prisma.chatMessage.create({
     data,
     include: {
       employee: {
@@ -26,10 +42,12 @@ export async function saveMessage(data: {
       },
     },
   });
+
+  return enrichMessageWithUrls(message);
 }
 
 export async function getChatMessages(employeeId: string, limit = 50, cursorId?: string) {
-  return prisma.chatMessage.findMany({
+  const messages = await prisma.chatMessage.findMany({
     where: {
       employeeId,
     },
@@ -48,6 +66,8 @@ export async function getChatMessages(employeeId: string, limit = 50, cursorId?:
       },
     },
   });
+
+  return Promise.all(messages.map(enrichMessageWithUrls));
 }
 
 export async function getConversationList() {

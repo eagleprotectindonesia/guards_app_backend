@@ -8,10 +8,17 @@ export interface PresignedUrlResponse {
 
 export interface UploadResponse {
   url: string;
+  key: string;
   fileName: string;
   contentType: string;
   size: number;
 }
+
+/**
+ * Toggle between presigned URL (client-side) and server-side upload.
+ * Currently set to false because CORS is not yet enabled on the S3 bucket.
+ */
+export const USE_PRESIGNED_URL = false;
 
 /**
  * Gets a presigned URL for uploading a file to S3.
@@ -46,9 +53,9 @@ export async function getPresignedUrl(
 /**
  * Uploads a file directly to S3 using a presigned URL.
  */
-export async function uploadToS3(file: File, folder: string = "uploads"): Promise<UploadResponse> {
+async function uploadToS3Presigned(file: File, folder: string = "uploads"): Promise<UploadResponse> {
   // 1. Get presigned URL
-  const { uploadUrl, publicUrl } = await getPresignedUrl(
+  const { uploadUrl, publicUrl, key } = await getPresignedUrl(
     file.name,
     file.type,
     file.size,
@@ -70,8 +77,41 @@ export async function uploadToS3(file: File, folder: string = "uploads"): Promis
 
   return {
     url: publicUrl,
+    key: key,
     fileName: file.name,
     contentType: file.type,
     size: file.size,
   };
+}
+
+/**
+ * Uploads a file through the server.
+ */
+async function uploadThroughServer(file: File, folder: string = "uploads"): Promise<UploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("folder", folder);
+
+  const response = await fetch("/api/shared/upload", {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to upload file");
+  }
+
+  return response.json();
+}
+
+/**
+ * Main upload function that uses either presigned URL or server-side upload based on USE_PRESIGNED_URL toggle.
+ */
+export async function uploadToS3(file: File, folder: string = "uploads"): Promise<UploadResponse> {
+  if (USE_PRESIGNED_URL) {
+    return uploadToS3Presigned(file, folder);
+  } else {
+    return uploadThroughServer(file, folder);
+  }
 }
