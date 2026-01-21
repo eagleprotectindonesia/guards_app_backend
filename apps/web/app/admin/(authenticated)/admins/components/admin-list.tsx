@@ -11,7 +11,7 @@ import PaginationNav from '../../components/pagination-nav';
 import Link from 'next/link';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { ShieldCheck, ShieldAlert } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 
 type AdminListProps = {
   admins: Serialized<Admin & { roleRef?: { name: string } | null }>[];

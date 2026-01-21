@@ -124,7 +124,6 @@ export default function AdminAlertsPage() {
         <AlertFeed
           alerts={alerts}
           onAcknowledge={handleAcknowledge}
-          onResolve={() => {}}
           showResolutionDetails={true}
         />
         <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />

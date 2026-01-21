@@ -15,6 +15,6 @@ export default defineConfig([
     }
   },
   {
-    ignores: ["node_modules/**", "dist/**", ".turbo/**"],
+    ignores: ["node_modules/**", "dist/**", ".turbo/**", ".next/**"],
   },
 ]);

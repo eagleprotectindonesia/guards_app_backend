@@ -195,7 +195,6 @@ export default function AdminDashboard() {
           <AlertFeed
             alerts={alerts}
             onAcknowledge={handleAcknowledge}
-            onResolve={() => {}}
             showSiteFilter={true}
             selectedSiteId={selectedSiteId}
             onSiteSelect={setSelectedSiteId}

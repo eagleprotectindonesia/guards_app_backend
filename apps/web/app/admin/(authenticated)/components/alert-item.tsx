@@ -29,11 +29,10 @@ type AlertWithRelations = Serialized<Alert> & {
 interface AlertItemProps {
   alert: AlertWithRelations;
   onAcknowledge: (id: string) => void;
-  onResolve: (id: string) => void;
   showResolutionDetails?: boolean;
 }
 
-export default function AlertItem({ alert, onAcknowledge, onResolve, showResolutionDetails = false }: AlertItemProps) {
+export default function AlertItem({ alert, onAcknowledge, showResolutionDetails = false }: AlertItemProps) {
   const isResolved = !!alert.resolvedAt;
   const isAcknowledged = !!alert.acknowledgedAt;
   const isCritical = alert.severity === 'critical';

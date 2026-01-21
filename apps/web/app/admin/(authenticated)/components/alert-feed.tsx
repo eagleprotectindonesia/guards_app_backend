@@ -133,7 +133,6 @@ export default function AlertFeed({
               key={alert.id}
               alert={alert}
               onAcknowledge={handleAcknowledge}
-              onResolve={() => {}} // No-op since manual resolution is removed
               showResolutionDetails={showResolutionDetails}
             />
           ))}
