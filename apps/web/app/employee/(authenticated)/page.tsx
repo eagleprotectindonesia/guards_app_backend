@@ -98,23 +98,16 @@ export default function EmployeePage() {
                     setStatus={setStatus}
                     currentTime={currentTime}
                   />
-                  {(() => {
-                    const ATTENDANCE_GRACE_MINS = 5;
-                    const startMs = new Date(activeShift.startsAt).getTime();
-                    const graceEndMs = startMs + ATTENDANCE_GRACE_MINS * 60000;
-                    const isAttendanceLate = !activeShift.attendance && currentTime.getTime() > graceEndMs;
-
-                    return activeShift.attendance || isAttendanceLate ? (
-                      <CheckInCard
-                        activeShift={activeShift}
-                        loading={loading}
-                        status={status}
-                        currentTime={currentTime}
-                        setStatus={setStatus}
-                        fetchShift={refetchShift}
-                      />
-                    ) : null;
-                  })()}
+                  {activeShift.attendance && (
+                    <CheckInCard
+                      activeShift={activeShift}
+                      loading={loading}
+                      status={status}
+                      currentTime={currentTime}
+                      setStatus={setStatus}
+                      fetchShift={refetchShift}
+                    />
+                  )}
                 </>
               )}
             </>

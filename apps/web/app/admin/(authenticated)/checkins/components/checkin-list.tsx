@@ -17,6 +17,7 @@ import { JsonValue } from '@prisma/client/runtime/client';
 type CheckinMetadata = {
   lat: number;
   lng: number;
+  latenessMins?: number;
 };
 
 // Type employee to check if an object has valid location data
@@ -51,7 +52,14 @@ type CheckinListProps = {
   };
 };
 
-export default function CheckinList({ checkins, page, perPage, totalCount, employees, initialFilters }: CheckinListProps) {
+export default function CheckinList({
+  checkins,
+  page,
+  perPage,
+  totalCount,
+  employees,
+  initialFilters,
+}: CheckinListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -113,7 +121,9 @@ export default function CheckinList({ checkins, page, perPage, totalCount, emplo
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift Date</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Shift Date
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Location</th>
                 {/* New Column */}
               </tr>
@@ -149,7 +159,9 @@ export default function CheckinList({ checkins, page, perPage, totalCount, emplo
                         <Clock className="w-3 h-3 text-muted-foreground/60" />
                         {new Date(checkin.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{format(new Date(checkin.at), 'yyyy/MM/dd')}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {format(new Date(checkin.at), 'yyyy/MM/dd')}
+                      </div>
                     </td>
                     <td className="py-4 px-6 text-sm">
                       {checkin.status === 'on_time' && (
@@ -158,9 +170,18 @@ export default function CheckinList({ checkins, page, perPage, totalCount, emplo
                         </span>
                       )}
                       {checkin.status === 'late' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                          Late
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 w-fit">
+                            Late
+                          </span>
+                          {checkin.metadata &&
+                            typeof checkin.metadata === 'object' &&
+                            (checkin.metadata as CheckinMetadata).latenessMins !== undefined && (
+                              <span className="text-[10px] text-muted-foreground font-medium ml-1">
+                                {(checkin.metadata as CheckinMetadata).latenessMins} mins late
+                              </span>
+                            )}
+                        </div>
                       )}
                       {checkin.status === 'invalid' && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
@@ -174,8 +195,8 @@ export default function CheckinList({ checkins, page, perPage, totalCount, emplo
                     <td className="py-4 px-6 text-sm text-muted-foreground">
                       {hasValidLocation(checkin.metadata) ? (
                         <div className="flex flex-col">
-                          <div>Lat: {checkin.metadata.lat.toFixed(3)}</div>
-                          <div>Lng: {checkin.metadata.lng.toFixed(3)}</div>
+                          <div>Lat: {(checkin.metadata as CheckinMetadata).lat.toFixed(3)}</div>
+                          <div>Lng: {(checkin.metadata as CheckinMetadata).lng.toFixed(3)}</div>
                         </div>
                       ) : (
                         '-'
@@ -201,4 +222,3 @@ export default function CheckinList({ checkins, page, perPage, totalCount, emplo
     </div>
   );
 }
-

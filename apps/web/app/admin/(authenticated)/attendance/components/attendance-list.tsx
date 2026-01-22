@@ -13,10 +13,11 @@ import { format } from 'date-fns';
 
 // Define a type for the attendance metadata that includes location information
 type AttendanceMetadata = {
-  location: {
+  location?: {
     lat: number;
     lng: number;
   };
+  latenessMins?: number;
 };
 
 // Type employee to check if an object has valid location data
@@ -118,7 +119,9 @@ export default function AttendanceList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee ID</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Employee ID
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift</th>
@@ -183,9 +186,16 @@ export default function AttendanceList({
                         </span>
                       )}
                       {attendance.status === 'late' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                          Late
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 w-fit">
+                            Late
+                          </span>
+                          {attendance.metadata?.latenessMins && (
+                            <span className="text-[10px] text-muted-foreground font-medium ml-1">
+                              {attendance.metadata.latenessMins} mins late
+                            </span>
+                          )}
+                        </div>
                       )}
                       {attendance.status === 'pending_verification' && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">

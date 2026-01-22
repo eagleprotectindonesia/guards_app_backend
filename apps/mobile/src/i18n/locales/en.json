@@ -69,7 +69,8 @@
     "locationError": "Failed to get location",
     "titleOpen": "Check-in Open!",
     "titleNext": "Next Check-in",
-    "submitButton": "CHECK IN NOW"
+    "submitButton": "CHECK IN NOW",
+    "graceMinutes": "Grace minutes: {{minutes}}"
   },
   "passwordChange": {
     "successTitle": "Success",

@@ -422,7 +422,6 @@ export async function getActiveShifts(now: Date) {
     where: {
       status: { in: ['scheduled', 'in_progress'] },
       startsAt: { lte: lookaheadDate },
-      endsAt: { gte: now },
       employeeId: { not: null },
       deletedAt: null,
     },

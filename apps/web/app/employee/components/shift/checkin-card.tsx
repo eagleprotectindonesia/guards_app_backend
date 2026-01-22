@@ -158,7 +158,7 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
         shiftId: activeShift.id,
         location: locationData,
       });
-      
+
       if (data.isLastSlot) {
         toast.success(t('checkin.shiftCompletedTitle'));
       }
@@ -205,10 +205,14 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
               <p className="text-3xl font-mono font-bold text-blue-600">
                 {nextDueDisplay.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
-              <p className="text-sm font-bold text-gray-400 mt-1">{t('attendance.requiredTitle')}: {activeShift.graceMinutes} {t('common.minutes')}</p>
+              <p className="text-sm font-bold text-gray-400 mt-1">
+                {t('checkin.graceMinutes', { minutes: activeShift.graceMinutes })}
+              </p>
             </>
           )}
-          <p className={`text-sm font-semibold mt-2 ${canCheckIn && !isLate ? 'text-green-600' : 'text-amber-600'}`}>{timeLeft}</p>
+          <p className={`text-sm font-semibold mt-2 ${canCheckIn && !isLate ? 'text-green-600' : 'text-amber-600'}`}>
+            {timeLeft}
+          </p>
         </div>
 
         {canCheckIn && (
@@ -218,7 +222,9 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
               isLate ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'
             }`}
           >
-            {isLate ? t('checkin.submitLateButton', { defaultValue: 'Submit Late Check-in' }) : t('checkin.submitButton')}
+            {isLate
+              ? t('checkin.submitLateButton', { defaultValue: 'Submit Late Check-in' })
+              : t('checkin.submitButton')}
           </button>
         )}
 

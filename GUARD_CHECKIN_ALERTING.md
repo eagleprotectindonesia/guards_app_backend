@@ -68,21 +68,26 @@ Before performing routine check-ins, a guard must record attendance.
 -   **Outcome**:
     -   Creates `Attendance` record.
     -   Updates Shift status to `in_progress`.
+    -   **Auto-Resolution**: If a `missed_attendance` alert exists, it is automatically resolved.
 
 #### 2. Check-ins (`/api/employee/shifts/[id]/checkin`)
-Guards perform recurring check-ins based on the shift's interval.
+Guards perform recurring check-ins based on the shift's interval. Attendance is a strict prerequisite.
 -   **Window Logic (`lib/scheduling.ts`)**:
     -   **Open**: Current time is within `[SlotStart, SlotStart + Grace]`.
     -   **Early**: Current time is before the next slot.
     -   **Late**: Grace period has passed for the current slot.
     -   **Completed**: A valid check-in already exists for the current slot.
+-   **Late & Bulk Logic**:
+    -   If a guard is late for one or more intervals, the system identifies all missed slots between the `lastHeartbeatAt` and the current time.
+    -   All missed slots are recorded as `late` check-ins in a single bulk transaction.
 -   **Validation**:
-    -   **Time**: Rejects check-ins if status is `early`, `late`, or `completed`.
+    -   **Time**: Rejects check-ins if window status is `early` or `completed`.
     -   **Location**: Validates distance against `MAX_CHECKIN_DISTANCE_METERS`.
 -   **Outcome**:
-    -   Creates `Checkin` record.
-    -   Updates `shift.lastHeartbeatAt`.
-    -   **Auto-Resolution**: Automatically resolves any open `missed_checkin` alert for this shift.
+    -   Creates one or more `Checkin` records.
+    -   Updates `shift.lastHeartbeatAt` to the timestamp of the latest check-in.
+    -   **Auto-Resolution**: Automatically resolves **all** open `missed_checkin` alerts for the shift.
+    -   **Completion**: If the check-in covers the last slot, the shift status is updated to `completed`.
 
 ### C. Admin Real-time Dashboard (`/api/admin/alerts/stream`)
 Admins monitor operations via a Server-Sent Events (SSE) stream.
@@ -92,8 +97,8 @@ Admins monitor operations via a Server-Sent Events (SSE) stream.
     -   **Active Shifts**: Live status of all ongoing shifts (syncs with worker).
     -   **Upcoming Shifts**: Rolling list of shifts starting in the next 24 hours.
 2.  **Alert Management**:
-    -   **Resolve**: Mark as handled.
-    -   **Forgive**: Soft delete (restores guard's performance stats).
+    -   Alerts are **auto-resolved** by the system when the guard eventually performs the required action (late attendance or check-in).
+    -   Admins use the dashboard to monitor these resolutions in real-time. Any remaining manual actions (like "forgiving" an alert) may be handled separately.
 
 ## 3. API Reference
 
@@ -101,12 +106,9 @@ Admins monitor operations via a Server-Sent Events (SSE) stream.
 records the initial presence for a shift.
 -   **Body**: `{ "location": { "lat": number, "lng": number } }`
 -   **Checks**: Distance <= `MAX_CHECKIN_DISTANCE_METERS`.
+-   **Outcome**: Creates record, updates shift, and auto-resolves `missed_attendance` alerts.
 
 ### `POST /api/employee/shifts/[id]/checkin`
-Records a routine check-in.
+Records routine check-ins (single or bulk if late).
 -   **Body**: `{ "location": { "lat": number, "lng": number }, "source": "web" }`
--   **Response**: `{ "checkin": object, "next_due_at": ISOString, "status": "on_time" }`
--   **Checks**: Distance, Time Window.
-
-### `POST /api/admin/alerts/[id]/resolve`
--   **Body**: `{ "outcome": "resolve" | "forgive", "note": "string" }`
+-   **Outcome**: Creates check-in(s), updates heartbeat/status, and auto-resolves `missed_checkin` alerts.

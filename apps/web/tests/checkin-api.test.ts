@@ -1,7 +1,7 @@
 import { POST } from '../app/api/employee/shifts/[id]/checkin/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { getShiftById } from '@/lib/data-access/shifts';
-import { recordCheckin } from '@/lib/data-access/checkins';
+import { recordCheckin, recordBulkCheckins } from '@/lib/data-access/checkins';
 import { getSystemSetting } from '@/lib/data-access/settings';
 
 // Mock the dependencies
@@ -15,6 +15,7 @@ jest.mock('@/lib/data-access/shifts', () => ({
 
 jest.mock('@/lib/data-access/checkins', () => ({
   recordCheckin: jest.fn(),
+  recordBulkCheckins: jest.fn(),
 }));
 
 jest.mock('@/lib/data-access/settings', () => ({
@@ -58,7 +59,8 @@ describe('POST /api/employee/shifts/[id]/checkin - Last Slot Case', () => {
       endsAt: new Date('2025-12-20T10:00:00Z'),
       requiredCheckinIntervalMins: 60,
       graceMinutes: 15,
-      lastHeartbeatAt: null,
+      // Setting lastHeartbeatAt to 09:00 ensures we only record the current 10:00 check-in
+      lastHeartbeatAt: new Date('2025-12-20T09:00:00Z'),
       status: 'in_progress',
       site: { latitude: null, longitude: null },
       shiftType: {},
@@ -68,6 +70,7 @@ describe('POST /api/employee/shifts/[id]/checkin - Last Slot Case', () => {
     (getShiftById as jest.Mock).mockResolvedValue(mockShift);
     (getSystemSetting as jest.Mock).mockResolvedValue(null);
     (recordCheckin as jest.Mock).mockResolvedValue({ id: 'checkin-1' });
+    (recordBulkCheckins as jest.Mock).mockResolvedValue({ count: 1, resolvedAlerts: [] });
 
     const req = new Request(`http://localhost/api/employee/shifts/${shiftId}/checkin`, {
       method: 'POST',

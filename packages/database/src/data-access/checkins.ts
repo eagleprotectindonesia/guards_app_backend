@@ -63,6 +63,98 @@ export async function recordCheckin(params: {
   });
 }
 
+export async function recordBulkCheckins(params: {
+  shiftId: string;
+  employeeId: string;
+  checkins: {
+    at: Date;
+    status: CheckInStatus;
+    metadata?: any;
+    source?: string;
+  }[];
+  shiftUpdateData: {
+    status?: 'in_progress' | 'completed';
+    missedCount?: number;
+    checkInStatus: CheckInStatus;
+  };
+}) {
+  const { shiftId, employeeId, checkins, shiftUpdateData } = params;
+
+  if (checkins.length === 0) {
+    throw new Error('No checkins provided');
+  }
+
+  // Sort checkins by time to ensure lastHeartbeatAt is the latest
+  const sortedCheckins = [...checkins].sort((a, b) => a.at.getTime() - b.at.getTime());
+  const latestCheckinAt = sortedCheckins[sortedCheckins.length - 1].at;
+
+  return prisma.$transaction(async tx => {
+    // Create all checkin records
+    await tx.checkin.createMany({
+      data: sortedCheckins.map(c => ({
+        shiftId,
+        employeeId,
+        at: c.at,
+        status: c.status,
+        source: c.source || 'api',
+        metadata: c.metadata,
+      })),
+    });
+
+    // Update shift status and last heartbeat
+    await tx.shift.update({
+      where: { id: shiftId },
+      data: {
+        ...shiftUpdateData,
+        lastHeartbeatAt: latestCheckinAt,
+      },
+    });
+
+    // Find all missed check-in alerts for this shift that are not yet resolved
+    const alertsToResolve = await tx.alert.findMany({
+      where: {
+        shiftId,
+        reason: AlertReason.missed_checkin,
+        resolvedAt: null,
+      },
+      include: {
+        site: true,
+        resolverAdmin: true,
+        ackAdmin: true,
+        shift: {
+          include: {
+            employee: true,
+            shiftType: true,
+          },
+        },
+      },
+    });
+
+    if (alertsToResolve.length > 0) {
+      const now = new Date();
+      await tx.alert.updateMany({
+        where: {
+          id: { in: alertsToResolve.map(a => a.id) },
+        },
+        data: {
+          resolvedAt: now,
+          resolutionType: 'auto',
+          resolutionNote: 'Auto-resolved by bulk check-in',
+        },
+      });
+
+      // Update the objects in memory to reflect the resolution for the response
+      alertsToResolve.forEach(a => {
+        a.resolvedAt = now;
+        a.resolutionType = 'auto';
+        a.resolutionNote = 'Auto-resolved by bulk check-in';
+      });
+    }
+
+    return { count: checkins.length, resolvedAlerts: alertsToResolve };
+  });
+}
+
 export async function getPaginatedCheckins(params: {
   where: Prisma.CheckinWhereInput;
   orderBy: Prisma.CheckinOrderByWithRelationInput;

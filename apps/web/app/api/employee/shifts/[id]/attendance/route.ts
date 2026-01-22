@@ -83,14 +83,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       }
     }
 
-    // Prepare metadata if location data is present
-    const metadata = parsedBody.location ? { location: parsedBody.location } : undefined;
-
     // Determine if late
     const now = new Date();
-    const graceMs = shift.graceMinutes * 60000;
-    const isLate = now.getTime() > shift.startsAt.getTime() + graceMs;
+    const ATTENDANCE_GRACE_MINS = 5;
+    const graceMs = ATTENDANCE_GRACE_MINS * 60000;
+    const deadlineMs = shift.startsAt.getTime() + graceMs;
+    const isLate = now.getTime() > deadlineMs;
     const status: 'present' | 'late' = isLate ? 'late' : 'present';
+
+    let latenessMins = 0;
+    if (isLate) {
+      latenessMins = Math.max(0, Math.floor((now.getTime() - deadlineMs) / 60000));
+    }
+
+    // Prepare metadata if location data is present
+    const metadata = {
+      ...(parsedBody.location ? { location: parsedBody.location } : {}),
+      ...(isLate ? { latenessMins } : {}),
+    };
 
     // 3. Record Attendance and Update Shift
     const { attendance, resolvedAlert } = await recordAttendance({

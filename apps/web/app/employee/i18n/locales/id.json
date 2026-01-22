@@ -76,7 +76,8 @@
     "titleLate": "Check-in Terlambat",
     "titleNext": "Check-in Berikutnya",
     "submitButton": "CHECK IN SEKARANG",
-    "submitLateButton": "SUBMIT CHECK-IN TERLAMBAT"
+    "submitLateButton": "SUBMIT CHECK-IN TERLAMBAT",
+    "graceMinutes": "Toleransi: {{minutes}} menit"
   },
   "passwordChange": {
     "successTitle": "Sukses",

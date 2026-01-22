@@ -76,7 +76,8 @@
     "titleLate": "Late Check-in",
     "titleNext": "Next Check-in",
     "submitButton": "CHECK IN NOW",
-    "submitLateButton": "SUBMIT LATE CHECK-IN"
+    "submitLateButton": "SUBMIT LATE CHECK-IN",
+    "graceMinutes": "Grace minutes: {{minutes}}"
   },
   "passwordChange": {
     "successTitle": "Success",
