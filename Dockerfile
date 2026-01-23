@@ -65,29 +65,27 @@ ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
 RUN npx turbo run build --filter=worker
 
 # 7. Web Runner (production image)
-FROM node:24-alpine AS app-runner
+FROM base AS app-runner
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000 \
     HOSTNAME="0.0.0.0" \
     TZ=Asia/Makassar
 
-RUN apk add --no-cache libc6-compat wget && \
-    addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+RUN apk add --no-cache libc6-compat wget
 
-# Copy only production files
-COPY --from=web-builder /app/apps/web/public ./apps/web/public
-COPY --from=web-builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=web-builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+# Copy full monorepo structure needed for runtime (since we're not using standalone)
+COPY --from=web-builder /app ./
 
-USER nextjs
+USER root
+RUN npm install -g tsx
+
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-CMD ["node", "apps/web/server.js"]
+CMD ["npm", "run", "start", "--workspace=web"]
 
 # 8. Worker Runner (production image)
 FROM node:24-alpine AS worker-runner
