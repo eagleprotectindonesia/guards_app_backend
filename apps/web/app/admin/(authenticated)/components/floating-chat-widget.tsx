@@ -192,9 +192,7 @@ export default function FloatingChatWidget() {
 
     setIsOptimizing(true);
     try {
-      const processedFiles = await Promise.all(
-        imageFiles.map(file => optimizeImage(file))
-      );
+      const processedFiles = await Promise.all(imageFiles.map(file => optimizeImage(file)));
 
       const currentFiles = [...selectedFiles, ...processedFiles].slice(0, 4);
       setSelectedFiles(currentFiles);
@@ -280,7 +278,10 @@ export default function FloatingChatWidget() {
           {/* Header */}
           <div className="bg-blue-600 dark:bg-blue-700 text-white p-3 flex items-center justify-between shrink-0">
             <h3 className="font-semibold">Chat Support</h3>
-            <button onClick={() => setIsOpen(false)} className="hover:bg-blue-700 dark:hover:bg-blue-800 p-1 rounded-full transition-colors">
+            <button
+              onClick={() => setIsOpen(false)}
+              className="hover:bg-blue-700 dark:hover:bg-blue-800 p-1 rounded-full transition-colors"
+            >
               <X size={20} />
             </button>
           </div>
@@ -296,11 +297,11 @@ export default function FloatingChatWidget() {
                     type="text"
                     placeholder="Search employee..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={e => setSearchTerm(e.target.value)}
                     className="w-full bg-background border border-border rounded-md pl-8 pr-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-muted-foreground/50"
                   />
                   {searchTerm && (
-                    <button 
+                    <button
                       onClick={() => setSearchTerm('')}
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
@@ -309,7 +310,7 @@ export default function FloatingChatWidget() {
                   )}
                 </div>
               </div>
-              
+
               <div className="flex-1 overflow-y-auto">
                 {filteredConversations.length === 0 ? (
                   <div className="text-center text-muted-foreground mt-10 text-sm px-4">
@@ -322,7 +323,8 @@ export default function FloatingChatWidget() {
                       onClick={() => handleSelectConversation(conv.employeeId)}
                       className={cn(
                         'w-full text-left p-3 border-b border-border/50 hover:bg-muted transition-all flex items-center gap-3 relative',
-                        activeemployeeId === conv.employeeId && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500'
+                        activeemployeeId === conv.employeeId &&
+                          'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500'
                       )}
                     >
                       <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center shrink-0 relative">
@@ -400,10 +402,12 @@ export default function FloatingChatWidget() {
                             )}
                           >
                             {msg.attachments && msg.attachments.length > 0 && (
-                              <div className={cn(
-                                "grid gap-1 mb-2",
-                                msg.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
-                              )}>
+                              <div
+                                className={cn(
+                                  'grid gap-1 mb-2',
+                                  msg.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
+                                )}
+                              >
                                 {msg.attachments.map((url, i) => {
                                   if (isVideoFile(url)) {
                                     return (
@@ -430,9 +434,16 @@ export default function FloatingChatWidget() {
                             {msg.content}
                           </div>
                           <div className="flex items-center gap-1 px-1 mt-1">
-                            <span className="text-[9px] text-muted-foreground/60">{format(new Date(msg.createdAt), 'HH:mm')}</span>
+                            <span className="text-[9px] text-muted-foreground/60">
+                              {format(new Date(msg.createdAt), 'HH:mm')}
+                            </span>
                             {msg.sender === 'admin' && (
-                              <span className={cn('text-[9px]', msg.readAt ? 'text-blue-500 dark:text-blue-400' : 'text-muted-foreground/30')}>
+                              <span
+                                className={cn(
+                                  'text-[9px]',
+                                  msg.readAt ? 'text-blue-500 dark:text-blue-400' : 'text-muted-foreground/30'
+                                )}
+                              >
                                 {msg.readAt ? '✓✓' : '✓'}
                               </span>
                             )}
@@ -494,7 +505,9 @@ export default function FloatingChatWidget() {
                     />
                     <button
                       type="submit"
-                      disabled={(!inputText.trim() && selectedFiles.length === 0) || !isConnected || isUploading || isOptimizing}
+                      disabled={
+                        (!inputText.trim() && selectedFiles.length === 0) || !isConnected || isUploading || isOptimizing
+                      }
                       className="bg-blue-600 dark:bg-blue-700 text-white p-2 rounded-full disabled:opacity-50 hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors shrink-0"
                     >
                       {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
@@ -517,7 +530,9 @@ export default function FloatingChatWidget() {
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           'w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 relative border border-border/50',
-          isOpen ? 'bg-card text-foreground rotate-90' : 'bg-blue-600 dark:bg-blue-700 text-white hover:bg-blue-700 dark:hover:bg-blue-600'
+          isOpen
+            ? 'bg-card text-foreground rotate-90'
+            : 'bg-blue-600 dark:bg-blue-700 text-white hover:bg-blue-700 dark:hover:bg-blue-600'
         )}
       >
         {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
