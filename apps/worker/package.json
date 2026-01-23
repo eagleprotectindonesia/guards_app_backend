@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "tsx --watch src/worker.ts",
+    "dev:https": "npm run dev",
     "build": "esbuild src/worker.ts --bundle --platform=node --target=node22 --outfile=dist/worker.js --external:@prisma/client --external:pg --external:@prisma/adapter-pg --external:ioredis --external:dotenv --external:date-fns --external:bullmq",
     "start": "node dist/worker.js",
     "lint": "eslint . --ext .ts",

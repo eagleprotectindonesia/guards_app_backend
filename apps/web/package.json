@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "tsx server.ts",
+    "dev:https": "next dev --experimental-https",
     "next-dev": "next dev",
     "build": "next build",
     "start": "NODE_ENV=production tsx server.ts",

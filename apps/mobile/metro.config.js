@@ -17,7 +17,15 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, "node_modules"),
 ];
 
-// 3. Force deduplication for React and related packages
+// 3. Exclude large, unnecessary directories from the watcher
+config.resolver.blockList = [
+  /.*\.git\/.*/,
+  /.*\/apps\/web\/.next\/.*/,
+  /.*\/node_modules\/.*\/dist-types\/.*/, // Common source of excessive files
+  /.*\/node_modules\/.*\/__tests__\/.*/,
+];
+
+// 4. Force deduplication for React and related packages
 config.resolver.extraNodeModules = {
   react: path.resolve(workspaceRoot, "node_modules/react"),
   "react-dom": path.resolve(workspaceRoot, "node_modules/react-dom"),

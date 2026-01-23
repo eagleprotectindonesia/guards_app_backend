@@ -1,12 +1,13 @@
 import { Server as SocketIOServer } from 'socket.io';
 import { Server as HttpServer } from 'http';
+import { Server as HttpsServer } from 'https';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { redis } from './redis';
 import { authenticateSocket } from './socket-auth';
 import { saveMessage, markAsRead } from './data-access/chat';
 import '../types/socket'; // Import to ensure module augmentation is applied
 
-export function initSocket(server: HttpServer) {
+export function initSocket(server: HttpServer | HttpsServer) {
   const io = new SocketIOServer(server, {
     cors: {
       origin: '*', // Adjust in production

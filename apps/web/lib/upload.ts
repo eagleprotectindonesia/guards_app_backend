@@ -16,9 +16,9 @@ export interface UploadResponse {
 
 /**
  * Toggle between presigned URL (client-side) and server-side upload.
- * Currently set to false because CORS is not yet enabled on the S3 bucket.
+ * Client-side upload is preferred for large files like videos.
  */
-export const USE_PRESIGNED_URL = false;
+export const USE_PRESIGNED_URL = true;
 
 /**
  * Gets a presigned URL for uploading a file to S3.

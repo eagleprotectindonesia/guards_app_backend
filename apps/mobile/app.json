@@ -17,7 +17,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.eagleprotect.employee",
-      "icon": "./assets/icons/180.png"
+      "icon": "./assets/icons/180.png",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "The app needs access to your photo library to let you attach photos and videos to chat messages.",
+        "NSCameraUsageDescription": "The app needs access to your camera to let you take photos and videos to attach to chat messages."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -32,7 +36,10 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "FOREGROUND_SERVICE",
-        "ACCESS_BACKGROUND_LOCATION"
+        "ACCESS_BACKGROUND_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
       ]
     },
     "updates": {

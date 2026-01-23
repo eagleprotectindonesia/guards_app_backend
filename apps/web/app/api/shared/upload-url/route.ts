@@ -9,14 +9,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing fileName or contentType' }, { status: 400 });
     }
 
-    // Validate file size if provided (e.g., 5MB limit)
-    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    // Validate file size (e.g., 100MB limit for videos)
+    const MAX_FILE_SIZE = 100 * 1024 * 1024;
     if (fileSize && fileSize > MAX_FILE_SIZE) {
-      return NextResponse.json({ error: 'File too large (max 5MB)' }, { status: 400 });
+      return NextResponse.json({ error: 'File too large (max 100MB)' }, { status: 400 });
     }
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+    const allowedTypes = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'video/mp4',
+      'video/quicktime',
+      'video/x-matroska',
+      'video/webm',
+      'application/pdf',
+    ];
     if (!allowedTypes.includes(contentType)) {
       return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
     }

@@ -10,6 +10,7 @@
   "scripts": {
     "build": "turbo build",
     "dev": "node --env-file=.env node_modules/.bin/turbo dev --filter=web --filter=worker",
+    "dev:https": "node --env-file=.env node_modules/.bin/turbo run dev:https --filter=web --filter=worker",
     "dev:mobile": "node --env-file=.env node_modules/.bin/turbo dev",
     "lint": "turbo lint",
     "test": "jest",

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Loader2, X, Paperclip, Camera } from 'lucide-react';
+import { Send, Loader2, X, Paperclip, Camera, Video } from 'lucide-react';
 import { format } from 'date-fns';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { useSocket } from '@/components/socket-provider';
@@ -11,7 +11,7 @@ import { useChatMessages, ChatMessage } from '../hooks/use-chat-queries';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import { cn, isVideoFile } from '@/lib/utils';
 import { TFunction } from 'i18next';
 import { uploadToS3 } from '@/lib/upload';
 import { toast } from 'react-hot-toast';
@@ -171,25 +171,28 @@ export default function ChatPage() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const validFiles = files.filter(file => file.type.startsWith('image/'));
+    const validFiles = files.filter(file => file.type.startsWith('image/') || file.type.startsWith('video/'));
     if (validFiles.length !== files.length) {
-      toast.error(t('chat.error_images_only', 'Only image files are allowed'));
+      toast.error(t('chat.error_invalid_files', 'Only image and video files are allowed'));
     }
 
     if (validFiles.length === 0) return;
 
     setIsOptimizing(true);
     try {
-      const optimizedFiles = await Promise.all(validFiles.map(file => optimizeImage(file)));
+      // Only optimize images, leave videos as is
+      const processedFiles = await Promise.all(
+        validFiles.map(file => (file.type.startsWith('image/') ? optimizeImage(file) : Promise.resolve(file)))
+      );
 
-      const currentFiles = [...selectedFiles, ...optimizedFiles].slice(0, 4);
+      const currentFiles = [...selectedFiles, ...processedFiles].slice(0, 4);
       setSelectedFiles(currentFiles);
 
-      const newPreviews = optimizedFiles.map(file => URL.createObjectURL(file));
+      const newPreviews = processedFiles.map(file => URL.createObjectURL(file));
       setPreviews(prev => [...prev, ...newPreviews].slice(0, 4));
     } catch (error) {
-      console.error('Image optimization failed:', error);
-      toast.error(t('chat.optimization_failed', 'Failed to process images'));
+      console.error('File processing failed:', error);
+      toast.error(t('chat.processing_failed', 'Failed to process files'));
     } finally {
       setIsOptimizing(false);
     }
@@ -279,7 +282,17 @@ export default function ChatPage() {
           <div className="flex gap-2 p-2 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-x-auto">
             {previews.map((url, i) => (
               <div key={i} className="relative h-16 w-16 shrink-0">
-                <img src={url} alt="Preview" className="h-full w-full object-cover rounded-xl border border-gray-100" />
+                {selectedFiles[i]?.type.startsWith('video/') ? (
+                  <div className="h-full w-full bg-gray-100 rounded-xl border border-gray-100 flex items-center justify-center">
+                    <Video className="h-6 w-6 text-gray-400" />
+                  </div>
+                ) : (
+                  <img
+                    src={url}
+                    alt="Preview"
+                    className="h-full w-full object-cover rounded-xl border border-gray-100"
+                  />
+                )}
                 <button
                   onClick={() => removeFile(i)}
                   className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600 transition-colors"
@@ -299,7 +312,7 @@ export default function ChatPage() {
             type="file"
             ref={fileInputRef}
             onChange={handleFileChange}
-            accept="image/*"
+            accept="image/*,video/*"
             multiple
             className="hidden"
           />
@@ -420,15 +433,27 @@ function ChatMessageItem({
       >
         {message.attachments && message.attachments.length > 0 && (
           <div className={cn('grid gap-1.5 mb-2', message.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
-            {message.attachments.map((url, i) => (
-              <img
-                key={i}
-                src={url}
-                alt={`Attachment ${i + 1}`}
-                className="w-full aspect-video object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
-                onClick={() => onImageClick(url)}
-              />
-            ))}
+            {message.attachments.map((url, i) => {
+              if (isVideoFile(url)) {
+                return (
+                  <video
+                    key={i}
+                    src={url}
+                    controls
+                    className="w-full aspect-video object-cover rounded-xl"
+                  />
+                );
+              }
+              return (
+                <img
+                  key={i}
+                  src={url}
+                  alt={`Attachment ${i + 1}`}
+                  className="w-full aspect-video object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                  onClick={() => onImageClick(url)}
+                />
+              );
+            })}
           </div>
         )}
         <p className="whitespace-pre-wrap wrap-break-word">{message.content}</p>

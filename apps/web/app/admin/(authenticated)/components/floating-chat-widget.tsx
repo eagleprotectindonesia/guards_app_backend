@@ -2,9 +2,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useSocket } from '@/components/socket-provider';
-import { MessageSquare, X, Send, User } from 'lucide-react';
+import { MessageSquare, X, Send, User, Search, Paperclip, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, isVideoFile } from '@/lib/utils';
+import { uploadToS3 } from '@/lib/upload';
+import { optimizeImage } from '@/lib/image-utils';
+import { toast } from 'react-hot-toast';
 
 interface Conversation {
   employeeId: string;
@@ -35,10 +38,17 @@ export default function FloatingChatWidget() {
   const [activeemployeeId, setActiveemployeeId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
   const [typingEmployees, setTypingEmployees] = useState<Record<string, boolean>>({});
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Listen for external open chat events
   useEffect(() => {
@@ -169,20 +179,78 @@ export default function FloatingChatWidget() {
     }
   }, [messages, typingEmployees]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    if (imageFiles.length !== files.length) {
+      toast.error('Only image files are allowed in this chat');
+    }
+
+    if (imageFiles.length === 0) return;
+
+    setIsOptimizing(true);
+    try {
+      const processedFiles = await Promise.all(
+        imageFiles.map(file => optimizeImage(file))
+      );
+
+      const currentFiles = [...selectedFiles, ...processedFiles].slice(0, 4);
+      setSelectedFiles(currentFiles);
+
+      const newPreviews = processedFiles.map(file => URL.createObjectURL(file));
+      setPreviews(prev => [...prev, ...newPreviews].slice(0, 4));
+    } catch (error) {
+      console.error('File processing failed:', error);
+      toast.error('Failed to process images');
+    } finally {
+      setIsOptimizing(false);
+    }
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    URL.revokeObjectURL(previews[index]);
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeemployeeId || !socket) return;
+    if ((!inputText.trim() && selectedFiles.length === 0) || !activeemployeeId || !socket || isUploading) return;
 
-    socket.emit('send_message', {
-      content: inputText.trim(),
-      employeeId: activeemployeeId,
-    });
+    setIsUploading(true);
+    try {
+      let attachments: string[] = [];
 
-    setInputText('');
+      if (selectedFiles.length > 0) {
+        const uploadPromises = selectedFiles.map(file => uploadToS3(file, 'chat'));
+        const results = await Promise.all(uploadPromises);
+        attachments = results.map(r => r.key);
+      }
 
-    // Stop typing
-    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    socket.emit('typing', { employeeId: activeemployeeId, isTyping: false });
+      socket.emit('send_message', {
+        content: inputText.trim(),
+        employeeId: activeemployeeId,
+        attachments,
+      });
+
+      setInputText('');
+      setSelectedFiles([]);
+      previews.forEach(url => URL.revokeObjectURL(url));
+      setPreviews([]);
+
+      // Stop typing
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      socket.emit('typing', { employeeId: activeemployeeId, isTyping: false });
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      toast.error('Failed to send message');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -200,6 +268,10 @@ export default function FloatingChatWidget() {
 
   const totalUnread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
 
+  const filteredConversations = conversations.filter(conv =>
+    conv.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       {/* Chat Window */}
@@ -216,48 +288,73 @@ export default function FloatingChatWidget() {
           {/* Body */}
           <div className="flex-1 flex overflow-hidden bg-muted/50">
             {/* Sidebar: Conversation List */}
-            <div className="w-1/3 border-r border-border overflow-y-auto bg-card">
-              {conversations.length === 0 ? (
-                <div className="text-center text-muted-foreground mt-10 text-sm px-4">No conversations yet</div>
-              ) : (
-                conversations.map(conv => (
-                  <button
-                    key={conv.employeeId}
-                    onClick={() => handleSelectConversation(conv.employeeId)}
-                    className={cn(
-                      'w-full text-left p-3 border-b border-border/50 hover:bg-muted transition-all flex items-center gap-3 relative',
-                      activeemployeeId === conv.employeeId && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500'
-                    )}
-                  >
-                    <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center shrink-0 relative">
-                      <User className="text-muted-foreground" size={16} />
-                      {typingEmployees[conv.employeeId] && (
-                        <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-card rounded-full animate-pulse" />
+            <div className="w-1/3 border-r border-border flex flex-col bg-card">
+              <div className="p-2 border-b border-border bg-muted/30">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                  <input
+                    type="text"
+                    placeholder="Search employee..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-background border border-border rounded-md pl-8 pr-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 placeholder:text-muted-foreground/50"
+                  />
+                  {searchTerm && (
+                    <button 
+                      onClick={() => setSearchTerm('')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto">
+                {filteredConversations.length === 0 ? (
+                  <div className="text-center text-muted-foreground mt-10 text-sm px-4">
+                    {searchTerm ? 'No employees found' : 'No conversations yet'}
+                  </div>
+                ) : (
+                  filteredConversations.map(conv => (
+                    <button
+                      key={conv.employeeId}
+                      onClick={() => handleSelectConversation(conv.employeeId)}
+                      className={cn(
+                        'w-full text-left p-3 border-b border-border/50 hover:bg-muted transition-all flex items-center gap-3 relative',
+                        activeemployeeId === conv.employeeId && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500'
                       )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <p className="font-medium text-foreground text-sm truncate">{conv.employeeName}</p>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        {typingEmployees[conv.employeeId] ? (
-                          <span className="text-green-600 dark:text-green-400 font-medium italic">typing...</span>
-                        ) : (
-                          <>
-                            {conv.lastMessage.sender === 'admin' ? 'You: ' : ''}
-                            {conv.lastMessage.content}
-                          </>
+                    >
+                      <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center shrink-0 relative">
+                        <User className="text-muted-foreground" size={16} />
+                        {typingEmployees[conv.employeeId] && (
+                          <div className="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-card rounded-full animate-pulse" />
                         )}
-                      </p>
-                    </div>
-                    {conv.unreadCount > 0 && (
-                      <div className="absolute top-3 right-2 w-4 h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
-                        {conv.unreadCount}
                       </div>
-                    )}
-                  </button>
-                ))
-              )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <p className="font-medium text-foreground text-sm truncate">{conv.employeeName}</p>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {typingEmployees[conv.employeeId] ? (
+                            <span className="text-green-600 dark:text-green-400 font-medium italic">typing...</span>
+                          ) : (
+                            <>
+                              {conv.lastMessage.sender === 'admin' ? 'You: ' : ''}
+                              {conv.lastMessage.content}
+                            </>
+                          )}
+                        </p>
+                      </div>
+                      {conv.unreadCount > 0 && (
+                        <div className="absolute top-3 right-2 w-4 h-4 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-bold">
+                          {conv.unreadCount}
+                        </div>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
             </div>
 
             {/* Main: Active Chat Area */}
@@ -307,15 +404,27 @@ export default function FloatingChatWidget() {
                                 "grid gap-1 mb-2",
                                 msg.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
                               )}>
-                                {msg.attachments.map((url, i) => (
-                                  <img
-                                    key={i}
-                                    src={url}
-                                    alt={`Attachment ${i + 1}`}
-                                    className="w-full aspect-video object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                    onClick={() => window.open(url, '_blank')}
-                                  />
-                                ))}
+                                {msg.attachments.map((url, i) => {
+                                  if (isVideoFile(url)) {
+                                    return (
+                                      <video
+                                        key={i}
+                                        src={url}
+                                        controls
+                                        className="w-full aspect-video object-cover rounded-lg"
+                                      />
+                                    );
+                                  }
+                                  return (
+                                    <img
+                                      key={i}
+                                      src={url}
+                                      alt={`Attachment ${i + 1}`}
+                                      className="w-full aspect-video object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                      onClick={() => window.open(url, '_blank')}
+                                    />
+                                  );
+                                })}
                               </div>
                             )}
                             {msg.content}
@@ -333,24 +442,62 @@ export default function FloatingChatWidget() {
                     )}
                   </div>
 
+                  {/* Previews Area */}
+                  {previews.length > 0 && (
+                    <div className="px-4 py-2 bg-card border-t border-border flex gap-2 overflow-x-auto shrink-0">
+                      {previews.map((url, i) => (
+                        <div key={i} className="relative h-12 w-12 shrink-0">
+                          <img
+                            src={url}
+                            alt="Preview"
+                            className="h-full w-full object-cover rounded-md border border-border"
+                          />
+                          <button
+                            onClick={() => removeFile(i)}
+                            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 shadow-sm hover:bg-red-600 transition-colors"
+                          >
+                            <X size={10} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   {/* Footer Input */}
                   <form
                     onSubmit={handleSendMessage}
-                    className="p-3 bg-card border-t border-border flex gap-2 shrink-0"
+                    className="p-3 bg-card border-t border-border flex items-center gap-2 shrink-0"
                   >
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={selectedFiles.length >= 4 || isUploading || isOptimizing}
+                      className="text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-50 shrink-0"
+                    >
+                      {isOptimizing ? <Loader2 size={20} className="animate-spin" /> : <Paperclip size={20} />}
+                    </button>
                     <input
                       type="text"
                       value={inputText}
                       onChange={handleInputChange}
+                      disabled={isUploading || isOptimizing}
                       placeholder="Type a message..."
                       className="flex-1 bg-muted rounded-full px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-muted-foreground/50"
                     />
                     <button
                       type="submit"
-                      disabled={!inputText.trim()}
-                      className="bg-blue-600 dark:bg-blue-700 text-white p-2 rounded-full disabled:opacity-50 hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+                      disabled={(!inputText.trim() && selectedFiles.length === 0) || !isConnected || isUploading || isOptimizing}
+                      className="bg-blue-600 dark:bg-blue-700 text-white p-2 rounded-full disabled:opacity-50 hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors shrink-0"
                     >
-                      <Send size={18} />
+                      {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
                     </button>
                   </form>
                 </>
