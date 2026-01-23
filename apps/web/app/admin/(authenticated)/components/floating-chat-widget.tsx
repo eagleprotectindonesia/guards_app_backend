@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, X, Send, User, Paperclip, Loader2 } from 'lucide-react';
+import { MessageSquare, X, Send, User, Paperclip, Loader2, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAdminChat } from '@/hooks/use-admin-chat';
 import { ConversationList } from './chat/conversation-list';
 import { ChatMessageList } from './chat/message-list';
@@ -11,6 +11,7 @@ import { ChatAttachmentPreviews } from './chat/attachment-previews';
 
 export default function FloatingChatWidget() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
   const {
@@ -36,6 +37,15 @@ export default function FloatingChatWidget() {
   } = useAdminChat();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleMaximize = () => {
+    if (activeEmployeeId) {
+      router.push(`/admin/chat?employeeId=${activeEmployeeId}`);
+    } else {
+      router.push('/admin/chat');
+    }
+    setIsOpen(false);
+  };
 
   // Listen for external open chat events
   useEffect(() => {
@@ -69,12 +79,21 @@ export default function FloatingChatWidget() {
           {/* Header */}
           <div className="bg-blue-600 dark:bg-blue-700 text-white p-3 flex items-center justify-between shrink-0">
             <h3 className="font-semibold">Chat Support</h3>
-            <button
-              onClick={() => setIsOpen(false)}
-              className="hover:bg-blue-700 dark:hover:bg-blue-800 p-1 rounded-full transition-colors"
-            >
-              <X size={20} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleMaximize}
+                className="hover:bg-blue-700 dark:hover:bg-blue-800 p-1 rounded-full transition-colors"
+                title="Open full chat"
+              >
+                <Maximize2 size={18} />
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="hover:bg-blue-700 dark:hover:bg-blue-800 p-1 rounded-full transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </div>
 
           {/* Body */}

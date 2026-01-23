@@ -15,7 +15,7 @@ interface UseAdminChatOptions {
 export function useAdminChat(options: UseAdminChatOptions = {}) {
   const { socket, isConnected } = useSocket();
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeEmployeeId, setActiveEmployeeId] = useState<string | null>(options.initialEmployeeId || null);
+  const [activeEmployeeId, setActiveEmployeeId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,11 +51,11 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
     setActiveEmployeeId(employeeId);
     lastFetchedIdRef.current = employeeId;
-    
+
     if (!skipCallback && options.onSelectConversation) {
       options.onSelectConversation(employeeId);
     }
-    
+
     setIsLoading(true);
 
     // Optimistically clear unread count locally
