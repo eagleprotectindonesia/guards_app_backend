@@ -19,6 +19,7 @@ export const RESOURCES = [
   'dashboard',
   'departments',
   'designations',
+  'chat'
 ] as const;
 
 export const ACTIONS = ['view', 'create', 'edit', 'delete'] as const;

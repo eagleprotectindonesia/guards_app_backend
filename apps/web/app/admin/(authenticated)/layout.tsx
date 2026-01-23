@@ -25,6 +25,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect('/admin/login');
   }
 
+  // Check if user has chat permission
+  const hasChatPermission = session.permissions.includes('chat:view');
+
   return (
     <SessionProvider
       session={{
@@ -49,7 +52,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               </div>
               <main className="flex-1 p-8 overflow-y-auto">{children}</main>
             </div>
-            <FloatingChatWidget />
+            {hasChatPermission && <FloatingChatWidget />}
           </div>
         </AlertProvider>
       </SocketProvider>

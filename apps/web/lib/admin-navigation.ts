@@ -11,6 +11,7 @@ import {
   Building2,
   Briefcase,
   Hotel,
+  MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
 import { PermissionCode } from './auth/permissions';
@@ -26,6 +27,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Sites', href: '/admin/sites', icon: MapPin, requiredPermission: 'sites:view' },
   { name: 'Offices', href: '/admin/offices', icon: Hotel, requiredPermission: 'offices:view' },
+  { name: 'Chat', href: '/admin/chat', icon: MessageSquare, requiredPermission: 'chat:view' },
   { name: 'Employees', href: '/admin/employees', icon: Users, requiredPermission: 'employees:view' },
   { name: 'Departments', href: '/admin/departments', icon: Building2, requiredPermission: 'departments:view' },
   { name: 'Designations', href: '/admin/designations', icon: Briefcase, requiredPermission: 'designations:view' },
@@ -55,6 +57,7 @@ export const ADMIN_LABEL_MAP: Record<string, string> = {
   attendance: 'Attendance',
   checkins: 'Checkins',
   alerts: 'Alerts',
+  chat: 'Chat',
   profile: 'Profile',
   // changelogs: 'Changelogs',
   admins: 'Admins',

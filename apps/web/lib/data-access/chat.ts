@@ -119,6 +119,35 @@ export async function getUnreadCount(params: { employeeId?: string; isAdmin: boo
   });
 }
 
+export async function getChatExportBatch(params: {
+  take: number;
+  where: import('@prisma/client').Prisma.ChatMessageWhereInput;
+  cursor?: string;
+}) {
+  return prisma.chatMessage.findMany({
+    take: params.take,
+    skip: params.cursor ? 1 : 0,
+    cursor: params.cursor ? { id: params.cursor } : undefined,
+    where: params.where,
+    orderBy: {
+      createdAt: 'asc',
+    },
+    include: {
+      employee: {
+        select: {
+          fullName: true,
+          id: true,
+        },
+      },
+      admin: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+}
+
 export async function markAsRead(messageIds: string[]) {
   return prisma.chatMessage.updateMany({
     where: {
