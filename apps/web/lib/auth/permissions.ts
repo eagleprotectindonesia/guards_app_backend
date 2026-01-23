@@ -109,6 +109,10 @@ export const PERMISSIONS = {
     EDIT: 'designations:edit',
     DELETE: 'designations:delete',
   },
+  CHAT: {
+    VIEW: 'chat:view',
+    CREATE: 'chat:create',
+  },
 } satisfies Record<string, Record<string, PermissionCode>>;
 
 /**
