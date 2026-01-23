@@ -411,7 +411,7 @@ export default function FloatingChatWidget() {
                                         key={i}
                                         src={url}
                                         controls
-                                        className="w-full aspect-video object-cover rounded-lg"
+                                        className="w-full h-auto max-h-[250px] object-contain rounded-lg bg-black/5"
                                       />
                                     );
                                   }
