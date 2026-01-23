@@ -48,9 +48,10 @@
     "recordedAt": "Kehadiran direkam pada {{date}}",
     "notRecordedTitle": "Kehadiran Tidak Terekam",
     "requiredTitle": "Kehadiran Diperlukan",
-    "lateMessage": "Batas waktu presensi terlewat. Harap hubungi administrator Anda.",
+    "lateMessage": "Anda terlambat. Rekam kehadiran sekarang",
     "requiredMessage": "Harap rekam kehadiran Anda untuk memulai shift.",
-    "submitButton": "Rekam Kehadiran"
+    "submitButton": "Rekam Kehadiran",
+    "submitLateButton": "Rekam Kehadiran"
   },
   "checkin": {
     "success": "Check-in Berhasil!",
@@ -68,8 +69,11 @@
     "processing": "Melakukan check-in...",
     "locationError": "Gagal mendapatkan lokasi",
     "titleOpen": "Check-in Dibuka!",
+    "titleLate": "Check-in Terlambat",
     "titleNext": "Check-in Berikutnya",
-    "submitButton": "CHECK IN SEKARANG"
+    "submitButton": "CHECK IN SEKARANG",
+    "submitLateButton": "Rekam Check-in",
+    "graceMinutes": "Menit toleransi: {{minutes}}"
   },
   "passwordChange": {
     "successTitle": "Sukses",

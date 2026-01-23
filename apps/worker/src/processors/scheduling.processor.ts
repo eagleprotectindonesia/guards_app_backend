@@ -164,7 +164,6 @@ export class SchedulingProcessor {
   private async processActiveShifts(now: Date, nowMs: number) {
     for (const shift of this.cachedShifts.values()) {
       if (shift.status !== 'scheduled' && shift.status !== 'in_progress') continue;
-      if (shift.endsAt < now) continue;
 
       const state = this.getShiftState(shift.id);
       const startMs = shift.startsAt.getTime();

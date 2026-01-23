@@ -154,14 +154,14 @@ async function main() {
   if (officeDesignation) {
     officeDesignation = await prisma.designation.update({
       where: { id: officeDesignation.id },
-      data: { role: 'office' },
+      data: { role: 'on_site' },
     });
   } else {
     officeDesignation = await prisma.designation.create({
       data: {
         name: 'Office Staff',
         departmentId: opsDept.id,
-        role: 'office',
+        role: 'on_site',
       },
     });
   }
@@ -172,7 +172,7 @@ async function main() {
 
   const employee1 = await prisma.employee.upsert({
     where: { id: 'EMP001' },
-    update: {},
+    update: { role: 'on_site' },
     create: {
       id: 'EMP001',
       firstName: 'Jackie',
@@ -180,6 +180,7 @@ async function main() {
       phone: '+62551234567',
       hashedPassword: hashedEmployeePassword,
       employeeCode: '00001',
+      role: 'on_site',
       departmentId: opsDept.id,
       designationId: guardDesignation.id,
     },
@@ -188,7 +189,7 @@ async function main() {
 
   const employee2 = await prisma.employee.upsert({
     where: { id: 'EMP002' },
-    update: {},
+    update: { role: 'on_site' },
     create: {
       id: 'EMP002',
       firstName: 'Bruce',
@@ -196,6 +197,7 @@ async function main() {
       phone: '+625551234568',
       hashedPassword: hashedEmployeePassword,
       employeeCode: '00002',
+      role: 'on_site',
       departmentId: opsDept.id,
       designationId: guardDesignation.id,
     },
@@ -204,7 +206,7 @@ async function main() {
 
   const employee3 = await prisma.employee.upsert({
     where: { id: 'EMP003' },
-    update: {},
+    update: { role: 'on_site' },
     create: {
       id: 'EMP003',
       firstName: 'Chuck',
@@ -212,6 +214,7 @@ async function main() {
       phone: '+625551234569',
       hashedPassword: hashedEmployeePassword,
       employeeCode: '00003',
+      role: 'on_site',
       departmentId: opsDept.id,
       designationId: guardDesignation.id,
     },

@@ -60,6 +60,8 @@ export async function getAllEmployees(
 }
 
 export async function getActiveEmployees(role?: EmployeeRole) {
+  console.log(role);
+  
   return prisma.employee.findMany({
     where: {
       status: true,

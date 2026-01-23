@@ -72,6 +72,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
 
       let isWindowOpen = false;
       let message = '';
+      let isLate = false;
 
       if (window.status === 'completed') {
         const diff = Math.ceil((nextSlotStart - now) / 1000);
@@ -92,6 +93,8 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
             isWindowOpen = true;
           } else {
             message = t('checkin.missed');
+            isWindowOpen = true;
+            isLate = true;
             // Trigger refresh if we just missed it
             refetchShift();
           }
@@ -103,16 +106,14 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
           isWindowOpen = true;
         } else {
           message = t('checkin.missed');
+          isWindowOpen = true;
+          isLate = true;
           refetchShift();
         }
       } else if (window.status === 'late') {
-        const diff = Math.ceil((nextSlotStart - now) / 1000);
-        if (diff > 0) {
-          message = t('checkin.nextIn', { time: formatTime(diff) });
-        } else {
-          message = t('checkin.preparingNext');
-          refetchShift();
-        }
+        message = t('checkin.missed');
+        isWindowOpen = true;
+        isLate = true;
       }
 
       setTimeLeft(message);
@@ -144,14 +145,18 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
     }
   };
 
-  if (!activeShift?.checkInWindow) return null;
+  if (!activeShift?.checkInWindow || !activeShift?.attendance) return null;
+
+  const isLate =
+    activeShift.checkInWindow.status === 'late' ||
+    (activeShift.checkInWindow.status === 'open' && timeLeft === t('checkin.missed'));
 
   return (
     <Box className="bg-white p-6 rounded-xl shadow-md border border-blue-100 mb-6">
       <VStack space="md" alignItems="center">
         {canCheckIn ? (
-          <Heading size="2xl" className="text-green-600 mb-2">
-            {t('checkin.titleOpen')}
+          <Heading size="2xl" className={`${isLate ? 'text-amber-600' : 'text-green-600'} mb-2 text-center`}>
+            {isLate ? t('checkin.titleLate', { defaultValue: 'Late Check-in' }) : t('checkin.titleOpen')}
           </Heading>
         ) : (
           <>
@@ -164,19 +169,23 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
           </>
         )}
 
-        <Text className={`font-bold ${canCheckIn ? 'text-green-600' : 'text-amber-600'}`}>{timeLeft}</Text>
+        <Text className={`font-bold ${canCheckIn && !isLate ? 'text-green-600' : 'text-amber-600'}`}>{timeLeft}</Text>
 
         {status ? <Text className="text-xs text-gray-400">{status}</Text> : null}
 
         {canCheckIn && (
           <Button
             size="xl"
-            className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800"
+            className={`w-full ${isLate ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700 active:bg-green-800'}`}
             onPress={handleCheckIn}
             isDisabled={checkInMutation.isPending}
           >
             {checkInMutation.isPending ? <ButtonSpinner color="white" mr="$2" /> : null}
-            <ButtonText>{t('checkin.submitButton')}</ButtonText>
+            <ButtonText>
+              {isLate
+                ? t('checkin.submitLateButton', { defaultValue: 'Submit Late Check-in' })
+                : t('checkin.submitButton')}
+            </ButtonText>
           </Button>
         )}
       </VStack>

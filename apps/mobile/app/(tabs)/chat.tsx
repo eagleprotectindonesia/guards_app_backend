@@ -10,7 +10,6 @@ import {
   Image,
   Alert,
   ScrollView,
-  Pressable,
 } from 'react-native';
 import { VStack, Heading, Text, Center, Avatar, AvatarFallbackText, HStack, Spinner, Box } from '@gluestack-ui/themed';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +22,6 @@ import { client } from '../../src/api/client';
 import { storage, STORAGE_KEYS } from '../../src/utils/storage';
 import { format } from 'date-fns';
 import * as ImagePicker from 'expo-image-picker';
-import { useEvent } from 'expo';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { uploadToS3 } from '../../src/api/upload';
 import { isVideoFile } from '../../src/utils/file';
@@ -52,7 +50,7 @@ const VideoAttachment = ({ url, style }: { url: string; style: any }) => {
     <VideoView
       style={style}
       player={player}
-      allowsFullscreen
+      fullscreenOptions={{ enable: true }}
       allowsPictureInPicture
       nativeControls={true}
       contentFit="contain"

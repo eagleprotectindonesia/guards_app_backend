@@ -41,7 +41,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   const handleRecordAttendance = async () => {
     setStatus(t('attendance.requestingPermission'));
     let { status: permStatus } = await Location.requestForegroundPermissionsAsync();
-    
+
     if (permStatus !== 'granted') {
       setStatus(t('attendance.permissionDenied'));
       Alert.alert(t('attendance.permissionDeniedTitle'), t('attendance.locationRequired'));
@@ -51,7 +51,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
     setStatus(t('attendance.gettingLocation'));
     try {
       let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      
+
       setStatus(t('attendance.recording'));
       attendanceMutation.mutate({
         lat: location.coords.latitude,
@@ -65,7 +65,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   };
 
   const hasAttendance = !!shift.attendance;
-  
+
   // Calculate late status
   const ATTENDANCE_GRACE_MINS = 5;
   const now = new Date();
@@ -80,7 +80,9 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
 
   if (hasAttendance) {
     return (
-      <Box className={`${isLateAttendance ? 'bg-yellow-50 border-yellow-200' : 'bg-white'} p-4 rounded-lg shadow-sm border border-gray-200 mb-4`}>
+      <Box
+        className={`${isLateAttendance ? 'bg-yellow-50 border-yellow-200' : 'bg-white'} p-4 rounded-lg shadow-sm border border-gray-200 mb-4`}
+      >
         <Heading size="md" className={`mb-2 ${isLateAttendance ? 'text-yellow-600' : 'text-green-600'}`}>
           {isLateAttendance ? t('attendance.lateTitle') : t('attendance.recordedTitle')}
         </Heading>
@@ -94,36 +96,37 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   }
 
   return (
-    <Box className={`${isLateTime ? 'bg-red-50 border-red-200' : 'bg-white'} p-4 rounded-lg shadow-sm border border-red-100 mb-4`}>
+    <Box
+      className={`${isLateTime ? 'bg-red-50 border-red-200' : 'bg-white'} p-4 rounded-lg shadow-sm border border-red-100 mb-4`}
+    >
       <VStack space="md">
         <Heading size="md" className={isLateTime ? 'text-red-600' : 'text-gray-900'}>
           {isLateTime ? t('attendance.notRecordedTitle') : t('attendance.requiredTitle')}
         </Heading>
-        
+
         {isLateTime ? (
-          <Text className="text-red-600 font-medium italic">
-            {t('attendance.lateMessage')}
-          </Text>
+          <Text className="text-red-600 font-medium italic">{t('attendance.lateMessage')}</Text>
         ) : (
-          <Text className="text-gray-500">
-            {t('attendance.requiredMessage')}
-          </Text>
+          <Text className="text-gray-500">{t('attendance.requiredMessage')}</Text>
         )}
-        
+
         {status ? <Text className="text-sm text-blue-600 font-medium">{status}</Text> : null}
 
-        {!isLateTime && (
-          <Button
-            size="lg"
-            variant="solid"
-            action="primary"
-            onPress={handleRecordAttendance}
-            isDisabled={attendanceMutation.isPending}
-          >
-            {attendanceMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
-            <ButtonText>{t('attendance.submitButton')}</ButtonText>
-          </Button>
-        )}
+        <Button
+          size="lg"
+          variant="solid"
+          action={isLateTime ? 'negative' : 'primary'}
+          onPress={handleRecordAttendance}
+          isDisabled={attendanceMutation.isPending}
+          className={isLateTime ? 'bg-red-600' : ''}
+        >
+          {attendanceMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
+          <ButtonText>
+            {isLateTime
+              ? t('attendance.submitLateButton', { defaultValue: 'Record Late Attendance' })
+              : t('attendance.submitButton')}
+          </ButtonText>
+        </Button>
       </VStack>
     </Box>
   );

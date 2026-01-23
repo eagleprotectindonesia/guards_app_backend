@@ -42,6 +42,11 @@ export function calculateCheckInWindow(
   }
 
   let slotIndex = Math.floor((nowMs - firstScheduledCheckInMs) / intervalMs);
+  const maxSlotIndex = Math.floor((lastScheduledSlotStartMs - firstScheduledCheckInMs) / intervalMs);
+  
+  if (slotIndex > maxSlotIndex) {
+    slotIndex = maxSlotIndex;
+  }
 
   const potentialNextSlotStart = firstScheduledCheckInMs + (slotIndex + 1) * intervalMs;
   if (potentialNextSlotStart === lastScheduledSlotStartMs && graceMins > 0) {
