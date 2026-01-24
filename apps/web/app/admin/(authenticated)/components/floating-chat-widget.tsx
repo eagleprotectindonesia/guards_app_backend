@@ -31,6 +31,7 @@ function FloatingChatWidgetContent() {
     messages,
     inputText,
     searchTerm,
+    filterType,
     isLoading,
     isUploading,
     isOptimizing,
@@ -38,6 +39,7 @@ function FloatingChatWidgetContent() {
     typingEmployees,
     isConnected,
     setSearchTerm,
+    setFilterType,
     handleSelectConversation,
     handleSendMessage,
     handleFileChange,
@@ -110,6 +112,8 @@ function FloatingChatWidgetContent() {
               onSelect={handleSelectConversation}
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
+              filterType={filterType}
+              onFilterChange={setFilterType}
               typingEmployees={typingEmployees}
               className="w-1/3 border-r border-border shrink-0"
               itemClassName="p-3 gap-3"

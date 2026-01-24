@@ -13,6 +13,8 @@ interface ConversationListProps {
   onSelect: (employeeId: string) => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
+  filterType?: 'all' | 'unread';
+  onFilterChange?: (filter: 'all' | 'unread') => void;
   typingEmployees?: Record<string, boolean>;
   className?: string;
   itemClassName?: string;
@@ -25,6 +27,8 @@ export function ConversationList({
   onSelect,
   searchTerm,
   onSearchChange,
+  filterType = 'all',
+  onFilterChange,
   typingEmployees = {},
   className,
   itemClassName,
@@ -42,6 +46,32 @@ export function ConversationList({
           <h2 className="text-lg font-semibold">Messages</h2>
           {showExportButton && <ChatExport activeEmployeeId={activeEmployeeId} employees={exportEmployees} />}
         </div>
+        
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => onFilterChange?.('all')}
+            className={cn(
+              'px-3 py-1 text-xs font-medium rounded-full transition-all',
+              filterType === 'all'
+                ? 'bg-blue-600 text-white'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            All
+          </button>
+          <button
+            onClick={() => onFilterChange?.('unread')}
+            className={cn(
+              'px-3 py-1 text-xs font-medium rounded-full transition-all flex items-center gap-1.5',
+              filterType === 'unread'
+                ? 'bg-blue-600 text-white'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            Unread
+          </button>
+        </div>
+
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
           <input

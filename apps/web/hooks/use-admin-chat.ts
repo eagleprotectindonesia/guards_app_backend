@@ -19,6 +19,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState<'all' | 'unread'>('all');
   const [isLoading, setIsLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -270,10 +271,13 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
   const filteredConversations = conversations.filter(conv => {
     const term = searchTerm.toLowerCase();
-    return (
+    const matchesSearch =
       conv.employeeName.toLowerCase().includes(term) ||
-      conv.employeeId.toLowerCase().includes(term)
-    );
+      conv.employeeId.toLowerCase().includes(term);
+    
+    const matchesFilter = filterType === 'all' || conv.unreadCount > 0;
+
+    return matchesSearch && matchesFilter;
   });
 
   return {
@@ -283,6 +287,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     messages,
     inputText,
     searchTerm,
+    filterType,
     isLoading,
     isUploading,
     isOptimizing,
@@ -292,6 +297,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     isConnected,
     socket,
     setSearchTerm,
+    setFilterType,
     handleSelectConversation,
     handleSendMessage,
     handleFileChange,

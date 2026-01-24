@@ -36,6 +36,7 @@ export function AdminChatClient() {
     messages,
     inputText,
     searchTerm,
+    filterType,
     isLoading,
     isUploading,
     isOptimizing,
@@ -43,6 +44,7 @@ export function AdminChatClient() {
     typingEmployees,
     isConnected,
     setSearchTerm,
+    setFilterType,
     handleSelectConversation,
     handleSendMessage,
     handleFileChange,
@@ -68,6 +70,8 @@ export function AdminChatClient() {
         onSelect={handleSelectConversation}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
+        filterType={filterType}
+        onFilterChange={setFilterType}
         typingEmployees={typingEmployees}
         className="w-1/3 border-r border-border shrink-0"
       />
