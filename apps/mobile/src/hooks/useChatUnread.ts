@@ -2,9 +2,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { getSocket } from '../api/socket';
 import { client } from '../api/client';
+import { useAudioPlayer } from 'expo-audio';
 
 export function useChatUnread() {
   const queryClient = useQueryClient();
+  const player = useAudioPlayer(require('../../assets/audios/chat.wav'));
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: ['chat', 'unread'],
@@ -26,6 +28,12 @@ export function useChatUnread() {
           if (message.sender === 'admin') {
             // Optimistically update the cache
             queryClient.setQueryData(['chat', 'unread'], (old: number = 0) => old + 1);
+            
+            // Play sound
+            if (player) {
+              player.seekTo(0);
+              player.play();
+            }
           }
         });
 
@@ -45,7 +53,7 @@ export function useChatUnread() {
         socketInstance.off('messages_read');
       }
     };
-  }, [queryClient]);
+  }, [queryClient, player]);
 
   return { 
     unreadCount, 

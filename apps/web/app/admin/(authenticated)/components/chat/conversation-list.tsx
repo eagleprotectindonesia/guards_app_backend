@@ -87,7 +87,10 @@ export function ConversationList({
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex justify-between items-start mb-1">
-                  <p className="font-semibold text-foreground truncate">{conv.employeeName}</p>
+                  <p className="font-semibold text-foreground truncate">
+                    {conv.employeeName}{' '}
+                    <span className="text-xs font-normal text-muted-foreground">({conv.employeeId})</span>
+                  </p>
                   <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
                     {format(new Date(conv.lastMessage.createdAt), 'MMM d, HH:mm')}
                   </span>

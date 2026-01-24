@@ -6,7 +6,7 @@ import { Home, MessageSquare, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 import { useUnreadCount } from '../hooks/use-chat-queries';
-import { useEffect } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useSocket } from '@/components/socket-provider';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -16,15 +16,57 @@ export function BottomNav() {
   const { data: unreadData } = useUnreadCount();
   const { socket } = useSocket();
   const queryClient = useQueryClient();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Audio Logic for Chat
+  useEffect(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio('/audios/chat.wav');
+    }
+
+    const unlockAudio = () => {
+      if (audioRef.current) {
+        audioRef.current
+          .play()
+          .then(() => {
+            audioRef.current?.pause();
+            if (audioRef.current) audioRef.current.currentTime = 0;
+            document.removeEventListener('click', unlockAudio);
+            document.removeEventListener('keydown', unlockAudio);
+          })
+          .catch(() => {});
+      }
+    };
+
+    document.addEventListener('click', unlockAudio);
+    document.addEventListener('keydown', unlockAudio);
+
+    return () => {
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('keydown', unlockAudio);
+    };
+  }, []);
+
+  const playNotificationSound = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(err => console.error('Failed to play chat sound', err));
+    }
+  }, []);
 
   useEffect(() => {
     if (!socket) return;
 
     console.log('BottomNav: Socket listeners attached. ID:', socket.id);
 
-    const handleNewMessage = () => {
+    const handleNewMessage = (message: any) => {
       queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
       queryClient.invalidateQueries({ queryKey: ['chat', 'messages'] });
+
+      // Play sound if message is from admin
+      if (message.sender === 'admin') {
+        playNotificationSound();
+      }
     };
 
     const handleMessagesRead = () => {
@@ -38,7 +80,7 @@ export function BottomNav() {
       socket.off('new_message', handleNewMessage);
       socket.off('messages_read', handleMessagesRead);
     };
-  }, [socket, queryClient]);
+  }, [socket, queryClient, playNotificationSound]);
 
   const navItems = [
     {

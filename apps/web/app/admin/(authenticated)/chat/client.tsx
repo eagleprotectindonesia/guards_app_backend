@@ -83,7 +83,12 @@ export function AdminChatClient() {
                   <User className="text-blue-600 dark:text-blue-400" size={20} />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">{activeEmployee?.employeeName || 'Chat'}</h3>
+                  <h3 className="font-semibold text-foreground">
+                    {activeEmployee?.employeeName || 'Chat'}{' '}
+                    {activeEmployee && (
+                      <span className="text-xs font-normal text-muted-foreground">({activeEmployee.employeeId})</span>
+                    )}
+                  </h3>
                   <div className="flex items-center gap-1.5">
                     {/* <div className={cn('w-2 h-2 rounded-full', isConnected ? 'bg-green-500' : 'bg-gray-400')} /> */}
                     <span className="text-xs text-muted-foreground">

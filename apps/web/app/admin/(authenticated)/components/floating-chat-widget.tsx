@@ -11,6 +11,16 @@ import { ChatAttachmentPreviews } from './chat/attachment-previews';
 
 export default function FloatingChatWidget() {
   const pathname = usePathname();
+
+  // Don't show the floating widget if we are on the full chat page
+  if (pathname === '/admin/chat') {
+    return null;
+  }
+
+  return <FloatingChatWidgetContent />;
+}
+
+function FloatingChatWidgetContent() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -62,11 +72,6 @@ export default function FloatingChatWidget() {
       fetchConversations();
     }
   }, [isOpen, fetchConversations]);
-
-  // Don't show the floating widget if we are on the full chat page
-  if (pathname === '/admin/chat') {
-    return null;
-  }
 
   const totalUnread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
   const activeEmployee = conversations.find(c => c.employeeId === activeEmployeeId);
@@ -224,4 +229,5 @@ export default function FloatingChatWidget() {
     </div>
   );
 }
+
 
