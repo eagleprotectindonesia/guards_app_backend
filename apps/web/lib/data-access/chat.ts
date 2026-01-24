@@ -2,7 +2,7 @@ import { db as prisma } from '@/lib/prisma';
 import { ChatSenderType } from '@prisma/client';
 import { getCachedPresignedDownloadUrl } from '@/lib/s3';
 
-async function enrichMessageWithUrls<T extends { attachments?: string[] }>(message: T): Promise<T> {
+export async function enrichMessageWithUrls<T extends { attachments?: string[] }>(message: T): Promise<T> {
   if (message.attachments && message.attachments.length > 0) {
     const enrichedAttachments = await Promise.all(
       message.attachments.map(async (keyOrUrl) => {
