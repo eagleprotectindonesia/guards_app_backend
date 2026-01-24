@@ -8,11 +8,12 @@ import { MessageSquare, Loader2 } from 'lucide-react';
 interface ChatMessageListProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  currentAdminId?: string | null;
   typingEmployeeName?: string;
   className?: string;
 }
 
-export function ChatMessageList({ messages, isLoading, typingEmployeeName, className }: ChatMessageListProps) {
+export function ChatMessageList({ messages, isLoading, currentAdminId, typingEmployeeName, className }: ChatMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,6 +48,7 @@ export function ChatMessageList({ messages, isLoading, typingEmployeeName, class
             key={msg.id}
             message={msg}
             isAdmin={msg.sender === 'admin'}
+            currentAdminId={currentAdminId}
           />
         ))}
         {typingEmployeeName && (

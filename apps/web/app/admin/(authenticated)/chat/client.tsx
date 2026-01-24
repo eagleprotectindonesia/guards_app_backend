@@ -2,9 +2,9 @@
 
 import React, { useEffect, useRef, useCallback } from 'react';
 import { MessageSquare, Send, User, Paperclip, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAdminChat } from '@/hooks/use-admin-chat';
+import { useSession } from '../context/session-context';
 import { ConversationList } from '../components/chat/conversation-list';
 import { ChatMessageList } from '../components/chat/message-list';
 import { ChatAttachmentPreviews } from '../components/chat/attachment-previews';
@@ -13,6 +13,7 @@ export function AdminChatClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const employeeIdParam = searchParams.get('employeeId');
+  const { userId } = useSession();
 
   const onSelectConversation = useCallback(
     (employeeId: string) => {
@@ -67,6 +68,7 @@ export function AdminChatClient() {
       <ConversationList
         conversations={filteredConversations}
         activeEmployeeId={activeEmployeeId}
+        currentAdminId={userId}
         onSelect={handleSelectConversation}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
@@ -109,6 +111,7 @@ export function AdminChatClient() {
             <ChatMessageList
               messages={messages}
               isLoading={isLoading}
+              currentAdminId={userId}
               typingEmployeeName={typingEmployees[activeEmployeeId] ? activeEmployee?.employeeName : undefined}
               className="flex-1 overflow-y-auto"
             />

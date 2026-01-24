@@ -78,6 +78,11 @@ export async function getConversationList() {
     distinct: ['employeeId'],
     include: {
       employee: true,
+      admin: {
+        select: {
+          name: true,
+        },
+      },
     },
   });
 
@@ -104,6 +109,8 @@ export async function getConversationList() {
       content: conv.content,
       sender: conv.sender,
       createdAt: conv.createdAt,
+      adminId: conv.adminId || undefined,
+      adminName: conv.admin?.name,
     },
     unreadCount: unreadMap[conv.employeeId] || 0,
   }));

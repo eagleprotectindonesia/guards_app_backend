@@ -5,6 +5,7 @@ import { MessageSquare, X, Send, User, Paperclip, Loader2, Maximize2 } from 'luc
 import { cn } from '@/lib/utils';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAdminChat } from '@/hooks/use-admin-chat';
+import { useSession } from '../context/session-context';
 import { ConversationList } from './chat/conversation-list';
 import { ChatMessageList } from './chat/message-list';
 import { ChatAttachmentPreviews } from './chat/attachment-previews';
@@ -23,6 +24,7 @@ export default function FloatingChatWidget() {
 function FloatingChatWidgetContent() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
+  const { userId } = useSession();
 
   const {
     conversations,
@@ -109,6 +111,7 @@ function FloatingChatWidgetContent() {
             <ConversationList
               conversations={filteredConversations}
               activeEmployeeId={activeEmployeeId}
+              currentAdminId={userId}
               onSelect={handleSelectConversation}
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
@@ -143,6 +146,7 @@ function FloatingChatWidgetContent() {
                   <ChatMessageList
                     messages={messages}
                     isLoading={isLoading}
+                    currentAdminId={userId}
                     className="flex-1 overflow-y-auto scrollbar-thin"
                   />
 

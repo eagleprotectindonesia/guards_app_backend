@@ -10,6 +10,7 @@ import ChatExport from './chat-export';
 interface ConversationListProps {
   conversations: Conversation[];
   activeEmployeeId: string | null;
+  currentAdminId?: string | null;
   onSelect: (employeeId: string) => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
@@ -24,6 +25,7 @@ interface ConversationListProps {
 export function ConversationList({
   conversations,
   activeEmployeeId,
+  currentAdminId,
   onSelect,
   searchTerm,
   onSearchChange,
@@ -130,7 +132,16 @@ export function ConversationList({
                     <span className="text-green-600 dark:text-green-400 font-medium italic">typing...</span>
                   ) : (
                     <>
-                      {conv.lastMessage.sender === 'admin' ? 'You: ' : ''}
+                      {conv.lastMessage.sender === 'admin' ? (
+                        <span className="font-medium text-blue-600 dark:text-blue-400">
+                          {conv.lastMessage.sender === 'admin' && conv.lastMessage.adminName === undefined
+                            ? 'You'
+                            : currentAdminId && conv.lastMessage.adminId === currentAdminId
+                            ? 'You'
+                            : conv.lastMessage.adminName || 'Admin'}
+                          :{' '}
+                        </span>
+                      ) : null}
                       {conv.lastMessage.content}
                     </>
                   )}

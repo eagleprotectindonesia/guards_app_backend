@@ -8,10 +8,13 @@ import { ChatMessage } from '@/types/chat';
 interface ChatMessageBubbleProps {
   message: ChatMessage;
   isAdmin: boolean;
+  currentAdminId?: string | null;
   className?: string;
 }
 
-export function ChatMessageBubble({ message, isAdmin, className }: ChatMessageBubbleProps) {
+export function ChatMessageBubble({ message, isAdmin, currentAdminId, className }: ChatMessageBubbleProps) {
+  const isMe = isAdmin && currentAdminId === message.adminId;
+
   return (
     <div
       className={cn(
@@ -20,6 +23,11 @@ export function ChatMessageBubble({ message, isAdmin, className }: ChatMessageBu
         className
       )}
     >
+      {isAdmin && (message.admin?.name || isMe) && (
+        <span className="text-[10px] font-medium text-muted-foreground mb-1 px-1">
+          {isMe ? 'You' : message.admin?.name}
+        </span>
+      )}
       <div
         className={cn(
           'p-3 px-4 rounded-2xl text-sm shadow-sm',
