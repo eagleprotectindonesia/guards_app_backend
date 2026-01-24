@@ -79,7 +79,7 @@ export default function HomeScreen() {
   })();
 
   return (
-    <Box className="flex-1 bg-gray-50 relative">
+    <Box flex={1} bg="$backgroundLight50" position="relative">
       <SessionMonitor />
       <ScrollView
         contentContainerStyle={{
@@ -90,13 +90,13 @@ export default function HomeScreen() {
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
       >
         <VStack space="xl">
-          <Box className="mb-4">
-            <Heading size="3xl" className="text-gray-900 leading-tight">
+          <Box mb="$4">
+            <Heading size="3xl" color="$textLight900" lineHeight="$tight">
               {t('dashboard.welcome')}
-              <Text className="text-blue-600">{profile?.employee?.name || 'Employee'}</Text>
+              <Text color="$blue600">{profile?.employee?.name || 'Employee'}</Text>
             </Heading>
             {profile?.employee?.employeeCode && (
-              <Text className="text-gray-500 font-bold mt-1">
+              <Text color="$textLight500" fontWeight="$bold" mt="$1">
                 {t('dashboard.employeeCode')} {profile.employee.employeeCode}
               </Text>
             )}
@@ -109,8 +109,8 @@ export default function HomeScreen() {
           ) : (
             <VStack space="xl">
               {!activeShift && (
-                <Box className="bg-white p-8 rounded-2xl border-2 border-dashed border-gray-300 items-center">
-                  <Text className="text-gray-500 text-center font-medium">{t('dashboard.noActiveShift')}</Text>
+                <Box bg="$white" p="$8" rounded="$2xl" borderWidth={2} borderStyle="dashed" borderColor="$borderLight300" alignItems="center">
+                  <Text color="$textLight500" textAlign="center" fontWeight="$medium">{t('dashboard.noActiveShift')}</Text>
                 </Box>
               )}
 

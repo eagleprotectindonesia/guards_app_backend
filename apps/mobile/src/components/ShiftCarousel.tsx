@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import { id, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 40; // Full width minus padding
@@ -31,40 +32,64 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
   };
 
   const renderShiftCard = (shift: ShiftWithRelations, isActive: boolean) => {
+    const cardContent = (
+      <VStack space="md">
+        <HStack justifyContent="space-between" alignItems="center">
+          <Heading size="lg" color={isActive ? '$blue900' : '$textLight800'} fontWeight="$bold">
+            {isActive ? t('shift.currentTitle') : t('shift.upcomingTitle')}
+          </Heading>
+          <Box bg={isActive ? '$blue600' : '$backgroundLight200'} px="$3" py="$1" rounded="$full" softShadow="1">
+            <Text color={isActive ? '$white' : '$textLight600'} fontWeight="$bold">
+              {isActive ? t('shift.activeStatus') : t('shift.upcomingStatus')}
+            </Text>
+          </Box>
+        </HStack>
+
+        <Box>
+          <Text color={isActive ? '$blue950' : '$textLight800'} fontWeight="$bold" size="xl" lineHeight="$lg">
+            {shift.site?.name || t('shift.defaultLocation')}
+          </Text>
+          <Text color={isActive ? '$blue800' : '$textLight600'} mt="$2" fontWeight="$semibold">
+            {format(new Date(shift.startsAt), 'dd MMM yyyy, HH:mm', { locale: dateLocale })} -{' '}
+            {format(new Date(shift.endsAt), 'HH:mm', { locale: dateLocale })}
+          </Text>
+        </Box>
+
+        {shift.shiftType && (
+          <Text size="sm" color={isActive ? '$blue700' : '$textLight500'} fontWeight="$medium">
+            {t('shift.typePrefix')}{shift.shiftType.name}
+          </Text>
+        )}
+      </VStack>
+    );
+
     return (
       <Box
         key={shift.id}
-        style={{ width: CARD_WIDTH }}
-        className="bg-blue-50 p-6 rounded-2xl border border-blue-200 mr-4"
+        style={{ 
+          width: CARD_WIDTH,
+          shadowColor: isActive ? '#2563EB' : '#000',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: isActive ? 0.2 : 0.1,
+          shadowRadius: 12,
+          elevation: isActive ? 6 : 4,
+        }}
+        mr="$4" rounded="$3xl" overflow="hidden" borderWidth={1} borderColor="$blue100"
       >
-        <VStack space="md">
-          <HStack justifyContent="space-between" alignItems="center">
-            <Heading size="lg" className="text-blue-800">
-              {isActive ? t('shift.currentTitle') : t('shift.upcomingTitle')}
-            </Heading>
-            <Box className={`${isActive ? 'bg-blue-100' : 'bg-gray-100'} px-2 py-0.5 rounded-full`}>
-              <Text className={`text-xs font-bold ${isActive ? 'text-blue-800' : 'text-gray-600'}`}>
-                {isActive ? t('shift.activeStatus') : t('shift.upcomingStatus')}
-              </Text>
-            </Box>
-          </HStack>
-
-          <Box>
-            <Text className="text-gray-700 font-bold text-xl leading-tight">
-              {shift.site?.name || t('shift.defaultLocation')}
-            </Text>
-            <Text className="text-gray-600 mt-2 font-medium">
-              {format(new Date(shift.startsAt), 'dd MMM yyyy, HH:mm', { locale: dateLocale })} -{' '}
-              {format(new Date(shift.endsAt), 'HH:mm', { locale: dateLocale })}
-            </Text>
+        {isActive ? (
+          <LinearGradient
+            colors={['#E0F2FE', '#DBEAFE']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{ padding: 24, flex: 1 }}
+          >
+            {cardContent}
+          </LinearGradient>
+        ) : (
+          <Box bg="$white" p="$6" flex={1}>
+            {cardContent}
           </Box>
-
-          {shift.shiftType && (
-            <Text className="text-sm text-gray-500">
-              {t('shift.typePrefix')}{shift.shiftType.name}
-            </Text>
-          )}
-        </VStack>
+        )}
       </Box>
     );
   };
@@ -92,9 +117,9 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
       </ScrollView>
 
       {totalShifts > 1 && (
-        <HStack space="xs" justifyContent="center" className="mt-4">
+        <HStack space="xs" justifyContent="center" mt="$4">
           {Array.from({ length: totalShifts }).map((_, i) => (
-            <Box key={i} className={`h-2 rounded-full ${i === activeIndex ? 'w-4 bg-blue-600' : 'w-2 bg-blue-200'}`} />
+            <Box key={i} h="$2" rounded="$full" bg={i === activeIndex ? '$blue600' : '$blue200'} w={i === activeIndex ? '$4' : '$2'} />
           ))}
         </HStack>
       )}

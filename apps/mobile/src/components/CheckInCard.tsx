@@ -7,6 +7,8 @@ import { client } from '../api/client';
 import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type CheckInCardProps = {
   activeShift: ShiftWithRelations & { checkInWindow?: CheckInWindowResult };
@@ -72,7 +74,6 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
 
       let isWindowOpen = false;
       let message = '';
-      let isLate = false;
 
       if (window.status === 'completed') {
         const diff = Math.ceil((nextSlotStart - now) / 1000);
@@ -94,7 +95,6 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
           } else {
             message = t('checkin.missed');
             isWindowOpen = true;
-            isLate = true;
             // Trigger refresh if we just missed it
             refetchShift();
           }
@@ -107,13 +107,11 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
         } else {
           message = t('checkin.missed');
           isWindowOpen = true;
-          isLate = true;
           refetchShift();
         }
       } else if (window.status === 'late') {
         message = t('checkin.missed');
         isWindowOpen = true;
-        isLate = true;
       }
 
       setTimeLeft(message);
@@ -126,9 +124,11 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
   }, [activeShift, refetchShift, t]);
 
   const handleCheckIn = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setStatus(t('checkin.gettingLocation'));
     let { status: permStatus } = await Location.requestForegroundPermissionsAsync();
     if (permStatus !== 'granted') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(t('attendance.permissionDeniedTitle'), t('checkin.locationRequired'));
       return;
     }
@@ -141,6 +141,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
         lng: location.coords.longitude,
       });
     } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Error', t('checkin.locationError'));
     }
   };
@@ -151,44 +152,88 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
     activeShift.checkInWindow.status === 'late' ||
     (activeShift.checkInWindow.status === 'open' && timeLeft === t('checkin.missed'));
 
-  return (
-    <Box className="bg-white p-6 rounded-xl shadow-md border border-blue-100 mb-6">
-      <VStack space="md" alignItems="center">
-        {canCheckIn ? (
-          <Heading size="2xl" className={`${isLate ? 'text-amber-600' : 'text-green-600'} mb-2 text-center`}>
-            {isLate ? t('checkin.titleLate', { defaultValue: 'Late Check-in' }) : t('checkin.titleOpen')}
+  const cardContent = (
+    <VStack space="md" alignItems="center">
+      {canCheckIn ? (
+        <Heading size="2xl" color={isLate ? '$amber700' : '$green700'} mb="$2" textAlign="center">
+          {isLate ? t('checkin.titleLate', { defaultValue: 'Late Check-in' }) : t('checkin.titleOpen')}
+        </Heading>
+      ) : (
+        <>
+          <Text color="$textLight500" fontWeight="$medium">{t('checkin.titleNext')}</Text>
+          <Heading size="3xl" fontFamily="$mono" color="$blue600">
+            {new Date(
+              activeShift.checkInWindow.nextSlotStart || activeShift.checkInWindow.currentSlotStart
+            ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </Heading>
-        ) : (
-          <>
-            <Text className="text-gray-500 font-medium">{t('checkin.titleNext')}</Text>
-            <Heading size="3xl" className="font-mono text-blue-600">
-              {new Date(
-                activeShift.checkInWindow.nextSlotStart || activeShift.checkInWindow.currentSlotStart
-              ).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </Heading>
-          </>
-        )}
+        </>
+      )}
 
-        <Text className={`font-bold ${canCheckIn && !isLate ? 'text-green-600' : 'text-amber-600'}`}>{timeLeft}</Text>
+      <Text fontWeight="$bold" size="lg" color={canCheckIn && !isLate ? '$green700' : isLate ? '$amber700' : '$blue600'}>
+        {timeLeft}
+      </Text>
 
-        {status ? <Text className="text-xs text-gray-400">{status}</Text> : null}
+      {status ? <Text size="xs" color="$textLight500" fontWeight="$medium">{status}</Text> : null}
 
-        {canCheckIn && (
-          <Button
-            size="xl"
-            className={`w-full ${isLate ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700 active:bg-green-800'}`}
-            onPress={handleCheckIn}
-            isDisabled={checkInMutation.isPending}
-          >
-            {checkInMutation.isPending ? <ButtonSpinner color="white" mr="$2" /> : null}
-            <ButtonText>
-              {isLate
-                ? t('checkin.submitLateButton', { defaultValue: 'Submit Late Check-in' })
-                : t('checkin.submitButton')}
-            </ButtonText>
-          </Button>
-        )}
-      </VStack>
+      {canCheckIn && (
+        <Button
+          size="xl"
+          bg={isLate ? '$amber600' : '$green600'}
+          onPress={handleCheckIn}
+          isDisabled={checkInMutation.isPending}
+          sx={{
+            _shadow: {
+              shadowColor: isLate ? '#D97706' : '#059669',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+              elevation: 5,
+            }
+          }}
+        >
+          {checkInMutation.isPending ? <ButtonSpinner color="white" mr="$2" /> : null}
+          <ButtonText fontWeight="$bold">
+            {isLate
+              ? t('checkin.submitLateButton', { defaultValue: 'Submit Late Check-in' })
+              : t('checkin.submitButton')}
+          </ButtonText>
+        </Button>
+      )}
+    </VStack>
+  );
+
+  return (
+    <Box 
+      mb="$6" rounded="$2xl" overflow="hidden"
+      sx={{
+        _shadow: {
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.1,
+          shadowRadius: 10,
+          elevation: 4,
+        }
+      }}
+    >
+      {canCheckIn && !isLate ? (
+        <LinearGradient
+          colors={['#F0FDF4', '#DCFCE7']}
+          style={{ padding: 24, borderTopWidth: 4, borderTopColor: '#22C55E' }}
+        >
+          {cardContent}
+        </LinearGradient>
+      ) : isLate ? (
+        <LinearGradient
+          colors={['#FFFBEB', '#FEF3C7']}
+          style={{ padding: 24, borderTopWidth: 4, borderTopColor: '#F59E0B' }}
+        >
+          {cardContent}
+        </LinearGradient>
+      ) : (
+        <Box bg="$white" p="$6" borderWidth={1} borderColor="$blue50">
+          {cardContent}
+        </Box>
+      )}
     </Box>
   );
 }

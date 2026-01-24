@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { client } from '../api/client';
 import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
+import * as Haptics from 'expo-haptics';
 
 type AttendanceRecordProps = {
   shift: ShiftWithRelations;
@@ -39,10 +40,12 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   });
 
   const handleRecordAttendance = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setStatus(t('attendance.requestingPermission'));
     let { status: permStatus } = await Location.requestForegroundPermissionsAsync();
 
     if (permStatus !== 'granted') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setStatus(t('attendance.permissionDenied'));
       Alert.alert(t('attendance.permissionDeniedTitle'), t('attendance.locationRequired'));
       return;
@@ -59,6 +62,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
       });
     } catch (err) {
       console.error(err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setStatus(t('attendance.locationFetchError'));
       Alert.alert(t('attendance.locationErrorTitle'), t('attendance.locationErrorMessage'));
     }
@@ -81,12 +85,26 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   if (hasAttendance) {
     return (
       <Box
-        className={`${isLateAttendance ? 'bg-yellow-50 border-yellow-200' : 'bg-white'} p-4 rounded-lg shadow-sm border border-gray-200 mb-4`}
+        bg={isLateAttendance ? '$amber50' : '$green50'}
+        borderColor={isLateAttendance ? '$amber300' : '$green300'}
+        p="$5"
+        rounded="$2xl"
+        borderWidth={2}
+        mb="$4"
+        sx={{
+          _shadow: {
+            shadowColor: isLateAttendance ? '#F59E0B' : '#10B981',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.15,
+            shadowRadius: 8,
+            elevation: 3,
+          }
+        }}
       >
-        <Heading size="md" className={`mb-2 ${isLateAttendance ? 'text-yellow-600' : 'text-green-600'}`}>
+        <Heading size="md" mb="$2" color={isLateAttendance ? '$amber700' : '$green700'}>
           {isLateAttendance ? t('attendance.lateTitle') : t('attendance.recordedTitle')}
         </Heading>
-        <Text>
+        <Text color={isLateAttendance ? '$amber600' : '$green600'}>
           {isLateAttendance
             ? t('attendance.recordedLateAt', { date: format(new Date(shift.attendance!.recordedAt), 'PPpp') })
             : t('attendance.recordedAt', { date: format(new Date(shift.attendance!.recordedAt), 'PPpp') })}
@@ -97,20 +115,34 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
 
   return (
     <Box
-      className={`${isLateTime ? 'bg-red-50 border-red-200' : 'bg-white'} p-4 rounded-lg shadow-sm border border-red-100 mb-4`}
+      bg={isLateTime ? '$red50' : '$white'}
+      borderColor={isLateTime ? '$red300' : '$borderLight300'}
+      p="$5"
+      rounded="$2xl"
+      borderWidth={2}
+      mb="$4"
+      sx={{
+        _shadow: {
+          shadowColor: isLateTime ? '#EF4444' : '#3B82F6',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 8,
+          elevation: 3,
+        }
+      }}
     >
       <VStack space="md">
-        <Heading size="md" className={isLateTime ? 'text-red-600' : 'text-gray-900'}>
+        <Heading size="md" color={isLateTime ? '$red700' : '$textLight900'} fontWeight="$bold">
           {isLateTime ? t('attendance.notRecordedTitle') : t('attendance.requiredTitle')}
         </Heading>
 
         {isLateTime ? (
-          <Text className="text-red-600 font-medium italic">{t('attendance.lateMessage')}</Text>
+          <Text color="$red700" fontWeight="$bold" size="md">{t('attendance.lateMessage')}</Text>
         ) : (
-          <Text className="text-gray-500">{t('attendance.requiredMessage')}</Text>
+          <Text color="$textLight600">{t('attendance.requiredMessage')}</Text>
         )}
 
-        {status ? <Text className="text-sm text-blue-600 font-medium">{status}</Text> : null}
+        {status ? <Text size="sm" color="$blue600" fontWeight="$medium">{status}</Text> : null}
 
         <Button
           size="lg"
@@ -118,7 +150,15 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
           action={isLateTime ? 'negative' : 'primary'}
           onPress={handleRecordAttendance}
           isDisabled={attendanceMutation.isPending}
-          className={isLateTime ? 'bg-red-600' : ''}
+          bg={isLateTime ? '$red600' : '$primary600'}
+          sx={{
+            _shadow: {
+              shadowColor: isLateTime ? '#DC2626' : '#2563EB',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 8,
+            }
+          }}
         >
           {attendanceMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
           <ButtonText>

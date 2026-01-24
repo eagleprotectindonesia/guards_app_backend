@@ -24,9 +24,10 @@ import {
 import { useMutation } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
 import { storage, STORAGE_KEYS } from '../../src/utils/storage';
-import { CircleAlert, Eye, EyeOff } from 'lucide-react-native';
+import { CircleAlert, Eye, EyeOff, User, Lock } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -82,15 +83,17 @@ export default function LoginScreen() {
 
   const handleLogin = () => {
     if (!employeeId || !password) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert(t('login.validationErrorTitle'), t('login.validationErrorMessage'));
       return;
     }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     loginMutation.mutate();
   };
 
   if (isCheckingAuth) {
     return (
-      <Center className="flex-1 bg-white">
+      <Center flex={1} bg="$white">
         <Spinner size="large" color="#2563EB" />
       </Center>
     );
@@ -99,7 +102,7 @@ export default function LoginScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: 'white', justifyContent: 'center', paddingHorizontal: 24 }}>
       <VStack space="xl">
-        <Box className="mb-4">
+        <Box mb="$4">
           <Heading size="2xl" style={{ color: '#111827' }}>
             {t('login.title')}
           </Heading>
@@ -107,11 +110,14 @@ export default function LoginScreen() {
         </Box>
 
         <FormControl isInvalid={loginMutation.isError}>
-          <FormControlLabel className="mb-1">
+          <FormControlLabel mb="$1">
             <FormControlLabelText>{t('login.employeeIdLabel')}</FormControlLabelText>
           </FormControlLabel>
-          <Box className="mb-4 bg-gray-50 border border-gray-200 rounded-md">
+          <Box mb="$4" bg="$white" borderWidth={1} borderColor="$borderLight300" rounded="$xl" softShadow="1">
             <Input size="xl" variant="outline">
+              <InputSlot pl="$4">
+                <InputIcon as={User} color="$gray400" />
+              </InputSlot>
               <InputField
                 placeholder={t('login.employeeIdPlaceholder')}
                 value={employeeId}
@@ -122,11 +128,14 @@ export default function LoginScreen() {
             </Input>
           </Box>
 
-          <FormControlLabel className="mb-1">
+          <FormControlLabel mb="$1">
             <FormControlLabelText>{t('login.passwordLabel')}</FormControlLabelText>
           </FormControlLabel>
-          <Box className="mb-6 bg-gray-50 border border-gray-200 rounded-md">
+          <Box mb="$6" bg="$white" borderWidth={1} borderColor="$borderLight300" rounded="$xl" softShadow="1">
             <Input size="xl" variant="outline">
+              <InputSlot pl="$4">
+                <InputIcon as={Lock} color="$gray400" />
+              </InputSlot>
               <InputField
                 type={showPassword ? 'text' : 'password'}
                 placeholder={t('login.passwordPlaceholder')}
@@ -143,14 +152,14 @@ export default function LoginScreen() {
             size="xl"
             onPress={handleLogin}
             isDisabled={loginMutation.isPending}
-            style={{ backgroundColor: '#2563EB' }}
+            style={{ backgroundColor: '#2563EB', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }}
           >
             {loginMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
             <ButtonText>{t('login.submitButton')}</ButtonText>
           </Button>
 
           {loginMutation.isError && (
-            <FormControlError className="mt-4">
+            <FormControlError mt="$4">
               <FormControlErrorIcon as={CircleAlert} />
               <FormControlErrorText>
                 {loginMutation.error instanceof Error ? loginMutation.error.message : 'Authentication failed'}
