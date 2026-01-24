@@ -268,9 +268,13 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     }
   };
 
-  const filteredConversations = conversations.filter(conv =>
-    conv.employeeName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredConversations = conversations.filter(conv => {
+    const term = searchTerm.toLowerCase();
+    return (
+      conv.employeeName.toLowerCase().includes(term) ||
+      conv.employeeId.toLowerCase().includes(term)
+    );
+  });
 
   return {
     conversations,
