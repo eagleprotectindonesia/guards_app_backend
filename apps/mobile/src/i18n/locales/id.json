@@ -104,7 +104,8 @@
   },
   "chat": {
     "title": "Pesan",
-    "noMessages": "Belum ada pesan"
+    "noMessages": "Belum ada pesan",
+    "placeholder": "Ketik pesan..."
   },
   "account": {
     "title": "Akun",

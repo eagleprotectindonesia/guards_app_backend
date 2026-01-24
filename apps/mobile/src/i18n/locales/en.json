@@ -104,7 +104,8 @@
   },
   "chat": {
     "title": "Messages",
-    "noMessages": "No messages yet"
+    "noMessages": "No messages yet",
+    "placeholder": "Type a message..."
   },
   "account": {
     "title": "Account",

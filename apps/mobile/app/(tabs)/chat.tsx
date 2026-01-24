@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   StyleSheet,
   TextInput,
@@ -11,6 +10,8 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
+import ImageView from 'react-native-image-viewing';
 import { VStack, Heading, Text, Center, Avatar, AvatarFallbackText, HStack, Spinner, Box } from '@gluestack-ui/themed';
 import { useTranslation } from 'react-i18next';
 import { Send, Paperclip, X, Video as VideoIcon, Camera } from 'lucide-react-native';
@@ -68,6 +69,11 @@ export default function ChatScreen() {
   const [isFocused, setIsFocused] = useState(false);
   const [selectedAttachments, setSelectedAttachments] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Lightbox state
+  const [isViewerVisible, setIsViewerVisible] = useState(false);
+  const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
+  const [viewerIndex, setViewerIndex] = useState(0);
 
   const socketRef = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
@@ -291,6 +297,18 @@ export default function ChatScreen() {
     }
   };
 
+  const openImageViewer = (attachments: string[], index: number) => {
+    const images = attachments.filter(url => !isVideoFile(url)).map(url => ({ uri: url }));
+    if (images.length === 0) return;
+
+    // Find the index of the clicked image in the filtered images list
+    const filteredIndex = images.findIndex(img => img.uri === attachments[index]);
+
+    setViewerImages(images);
+    setViewerIndex(filteredIndex >= 0 ? filteredIndex : 0);
+    setIsViewerVisible(true);
+  };
+
   const renderItem = ({ item }: { item: ChatMessage }) => {
     const isMe = item.sender === 'employee';
     return (
@@ -313,11 +331,13 @@ export default function ChatScreen() {
                         style={[styles.attachmentImage, item.attachments.length > 1 && styles.multiAttachmentImage]}
                       />
                     ) : (
-                      <Image
-                        source={{ uri: url }}
-                        style={[styles.attachmentImage, item.attachments.length > 1 && styles.multiAttachmentImage]}
-                        resizeMode="cover"
-                      />
+                      <TouchableOpacity onPress={() => openImageViewer(item.attachments, i)}>
+                        <Image
+                          source={{ uri: url }}
+                          style={[styles.attachmentImage, item.attachments.length > 1 && styles.multiAttachmentImage]}
+                          resizeMode="cover"
+                        />
+                      </TouchableOpacity>
                     )}
                   </View>
                 );
@@ -351,9 +371,9 @@ export default function ChatScreen() {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
+        behavior="padding"
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={{ flex: 1 }}
       >
         <View style={{ flex: 1 }}>
           <FlatList
@@ -442,6 +462,13 @@ export default function ChatScreen() {
           </HStack>
         </View>
       </KeyboardAvoidingView>
+
+      <ImageView
+        images={viewerImages}
+        imageIndex={viewerIndex}
+        visible={isViewerVisible}
+        onRequestClose={() => setIsViewerVisible(false)}
+      />
     </View>
   );
 }
@@ -563,3 +590,4 @@ const styles = StyleSheet.create({
     borderColor: 'white',
   },
 });
+
