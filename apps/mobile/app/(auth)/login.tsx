@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Alert, View } from 'react-native';
 import {
   VStack,
@@ -18,6 +18,8 @@ import {
   FormControlErrorText,
   FormControlErrorIcon,
   Box,
+  Spinner,
+  Center,
 } from '@gluestack-ui/themed';
 import { useMutation } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
@@ -32,6 +34,28 @@ export default function LoginScreen() {
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const token = await storage.getItem(STORAGE_KEYS.TOKEN);
+        if (token) {
+          // Verify session with backend
+          await client.get('/api/employee/auth/check');
+          router.replace('/(tabs)');
+          return;
+        }
+      } catch (error) {
+        // Token invalid or session expired, stay on login
+        console.log('Auto-login check failed:', error);
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+
+    checkAuth();
+  }, [router]);
 
   const loginMutation = useMutation({
     mutationFn: async () => {
@@ -63,6 +87,14 @@ export default function LoginScreen() {
     }
     loginMutation.mutate();
   };
+
+  if (isCheckingAuth) {
+    return (
+      <Center className="flex-1 bg-white">
+        <Spinner size="large" color="#2563EB" />
+      </Center>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: 'white', justifyContent: 'center', paddingHorizontal: 24 }}>

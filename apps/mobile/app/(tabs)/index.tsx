@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShiftWithRelations, Employee } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
 import { disconnectSocket } from '../../src/api/socket';
+import { storage } from '../../src/utils/storage';
 
 type ActiveShiftData = {
   activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;
@@ -30,9 +31,10 @@ export default function HomeScreen() {
 
   // Setup Global Logout Interceptor once
   useEffect(() => {
-    setupInterceptors(() => {
+    setupInterceptors(async () => {
       // Close socket connection on unauthorized
       disconnectSocket();
+      await storage.clear();
       
       Alert.alert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
         {

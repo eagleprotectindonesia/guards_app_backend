@@ -19,6 +19,7 @@ import { useRouter } from 'expo-router';
 import { LogOut, Lock } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { disconnectSocket } from '../../src/api/socket';
+import { storage } from '../../src/utils/storage';
 
 export default function AccountScreen() {
   const { t } = useTranslation();
@@ -52,8 +53,10 @@ export default function AccountScreen() {
       // Close socket connection first
       disconnectSocket();
       await client.post('/api/employee/auth/logout');
+      await storage.clear();
       router.replace('/(auth)/login');
     } catch {
+      await storage.clear();
       router.replace('/(auth)/login');
     }
   };

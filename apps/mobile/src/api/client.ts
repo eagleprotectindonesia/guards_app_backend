@@ -38,12 +38,12 @@ export const queryClient = new QueryClient({
 
 // Add interceptor to handle 401s (Global Logout)
 // We will assign the navigation logic in the Root Component or via a navigation reference
-export const setupInterceptors = (onUnauthorized: () => void) => {
+export const setupInterceptors = (onUnauthorized: () => Promise<void> | void) => {
   client.interceptors.response.use(
     response => response,
-    error => {
+    async error => {
       if (error.response?.status === 401) {
-        onUnauthorized();
+        await onUnauthorized();
       }
       return Promise.reject(error);
     }
