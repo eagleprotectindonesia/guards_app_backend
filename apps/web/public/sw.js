@@ -1,11 +1,12 @@
-const CACHE_NAME = 'employee-pwa-{{BUILD_ID}}';
-const STATIC_CACHE = 'employee-static-v1'; // For hashed assets
+const CACHE_NAME = 'ep-pwa-v1';
+const STATIC_CACHE = 'ep-static-v1';
+const MEDIA_CACHE = 'chat-media-v1';
 const OFFLINE_URL = '/employee/offline.html';
 
 const ASSETS_TO_CACHE = [
   OFFLINE_URL,
   '/employee/icons/icon.svg',
-  '/employee/manifest.json'
+  '/manifest.json'
 ];
 
 self.addEventListener('install', (event) => {
@@ -20,7 +21,8 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keyList) => {
       return Promise.all(
         keyList.map((key) => {
-          if (key !== CACHE_NAME && key !== STATIC_CACHE) {
+          // Keep our primary caches, delete old ones
+          if (![CACHE_NAME, STATIC_CACHE, MEDIA_CACHE].includes(key)) {
             return caches.delete(key);
           }
         })
@@ -30,14 +32,61 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+/**
+ * Strips query parameters from S3 URLs to create a stable cache key.
+ */
+function getCacheKey(url) {
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.hostname.includes('s3')) {
+      return `${urlObj.origin}${urlObj.pathname}`;
+    }
+    return url;
+  } catch (e) {
+    return url;
+  }
+}
+
+function isMediaRequest(url) {
+  const lowerUrl = url.toLowerCase();
+  const mediaExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.mov', '.webm'];
+  return mediaExtensions.some(ext => lowerUrl.includes(ext));
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 1. Skip non-GET and cross-origin (except CDN if needed)
-  if (request.method !== 'GET' || !url.origin.includes(self.location.origin)) return;
+  if (request.method !== 'GET') return;
 
-  // 2. API: Network Only (Always fresh data)
+  // 1. S3 Media Caching (Cross-origin support)
+  if (isMediaRequest(request.url) && url.hostname.includes('s3')) {
+    event.respondWith(
+      (async () => {
+        const cacheKey = getCacheKey(request.url);
+        const cache = await caches.open(MEDIA_CACHE);
+        const cachedResponse = await cache.match(cacheKey);
+        
+        if (cachedResponse) return cachedResponse;
+
+        try {
+          const networkResponse = await fetch(request);
+          if (networkResponse.ok) {
+            cache.put(cacheKey, networkResponse.clone());
+          }
+          return networkResponse;
+        } catch (error) {
+          return Response.error();
+        }
+      })()
+    );
+    return;
+  }
+
+  // Only handle same-origin requests for the rest (PWA logic)
+  if (!url.origin.includes(self.location.origin)) return;
+
+  // 2. API: Network Only
   if (url.pathname.includes('/api/')) {
     event.respondWith(
       fetch(request).catch(() => {
@@ -49,7 +98,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 3. Static Hashed Assets (JS, CSS from Next.js): Cache First
+  // 3. Static Hashed Assets: Cache First
   if (url.pathname.includes('/_next/static/')) {
     event.respondWith(
       caches.match(request).then((cached) => {
