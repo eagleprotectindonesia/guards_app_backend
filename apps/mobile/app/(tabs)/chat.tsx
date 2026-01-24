@@ -9,6 +9,8 @@ import {
   Image,
   Alert,
   ScrollView,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import ImageView from 'react-native-image-viewing';
@@ -67,6 +69,7 @@ export default function ChatScreen() {
   const [inputText, setInputText] = useState('');
   const [employeeInfo, setEmployeeInfo] = useState<any>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const [isAppActive, setIsAppActive] = useState(true);
   const [selectedAttachments, setSelectedAttachments] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -106,23 +109,8 @@ export default function ChatScreen() {
   const messages = useMemo(() => data?.pages.flat() || [], [data]);
 
   const employeeId = employeeInfo?.id;
-  const markMessagesAsRead = useCallback(
-    (msgs: ChatMessage[]) => {
-      if (!socketRef.current || !msgs.length || !employeeId) return;
 
-      const unreadIds = msgs.filter(m => m.sender === 'admin' && !m.readAt).map(m => m.id);
-
-      if (unreadIds.length > 0) {
-        console.log(`Marking ${unreadIds.length} messages as read for employee ${employeeId}`);
-        socketRef.current.emit('mark_read', {
-          employeeId,
-          messageIds: unreadIds,
-        });
-      }
-    },
-    [employeeId]
-  );
-
+  // Track tab focus (for tab navigation)
   useFocusEffect(
     useCallback(() => {
       setIsFocused(true);
@@ -130,12 +118,22 @@ export default function ChatScreen() {
     }, [])
   );
 
-  // Trigger mark as read when focused and messages or socket becomes available
+  // Track app state (for minimize/resume)
   useEffect(() => {
-    if (isFocused && messages.length > 0 && socketRef.current?.connected) {
-      markMessagesAsRead(messages);
-    }
-  }, [isFocused, messages, markMessagesAsRead]);
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      const isActive = nextAppState === 'active';
+      setIsAppActive(isActive);
+
+      // When app becomes active, refetch messages to sync
+      if (isActive && employeeInfo?.id) {
+        queryClient.invalidateQueries({ queryKey: ['chat', 'messages', employeeInfo.id] });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [employeeInfo?.id, queryClient]);
 
   // Socket setup
   useEffect(() => {
@@ -590,4 +588,3 @@ const styles = StyleSheet.create({
     borderColor: 'white',
   },
 });
-

@@ -1,8 +1,10 @@
 import { io, Socket } from 'socket.io-client';
+import { AppState, AppStateStatus, NativeEventSubscription } from 'react-native';
 import { BASE_URL } from './client';
 import { storage, STORAGE_KEYS } from '../utils/storage';
 
 let socket: Socket | null = null;
+let appStateSubscription: NativeEventSubscription | null = null;
 
 export const getSocket = async () => {
   // If socket exists, return it even if it's currently disconnected 
@@ -53,6 +55,23 @@ export const getSocket = async () => {
     console.error('Socket connection error:', err);
   });
 
+  // Setup AppState listener to handle app background/foreground transitions
+  if (!appStateSubscription) {
+    appStateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+
+      if (nextAppState === 'active') {
+        // App has come to the foreground
+        if (socket && !socket.connected) {
+          socket.connect();
+        }
+      } else if (nextAppState === 'background') {
+        // App has gone to the background
+        // Socket.io will handle reconnection automatically when app resumes
+        // We don't disconnect here to allow background message reception
+      }
+    });
+  }
+
   return socket;
 };
 
@@ -60,5 +79,11 @@ export const disconnectSocket = () => {
   if (socket) {
     socket.disconnect();
     socket = null;
+  }
+  
+  // Clean up AppState listener
+  if (appStateSubscription) {
+    appStateSubscription.remove();
+    appStateSubscription = null;
   }
 };
