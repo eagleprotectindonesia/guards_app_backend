@@ -21,6 +21,7 @@ export default function AdminDashboard() {
     activeSites: allActiveSites,
     upcomingShifts: allUpcomingShifts,
     connectionStatus,
+    isInitialized,
     acknowledgeAlert,
   } = useAlerts();
 
@@ -32,6 +33,18 @@ export default function AdminDashboard() {
         if (Array.isArray(data)) setSites(data);
       });
   }, []);
+
+  if (!isInitialized) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+        <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <h2 className="text-xl font-semibold mb-2">Connecting to Live Stream</h2>
+        <p className="text-muted-foreground max-w-xs">
+          Please wait while we establish a secure connection and sync real-time data...
+        </p>
+      </div>
+    );
+  }
 
   const handleAcknowledge = async (alertId: string) => {
     acknowledgeAlert(alertId);
@@ -105,7 +118,8 @@ export default function AdminDashboard() {
                 <div className="text-2xl font-bold text-green-700 dark:text-green-400">
                   {activeSites.reduce(
                     (acc, site) =>
-                      acc + site.shifts.filter(s => s.employee && s.attendance && s.attendance.status !== 'absent').length,
+                      acc +
+                      site.shifts.filter(s => s.employee && s.attendance && s.attendance.status !== 'absent').length,
                     0
                   )}
                 </div>
@@ -175,7 +189,9 @@ export default function AdminDashboard() {
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground flex items-center gap-2">
-                      <div className={`w-1.5 h-1.5 rounded-full ${shift.employee ? 'bg-blue-400' : 'bg-red-400'}`}></div>
+                      <div
+                        className={`w-1.5 h-1.5 rounded-full ${shift.employee ? 'bg-blue-400' : 'bg-red-400'}`}
+                      ></div>
                       <span className="truncate">
                         {shift.employee?.fullName || 'Unassigned'}
                         <span className="text-muted-foreground/60"> ({shift.shiftType?.name})</span>

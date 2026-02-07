@@ -9,6 +9,7 @@ import { useUnreadCount } from '../hooks/use-chat-queries';
 import { useEffect, useRef, useCallback } from 'react';
 import { useSocket } from '@/components/socket-provider';
 import { useQueryClient } from '@tanstack/react-query';
+import { ChatMessage } from '@/types/chat';
 
 export function BottomNav() {
   const { t } = useTranslation();
@@ -59,7 +60,7 @@ export function BottomNav() {
 
     console.log('BottomNav: Socket listeners attached. ID:', socket.id);
 
-    const handleNewMessage = (message: any) => {
+    const handleNewMessage = (message: ChatMessage) => {
       queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
       queryClient.invalidateQueries({ queryKey: ['chat', 'messages'] });
 

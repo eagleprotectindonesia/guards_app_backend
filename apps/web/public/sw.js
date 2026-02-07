@@ -80,6 +80,11 @@ self.addEventListener('fetch', event => {
   // Only handle same-origin requests for the rest (PWA logic)
   if (!url.origin.includes(self.location.origin)) return;
 
+  // Bypass same-origin caching for local development to avoid stale asset issues
+  if (self.location.hostname === 'localhost' || self.location.hostname === '127.0.0.1') {
+    return;
+  }
+
   // 2. API: Network Only
   if (url.pathname.includes('/api/')) {
     event.respondWith(

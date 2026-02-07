@@ -8,7 +8,10 @@
     "icon": "./assets/icons/android-launchericon-512-512.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -42,15 +45,14 @@
         "WRITE_EXTERNAL_STORAGE"
       ]
     },
-    "updates": {
-      "url": "https://u.expo.dev/1745481a-0e61-4fe1-ba06-1ac4e9c0deba"
-    },
+    "updates": {},
     "runtimeVersion": {
       "policy": "appVersion"
     },
+    "owner": "eagleprotect",
     "extra": {
       "eas": {
-        "projectId": "1745481a-0e61-4fe1-ba06-1ac4e9c0deba"
+        "projectId": "aa42139c-be53-41d6-8761-ae35510a83ca"
       }
     }
   }

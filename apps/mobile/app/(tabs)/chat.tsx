@@ -110,6 +110,20 @@ export default function ChatScreen() {
 
   const employeeId = employeeInfo?.id;
 
+  // Mark existing unread messages as read when focused or when messages are loaded while focused
+  useEffect(() => {
+    if (isFocused && messages.length > 0 && socketRef.current && employeeId) {
+      const unreadIds = messages.filter(m => m.sender === 'admin' && !m.readAt).map(m => m.id);
+
+      if (unreadIds.length > 0) {
+        socketRef.current.emit('mark_read', {
+          employeeId,
+          messageIds: unreadIds,
+        });
+      }
+    }
+  }, [isFocused, messages, employeeId]);
+
   // Track tab focus (for tab navigation)
   useFocusEffect(
     useCallback(() => {
@@ -127,6 +141,7 @@ export default function ChatScreen() {
       // When app becomes active, refetch messages to sync
       if (isActive && employeeInfo?.id) {
         queryClient.invalidateQueries({ queryKey: ['chat', 'messages', employeeInfo.id] });
+        queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
       }
     });
 

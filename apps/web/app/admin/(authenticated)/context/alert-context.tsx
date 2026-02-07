@@ -1,11 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert, Shift, ShiftType, Site, Attendance } from '@prisma/client';
 import { ExtendedEmployee } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import { useSession } from './session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { useSocket } from '@/components/socket-provider';
 
 // --- Types ---
 
@@ -57,6 +58,7 @@ interface AlertContextType {
   connectionStatus: string;
   lastAlertEvent: SSEAlertData | null;
   isMuted: boolean;
+  isInitialized: boolean;
   setIsMuted: (muted: boolean) => void;
   acknowledgeAlert: (alertId: string) => void;
 }
@@ -64,132 +66,106 @@ interface AlertContextType {
 const AlertContext = createContext<AlertContextType | undefined>(undefined);
 
 export function AlertProvider({ children }: { children: React.ReactNode }) {
+  const { hasPermission, userId } = useSession();
+  const { socket, isConnected } = useSocket();
+
   const [alerts, setAlerts] = useState<AlertWithRelations[]>([]);
   const [activeSites, setActiveSites] = useState<ActiveSiteData[]>([]);
   const [upcomingShifts, setUpcomingShifts] = useState<UpcomingShift[]>([]);
-  const [connectionStatus, setConnectionStatus] = useState('Connecting...');
   const [lastAlertEvent, setLastAlertEvent] = useState<SSEAlertData | null>(null);
-  const [isMuted, setIsMuted] = useState(false);
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const { hasPermission, userId } = useSession();
-  const isInitialized = useRef(false);
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  // Refactored Mute State: Initialize directly from local storage
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    const savedMuted = localStorage.getItem('alerts_muted');
+    const savedUserId = localStorage.getItem('alerts_muted_user_id');
+    // Basic sync: if user matches or no user was saved, try to load
+    return savedMuted === 'true' && (!savedUserId || savedUserId === userId);
+  });
+
+  // Sync isMuted changes to localStorage
+  useEffect(() => {
+    if (!userId) return;
+    localStorage.setItem('alerts_muted', isMuted.toString());
+    localStorage.setItem('alerts_muted_user_id', userId);
+  }, [isMuted, userId]);
 
   const canViewAlerts = hasPermission(PERMISSIONS.ALERTS.VIEW);
 
-  // Load/Sync isMuted with localStorage
-  useEffect(() => {
-    if (!userId) return;
-
-    if (!isInitialized.current) {
-      const savedMuted = localStorage.getItem('alerts_muted');
-      const savedUserId = localStorage.getItem('alerts_muted_user_id');
-
-      if (savedUserId === userId) {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setIsMuted(savedMuted === 'true');
-      } else {
-        // Clean upon login (new user or fresh login)
-        setIsMuted(false);
-        localStorage.setItem('alerts_muted', 'false');
-        localStorage.setItem('alerts_muted_user_id', userId);
-      }
-      isInitialized.current = true;
-    } else {
-      localStorage.setItem('alerts_muted', isMuted.toString());
-      localStorage.setItem('alerts_muted_user_id', userId);
-    }
-  }, [isMuted, userId]);
+  // Derive connection status directly from reactive state
+  const connectionStatus = !canViewAlerts ? 'Disabled' : isConnected ? 'Connected' : 'Reconnecting...';
 
   useEffect(() => {
-    // Only connect if the user has permission to view alerts or the dashboard
-    if (!canViewAlerts) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setConnectionStatus('Disabled');
-      return;
+    if (!canViewAlerts || !socket) return;
+
+    if (isConnected) {
+      // Request initial data upon connection
+      socket.emit('request_dashboard_backfill', {});
     }
 
-    const url = '/api/admin/alerts/stream';
-    const es = new EventSource(url);
-
-    es.onopen = () => setConnectionStatus('Connected');
-
-    es.onerror = () => {
-      setConnectionStatus('Reconnecting...');
+    const handleBackfill = (data: { alerts: AlertWithRelations[] }) => {
+      setAlerts(data.alerts.filter(alert => !alert.resolvedAt));
+      setIsInitialized(true);
     };
 
-    es.addEventListener('backfill', (e: MessageEvent) => {
-      try {
-        const data: AlertWithRelations[] = JSON.parse(e.data);
-        setAlerts(data.filter(alert => !alert.resolvedAt));
-      } catch (err) {
-        console.error('Error parsing backfill', err);
-      }
-    });
+    const handleActiveShifts = (data: ActiveSiteData[]) => {
+      setActiveSites(data);
+      setIsInitialized(true);
+    };
 
-    es.addEventListener('active_shifts', (e: MessageEvent) => {
-      try {
-        const data: ActiveSiteData[] = JSON.parse(e.data);
-        setActiveSites(data);
-      } catch (err) {
-        console.error('Error parsing active_shifts', err);
-      }
-    });
+    const handleUpcomingShifts = (data: UpcomingShift[]) => {
+      setUpcomingShifts(data);
+      setIsInitialized(true);
+    };
 
-    es.addEventListener('upcoming_shifts', (e: MessageEvent) => {
-      try {
-        const data: UpcomingShift[] = JSON.parse(e.data);
-        setUpcomingShifts(data);
-      } catch (err) {
-        console.error('Error parsing upcoming_shifts', err);
-      }
-    });
-
-    es.addEventListener('alert', (e: MessageEvent) => {
-      try {
-        const data: SSEAlertData = JSON.parse(e.data);
-        setLastAlertEvent(data); // Expose raw event to subscribers
-
-        if ('type' in data && data.type === 'alert_created') {
-          setAlerts(prev => {
-            const filteredPrev = prev.filter(a => {
-              if (data.alert.shift?.id && a.shift?.id === data.alert.shift.id && a.status === 'need_attention') {
-                return false;
-              }
-              return a.id !== data.alert.id && !data.alert.resolvedAt;
-            });
-            return [data.alert, ...filteredPrev];
-          });
-        } else if ('type' in data && data.type === 'alert_attention') {
-          setAlerts(prev => {
-            if (prev.find(a => a.id === data.alert.id)) return prev;
-            return [{ ...data.alert, status: 'need_attention' }, ...prev];
-          });
-        } else if ('type' in data && data.type === 'alert_updated') {
-          setAlerts(prev => {
-            if (data.alert.resolvedAt) {
-              return prev.filter(a => a.id !== data.alert.id);
+    const handleAlert = (data: SSEAlertData) => {
+      setLastAlertEvent(data); // Expose raw event to subscribers
+      console.log('alert masuk', data);
+      if ('type' in data && data.type === 'alert_created') {
+        setAlerts(prev => {
+          const filteredPrev = prev.filter(a => {
+            if (data.alert.shift?.id && a.shift?.id === data.alert.shift.id && a.status === 'need_attention') {
+              return false;
             }
-            return prev.map(a => (a.id === data.alert.id ? data.alert : a));
+            return a.id !== data.alert.id && !data.alert.resolvedAt;
           });
-        } else if ('type' in data && data.type === 'alert_cleared') {
-          setAlerts(prev => prev.filter(a => a.id !== data.alertId));
-        } else if ('id' in data && !('type' in data)) {
-          // Fallback for raw alert object
-          if (!data.resolvedAt) {
-            setAlerts(prev => [data, ...prev]);
+          return [data.alert, ...filteredPrev];
+        });
+      } else if ('type' in data && data.type === 'alert_attention') {
+        setAlerts(prev => {
+          if (prev.find(a => a.id === data.alert.id)) return prev;
+          return [{ ...data.alert, status: 'need_attention' } as AlertWithRelations, ...prev];
+        });
+      } else if ('type' in data && data.type === 'alert_updated') {
+        setAlerts(prev => {
+          if (data.alert.resolvedAt) {
+            return prev.filter(a => a.id !== data.alert.id);
           }
+          return prev.map(a => (a.id === data.alert.id ? data.alert : a));
+        });
+      } else if ('type' in data && data.type === 'alert_cleared') {
+        setAlerts(prev => prev.filter(a => a.id !== data.alertId));
+      } else if ('id' in data && !('type' in data)) {
+        // Fallback for raw alert object
+        if (!data.resolvedAt) {
+          setAlerts(prev => [data as AlertWithRelations, ...prev]);
         }
-      } catch (err) {
-        console.error('Error parsing alert', err);
       }
-    });
+    };
 
-    eventSourceRef.current = es;
+    socket.on('dashboard:backfill', handleBackfill);
+    socket.on('active_shifts', handleActiveShifts);
+    socket.on('upcoming_shifts', handleUpcomingShifts);
+    socket.on('alert', handleAlert);
 
     return () => {
-      es.close();
+      socket.off('dashboard:backfill', handleBackfill);
+      socket.off('active_shifts', handleActiveShifts);
+      socket.off('upcoming_shifts', handleUpcomingShifts);
+      socket.off('alert', handleAlert);
     };
-  }, [canViewAlerts]);
+  }, [canViewAlerts, socket, isConnected]);
 
   const acknowledgeAlert = (alertId: string) => {
     setAlerts(prev =>
@@ -212,6 +188,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
         connectionStatus,
         lastAlertEvent,
         isMuted,
+        isInitialized,
         setIsMuted,
         acknowledgeAlert,
       }}

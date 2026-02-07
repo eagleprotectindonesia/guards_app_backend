@@ -71,6 +71,9 @@ export async function POST(req: Request) {
         'newTokenVersion',
         updatedEmployee.tokenVersion.toString()
       );
+
+      console.log(updatedEmployee.tokenVersion.toString());
+
       // Update cache for high-frequency polling
       await redis.set(`employee:${employee.id}:token_version`, updatedEmployee.tokenVersion.toString(), 'EX', 3600);
     } catch (error) {
@@ -90,14 +93,17 @@ export async function POST(req: Request) {
       path: '/',
     });
 
-    return NextResponse.json({ 
-      message: 'Login berhasil',
-      token, // Return token for mobile clients
-      employee: {
-        id: employee.id,
-        name: employee.fullName
-      }
-    }, { status: 200 });
+    return NextResponse.json(
+      {
+        message: 'Login berhasil',
+        token, // Return token for mobile clients
+        employee: {
+          id: employee.id,
+          name: employee.fullName,
+        },
+      },
+      { status: 200 }
+    );
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: 'Kesalahan validasi', errors: error.issues }, { status: 400 });

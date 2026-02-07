@@ -8,6 +8,7 @@ import { BottomNav } from './components/bottom-nav';
 import { TopNav } from './components/top-nav';
 import { useProfile } from './hooks/use-employee-queries';
 import { useTranslation } from 'react-i18next';
+import { SocketProvider } from '@/components/socket-provider';
 
 export default function GuardAuthenticatedLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
@@ -33,12 +34,14 @@ export default function GuardAuthenticatedLayout({ children }: { children: React
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 flex flex-col">
-      <SessionMonitor />
-      <ForcePasswordChangeModal mustChange={profile.mustChangePassword} />
-      <TopNav />
-      <main className="grow pb-24 flex flex-col">{children}</main>
-      <BottomNav />
-    </div>
+    <SocketProvider role="employee">
+      <div className="min-h-screen bg-gray-100 flex flex-col">
+        <SessionMonitor />
+        <ForcePasswordChangeModal mustChange={profile.mustChangePassword} />
+        <TopNav />
+        <main className="grow pb-24 flex flex-col">{children}</main>
+        <BottomNav />
+      </div>
+    </SocketProvider>
   );
 }

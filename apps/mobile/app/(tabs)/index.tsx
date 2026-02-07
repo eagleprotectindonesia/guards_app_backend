@@ -1,19 +1,16 @@
-import React, { useEffect } from 'react';
-import { ScrollView, RefreshControl, Alert } from 'react-native';
+import React from 'react';
+import { ScrollView, RefreshControl } from 'react-native';
 import { Box, VStack, Heading, Text, Spinner, Center } from '@gluestack-ui/themed';
 import { useQuery } from '@tanstack/react-query';
-import { client, setupInterceptors } from '../../src/api/client';
+import { client } from '../../src/api/client';
 import AttendanceRecord from '../../src/components/AttendanceRecord';
 import CheckInCard from '../../src/components/CheckInCard';
 import ShiftCarousel from '../../src/components/ShiftCarousel';
 import SessionMonitor from '../../src/components/SessionMonitor';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShiftWithRelations, Employee } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
-import { disconnectSocket } from '../../src/api/socket';
-import { storage } from '../../src/utils/storage';
 
 type ActiveShiftData = {
   activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;
@@ -26,24 +23,7 @@ type ProfileData = {
 
 export default function HomeScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
-
-  // Setup Global Logout Interceptor once
-  useEffect(() => {
-    setupInterceptors(async () => {
-      // Close socket connection on unauthorized
-      disconnectSocket();
-      await storage.clear();
-      
-      Alert.alert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
-        {
-          text: 'OK',
-          onPress: () => router.replace('/(auth)/login'),
-        },
-      ]);
-    });
-  }, [router, t]);
 
   const { data: profile } = useQuery<ProfileData>({
     queryKey: ['profile'],
@@ -109,8 +89,18 @@ export default function HomeScreen() {
           ) : (
             <VStack space="xl">
               {!activeShift && (
-                <Box bg="$white" p="$8" rounded="$2xl" borderWidth={2} borderStyle="dashed" borderColor="$borderLight300" alignItems="center">
-                  <Text color="$textLight500" textAlign="center" fontWeight="$medium">{t('dashboard.noActiveShift')}</Text>
+                <Box
+                  bg="$white"
+                  p="$8"
+                  rounded="$2xl"
+                  borderWidth={2}
+                  borderStyle="dashed"
+                  borderColor="$borderLight300"
+                  alignItems="center"
+                >
+                  <Text color="$textLight500" textAlign="center" fontWeight="$medium">
+                    {t('dashboard.noActiveShift')}
+                  </Text>
                 </Box>
               )}
 
