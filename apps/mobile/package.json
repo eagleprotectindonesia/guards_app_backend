@@ -9,9 +9,12 @@
     "ios": "expo start --ios",
     "lint": "eslint .",
     "type-check": "tsc --noEmit",
+    "build:preview": "eas build --platform android --profile preview",
+    "build:production": "eas build --platform android --profile production",
     "update:preview": "eas update --branch preview",
     "update:preview:android": "eas update --branch preview --platform android",
-    "update:production": "eas update --branch production"
+    "update:production": "eas update --branch production",
+    "update:production:android": "eas update --branch production --platform android"
   },
   "dependencies": {
     "@gluestack-style/react": "^1.0.57",

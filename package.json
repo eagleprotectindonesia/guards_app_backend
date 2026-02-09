@@ -14,9 +14,14 @@
     "dev:mobile": "node --env-file=.env node_modules/.bin/turbo dev",
     "lint": "turbo lint",
     "test": "jest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:report": "playwright show-report",
     "postinstall": "if [ -f .env ]; then node --env-file=.env node_modules/.bin/turbo run prisma:generate; else node_modules/.bin/turbo run prisma:generate; fi"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@types/jest": "^30.0.0",
     "concurrently": "^8.2.2",
     "eslint": "^9",
