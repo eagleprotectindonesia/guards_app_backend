@@ -125,7 +125,7 @@ export async function GET(request: NextRequest) {
       const encoder = new TextEncoder();
 
       // Write Header
-      const headers = ['Date', 'Admin', 'Action', 'Entity Type', 'Entity ID', ...trackedFields.map(f => labelize(f))];
+      const headers = ['Date', 'Actor', 'Action', 'Entity Type', 'Entity ID', ...trackedFields.map(f => labelize(f))];
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
       let cursorId: string | null = null;
@@ -158,7 +158,12 @@ export async function GET(request: NextRequest) {
             };
 
             const date = format(new Date(log.createdAt), 'yyyy/MM/dd HH:mm:ss');
-            const adminName = log.admin?.name || 'System';
+            let actorName = 'Unknown';
+            if (log.actor === 'system') {
+              actorName = 'System';
+            } else if (log.actor === 'admin') {
+              actorName = log.admin?.name || 'Administrator';
+            }
 
             // Parse details and changes
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -177,7 +182,7 @@ export async function GET(request: NextRequest) {
 
             const row = [
               escape(date),
-              escape(adminName),
+              escape(actorName),
               escape(log.action),
               // escape(log.entityType),
               // escape(log.entityId),

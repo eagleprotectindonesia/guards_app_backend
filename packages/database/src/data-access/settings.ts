@@ -37,7 +37,8 @@ export async function updateSystemSettingWithChangelog(
         action: 'UPDATE',
         entityType: 'SystemSetting',
         entityId: name,
-        adminId: adminId,
+        actor: 'admin',
+        actorId: adminId,
         details: {
           name,
           oldValue: oldSetting?.value,

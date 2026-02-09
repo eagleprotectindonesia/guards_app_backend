@@ -94,7 +94,8 @@ export async function createShiftTypeWithChangelog(data: Prisma.ShiftTypeCreateI
           action: 'CREATE',
           entityType: 'ShiftType',
           entityId: createdShiftType.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             name: createdShiftType.name,
             startTime: createdShiftType.startTime,
@@ -148,7 +149,8 @@ export async function updateShiftTypeWithChangelog(id: string, data: Prisma.Shif
           action: 'UPDATE',
           entityType: 'ShiftType',
           entityId: updatedShiftType.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             name: updatedShiftType.name,
             startTime: updatedShiftType.startTime,
@@ -202,7 +204,8 @@ export async function deleteShiftTypeWithChangelog(id: string, adminId: string) 
           action: 'DELETE',
           entityType: 'ShiftType',
           entityId: id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             name: shiftTypeToDelete.name,
             deletedAt: new Date(),

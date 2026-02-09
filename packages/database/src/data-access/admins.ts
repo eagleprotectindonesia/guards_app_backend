@@ -69,7 +69,8 @@ export async function createAdminWithChangelog(data: Prisma.AdminCreateInput, cr
           action: 'CREATE',
           entityType: 'Admin',
           entityId: createdAdmin.id,
-          adminId: creatorId,
+          actor: 'admin',
+          actorId: creatorId,
           details: {
             name: createdAdmin.name,
             email: createdAdmin.email,
@@ -98,7 +99,8 @@ export async function updateAdminWithChangelog(id: string, data: Prisma.AdminUpd
           action: 'UPDATE',
           entityType: 'Admin',
           entityId: updatedAdmin.id,
-          adminId: modifierId,
+          actor: 'admin',
+          actorId: modifierId,
           details: {
             name: data.name ? updatedAdmin.name : undefined,
             email: data.email ? updatedAdmin.email : undefined,
@@ -151,7 +153,8 @@ export async function deleteAdminWithChangelog(id: string, deleterId: string) {
           action: 'DELETE',
           entityType: 'Admin',
           entityId: id,
-          adminId: deleterId,
+          actor: 'admin',
+          actorId: deleterId,
           details: {
             name: adminToDelete.name,
             email: adminToDelete.email,

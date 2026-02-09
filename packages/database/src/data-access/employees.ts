@@ -228,7 +228,8 @@ export async function createEmployeeWithChangelog(data: Prisma.EmployeeCreateInp
           action: 'CREATE',
           entityType: 'Employee',
           entityId: createdEmployee.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             firstName: createdEmployee.firstName,
             lastName: createdEmployee.lastName,
@@ -438,7 +439,8 @@ export async function updateEmployeeWithChangelog(
           action: 'UPDATE',
           entityType: 'Employee',
           entityId: updatedEmployee.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             firstName: updatedEmployee.firstName,
             lastName: updatedEmployee.lastName,
@@ -510,7 +512,8 @@ export async function updateEmployeePasswordWithChangelog(id: string, hashedPass
           action: 'UPDATE',
           entityType: 'Employee',
           entityId: id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: { field: 'password', status: 'changed' },
         },
       });
@@ -547,7 +550,8 @@ export async function deleteEmployeeWithChangelog(id: string, adminId: string) {
           action: 'DELETE',
           entityType: 'Employee',
           entityId: id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             firstName: employeeToDelete.firstName,
             lastName: employeeToDelete.lastName,
@@ -665,7 +669,8 @@ export async function bulkCreateEmployeesWithChangelog(
           action: 'CREATE', // Treat as standard creation for history consistency
           entityType: 'Employee',
           entityId: g.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             method: 'BULK_UPLOAD',
             firstName: g.firstName,

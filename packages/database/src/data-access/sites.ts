@@ -95,7 +95,8 @@ export async function createSiteWithChangelog(data: Prisma.SiteCreateInput, admi
           action: 'CREATE',
           entityType: 'Site',
           entityId: createdSite.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             name: createdSite.name,
             clientName: createdSite.clientName,
@@ -160,7 +161,8 @@ export async function updateSiteWithChangelog(id: string, data: Prisma.SiteUpdat
           action: 'UPDATE',
           entityType: 'Site',
           entityId: updatedSite.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             name: updatedSite.name,
             clientName: updatedSite.clientName,
@@ -204,7 +206,8 @@ export async function deleteSiteWithChangelog(id: string, adminId: string) {
           action: 'DELETE',
           entityType: 'Site',
           entityId: id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             name: siteToDelete.name,
             clientName: siteToDelete.clientName,

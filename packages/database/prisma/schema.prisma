@@ -83,16 +83,23 @@ model Admin {
   @@map("admins")
 }
 
-model Changelog {
-  id         String   @id @default(uuid())
-  action     String // CREATE, UPDATE, DELETE, BULK_CREATE
-  entityType String   @map("entity_type") // e.g., "Employee", "Site"
-  entityId   String   @map("entity_id")
-  details    Json? // Store changed fields or snapshot
-  adminId    String?  @map("admin_id")
-  createdAt  DateTime @default(now()) @map("created_at")
+enum ChangelogActor {
+  admin
+  system
+  unknown
+}
 
-  admin Admin? @relation(fields: [adminId], references: [id])
+model Changelog {
+  id         String         @id @default(uuid())
+  action     String // CREATE, UPDATE, DELETE, BULK_CREATE
+  entityType String         @map("entity_type") // e.g., "Employee", "Site"
+  entityId   String         @map("entity_id")
+  details    Json? // Store changed fields or snapshot
+  actor      ChangelogActor @default(admin)
+  actorId    String?        @map("actor_id")
+  createdAt  DateTime       @default(now()) @map("created_at")
+
+  admin Admin? @relation(fields: [actorId], references: [id])
 
   @@index([entityType, entityId])
   @@index([entityType, createdAt])

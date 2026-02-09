@@ -173,7 +173,7 @@ export default function ChangelogList({
                   onSort={handleSort}
                   className="pl-6"
                 />
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Admin</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Actor</th>
                 <SortableHeader
                   label="Action"
                   field="action"
@@ -222,7 +222,15 @@ export default function ChangelogList({
                       {new Date(log.createdAt).toLocaleString()}
                     </td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
-                      {log.admin?.name || <span className="text-muted-foreground/50 italic">System</span>}
+                      {log.actor === 'system' ? (
+                        <span className="text-muted-foreground/70 italic bg-muted/50 px-2 py-0.5 rounded text-xs">
+                          System
+                        </span>
+                      ) : log.actor === 'admin' ? (
+                        log.admin?.name || 'Administrator'
+                      ) : (
+                        <span className="text-muted-foreground/50 italic">Unknown</span>
+                      )}
                     </td>
                     <td className="py-4 px-6 text-sm">
                       <span

@@ -79,7 +79,8 @@ export async function createDesignation(data: Prisma.DesignationUncheckedCreateI
         action: 'CREATE',
         entityType: 'Designation',
         entityId: designation.id,
-        adminId,
+        actor: 'admin',
+        actorId: adminId,
         details: { 
           name: designation.name,
           role: designation.role,
@@ -156,7 +157,8 @@ export async function updateDesignation(id: string, data: Prisma.DesignationUnch
         action: 'UPDATE',
         entityType: 'Designation',
         entityId: designation.id,
-        adminId,
+        actor: 'admin',
+        actorId: adminId,
         details: { 
           name: designation.name,
           role: designation.role,
@@ -189,7 +191,8 @@ export async function deleteDesignation(id: string, adminId: string) {
         action: 'DELETE',
         entityType: 'Designation',
         entityId: id,
-        adminId,
+        actor: 'admin',
+        actorId: adminId,
         details: { name: designation.name },
       },
     });

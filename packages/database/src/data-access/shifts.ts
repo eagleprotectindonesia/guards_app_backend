@@ -96,7 +96,8 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
           action: 'CREATE',
           entityType: 'Shift',
           entityId: createdShift.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             siteName: createdShift.site.name,
             typeName: createdShift.shiftType.name,
@@ -225,7 +226,8 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
           action: 'UPDATE',
           entityType: 'Shift',
           entityId: updatedShift.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             siteName: updatedShift.site.name,
             typeName: updatedShift.shiftType.name,
@@ -293,7 +295,8 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
           action: 'DELETE',
           entityType: 'Shift',
           entityId: id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             siteName: shiftToDelete.site.name,
             typeName: shiftToDelete.shiftType.name,
@@ -365,7 +368,8 @@ export async function deleteFutureShiftsByEmployee(employeeId: string, adminId: 
       action: 'BULK_DELETE',
       entityType: 'Shift',
       entityId: `employee:${employeeId}`,
-      adminId: adminId,
+      actor: 'admin',
+      actorId: adminId,
       details: {
         reason: 'ROLE_CHANGE_TO_OFFICE',
         count: shiftIds.length,
@@ -434,7 +438,8 @@ export async function deleteFutureShiftsByDesignation(designationId: string, adm
       action: 'BULK_DELETE',
       entityType: 'Shift',
       entityId: `designation:${designationId}`,
-      adminId: adminId,
+      actor: 'admin',
+      actorId: adminId,
       details: {
         reason: 'DESIGNATION_ROLE_CHANGE_TO_OFFICE',
         count: shiftIds.length,
@@ -480,7 +485,8 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
             action: 'CREATE',
             entityType: 'Shift',
             entityId: s.id,
-            adminId: adminId,
+            actor: 'admin',
+            actorId: adminId,
             details: {
               method: 'BULK_UPLOAD',
               siteName: s.site.name,

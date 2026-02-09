@@ -51,7 +51,8 @@ export async function createDepartment(data: Prisma.DepartmentCreateInput, admin
         action: 'CREATE',
         entityType: 'Department',
         entityId: department.id,
-        adminId,
+        actor: 'admin',
+        actorId: adminId,
         details: { 
           name: department.name,
           note: department.note 
@@ -75,7 +76,8 @@ export async function updateDepartment(id: string, data: Prisma.DepartmentUpdate
         action: 'UPDATE',
         entityType: 'Department',
         entityId: department.id,
-        adminId,
+        actor: 'admin',
+        actorId: adminId,
         details: { 
           name: department.name,
           note: department.note
@@ -106,7 +108,8 @@ export async function deleteDepartment(id: string, adminId: string) {
         action: 'DELETE',
         entityType: 'Department',
         entityId: id,
-        adminId,
+        actor: 'admin',
+        actorId: adminId,
         details: { name: department.name },
       },
     });
