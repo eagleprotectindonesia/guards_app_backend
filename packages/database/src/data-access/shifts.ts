@@ -98,12 +98,15 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
           entityId: createdShift.id,
           adminId: adminId,
           details: {
-            site: createdShift.site.name,
-            type: createdShift.shiftType.name,
-            employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
+            siteName: createdShift.site.name,
+            typeName: createdShift.shiftType.name,
+            employeeName: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
             date: createdShift.date,
             startsAt: createdShift.startsAt,
             endsAt: createdShift.endsAt,
+            siteId: createdShift.siteId,
+            shiftTypeId: createdShift.shiftTypeId,
+            employeeId: createdShift.employeeId,
           },
         },
       });
@@ -132,9 +135,34 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
   return result;
 }
 
+export const SHIFT_TRACKED_FIELDS = [
+  'employeeName',
+  'siteName',
+  'typeName',
+  'date',
+  'startsAt',
+  'endsAt',
+  'requiredCheckinIntervalMins',
+  'status',
+  'note',
+] as const;
+
 export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpdateInput, adminId: string) {
   const result = await prisma.$transaction(
     async tx => {
+      const beforeShift = await tx.shift.findUnique({
+        where: { id, deletedAt: null },
+        include: {
+          site: true,
+          shiftType: true,
+          employee: true,
+        },
+      });
+
+      if (!beforeShift) {
+        throw new Error('Shift not found');
+      }
+
       const updatedShift = await tx.shift.update({
         where: { id, deletedAt: null },
         data: {
@@ -149,6 +177,48 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
       });
 
       const emp = updatedShift.employee as any;
+      const prevEmp = beforeShift.employee as any;
+
+      const updatedEmpName = emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned';
+      const beforeEmpName = prevEmp ? `${prevEmp.firstName} ${prevEmp.lastName}` : 'Unassigned';
+
+      // Calculate changes
+      const changes: Record<string, { from: any; to: any }> = {};
+      const fieldsToTrack = [
+        'siteId',
+        'shiftTypeId',
+        'employeeId',
+        'date',
+        'startsAt',
+        'endsAt',
+        'requiredCheckinIntervalMins',
+        'graceMinutes',
+        'status',
+        'note',
+      ] as const;
+
+      for (const field of fieldsToTrack) {
+        const oldValue = (beforeShift as any)[field];
+        const newValue = (updatedShift as any)[field];
+
+        if (oldValue instanceof Date && newValue instanceof Date) {
+          if (oldValue.getTime() !== newValue.getTime()) {
+            changes[field] = { from: oldValue, to: newValue };
+          }
+        } else if (oldValue !== newValue) {
+          changes[field] = { from: oldValue, to: newValue };
+        }
+      }
+
+      if (updatedEmpName !== beforeEmpName) {
+        changes['employeeName'] = { from: beforeEmpName, to: updatedEmpName };
+      }
+      if (beforeShift.site.name !== updatedShift.site.name) {
+        changes['siteName'] = { from: beforeShift.site.name, to: updatedShift.site.name };
+      }
+      if (beforeShift.shiftType.name !== updatedShift.shiftType.name) {
+        changes['typeName'] = { from: beforeShift.shiftType.name, to: updatedShift.shiftType.name };
+      }
 
       await tx.changelog.create({
         data: {
@@ -157,15 +227,19 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
           entityId: updatedShift.id,
           adminId: adminId,
           details: {
-            site: updatedShift.site.name,
-            type: updatedShift.shiftType.name,
-            employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
+            siteName: updatedShift.site.name,
+            typeName: updatedShift.shiftType.name,
+            employeeName: updatedEmpName,
             date: updatedShift.date,
             startsAt: updatedShift.startsAt,
             endsAt: updatedShift.endsAt,
-            interval: updatedShift.requiredCheckinIntervalMins,
-            grace: updatedShift.graceMinutes,
+            requiredCheckinIntervalMins: updatedShift.requiredCheckinIntervalMins,
             status: updatedShift.status,
+            note: updatedShift.note,
+            siteId: updatedShift.siteId,
+            shiftTypeId: updatedShift.shiftTypeId,
+            employeeId: updatedShift.employeeId,
+            changes: Object.keys(changes).length > 0 ? changes : undefined,
           },
         },
       });
@@ -221,9 +295,9 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
           entityId: id,
           adminId: adminId,
           details: {
-            site: shiftToDelete.site.name,
-            type: shiftToDelete.shiftType.name,
-            employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
+            siteName: shiftToDelete.site.name,
+            typeName: shiftToDelete.shiftType.name,
+            employeeName: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
             date: shiftToDelete.date,
             deletedAt: new Date(),
           },
@@ -236,7 +310,17 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
   );
 
   if (result?.employeeId) {
-    await redis.xadd(`employee:stream:${result.employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shift_updated', 'shiftId', id);
+    await redis.xadd(
+      `employee:stream:${result.employeeId}`,
+      'MAXLEN',
+      '~',
+      100,
+      '*',
+      'type',
+      'shift_updated',
+      'shiftId',
+      id
+    );
   }
 
   await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_DELETED', id: id }));
@@ -250,7 +334,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
  */
 export async function deleteFutureShiftsByEmployee(employeeId: string, adminId: string, tx: any) {
   const now = new Date();
-  
+
   // Find future shifts to log them (optional but good for history)
   const futureShifts: { id: string }[] = await tx.shift.findMany({
     where: {
@@ -291,7 +375,17 @@ export async function deleteFutureShiftsByEmployee(employeeId: string, adminId: 
   });
 
   // Notify employee via stream
-  await redis.xadd(`employee:stream:${employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shifts_deleted', 'reason', 'role_change');
+  await redis.xadd(
+    `employee:stream:${employeeId}`,
+    'MAXLEN',
+    '~',
+    100,
+    '*',
+    'type',
+    'shifts_deleted',
+    'reason',
+    'role_change'
+  );
 
   return shiftIds.length;
 }
@@ -317,7 +411,13 @@ export async function deleteFutureShiftsByDesignation(designationId: string, adm
   if (futureShifts.length === 0) return 0;
 
   const shiftIds = futureShifts.map((s: { id: string }) => s.id);
-  const employeeIds = Array.from(new Set(futureShifts.map((s: { employeeId: string | null }) => s.employeeId).filter((id: string | null): id is string => !!id)));
+  const employeeIds = Array.from(
+    new Set(
+      futureShifts
+        .map((s: { employeeId: string | null }) => s.employeeId)
+        .filter((id: string | null): id is string => !!id)
+    )
+  );
 
   await tx.shift.updateMany({
     where: {
@@ -345,7 +445,17 @@ export async function deleteFutureShiftsByDesignation(designationId: string, adm
 
   // Notify all affected employees
   for (const employeeId of employeeIds) {
-    await redis.xadd(`employee:stream:${employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shifts_deleted', 'reason', 'role_change');
+    await redis.xadd(
+      `employee:stream:${employeeId}`,
+      'MAXLEN',
+      '~',
+      100,
+      '*',
+      'type',
+      'shifts_deleted',
+      'reason',
+      'role_change'
+    );
   }
 
   return shiftIds.length;
@@ -373,9 +483,9 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
             adminId: adminId,
             details: {
               method: 'BULK_UPLOAD',
-              site: s.site.name,
-              type: s.shiftType.name,
-              employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
+              siteName: s.site.name,
+              typeName: s.shiftType.name,
+              employeeName: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
               date: s.date,
               startsAt: s.startsAt,
               endsAt: s.endsAt,
@@ -496,7 +606,7 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
       ...(activeShift ? { NOT: { id: activeShift.id } } : {}),
     },
     orderBy: {
-      startsAt: 'asc'
+      startsAt: 'asc',
     },
     take: 4,
     include: { site: true, shiftType: true, employee: true, attendance: true },

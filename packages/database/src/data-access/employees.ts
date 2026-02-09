@@ -213,6 +213,11 @@ export async function createEmployeeWithChangelog(data: Prisma.EmployeeCreateInp
           lastUpdatedBy: { connect: { id: adminId } },
           createdBy: { connect: { id: adminId } },
         },
+        include: {
+          department: true,
+          designation: true,
+          office: true,
+        },
       });
 
       // Set Redis flag for password change requirement
@@ -233,6 +238,9 @@ export async function createEmployeeWithChangelog(data: Prisma.EmployeeCreateInp
             departmentId: createdEmployee.departmentId,
             designationId: createdEmployee.designationId,
             officeId: createdEmployee.officeId,
+            departmentName: createdEmployee.department?.name || 'None',
+            designationName: createdEmployee.designation?.name || 'None',
+            officeName: createdEmployee.office?.name || 'None',
             role: createdEmployee.role,
             joinDate: createdEmployee.joinDate,
             leftDate: createdEmployee.leftDate,
@@ -246,6 +254,21 @@ export async function createEmployeeWithChangelog(data: Prisma.EmployeeCreateInp
     { timeout: 5000 }
   );
 }
+
+export const EMPLOYEE_TRACKED_FIELDS = [
+  'firstName',
+  'lastName',
+  'phone',
+  'employeeCode',
+  'status',
+  'role',
+  'joinDate',
+  'leftDate',
+  'note',
+  'departmentName',
+  'designationName',
+  'officeName',
+] as const;
 
 export async function updateEmployeeWithChangelog(
   id: string,
@@ -338,10 +361,77 @@ export async function updateEmployeeWithChangelog(
         }
       }
 
+      const beforeEmployee = await tx.employee.findUnique({
+        where: { id },
+        include: {
+          department: true,
+          designation: true,
+          office: true,
+        },
+      });
+
+      if (!beforeEmployee) {
+        throw new Error('Employee not found');
+      }
+
       const updatedEmployee = await tx.employee.update({
         where: { id },
         data: updateData,
+        include: {
+          department: true,
+          designation: true,
+          office: true,
+        },
       });
+
+      // Calculate changes
+      const changes: Record<string, { from: any; to: any }> = {};
+      const fieldsToTrack = [
+        'firstName',
+        'lastName',
+        'phone',
+        'employeeCode',
+        'status',
+        'departmentId',
+        'designationId',
+        'officeId',
+        'role',
+        'joinDate',
+        'leftDate',
+        'note',
+      ] as const;
+
+      for (const field of fieldsToTrack) {
+        const oldValue = (beforeEmployee as any)[field];
+        const newValue = (updatedEmployee as any)[field];
+
+        if (oldValue instanceof Date && newValue instanceof Date) {
+          if (oldValue.getTime() !== newValue.getTime()) {
+            changes[field] = { from: oldValue, to: newValue };
+          }
+        } else if (oldValue !== newValue) {
+          changes[field] = { from: oldValue, to: newValue };
+        }
+      }
+
+      if (beforeEmployee.department?.name !== updatedEmployee.department?.name) {
+        changes['departmentName'] = {
+          from: beforeEmployee.department?.name || 'None',
+          to: updatedEmployee.department?.name || 'None',
+        };
+      }
+      if (beforeEmployee.designation?.name !== updatedEmployee.designation?.name) {
+        changes['designationName'] = {
+          from: beforeEmployee.designation?.name || 'None',
+          to: updatedEmployee.designation?.name || 'None',
+        };
+      }
+      if (beforeEmployee.office?.name !== updatedEmployee.office?.name) {
+        changes['officeName'] = {
+          from: beforeEmployee.office?.name || 'None',
+          to: updatedEmployee.office?.name || 'None',
+        };
+      }
 
       await tx.changelog.create({
         data: {
@@ -350,18 +440,22 @@ export async function updateEmployeeWithChangelog(
           entityId: updatedEmployee.id,
           adminId: adminId,
           details: {
-            firstName: data.firstName !== undefined ? updatedEmployee.firstName : undefined,
-            lastName: data.lastName !== undefined ? updatedEmployee.lastName : undefined,
+            firstName: updatedEmployee.firstName,
+            lastName: updatedEmployee.lastName,
             fullName: updatedEmployee.fullName,
-            phone: data.phone !== undefined ? updatedEmployee.phone : undefined,
-            employeeCode: data.employeeCode !== undefined ? updatedEmployee.employeeCode : undefined,
+            phone: updatedEmployee.phone,
+            employeeCode: updatedEmployee.employeeCode,
             status: updatedEmployee.status,
-            departmentId: data.department !== undefined ? updatedEmployee.departmentId : undefined,
-            designationId: data.designation !== undefined ? updatedEmployee.designationId : undefined,
-            officeId: data.office !== undefined ? updatedEmployee.officeId : undefined,
-            joinDate: data.joinDate !== undefined ? updatedEmployee.joinDate : undefined,
-            leftDate: data.leftDate !== undefined ? updatedEmployee.leftDate : undefined,
-            note: data.note !== undefined ? updatedEmployee.note : undefined,
+            departmentId: updatedEmployee.departmentId,
+            designationId: updatedEmployee.designationId,
+            officeId: updatedEmployee.officeId,
+            departmentName: updatedEmployee.department?.name || 'None',
+            designationName: updatedEmployee.designation?.name || 'None',
+            officeName: updatedEmployee.office?.name || 'None',
+            joinDate: updatedEmployee.joinDate,
+            leftDate: updatedEmployee.leftDate,
+            note: updatedEmployee.note,
+            changes: Object.keys(changes).length > 0 ? changes : undefined,
           },
         },
       });
@@ -457,6 +551,7 @@ export async function deleteEmployeeWithChangelog(id: string, adminId: string) {
           details: {
             firstName: employeeToDelete.firstName,
             lastName: employeeToDelete.lastName,
+            fullName: `${employeeToDelete.firstName} ${employeeToDelete.lastName || ''}`.trim(),
             phone: employeeToDelete.phone,
             deletedAt: new Date(),
           },
@@ -575,11 +670,14 @@ export async function bulkCreateEmployeesWithChangelog(
             method: 'BULK_UPLOAD',
             firstName: g.firstName,
             lastName: g.lastName,
+            fullName: `${g.firstName} ${g.lastName || ''}`.trim(),
             phone: g.phone,
             employeeCode: g.employeeCode,
             status: g.status,
             joinDate: g.joinDate,
             role: g.role,
+            // Note: Bulk upload currently doesn't easily resolve department/designation names without extra queries
+            // but we can add them if needed. For now let's at least keep the basic fields.
           },
         })),
       });

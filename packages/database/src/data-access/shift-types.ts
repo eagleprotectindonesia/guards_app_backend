@@ -109,14 +109,16 @@ export async function createShiftTypeWithChangelog(data: Prisma.ShiftTypeCreateI
   );
 }
 
+export const SHIFT_TYPE_TRACKED_FIELDS = ['name', 'startTime', 'endTime'] as const;
+
 export async function updateShiftTypeWithChangelog(id: string, data: Prisma.ShiftTypeUpdateInput, adminId: string) {
   return prisma.$transaction(
     async tx => {
-      const existingShiftType = await tx.shiftType.findUnique({
+      const beforeShiftType = await tx.shiftType.findUnique({
         where: { id, deletedAt: null },
       });
 
-      if (!existingShiftType) {
+      if (!beforeShiftType) {
         throw new Error('Shift Type not found');
       }
 
@@ -128,6 +130,19 @@ export async function updateShiftTypeWithChangelog(id: string, data: Prisma.Shif
         },
       });
 
+      // Calculate changes
+      const changes: Record<string, { from: any; to: any }> = {};
+      const fieldsToTrack = ['name', 'startTime', 'endTime'] as const;
+
+      for (const field of fieldsToTrack) {
+        const oldValue = (beforeShiftType as any)[field];
+        const newValue = (updatedShiftType as any)[field];
+
+        if (oldValue !== newValue) {
+          changes[field] = { from: oldValue, to: newValue };
+        }
+      }
+
       await tx.changelog.create({
         data: {
           action: 'UPDATE',
@@ -135,16 +150,17 @@ export async function updateShiftTypeWithChangelog(id: string, data: Prisma.Shif
           entityId: updatedShiftType.id,
           adminId: adminId,
           details: {
-            name: data.name ? updatedShiftType.name : undefined,
-            startTime: data.startTime ? updatedShiftType.startTime : undefined,
-            endTime: data.endTime ? updatedShiftType.endTime : undefined,
+            name: updatedShiftType.name,
+            startTime: updatedShiftType.startTime,
+            endTime: updatedShiftType.endTime,
+            changes: Object.keys(changes).length > 0 ? changes : undefined,
           },
         },
       });
 
-      const startTime = (data.startTime as string) || existingShiftType.startTime;
-      const endTime = (data.endTime as string) || existingShiftType.endTime;
-      const timesChanged = existingShiftType.startTime !== startTime || existingShiftType.endTime !== endTime;
+      const startTime = (data.startTime as string) || beforeShiftType.startTime;
+      const endTime = (data.endTime as string) || beforeShiftType.endTime;
+      const timesChanged = beforeShiftType.startTime !== startTime || beforeShiftType.endTime !== endTime;
 
       return { updatedShiftType, timesChanged, startTime, endTime };
     },

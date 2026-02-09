@@ -10,6 +10,7 @@ import SortableHeader from '@/components/sortable-header';
 import { Eye, Filter } from 'lucide-react';
 import ChangelogDetailsModal from './changelog-details-modal';
 import { format } from 'date-fns';
+import ChangelogExport from './changelog-export';
 
 type ChangelogWithAdmin = Changelog & {
   admin?: { name: string } | null;
@@ -138,10 +139,13 @@ export default function ChangelogList({
           </p>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
+          <ChangelogExport entityType={fixedEntityType} />
           <button
             onClick={() => setIsFilterOpen(true)}
             className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm w-full md:w-auto ${
-              activeFiltersCount > 0 ? 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-950/30' : ''
+              activeFiltersCount > 0
+                ? 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-950/30'
+                : ''
             }`}
           >
             <Filter className="w-4 h-4 mr-2" />
@@ -227,15 +231,15 @@ export default function ChangelogList({
                           log.action === 'CREATE' || log.action === 'BULK_CREATE'
                             ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
                             : log.action === 'DELETE'
-                            ? 'bg-red-100 dark:bg-red-950/30 text-red-800 dark:text-red-400'
-                            : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
+                              ? 'bg-red-100 dark:bg-red-950/30 text-red-800 dark:text-red-400'
+                              : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
                         }`}
                       >
                         {log.action}
                       </span>
                     </td>
                     {!hideEntityType && <td className="py-4 px-6 text-sm text-muted-foreground">{log.entityType}</td>}
-                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono text-xs">{log.entityId}</td>
+                    <td className="py-4 px-6 text-muted-foreground font-mono text-xs">{log.entityId}</td>
                     {showEntityName && (
                       <td className="py-4 px-6 text-sm text-muted-foreground">
                         {/* Safe access to details.name if it exists */}
@@ -266,7 +270,9 @@ export default function ChangelogList({
       <ChangelogDetailsModal
         isOpen={!!selectedDetails}
         onClose={() => setSelectedDetails(null)}
-        details={selectedDetails}
+        details={
+          selectedDetails as Record<string, string> | { changes: Record<string, { from: string; to: string }> } | null
+        }
       />
 
       <FilterModal
