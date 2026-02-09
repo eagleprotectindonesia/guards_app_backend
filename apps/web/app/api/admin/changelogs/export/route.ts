@@ -68,7 +68,7 @@ const labelize = (key: string) => {
 
 const formatCSVValue = (key: string, value: string | boolean) => {
   if (value === null || value === undefined) return '';
-  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (typeof value === 'boolean') return value ? 'Active' : 'Inactive';
 
   // Check if it's a date string (ISO format usually stored in JSON)
   if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
@@ -125,7 +125,8 @@ export async function GET(request: NextRequest) {
       const encoder = new TextEncoder();
 
       // Write Header
-      const headers = ['Date', 'Actor', 'Action', 'Entity Type', 'Entity ID', ...trackedFields.map(f => labelize(f))];
+      // const headers = ['Date', 'Actor', 'Action', 'Entity Type', 'Entity ID', ...trackedFields.map(f => labelize(f))];
+      const headers = ['Date', 'Actor', 'Actor Type', 'Action', ...trackedFields.map(f => labelize(f))];
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
       let cursorId: string | null = null;
@@ -135,7 +136,7 @@ export async function GET(request: NextRequest) {
           const args: Prisma.ChangelogFindManyArgs = {
             take: BATCH_SIZE,
             where,
-            orderBy: { id: 'asc' },
+            orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
             include,
           };
 
@@ -172,7 +173,7 @@ export async function GET(request: NextRequest) {
             const changes = details.changes as { [key in keys]: { from: string | boolean; to: string | boolean } };
 
             const fieldValues = trackedFields.map(field => {
-              if (changes[field]) {
+              if (changes?.[field]) {
                 const from = formatCSVValue(field, changes[field].from);
                 const to = formatCSVValue(field, changes[field].to);
                 return `${from} -> ${to}`;
@@ -183,6 +184,7 @@ export async function GET(request: NextRequest) {
             const row = [
               escape(date),
               escape(actorName),
+              escape(log.actor),
               escape(log.action),
               // escape(log.entityType),
               // escape(log.entityId),

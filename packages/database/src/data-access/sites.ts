@@ -104,6 +104,7 @@ export async function createSiteWithChangelog(data: Prisma.SiteCreateInput, admi
             latitude: createdSite.latitude,
             longitude: createdSite.longitude,
             note: createdSite.note,
+            status: createdSite.status,
           },
         },
       });
@@ -187,7 +188,6 @@ export async function deleteSiteWithChangelog(id: string, adminId: string) {
     async tx => {
       const siteToDelete = await tx.site.findUnique({
         where: { id, deletedAt: null },
-        select: { name: true, clientName: true },
       });
 
       if (!siteToDelete) return;
@@ -211,6 +211,11 @@ export async function deleteSiteWithChangelog(id: string, adminId: string) {
           details: {
             name: siteToDelete.name,
             clientName: siteToDelete.clientName,
+            address: siteToDelete.address,
+            latitude: siteToDelete.latitude,
+            longitude: siteToDelete.longitude,
+            note: siteToDelete.note,
+            status: siteToDelete.status,
             deletedAt: new Date(),
           },
         },

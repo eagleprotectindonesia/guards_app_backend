@@ -175,7 +175,7 @@ export async function deleteShiftTypeWithChangelog(id: string, adminId: string) 
     async tx => {
       const shiftTypeToDelete = await tx.shiftType.findUnique({
         where: { id, deletedAt: null },
-        select: { name: true, id: true },
+        select: { name: true, id: true, startTime: true, endTime: true },
       });
 
       if (!shiftTypeToDelete) {
@@ -208,6 +208,8 @@ export async function deleteShiftTypeWithChangelog(id: string, adminId: string) 
           actorId: adminId,
           details: {
             name: shiftTypeToDelete.name,
+            startTime: shiftTypeToDelete.startTime,
+            endTime: shiftTypeToDelete.endTime,
             deletedAt: new Date(),
           },
         },

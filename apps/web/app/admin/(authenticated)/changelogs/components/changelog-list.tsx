@@ -173,14 +173,9 @@ export default function ChangelogList({
                   onSort={handleSort}
                   className="pl-6"
                 />
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Actor Type</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Actor</th>
-                <SortableHeader
-                  label="Action"
-                  field="action"
-                  currentSortBy={sortBy}
-                  currentSortOrder={sortOrder}
-                  onSort={handleSort}
-                />
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Action</th>
                 {!hideEntityType && (
                   <SortableHeader
                     label="Entity Type"
@@ -209,7 +204,7 @@ export default function ChangelogList({
               {changelogs.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={hideEntityType ? (showEntityName ? 6 : 5) : showEntityName ? 7 : 6}
+                    colSpan={hideEntityType ? (showEntityName ? 7 : 6) : showEntityName ? 8 : 7}
                     className="py-8 text-center text-muted-foreground"
                   >
                     No logs found.
@@ -221,6 +216,7 @@ export default function ChangelogList({
                     <td className="py-4 px-6 text-sm text-muted-foreground whitespace-nowrap">
                       {new Date(log.createdAt).toLocaleString()}
                     </td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground capitalize">{log.actor}</td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       {log.actor === 'system' ? (
                         <span className="text-muted-foreground/70 italic bg-muted/50 px-2 py-0.5 rounded text-xs">
