@@ -1,6 +1,7 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { QueryClient } from '@tanstack/react-query';
+import { storage, STORAGE_KEYS } from '../utils/storage';
 
 // Determine the base URL based on the environment
 const getBaseUrl = () => {
@@ -27,6 +28,18 @@ export const client = axios.create({
   },
 });
 
+// Request Interceptor to inject token
+client.interceptors.request.use(
+  async (config) => {
+    const token = await storage.getItem(STORAGE_KEYS.TOKEN);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -37,13 +50,18 @@ export const queryClient = new QueryClient({
 });
 
 // Add interceptor to handle 401s (Global Logout)
-// We will assign the navigation logic in the Root Component or via a navigation reference
 export const setupInterceptors = (onUnauthorized: () => Promise<void> | void) => {
   const interceptorId = client.interceptors.response.use(
-    response => response,
-    async error => {
+    (response) => response,
+    async (error) => {
       if (error.response?.status === 401) {
-        await onUnauthorized();
+        // Only trigger if not on the login page or checking auth
+        const isAuthCheck = error.config.url?.includes('/api/employee/auth/check');
+        const isLogin = error.config.url?.includes('/api/employee/auth/login');
+        
+        if (!isAuthCheck && !isLogin) {
+          await onUnauthorized();
+        }
       }
       return Promise.reject(error);
     }

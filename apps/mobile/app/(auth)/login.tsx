@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Alert, View } from 'react-native';
 import {
   VStack,
@@ -18,12 +18,12 @@ import {
   FormControlErrorText,
   FormControlErrorIcon,
   Box,
-  Spinner,
   Center,
+  Spinner,
 } from '@gluestack-ui/themed';
 import { useMutation } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
-import { storage, STORAGE_KEYS } from '../../src/utils/storage';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { CircleAlert, Eye, EyeOff, User, Lock } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -32,31 +32,10 @@ import * as Haptics from 'expo-haptics';
 export default function LoginScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { login, isLoading: isAuthLoading } = useAuth();
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const token = await storage.getItem(STORAGE_KEYS.TOKEN);
-        if (token) {
-          // Verify session with backend
-          await client.get('/api/employee/auth/check');
-          router.replace('/(tabs)');
-          return;
-        }
-      } catch (error) {
-        // Token invalid or session expired, stay on login
-        console.log('Auto-login check failed:', error);
-      } finally {
-        setIsCheckingAuth(false);
-      }
-    };
-
-    checkAuth();
-  }, [router]);
 
   const loginMutation = useMutation({
     mutationFn: async () => {
@@ -67,13 +46,12 @@ export default function LoginScreen() {
       return response.data;
     },
     onSuccess: async (data) => {
-      if (data.token) {
-        await storage.setItem(STORAGE_KEYS.TOKEN, data.token);
+      if (data.token && data.employee) {
+        await login(data.token, data.employee);
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert(t('login.errorTitle'), t('login.errorMessage'));
       }
-      if (data.employee) {
-        await storage.setItem(STORAGE_KEYS.EMPLOYEE_INFO, data.employee);
-      }
-      router.replace('/(tabs)');
     },
     onError: (error: any) => {
       const message = error.response?.data?.message || t('login.errorMessage');
@@ -91,7 +69,7 @@ export default function LoginScreen() {
     loginMutation.mutate();
   };
 
-  if (isCheckingAuth) {
+  if (isAuthLoading) {
     return (
       <Center flex={1} bg="$white">
         <Spinner size="large" color="#2563EB" />

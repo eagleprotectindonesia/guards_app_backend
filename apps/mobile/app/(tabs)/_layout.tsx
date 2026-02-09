@@ -4,13 +4,32 @@ import { Home, MessageSquare, User } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useChatUnread } from '../../src/hooks/useChatUnread';
 import { setupInterceptors } from '../../src/api/client';
-import { disconnectSocket } from '../../src/api/socket';
-import { storage } from '../../src/utils/storage';
-import { Alert } from 'react-native';
+import { useAuth } from '../../src/contexts/AuthContext';
+import { Alert, View, ActivityIndicator } from 'react-native';
 
 export default function TabsLayout() {
-  const { t } = useTranslation();
+  const { isAuthenticated, isLoading, logout } = useAuth();
   const { replace } = useRouter();
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      replace('/(auth)/login');
+    }
+  }, [isLoading, isAuthenticated, replace]);
+
+  if (isLoading || !isAuthenticated) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' }}>
+        <ActivityIndicator size="large" color="#2563EB" />
+      </View>
+    );
+  }
+
+  return <TabsContent logout={logout} />;
+}
+
+function TabsContent({ logout }: { logout: (reason?: string) => Promise<void> }) {
+  const { t } = useTranslation();
   const { unreadCount } = useChatUnread();
 
   // Setup Global Logout Interceptor once for all tab screens
@@ -21,23 +40,19 @@ export default function TabsLayout() {
       if (isExpiring) return;
       isExpiring = true;
 
-      // Close socket connection on unauthorized
-      disconnectSocket();
-      await storage.clear();
-
       Alert.alert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
         {
           text: 'OK',
-          onPress: () => {
+          onPress: async () => {
+            await logout('session_expired');
             isExpiring = false;
-            replace('/(auth)/login');
           },
         },
       ]);
     });
 
     return cleanup;
-  }, [replace, t]);
+  }, [logout, t]);
 
   return (
     <Tabs

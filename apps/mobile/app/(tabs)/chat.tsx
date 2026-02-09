@@ -22,7 +22,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { getSocket } from '../../src/api/socket';
 import { client } from '../../src/api/client';
-import { storage, STORAGE_KEYS } from '../../src/utils/storage';
+import { useAuth } from '../../src/contexts/AuthContext';
 import { format } from 'date-fns';
 import * as ImagePicker from 'expo-image-picker';
 import { useVideoPlayer, VideoView } from 'expo-video';
@@ -65,11 +65,10 @@ export default function ChatScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const auth = useAuth();
 
   const [inputText, setInputText] = useState('');
-  const [employeeInfo, setEmployeeInfo] = useState<any>(null);
   const [isFocused, setIsFocused] = useState(false);
-  const [isAppActive, setIsAppActive] = useState(true);
   const [selectedAttachments, setSelectedAttachments] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -81,16 +80,14 @@ export default function ChatScreen() {
   const socketRef = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
 
-  // Load employee info from storage
-  useEffect(() => {
-    storage.getItem(STORAGE_KEYS.EMPLOYEE_INFO).then(setEmployeeInfo);
-  }, []);
+  const employeeInfo = auth.isAuthenticated ? auth.user : null;
 
   // Fetch messages with TanStack Query (Infinite Query for pagination)
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
     queryKey: ['chat', 'messages', employeeInfo?.id],
     queryFn: async ({ pageParam }) => {
-      const response = await client.get(`/api/shared/chat/${employeeInfo.id}`, {
+      if (!auth.isAuthenticated) throw new Error('Not authenticated');
+      const response = await client.get(`/api/shared/chat/${auth.user.id}`, {
         params: {
           limit: 15,
           cursor: pageParam,
@@ -136,7 +133,6 @@ export default function ChatScreen() {
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       const isActive = nextAppState === 'active';
-      setIsAppActive(isActive);
 
       // When app becomes active, refetch messages to sync
       if (isActive && employeeInfo?.id) {
@@ -211,6 +207,14 @@ export default function ChatScreen() {
       }
     };
   }, [employeeId, isFocused, queryClient]);
+
+  if (!auth.isAuthenticated) {
+    return (
+      <Center flex={1} bg="$backgroundLight50">
+        <Spinner size="large" />
+      </Center>
+    );
+  }
 
   const pickAttachments = async () => {
     if (selectedAttachments.length >= 4) {

@@ -18,13 +18,13 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { LogOut, Lock } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { disconnectSocket } from '../../src/api/socket';
-import { storage } from '../../src/utils/storage';
+import { useAuth } from '../../src/contexts/AuthContext';
 
 export default function AccountScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { logout } = useAuth();
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [isForcePasswordChange, setIsForcePasswordChange] = useState(false);
 
@@ -49,16 +49,8 @@ export default function AccountScreen() {
   }, [profile?.employee?.mustChangePassword]);
 
   const handleLogout = async () => {
-    try {
-      // Close socket connection first
-      disconnectSocket();
-      await client.post('/api/employee/auth/logout');
-      await storage.clear();
-      router.replace('/(auth)/login');
-    } catch {
-      await storage.clear();
-      router.replace('/(auth)/login');
-    }
+    await logout();
+    router.replace('/(auth)/login');
   };
 
   return (

@@ -1,16 +1,17 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { getSocket, disconnectSocket } from '../api/socket';
-import { storage } from '../utils/storage';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function SessionMonitor() {
   const { t } = useTranslation();
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { logout } = useAuth();
 
   // Keep legacy polling as a secondary safety measure, but increase interval
   useQuery({
@@ -23,18 +24,25 @@ export default function SessionMonitor() {
     retry: false,
   });
 
-  const handleLogout = async (reason: string) => {
-    disconnectSocket();
-    await storage.clear();
-
+  const handleLogout = useCallback(async (reason: string) => {
     if (reason === 'logged_in_elsewhere') {
+      // Disconnect socket immediately to prevent connection errors
+      disconnectSocket();
+      
       Alert.alert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
-        { text: 'OK', onPress: () => router.replace('/(auth)/login') },
+        { 
+          text: 'OK', 
+          onPress: async () => {
+            await logout(reason);
+            router.replace('/(auth)/login');
+          }
+        },
       ]);
     } else {
+      await logout(reason);
       router.replace('/(auth)/login');
     }
-  };
+  }, [logout, router, t]);
 
   useEffect(() => {
     let isMounted = true;
@@ -60,7 +68,7 @@ export default function SessionMonitor() {
       isMounted = false;
       // We don't disconnectSocket here as it's a global singleton
     };
-  }, [queryClient]);
+  }, [handleLogout, queryClient]);
 
   return null;
 }
