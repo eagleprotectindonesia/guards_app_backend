@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Shift, Site, ShiftType, Attendance } from '@prisma/client';
-import { ExtendedEmployee } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import { deleteShift, cancelShift } from '../actions';
 import ShiftFilterModal from './shift-filter-modal';
@@ -18,21 +16,13 @@ import Link from 'next/link';
 import { Upload, ArrowUpDown, ArrowUp, ArrowDown, History } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-
-export type ShiftWithRelations = Shift & {
-  site: Site;
-  shiftType: ShiftType;
-  employee: ExtendedEmployee | null;
-  attendance: Attendance | null;
-  createdBy?: { name: string } | null;
-  lastUpdatedBy?: { name: string } | null;
-};
+import { ShiftEmployeeSummary, ShiftWithRelationsDto } from '@/types/shifts';
 
 type ShiftListProps = {
-  shifts: Serialized<ShiftWithRelations>[];
-  sites: Serialized<Site>[];
-  shiftTypes: Serialized<ShiftType>[];
-  employees: Serialized<ExtendedEmployee>[];
+  shifts: Serialized<ShiftWithRelationsDto>[];
+  sites: { id: string; name: string }[];
+  shiftTypes: { id: string; name: string }[];
+  employees: Serialized<ShiftEmployeeSummary>[];
   startDate?: string;
   endDate?: string;
   employeeId?: string;

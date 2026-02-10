@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { ShiftWithRelations } from '@/app/admin/(authenticated)/shifts/components/shift-list';
+import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { useCheckIn } from '@/app/employee/(authenticated)/hooks/use-employee-queries';
 import { CheckInWindowResult } from '@/lib/scheduling';
 import { Card, CardContent } from '@/components/ui/card';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 
-type ActiveShiftWithWindow = ShiftWithRelations & {
+type ActiveShiftWithWindow = ShiftWithRelationsDto & {
   checkInWindow?: CheckInWindowResult;
 };
 

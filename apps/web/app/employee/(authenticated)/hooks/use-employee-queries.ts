@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEmployeeApi } from './use-employee-api';
-import { ShiftWithRelations } from '@/app/admin/(authenticated)/shifts/components/shift-list';
+import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { CheckInWindowResult } from '@/lib/scheduling';
 import { OfficeAttendance } from '@repo/types';
 
-export type ShiftWithCheckInWindow = ShiftWithRelations & { checkInWindow?: CheckInWindowResult };
+export type ShiftWithCheckInWindow = ShiftWithRelationsDto & { checkInWindow?: CheckInWindowResult };
 
 const parseShiftDates = (shift: ShiftWithCheckInWindow) => {
   if (!shift) return null;

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { serialize, getPaginationParams } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/utils';
 import ShiftList from './components/shift-list';
 import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
 import { Suspense } from 'react';
@@ -9,6 +9,7 @@ import { getActiveEmployees } from '@/lib/data-access/employees';
 import { getPaginatedShifts } from '@/lib/data-access/shifts';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import type { SerializedShiftWithRelationsDto, ShiftEmployeeSummary } from '@/types/shifts';
 
 export const metadata: Metadata = {
   title: 'Shifts Management',
@@ -69,19 +70,81 @@ export default async function ShiftsPage({
   const shiftTypes = await prisma.shiftType.findMany({ orderBy: { name: 'asc' } });
   const employees = await getActiveEmployees();
 
-  const serializedShifts = serialize(shifts);
-  const serializedSites = serialize(sites);
-  const serializedShiftTypes = serialize(shiftTypes);
-  const serializedEmployees = serialize(employees);
+  const shiftDtos: SerializedShiftWithRelationsDto[] = shifts.map(shift => ({
+    id: shift.id,
+    siteId: shift.siteId,
+    shiftTypeId: shift.shiftTypeId,
+    employeeId: shift.employeeId,
+    date: shift.date.toISOString(),
+    startsAt: shift.startsAt.toISOString(),
+    endsAt: shift.endsAt.toISOString(),
+    status: shift.status,
+    checkInStatus: shift.checkInStatus,
+    requiredCheckinIntervalMins: shift.requiredCheckinIntervalMins,
+    graceMinutes: shift.graceMinutes,
+    lastHeartbeatAt: shift.lastHeartbeatAt ? shift.lastHeartbeatAt.toISOString() : null,
+    missedCount: shift.missedCount,
+    note: shift.note,
+    createdAt: shift.createdAt.toISOString(),
+    updatedAt: shift.updatedAt.toISOString(),
+    site: {
+      id: shift.site.id,
+      name: shift.site.name,
+      clientName: shift.site.clientName,
+      address: shift.site.address,
+      latitude: shift.site.latitude,
+      longitude: shift.site.longitude,
+      status: shift.site.status,
+      note: shift.site.note,
+    },
+    shiftType: {
+      id: shift.shiftType.id,
+      name: shift.shiftType.name,
+      startTime: shift.shiftType.startTime,
+      endTime: shift.shiftType.endTime,
+    },
+    employee: shift.employee
+      ? {
+          id: shift.employee.id,
+          firstName: shift.employee.firstName,
+          lastName: shift.employee.lastName,
+          fullName: shift.employee.fullName ?? [shift.employee.firstName, shift.employee.lastName].filter(Boolean).join(' '),
+          employeeCode: shift.employee.employeeCode,
+        }
+      : null,
+    attendance: shift.attendance
+      ? {
+          id: shift.attendance.id,
+          shiftId: shift.attendance.shiftId,
+          employeeId: shift.attendance.employeeId,
+          recordedAt: shift.attendance.recordedAt.toISOString(),
+          picture: shift.attendance.picture,
+          status: shift.attendance.status,
+          metadata: shift.attendance.metadata,
+        }
+      : null,
+    createdBy: shift.createdBy,
+    lastUpdatedBy: shift.lastUpdatedBy,
+  }));
+
+  const siteOptions = sites.map(site => ({ id: site.id, name: site.name }));
+  const shiftTypeOptions = shiftTypes.map(shiftType => ({ id: shiftType.id, name: shiftType.name }));
+  const employeeOptions: ShiftEmployeeSummary[] = employees.map(employee => ({
+    id: employee.id,
+    firstName: employee.firstName,
+    lastName: employee.lastName,
+    fullName: employee.fullName ?? [employee.firstName, employee.lastName].filter(Boolean).join(' '),
+    employeeCode: employee.employeeCode,
+  }));
 
   return (
     <div className="max-w-7xl mx-auto">
       <Suspense fallback={<div>Loading shifts...</div>}>
         <ShiftList
-          shifts={serializedShifts}
-          sites={serializedSites}
-          shiftTypes={serializedShiftTypes}
-          employees={serializedEmployees}
+          shifts={shiftDtos}
+          sites={siteOptions}
+          shiftTypes={shiftTypeOptions}
+          employees={employeeOptions}
           startDate={startDate}
           endDate={endDate}
           employeeId={employeeId}

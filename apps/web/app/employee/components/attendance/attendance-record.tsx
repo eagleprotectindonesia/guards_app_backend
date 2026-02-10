@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ShiftWithRelations } from '@/app/admin/(authenticated)/shifts/components/shift-list'; // Assuming this type is available and suitable
+import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { useRecordAttendance } from '@/app/employee/(authenticated)/hooks/use-employee-queries'; // Adjust import path as necessary
 import { format } from 'date-fns';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useTranslation } from 'react-i18next';
 
 interface AttendanceRecordProps {
-  shift: ShiftWithRelations;
+  shift: ShiftWithRelationsDto;
   onAttendanceRecorded: () => void;
   status: string; // Current status of the shift, e.g., 'active', 'pending attendance', etc.
   setStatus: (status: string) => void;

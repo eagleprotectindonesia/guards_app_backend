@@ -2,13 +2,11 @@
 
 import { useState } from 'react';
 import Modal from '../../components/modal';
-import { Serialized } from '@/lib/utils';
-import { Site } from '@prisma/client';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { parseISO } from 'date-fns';
 import Select from '../../components/select'; // Import the custom Select component
-import { ExtendedEmployee } from '@repo/database';
+import { ShiftEmployeeSummary } from '@/types/shifts';
 
 type Props = {
   isOpen: boolean;
@@ -20,8 +18,8 @@ type Props = {
     siteId?: string;
     employeeId?: string;
   };
-  sites: Serialized<Site>[];
-  employees: Serialized<ExtendedEmployee>[];
+  sites: { id: string; name: string }[];
+  employees: ShiftEmployeeSummary[];
 };
 
 export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilters, sites, employees }: Props) {

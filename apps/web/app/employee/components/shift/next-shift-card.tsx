@@ -1,10 +1,10 @@
-import { ShiftWithRelations } from '@/app/admin/(authenticated)/shifts/components/shift-list';
+import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useTranslation } from 'react-i18next';
 
 interface NextShiftCardProps {
-  shift: ShiftWithRelations;
+  shift: ShiftWithRelationsDto;
 }
 
 export function NextShiftCard({ shift }: NextShiftCardProps) {
