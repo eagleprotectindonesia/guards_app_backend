@@ -206,6 +206,7 @@ model Site {
   address         String?
   latitude        Float?
   longitude       Float?
+  geofenceRadius  Float     @default(100.0) @map("geofence_radius")
   status          Boolean?  @default(true)
   lastUpdatedById String?   @map("last_updated_by_id")
   createdById     String?   @map("created_by_id")
@@ -361,6 +362,8 @@ enum CheckInStatus {
 enum AlertReason {
   missed_checkin
   missed_attendance
+  geofence_breach
+  location_services_disabled
 }
 
 enum AlertSeverity {
