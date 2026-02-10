@@ -44,7 +44,7 @@ export default function AlertFeed({
   onSiteSelect,
   showResolutionDetails = false,
 }: AlertFeedProps) {
-  const [activeTab, setActiveTab] = useState<'all' | 'attendance' | 'checkin'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'attendance' | 'checkin' | 'security'>('all');
   const { hasPermission } = useSession();
 
   if (!hasPermission(PERMISSIONS.ALERTS.VIEW)) {
@@ -60,6 +60,9 @@ export default function AlertFeed({
     }
     if (activeTab === 'checkin') {
       return alert.reason === 'missed_checkin';
+    }
+    if (activeTab === 'security') {
+      return alert.reason === 'geofence_breach' || alert.reason === 'location_services_disabled';
     }
     return true;
   });
@@ -115,6 +118,16 @@ export default function AlertFeed({
           onClick={() => setActiveTab('checkin')}
         >
           Check-in ({alerts.filter(a => a.reason === 'missed_checkin').length})
+        </button>
+        <button
+          className={`py-2 px-4 text-sm font-medium transition-colors ${
+            activeTab === 'security'
+              ? 'border-b-2 border-red-600 text-red-600 dark:text-red-400 dark:border-red-400'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+          onClick={() => setActiveTab('security')}
+        >
+          Security ({alerts.filter(a => a.reason === 'geofence_breach' || a.reason === 'location_services_disabled').length})
         </button>
       </div>
 

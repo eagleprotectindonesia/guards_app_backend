@@ -32,6 +32,7 @@ export async function createSite(
     address: formData.get('address'),
     latitude: parseFloat(formData.get('latitude') as string),
     longitude: parseFloat(formData.get('longitude') as string),
+    geofenceRadius: parseFloat(formData.get('geofenceRadius') as string),
     status: formData.get('status') === 'true',
   });
 
@@ -69,6 +70,7 @@ export async function updateSite(
     address: formData.get('address'),
     latitude: parseFloat(formData.get('latitude') as string),
     longitude: parseFloat(formData.get('longitude') as string),
+    geofenceRadius: parseFloat(formData.get('geofenceRadius') as string),
     status: formData.get('status') === 'true',
   });
 

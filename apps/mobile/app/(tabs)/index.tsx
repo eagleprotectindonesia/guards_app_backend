@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ScrollView, RefreshControl } from 'react-native';
 import { Box, VStack, Heading, Text, Spinner, Center } from '@gluestack-ui/themed';
 import { useQuery } from '@tanstack/react-query';
@@ -11,6 +11,9 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShiftWithRelations, Employee } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
+import { startGeofencing } from '../../src/utils/geofence';
+import * as Location from 'expo-location';
+import { GEOFENCE_TASK } from '../../src/utils/backgroundTasks';
 
 type ActiveShiftData = {
   activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;
@@ -49,6 +52,19 @@ export default function HomeScreen() {
 
   const activeShift = shiftData?.activeShift;
   const nextShifts = shiftData?.nextShifts || [];
+
+  // Re-sync geofencing if it's not running but should be
+  useEffect(() => {
+    const checkAndStartGeofence = async () => {
+      if (activeShift?.attendance) {
+        const isRunning = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
+        if (!isRunning) {
+          await startGeofencing(activeShift);
+        }
+      }
+    };
+    checkAndStartGeofence();
+  }, [activeShift]);
 
   const isAttendanceLate = (() => {
     if (!activeShift || activeShift.attendance) return false;

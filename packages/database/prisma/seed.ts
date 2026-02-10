@@ -345,6 +345,23 @@ async function main() {
     console.log('Created Overnight Shift:', overnightShift.id);
   }
 
+  // 8. Create System Settings
+  console.log('Creating system settings...');
+  const systemSettings = [
+    { name: 'GEOFENCE_GRACE_MINUTES', value: '5', note: 'Grace period for returning to the geofence (minutes)' },
+    { name: 'LOCATION_DISABLED_GRACE_MINUTES', value: '2', note: 'Grace period for re-enabling location services (minutes)' },
+  ];
+
+  await Promise.all(
+    systemSettings.map((setting) =>
+      prisma.systemSetting.upsert({
+        where: { name: setting.name },
+        update: {},
+        create: setting,
+      })
+    )
+  );
+
   console.log('\n--- SEED COMPLETE ---');
   console.log(`Admin Role ID: ${superadminRole.id}`);
   console.log(`Admin User Email: ${admin.email}`);

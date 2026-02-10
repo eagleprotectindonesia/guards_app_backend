@@ -23,7 +23,14 @@
       "icon": "./assets/icons/180.png",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "The app needs access to your photo library to let you attach photos and videos to chat messages.",
-        "NSCameraUsageDescription": "The app needs access to your camera to let you take photos and videos to attach to chat messages."
+        "NSCameraUsageDescription": "The app needs access to your camera to let you take photos and videos to attach to chat messages.",
+        "NSLocationWhenInUseUsageDescription": "We need your location to track attendance and monitor site geofencing during your shift.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to track attendance and monitor site geofencing during your shift, even when the app is in the background.",
+        "NSLocationAlwaysUsageDescription": "We need your location to track attendance and monitor site geofencing during your shift, even when the app is closed.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
       }
     },
     "android": {
@@ -45,7 +52,9 @@
         "WRITE_EXTERNAL_STORAGE"
       ]
     },
-    "updates": {},
+    "updates": {
+      "url": "https://u.expo.dev/aa42139c-be53-41d6-8761-ae35510a83ca"
+    },
     "runtimeVersion": {
       "policy": "appVersion"
     },

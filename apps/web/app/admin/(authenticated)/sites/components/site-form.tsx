@@ -256,6 +256,24 @@ export default function SiteForm({ site }: Props) {
                 </label>
               </div>
             </div>
+
+            {/* Geofence Radius Field */}
+            <div>
+              <label htmlFor="geofenceRadius" className="block font-medium text-foreground mb-1">
+                Geofence Radius (meters)
+              </label>
+              <input
+                type="number"
+                name="geofenceRadius"
+                id="geofenceRadius"
+                defaultValue={site?.geofenceRadius || 100}
+                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
+                placeholder="e.g. 100"
+                min={10}
+                step={1}
+              />
+              {state.errors?.geofenceRadius && <p className="text-red-500 text-xs mt-1">{state.errors.geofenceRadius[0]}</p>}
+            </div>
           </div>
 
           {/* Location Search Input */}

@@ -9,6 +9,7 @@ import { ShiftWithRelations } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { stopGeofencing } from '../utils/geofence';
 
 type CheckInCardProps = {
   activeShift: ShiftWithRelations & { checkInWindow?: CheckInWindowResult };
@@ -30,7 +31,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
       });
       return response.data;
     },
-    onSuccess: data => {
+    onSuccess: async data => {
       const successMsg = t('checkin.success');
       setStatus(successMsg);
       queryClient.invalidateQueries({ queryKey: ['active-shift'] });
@@ -42,6 +43,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
       }, 3000);
 
       if (data.isLastSlot) {
+        await stopGeofencing();
         Alert.alert(t('checkin.shiftCompletedTitle'), t('checkin.shiftCompletedMessage'));
       }
     },

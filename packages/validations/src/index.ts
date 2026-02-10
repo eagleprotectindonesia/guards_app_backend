@@ -14,6 +14,7 @@ export const createSiteSchema = z.object({
   address: z.string().optional(),
   latitude: z.number(),
   longitude: z.number(),
+  geofenceRadius: z.number().min(10).default(100),
   status: z.boolean().optional(),
   note: z.string().optional(),
 });
@@ -245,6 +246,24 @@ export const createOfficeAttendanceSchema = z.object({
   metadata: z.record(z.string(), z.any()).optional(),
 });
 
+// --- Alert Reporting ---
+export const reportAlertSchema = z.object({
+  shiftId: z.string().uuid(),
+  reason: z.enum(['geofence_breach', 'location_services_disabled']),
+  location: z
+    .object({
+      lat: z.number(),
+      lng: z.number(),
+    })
+    .optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
+});
+
+export const resolveAlertSchema = z.object({
+  shiftId: z.string().uuid(),
+  reason: z.enum(['geofence_breach', 'location_services_disabled']),
+});
+
 export type CreateSiteInput = z.infer<typeof createSiteSchema>;
 export type UpdateSiteInput = CreateSiteInput; // Same for now
 export type CreateAdminInput = z.infer<typeof createAdminSchema>;
@@ -272,4 +291,7 @@ export type UpdateDesignationInput = CreateDesignationInput;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 export type CreateOfficeInput = z.infer<typeof createOfficeSchema>;
 export type UpdateOfficeInput = z.infer<typeof updateOfficeSchema>;
-export type CreateOfficeAttendanceInput = z.infer<typeof createOfficeAttendanceSchema>;
+
+export type ReportAlertInput = z.infer<typeof reportAlertSchema>;
+export type ResolveAlertInput = z.infer<typeof resolveAlertSchema>;
+

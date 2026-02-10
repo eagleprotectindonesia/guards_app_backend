@@ -8,6 +8,7 @@ import { client } from '../api/client';
 import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
 import * as Haptics from 'expo-haptics';
+import { startGeofencing } from '../utils/geofence';
 
 type AttendanceRecordProps = {
   shift: ShiftWithRelations;
@@ -27,8 +28,9 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
       });
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setStatus(t('attendance.success'));
+      await startGeofencing(shift);
       queryClient.invalidateQueries({ queryKey: ['active-shift'] });
       if (onAttendanceRecorded) onAttendanceRecorded();
     },

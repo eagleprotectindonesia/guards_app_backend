@@ -6,6 +6,7 @@ import { id, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useSettings } from '../hooks/useSettings';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 40; // Full width minus padding
@@ -16,6 +17,10 @@ interface ShiftCarouselProps {
 }
 
 export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarouselProps) {
+  // Trigger settings fetch if an active shift exists
+  // This populates the queryClient cache for background tasks
+  useSettings();
+
   const { t, i18n } = useTranslation();
   const scrollViewRef = useRef<ScrollView>(null);
   const [activeIndex, setActiveIndex] = useState(0);
