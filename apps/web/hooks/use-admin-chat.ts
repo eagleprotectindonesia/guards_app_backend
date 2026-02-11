@@ -26,6 +26,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   const [isUploading, setIsUploading] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [typingEmployees, setTypingEmployees] = useState<Record<string, boolean>>({});
+  const [conversationLocks, setConversationLocks] = useState<Record<string, { lockedBy: string; expiresAt: number }>>({});
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchedIdRef = useRef<string | null>(null);
@@ -186,12 +187,48 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
       socket.on('typing', (data: { employeeId: string; isTyping: boolean }) => {
         setTypingEmployees(prev => ({ ...prev, [data.employeeId]: data.isTyping }));
+
+        // Auto-clear typing status after 5 seconds of inactivity
+        if (data.isTyping) {
+          setTimeout(() => {
+            setTypingEmployees(prev => {
+              const updated = { ...prev };
+              // Only clear if still typing (haven't received an explicit isTyping: false)
+              if (updated[data.employeeId]) {
+                delete updated[data.employeeId];
+              }
+              return updated;
+            });
+          }, 5000);
+        }
+      });
+
+      socket.on('conversation_locked', (data: { employeeId: string; lockedBy: string; expiresAt: number }) => {
+        setConversationLocks(prev => ({
+          ...prev,
+          [data.employeeId]: { lockedBy: data.lockedBy, expiresAt: data.expiresAt },
+        }));
+
+        // Auto-clear lock after it expires locally
+        const timeout = data.expiresAt - Date.now();
+        if (timeout > 0) {
+          setTimeout(() => {
+            setConversationLocks(prev => {
+              const updated = { ...prev };
+              if (updated[data.employeeId]?.expiresAt === data.expiresAt) {
+                delete updated[data.employeeId];
+              }
+              return updated;
+            });
+          }, timeout);
+        }
       });
 
       return () => {
         socket.off('new_message');
         socket.off('messages_read');
         socket.off('typing');
+        socket.off('conversation_locked');
       };
     }
   }, [socket, activeEmployeeId, fetchConversations]);

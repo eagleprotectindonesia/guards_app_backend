@@ -335,10 +335,29 @@ function handleChatEvents(io: SocketIOServer, socket: Socket) {
     io.to('admin').to(`employee:${targetId}`).emit('messages_read', payload);
   });
 
-  socket.on('typing', (data: TypingData) => {
+  socket.on('typing', async (data: TypingData) => {
     const targetId = data.employeeId || data.guardId;
     const payload = { employeeId: auth.type === 'employee' ? auth.id : targetId, isTyping: data.isTyping };
-    if (auth.type === 'employee') io.to('admin').emit('typing', payload);
-    else if (targetId) io.to(`employee:${targetId}`).emit('typing', payload);
+    
+    if (auth.type === 'employee') {
+      io.to('admin').emit('typing', payload);
+    } else if (targetId) {
+      // Admin typing: Lock the conversation
+      if (data.isTyping) {
+        const lockKey = `chat_lock:${targetId}`;
+        const lockedBy = await redis.get(lockKey);
+        
+        // Refresh or acquire lock if not held by another admin
+        if (!lockedBy || lockedBy === auth.id) {
+          await redis.set(lockKey, auth.id, 'EX', 120);
+          io.to('admin').emit('conversation_locked', {
+            employeeId: targetId,
+            lockedBy: auth.id,
+            expiresAt: Date.now() + 120000,
+          });
+        }
+      }
+      io.to(`employee:${targetId}`).emit('typing', payload);
+    }
   });
 }

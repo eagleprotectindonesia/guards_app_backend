@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useCallback } from 'react';
-import { MessageSquare, Send, User, Paperclip, Loader2 } from 'lucide-react';
+import { MessageSquare, Send, User, Paperclip, Loader2, Lock } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAdminChat } from '@/hooks/use-admin-chat';
 import { useSession } from '../context/session-context';
@@ -43,6 +43,7 @@ export function AdminChatClient() {
     isOptimizing,
     previews,
     typingEmployees,
+    conversationLocks,
     isConnected,
     setSearchTerm,
     setFilterType,
@@ -61,6 +62,9 @@ export function AdminChatClient() {
   }, [fetchConversations]);
 
   const activeEmployee = conversations.find(c => c.employeeId === activeEmployeeId);
+  
+  const currentLock = activeEmployeeId ? conversationLocks[activeEmployeeId] : null;
+  const isLockedByOther = currentLock && currentLock.lockedBy !== userId;
 
   return (
     <div className="flex h-[calc(100vh-180px)] bg-card rounded-xl shadow-sm border border-border overflow-hidden">
@@ -89,16 +93,21 @@ export function AdminChatClient() {
                   <User className="text-blue-600 dark:text-blue-400" size={20} />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-foreground">
+                  <h3 className="font-semibold text-foreground flex items-center gap-2">
                     {activeEmployee?.employeeName || 'Chat'}{' '}
                     {activeEmployee && (
                       <span className="text-xs font-normal text-muted-foreground">({activeEmployee.employeeId})</span>
+                    )}
+                    {isLockedByOther && (
+                      <Lock size={14} className="text-amber-500 fill-amber-500/10" />
                     )}
                   </h3>
                   <div className="flex items-center gap-1.5">
                     {/* <div className={cn('w-2 h-2 rounded-full', isConnected ? 'bg-green-500' : 'bg-gray-400')} /> */}
                     <span className="text-xs text-muted-foreground">
-                      {typingEmployees[activeEmployeeId] ? (
+                      {isLockedByOther ? (
+                        <span className="text-amber-600 dark:text-amber-400 font-medium">Locked by another admin</span>
+                      ) : typingEmployees[activeEmployeeId] ? (
                         <span className="text-green-600 dark:text-green-400 font-medium animate-pulse">typing...</span>
                       ) : null}
                     </span>
@@ -120,7 +129,18 @@ export function AdminChatClient() {
             <ChatAttachmentPreviews previews={previews} onRemove={removeFile} />
 
             {/* Footer Input */}
-            <div className="p-4 bg-card border-t border-border shrink-0">
+            <div className="p-4 bg-card border-t border-border shrink-0 relative">
+              {isLockedByOther && (
+                <div className="absolute inset-0 bg-card/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                  <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg shadow-sm">
+                    <Lock size={16} className="text-amber-600" />
+                    <span className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                      Another admin is currently responding...
+                    </span>
+                  </div>
+                </div>
+              )}
+              
               <form onSubmit={handleSendMessage} className="flex items-end gap-3 max-w-4xl mx-auto">
                 <div className="flex-1 bg-muted/50 rounded-2xl border border-border focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all flex items-end p-2 px-4 gap-3">
                   <input
@@ -134,7 +154,7 @@ export function AdminChatClient() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={previews.length >= 4 || isUploading || isOptimizing}
+                    disabled={previews.length >= 4 || isUploading || isOptimizing || isLockedByOther}
                     className="mb-1 text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-50 shrink-0 p-1"
                   >
                     {isOptimizing ? <Loader2 size={22} className="animate-spin" /> : <Paperclip size={22} />}
@@ -154,23 +174,25 @@ export function AdminChatClient() {
                         handleSendMessage();
                       }
                     }}
-                    disabled={isUploading || isOptimizing}
-                    placeholder="Type a message..."
+                    disabled={isUploading || isOptimizing || isLockedByOther}
+                    placeholder={isLockedByOther ? "Conversation locked" : "Type a message..."}
                     className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-foreground py-2 resize-none max-h-[120px] placeholder:text-muted-foreground/50"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  disabled={(!inputText.trim() && previews.length === 0) || !isConnected || isUploading || isOptimizing}
+                  disabled={(!inputText.trim() && previews.length === 0) || !isConnected || isUploading || isOptimizing || isLockedByOther}
                   className="bg-blue-600 text-white p-3 rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-all shadow-md shrink-0 mb-1"
                 >
                   {isUploading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}
                 </button>
               </form>
-              <p className="text-[10px] text-center text-muted-foreground mt-2">
-                Press Enter to send, Shift + Enter for new line
-              </p>
+              {!isLockedByOther && (
+                <p className="text-[10px] text-center text-muted-foreground mt-2">
+                  Press Enter to send, Shift + Enter for new line
+                </p>
+              )}
             </div>
           </>
         ) : (
