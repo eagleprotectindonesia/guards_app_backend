@@ -7,14 +7,13 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { differenceInDays, addDays } from 'date-fns';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { ExtendedEmployee } from '@repo/database';
-import { Serialized } from '@/lib/utils';
+import { AttendanceEmployeeSummary } from '@/types/attendance';
 
 type AttendanceExportModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onExport: (startDate: Date, endDate: Date, employeeId?: string) => void;
-  employees: Serialized<ExtendedEmployee>[];
+  employees: AttendanceEmployeeSummary[];
 };
 
 export default function AttendanceExportModal({ isOpen, onClose, onExport, employees }: AttendanceExportModalProps) {

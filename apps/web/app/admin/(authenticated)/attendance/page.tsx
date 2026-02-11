@@ -1,5 +1,5 @@
-import { serialize, getPaginationParams, Serialized } from '@/lib/utils';
-import AttendanceList, { AttendanceWithRelations } from './components/attendance-list';
+import { getPaginationParams } from '@/lib/utils';
+import AttendanceList from './components/attendance-list';
 import AttendanceTabs from './components/attendance-tabs';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
@@ -8,6 +8,11 @@ import { getAllEmployees } from '@/lib/data-access/employees';
 import { getPaginatedAttendance } from '@/lib/data-access/attendance';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import {
+  AttendanceEmployeeSummary,
+  AttendanceMetadataDto,
+  SerializedAttendanceWithRelationsDto,
+} from '@/types/attendance';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,8 +57,37 @@ export default async function AttendancePage(props: AttendancePageProps) {
     getAllEmployees({ firstName: 'asc' }),
   ]);
 
-  const serializedAttendances = serialize(attendances) as Serialized<AttendanceWithRelations>[];
-  const serializedEmployees = serialize(employees);
+  const serializedAttendances: SerializedAttendanceWithRelationsDto[] = attendances.map(att => ({
+    id: att.id,
+    recordedAt: att.recordedAt.toISOString(),
+    status: att.status,
+    employeeId: att.employeeId,
+    shiftId: att.shiftId,
+    metadata: att.metadata as AttendanceMetadataDto | null,
+    shift: {
+      id: att.shift.id,
+      date: att.shift.date.toISOString(),
+      site: {
+        id: att.shift.site.id,
+        name: att.shift.site.name,
+      },
+      shiftType: {
+        id: att.shift.shiftType.id,
+        name: att.shift.shiftType.name,
+      },
+    },
+    employee: att.employee
+      ? {
+          id: att.employee.id,
+          fullName: att.employee.fullName,
+        }
+      : null,
+  }));
+
+  const serializedEmployees: AttendanceEmployeeSummary[] = employees.map(emp => ({
+    id: emp.id,
+    fullName: emp.fullName,
+  }));
 
   const initialFilters = {
     employeeId,

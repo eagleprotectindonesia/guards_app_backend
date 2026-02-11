@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { ShiftType } from '@prisma/client';
-import { Serialized } from '@/lib/utils';
+import { SerializedShiftTypeWithAdminInfoDto } from '@/types/shift-types';
 import { deleteShiftType } from '../actions';
 import ConfirmDialog from '../../components/confirm-dialog';
 import { EditButton, DeleteButton } from '../../components/action-buttons';
@@ -13,13 +12,8 @@ import { History } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
-type ShiftTypeWithAdminInfo = ShiftType & {
-  lastUpdatedBy?: { name: string } | null;
-  createdBy?: { name: string } | null;
-};
-
 type ShiftTypeListProps = {
-  shiftTypes: Serialized<ShiftTypeWithAdminInfo>[];
+  shiftTypes: SerializedShiftTypeWithAdminInfoDto[];
   page: number;
   perPage: number;
   totalCount: number;

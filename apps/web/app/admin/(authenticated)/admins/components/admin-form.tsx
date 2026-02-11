@@ -1,19 +1,18 @@
 'use client';
 
-import { Serialized } from '@/lib/utils';
+import { SerializedAdminWithRoleDto, SerializedRoleDto } from '@/types/admins';
 import { createAdmin, updateAdmin, disableAdmin2FA } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateAdminInput } from '@/lib/validations';
 import { useActionState, useEffect, useTransition } from 'react';
 import toast from 'react-hot-toast';
-import { Admin, Role } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 import { PasswordInput } from '@/components/ui/password-input';
 import { ShieldAlert } from 'lucide-react';
 
 type Props = {
-  admin?: Serialized<Admin & { roleRef?: { id: string; name: string } | null }>;
-  roles: Serialized<Role>[];
+  admin?: SerializedAdminWithRoleDto;
+  roles: SerializedRoleDto[];
 };
 
 export default function AdminForm({ admin, roles }: Props) {

@@ -4,9 +4,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Serialized } from '@/lib/utils';
 import { X } from 'lucide-react';
-import { ExtendedEmployee } from '@repo/database';
+import { AttendanceEmployeeSummary } from '@/types/attendance';
 
 type AttendanceFilterModalProps = {
   isOpen: boolean;
@@ -17,7 +16,7 @@ type AttendanceFilterModalProps = {
     endDate?: string;
     employeeId?: string;
   };
-  employees: Serialized<ExtendedEmployee>[];
+  employees: AttendanceEmployeeSummary[];
 };
 
 export default function AttendanceFilterModal({

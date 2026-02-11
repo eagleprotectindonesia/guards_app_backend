@@ -1,10 +1,11 @@
 import { getPaginatedAdmins } from '@/lib/data-access/admins';
-import { serialize, getPaginationParams } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/utils';
 import AdminList from './components/admin-list';
 import { Suspense } from 'react';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import type { Metadata } from 'next';
+import { SerializedAdminWithRoleDto } from '@/types/admins';
 
 export const metadata: Metadata = {
   title: 'Admins Management',
@@ -28,7 +29,16 @@ export default async function AdminsPage(props: AdminsPageProps) {
     take: perPage,
   });
 
-  const serializedAdmins = serialize(admins);
+  const serializedAdmins: SerializedAdminWithRoleDto[] = admins.map(admin => ({
+    id: admin.id,
+    name: admin.name,
+    email: admin.email,
+    twoFactorEnabled: admin.twoFactorEnabled,
+    note: admin.note,
+    roleRef: admin.roleRef ? { id: admin.roleRef.id, name: admin.roleRef.name } : null,
+    createdAt: admin.createdAt.toISOString(),
+    updatedAt: admin.updatedAt.toISOString(),
+  }));
 
   return (
     <div className="max-w-7xl mx-auto">

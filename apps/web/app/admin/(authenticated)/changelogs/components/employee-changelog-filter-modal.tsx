@@ -5,8 +5,7 @@ import Modal from '../../components/modal';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { parseISO } from 'date-fns';
-import { Serialized } from '@/lib/utils';
-import { ExtendedEmployee } from '@repo/database';
+import { EntitySummary } from '@/types/changelogs';
 import Select from '../../components/select';
 
 type Props = {
@@ -19,7 +18,7 @@ type Props = {
     action?: string | null;
     entityId?: string | null;
   };
-  employees?: Serialized<ExtendedEmployee>[];
+  employees?: EntitySummary[];
 };
 
 export default function EmployeeChangelogFilterModal({ 

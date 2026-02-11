@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, ComponentType } from 'react';
-import { Changelog, Prisma, Site, ShiftType } from '@prisma/client';
-import { ExtendedEmployee } from '@repo/database';
-import { Serialized } from '@/lib/utils';
+import { Prisma } from '@prisma/client';
+import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
 import PaginationNav from '../../components/pagination-nav';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
@@ -12,22 +11,31 @@ import ChangelogDetailsModal from './changelog-details-modal';
 import { format } from 'date-fns';
 import ChangelogExport from './changelog-export';
 
-type ChangelogWithAdmin = Changelog & {
-  admin?: { name: string } | null;
-};
 
 type FilterModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (filters: Record<string, string | Date | null | undefined>) => void;
-  initialFilters: Record<string, string | null>;
-  employees?: Serialized<ExtendedEmployee>[];
-  sites?: Serialized<Site>[];
-  shiftTypes?: Serialized<ShiftType>[];
+  onApply: (filters: {
+    startDate?: Date;
+    endDate?: Date;
+    action?: string;
+    entityType?: string;
+    entityId?: string;
+  }) => void;
+  initialFilters: {
+    startDate?: string | null;
+    endDate?: string | null;
+    action?: string | null;
+    entityType?: string | null;
+    entityId?: string | null;
+  };
+  employees?: EntitySummary[];
+  sites?: EntitySummary[];
+  shiftTypes?: EntitySummary[];
 };
 
 type ChangelogListProps = {
-  changelogs: Serialized<ChangelogWithAdmin>[];
+  changelogs: SerializedChangelogWithAdminDto[];
   page: number;
   perPage: number;
   totalCount: number;
@@ -37,9 +45,9 @@ type ChangelogListProps = {
   fixedEntityType?: string;
   showEntityName?: boolean;
   FilterModal: ComponentType<FilterModalProps>;
-  employees?: Serialized<ExtendedEmployee>[];
-  sites?: Serialized<Site>[];
-  shiftTypes?: Serialized<ShiftType>[];
+  employees?: EntitySummary[];
+  sites?: EntitySummary[];
+  shiftTypes?: EntitySummary[];
 };
 
 export default function ChangelogList({

@@ -1,5 +1,5 @@
-import { serialize, getPaginationParams, Serialized } from '@/lib/utils';
-import OfficeAttendanceList, { OfficeAttendanceWithRelations } from './components/office-attendance-list';
+import { getPaginationParams } from '@/lib/utils';
+import OfficeAttendanceList from './components/office-attendance-list';
 import AttendanceTabs from '../components/attendance-tabs';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
@@ -8,6 +8,11 @@ import { getAllEmployees } from '@/lib/data-access/employees';
 import { getPaginatedOfficeAttendance } from '@/lib/data-access/office-attendance';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import {
+  AttendanceEmployeeSummary,
+  OfficeAttendanceMetadataDto,
+  SerializedOfficeAttendanceWithRelationsDto,
+} from '@/types/attendance';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,7 +57,31 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
     getAllEmployees({ firstName: 'asc' }),
   ]);
 
-  const serializedEmployees = serialize(employees);
+  const serializedAttendances: SerializedOfficeAttendanceWithRelationsDto[] = attendances.map(att => ({
+    id: att.id,
+    recordedAt: att.recordedAt.toISOString(),
+    status: att.status,
+    employeeId: att.employeeId,
+    officeId: att.officeId,
+    metadata: att.metadata as OfficeAttendanceMetadataDto | null,
+    office: att.office
+      ? {
+          id: att.office.id,
+          name: att.office.name,
+        }
+      : null,
+    employee: att.employee
+      ? {
+          id: att.employee.id,
+          fullName: att.employee.fullName,
+        }
+      : null,
+  }));
+
+  const serializedEmployees: AttendanceEmployeeSummary[] = employees.map(emp => ({
+    id: emp.id,
+    fullName: emp.fullName,
+  }));
 
   const initialFilters = {
     employeeId,
@@ -65,7 +94,7 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
       <AttendanceTabs />
       <Suspense fallback={<div>Loading office attendances...</div>}>
         <OfficeAttendanceList
-          attendances={serialize(attendances) as Serialized<OfficeAttendanceWithRelations>[]}
+          attendances={serializedAttendances}
           page={page}
           perPage={perPage}
           totalCount={totalCount}

@@ -1,10 +1,10 @@
 import { getAdminById } from '@/lib/data-access/admins';
 import { getAllRoles } from '@/lib/data-access/roles';
 import AdminForm from '../../components/admin-form';
-import { serialize } from '@/lib/utils';
 import { notFound } from 'next/navigation';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { SerializedAdminWithRoleDto, SerializedRoleDto } from '@/types/admins';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,8 +21,21 @@ export default async function EditAdminPage(props: EditAdminPageProps) {
     notFound();
   }
 
-  const serializedAdmin = serialize(admin);
-  const serializedRoles = serialize(roles);
+  const serializedAdmin: SerializedAdminWithRoleDto = {
+    id: admin.id,
+    name: admin.name,
+    email: admin.email,
+    twoFactorEnabled: admin.twoFactorEnabled,
+    note: admin.note,
+    roleRef: admin.roleRef ? { id: admin.roleRef.id, name: admin.roleRef.name } : null,
+    createdAt: admin.createdAt.toISOString(),
+    updatedAt: admin.updatedAt.toISOString(),
+  };
+
+  const serializedRoles: SerializedRoleDto[] = roles.map(role => ({
+    id: role.id,
+    name: role.name,
+  }));
 
   return (
     <div className="max-w-6xl mx-auto py-8">

@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Admin } from '@prisma/client';
-import { Serialized } from '@/lib/utils';
+import { SerializedAdminWithRoleDto } from '@/types/admins';
 import { deleteAdmin } from '../actions';
 import ConfirmDialog from '../../components/confirm-dialog';
 import { EditButton, DeleteButton } from '../../components/action-buttons';
@@ -14,7 +13,7 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 import { ShieldCheck } from 'lucide-react';
 
 type AdminListProps = {
-  admins: Serialized<Admin & { roleRef?: { name: string } | null }>[];
+  admins: SerializedAdminWithRoleDto[];
   page: number;
   perPage: number;
   totalCount: number;

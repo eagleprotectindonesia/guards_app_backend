@@ -14,10 +14,33 @@ export function getShiftTypeDurationInMins(startTime: string, endTime: string) {
   return differenceInMinutes(end, start);
 }
 
+export async function getShiftTypeSummaries(orderBy: Prisma.ShiftTypeOrderByWithRelationInput = { name: 'asc' }) {
+  return prisma.shiftType.findMany({
+    where: { deletedAt: null },
+    orderBy,
+    select: {
+      id: true,
+      name: true,
+    },
+  });
+}
+
 export async function getAllShiftTypes(orderBy: Prisma.ShiftTypeOrderByWithRelationInput = { createdAt: 'desc' }) {
   return prisma.shiftType.findMany({
     where: { deletedAt: null },
     orderBy,
+    include: {
+      lastUpdatedBy: {
+        select: {
+          name: true,
+        },
+      },
+      createdBy: {
+        select: {
+          name: true,
+        },
+      },
+    },
   });
 }
 
