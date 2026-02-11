@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { Alert } from 'react-native';
 import { storage, STORAGE_KEYS } from '../utils/storage';
-import { client } from '../api/client';
+import { client, setupInterceptors } from '../api/client';
 import { getSocket, disconnectSocket } from '../api/socket';
 import { Employee } from '@repo/types';
 
@@ -128,6 +129,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       disconnectSocket();
     }
   }, [state.isAuthenticated, state.token]);
+
+  // Setup 401 interceptor only when authenticated
+  useEffect(() => {
+    if (!state.isAuthenticated) {
+      return;
+    }
+
+    let isHandling401 = false;
+
+    const cleanup = setupInterceptors(async () => {
+      if (isHandling401) return;
+      isHandling401 = true;
+
+      // Disconnect socket immediately to prevent errors
+      disconnectSocket();
+
+      Alert.alert(
+        'Session Expired',
+        'Your session has expired. Please login again.',
+        [
+          {
+            text: 'OK',
+            onPress: async () => {
+              await logout('session_expired');
+              isHandling401 = false;
+            },
+          },
+        ]
+      );
+    });
+
+    return () => {
+      cleanup();
+    };
+  }, [state.isAuthenticated, logout]);
 
   return (
     <AuthContext.Provider value={{ ...state, login, logout, refreshUser }}>

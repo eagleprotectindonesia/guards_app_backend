@@ -3,12 +3,11 @@ import { Tabs, useRouter } from 'expo-router';
 import { Home, MessageSquare, User } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useChatUnread } from '../../src/hooks/useChatUnread';
-import { setupInterceptors } from '../../src/api/client';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { Alert, View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 
 export default function TabsLayout() {
-  const { isAuthenticated, isLoading, logout } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const { replace } = useRouter();
 
   useEffect(() => {
@@ -25,34 +24,12 @@ export default function TabsLayout() {
     );
   }
 
-  return <TabsContent logout={logout} />;
+  return <TabsContent />;
 }
 
-function TabsContent({ logout }: { logout: (reason?: string) => Promise<void> }) {
+function TabsContent() {
   const { t } = useTranslation();
   const { unreadCount } = useChatUnread();
-
-  // Setup Global Logout Interceptor once for all tab screens
-  useEffect(() => {
-    let isExpiring = false;
-
-    const cleanup = setupInterceptors(async () => {
-      if (isExpiring) return;
-      isExpiring = true;
-
-      Alert.alert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
-        {
-          text: 'OK',
-          onPress: async () => {
-            await logout('session_expired');
-            isExpiring = false;
-          },
-        },
-      ]);
-    });
-
-    return cleanup;
-  }, [logout, t]);
 
   return (
     <Tabs

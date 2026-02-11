@@ -25,6 +25,7 @@ export const client = axios.create({
   withCredentials: true, // Important for cookies
   headers: {
     'Content-Type': 'application/json',
+    'X-Client-Type': 'mobile', // Identify this as mobile app
   },
 });
 
@@ -67,5 +68,7 @@ export const setupInterceptors = (onUnauthorized: () => Promise<void> | void) =>
     }
   );
 
-  return () => client.interceptors.response.eject(interceptorId);
+  return () => {
+    client.interceptors.response.eject(interceptorId);
+  };
 };

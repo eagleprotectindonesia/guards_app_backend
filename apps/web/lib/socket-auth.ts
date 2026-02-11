@@ -37,18 +37,31 @@ export async function authenticateSocket(handshake: {
 
   const tryEmployeeAuth = async () => {
     if (!employeeToken) return null;
-    const { isValid, userId } = await verifySession(employeeToken, 'employee');
-    if (isValid && userId) {
-      const employee = await prisma.employee.findUnique({ 
-        where: { id: userId }, 
-        select: { firstName: true, lastName: true, tokenVersion: true } 
-      });
-      return {
-        type: 'employee' as const,
-        id: userId,
-        name: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
-        tokenVersion: employee?.tokenVersion || 0,
+    
+    try {
+      // Decode token to get clientType
+      const decoded = jwt.decode(employeeToken) as { 
+        employeeId?: string; 
+        tokenVersion?: number;
+        clientType?: 'mobile' | 'pwa';
       };
+      
+      const { isValid, userId } = await verifySession(employeeToken, 'employee');
+      if (isValid && userId) {
+        const employee = await prisma.employee.findUnique({ 
+          where: { id: userId }, 
+          select: { firstName: true, lastName: true, tokenVersion: true } 
+        });
+        return {
+          type: 'employee' as const,
+          id: userId,
+          name: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
+          tokenVersion: employee?.tokenVersion || 0,
+          clientType: decoded?.clientType || 'pwa', // Default to pwa if not specified
+        };
+      }
+    } catch (err) {
+      console.error('[Socket Auth] Error in tryEmployeeAuth:', err);
     }
     return null;
   };

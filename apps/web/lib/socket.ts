@@ -218,11 +218,15 @@ async function handleEmployeeSocket(io: SocketIOServer, socket: Socket) {
             for (let i = 0; i < fields.length; i += 2) data[fields[i]] = fields[i + 1];
 
             if (data.type === 'session_revoked' && parseInt(data.newTokenVersion, 10) > (auth.tokenVersion || 0)) {
-              console.log('session revoked', data.newTokenVersion, auth.tokenVersion);
-
-              socket.emit('auth:force_logout', { reason: 'logged_in_elsewhere' });
-              socket.disconnect(true);
-              active = false;
+              const newClientType = data.clientType || 'unknown';
+              const currentClientType = auth.clientType || 'unknown';
+              
+              // Only force logout if the new login is from a DIFFERENT client type
+              if (newClientType !== currentClientType) {
+                socket.emit('auth:force_logout', { reason: 'logged_in_elsewhere' });
+                socket.disconnect(true);
+                active = false;
+              }
             } else if (data.type === 'shift_updated') {
               socket.emit('shift:updated', { shiftId: data.shiftId });
             }

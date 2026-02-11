@@ -11,9 +11,10 @@ export default function SessionMonitor() {
   const { t } = useTranslation();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { logout } = useAuth();
+  const { logout, isAuthenticated } = useAuth();
 
   // Keep legacy polling as a secondary safety measure, but increase interval
+  // IMPORTANT: Only run when authenticated to avoid triggering 401s during login
   useQuery({
     queryKey: ['session-monitor'],
     queryFn: async () => {
@@ -22,6 +23,7 @@ export default function SessionMonitor() {
     },
     refetchInterval: 5 * 60000, // Reduced from 15s to 5 minutes
     retry: false,
+    enabled: isAuthenticated, // Only run when authenticated
   });
 
   const handleLogout = useCallback(async (reason: string) => {
@@ -45,6 +47,10 @@ export default function SessionMonitor() {
   }, [logout, router, t]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     let isMounted = true;
 
     const setupSocket = async () => {
@@ -68,7 +74,7 @@ export default function SessionMonitor() {
       isMounted = false;
       // We don't disconnectSocket here as it's a global singleton
     };
-  }, [handleLogout, queryClient]);
+  }, [handleLogout, queryClient, isAuthenticated]);
 
   return null;
 }
