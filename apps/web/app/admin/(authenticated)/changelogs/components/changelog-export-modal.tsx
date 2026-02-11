@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { DatePicker } from '@/components/ui/date-picker';
-import { differenceInDays, addDays } from 'date-fns';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -29,12 +28,6 @@ export default function ChangelogExportModal({ isOpen, onClose, onExport }: Chan
       return;
     }
 
-    const daysDifference = differenceInDays(endDate, startDate);
-    if (daysDifference > 31) {
-      toast.error('Date range cannot exceed 31 days.');
-      return;
-    }
-
     onExport(startDate, endDate);
   };
 
@@ -51,7 +44,7 @@ export default function ChangelogExportModal({ isOpen, onClose, onExport }: Chan
         </div>
 
         <p className="text-sm text-muted-foreground mb-4">
-          Select a date range to export audit records. The maximum range is 31 days.
+          Select a date range to export audit records.
         </p>
 
         <div className="space-y-4">
@@ -73,7 +66,6 @@ export default function ChangelogExportModal({ isOpen, onClose, onExport }: Chan
               date={endDate}
               setDate={setEndDate}
               minDate={startDate}
-              maxDate={startDate ? addDays(startDate, 31) : undefined}
               className="mt-1"
             />
           </div>
