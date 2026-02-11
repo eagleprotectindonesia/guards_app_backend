@@ -168,6 +168,34 @@ export async function markAsRead(messageIds: string[]) {
   });
 }
 
+export async function markAsReadForEmployee(employeeId: string, messageIds: string[]) {
+  return prisma.chatMessage.updateMany({
+    where: {
+      id: { in: messageIds },
+      employeeId,
+      sender: 'admin',
+      readAt: null,
+    },
+    data: {
+      readAt: new Date(),
+    },
+  });
+}
+
+export async function markAsReadForAdmin(employeeId: string, messageIds: string[]) {
+  return prisma.chatMessage.updateMany({
+    where: {
+      id: { in: messageIds },
+      employeeId,
+      sender: 'employee',
+      readAt: null,
+    },
+    data: {
+      readAt: new Date(),
+    },
+  });
+}
+
 // --- Backward Compatibility Aliases ---
 /** @deprecated Use saveMessage with employeeId */
 export async function saveGuardMessage(data: { guardId: string; adminId?: string; sender: ChatSenderType; content: string; attachments?: string[] }) {

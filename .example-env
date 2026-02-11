@@ -7,6 +7,10 @@ POSTGRES_DB="ep_guard"
 # Redis
 REDIS_URL="redis://localhost:6379"
 
+# Socket.io (CORS)
+# Comma-separated list of allowed origins (e.g., http://localhost:3000,https://admin.example.com)
+ALLOWED_ORIGINS="*"
+
 # Authentication
 JWT_SECRET="your_secure_jwt_secret_here"
 

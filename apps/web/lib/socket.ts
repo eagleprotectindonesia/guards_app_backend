@@ -5,7 +5,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import { redis } from './redis';
 import { prisma } from './prisma';
 import { authenticateSocket } from './socket-auth';
-import { saveMessage, markAsRead } from './data-access/chat';
+import { saveMessage, markAsReadForEmployee, markAsReadForAdmin } from './data-access/chat';
 import '../types/socket';
 import { ChatMessage } from '../types/chat';
 import { Shift, Site } from '@repo/types';
@@ -14,9 +14,13 @@ import { Shift, Site } from '@repo/types';
  * Initializes the Socket.io server with Redis adapter and unified handlers.
  */
 export function initSocket(server: HttpServer | HttpsServer) {
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : '*';
+
   const io = new SocketIOServer(server, {
     cors: {
-      origin: '*',
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
     },
   });
@@ -316,7 +320,13 @@ function handleChatEvents(io: SocketIOServer, socket: Socket) {
   socket.on('mark_read', async (data: MarkReadData) => {
     const targetId = auth.type === 'admin' ? data.employeeId || data.guardId : auth.id;
     if (!targetId) return;
-    await markAsRead(data.messageIds);
+    
+    if (auth.type === 'admin') {
+      await markAsReadForAdmin(targetId, data.messageIds);
+    } else {
+      await markAsReadForEmployee(auth.id, data.messageIds);
+    }
+
     const payload = {
       messageIds: data.messageIds,
       employeeId: targetId,
