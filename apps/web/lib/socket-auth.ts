@@ -1,14 +1,16 @@
 import jwt from 'jsonwebtoken';
 import cookie from 'cookie';
 import { db as prisma } from '@/lib/prisma';
-import { SocketAuth } from '../types/socket';
 import { verifySession } from './auth/session';
 import { AUTH_COOKIES } from './auth/constants';
+import { SocketData } from '@repo/types';
 
-export async function authenticateSocket(handshake: {
+interface HandshakeLike {
   headers: { cookie?: string };
-  auth?: { token?: string; role?: 'admin' | 'employee' };
-}): Promise<SocketAuth | null> {
+  auth: { role: 'admin' | 'employee'; token?: string };
+}
+
+export async function authenticateSocket(handshake: HandshakeLike): Promise<SocketData['auth'] | null> {
   const cookieHeader = handshake.headers.cookie;
   const authPayload = handshake.auth;
 
@@ -25,11 +27,9 @@ export async function authenticateSocket(handshake: {
     if (!adminToken) return null;
     const { isValid, userId } = await verifySession(adminToken, 'admin');
     if (isValid && userId) {
-      const admin = await prisma.admin.findUnique({ where: { id: userId }, select: { name: true } });
       return {
         type: 'admin' as const,
         id: userId,
-        name: admin?.name || 'Admin',
       };
     }
     return null;
@@ -37,25 +37,24 @@ export async function authenticateSocket(handshake: {
 
   const tryEmployeeAuth = async () => {
     if (!employeeToken) return null;
-    
+
     try {
       // Decode token to get clientType
-      const decoded = jwt.decode(employeeToken) as { 
-        employeeId?: string; 
+      const decoded = jwt.decode(employeeToken) as {
+        employeeId?: string;
         tokenVersion?: number;
         clientType?: 'mobile' | 'pwa';
       };
-      
+
       const { isValid, userId } = await verifySession(employeeToken, 'employee');
       if (isValid && userId) {
-        const employee = await prisma.employee.findUnique({ 
-          where: { id: userId }, 
-          select: { firstName: true, lastName: true, tokenVersion: true } 
+        const employee = await prisma.employee.findUnique({
+          where: { id: userId },
+          select: { tokenVersion: true },
         });
         return {
           type: 'employee' as const,
           id: userId,
-          name: employee ? `${employee.firstName} ${employee.lastName}` : 'Employee',
           tokenVersion: employee?.tokenVersion || 0,
           clientType: decoded?.clientType || 'pwa', // Default to pwa if not specified
         };

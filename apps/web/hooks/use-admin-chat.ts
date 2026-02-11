@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSocket } from '@/components/socket-provider';
+import { useSocketEvent } from './use-socket-event';
 import { Conversation, ChatMessage } from '@/types/chat';
 import { uploadToS3 } from '@/lib/upload';
 import { optimizeImage } from '@/lib/image-utils';
@@ -69,7 +70,6 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   }, []);
 
   // Fetch conversations list
-  // ... fetchConversations ...
   const fetchConversations = useCallback(async () => {
     try {
       const res = await fetch('/api/shared/chat/conversations');
@@ -81,6 +81,99 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       console.error('Failed to fetch conversations', err);
     }
   }, []);
+
+  // Socket Event Handlers
+  useSocketEvent('new_message', (message) => {
+    // Play sound if sender is employee
+    if (message.sender === 'employee') {
+      playNotificationSound();
+    }
+
+    if (activeEmployeeId === message.employeeId) {
+      setMessages(prev => {
+        if (prev.some(m => m.id === message.id)) return prev;
+        return [...prev, message];
+      });
+      if (message.sender === 'employee' && socket) {
+        socket.emit('mark_read', { employeeId: message.employeeId, messageIds: [message.id] });
+      }
+    }
+
+    setConversations(prev => {
+      const index = prev.findIndex(c => c.employeeId === message.employeeId);
+      if (index === -1) {
+        fetchConversations();
+        return prev;
+      }
+
+      const updated = [...prev];
+      const conv = updated[index];
+      const isCurrentlyViewing = activeEmployeeId === message.employeeId;
+
+      updated[index] = {
+        ...conv,
+        lastMessage: {
+          content: message.content,
+          sender: message.sender,
+          createdAt: message.createdAt,
+        },
+        unreadCount: isCurrentlyViewing || message.sender === 'admin' ? conv.unreadCount : conv.unreadCount + 1,
+      };
+
+      const [moved] = updated.splice(index, 1);
+      updated.unshift(moved);
+
+      return updated;
+    });
+  });
+
+  useSocketEvent('messages_read', (data) => {
+    setConversations(prev => prev.map(c => (c.employeeId === data.employeeId ? { ...c, unreadCount: 0 } : c)));
+    if (activeEmployeeId === data.employeeId && data.messageIds) {
+      setMessages(prev =>
+        prev.map(m => (data.messageIds?.includes(m.id) ? { ...m, readAt: new Date().toISOString() } : m))
+      );
+    }
+  });
+
+  useSocketEvent('typing', (data) => {
+    setTypingEmployees(prev => ({ ...prev, [data.employeeId]: data.isTyping }));
+
+    // Auto-clear typing status after 5 seconds of inactivity
+    if (data.isTyping) {
+      setTimeout(() => {
+        setTypingEmployees(prev => {
+          const updated = { ...prev };
+          // Only clear if still typing (haven't received an explicit isTyping: false)
+          if (updated[data.employeeId]) {
+            delete updated[data.employeeId];
+          }
+          return updated;
+        });
+      }, 5000);
+    }
+  });
+
+  useSocketEvent('conversation_locked', (data) => {
+    setConversationLocks(prev => ({
+      ...prev,
+      [data.employeeId]: { lockedBy: data.lockedBy, expiresAt: data.expiresAt },
+    }));
+
+    // Auto-clear lock after it expires locally
+    const timeout = data.expiresAt - Date.now();
+    if (timeout > 0) {
+      setTimeout(() => {
+        setConversationLocks(prev => {
+          const updated = { ...prev };
+          if (updated[data.employeeId]?.expiresAt === data.expiresAt) {
+            delete updated[data.employeeId];
+          }
+          return updated;
+        });
+      }, timeout);
+    }
+  });
 
   const handleSelectConversation = useCallback(async (employeeId: string, skipCallback = false) => {
     // Prevent redundant fetches if already loading or viewing this employee
@@ -121,117 +214,14 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [options.onSelectConversation, socket, messages.length]);
+  }, [options, socket, messages.length]);
 
   // Sync with initialEmployeeId (e.g. from URL)
   useEffect(() => {
     if (options.initialEmployeeId && options.initialEmployeeId !== activeEmployeeId) {
       handleSelectConversation(options.initialEmployeeId, true);
     }
-  }, [options.initialEmployeeId, handleSelectConversation, activeEmployeeId]);
-
-  useEffect(() => {
-    if (socket) {
-      socket.on('new_message', (message: ChatMessage) => {
-        // Play sound if sender is employee
-        if (message.sender === 'employee') {
-          playNotificationSound();
-        }
-
-        if (activeEmployeeId === message.employeeId) {
-          setMessages(prev => {
-            if (prev.some(m => m.id === message.id)) return prev;
-            return [...prev, message];
-          });
-          if (message.sender === 'employee') {
-            socket.emit('mark_read', { employeeId: message.employeeId, messageIds: [message.id] });
-          }
-        }
-
-        setConversations(prev => {
-          const index = prev.findIndex(c => c.employeeId === message.employeeId);
-          if (index === -1) {
-            fetchConversations();
-            return prev;
-          }
-
-          const updated = [...prev];
-          const conv = updated[index];
-          const isCurrentlyViewing = activeEmployeeId === message.employeeId;
-
-          updated[index] = {
-            ...conv,
-            lastMessage: {
-              content: message.content,
-              sender: message.sender,
-              createdAt: message.createdAt,
-            },
-            unreadCount: isCurrentlyViewing || message.sender === 'admin' ? conv.unreadCount : conv.unreadCount + 1,
-          };
-
-          const [moved] = updated.splice(index, 1);
-          updated.unshift(moved);
-
-          return updated;
-        });
-      });
-
-      socket.on('messages_read', (data: { employeeId: string; messageIds?: string[] }) => {
-        setConversations(prev => prev.map(c => (c.employeeId === data.employeeId ? { ...c, unreadCount: 0 } : c)));
-        if (activeEmployeeId === data.employeeId && data.messageIds) {
-          setMessages(prev =>
-            prev.map(m => (data.messageIds?.includes(m.id) ? { ...m, readAt: new Date().toISOString() } : m))
-          );
-        }
-      });
-
-      socket.on('typing', (data: { employeeId: string; isTyping: boolean }) => {
-        setTypingEmployees(prev => ({ ...prev, [data.employeeId]: data.isTyping }));
-
-        // Auto-clear typing status after 5 seconds of inactivity
-        if (data.isTyping) {
-          setTimeout(() => {
-            setTypingEmployees(prev => {
-              const updated = { ...prev };
-              // Only clear if still typing (haven't received an explicit isTyping: false)
-              if (updated[data.employeeId]) {
-                delete updated[data.employeeId];
-              }
-              return updated;
-            });
-          }, 5000);
-        }
-      });
-
-      socket.on('conversation_locked', (data: { employeeId: string; lockedBy: string; expiresAt: number }) => {
-        setConversationLocks(prev => ({
-          ...prev,
-          [data.employeeId]: { lockedBy: data.lockedBy, expiresAt: data.expiresAt },
-        }));
-
-        // Auto-clear lock after it expires locally
-        const timeout = data.expiresAt - Date.now();
-        if (timeout > 0) {
-          setTimeout(() => {
-            setConversationLocks(prev => {
-              const updated = { ...prev };
-              if (updated[data.employeeId]?.expiresAt === data.expiresAt) {
-                delete updated[data.employeeId];
-              }
-              return updated;
-            });
-          }, timeout);
-        }
-      });
-
-      return () => {
-        socket.off('new_message');
-        socket.off('messages_read');
-        socket.off('typing');
-        socket.off('conversation_locked');
-      };
-    }
-  }, [socket, activeEmployeeId, fetchConversations]);
+  }, [options, handleSelectConversation, activeEmployeeId]);
 
   const handleFileChange = async (files: File[]) => {
     if (files.length === 0) return;
@@ -334,6 +324,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     selectedFiles,
     previews,
     typingEmployees,
+    conversationLocks,
     isConnected,
     socket,
     setSearchTerm,

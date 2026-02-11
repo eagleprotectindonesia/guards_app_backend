@@ -42,7 +42,7 @@ describe('Chat Locking Logic', () => {
       emit: jest.fn(),
     };
     mockSocket = {
-      auth: { id: 'admin-1', type: 'admin' },
+      data: { auth: { id: 'admin-1', type: 'admin' } },
       join: jest.fn(),
       on: jest.fn(),
       emit: jest.fn(),
@@ -58,7 +58,7 @@ describe('Chat Locking Logic', () => {
     const connectionHandler = mockIo.connectionHandler;
     
     // Admin B connects
-    const socketB = { ...mockSocket, auth: { id: 'admin-2', type: 'admin' }, on: jest.fn() };
+    const socketB = { ...mockSocket, data: { auth: { id: 'admin-2', type: 'admin' } }, on: jest.fn() };
     connectionHandler(socketB);
 
     // Get the send_message listener for Admin B
@@ -81,7 +81,7 @@ describe('Chat Locking Logic', () => {
     const connectionHandler = mockIo.connectionHandler;
     
     // Admin A connects
-    const socketA = { ...mockSocket, auth: { id: 'admin-1', type: 'admin' }, on: jest.fn() };
+    const socketA = { ...mockSocket, data: { auth: { id: 'admin-1', type: 'admin' } }, on: jest.fn() };
     connectionHandler(socketA);
 
     const sendMessageListener = socketA.on.mock.calls.find((call: any) => call[0] === 'send_message')[1];
@@ -101,7 +101,7 @@ describe('Chat Locking Logic', () => {
     const connectionHandler = mockIo.connectionHandler;
     
     // Admin A connects
-    const socketA = { ...mockSocket, auth: { id: 'admin-1', type: 'admin' }, on: jest.fn() };
+    const socketA = { ...mockSocket, data: { auth: { id: 'admin-1', type: 'admin' } }, on: jest.fn() };
     connectionHandler(socketA);
 
     const typingListener = socketA.on.mock.calls.find((call: any) => call[0] === 'typing')[1];
@@ -125,7 +125,7 @@ describe('Chat Locking Logic', () => {
     initSocket(server);
 
     const connectionHandler = mockIo.connectionHandler;
-    const socketA = { ...mockSocket, auth: { id: 'admin-1', type: 'admin' }, on: jest.fn() };
+    const socketA = { ...mockSocket, data: { auth: { id: 'admin-1', type: 'admin' } }, on: jest.fn() };
     connectionHandler(socketA);
 
     const typingListener = socketA.on.mock.calls.find((call: any) => call[0] === 'typing')[1];

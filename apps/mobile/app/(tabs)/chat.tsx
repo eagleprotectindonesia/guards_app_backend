@@ -20,7 +20,8 @@ import { Send, Paperclip, X, Video as VideoIcon, Camera } from 'lucide-react-nat
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
-import { getSocket } from '../../src/api/socket';
+import { useSocket } from '../../src/hooks/useSocket';
+import { useSocketEvent } from '../../src/hooks/useSocketEvent';
 import { client } from '../../src/api/client';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { format } from 'date-fns';
@@ -28,21 +29,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { uploadToS3 } from '../../src/api/upload';
 import { isVideoFile } from '../../src/utils/file';
-
-interface ChatMessage {
-  id: string;
-  employeeId: string;
-  adminId?: string | null;
-  sender: 'admin' | 'employee';
-  content: string;
-  attachments: string[];
-  createdAt: string;
-  readAt?: string | null;
-  admin?: {
-    id: string;
-    name: string;
-  } | null;
-}
+import { ChatMessage } from '@repo/types';
 
 const VideoAttachment = ({ url, style }: { url: string; style: any }) => {
   const player = useVideoPlayer({ uri: url, useCaching: true }, player => {
@@ -66,6 +53,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const auth = useAuth();
+  const { socket } = useSocket();
 
   const [inputText, setInputText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -78,14 +66,14 @@ export default function ChatScreen() {
   const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
 
-  const socketRef = useRef<any>(null);
   const flatListRef = useRef<FlatList>(null);
 
   const employeeInfo = auth.isAuthenticated ? auth.user : null;
+  const employeeId = employeeInfo?.id;
 
   // Fetch messages with TanStack Query (Infinite Query for pagination)
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
-    queryKey: ['chat', 'messages', employeeInfo?.id],
+    queryKey: ['chat', 'messages', employeeId],
     queryFn: async ({ pageParam }) => {
       if (!auth.isAuthenticated) throw new Error('Not authenticated');
       const response = await client.get(`/api/shared/chat/${auth.user.id}`, {
@@ -101,26 +89,24 @@ export default function ChatScreen() {
       if (lastPage.length < 15) return undefined;
       return lastPage[lastPage.length - 1].id;
     },
-    enabled: !!employeeInfo?.id,
+    enabled: !!employeeId,
   });
 
   const messages = useMemo(() => data?.pages.flat() || [], [data]);
 
-  const employeeId = employeeInfo?.id;
-
   // Mark existing unread messages as read when focused or when messages are loaded while focused
   useEffect(() => {
-    if (isFocused && messages.length > 0 && socketRef.current && employeeId) {
+    if (isFocused && messages.length > 0 && socket && employeeId) {
       const unreadIds = messages.filter(m => m.sender === 'admin' && !m.readAt).map(m => m.id);
 
       if (unreadIds.length > 0) {
-        socketRef.current.emit('mark_read', {
+        socket.emit('mark_read', {
           employeeId,
           messageIds: unreadIds,
         });
       }
     }
-  }, [isFocused, messages, employeeId]);
+  }, [isFocused, messages, employeeId, socket]);
 
   // Track tab focus (for tab navigation)
   useFocusEffect(
@@ -140,8 +126,8 @@ export default function ChatScreen() {
       const isActive = nextAppState === 'active';
 
       // When app becomes active, refetch messages to sync
-      if (isActive && employeeInfo?.id) {
-        queryClient.invalidateQueries({ queryKey: ['chat', 'messages', employeeInfo.id] });
+      if (isActive && employeeId) {
+        queryClient.invalidateQueries({ queryKey: ['chat', 'messages', employeeId] });
         queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
       }
     });
@@ -149,74 +135,55 @@ export default function ChatScreen() {
     return () => {
       subscription.remove();
     };
-  }, [employeeInfo?.id, queryClient]);
+  }, [employeeId, queryClient]);
 
-  // Socket setup
-  useEffect(() => {
+  // Socket Events
+  useSocketEvent('new_message', (message) => {
     if (!employeeId) return;
 
-    let socketInstance: any = null;
+    // Update message list cache
+    queryClient.setQueryData(['chat', 'messages', employeeId], (old: any) => {
+      if (!old) return old;
 
-    const setupSocket = async () => {
-      const socket = await getSocket();
-      if (socket) {
-        socketRef.current = socket;
-        socketInstance = socket;
+      // Prevent duplicate messages (especially when sending from this client)
+      const exists = old.pages.some((page: ChatMessage[]) => page.some(m => m.id === message.id));
+      if (exists) return old;
 
-        socket.on('new_message', (message: ChatMessage) => {
-          // Update message list cache
-          queryClient.setQueryData(['chat', 'messages', employeeId], (old: any) => {
-            if (!old) return old;
+      return {
+        ...old,
+        pages: [[message, ...old.pages[0]], ...old.pages.slice(1)],
+      };
+    });
 
-            // Prevent duplicate messages (especially when sending from this client)
-            const exists = old.pages.some((page: ChatMessage[]) => page.some(m => m.id === message.id));
-            if (exists) return old;
+    // If we are currently looking at the chat, mark it as read immediately
+    if (isFocusedRef.current && message.sender === 'admin' && socket) {
+      socket.emit('mark_read', {
+        employeeId,
+        messageIds: [message.id],
+      });
+    }
 
-            return {
-              ...old,
-              pages: [[message, ...old.pages[0]], ...old.pages.slice(1)],
-            };
-          });
+    // Invalidate unread count query
+    queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
+  });
 
-          // If we are currently looking at the chat, mark it as read immediately
-          if (isFocusedRef.current && message.sender === 'admin') {
-            socket.emit('mark_read', {
-              employeeId,
-              messageIds: [message.id],
-            });
-          }
+  useSocketEvent('messages_read', (data) => {
+    if (!employeeId) return;
 
-          // Invalidate unread count query
-          queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
-        });
+    // Update messages in cache to show read status
+    queryClient.setQueryData(['chat', 'messages', employeeId], (old: any) => {
+      if (!old) return old;
+      return {
+        ...old,
+        pages: old.pages.map((page: ChatMessage[]) =>
+          page.map(msg => (data.messageIds?.includes(msg.id) ? { ...msg, readAt: new Date().toISOString() } : msg))
+        ),
+      };
+    });
 
-        socket.on('messages_read', (data: { messageIds: string[] }) => {
-          // Update messages in cache to show read status
-          queryClient.setQueryData(['chat', 'messages', employeeId], (old: any) => {
-            if (!old) return old;
-            return {
-              ...old,
-              pages: old.pages.map((page: ChatMessage[]) =>
-                page.map(msg => (data.messageIds.includes(msg.id) ? { ...msg, readAt: new Date().toISOString() } : msg))
-              ),
-            };
-          });
-
-          // Invalidate unread count query
-          queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
-        });
-      }
-    };
-
-    setupSocket();
-
-    return () => {
-      if (socketInstance) {
-        socketInstance.off('new_message');
-        socketInstance.off('messages_read');
-      }
-    };
-  }, [employeeId, isFocused, queryClient]);
+    // Invalidate unread count query
+    queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
+  });
 
   if (!auth.isAuthenticated) {
     return (
@@ -292,7 +259,7 @@ export default function ChatScreen() {
   };
 
   const sendMessage = async () => {
-    if ((!inputText.trim() && selectedAttachments.length === 0) || !socketRef.current || isUploading) return;
+    if ((!inputText.trim() && selectedAttachments.length === 0) || !socket || isUploading) return;
 
     setIsUploading(true);
     try {
@@ -309,7 +276,7 @@ export default function ChatScreen() {
         attachmentKeys = await Promise.all(uploadPromises);
       }
 
-      socketRef.current.emit('send_message', {
+      socket.emit('send_message', {
         content: inputText.trim(),
         attachments: attachmentKeys,
       });

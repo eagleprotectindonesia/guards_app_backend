@@ -64,7 +64,7 @@ export function AdminChatClient() {
   const activeEmployee = conversations.find(c => c.employeeId === activeEmployeeId);
   
   const currentLock = activeEmployeeId ? conversationLocks[activeEmployeeId] : null;
-  const isLockedByOther = currentLock && currentLock.lockedBy !== userId;
+  const isLockedByOther = !!(currentLock && currentLock.lockedBy !== userId);
 
   return (
     <div className="flex h-[calc(100vh-180px)] bg-card rounded-xl shadow-sm border border-border overflow-hidden">
