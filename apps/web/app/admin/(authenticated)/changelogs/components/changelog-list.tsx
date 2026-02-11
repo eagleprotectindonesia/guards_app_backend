@@ -32,6 +32,7 @@ type FilterModalProps = {
   employees?: EntitySummary[];
   sites?: EntitySummary[];
   shiftTypes?: EntitySummary[];
+  offices?: EntitySummary[];
 };
 
 type ChangelogListProps = {
@@ -48,6 +49,7 @@ type ChangelogListProps = {
   employees?: EntitySummary[];
   sites?: EntitySummary[];
   shiftTypes?: EntitySummary[];
+  offices?: EntitySummary[];
 };
 
 export default function ChangelogList({
@@ -64,6 +66,7 @@ export default function ChangelogList({
   employees,
   sites,
   shiftTypes,
+  offices,
 }: ChangelogListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -193,13 +196,6 @@ export default function ChangelogList({
                     onSort={handleSort}
                   />
                 )}
-                <SortableHeader
-                  label="Entity ID"
-                  field="entityId"
-                  currentSortBy={sortBy}
-                  currentSortOrder={sortOrder}
-                  onSort={handleSort}
-                />
                 {showEntityName && (
                   <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
                 )}
@@ -212,7 +208,7 @@ export default function ChangelogList({
               {changelogs.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={hideEntityType ? (showEntityName ? 7 : 6) : showEntityName ? 8 : 7}
+                    colSpan={hideEntityType ? (showEntityName ? 6 : 5) : showEntityName ? 7 : 6}
                     className="py-8 text-center text-muted-foreground"
                   >
                     No logs found.
@@ -251,7 +247,6 @@ export default function ChangelogList({
                       </span>
                     </td>
                     {!hideEntityType && <td className="py-4 px-6 text-sm text-muted-foreground">{log.entityType}</td>}
-                    <td className="py-4 px-6 text-muted-foreground font-mono text-xs">{log.entityId}</td>
                     {showEntityName && (
                       <td className="py-4 px-6 text-sm text-muted-foreground">
                         {/* Safe access to details.name if it exists */}
@@ -302,6 +297,7 @@ export default function ChangelogList({
         employees={employees}
         sites={sites}
         shiftTypes={shiftTypes}
+        offices={offices}
       />
     </div>
   );

@@ -78,6 +78,15 @@ export async function getOfficeById(id: string) {
   });
 }
 
+export const OFFICE_TRACKED_FIELDS = [
+  'name',
+  'address',
+  'latitude',
+  'longitude',
+  'status',
+  'note',
+] as const;
+
 export async function createOfficeWithChangelog(data: Prisma.OfficeCreateInput, adminId: string) {
   return prisma.$transaction(
     async tx => {

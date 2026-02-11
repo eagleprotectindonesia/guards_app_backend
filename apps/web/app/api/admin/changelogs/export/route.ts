@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   EMPLOYEE_TRACKED_FIELDS,
+  OFFICE_TRACKED_FIELDS,
   prisma,
   SHIFT_TRACKED_FIELDS,
   SHIFT_TYPE_TRACKED_FIELDS,
@@ -27,6 +28,8 @@ const getTrackedFields = (entityType: string | null) => {
       return [...EMPLOYEE_TRACKED_FIELDS];
     case 'Site':
       return [...SITE_TRACKED_FIELDS];
+    case 'Office':
+      return [...OFFICE_TRACKED_FIELDS];
     case 'ShiftType':
       return [...SHIFT_TYPE_TRACKED_FIELDS];
     default:
@@ -36,6 +39,7 @@ const getTrackedFields = (entityType: string | null) => {
           ...SHIFT_TRACKED_FIELDS,
           ...EMPLOYEE_TRACKED_FIELDS,
           ...SITE_TRACKED_FIELDS,
+          ...OFFICE_TRACKED_FIELDS,
           ...SHIFT_TYPE_TRACKED_FIELDS,
         ])
       );
@@ -125,8 +129,7 @@ export async function GET(request: NextRequest) {
       const encoder = new TextEncoder();
 
       // Write Header
-      // const headers = ['Date', 'Actor', 'Action', 'Entity Type', 'Entity ID', ...trackedFields.map(f => labelize(f))];
-      const headers = ['Date', 'Actor', 'Actor Type', 'Action', ...trackedFields.map(f => labelize(f))];
+      const headers = ['Date', 'Time', 'Actor', 'Actor Type', 'Action', ...trackedFields.map(f => labelize(f))];
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
       let cursorId: string | null = null;
@@ -158,7 +161,9 @@ export async function GET(request: NextRequest) {
               return `"${str.toString().replace(/"/g, '""')}"`;
             };
 
-            const date = format(new Date(log.createdAt), 'yyyy/MM/dd HH:mm:ss');
+            const createdAt = new Date(log.createdAt);
+            const date = format(createdAt, 'yyyy/MM/dd');
+            const time = format(createdAt, 'HH:mm:ss');
             let actorName = 'Unknown';
             if (log.actor === 'system') {
               actorName = 'System';
@@ -183,6 +188,7 @@ export async function GET(request: NextRequest) {
 
             const row = [
               escape(date),
+              escape(time),
               escape(actorName),
               escape(log.actor),
               escape(log.action),
