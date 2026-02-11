@@ -138,7 +138,10 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
         }
 
         if (activeEmployeeId === message.employeeId) {
-          setMessages(prev => [...prev, message]);
+          setMessages(prev => {
+            if (prev.some(m => m.id === message.id)) return prev;
+            return [...prev, message];
+          });
           if (message.sender === 'employee') {
             socket.emit('mark_read', { employeeId: message.employeeId, messageIds: [message.id] });
           }

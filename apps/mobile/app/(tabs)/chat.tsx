@@ -69,6 +69,7 @@ export default function ChatScreen() {
 
   const [inputText, setInputText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
+  const isFocusedRef = useRef(false);
   const [selectedAttachments, setSelectedAttachments] = useState<ImagePicker.ImagePickerAsset[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -125,7 +126,11 @@ export default function ChatScreen() {
   useFocusEffect(
     useCallback(() => {
       setIsFocused(true);
-      return () => setIsFocused(false);
+      isFocusedRef.current = true;
+      return () => {
+        setIsFocused(false);
+        isFocusedRef.current = false;
+      };
     }, [])
   );
 
@@ -162,6 +167,11 @@ export default function ChatScreen() {
           // Update message list cache
           queryClient.setQueryData(['chat', 'messages', employeeId], (old: any) => {
             if (!old) return old;
+
+            // Prevent duplicate messages (especially when sending from this client)
+            const exists = old.pages.some((page: ChatMessage[]) => page.some(m => m.id === message.id));
+            if (exists) return old;
+
             return {
               ...old,
               pages: [[message, ...old.pages[0]], ...old.pages.slice(1)],
@@ -169,7 +179,7 @@ export default function ChatScreen() {
           });
 
           // If we are currently looking at the chat, mark it as read immediately
-          if (isFocused && message.sender === 'admin') {
+          if (isFocusedRef.current && message.sender === 'admin') {
             socket.emit('mark_read', {
               employeeId,
               messageIds: [message.id],
