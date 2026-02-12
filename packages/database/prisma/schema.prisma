@@ -207,6 +207,7 @@ model Site {
   latitude        Float?
   longitude       Float?
   geofenceRadius  Float     @default(100.0) @map("geofence_radius")
+  geofenceStatus  Boolean?  @default(true) @map("geofence_status")
   status          Boolean?  @default(true)
   lastUpdatedById String?   @map("last_updated_by_id")
   createdById     String?   @map("created_by_id")
