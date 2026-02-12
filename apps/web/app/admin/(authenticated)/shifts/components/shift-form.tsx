@@ -7,7 +7,7 @@ import { CreateShiftInput } from '@/lib/validations';
 import { useActionState, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Shift, Site, ShiftType } from '@prisma/client';
-import { ExtendedEmployee } from '@repo/database';
+import { EmployeeSummary } from '@repo/database';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Select from '../../components/select';
@@ -18,7 +18,7 @@ type Props = {
   shift?: Serialized<Shift>;
   sites: Serialized<Site>[];
   shiftTypes: Serialized<ShiftType>[];
-  employees: Serialized<ExtendedEmployee>[];
+  employees: EmployeeSummary[];
 };
 
 export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props) {
@@ -48,7 +48,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
   const employeeOptions = employees.map(employee => ({
     value: employee.id,
     label: `${employee.firstName} ${employee.lastName}`,
-  })).slice(0, 8);
+  }));
   const shiftTypeOptions = shiftTypes.map(st => ({
     value: st.id,
     label: `${st.name} (${st.startTime} - ${st.endTime})`,
@@ -76,7 +76,9 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
             isDisabled={isReadOnly}
           />
           <input type="hidden" name="siteId" value={selectedSiteId} />
-          {state.errors?.siteId && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.siteId[0]}</p>}
+          {state.errors?.siteId && (
+            <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.siteId[0]}</p>
+          )}
         </div>
 
         {/* Shift Type Field */}
@@ -96,7 +98,9 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
             isDisabled={isReadOnly}
           />
           <input type="hidden" name="shiftTypeId" value={selectedShiftTypeId} />
-          {state.errors?.shiftTypeId && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.shiftTypeId[0]}</p>}
+          {state.errors?.shiftTypeId && (
+            <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.shiftTypeId[0]}</p>
+          )}
         </div>
 
         {/* Employee Field */}
@@ -152,7 +156,9 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
               className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-muted disabled:text-muted-foreground"
             />
             {state.errors?.requiredCheckinIntervalMins && (
-              <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.requiredCheckinIntervalMins[0]}</p>
+              <p className="text-red-500 dark:text-red-400 text-xs mt-1">
+                {state.errors.requiredCheckinIntervalMins[0]}
+              </p>
             )}
           </div>
 
@@ -169,7 +175,9 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
               disabled={isReadOnly}
               className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-muted disabled:text-muted-foreground"
             />
-            {state.errors?.graceMinutes && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.graceMinutes[0]}</p>}
+            {state.errors?.graceMinutes && (
+              <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.graceMinutes[0]}</p>
+            )}
           </div>
         </div>
 
@@ -192,7 +200,9 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
 
         {/* Error Message */}
         {state.message && !state.success && (
-          <div className="p-3 rounded bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-100 dark:border-red-900/50">{state.message}</div>
+          <div className="p-3 rounded bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-100 dark:border-red-900/50">
+            {state.message}
+          </div>
         )}
 
         {/* Actions */}

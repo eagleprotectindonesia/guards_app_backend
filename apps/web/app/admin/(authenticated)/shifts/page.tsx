@@ -5,11 +5,12 @@ import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { getActiveSites } from '@/lib/data-access/sites';
-import { getActiveEmployees } from '@/lib/data-access/employees';
+import { getActiveEmployeesSummary } from '@/lib/data-access/employees';
 import { getPaginatedShifts } from '@/lib/data-access/shifts';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import type { SerializedShiftWithRelationsDto, ShiftEmployeeSummary } from '@/types/shifts';
+import type { SerializedShiftWithRelationsDto } from '@/types/shifts';
+import { EmployeeSummary } from '@repo/database';
 
 export const metadata: Metadata = {
   title: 'Shifts Management',
@@ -68,7 +69,7 @@ export default async function ShiftsPage({
 
   const sites = await getActiveSites();
   const shiftTypes = await prisma.shiftType.findMany({ orderBy: { name: 'asc' } });
-  const employees = await getActiveEmployees();
+  const employees = await getActiveEmployeesSummary('on_site');
 
   const shiftDtos: SerializedShiftWithRelationsDto[] = shifts.map(shift => ({
     id: shift.id,
@@ -108,7 +109,8 @@ export default async function ShiftsPage({
           id: shift.employee.id,
           firstName: shift.employee.firstName,
           lastName: shift.employee.lastName,
-          fullName: shift.employee.fullName ?? [shift.employee.firstName, shift.employee.lastName].filter(Boolean).join(' '),
+          fullName:
+            shift.employee.fullName ?? [shift.employee.firstName, shift.employee.lastName].filter(Boolean).join(' '),
           employeeCode: shift.employee.employeeCode,
         }
       : null,
@@ -129,11 +131,11 @@ export default async function ShiftsPage({
 
   const siteOptions = sites.map(site => ({ id: site.id, name: site.name }));
   const shiftTypeOptions = shiftTypes.map(shiftType => ({ id: shiftType.id, name: shiftType.name }));
-  const employeeOptions: ShiftEmployeeSummary[] = employees.map(employee => ({
+  const employeeOptions: EmployeeSummary[] = employees.map(employee => ({
     id: employee.id,
     firstName: employee.firstName,
     lastName: employee.lastName,
-    fullName: employee.fullName ?? [employee.firstName, employee.lastName].filter(Boolean).join(' '),
+    fullName: employee.fullName,
     employeeCode: employee.employeeCode,
   }));
 

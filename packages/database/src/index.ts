@@ -1,6 +1,6 @@
 export { PrismaClient, Prisma } from './client';
 export { db, db as prisma } from './client';
-export type { ExtendedEmployee, ExtendedPrismaClient, EmployeeWithRelations } from './client';
+export type { ExtendedEmployee, ExtendedPrismaClient, EmployeeWithRelations, EmployeeSummary } from './client';
 export { redis } from './redis';
 export * from './data-access/admins';
 export * from './data-access/alerts';

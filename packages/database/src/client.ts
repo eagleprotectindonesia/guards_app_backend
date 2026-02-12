@@ -52,6 +52,14 @@ export type ExtendedPrismaClient = typeof db;
 
 export type ExtendedEmployee = NonNullable<Prisma.Result<typeof db.employee, {}, 'findUnique'>>;
 
+export type EmployeeSummary = {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  fullName: string;
+  employeeCode: string | null;
+};
+
 export type EmployeeWithRelations = NonNullable<Prisma.Result<
   typeof db.employee,
   {

@@ -3,7 +3,7 @@ import { serialize } from '@/lib/utils';
 import ShiftForm from '../../components/shift-form';
 import { notFound } from 'next/navigation';
 import { getActiveSites } from '@/lib/data-access/sites';
-import { getActiveEmployees } from '@/lib/data-access/employees';
+import { getActiveEmployeesSummary } from '@/lib/data-access/employees';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
@@ -17,7 +17,7 @@ export default async function EditShiftPage({ params }: { params: Promise<{ id: 
     prisma.shift.findUnique({ where: { id } }),
     getActiveSites(),
     prisma.shiftType.findMany({ orderBy: { name: 'asc' } }),
-    getActiveEmployees('on_site'),
+    getActiveEmployeesSummary('on_site'),
   ]);
 
   if (!shift) {
@@ -36,7 +36,7 @@ export default async function EditShiftPage({ params }: { params: Promise<{ id: 
         shift={serialize(shift)}
         sites={serialize(sites)}
         shiftTypes={serialize(shiftTypes)}
-        employees={serialize(employees)}
+        employees={employees}
       />
     </div>
   );

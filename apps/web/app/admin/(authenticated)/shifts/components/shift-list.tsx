@@ -16,13 +16,14 @@ import Link from 'next/link';
 import { Upload, ArrowUpDown, ArrowUp, ArrowDown, History } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { ShiftEmployeeSummary, ShiftWithRelationsDto } from '@/types/shifts';
+import { ShiftWithRelationsDto } from '@/types/shifts';
+import { EmployeeSummary } from '@repo/database';
 
 type ShiftListProps = {
   shifts: Serialized<ShiftWithRelationsDto>[];
   sites: { id: string; name: string }[];
   shiftTypes: { id: string; name: string }[];
-  employees: Serialized<ShiftEmployeeSummary>[];
+  employees: EmployeeSummary[];
   startDate?: string;
   endDate?: string;
   employeeId?: string;

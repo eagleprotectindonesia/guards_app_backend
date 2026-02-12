@@ -6,7 +6,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { parseISO } from 'date-fns';
 import Select from '../../components/select'; // Import the custom Select component
-import { ShiftEmployeeSummary } from '@/types/shifts';
+import { EmployeeSummary } from '@repo/database';
 
 type Props = {
   isOpen: boolean;
@@ -19,7 +19,7 @@ type Props = {
     employeeId?: string;
   };
   sites: { id: string; name: string }[];
-  employees: ShiftEmployeeSummary[];
+  employees: EmployeeSummary[];
 };
 
 export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilters, sites, employees }: Props) {

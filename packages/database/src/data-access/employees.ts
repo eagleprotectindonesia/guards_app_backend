@@ -1,4 +1,4 @@
-import { db as prisma } from '../client';
+import { db as prisma, EmployeeSummary } from '../client';
 import { redis } from '../redis';
 import { EmployeeRole, Prisma } from '@prisma/client';
 import { isValid, startOfDay, isAfter, isBefore, parseISO } from 'date-fns';
@@ -60,8 +60,6 @@ export async function getAllEmployees(
 }
 
 export async function getActiveEmployees(role?: EmployeeRole) {
-  console.log(role);
-  
   return prisma.employee.findMany({
     where: {
       status: true,
@@ -75,6 +73,28 @@ export async function getActiveEmployees(role?: EmployeeRole) {
       office: true,
     },
   });
+}
+
+export async function getActiveEmployeesSummary(role?: EmployeeRole): Promise<EmployeeSummary[]> {
+  const employees = await prisma.employee.findMany({
+    where: {
+      status: true,
+      deletedAt: null,
+      ...(role && { role }),
+    },
+    orderBy: [{ firstName: 'asc' }, { lastName: 'asc' }],
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      employeeCode: true,
+    },
+  });
+
+  return employees.map(employee => ({
+    ...employee,
+    fullName: `${employee.firstName} ${employee.lastName || ''}`.trim(),
+  }));
 }
 
 export async function getEmployeeById(id: string) {
