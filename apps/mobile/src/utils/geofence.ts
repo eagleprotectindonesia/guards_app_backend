@@ -2,6 +2,24 @@ import * as Location from 'expo-location';
 import { GEOFENCE_TASK, LOCATION_MONITOR_TASK } from './backgroundTasks';
 import { storage } from './storage';
 
+const GEOFENCE_KEYS = [
+  'active_shift_id',
+  'geofence_config',
+  '@geofence_breach_start_time',
+  '@geofence_breach_reported',
+  '@location_disabled_start_time',
+  '@location_disabled_reported',
+];
+
+export async function clearGeofenceState() {
+  try {
+    await Promise.all(GEOFENCE_KEYS.map((key) => storage.removeItem(key)));
+    console.log('[Geofence] State cleared');
+  } catch (err) {
+    console.error('[Geofence] Failed to clear state:', err);
+  }
+}
+
 export async function startGeofencing(shift: {
   id: string;
   site: {
@@ -12,6 +30,9 @@ export async function startGeofencing(shift: {
     geofenceRadius?: number | null;
   };
 }) {
+  // Ensure a clean slate before starting
+  await clearGeofenceState();
+
   const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
   if (foregroundStatus !== 'granted') return;
 
@@ -70,44 +91,36 @@ export async function startGeofencing(shift: {
 }
 
 export async function stopGeofencing() {
+  console.log('[Geofence] Stopping monitoring...');
   try {
-    const servicesEnabled = await Location.hasServicesEnabledAsync();
-    if (!servicesEnabled) {
-      console.log('[Geofence] Services disabled, cleaning up local state');
-      await storage.removeItem('active_shift_id');
-      return;
-    }
+    // Attempt to stop tasks regardless of servicesEnabled flag
+    // Guard each with try-catch to ensure one failure doesn't block cleanup
 
-    // Attempt to stop geofencing if background permissions are present
     try {
-      const { status: bgStatus } = await Location.getBackgroundPermissionsAsync();
-      if (bgStatus === 'granted') {
-        const isGeofencing = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
-        if (isGeofencing) {
-          await Location.stopGeofencingAsync(GEOFENCE_TASK);
-        }
+      const isGeofencing = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
+      if (isGeofencing) {
+        await Location.stopGeofencingAsync(GEOFENCE_TASK);
       }
     } catch (e) {
-      console.warn('[Geofence] Failed to stop geofencing task:', e);
+      console.log('[Geofence] Could not stop geofencing task (might already be stopped):', e);
     }
 
-    // Attempt to stop location updates if foreground permissions are present
     try {
-      const { status: fgStatus } = await Location.getForegroundPermissionsAsync();
-      if (fgStatus === 'granted') {
-        const isLocationUpdates = await Location.hasStartedLocationUpdatesAsync(LOCATION_MONITOR_TASK);
-        if (isLocationUpdates) {
-          await Location.stopLocationUpdatesAsync(LOCATION_MONITOR_TASK);
-        }
+      const isLocationUpdates = await Location.hasStartedLocationUpdatesAsync(LOCATION_MONITOR_TASK);
+      if (isLocationUpdates) {
+        await Location.stopLocationUpdatesAsync(LOCATION_MONITOR_TASK);
       }
     } catch (e) {
-      console.warn('[Geofence] Failed to stop location monitor task:', e);
+      console.log('[Geofence] Could not stop location monitor task (might already be stopped):', e);
     }
 
-    await storage.removeItem('active_shift_id');
-    console.log('[Geofence] Monitoring stopped');
+    // Always clear state at the end
+    await clearGeofenceState();
+    console.log('[Geofence] Monitoring stopped and state cleared');
   } catch (err) {
-    console.error('[Geofence] Failed to stop monitoring:', err);
+    console.error('[Geofence] Failed during stopGeofencing:', err);
+    // Fallback: at least try to clear state
+    await clearGeofenceState();
   }
 }
 

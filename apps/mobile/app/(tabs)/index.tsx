@@ -51,17 +51,24 @@ export default function HomeScreen() {
   const activeShift = shiftData?.activeShift;
   const nextShifts = shiftData?.nextShifts || [];
 
-  // Re-sync geofencing if it's not running but should be
+  // Re-sync geofencing lifecycle
   useEffect(() => {
-    const checkAndStartGeofence = async () => {
+    const syncGeofence = async () => {
+      const isRunning = await isGeofencingActive();
+      
       if (activeShift?.attendance) {
-        const isRunning = await isGeofencingActive();
         if (!isRunning) {
           await startGeofencing(activeShift);
         }
+      } else {
+        // No active shift or no attendance yet - ensure geofencing is OFF
+        if (isRunning) {
+          console.log('[Geofence] No active shift with attendance, stopping...');
+          await stopGeofencing();
+        }
       }
     };
-    checkAndStartGeofence();
+    syncGeofence();
   }, [activeShift]);
 
   const isAttendanceLate = (() => {

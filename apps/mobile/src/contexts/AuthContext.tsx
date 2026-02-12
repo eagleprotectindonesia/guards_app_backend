@@ -3,6 +3,7 @@ import { Alert } from 'react-native';
 import { storage, STORAGE_KEYS } from '../utils/storage';
 import { client, setupInterceptors } from '../api/client';
 import { getSocket, disconnectSocket } from '../api/socket';
+import { stopGeofencing } from '../utils/geofence';
 import { Employee } from '@repo/types';
 
 type AuthState =
@@ -30,6 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // reason could be used for showing specific alerts in the future 
     // but for now we just handle the cleanup
     disconnectSocket();
+    await stopGeofencing();
     await storage.clear();
     setState({
       user: null,
