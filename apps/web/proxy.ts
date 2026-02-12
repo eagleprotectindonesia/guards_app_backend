@@ -66,7 +66,16 @@ export async function proxy(request: NextRequest) {
 
   // 4. Handle Employee Session Auth
   if (isEmployeeApiPath && !isPublicPath) {
-    const token = request.cookies.get(AUTH_COOKIES.EMPLOYEE)?.value;
+    let token = request.cookies.get(AUTH_COOKIES.EMPLOYEE)?.value;
+    
+    // Fallback to Authorization Bearer header if cookie is missing
+    if (!token) {
+      const authHeader = request.headers.get('Authorization');
+      if (authHeader?.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
+
     let isValid = false;
 
     if (token) {
