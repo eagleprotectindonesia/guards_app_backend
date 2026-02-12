@@ -4,6 +4,7 @@ import axios from 'axios';
 import { storage, STORAGE_KEYS } from './storage';
 import { BASE_URL, queryClient } from '../api/client';
 import { SystemSettings } from '../hooks/useSettings';
+import { calculateDistance } from '@repo/shared';
 
 export const GEOFENCE_TASK = 'GEOFENCE_TASK';
 export const LOCATION_MONITOR_TASK = 'LOCATION_MONITOR_TASK';
@@ -13,6 +14,7 @@ const BREACH_REPORTED_KEY = '@geofence_breach_reported';
 const LOCATION_DISABLED_START_TIME_KEY = '@location_disabled_start_time';
 const LOCATION_DISABLED_REPORTED_KEY = '@location_disabled_reported';
 const ACTIVE_SHIFT_ID_KEY = 'active_shift_id';
+const GEOFENCE_CONFIG_KEY = 'geofence_config';
 
 // Default values as fallbacks
 const DEFAULT_SETTINGS: SystemSettings = {
@@ -35,13 +37,17 @@ async function reportBreach(shiftId: string, reason: 'geofence_breach' | 'locati
     const isReported = await storage.getItem(reportedKey);
     if (isReported === shiftId) return;
 
-    await axios.post(`${BASE_URL}/api/employee/alerts/report`, {
-      shiftId,
-      reason,
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
+    await axios.post(
+      `${BASE_URL}/api/employee/alerts/report`,
+      {
+        shiftId,
+        reason,
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
     await storage.setItem(reportedKey, shiftId);
     console.log(`[Background] Reported ${reason} for shift ${shiftId}`);
   } catch (error) {
@@ -59,13 +65,17 @@ async function resolveBreach(shiftId: string, reason: 'geofence_breach' | 'locat
     const isReported = await storage.getItem(reportedKey);
     if (isReported !== shiftId) return;
 
-    await axios.post(`${BASE_URL}/api/employee/alerts/resolve`, {
-      shiftId,
-      reason,
-    }, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    
+    await axios.post(
+      `${BASE_URL}/api/employee/alerts/resolve`,
+      {
+        shiftId,
+        reason,
+      },
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
     await storage.removeItem(reportedKey);
     console.log(`[Background] Resolved ${reason} for shift ${shiftId}`);
   } catch (error) {
@@ -90,17 +100,22 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data: { eventType }, error }: any
     console.log(`[Background] Entered geofence`);
     await resolveBreach(shiftId, 'geofence_breach');
     await storage.removeItem(BREACH_START_TIME_KEY);
-    // resolveBreach already handles removing BREACH_REPORTED_KEY if it was resolved
   }
 });
 
 // Handler for periodic location updates (Timer triggered)
 TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
-  if (error) return;
+  if (error) {
+    console.error(`[Background] Location monitor task error: ${error.message}`);
+    return;
+  }
 
   try {
     const shiftId = await storage.getItem(ACTIVE_SHIFT_ID_KEY);
     if (!shiftId) return;
+
+    const locations = data?.locations || [];
+    const lastLocation = locations[locations.length - 1];
 
     // 1. Check Location Services & Permissions
     const { status } = await Location.getForegroundPermissionsAsync();
@@ -122,17 +137,44 @@ TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
       await storage.removeItem(LOCATION_DISABLED_START_TIME_KEY);
     }
 
-    // 2. Check Geofence Breach Duration (if not reported yet)
-    const breachStartTime = await storage.getItem(BREACH_START_TIME_KEY);
-    if (breachStartTime) {
-      const elapsedMinutes = (Date.now() - parseInt(breachStartTime, 10)) / 1000 / 60;
-      console.log(`[Background] Breach duration: ${elapsedMinutes.toFixed(2)} mins`);
-      
+    // 2. Manual Geofence Breach Check (Fallback for "always outside")
+    if (lastLocation) {
+      const geofenceConfig = await storage.getItem(GEOFENCE_CONFIG_KEY);
+      if (geofenceConfig) {
+        const distance = calculateDistance(
+          lastLocation.coords.latitude,
+          lastLocation.coords.longitude,
+          geofenceConfig.latitude,
+          geofenceConfig.longitude
+        );
+
+        const isCurrentlyOutside = distance > geofenceConfig.radius;
+        const breachStartTime = await storage.getItem(BREACH_START_TIME_KEY);
+
+        if (isCurrentlyOutside) {
+          if (!breachStartTime) {
+            console.log(`[Background] Manual breach detection. Distance: ${distance.toFixed(2)}m`);
+            await storage.setItem(BREACH_START_TIME_KEY, Date.now().toString());
+          }
+        } else {
+          if (breachStartTime) {
+            console.log(`[Background] Manual enter detection. Distance: ${distance.toFixed(2)}m`);
+            await resolveBreach(shiftId, 'geofence_breach');
+            await storage.removeItem(BREACH_START_TIME_KEY);
+          }
+        }
+      }
+    }
+
+    // 3. Check Geofence Breach Duration (if not reported yet)
+    const currentBreachStart = await storage.getItem(BREACH_START_TIME_KEY);
+    if (currentBreachStart) {
+      const elapsedMinutes = (Date.now() - parseInt(currentBreachStart, 10)) / 1000 / 60;
+
       if (elapsedMinutes >= settings.GEOFENCE_GRACE_MINUTES) {
         await reportBreach(shiftId, 'geofence_breach');
       }
     }
-
   } catch (err) {
     console.error('[Background] monitor task error:', err);
   }

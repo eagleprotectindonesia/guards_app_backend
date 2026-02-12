@@ -18,14 +18,25 @@ export async function startGeofencing(shift: {
   const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
   if (backgroundStatus !== 'granted') return;
 
+  const servicesEnabled = await Location.hasServicesEnabledAsync();
+  if (!servicesEnabled) {
+    console.warn('[Geofence] Location services are disabled');
+    return;
+  }
+
   const lat = shift.site.latitude;
   const lng = shift.site.longitude;
   const radius = shift.site.geofenceRadius || 100;
 
   if (lat == null || lng == null) return;
 
-  // Store active shift ID for the background task
+  // Store active shift ID and geofence config for the background task
   await storage.setItem('active_shift_id', shift.id);
+  await storage.setItem('geofence_config', {
+    latitude: lat,
+    longitude: lng,
+    radius: radius,
+  });
 
   try {
     // 1. Start Geofencing
@@ -40,13 +51,12 @@ export async function startGeofencing(shift: {
       },
     ]);
 
-    // 2. Start Recurring Location Monitor (as a fallback/disabled check)
-    // expo-location doesn't have a built-in "startBackgroundLocationMonitor" but we can use
-    // startLocationUpdatesAsync which triggers LOCATION_MONITOR_TASK.
+    // 2. Start Recurring Location Monitor
     await Location.startLocationUpdatesAsync(LOCATION_MONITOR_TASK, {
       accuracy: Location.Accuracy.Balanced,
       timeInterval: 1000 * 60 * 1, // Every 1 minute
       distanceInterval: 50,
+      pausesUpdatesAutomatically: false,
       foregroundService: {
         notificationTitle: 'Monitoring Shift',
         notificationBody: 'Geofencing and location monitoring active.',
@@ -61,19 +71,81 @@ export async function startGeofencing(shift: {
 
 export async function stopGeofencing() {
   try {
-    const isGeofencing = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
-    if (isGeofencing) {
-      await Location.stopGeofencingAsync(GEOFENCE_TASK);
+    const servicesEnabled = await Location.hasServicesEnabledAsync();
+    if (!servicesEnabled) {
+      console.log('[Geofence] Services disabled, cleaning up local state');
+      await storage.removeItem('active_shift_id');
+      return;
     }
 
-    const isLocationUpdates = await Location.hasStartedLocationUpdatesAsync(LOCATION_MONITOR_TASK);
-    if (isLocationUpdates) {
-      await Location.stopLocationUpdatesAsync(LOCATION_MONITOR_TASK);
+    // Attempt to stop geofencing if background permissions are present
+    try {
+      const { status: bgStatus } = await Location.getBackgroundPermissionsAsync();
+      if (bgStatus === 'granted') {
+        const isGeofencing = await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
+        if (isGeofencing) {
+          await Location.stopGeofencingAsync(GEOFENCE_TASK);
+        }
+      }
+    } catch (e) {
+      console.warn('[Geofence] Failed to stop geofencing task:', e);
+    }
+
+    // Attempt to stop location updates if foreground permissions are present
+    try {
+      const { status: fgStatus } = await Location.getForegroundPermissionsAsync();
+      if (fgStatus === 'granted') {
+        const isLocationUpdates = await Location.hasStartedLocationUpdatesAsync(LOCATION_MONITOR_TASK);
+        if (isLocationUpdates) {
+          await Location.stopLocationUpdatesAsync(LOCATION_MONITOR_TASK);
+        }
+      }
+    } catch (e) {
+      console.warn('[Geofence] Failed to stop location monitor task:', e);
     }
 
     await storage.removeItem('active_shift_id');
     console.log('[Geofence] Monitoring stopped');
   } catch (err) {
     console.error('[Geofence] Failed to stop monitoring:', err);
+  }
+}
+
+export async function isGeofencingActive(): Promise<boolean> {
+  try {
+    const servicesEnabled = await Location.hasServicesEnabledAsync();
+    if (!servicesEnabled) return false;
+    // Check both independently to avoid one rejection blocking the other
+    const [geo, loc] = await Promise.all([
+      (async () => {
+        try {
+          const { status } = await Location.getBackgroundPermissionsAsync();
+          if (status === 'granted') {
+            return await Location.hasStartedGeofencingAsync(GEOFENCE_TASK);
+          }
+        } catch (e) {
+          console.warn('[Geofence] Geofence check rejected:', e);
+        }
+        return false;
+      })(),
+      (async () => {
+        try {
+          const { status } = await Location.getForegroundPermissionsAsync();
+
+          if (status === 'granted') {
+            return await Location.hasStartedLocationUpdatesAsync(LOCATION_MONITOR_TASK);
+          }
+        } catch (e) {
+          console.warn('[Geofence] Location monitor check rejected:', e);
+        }
+        return false;
+      })(),
+    ]);
+    console.log('geo', geo);
+    console.log('loc', loc);
+    return geo && loc;
+  } catch (err) {
+    console.error('[Geofence] Error checking if active:', err);
+    return false;
   }
 }
