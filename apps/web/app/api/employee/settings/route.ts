@@ -22,8 +22,13 @@ export async function GET() {
     return acc;
   }, {} as Record<string, string>);
 
+  const parseSetting = (name: string, defaultValue: number) => {
+    const value = parseInt(settingsMap[name] || '', 10);
+    return isNaN(value) || value <= 0 ? defaultValue : value;
+  };
+
   return NextResponse.json({
-    GEOFENCE_GRACE_MINUTES: parseInt(settingsMap['GEOFENCE_GRACE_MINUTES'] || '5', 10),
-    LOCATION_DISABLED_GRACE_MINUTES: parseInt(settingsMap['LOCATION_DISABLED_GRACE_MINUTES'] || '2', 10),
+    GEOFENCE_GRACE_MINUTES: parseSetting('GEOFENCE_GRACE_MINUTES', 5),
+    LOCATION_DISABLED_GRACE_MINUTES: parseSetting('LOCATION_DISABLED_GRACE_MINUTES', 2),
   });
 }
