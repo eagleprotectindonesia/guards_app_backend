@@ -30,7 +30,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Not assigned to this shift' }, { status: 403 });
     }
 
-    // 2. Create the Alert
+    // 2. Check for existing active (unresolved) alert for this shift and reason (Idempotency)
+    const existingAlert = await prisma.alert.findFirst({
+      where: {
+        shiftId: shift.id,
+        reason: body.reason,
+        resolvedAt: null,
+      },
+      include: {
+        site: true,
+        shift: {
+          include: {
+            employee: true,
+            shiftType: true,
+          },
+        },
+      },
+    });
+
+    if (existingAlert) {
+      return NextResponse.json({
+        message: 'Alert already exists and is active',
+        alertId: existingAlert.id,
+      });
+    }
+
+    // 3. Create the Alert
     const alert = await prisma.alert.create({
       data: {
         shiftId: shift.id,
