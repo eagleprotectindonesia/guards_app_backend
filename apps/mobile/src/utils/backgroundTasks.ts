@@ -60,11 +60,7 @@ async function resolveBreach(shiftId: string, reason: 'geofence_breach' | 'locat
     const token = await storage.getItem(STORAGE_KEYS.TOKEN);
     if (!token) return;
 
-    // Only resolve if we know we reported it for this shift
-    const reportedKey = reason === 'geofence_breach' ? BREACH_REPORTED_KEY : LOCATION_DISABLED_REPORTED_KEY;
-    const isReported = await storage.getItem(reportedKey);
-    if (isReported !== shiftId) return;
-
+    // Unconditionally attempt to resolve on server (Server is idempotent)
     await axios.post(
       `${BASE_URL}/api/employee/alerts/resolve`,
       {
@@ -76,6 +72,8 @@ async function resolveBreach(shiftId: string, reason: 'geofence_breach' | 'locat
       }
     );
 
+    // Clear local reported state regardless
+    const reportedKey = reason === 'geofence_breach' ? BREACH_REPORTED_KEY : LOCATION_DISABLED_REPORTED_KEY;
     await storage.removeItem(reportedKey);
     console.log(`[Background] Resolved ${reason} for shift ${shiftId}`);
   } catch (error) {
@@ -84,11 +82,14 @@ async function resolveBreach(shiftId: string, reason: 'geofence_breach' | 'locat
 }
 
 // Handler for Geofencing transitions (OS triggered)
-TaskManager.defineTask(GEOFENCE_TASK, async ({ data: { eventType }, error }: any) => {
+TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }: any) => {
   if (error) {
     console.error(`[Background] Geofence task error: ${error.message}`);
     return;
   }
+
+  const eventType = data?.eventType;
+  if (!eventType) return;
 
   const shiftId = await storage.getItem(ACTIVE_SHIFT_ID_KEY);
   if (!shiftId) return;
@@ -117,12 +118,17 @@ TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
     const locations = data?.locations || [];
     const lastLocation = locations[locations.length - 1];
 
-    // 1. Check Location Services & Permissions
-    const { status } = await Location.getForegroundPermissionsAsync();
-    const isLocationEnabled = await Location.hasServicesEnabledAsync();
+    // 1. Check Location Services & Permissions (Both Foreground & Background)
+    const [{ status: fgStatus }, { status: bgStatus }, isLocationEnabled] = await Promise.all([
+      Location.getForegroundPermissionsAsync(),
+      Location.getBackgroundPermissionsAsync(),
+      Location.hasServicesEnabledAsync(),
+    ]);
+
+    const hasPermissions = fgStatus === 'granted' && bgStatus === 'granted';
     const settings = getSettings();
 
-    if (!isLocationEnabled || status !== 'granted') {
+    if (!isLocationEnabled || !hasPermissions) {
       const startTime = await storage.getItem(LOCATION_DISABLED_START_TIME_KEY);
       if (!startTime) {
         await storage.setItem(LOCATION_DISABLED_START_TIME_KEY, Date.now().toString());
