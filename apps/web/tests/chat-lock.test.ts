@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { initSocket } from '@/lib/socket';
 import { Server as SocketIOServer } from 'socket.io';
 import { createServer } from 'http';
 import { redis } from '@/lib/redis';
-import { authenticateSocket } from '@/lib/socket-auth';
 
 jest.mock('socket.io');
 jest.mock('@socket.io/redis-adapter');
@@ -27,7 +27,14 @@ jest.mock('@/lib/data-access/chat', () => ({
 }));
 
 describe('Chat Locking Logic', () => {
-  let mockIo: any;
+  let mockIo: {
+    adapter: jest.Mock;
+    use: jest.Mock;
+    on: jest.Mock;
+    to: jest.Mock;
+    emit: jest.Mock;
+    connectionHandler?: any;
+  };
   let mockSocket: any;
 
   beforeEach(() => {
@@ -56,7 +63,7 @@ describe('Chat Locking Logic', () => {
 
     // Setup the connection handler
     const connectionHandler = mockIo.connectionHandler;
-    
+
     // Admin B connects
     const socketB = { ...mockSocket, data: { auth: { id: 'admin-2', type: 'admin' } }, on: jest.fn() };
     connectionHandler(socketB);
@@ -69,9 +76,12 @@ describe('Chat Locking Logic', () => {
 
     await sendMessageListener({ employeeId: 'emp-123', content: 'Hello' });
 
-    expect(socketB.emit).toHaveBeenCalledWith('error', expect.objectContaining({
-      message: 'Locked by another admin'
-    }));
+    expect(socketB.emit).toHaveBeenCalledWith(
+      'error',
+      expect.objectContaining({
+        message: 'Locked by another admin',
+      })
+    );
   });
 
   test('should allow Admin A to send message if they hold the lock', async () => {
@@ -79,7 +89,7 @@ describe('Chat Locking Logic', () => {
     initSocket(server);
 
     const connectionHandler = mockIo.connectionHandler;
-    
+
     // Admin A connects
     const socketA = { ...mockSocket, data: { auth: { id: 'admin-1', type: 'admin' } }, on: jest.fn() };
     connectionHandler(socketA);
@@ -99,7 +109,7 @@ describe('Chat Locking Logic', () => {
     initSocket(server);
 
     const connectionHandler = mockIo.connectionHandler;
-    
+
     // Admin A connects
     const socketA = { ...mockSocket, data: { auth: { id: 'admin-1', type: 'admin' } }, on: jest.fn() };
     connectionHandler(socketA);
@@ -111,13 +121,16 @@ describe('Chat Locking Logic', () => {
 
     // Should set lock in redis
     expect(redis.set).toHaveBeenCalledWith('chat_lock:emp-123', 'admin-1', 'EX', 120);
-    
+
     // Should notify all admins
     expect(mockIo.to).toHaveBeenCalledWith('admin');
-    expect(mockIo.emit).toHaveBeenCalledWith('conversation_locked', expect.objectContaining({
-      employeeId: 'emp-123',
-      lockedBy: 'admin-1'
-    }));
+    expect(mockIo.emit).toHaveBeenCalledWith(
+      'conversation_locked',
+      expect.objectContaining({
+        employeeId: 'emp-123',
+        lockedBy: 'admin-1',
+      })
+    );
   });
 
   test('should allow the same admin to refresh the lock by typing', async () => {
@@ -137,11 +150,14 @@ describe('Chat Locking Logic', () => {
 
     // Should refresh lock in redis
     expect(redis.set).toHaveBeenCalledWith('chat_lock:emp-123', 'admin-1', 'EX', 120);
-    
+
     // Should re-notify others of the refresh
-    expect(mockIo.emit).toHaveBeenCalledWith('conversation_locked', expect.objectContaining({
-      employeeId: 'emp-123',
-      lockedBy: 'admin-1'
-    }));
+    expect(mockIo.emit).toHaveBeenCalledWith(
+      'conversation_locked',
+      expect.objectContaining({
+        employeeId: 'emp-123',
+        lockedBy: 'admin-1',
+      })
+    );
   });
 });

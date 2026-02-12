@@ -17,7 +17,7 @@ jest.mock('@/lib/redis', () => ({
 jest.mock('@/lib/prisma', () => ({ prisma: {} }));
 
 describe('Socket.io CORS/Origin Restriction', () => {
-  let mockIo: any;
+  let mockIo: { adapter: jest.Mock; use: jest.Mock; on: jest.Mock };
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -31,27 +31,33 @@ describe('Socket.io CORS/Origin Restriction', () => {
 
   test('should initialize Socket.io with allowed origins from environment', () => {
     process.env.ALLOWED_ORIGINS = 'http://localhost:3000,https://app.example.com';
-    
+
     const server = createServer();
     initSocket(server);
 
-    expect(SocketIOServer).toHaveBeenCalledWith(server, expect.objectContaining({
-      cors: expect.objectContaining({
-        origin: ['http://localhost:3000', 'https://app.example.com'],
-      }),
-    }));
+    expect(SocketIOServer).toHaveBeenCalledWith(
+      server,
+      expect.objectContaining({
+        cors: expect.objectContaining({
+          origin: ['http://localhost:3000', 'https://app.example.com'],
+        }),
+      })
+    );
   });
 
   test('should fallback to "*" if no ALLOWED_ORIGINS is provided (backwards compatibility or dev)', () => {
     delete process.env.ALLOWED_ORIGINS;
-    
+
     const server = createServer();
     initSocket(server);
 
-    expect(SocketIOServer).toHaveBeenCalledWith(server, expect.objectContaining({
-      cors: expect.objectContaining({
-        origin: '*',
-      }),
-    }));
+    expect(SocketIOServer).toHaveBeenCalledWith(
+      server,
+      expect.objectContaining({
+        cors: expect.objectContaining({
+          origin: '*',
+        }),
+      })
+    );
   });
 });

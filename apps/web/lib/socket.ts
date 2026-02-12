@@ -8,34 +8,17 @@ import { registerChatHandlers } from './socket/chat';
 import { registerAdminHandlers } from './socket/admin';
 import { registerEmployeeHandlers } from './socket/employee';
 import { registerSystemHandlers } from './socket/system';
-import { 
-  ServerToClientEvents, 
-  ClientToServerEvents, 
-  InterServerEvents, 
-  SocketData 
-} from '@repo/types';
+import { ServerToClientEvents, ClientToServerEvents, InterServerEvents, SocketData } from '@repo/types';
 
-export type UnifiedServer = SocketIOServer<
-  ClientToServerEvents,
-  ServerToClientEvents,
-  InterServerEvents,
-  SocketData
->;
+export type UnifiedServer = SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
 
-export type UnifiedSocket = Socket<
-  ClientToServerEvents,
-  ServerToClientEvents,
-  InterServerEvents,
-  SocketData
->;
+export type UnifiedSocket = Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
 
 /**
  * Initializes the Socket.io server with Redis adapter and unified handlers.
  */
 export function initSocket(server: HttpServer | HttpsServer) {
-  const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-    : '*';
+  const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : '*';
 
   const io: UnifiedServer = new SocketIOServer(server, {
     cors: {
@@ -55,7 +38,7 @@ export function initSocket(server: HttpServer | HttpsServer) {
   // 3. Auth Middleware
   io.use(async (socket, next) => {
     try {
-      const auth = await authenticateSocket(socket.handshake);
+      const auth = await authenticateSocket(socket.handshake as unknown as Parameters<typeof authenticateSocket>[0]);
       if (auth) {
         socket.data.auth = auth;
         next();

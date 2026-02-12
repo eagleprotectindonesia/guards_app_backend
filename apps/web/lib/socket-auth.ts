@@ -67,7 +67,7 @@ export async function authenticateSocket(handshake: HandshakeLike): Promise<Sock
 
   const preferredRole = authPayload?.role;
 
-  // Priority detection:
+  // Priority detection, if admin and employee logged in from the same browser:
   // 1. If explicit token is provided in auth payload, prioritize the role it implies
   if (authPayload?.token) {
     try {
