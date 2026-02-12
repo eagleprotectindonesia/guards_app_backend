@@ -76,12 +76,16 @@ export async function POST(req: Request) {
       },
     });
 
-    // 3. Publish to Redis for real-time Socket.io updates
-    const payload = {
-      type: 'alert_created',
-      alert,
-    };
-    await redis.publish(`alerts:site:${shift.siteId}`, JSON.stringify(payload));
+    // 3. Publish to Redis for real-time Socket.io updates (Best-effort)
+    try {
+      const payload = {
+        type: 'alert_created',
+        alert,
+      };
+      await redis.publish(`alerts:site:${shift.siteId}`, JSON.stringify(payload));
+    } catch (redisError) {
+      console.error('[Alert Report] Redis publish failed:', redisError);
+    }
 
     return NextResponse.json({
       message: 'Alert reported successfully',

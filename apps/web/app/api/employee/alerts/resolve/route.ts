@@ -64,13 +64,17 @@ export async function POST(req: Request) {
       )
     );
 
-    // 3. Publish to Redis for real-time Socket.io updates
-    for (const alert of updatedAlerts) {
-      const payload = {
-        type: 'alert_updated',
-        alert,
-      };
-      await redis.publish(`alerts:site:${shift.siteId}`, JSON.stringify(payload));
+    // 3. Publish to Redis for real-time Socket.io updates (Best-effort)
+    try {
+      for (const alert of updatedAlerts) {
+        const payload = {
+          type: 'alert_updated',
+          alert,
+        };
+        await redis.publish(`alerts:site:${shift.siteId}`, JSON.stringify(payload));
+      }
+    } catch (redisError) {
+      console.error('[Alert Resolve] Redis publish failed:', redisError);
     }
 
     return NextResponse.json({

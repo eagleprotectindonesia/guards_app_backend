@@ -113,4 +113,35 @@ describe('Alert Report Idempotency', () => {
     expect(data.alertId).toBe('new-alert-id');
     expect(prisma.alert.create).toHaveBeenCalled();
   });
+
+  test('succeeds even if Redis publish fails', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({ id: employeeId });
+    (prisma.shift.findUnique as jest.Mock).mockResolvedValue({
+      id: shiftId,
+      employeeId: employeeId,
+      siteId: siteId,
+      site: { id: siteId, name: 'Test Site' },
+    });
+
+    (prisma.alert.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.alert.create as jest.Mock).mockResolvedValue({ id: 'new-alert-id', siteId });
+    
+    const { redis } = require('@/lib/redis');
+    (redis.publish as jest.Mock).mockRejectedValue(new Error('Redis connection lost'));
+
+    const req = new Request('http://localhost/api/employee/alerts/report', {
+      method: 'POST',
+      body: JSON.stringify({
+        shiftId,
+        reason: 'geofence_breach',
+      }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    // It should still return 200 because the alert WAS created in DB
+    expect(response.status).toBe(200);
+    expect(data.alertId).toBe('new-alert-id');
+  });
 });
