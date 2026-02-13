@@ -279,6 +279,8 @@ model Shift {
   requiredCheckinIntervalMins Int            @default(20) @map("required_checkin_interval_minutes")
   graceMinutes                Int            @default(2) @map("grace_minutes")
   lastHeartbeatAt             DateTime?      @map("last_heartbeat_at") @db.Timestamptz(6)
+  lastDeviceHeartbeatAt       DateTime?      @map("last_device_heartbeat_at") @db.Timestamptz(6)
+
   missedCount                 Int            @default(0) @map("missed_count")
   createdById                 String?        @map("created_by_id")
   lastUpdatedById             String?        @map("last_updated_by_id")

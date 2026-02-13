@@ -12,7 +12,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   }
 
   try {
-    const { updatedShift, resolvedAlert } = await recordHeartbeat({
+    const { updatedShift, resolvedAlerts } = await recordHeartbeat({
       shiftId,
       employeeId: employee.id,
     });
@@ -21,13 +21,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Shift not found or not assigned to you' }, { status: 404 });
     }
 
-    // If an alert was auto-resolved, publish to Redis for dashboard updates
-    if (resolvedAlert) {
+    // If alerts were auto-resolved, publish to Redis for dashboard updates
+    for (const alert of resolvedAlerts) {
       const payload = {
         type: 'alert_updated',
         alert: {
-           ...resolvedAlert,
-           site: updatedShift.site // We might need to include more site/shift info if the dashboard expects it
+           ...alert,
+           site: updatedShift.site
         },
       };
       await redis.publish(`alerts:site:${updatedShift.siteId}`, JSON.stringify(payload));

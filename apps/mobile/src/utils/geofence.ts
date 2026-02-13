@@ -105,7 +105,7 @@ export async function startGeofencing(shift: {
       deferredUpdatesDistance: 50,
     });
 
-    console.log('[Geofence] Tasks registered successfully.');
+    console.log('[Geofence] Tasks registered successfully new.');
     await sendDebugChat(`Geofencing STARTED for site: ${shift.site.name} (Radius: ${radius}m)`);
   } catch (err) {
     console.error('[Geofence] Failed to start:', err);

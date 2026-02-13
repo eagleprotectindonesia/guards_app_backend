@@ -126,6 +126,7 @@ describe('Alert Report Idempotency', () => {
     (prisma.alert.findFirst as jest.Mock).mockResolvedValue(null);
     (prisma.alert.create as jest.Mock).mockResolvedValue({ id: 'new-alert-id', siteId });
     
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { redis } = require('@/lib/redis');
     (redis.publish as jest.Mock).mockRejectedValue(new Error('Redis connection lost'));
 

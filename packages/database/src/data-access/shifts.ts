@@ -684,31 +684,24 @@ export async function recordHeartbeat(params: { shiftId: string; employeeId: str
     // 1. Update Shift Heartbeat
     const updatedShift = await tx.shift.update({
       where: { id: shiftId, employeeId, deletedAt: null },
-      data: { lastHeartbeatAt: new Date() },
+      data: { lastDeviceHeartbeatAt: new Date() },
       include: { site: true },
     });
 
-    // 2. Auto-resolve any open 'location_services_disabled' alerts for this shift
-    const openAlert = await tx.alert.findFirst({
+    // 2. Auto-resolve ALL open 'location_services_disabled' alerts for this shift
+    const resolvedAlerts = await tx.alert.updateManyAndReturn({
       where: {
         shiftId,
         reason: 'location_services_disabled',
         resolvedAt: null,
       },
+      data: {
+        resolvedAt: new Date(),
+        resolutionType: 'auto',
+        resolutionNote: 'Resolved by heartbeat receipt.',
+      },
     });
 
-    let resolvedAlert = null;
-    if (openAlert) {
-      resolvedAlert = await tx.alert.update({
-        where: { id: openAlert.id },
-        data: {
-          resolvedAt: new Date(),
-          resolutionType: 'auto',
-          resolutionNote: 'Resolved by heartbeat receipt.',
-        },
-      });
-    }
-
-    return { updatedShift, resolvedAlert };
+    return { updatedShift, resolvedAlerts };
   });
 }

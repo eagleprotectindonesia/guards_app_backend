@@ -265,7 +265,8 @@ export class SchedulingProcessor {
 
       // 3. Heartbeat Monitor (Dead Man's Switch)
       const HEARTBEAT_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
-      const lastHeartbeatAt = shift.lastHeartbeatAt?.getTime();
+      const lastHeartbeatAt = shift.lastDeviceHeartbeatAt?.getTime();
+
       const heartbeatAlertKey = `location_services_disabled:heartbeat_missing`;
 
       if (shift.status === 'in_progress' && (nowMs - startMs > HEARTBEAT_THRESHOLD_MS)) {
@@ -293,6 +294,19 @@ export class SchedulingProcessor {
     windowStart: Date,
     incrementMissedCount = false
   ) {
+    // 1. Double check: Ensure no active alert for this shift and reason already exists
+    const existingActiveAlert = await prisma.alert.findFirst({
+      where: {
+        shiftId: shift.id,
+        reason,
+        resolvedAt: null,
+      },
+    });
+
+    if (existingActiveAlert) {
+      return;
+    }
+
     const alert = await createMissedCheckinAlert({
       shiftId: shift.id,
       siteId: shift.siteId,
