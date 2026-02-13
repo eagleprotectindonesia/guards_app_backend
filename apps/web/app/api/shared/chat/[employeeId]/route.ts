@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getChatMessages, createChatMessage } from '@/lib/data-access/chat';
+import { getChatMessages, saveMessage } from '@/lib/data-access/chat';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { getCurrentAdmin } from '@/lib/admin-auth';
 
@@ -53,7 +53,7 @@ export async function POST(
       return NextResponse.json({ error: 'Content or attachments required' }, { status: 400 });
     }
 
-    const message = await createChatMessage({
+    const message = await saveMessage({
       employeeId,
       content: content || '',
       sender: admin ? 'admin' : 'employee',
