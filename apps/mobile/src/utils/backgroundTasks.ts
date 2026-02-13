@@ -5,6 +5,7 @@ import { storage, STORAGE_KEYS } from './storage';
 import { BASE_URL, queryClient } from '../api/client';
 import { SystemSettings } from '../hooks/useSettings';
 import { calculateDistance } from '@repo/shared';
+import { sendDebugChat } from './debug';
 
 export const GEOFENCE_TASK = 'GEOFENCE_TASK';
 export const LOCATION_MONITOR_TASK = 'LOCATION_MONITOR_TASK';
@@ -26,8 +27,53 @@ function getSettings(): SystemSettings {
   const cached = queryClient.getQueryData<SystemSettings>(['settings']);
   return cached || DEFAULT_SETTINGS;
 }
+export async function checkAndReportLocationServices(
+  shiftId: string,
+  source: string,
+  options?: { immediate?: boolean }
+) {
+  try {
+    // 1. Check Location Services & Permissions (Both Foreground & Background)
+    const [{ status: fgStatus }, { status: bgStatus }, isLocationEnabled] = await Promise.all([
+      Location.getForegroundPermissionsAsync(),
+      Location.getBackgroundPermissionsAsync(),
+      Location.hasServicesEnabledAsync(),
+    ]);
 
-async function reportBreach(shiftId: string, reason: 'geofence_breach' | 'location_services_disabled') {
+    const hasPermissions = fgStatus === 'granted' && bgStatus === 'granted';
+    const settings = getSettings();
+
+    if (!isLocationEnabled || !hasPermissions) {
+      if (options?.immediate) {
+        await sendDebugChat(`[${source}] Immediate location breach reported (No grace period).`);
+        await reportBreach(shiftId, 'location_services_disabled');
+        return;
+      }
+
+      const startTime = await storage.getItem(LOCATION_DISABLED_START_TIME_KEY);
+      if (!startTime) {
+        await sendDebugChat(`[${source}] Location services or permissions DISABLED. Starting grace period.`);
+        await storage.setItem(LOCATION_DISABLED_START_TIME_KEY, Date.now().toString());
+      } else {
+        const elapsedMinutes = (Date.now() - parseInt(startTime, 10)) / 1000 / 60;
+        if (elapsedMinutes >= settings.LOCATION_DISABLED_GRACE_MINUTES) {
+          await reportBreach(shiftId, 'location_services_disabled');
+        }
+      }
+    } else {
+      const startTime = await storage.getItem(LOCATION_DISABLED_START_TIME_KEY);
+      if (startTime) {
+        await sendDebugChat(`[${source}] Location services or permissions RESTORED.`);
+        await resolveBreach(shiftId, 'location_services_disabled');
+        await storage.removeItem(LOCATION_DISABLED_START_TIME_KEY);
+      }
+    }
+  } catch (error) {
+     console.error(`[${source}] Error checking location services:`, error);
+  }
+}
+
+export async function reportBreach(shiftId: string, reason: 'geofence_breach' | 'location_services_disabled') {
   try {
     const token = await storage.getItem(STORAGE_KEYS.TOKEN);
     if (!token) return;
@@ -50,12 +96,14 @@ async function reportBreach(shiftId: string, reason: 'geofence_breach' | 'locati
 
     await storage.setItem(reportedKey, shiftId);
     console.log(`[Background] Reported ${reason} for shift ${shiftId}`);
+    await sendDebugChat(`Reported ${reason} for shift ${shiftId}`);
   } catch (error) {
     console.error(`[Background] Failed to report ${reason}:`, error);
+    await sendDebugChat(`FAILED to report ${reason} for shift ${shiftId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
-async function resolveBreach(shiftId: string, reason: 'geofence_breach' | 'location_services_disabled') {
+export async function resolveBreach(shiftId: string, reason: 'geofence_breach' | 'location_services_disabled') {
   try {
     const token = await storage.getItem(STORAGE_KEYS.TOKEN);
     if (!token) return;
@@ -76,8 +124,28 @@ async function resolveBreach(shiftId: string, reason: 'geofence_breach' | 'locat
     const reportedKey = reason === 'geofence_breach' ? BREACH_REPORTED_KEY : LOCATION_DISABLED_REPORTED_KEY;
     await storage.removeItem(reportedKey);
     console.log(`[Background] Resolved ${reason} for shift ${shiftId}`);
+    await sendDebugChat(`Resolved ${reason} for shift ${shiftId}`);
   } catch (error) {
     console.error(`[Background] Failed to resolve ${reason}:`, error);
+    await sendDebugChat(`FAILED to resolve ${reason} for shift ${shiftId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+async function sendHeartbeat(shiftId: string) {
+  try {
+    const token = await storage.getItem(STORAGE_KEYS.TOKEN);
+    if (!token) return;
+
+    await axios.post(
+      `${BASE_URL}/api/employee/shifts/${shiftId}/heartbeat`,
+      {},
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    console.log(`[Background] Heartbeat sent for shift ${shiftId}`);
+  } catch (error) {
+    console.error(`[Background] Failed to send heartbeat:`, error);
   }
 }
 
@@ -85,6 +153,7 @@ async function resolveBreach(shiftId: string, reason: 'geofence_breach' | 'locat
 TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }: any) => {
   if (error) {
     console.error(`[Background] Geofence task error: ${error.message}`);
+    await sendDebugChat(`Geofence Task ERROR: ${error.message}`);
     return;
   }
 
@@ -96,9 +165,11 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }: any) => {
 
   if (eventType === Location.GeofencingEventType.Exit) {
     console.log(`[Background] Exited geofence`);
+    await sendDebugChat(`Geofence EXIT detected by OS for shift ${shiftId}`);
     await storage.setItem(BREACH_START_TIME_KEY, Date.now().toString());
   } else if (eventType === Location.GeofencingEventType.Enter) {
     console.log(`[Background] Entered geofence`);
+    await sendDebugChat(`Geofence ENTER detected by OS for shift ${shiftId}`);
     await resolveBreach(shiftId, 'geofence_breach');
     await storage.removeItem(BREACH_START_TIME_KEY);
   }
@@ -108,6 +179,7 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }: any) => {
 TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
   if (error) {
     console.error(`[Background] Location monitor task error: ${error.message}`);
+    await sendDebugChat(`Location Monitor Task ERROR: ${error.message}`);
     return;
   }
 
@@ -117,31 +189,21 @@ TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
 
     const locations = data?.locations || [];
     const lastLocation = locations[locations.length - 1];
-
-    // 1. Check Location Services & Permissions (Both Foreground & Background)
-    const [{ status: fgStatus }, { status: bgStatus }, isLocationEnabled] = await Promise.all([
-      Location.getForegroundPermissionsAsync(),
-      Location.getBackgroundPermissionsAsync(),
-      Location.hasServicesEnabledAsync(),
-    ]);
-
-    const hasPermissions = fgStatus === 'granted' && bgStatus === 'granted';
-    const settings = getSettings();
-
-    if (!isLocationEnabled || !hasPermissions) {
-      const startTime = await storage.getItem(LOCATION_DISABLED_START_TIME_KEY);
-      if (!startTime) {
-        await storage.setItem(LOCATION_DISABLED_START_TIME_KEY, Date.now().toString());
-      } else {
-        const elapsedMinutes = (Date.now() - parseInt(startTime, 10)) / 1000 / 60;
-        if (elapsedMinutes >= settings.LOCATION_DISABLED_GRACE_MINUTES) {
-          await reportBreach(shiftId, 'location_services_disabled');
-        }
-      }
+    
+    // Log task trigger
+    if (lastLocation) {
+      await sendDebugChat(`LOCATION_MONITOR_TASK triggered. Accuracy: ${lastLocation.coords.accuracy?.toFixed(1)}m`);
     } else {
-      await resolveBreach(shiftId, 'location_services_disabled');
-      await storage.removeItem(LOCATION_DISABLED_START_TIME_KEY);
+      await sendDebugChat(`LOCATION_MONITOR_TASK triggered with no location data`);
     }
+
+    // 1. Send Heartbeat (Aggressive monitoring - 1 minute)
+    await sendHeartbeat(shiftId);
+
+    // 2. Check Location Services & Permissions (Shared Logic)
+    await checkAndReportLocationServices(shiftId, 'LOCATION_MONITOR_TASK');
+
+    const settings = getSettings();
 
     // 2. Manual Geofence Breach Check (Fallback for "always outside")
     if (lastLocation) {
@@ -160,11 +222,13 @@ TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
         if (isCurrentlyOutside) {
           if (!breachStartTime) {
             console.log(`[Background] Manual breach detection. Distance: ${distance.toFixed(2)}m`);
+            await sendDebugChat(`Manual BREACH detection. Distance: ${distance.toFixed(2)}m (Radius: ${geofenceConfig.radius}m)`);
             await storage.setItem(BREACH_START_TIME_KEY, Date.now().toString());
           }
         } else {
           if (breachStartTime) {
             console.log(`[Background] Manual enter detection. Distance: ${distance.toFixed(2)}m`);
+            await sendDebugChat(`Manual ENTER detection. Distance: ${distance.toFixed(2)}m (Radius: ${geofenceConfig.radius}m)`);
             await resolveBreach(shiftId, 'geofence_breach');
             await storage.removeItem(BREACH_START_TIME_KEY);
           }
@@ -183,5 +247,6 @@ TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
     }
   } catch (err) {
     console.error('[Background] monitor task error:', err);
+    await sendDebugChat(`LOCATION_MONITOR_TASK UNCAUGHT ERROR: ${err instanceof Error ? err.message : 'Unknown error'}`);
   }
 });

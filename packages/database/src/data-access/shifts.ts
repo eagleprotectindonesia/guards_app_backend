@@ -644,7 +644,7 @@ export const getGuardActiveAndUpcomingShifts = getEmployeeActiveAndUpcomingShift
 export async function createMissedCheckinAlert(params: {
   shiftId: string;
   siteId: string;
-  reason: 'missed_attendance' | 'missed_checkin';
+  reason: 'missed_attendance' | 'missed_checkin' | 'location_services_disabled';
   windowStart: Date;
   incrementMissedCount: boolean;
 }) {
@@ -675,5 +675,40 @@ export async function createMissedCheckinAlert(params: {
         shift: { include: { employee: true, shiftType: true } },
       },
     });
+  });
+}
+export async function recordHeartbeat(params: { shiftId: string; employeeId: string }) {
+  const { shiftId, employeeId } = params;
+
+  return prisma.$transaction(async tx => {
+    // 1. Update Shift Heartbeat
+    const updatedShift = await tx.shift.update({
+      where: { id: shiftId, employeeId, deletedAt: null },
+      data: { lastHeartbeatAt: new Date() },
+      include: { site: true },
+    });
+
+    // 2. Auto-resolve any open 'location_services_disabled' alerts for this shift
+    const openAlert = await tx.alert.findFirst({
+      where: {
+        shiftId,
+        reason: 'location_services_disabled',
+        resolvedAt: null,
+      },
+    });
+
+    let resolvedAlert = null;
+    if (openAlert) {
+      resolvedAlert = await tx.alert.update({
+        where: { id: openAlert.id },
+        data: {
+          resolvedAt: new Date(),
+          resolutionType: 'auto',
+          resolutionNote: 'Resolved by heartbeat receipt.',
+        },
+      });
+    }
+
+    return { updatedShift, resolvedAlert };
   });
 }

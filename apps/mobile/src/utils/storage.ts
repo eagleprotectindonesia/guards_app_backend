@@ -7,6 +7,10 @@ export const STORAGE_KEYS = {
 
 export const storage = {
   async setItem(key: string, value: any) {
+    if (!key) {
+      console.error('storage.setItem: key is undefined or null');
+      return;
+    }
     try {
       const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
       await AsyncStorage.setItem(key, stringValue);
@@ -16,6 +20,10 @@ export const storage = {
   },
 
   async getItem(key: string) {
+    if (!key) {
+      console.error('storage.getItem: key is undefined or null');
+      return null;
+    }
     try {
       const value = await AsyncStorage.getItem(key);
       if (value === null) return null;
@@ -31,6 +39,10 @@ export const storage = {
   },
 
   async removeItem(key: string) {
+    if (!key) {
+      console.error('storage.removeItem: key is undefined or null');
+      return;
+    }
     try {
       await AsyncStorage.removeItem(key);
     } catch (e) {

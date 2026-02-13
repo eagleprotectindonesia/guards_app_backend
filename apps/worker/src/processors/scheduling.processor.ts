@@ -262,12 +262,34 @@ export class SchedulingProcessor {
           }
         }
       }
+
+      // 3. Heartbeat Monitor (Dead Man's Switch)
+      const HEARTBEAT_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+      const lastHeartbeatAt = shift.lastHeartbeatAt?.getTime();
+      const heartbeatAlertKey = `location_services_disabled:heartbeat_missing`;
+
+      if (shift.status === 'in_progress' && (nowMs - startMs > HEARTBEAT_THRESHOLD_MS)) {
+        const lastSignal = lastHeartbeatAt || startMs;
+        const timeSinceLastSignal = nowMs - lastSignal;
+
+        if (timeSinceLastSignal > HEARTBEAT_THRESHOLD_MS && !state.processedAlerts.has(heartbeatAlertKey)) {
+          console.log(
+            `[SchedulingProcessor] Heartbeat missing for shift ${shift.id}. Last signal: ${new Date(
+              lastSignal
+            ).toISOString()}`
+          );
+          await this.createAlert(shift, 'location_services_disabled', now);
+          state.processedAlerts.add(heartbeatAlertKey);
+        } else if (lastHeartbeatAt && nowMs - lastHeartbeatAt < HEARTBEAT_THRESHOLD_MS) {
+          state.processedAlerts.delete(heartbeatAlertKey);
+        }
+      }
     }
   }
 
   private async createAlert(
     shift: CachedShift,
-    reason: 'missed_attendance' | 'missed_checkin',
+    reason: 'missed_attendance' | 'missed_checkin' | 'location_services_disabled',
     windowStart: Date,
     incrementMissedCount = false
   ) {
