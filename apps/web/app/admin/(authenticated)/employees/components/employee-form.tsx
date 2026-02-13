@@ -110,7 +110,6 @@ export default function EmployeeForm({ employee, departments = [], designations 
     } else {
       // Scroll to the first error
       const firstError = Object.keys(errors)[0];
-      console.log('firstError', firstError);
 
       if (firstError) {
         const element = document.getElementById(firstError);

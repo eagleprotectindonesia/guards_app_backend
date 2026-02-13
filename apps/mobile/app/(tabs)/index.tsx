@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShiftWithRelations, Employee } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
-import { startGeofencing, isGeofencingActive } from '../../src/utils/geofence';
+import { startGeofencing, stopGeofencing, isGeofencingActive } from '../../src/utils/geofence';
 
 type ActiveShiftData = {
   activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;

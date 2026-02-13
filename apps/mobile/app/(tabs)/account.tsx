@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Alert, ScrollView } from 'react-native';
 import {
   Box,
@@ -13,20 +13,19 @@ import {
 } from '@gluestack-ui/themed';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
-import PasswordChangeModal from '../../src/components/PasswordChangeModal';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { LogOut, Lock } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
+import { usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
 
 export default function AccountScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { logout } = useAuth();
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [isForcePasswordChange, setIsForcePasswordChange] = useState(false);
+  const { openPasswordChangeModal } = usePasswordChangeModal();
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -35,18 +34,6 @@ export default function AccountScreen() {
       return res.data;
     },
   });
-
-  useEffect(() => {
-    if (profile?.employee?.mustChangePassword) {
-      // Use a small timeout to avoid synchronous set state in effect warning
-      // or simply rely on the fact that this should only happen once
-      const timer = setTimeout(() => {
-        setIsForcePasswordChange(true);
-        setIsPasswordModalOpen(true);
-      }, 0);
-      return () => clearTimeout(timer);
-    }
-  }, [profile?.employee?.mustChangePassword]);
 
   const handleLogout = async () => {
     await logout();
@@ -80,7 +67,7 @@ export default function AccountScreen() {
               <Button
                 variant="link"
                 className="justify-start h-16 px-4 border-b border-gray-100"
-                onPress={() => setIsPasswordModalOpen(true)}
+                onPress={() => openPasswordChangeModal(false)}
               >
                 <Lock size={20} stroke="#4B5563" />
                 <ButtonText className="text-gray-700 ml-3">{t('dashboard.changePassword')}</ButtonText>
@@ -103,15 +90,6 @@ export default function AccountScreen() {
           </VStack>
         </VStack>
       </ScrollView>
-
-      <PasswordChangeModal
-        isOpen={isPasswordModalOpen}
-        isForce={isForcePasswordChange}
-        onClose={() => {
-          setIsPasswordModalOpen(false);
-          setIsForcePasswordChange(false);
-        }}
-      />
     </Box>
   );
 }

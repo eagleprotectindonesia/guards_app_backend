@@ -13,7 +13,7 @@ const GEOFENCE_KEYS = [
 
 export async function clearGeofenceState() {
   try {
-    await Promise.all(GEOFENCE_KEYS.map((key) => storage.removeItem(key)));
+    await Promise.all(GEOFENCE_KEYS.map(key => storage.removeItem(key)));
     console.log('[Geofence] State cleared');
   } catch (err) {
     console.error('[Geofence] Failed to clear state:', err);
@@ -154,8 +154,6 @@ export async function isGeofencingActive(): Promise<boolean> {
         return false;
       })(),
     ]);
-    console.log('geo', geo);
-    console.log('loc', loc);
     return geo && loc;
   } catch (err) {
     console.error('[Geofence] Error checking if active:', err);

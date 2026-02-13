@@ -121,7 +121,6 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
 
     const handleAlert = (data: SSEAlertData) => {
       setLastAlertEvent(data); // Expose raw event to subscribers
-      console.log('alert masuk', data);
       if ('type' in data && data.type === 'alert_created') {
         setAlerts(prev => {
           const filteredPrev = prev.filter(a => {
