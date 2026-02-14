@@ -124,6 +124,14 @@ export async function createOfficeWithChangelog(data: Prisma.OfficeCreateInput, 
 export async function updateOfficeWithChangelog(id: string, data: Prisma.OfficeUpdateInput, adminId: string) {
   return prisma.$transaction(
     async tx => {
+      const beforeOffice = await tx.office.findUnique({
+        where: { id, deletedAt: null },
+      });
+
+      if (!beforeOffice) {
+        throw new Error('Office not found');
+      }
+
       const updatedOffice = await tx.office.update({
         where: { id, deletedAt: null },
         data: {
@@ -131,6 +139,18 @@ export async function updateOfficeWithChangelog(id: string, data: Prisma.OfficeU
           lastUpdatedBy: { connect: { id: adminId } },
         },
       });
+
+      // Calculate changes
+      const changes: Record<string, { from: any; to: any }> = {};
+
+      for (const field of OFFICE_TRACKED_FIELDS) {
+        const oldValue = (beforeOffice as any)[field];
+        const newValue = (updatedOffice as any)[field];
+
+        if (oldValue !== newValue) {
+          changes[field] = { from: oldValue, to: newValue };
+        }
+      }
 
       await tx.changelog.create({
         data: {
@@ -140,11 +160,13 @@ export async function updateOfficeWithChangelog(id: string, data: Prisma.OfficeU
           actor: 'admin',
           actorId: adminId,
           details: {
-            name: data.name ? updatedOffice.name : undefined,
-            address: data.address ? updatedOffice.address : undefined,
-            latitude: data.latitude ? updatedOffice.latitude : undefined,
-            longitude: data.longitude ? updatedOffice.longitude : undefined,
-            note: data.note !== undefined ? updatedOffice.note : undefined,
+            name: updatedOffice.name,
+            address: updatedOffice.address,
+            latitude: updatedOffice.latitude,
+            longitude: updatedOffice.longitude,
+            status: updatedOffice.status,
+            note: updatedOffice.note,
+            changes: Object.keys(changes).length > 0 ? changes : undefined,
           },
         },
       });
