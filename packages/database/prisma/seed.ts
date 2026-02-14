@@ -350,6 +350,7 @@ async function main() {
   const systemSettings = [
     { name: 'GEOFENCE_GRACE_MINUTES', value: '5', note: 'Grace period for returning to the geofence (minutes)' },
     { name: 'LOCATION_DISABLED_GRACE_MINUTES', value: '2', note: 'Grace period for re-enabling location services (minutes)' },
+    { name: 'ENABLE_LOCATION_MONITORING', value: '0', note: 'Feature toggle to enable/disable geofencing and location monitoring (1=ON, 0=OFF)' },
   ];
 
   await Promise.all(

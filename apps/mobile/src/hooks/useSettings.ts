@@ -4,6 +4,7 @@ import { client } from '../api/client';
 export interface SystemSettings {
   GEOFENCE_GRACE_MINUTES: number;
   LOCATION_DISABLED_GRACE_MINUTES: number;
+  ENABLE_LOCATION_MONITORING: boolean;
 }
 
 export const useSettings = () => {

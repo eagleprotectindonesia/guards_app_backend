@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 
 type Props = {
   site?: Serialized<Site>; // If provided, it's an edit form
+  isMonitoringEnabled?: boolean;
 };
 
 // MapUpdater component to update map position externally
@@ -161,7 +162,7 @@ function LocationSearchInput({
   );
 }
 
-export default function SiteForm({ site }: Props) {
+export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<ActionState<CreateSiteInput>, FormData>(
     site ? updateSite.bind(null, site.id) : createSite,
@@ -258,22 +259,24 @@ export default function SiteForm({ site }: Props) {
             </div>
 
             {/* Geofence Radius Field */}
-            <div>
-              <label htmlFor="geofenceRadius" className="block font-medium text-foreground mb-1">
-                Geofence Radius (meters)
-              </label>
-              <input
-                type="number"
-                name="geofenceRadius"
-                id="geofenceRadius"
-                defaultValue={site?.geofenceRadius || 100}
-                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
-                placeholder="e.g. 100"
-                min={10}
-                step={1}
-              />
-              {state.errors?.geofenceRadius && <p className="text-red-500 text-xs mt-1">{state.errors.geofenceRadius[0]}</p>}
-            </div>
+            {isMonitoringEnabled && (
+              <div>
+                <label htmlFor="geofenceRadius" className="block font-medium text-foreground mb-1">
+                  Geofence Radius (meters)
+                </label>
+                <input
+                  type="number"
+                  name="geofenceRadius"
+                  id="geofenceRadius"
+                  defaultValue={site?.geofenceRadius || 100}
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
+                  placeholder="e.g. 100"
+                  min={10}
+                  step={1}
+                />
+                {state.errors?.geofenceRadius && <p className="text-red-500 text-xs mt-1">{state.errors.geofenceRadius[0]}</p>}
+              </div>
+            )}
           </div>
 
           {/* Location Search Input */}

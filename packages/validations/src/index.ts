@@ -7,6 +7,11 @@ export const EmployeeTitleEnum = z.enum(['Mr', 'Miss', 'Mrs']);
 
 export const EmployeeRoleEnum = z.enum(['on_site', 'office']);
 
+const optionalNumber = z.preprocess(
+  (val) => !val? undefined: Number(val),
+  z.number().optional()
+);
+
 // --- Site ---
 export const createSiteSchema = z.object({
   name: z.string().min(1),
@@ -14,7 +19,7 @@ export const createSiteSchema = z.object({
   address: z.string().optional(),
   latitude: z.number(),
   longitude: z.number(),
-  geofenceRadius: z.number().min(10).default(100),
+  geofenceRadius: optionalNumber,
   status: z.boolean().optional(),
   note: z.string().optional(),
 });
@@ -22,7 +27,7 @@ export const createSiteSchema = z.object({
 // --- Admin ---
 export const createAdminSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(6, 'Password must be at least 6 characters long'),
   roleId: z.string().min(1, 'Role is required'),
   note: z.string().optional(),
@@ -30,7 +35,7 @@ export const createAdminSchema = z.object({
 
 export const updateAdminSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(6, 'Password must be at least 6 characters long').optional(),
   roleId: z.string().min(1, 'Role is required'),
   note: z.string().optional(),
@@ -168,8 +173,8 @@ export const createShiftTypeSchema = z.object({
 
 // --- Shift ---
 export const createShiftSchema = z.object({
-  siteId: z.uuid(),
-  shiftTypeId: z.uuid(),
+  siteId: z.string().uuid(),
+  shiftTypeId: z.string().uuid(),
   employeeId: z.string().min(1).optional(),
   // For backward compatibility
   guardId: z.string().min(1).optional(),

@@ -1,7 +1,7 @@
 import { Shift, ShiftType, Site, Attendance } from '@prisma/client';
 import { calculateCheckInWindow, CHECK_SHIFTS_JOB_NAME } from '@repo/shared';
 import { db as prisma, ExtendedEmployee } from '@repo/database';
-import { getActiveShifts, getShiftsUpdates, getUpcomingShifts, createMissedCheckinAlert } from '@repo/database';
+import { getActiveShifts, getShiftsUpdates, getUpcomingShifts, createMissedCheckinAlert, getSystemSetting } from '@repo/database';
 import { Job } from 'bullmq';
 import { getRedisConnection } from '../infrastructure/redis';
 
@@ -264,6 +264,13 @@ export class SchedulingProcessor {
       }
 
       // 3. Heartbeat Monitor (Dead Man's Switch)
+      const monitoringSetting = await getSystemSetting('ENABLE_LOCATION_MONITORING');
+      const isMonitoringEnabled = monitoringSetting?.value === '1';
+
+      if (!isMonitoringEnabled) {
+        continue;
+      }
+
       const HEARTBEAT_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
       const lastHeartbeatAt = shift.lastDeviceHeartbeatAt?.getTime();
 

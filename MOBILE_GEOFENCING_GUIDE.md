@@ -66,7 +66,7 @@ Geofencing and heartbeat monitoring are tightly coupled with the shift lifecycle
 
 ### `POST /api/employee/shifts/[id]/heartbeat`
 Used by the mobile app to report active status.
-- **Behavior**: Updates `lastHeartbeatAt` on the shift and automatically resolves any open `location_services_disabled` alerts for that shift.
+- **Behavior**: Updates `lastDeviceHeartbeatAt` on the shift and automatically resolves any open `location_services_disabled` alerts for that shift.
 
 ### `POST /api/employee/alerts/report`
 Reports a security breach from the mobile device.

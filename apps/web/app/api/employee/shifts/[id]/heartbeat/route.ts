@@ -33,7 +33,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       await redis.publish(`alerts:site:${updatedShift.siteId}`, JSON.stringify(payload));
     }
 
-    return NextResponse.json({ success: true, lastHeartbeatAt: updatedShift.lastHeartbeatAt });
+    return NextResponse.json({ success: true, lastHeartbeatAt: updatedShift.lastDeviceHeartbeatAt });
   } catch (error) {
     console.error('Error recording heartbeat:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

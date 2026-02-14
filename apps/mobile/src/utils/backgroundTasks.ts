@@ -21,9 +21,10 @@ const GEOFENCE_CONFIG_KEY = 'geofence_config';
 const DEFAULT_SETTINGS: SystemSettings = {
   GEOFENCE_GRACE_MINUTES: 5,
   LOCATION_DISABLED_GRACE_MINUTES: 2,
+  ENABLE_LOCATION_MONITORING: false,
 };
 
-function getSettings(): SystemSettings {
+export function getSettings(): SystemSettings {
   const cached = queryClient.getQueryData<SystemSettings>(['settings']);
   return cached || DEFAULT_SETTINGS;
 }
@@ -185,6 +186,13 @@ TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
 
   try {
     const shiftId = await storage.getItem(ACTIVE_SHIFT_ID_KEY);
+    const settings = getSettings();
+
+    if (!settings.ENABLE_LOCATION_MONITORING) {
+      console.log('[Background] Location monitoring is disabled via system settings.');
+      return;
+    }
+    
     if (!shiftId) return;
 
     const locations = data?.locations || [];
@@ -202,8 +210,6 @@ TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
 
     // 2. Check Location Services & Permissions (Shared Logic)
     await checkAndReportLocationServices(shiftId, 'LOCATION_MONITOR_TASK');
-
-    const settings = getSettings();
 
     // 2. Manual Geofence Breach Check (Fallback for "always outside")
     if (lastLocation) {

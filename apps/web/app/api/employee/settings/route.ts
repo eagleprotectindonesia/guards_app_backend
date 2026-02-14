@@ -12,7 +12,7 @@ export async function GET() {
   const settings = await prisma.systemSetting.findMany({
     where: {
       name: {
-        in: ['GEOFENCE_GRACE_MINUTES', 'LOCATION_DISABLED_GRACE_MINUTES']
+        in: ['GEOFENCE_GRACE_MINUTES', 'LOCATION_DISABLED_GRACE_MINUTES', 'ENABLE_LOCATION_MONITORING']
       }
     }
   });
@@ -30,5 +30,6 @@ export async function GET() {
   return NextResponse.json({
     GEOFENCE_GRACE_MINUTES: parseSetting('GEOFENCE_GRACE_MINUTES', 5),
     LOCATION_DISABLED_GRACE_MINUTES: parseSetting('LOCATION_DISABLED_GRACE_MINUTES', 2),
+    ENABLE_LOCATION_MONITORING: settingsMap['ENABLE_LOCATION_MONITORING'] === '1',
   });
 }

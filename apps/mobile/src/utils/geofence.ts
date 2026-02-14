@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { GEOFENCE_TASK, LOCATION_MONITOR_TASK, checkAndReportLocationServices } from './backgroundTasks';
+import { GEOFENCE_TASK, LOCATION_MONITOR_TASK, checkAndReportLocationServices, getSettings } from './backgroundTasks';
 import { storage } from './storage';
 import { sendDebugChat } from './debug';
 
@@ -31,6 +31,12 @@ export async function startGeofencing(shift: {
     geofenceRadius?: number | null;
   };
 }) {
+  const settings = getSettings();
+  if (!settings.ENABLE_LOCATION_MONITORING) {
+    console.log('[Geofence] Monitoring is disabled via system settings.');
+    return;
+  }
+
   // Ensure a clean slate before starting
   await clearGeofenceState();
 
@@ -92,17 +98,18 @@ export async function startGeofencing(shift: {
 
     // 2. Register location monitor task (foreground service)
     await Location.startLocationUpdatesAsync(LOCATION_MONITOR_TASK, {
-      accuracy: Location.Accuracy.Balanced,
-      timeInterval: 60 * 1000,
-      distanceInterval: 50,
+      accuracy: Location.Accuracy.High,
+      timeInterval: 90 * 1000,
+      distanceInterval: 0,
       foregroundService: {
         notificationTitle: 'Shift Monitoring Active',
         notificationBody: 'Sistem sedang memantau geofence dan posisi Anda.',
         notificationColor: '#0000FF',
+        killServiceOnDestroy: false, // Essential for Android resilience
       },
       pausesUpdatesAutomatically: false,
-      deferredUpdatesInterval: 60 * 1000,
-      deferredUpdatesDistance: 50,
+      showsBackgroundLocationIndicator: true, // Essential for iOS background persistence
+      activityType: Location.ActivityType.OtherNavigation,
     });
 
     console.log('[Geofence] Tasks registered successfully new.');
@@ -179,6 +186,9 @@ export async function isGeofencingActive(): Promise<boolean> {
         return false;
       })(),
     ]);
+    console.log(geo);
+    console.log(loc);
+    
     return geo && loc;
   } catch (err) {
     console.error('[Geofence] Error checking if active:', err);

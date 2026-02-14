@@ -1,9 +1,34 @@
 import { db as prisma } from "../client";
+import { redis } from "../redis";
+
+const SETTINGS_CACHE_PREFIX = 'system_setting:';
+const CACHE_TTL = 3600; // 1 hour
 
 export async function getSystemSetting(name: string) {
-  return prisma.systemSetting.findUnique({
+  const cacheKey = `${SETTINGS_CACHE_PREFIX}${name}`;
+  
+  try {
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+  } catch (err) {
+    console.error(`[Redis] Error getting setting ${name}:`, err);
+  }
+
+  const setting = await prisma.systemSetting.findUnique({
     where: { name },
   });
+
+  if (setting) {
+    try {
+      await redis.setex(cacheKey, CACHE_TTL, JSON.stringify(setting));
+    } catch (err) {
+      console.error(`[Redis] Error caching setting ${name}:`, err);
+    }
+  }
+
+  return setting;
 }
 
 export async function getAllSystemSettings() {
@@ -48,6 +73,13 @@ export async function updateSystemSettingWithChangelog(
         },
       },
     });
+
+    // Invalidate cache
+    try {
+      await redis.del(`${SETTINGS_CACHE_PREFIX}${name}`);
+    } catch (err) {
+      console.error(`[Redis] Error invalidating cache for ${name}:`, err);
+    }
 
     return setting;
   }, { timeout: 5000 });
