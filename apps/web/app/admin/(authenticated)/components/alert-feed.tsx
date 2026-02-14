@@ -34,6 +34,11 @@ type AlertFeedProps = {
   selectedSiteId?: string;
   onSiteSelect?: (siteId: string) => void;
   showResolutionDetails?: boolean;
+  totalCounts?: {
+    attendance: number;
+    checkin: number;
+    security: number;
+  };
 };
 
 export default function AlertFeed({
@@ -43,6 +48,7 @@ export default function AlertFeed({
   selectedSiteId,
   onSiteSelect,
   showResolutionDetails = false,
+  totalCounts,
 }: AlertFeedProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'attendance' | 'checkin' | 'security'>('all');
   const { hasPermission } = useSession();
@@ -76,12 +82,30 @@ export default function AlertFeed({
     }
   };
 
+  // Helper to get count for a tab
+  const getTabCount = (type: 'all' | 'attendance' | 'checkin' | 'security') => {
+    if (totalCounts) {
+      if (type === 'all') return totalCounts.attendance + totalCounts.checkin + totalCounts.security;
+      return totalCounts[type];
+    }
+    // Fallback to local filtering (Dashboard behavior)
+    if (type === 'all') return alerts.length;
+    if (type === 'attendance') return alerts.filter(a => a.reason === 'missed_attendance').length;
+    if (type === 'checkin') return alerts.filter(a => a.reason === 'missed_checkin').length;
+    if (type === 'security')
+      return alerts.filter(a => a.reason === 'geofence_breach' || a.reason === 'location_services_disabled').length;
+    return 0;
+  };
+
   return (
     <>
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-foreground">Alert Feed</h2>
         {showSiteFilter && selectedSiteId && onSiteSelect && (
-          <button onClick={() => onSiteSelect('')} className="text-sm text-red-600 hover:text-red-700 dark:text-red-400">
+          <button
+            onClick={() => onSiteSelect('')}
+            className="text-sm text-red-600 hover:text-red-700 dark:text-red-400"
+          >
             View All Sites
           </button>
         )}
@@ -97,7 +121,7 @@ export default function AlertFeed({
           }`}
           onClick={() => setActiveTab('all')}
         >
-          All ({alerts.length})
+          All ({getTabCount('all')})
         </button>
         <button
           className={`py-2 px-4 text-sm font-medium transition-colors ${
@@ -107,7 +131,7 @@ export default function AlertFeed({
           }`}
           onClick={() => setActiveTab('attendance')}
         >
-          Attendance ({alerts.filter(a => a.reason === 'missed_attendance').length})
+          Attendance ({getTabCount('attendance')})
         </button>
         <button
           className={`py-2 px-4 text-sm font-medium transition-colors ${
@@ -117,7 +141,7 @@ export default function AlertFeed({
           }`}
           onClick={() => setActiveTab('checkin')}
         >
-          Check-in ({alerts.filter(a => a.reason === 'missed_checkin').length})
+          Check-in ({getTabCount('checkin')})
         </button>
         <button
           className={`py-2 px-4 text-sm font-medium transition-colors ${
@@ -127,7 +151,7 @@ export default function AlertFeed({
           }`}
           onClick={() => setActiveTab('security')}
         >
-          Security ({alerts.filter(a => a.reason === 'geofence_breach' || a.reason === 'location_services_disabled').length})
+          Security ({getTabCount('security')})
         </button>
       </div>
 
