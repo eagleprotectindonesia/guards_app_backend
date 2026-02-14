@@ -1,4 +1,4 @@
-export { PrismaClient, Prisma } from './client';
+export { PrismaClient, Prisma, createPrismaClient } from './client';
 export { db, db as prisma } from './client';
 export type { ExtendedEmployee, ExtendedPrismaClient, EmployeeWithRelations, EmployeeSummary } from './client';
 export { redis } from './redis';

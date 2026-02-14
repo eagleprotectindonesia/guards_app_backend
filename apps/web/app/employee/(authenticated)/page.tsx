@@ -12,10 +12,13 @@ export default function EmployeePage() {
   const { t } = useTranslation();
   const { data: employeeDetails } = useProfile();
   const { data: shiftData, isLoading: loading, refetch: refetchShift } = useActiveShift();
-  
+
   const activeShift = useMemo(() => shiftData?.activeShift || null, [shiftData]);
   const nextShifts = useMemo(() => shiftData?.nextShifts || [], [shiftData]);
-  
+
+  console.log('activeShift', activeShift);
+  console.log('nextShifts', shiftData);
+
   const [status, setStatus] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -50,7 +53,7 @@ export default function EmployeePage() {
     };
 
     window.addEventListener('shift_updated', handleShiftUpdate);
-    
+
     return () => {
       window.removeEventListener('shift_updated', handleShiftUpdate);
     };
@@ -64,7 +67,9 @@ export default function EmployeePage() {
         {t('dashboard.welcome')} <br /> {employeeDetails?.name || 'Employee'}!
       </h1>
       {employeeDetails?.employeeCode && (
-        <p className="text-gray-500 text font-semibold mb-4">{t('dashboard.employeeCode')} {employeeDetails.employeeCode}</p>
+        <p className="text-gray-500 text font-semibold mb-4">
+          {t('dashboard.employeeCode')} {employeeDetails.employeeCode}
+        </p>
       )}
 
       {loading && <p>{t('common.loading')}</p>}

@@ -611,9 +611,18 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
     where: {
       employeeId,
       deletedAt: null,
-      status: { in: ['scheduled', 'in_progress'] },
-      startsAt: { lte: new Date(now.getTime() + LEADUP_MS) },
-      endsAt: { gte: new Date(now.getTime() - LEADUP_MS) },
+      OR: [
+        {
+          // For scheduled shifts, we only show them if they are current (within 5 min buffer)
+          status: 'scheduled',
+          startsAt: { lte: new Date(now.getTime() + LEADUP_MS) },
+          endsAt: { gte: new Date(now.getTime() - LEADUP_MS) },
+        },
+        {
+          // For in_progress shifts, we show them regardless of end time (to allow late check-ins)
+          status: 'in_progress',
+        },
+      ],
     },
     include: { site: true, shiftType: true, employee: true, attendance: true },
     orderBy: { startsAt: 'asc' },

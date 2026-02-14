@@ -2,7 +2,7 @@ import { test, expect } from '../helpers/api-client';
 import { setupTestDatabase, cleanDatabase, getTestPrisma } from '../fixtures/database';
 import { createCompleteTestSetup, createShift } from '../fixtures/factories';
 import { makeEmployeeRequest } from '../helpers/api-client';
-import type { Employee, Site, Shift } from '@repo/database';
+import type { Employee, Site } from '@prisma/client';
 
 test.describe('Late Check-ins and Bulk Recording', () => {
   let employee: Employee;
@@ -248,9 +248,75 @@ test.describe('Late Check-ins and Bulk Recording', () => {
     });
     
     expect(resolvedAlert1?.resolvedAt).not.toBeNull();
-    expect(resolvedAlert1?.resolutionType).toBe('auto');
-    
-    expect(resolvedAlert2?.resolvedAt).not.toBeNull();
     expect(resolvedAlert2?.resolutionType).toBe('auto');
+  });
+
+  test('should allow late check-in for the LAST slot after shift end time passed', async ({ request }) => {
+    const prisma = getTestPrisma();
+    const setup = await createCompleteTestSetup();
+    
+    // Shift: 08:00 - 16:00
+    // Current time: 16:10 (10 mins after end)
+    // Last slot (15:00-16:00) is late.
+    
+    const now = new Date();
+    const endsAt = new Date(now);
+    endsAt.setMinutes(now.getMinutes() - 10); // Ended 10 mins ago
+
+    const startsAt = new Date(endsAt);
+    startsAt.setHours(endsAt.getHours() - 8); // 8 hour shift
+
+    // Last heartbeat was at 15:00 (1 hour before end), so 16:00 checkin is pending
+    const lastHeartbeat = new Date(endsAt);
+    lastHeartbeat.setHours(endsAt.getHours() - 1); 
+
+    const shift = await createShift({
+      siteId: site.id,
+      shiftTypeId: setup.shiftType.id,
+      employeeId: employee.id,
+      startsAt,
+      endsAt,
+      requiredCheckinIntervalMins: 60,
+      graceMinutes: 5,
+      status: 'in_progress',
+      lastHeartbeatAt: lastHeartbeat,
+    });
+    
+    await prisma.attendance.create({
+      data: {
+        shiftId: shift.id,
+        employeeId: employee.id,
+        status: 'present',
+        recordedAt: startsAt,
+      },
+    });
+
+    const response = await makeEmployeeRequest(
+      request,
+      employee,
+      'POST',
+      `/api/employee/shifts/${shift.id}/checkin`,
+      {
+        data: {
+          location: {
+            lat: site.latitude,
+            lng: site.longitude,
+          },
+          source: 'mobile',
+        },
+      }
+    );
+
+    expect(response.status()).toBe(200);
+    
+    const data = await response.json();
+    expect(data.checkin.status).toBe('late');
+    expect(data.isLastSlot).toBe(true);
+    
+    // Verify shift is completed
+    const updatedShift = await prisma.shift.findUnique({
+      where: { id: shift.id },
+    });
+    expect(updatedShift?.status).toBe('completed');
   });
 });

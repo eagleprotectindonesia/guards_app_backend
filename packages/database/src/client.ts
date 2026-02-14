@@ -18,8 +18,8 @@ export { PrismaClient, Prisma };
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-const createPrismaClient = () => {
-  const connectionString = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/postgres";
+export const createPrismaClient = (databaseUrl?: string) => {
+  const connectionString = databaseUrl || process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/postgres";
 
   const pool = new Pool({ connectionString });
 

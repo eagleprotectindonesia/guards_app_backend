@@ -55,16 +55,7 @@ export function useActiveShift() {
       if (!res.ok) throw new Error('Failed to fetch active shift');
       const data = await res.json();
       
-      let activeShift = null;
-      if (
-        data.activeShift &&
-        !(
-          data.activeShift.checkInWindow?.isLastSlot &&
-          ['late', 'completed'].includes(data.activeShift.checkInWindow?.status)
-        )
-      ) {
-        activeShift = parseShiftDates(data.activeShift);
-      }
+      const activeShift = data.activeShift ? parseShiftDates(data.activeShift) : null;
 
       const nextShifts = (data.nextShifts || []).map(parseShiftDates);
 

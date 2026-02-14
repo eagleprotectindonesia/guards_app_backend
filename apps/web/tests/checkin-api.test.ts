@@ -133,4 +133,54 @@ describe('POST /api/employee/shifts/[id]/checkin - Last Slot Case', () => {
 
     jest.useRealTimers();
   });
+
+  test('successfully allows late check-in for the last slot (past grace period)', async () => {
+    // Current time is 10:20 (past the 10:15 grace period for the 10:00 slot)
+    const now = new Date('2025-12-20T10:20:00Z');
+    jest.useFakeTimers().setSystemTime(now);
+
+    const mockEmployee = { id: employeeId };
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue(mockEmployee);
+
+    const mockShift = {
+      id: shiftId,
+      employeeId: employeeId,
+      startsAt: new Date('2025-12-20T08:00:00Z'),
+      endsAt: new Date('2025-12-20T10:00:00Z'),
+      requiredCheckinIntervalMins: 60,
+      graceMinutes: 15,
+      lastHeartbeatAt: new Date('2025-12-20T09:00:00Z'),
+      status: 'in_progress',
+      site: { latitude: null, longitude: null },
+      shiftType: {},
+      employee: mockEmployee,
+    };
+
+    (getShiftById as jest.Mock).mockResolvedValue(mockShift);
+    (getSystemSetting as jest.Mock).mockResolvedValue(null);
+    (recordCheckin as jest.Mock).mockResolvedValue({ id: 'checkin-1' });
+
+    const req = new Request(`http://localhost/api/employee/shifts/${shiftId}/checkin`, {
+      method: 'POST',
+      body: JSON.stringify({ source: 'web' }),
+    });
+
+    const params = Promise.resolve({ id: shiftId });
+    const response = await POST(req, { params });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.status).toBe('late');
+    expect(data.isLastSlot).toBe(true);
+    
+    // Verify recordCheckin call includes status: 'completed' in shiftUpdateData
+    expect(recordCheckin).toHaveBeenCalledWith(expect.objectContaining({
+      status: 'late',
+      shiftUpdateData: expect.objectContaining({
+        status: 'completed',
+      }),
+    }));
+
+    jest.useRealTimers();
+  });
 });

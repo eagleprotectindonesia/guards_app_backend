@@ -1,9 +1,11 @@
-import { PrismaClient } from '@repo/database';
+import { PrismaClient, createPrismaClient } from '@repo/database';
 import dotenv from 'dotenv';
 import path from 'path';
 
 // Load test environment
-dotenv.config({ path: path.resolve(__dirname, '../../../.env.test') });
+// Load test environment with override to ensure test config takes precedence over component side-effects
+dotenv.config({ path: path.resolve(__dirname, '../../../.env.test'), override: true });
+console.log('Test DATABASE_URL:', process.env.DATABASE_URL);
 
 let prisma: PrismaClient;
 
@@ -12,13 +14,10 @@ let prisma: PrismaClient;
  */
 export function getTestPrisma(): PrismaClient {
   if (!prisma) {
-    prisma = new PrismaClient({
-      datasources: {
-        db: {
-          url: process.env.DATABASE_URL,
-        },
-      },
-    });
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL is not set for tests');
+    }
+    prisma = createPrismaClient(process.env.DATABASE_URL);
   }
   return prisma;
 }

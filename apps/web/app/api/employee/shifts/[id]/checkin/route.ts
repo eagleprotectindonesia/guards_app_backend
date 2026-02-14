@@ -35,8 +35,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       return NextResponse.json({ error: 'Not assigned to this shift' }, { status: 403 });
     }
 
-    const allowedEndTime = new Date(shift.endsAt.getTime() + shift.graceMinutes * 60 * 1000);
-    if (now < shift.startsAt || now > allowedEndTime) {
+    if (now < shift.startsAt) {
       return NextResponse.json({ error: 'Shift is not active' }, { status: 400 });
     }
 
