@@ -72,10 +72,8 @@ function FloatingChatWidgetContent() {
   }, [handleSelectConversation]);
 
   useEffect(() => {
-    if (isOpen) {
-      fetchConversations();
-    }
-  }, [isOpen, fetchConversations]);
+    fetchConversations();
+  }, [fetchConversations]);
 
   const totalUnread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
   const activeEmployee = conversations.find(c => c.employeeId === activeEmployeeId);
