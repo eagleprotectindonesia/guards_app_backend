@@ -1,7 +1,14 @@
 import { Shift, ShiftType, Site, Attendance } from '@prisma/client';
 import { calculateCheckInWindow, CHECK_SHIFTS_JOB_NAME } from '@repo/shared';
 import { db as prisma, ExtendedEmployee } from '@repo/database';
-import { getActiveShifts, getShiftsUpdates, getUpcomingShifts, createMissedCheckinAlert, getSystemSetting } from '@repo/database';
+import {
+  getActiveShifts,
+  getShiftsUpdates,
+  getUpcomingShifts,
+  createMissedCheckinAlert,
+  getSystemSetting,
+  markOverdueScheduledShiftsAsMissed,
+} from '@repo/database';
 import { Job } from 'bullmq';
 import { getRedisConnection } from '../infrastructure/redis';
 
@@ -48,7 +55,7 @@ export class SchedulingProcessor {
 
   private setupEventListener() {
     const redis = getRedisConnection().duplicate();
-    redis.subscribe('events:shifts', err => {
+    redis.subscribe('events:shifts', (err) => {
       if (err) {
         console.error('[SchedulingProcessor] Redis subscribe error:', err);
       }
@@ -82,24 +89,71 @@ export class SchedulingProcessor {
       const now = new Date();
       const nowMs = now.getTime();
 
-      // 1. Sync Data (Active Shifts)
+      // 1. Handle overdue scheduled shifts (Clean up stale rows before sync)
+      await this.handleOverdueScheduledShifts(now);
+
+      // 2. Sync Data (Active Shifts)
       const isFullSync = await this.syncActiveShifts(now, nowMs);
 
-      // 2. Process Alerts for Active Shifts
+      // 3. Process Alerts for Active Shifts
       await this.processActiveShifts(now, nowMs);
 
-      // 3. Broadcast Dashboard Data
+      // 4. Broadcast Dashboard Data
       if (isFullSync) {
         await this.broadcastActiveShifts();
       }
 
-      // 4. Broadcast Upcoming Shifts (Every 1m)
+      // 5. Broadcast Upcoming Shifts (Every 1m)
       if (nowMs - this.lastUpcomingSync > UPCOMING_SYNC_INTERVAL_MS) {
         await this.broadcastUpcomingShifts(now);
         this.lastUpcomingSync = nowMs;
       }
     } catch (error) {
       console.error(`[SchedulingProcessor] Tick error:`, error);
+    }
+  }
+
+  private async handleOverdueScheduledShifts(now: Date) {
+    const BATCH_SIZE = 200;
+    let hasMore = true;
+    let totalUpdated = 0;
+
+    while (hasMore) {
+      const { updatedShiftIds, resolvedAlerts } = await markOverdueScheduledShiftsAsMissed(
+        now,
+        BATCH_SIZE
+      );
+
+      if (updatedShiftIds.length === 0) {
+        hasMore = false;
+        continue;
+      }
+
+      totalUpdated += updatedShiftIds.length;
+      console.log(
+        `[SchedulingProcessor] Transitioned ${updatedShiftIds.length} overdue scheduled shifts to MISSED.`
+      );
+
+      // Update in-memory cache/state immediately
+      for (const id of updatedShiftIds) {
+        this.cachedShifts.delete(id);
+        this.shiftStates.delete(id);
+      }
+
+      // Publish alert resolution events for the resolved alerts
+      for (const alert of resolvedAlerts) {
+        const payload = { type: 'alert_updated', alert };
+        await this.publish(`alerts:site:${alert.siteId}`, payload);
+      }
+
+      if (updatedShiftIds.length < BATCH_SIZE) {
+        hasMore = false;
+      }
+    }
+
+    if (totalUpdated > 0) {
+      // Trigger full sync broadcast next
+      this.needsFullSync = true;
     }
   }
 
@@ -162,6 +216,10 @@ export class SchedulingProcessor {
   }
 
   private async processActiveShifts(now: Date, nowMs: number) {
+    // Optimization: Fetch monitoring setting once per tick
+    const monitoringSetting = await getSystemSetting('ENABLE_LOCATION_MONITORING');
+    const isMonitoringEnabled = monitoringSetting?.value === '1';
+
     for (const shift of this.cachedShifts.values()) {
       if (shift.status !== 'scheduled' && shift.status !== 'in_progress') continue;
 
@@ -264,9 +322,6 @@ export class SchedulingProcessor {
       }
 
       // 3. Heartbeat Monitor (Dead Man's Switch)
-      const monitoringSetting = await getSystemSetting('ENABLE_LOCATION_MONITORING');
-      const isMonitoringEnabled = monitoringSetting?.value === '1';
-
       if (!isMonitoringEnabled) {
         continue;
       }

@@ -553,13 +553,80 @@ export async function getActiveShifts(now: Date) {
 
   return prisma.shift.findMany({
     where: {
-      status: { in: ['scheduled', 'in_progress'] },
-      startsAt: { lte: lookaheadDate },
-      employeeId: { not: null },
       deletedAt: null,
+      employeeId: { not: null },
+      OR: [
+        {
+          status: 'scheduled',
+          startsAt: { lte: lookaheadDate },
+          endsAt: { gt: now },
+        },
+        {
+          status: 'in_progress',
+        },
+      ],
     },
     include: { shiftType: true, employee: true, site: true, attendance: true },
   });
+}
+
+/**
+ * Transitions 'scheduled' shifts that have reached their 'endsAt' time to 'missed' status.
+ * Also auto-resolves any open alerts for these shifts.
+ */
+export async function markOverdueScheduledShiftsAsMissed(now: Date, batchSize = 200) {
+  return prisma.$transaction(
+    async tx => {
+      // 1. Select a batch of candidate shifts
+      const overdueShifts = await tx.shift.findMany({
+        where: {
+          status: 'scheduled',
+          endsAt: { lte: now },
+          deletedAt: null,
+          employeeId: { not: null },
+        },
+        select: { id: true, siteId: true },
+        orderBy: { endsAt: 'asc' },
+        take: batchSize,
+      });
+
+      if (overdueShifts.length === 0) {
+        return { updatedShiftIds: [], resolvedAlerts: [] };
+      }
+
+      const shiftIds = overdueShifts.map(s => s.id);
+
+      // 2. Update selected shifts to status = 'missed'
+      await tx.shift.updateMany({
+        where: { id: { in: shiftIds } },
+        data: { status: 'missed' },
+      });
+
+      // 3. Resolve open related alerts for those shift IDs
+      const resolvedAlerts = await tx.alert.updateManyAndReturn({
+        where: {
+          shiftId: { in: shiftIds },
+          resolvedAt: null,
+        },
+        data: {
+          resolvedAt: now,
+          resolutionType: 'auto',
+          resolutionNote:
+            'Auto-resolved: shift ended without attendance/check-in (status moved to missed)',
+        },
+        include: {
+          site: true,
+          shift: { include: { employee: true, shiftType: true } },
+        },
+      });
+
+      return {
+        updatedShiftIds: shiftIds,
+        resolvedAlerts,
+      };
+    },
+    { timeout: 15000 }
+  );
 }
 
 export async function getShiftsUpdates(ids: string[]) {

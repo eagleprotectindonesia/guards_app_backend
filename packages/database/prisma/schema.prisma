@@ -302,6 +302,7 @@ model Shift {
   @@index([startsAt, endsAt])
   @@index([employeeId, status, startsAt])
   @@index([employeeId, status, endsAt])
+  @@index([status, endsAt, deletedAt])
   @@index([deletedAt])
   @@map("shifts")
 }
