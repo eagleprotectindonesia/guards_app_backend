@@ -43,6 +43,9 @@ export async function checkAndReportLocationServices(
 
     const hasPermissions = fgStatus === 'granted' && bgStatus === 'granted';
     const settings = getSettings();
+    if (!settings.ENABLE_LOCATION_MONITORING) {
+      return;
+    }
 
     if (!isLocationEnabled || !hasPermissions) {
       if (options?.immediate) {

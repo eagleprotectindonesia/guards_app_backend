@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Site } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import AlarmInterface from './components/alarm-interface';
@@ -12,8 +12,8 @@ export const dynamic = 'force-dynamic';
 
 type SiteWithOptionalRelations = Serialized<Site>;
 
-export default function AdminDashboard() {
-  const [sites, setSites] = useState<SiteWithOptionalRelations[]>([]);
+export default function AdminDashboard({ initialSites }: { initialSites: SiteWithOptionalRelations[] }) {
+  const [sites] = useState<SiteWithOptionalRelations[]>(initialSites);
   const [selectedSiteId, setSelectedSiteId] = useState(''); // Empty string = All Sites
 
   const {
@@ -24,15 +24,6 @@ export default function AdminDashboard() {
     isInitialized,
     acknowledgeAlert,
   } = useAlerts();
-
-  // Fetch all sites for the dropdown (static list)
-  useEffect(() => {
-    fetch('/api/admin/sites')
-      .then(res => res.json())
-      .then((data: SiteWithOptionalRelations[]) => {
-        if (Array.isArray(data)) setSites(data);
-      });
-  }, []);
 
   if (!isInitialized) {
     return (

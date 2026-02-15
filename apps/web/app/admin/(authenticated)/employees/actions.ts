@@ -144,6 +144,9 @@ export async function createEmployee(
   }
 
   revalidatePath('/admin/employees');
+  revalidatePath('/admin/shifts', 'layout');
+  revalidatePath('/admin/attendance');
+  revalidatePath('/admin/checkins');
   return { success: true, message: 'Employee created successfully' };
 }
 
@@ -221,6 +224,9 @@ export async function updateEmployee(
   }
 
   revalidatePath('/admin/employees');
+  revalidatePath('/admin/shifts', 'layout');
+  revalidatePath('/admin/attendance');
+  revalidatePath('/admin/checkins');
   return { success: true, message: 'Employee updated successfully' };
 }
 
@@ -256,6 +262,9 @@ export async function updateEmployeePassword(
   }
 
   revalidatePath('/admin/employees');
+  revalidatePath('/admin/shifts', 'layout');
+  revalidatePath('/admin/attendance');
+  revalidatePath('/admin/checkins');
   return { success: true, message: 'Password updated successfully' };
 }
 
@@ -264,6 +273,9 @@ export async function deleteEmployee(id: string) {
     const adminId = await getAdminIdFromToken();
     await deleteEmployeeWithChangelog(id, adminId!);
     revalidatePath('/admin/employees');
+    revalidatePath('/admin/shifts', 'layout');
+    revalidatePath('/admin/attendance');
+    revalidatePath('/admin/checkins');
     return { success: true };
   } catch (error) {
     console.error('Database Error:', error);
@@ -564,6 +576,9 @@ export async function bulkCreateEmployees(
     await bulkCreateEmployeesWithChangelog(finalData, adminId!);
 
     revalidatePath('/admin/employees');
+    revalidatePath('/admin/shifts', 'layout');
+    revalidatePath('/admin/attendance');
+    revalidatePath('/admin/checkins');
     return { success: true, message: `Successfully created ${employeesToCreate.length} employees.` };
   } catch (error) {
     if (error instanceof Error) {
