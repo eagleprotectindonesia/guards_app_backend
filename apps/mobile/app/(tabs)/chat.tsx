@@ -138,7 +138,7 @@ export default function ChatScreen() {
   }, [employeeId, queryClient]);
 
   // Socket Events
-  useSocketEvent('new_message', (message) => {
+  useSocketEvent('new_message', message => {
     if (!employeeId) return;
 
     // Update message list cache
@@ -167,7 +167,7 @@ export default function ChatScreen() {
     queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
   });
 
-  useSocketEvent('messages_read', (data) => {
+  useSocketEvent('messages_read', data => {
     if (!employeeId) return;
 
     // Update messages in cache to show read status
@@ -184,14 +184,6 @@ export default function ChatScreen() {
     // Invalidate unread count query
     queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
   });
-
-  if (!auth.isAuthenticated) {
-    return (
-      <Center flex={1} bg="$backgroundLight50">
-        <Spinner size="large" />
-      </Center>
-    );
-  }
 
   const pickAttachments = async () => {
     if (selectedAttachments.length >= 4) {

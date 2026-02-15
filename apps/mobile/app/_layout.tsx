@@ -17,11 +17,8 @@ export default function RootLayout() {
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', async (nextAppState) => {
-      if (
-        appState.current.match(/inactive|background/) &&
-        nextAppState === 'active'
-      ) {
+    const subscription = AppState.addEventListener('change', async nextAppState => {
+      if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
         console.log('[App] App has come to the foreground!');
         const activeShiftId = await storage.getItem('active_shift_id');
         if (activeShiftId) {
