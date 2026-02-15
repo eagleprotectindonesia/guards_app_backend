@@ -20,10 +20,9 @@ config.resolver.nodeModulesPaths = [
 // 3. Exclude large, unnecessary directories from the watcher
 config.resolver.blockList = [
   /.*\.git\/.*/,
-  // /.*\/apps\/web\/.next\/.*/,
   /.*\/apps\/web\/*/,
   /.*\/apps\/worker\/*/,
-  /.*\/node_modules\/.*\/dist-types\/.*/, // Common source of excessive files
+  /.*\/node_modules\/.*\/dist-types\/.*/,
   /.*\/node_modules\/.*\/__tests__\/.*/,
 ];
 
@@ -33,6 +32,20 @@ config.resolver.extraNodeModules = {
   'react-dom': path.resolve(workspaceRoot, 'node_modules/react-dom'),
   'react-native': path.resolve(workspaceRoot, 'node_modules/react-native'),
   '@tanstack/react-query': path.resolve(workspaceRoot, 'node_modules/@tanstack/react-query'),
+};
+
+// 5. Configure SVG Transformer
+const { transformer, resolver } = config;
+
+config.transformer = {
+  ...transformer,
+  babelTransformerPath: require.resolve('react-native-svg-transformer'),
+};
+
+config.resolver = {
+  ...resolver,
+  assetExts: resolver.assetExts.filter(ext => ext !== 'svg'),
+  sourceExts: [...resolver.sourceExts, 'svg'],
 };
 
 module.exports = withNativeWind(config, { input: './global.css' });

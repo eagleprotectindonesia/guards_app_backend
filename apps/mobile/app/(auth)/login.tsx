@@ -1,38 +1,48 @@
 import React, { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import {
+  Alert,
+  View,
+  StyleSheet,
+  Dimensions,
+  Pressable,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+} from 'react-native';
 import {
   VStack,
-  FormControl,
-  FormControlLabel,
-  FormControlLabelText,
+  Box,
+  Heading,
+  Text,
+  ButtonSpinner,
   Input,
   InputField,
   InputSlot,
   InputIcon,
-  Button,
-  ButtonText,
-  Heading,
-  Text,
-  ButtonSpinner,
+  FormControl,
   FormControlError,
   FormControlErrorText,
   FormControlErrorIcon,
-  Box,
-  Center,
-  Spinner,
 } from '@gluestack-ui/themed';
 import { useMutation } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { CircleAlert, Eye, EyeOff, User, Lock } from 'lucide-react-native';
+import { CircleAlert, Eye, EyeOff, Lock, LogIn, User } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
+import LogoIcon from '../../assets/icons/icon.svg';
+
+const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { login, isLoading: isAuthLoading } = useAuth();
+  const { login } = useAuth();
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -45,17 +55,13 @@ export default function LoginScreen() {
       });
       return response.data;
     },
-    onSuccess: async (data) => {
+    onSuccess: async data => {
       if (data.token && data.employee) {
         await login(data.token, data.employee);
         router.replace('/(tabs)');
       } else {
         Alert.alert(t('login.errorTitle'), t('login.errorMessage'));
       }
-    },
-    onError: (error: any) => {
-      const message = error.response?.data?.message || t('login.errorMessage');
-      Alert.alert(t('login.errorTitle'), message);
     },
   });
 
@@ -69,83 +75,251 @@ export default function LoginScreen() {
     loginMutation.mutate();
   };
 
-  if (isAuthLoading) {
-    return (
-      <Center flex={1} bg="$white">
-        <Spinner size="large" color="#2563EB" />
-      </Center>
-    );
-  }
-
   return (
-    <View style={{ flex: 1, backgroundColor: 'white', justifyContent: 'center', paddingHorizontal: 24 }}>
-      <VStack space="xl">
-        <Box mb="$4">
-          <Heading size="2xl" style={{ color: '#111827' }}>
-            {t('login.title')}
-          </Heading>
-          <Text style={{ color: '#6B7280' }}>{t('login.subtitle')}</Text>
-        </Box>
+    <Box flex={1} bg="#050505">
+      <StatusBar style="light" />
+      {/* Background Effects */}
+      <View style={StyleSheet.absoluteFill}>
+        {/* Radial Glow 1 */}
+        <View
+          style={{
+            position: 'absolute',
+            top: height * 0.1,
+            left: width * 0.2,
+            width: width * 0.6,
+            height: width * 0.6,
+            backgroundColor: '#E6392D',
+            borderRadius: width * 0.3,
+            opacity: 0.08,
+            transform: [{ scale: 2 }],
+          }}
+        />
+        {/* Radial Glow 2 */}
+        <View
+          style={{
+            position: 'absolute',
+            bottom: height * 0.1,
+            right: width * 0.1,
+            width: width * 0.4,
+            height: width * 0.4,
+            backgroundColor: '#E6392D',
+            borderRadius: width * 0.2,
+            opacity: 0.05,
+            transform: [{ scale: 1.5 }],
+          }}
+        />
+      </View>
 
-        <FormControl isInvalid={loginMutation.isError}>
-          <FormControlLabel mb="$1">
-            <FormControlLabelText>{t('login.employeeIdLabel')}</FormControlLabelText>
-          </FormControlLabel>
-          <Box mb="$4" bg="$white" borderWidth={1} borderColor="$borderLight300" rounded="$xl" softShadow="1">
-            <Input size="xl" variant="outline">
-              <InputSlot pl="$4">
-                <InputIcon as={User} color="$gray400" />
-              </InputSlot>
-              <InputField
-                placeholder={t('login.employeeIdPlaceholder')}
-                value={employeeId}
-                onChangeText={(text: string) => setEmployeeId(text.toUpperCase())}
-                autoCapitalize="characters"
-                maxLength={6}
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Language Toggle */}
+          <View style={styles.languageToggleContainer}>
+            <GlassLanguageToggle />
+          </View>
+
+          {/* Logo & Header */}
+          <VStack space="md" alignItems="center" mb="$10">
+            <Box position="relative">
+              <Box
+                position="absolute"
+                top={0}
+                left={0}
+                right={0}
+                bottom={0}
+                bg="#E6392D"
+                opacity={0.15}
+                rounded="$full"
+                style={{ filter: 'blur(35px)' }}
               />
-            </Input>
-          </Box>
+              <Box w={120} h={120} alignItems="center" justifyContent="center">
+                <LogoIcon width={120} height={120} />
+              </Box>
+            </Box>
+            <VStack alignItems="center">
+              <Heading size="3xl" color="white" style={styles.heading}>
+                Eagle
+                <Text color="#E6392D" size="3xl" style={styles.headingStrong}>
+                  Protect
+                </Text>
+              </Heading>
+              <Text size="sm" color="#6B7280" fontWeight="$bold" style={styles.subtitle}>
+                EMPLOYEE PORTAL
+              </Text>
+            </VStack>
+          </VStack>
 
-          <FormControlLabel mb="$1">
-            <FormControlLabelText>{t('login.passwordLabel')}</FormControlLabelText>
-          </FormControlLabel>
-          <Box mb="$6" bg="$white" borderWidth={1} borderColor="$borderLight300" rounded="$xl" softShadow="1">
-            <Input size="xl" variant="outline">
-              <InputSlot pl="$4">
-                <InputIcon as={Lock} color="$gray400" />
-              </InputSlot>
-              <InputField
-                type={showPassword ? 'text' : 'password'}
-                placeholder={t('login.passwordPlaceholder')}
-                value={password}
-                onChangeText={setPassword}
-              />
-              <InputSlot pr="$4" onPress={() => setShowPassword(!showPassword)}>
-                <InputIcon as={showPassword ? Eye : EyeOff} color="$gray500" />
-              </InputSlot>
-            </Input>
-          </Box>
+          {/* Login Card */}
+          <BlurView intensity={30} tint="dark" style={styles.glassCard}>
+            <LinearGradient
+              colors={['rgba(255, 255, 255, 0.05)', 'transparent']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.cardGradient}
+            >
+              <VStack space="lg">
+                <FormControl isInvalid={loginMutation.isError}>
+                  <VStack space="sm">
+                    <Text size="sm" fontWeight="$bold" color="#6B7280" style={styles.inputLabel}>
+                      {t('login.employeeIdLabel')}
+                    </Text>
+                    <Box style={styles.inputContainer}>
+                      <Input size="md">
+                        <InputSlot pl="$4">
+                          <InputIcon as={User} color="#6B7280" />
+                        </InputSlot>
+                        <InputField
+                          placeholder={t('login.employeeIdPlaceholder')}
+                          placeholderTextColor="#3F3F46"
+                          color="white"
+                          value={employeeId}
+                          onChangeText={(text: string) => {
+                            setEmployeeId(text.toUpperCase());
+                            if (loginMutation.isError) loginMutation.reset();
+                          }}
+                          autoCapitalize="characters"
+                        />
+                      </Input>
+                    </Box>
+                  </VStack>
 
-          <Button
-            size="xl"
-            onPress={handleLogin}
-            isDisabled={loginMutation.isPending}
-            style={{ backgroundColor: '#2563EB', shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8 }}
-          >
-            {loginMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
-            <ButtonText>{t('login.submitButton')}</ButtonText>
-          </Button>
+                  <VStack space="sm" mt="$4">
+                    <Text size="sm" fontWeight="$bold" color="#6B7280" style={styles.inputLabel}>
+                      {t('login.passwordLabel')}
+                    </Text>
+                    <Box style={styles.inputContainer}>
+                      <Input size="md">
+                        <InputSlot pl="$4">
+                          <InputIcon as={Lock} color="#6B7280" />
+                        </InputSlot>
+                        <InputField
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder={t('login.passwordPlaceholder')}
+                          placeholderTextColor="#3F3F46"
+                          color="white"
+                          value={password}
+                          onChangeText={text => {
+                            setPassword(text);
+                            if (loginMutation.isError) loginMutation.reset();
+                          }}
+                        />
+                        <InputSlot pr="$4" onPress={() => setShowPassword(!showPassword)}>
+                          <InputIcon as={showPassword ? Eye : EyeOff} color="#6B7280" />
+                        </InputSlot>
+                      </Input>
+                    </Box>
+                  </VStack>
 
-          {loginMutation.isError && (
-            <FormControlError mt="$4">
-              <FormControlErrorIcon as={CircleAlert} />
-              <FormControlErrorText>
-                {loginMutation.error instanceof Error ? loginMutation.error.message : 'Authentication failed'}
-              </FormControlErrorText>
-            </FormControlError>
-          )}
-        </FormControl>
-      </VStack>
-    </View>
+                  <Box mt="$12">
+                    <Pressable onPress={handleLogin} disabled={loginMutation.isPending}>
+                      {({ pressed }) => (
+                        <LinearGradient
+                          colors={['#FF1F1F', '#8B0000']}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={[styles.loginButton, pressed && { transform: [{ scale: 0.98 }] }]}
+                        >
+                          {loginMutation.isPending ? (
+                            <ButtonSpinner color="white" />
+                          ) : (
+                            <Box flexDirection="row" alignItems="center">
+                              <Text color="white" fontWeight="$bold" style={styles.buttonText}>
+                                {t('login.submitButton')}
+                              </Text>
+                              <Box ml="$2">
+                                <InputIcon as={LogIn} color="white" size="sm" />
+                              </Box>
+                            </Box>
+                          )}
+                        </LinearGradient>
+                      )}
+                    </Pressable>
+                  </Box>
+
+                  {loginMutation.isError && (
+                    <FormControlError mt="$4">
+                      <FormControlErrorIcon as={CircleAlert} />
+                      <FormControlErrorText color="#E6392D">{t('login.errorMessage')}</FormControlErrorText>
+                    </FormControlError>
+                  )}
+                </FormControl>
+              </VStack>
+            </LinearGradient>
+          </BlurView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Box>
   );
 }
+
+const styles = StyleSheet.create({
+  languageToggleContainer: {
+    position: 'absolute',
+    top: 50,
+    right: 24,
+    zIndex: 100,
+  },
+  heading: {
+    letterSpacing: -1,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  headingStrong: {
+    textShadowColor: 'rgba(230, 57, 45, 0.7)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 15,
+  },
+  subtitle: {
+    letterSpacing: 2,
+    marginTop: 4,
+    opacity: 0.6,
+  },
+  glassCard: {
+    borderRadius: 32,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(230, 57, 45, 0.3)',
+    backgroundColor: 'rgba(5, 5, 5, 0.85)',
+    elevation: 10,
+    shadowColor: '#E6392D',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 20,
+  },
+  cardGradient: {
+    padding: 32,
+  },
+  inputLabel: {
+    letterSpacing: 2,
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  inputContainer: {
+    backgroundColor: '#0F0F11',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.03)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+  },
+  loginButton: {
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#E6392D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  buttonText: {
+    letterSpacing: 1.5,
+    fontSize: 14,
+  },
+});

@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
 import PasswordChangeModal from '../../src/components/PasswordChangeModal';
 import { PasswordChangeModalProvider, usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
+import LanguageToggle from '../../src/components/LanguageToggle';
 
 export default function TabsLayout() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -57,42 +58,55 @@ function TabsContent({ isAuthenticated }: { isAuthenticated: boolean }) {
   const { unreadCount } = useChatUnread();
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: '#2563EB',
-        tabBarInactiveTintColor: '#6B7280',
-      }}
-    >
-      {/* 
-        We use Tabs.Protected to wrap all tabs that require authentication.
-        If guard is false (not authenticated), it will redirect to the nearest unprotected route (e.g., login).
-      */}
-      <Tabs.Protected guard={isAuthenticated}>
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: t('tabs.home', 'Home'),
-            tabBarIcon: ({ color, size }) => <Home stroke={color} size={size} />,
-          }}
-        />
-        <Tabs.Screen
-          name="chat"
-          options={{
-            title: t('tabs.chat', 'Chat'),
-            tabBarIcon: ({ color, size }) => <MessageSquare stroke={color} size={size} />,
-            tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-            tabBarBadgeStyle: { backgroundColor: '#EF4444' },
-          }}
-        />
-        <Tabs.Screen
-          name="account"
-          options={{
-            title: t('tabs.account', 'Account'),
-            tabBarIcon: ({ color, size }) => <User stroke={color} size={size} />,
-          }}
-        />
-      </Tabs.Protected>
-    </Tabs>
+    <View style={{ flex: 1 }}>
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: '#2563EB',
+          tabBarInactiveTintColor: '#6B7280',
+        }}
+      >
+        {/* 
+          We use Tabs.Protected to wrap all tabs that require authentication.
+          If guard is false (not authenticated), it will redirect to the nearest unprotected route (e.g., login).
+        */}
+        <Tabs.Protected guard={isAuthenticated}>
+          <Tabs.Screen
+            name="index"
+            options={{
+              title: t('tabs.home', 'Home'),
+              tabBarIcon: ({ color, size }) => <Home stroke={color} size={size} />,
+            }}
+          />
+          <Tabs.Screen
+            name="chat"
+            options={{
+              title: t('tabs.chat', 'Chat'),
+              tabBarIcon: ({ color, size }) => <MessageSquare stroke={color} size={size} />,
+              tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+              tabBarBadgeStyle: { backgroundColor: '#EF4444' },
+            }}
+          />
+          <Tabs.Screen
+            name="account"
+            options={{
+              title: t('tabs.account', 'Account'),
+              tabBarIcon: ({ color, size }) => <User stroke={color} size={size} />,
+            }}
+          />
+        </Tabs.Protected>
+      </Tabs>
+
+      <View
+        style={{
+          position: 'absolute',
+          top: 48,
+          right: 24,
+          zIndex: 50,
+        }}
+      >
+        <LanguageToggle />
+      </View>
+    </View>
   );
 }

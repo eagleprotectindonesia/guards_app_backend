@@ -5,8 +5,7 @@ import { Stack } from 'expo-router';
 import { Providers } from '../src/components/Providers';
 import { AuthProvider } from '../src/contexts/AuthContext';
 import { StatusBar } from 'expo-status-bar';
-import { AppState, View } from 'react-native';
-import LanguageToggle from '../src/components/LanguageToggle';
+import { AppState } from 'react-native';
 import { useUpdates } from '../src/hooks/useUpdates';
 import { useEffect, useRef } from 'react';
 import { storage } from '../src/utils/storage';
@@ -38,23 +37,10 @@ export default function RootLayout() {
   return (
     <Providers>
       <AuthProvider>
-        <View style={{ flex: 1 }}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-          </Stack>
-
-          <View
-            style={{
-              position: 'absolute',
-              top: 48,
-              right: 24,
-              zIndex: 50,
-            }}
-          >
-            <LanguageToggle />
-          </View>
-        </View>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(tabs)" />
+        </Stack>
         <StatusBar style="auto" />
       </AuthProvider>
     </Providers>

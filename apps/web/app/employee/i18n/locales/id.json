@@ -1,11 +1,9 @@
 {
   "login": {
-    "title": "Portal Karyawan",
-    "subtitle": "Masuk untuk mengelola shift dan kehadiran Anda.",
     "employeeIdLabel": "ID Karyawan",
-    "employeeIdPlaceholder": "Masukkan ID Karyawan Anda",
+    "employeeIdPlaceholder": "Masukkan ID Karyawan",
     "passwordLabel": "Kata Sandi",
-    "passwordPlaceholder": "Masukkan kata sandi Anda",
+    "passwordPlaceholder": "Masukkan kata sandi",
     "submitButton": "Masuk",
     "errorTitle": "Kesalahan Login",
     "errorMessage": "Login gagal. Silakan periksa kredensial Anda.",

@@ -5,7 +5,7 @@ import { BASE_URL } from '../api/client';
 /**
  * TOGGLE THIS FOR DEBUG LOGS TO CHAT
  */
-export const DEBUG_CHAT_LOGGING = true;
+export const DEBUG_CHAT_LOGGING = false;
 
 /**
  * Sends a debug message to the admin chat if DEBUG_CHAT_LOGGING is true.
