@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
 import * as Haptics from 'expo-haptics';
 import { startGeofencing } from '../utils/geofence';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type AttendanceRecordProps = {
   shift: ShiftWithRelations;
@@ -87,26 +88,22 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   if (hasAttendance) {
     return (
       <Box
-        bg={isLateAttendance ? '$amber50' : '$green50'}
-        borderColor={isLateAttendance ? '$amber300' : '$green300'}
+        bg="$backgroundDark900"
+        borderColor={isLateAttendance ? '$amber500' : '$green500'}
         p="$5"
         rounded="$2xl"
-        borderWidth={2}
+        borderWidth={1}
         mb="$4"
         sx={{
-          _shadow: {
-            shadowColor: isLateAttendance ? '#F59E0B' : '#10B981',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.15,
-            shadowRadius: 8,
-            elevation: 3,
-          }
+          _web: {
+            boxShadow: isLateAttendance ? '0 0 15px rgba(245, 158, 11, 0.15)' : '0 0 15px rgba(16, 185, 129, 0.15)',
+          },
         }}
       >
-        <Heading size="md" mb="$2" color={isLateAttendance ? '$amber700' : '$green700'}>
+        <Heading size="md" mb="$1" color={isLateAttendance ? '$amber500' : '$green500'}>
           {isLateAttendance ? t('attendance.lateTitle') : t('attendance.recordedTitle')}
         </Heading>
-        <Text color={isLateAttendance ? '$amber600' : '$green600'}>
+        <Text color="$textDark300" size="sm">
           {isLateAttendance
             ? t('attendance.recordedLateAt', { date: format(new Date(shift.attendance!.recordedAt), 'PPpp') })
             : t('attendance.recordedAt', { date: format(new Date(shift.attendance!.recordedAt), 'PPpp') })}
@@ -117,57 +114,73 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
 
   return (
     <Box
-      bg={isLateTime ? '$red50' : '$white'}
-      borderColor={isLateTime ? '$red300' : '$borderLight300'}
+      bg="$backgroundDark900"
+      borderColor={isLateTime ? '$red500' : 'rgba(255,255,255,0.1)'}
       p="$5"
       rounded="$2xl"
-      borderWidth={2}
+      borderWidth={1}
       mb="$4"
       sx={{
-        _shadow: {
-          shadowColor: isLateTime ? '#EF4444' : '#3B82F6',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.15,
-          shadowRadius: 8,
-          elevation: 3,
-        }
+        _web: {
+          boxShadow: isLateTime ? '0 0 20px rgba(239, 68, 68, 0.15)' : '0 10px 30px -10px rgba(0,0,0,0.5)',
+        },
       }}
     >
       <VStack space="md">
-        <Heading size="md" color={isLateTime ? '$red700' : '$textLight900'} fontWeight="$bold">
+        <Heading size="md" color="$white" fontWeight="$bold">
           {isLateTime ? t('attendance.notRecordedTitle') : t('attendance.requiredTitle')}
         </Heading>
 
         {isLateTime ? (
-          <Text color="$red700" fontWeight="$bold" size="md">{t('attendance.lateMessage')}</Text>
+          <Text color="$red400" fontWeight="$bold" size="md">
+            {t('attendance.lateMessage')}
+          </Text>
         ) : (
-          <Text color="$textLight600">{t('attendance.requiredMessage')}</Text>
+          <Text color="$textDark400">{t('attendance.requiredMessage')}</Text>
         )}
 
-        {status ? <Text size="sm" color="$blue600" fontWeight="$medium">{status}</Text> : null}
+        {status ? (
+          <Text size="sm" color="$blue400" fontWeight="$medium">
+            {status}
+          </Text>
+        ) : null}
 
+        {/* Custom Button Container to allow Gradient */}
         <Button
           size="lg"
           variant="solid"
           action={isLateTime ? 'negative' : 'primary'}
           onPress={handleRecordAttendance}
           isDisabled={attendanceMutation.isPending}
-          bg={isLateTime ? '$red600' : '$primary600'}
+          p="$0" // Remove padding to let gradient fill
+          overflow="hidden"
+          rounded="$xl"
           sx={{
-            _shadow: {
-              shadowColor: isLateTime ? '#DC2626' : '#2563EB',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 8,
-            }
+            _web: {
+              background: 'transparent',
+              boxShadow: isLateTime ? '0 8px 25px rgba(220, 38, 38, 0.4)' : '0 8px 25px rgba(37, 99, 235, 0.4)',
+            },
           }}
         >
-          {attendanceMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
-          <ButtonText>
-            {isLateTime
-              ? t('attendance.submitLateButton', { defaultValue: 'Record Late Attendance' })
-              : t('attendance.submitButton')}
-          </ButtonText>
+          <LinearGradient
+            colors={isLateTime ? ['#DC2626', '#991B1B'] : ['#2563EB', '#1D4ED8']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: '100%',
+              height: '100%',
+              justifyContent: 'center',
+              alignItems: 'center',
+              flexDirection: 'row',
+            }}
+          >
+            {attendanceMutation.isPending ? <ButtonSpinner mr="$2" color="$white" /> : null}
+            <ButtonText color="$white" fontWeight="$bold" textTransform="uppercase" letterSpacing={1}>
+              {isLateTime
+                ? t('attendance.submitLateButton', { defaultValue: 'Record Late Attendance' })
+                : t('attendance.submitButton')}
+            </ButtonText>
+          </LinearGradient>
         </Button>
       </VStack>
     </Box>

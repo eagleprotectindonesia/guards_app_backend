@@ -9,7 +9,6 @@ import { useQuery } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
 import PasswordChangeModal from '../../src/components/PasswordChangeModal';
 import { PasswordChangeModalProvider, usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
-import LanguageToggle from '../../src/components/LanguageToggle';
 
 export default function TabsLayout() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -62,8 +61,15 @@ function TabsContent({ isAuthenticated }: { isAuthenticated: boolean }) {
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: '#2563EB',
-          tabBarInactiveTintColor: '#6B7280',
+          tabBarActiveTintColor: '#FFFFFF',
+          tabBarInactiveTintColor: '#737373',
+          tabBarStyle: {
+            backgroundColor: '#0A0A0A',
+            borderTopColor: 'rgba(255,255,255,0.1)',
+            height: 72,
+            paddingBottom: 8,
+            paddingTop: 8,
+          },
         }}
       >
         {/* 
@@ -96,17 +102,6 @@ function TabsContent({ isAuthenticated }: { isAuthenticated: boolean }) {
           />
         </Tabs.Protected>
       </Tabs>
-
-      <View
-        style={{
-          position: 'absolute',
-          top: 48,
-          right: 24,
-          zIndex: 50,
-        }}
-      >
-        <LanguageToggle />
-      </View>
     </View>
   );
 }

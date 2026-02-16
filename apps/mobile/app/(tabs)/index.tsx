@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
-import { ScrollView, RefreshControl } from 'react-native';
-import { Box, VStack, Heading, Text, Spinner, Center } from '@gluestack-ui/themed';
+import { ScrollView, RefreshControl, Image } from 'react-native';
+import { Box, VStack, Heading, Text, Spinner, Center, HStack } from '@gluestack-ui/themed';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
 import AttendanceRecord from '../../src/components/AttendanceRecord';
@@ -12,6 +12,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShiftWithRelations, Employee } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
 import { startGeofencing, stopGeofencing, isGeofencingActive } from '../../src/utils/geofence';
+import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
+import { LinearGradient } from 'expo-linear-gradient';
 
 type ActiveShiftData = {
   activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;
@@ -55,7 +57,7 @@ export default function HomeScreen() {
   useEffect(() => {
     const syncGeofence = async () => {
       const isRunning = await isGeofencingActive();
-      
+
       if (activeShift?.attendance) {
         if (!isRunning) {
           await startGeofencing(activeShift);
@@ -71,73 +73,98 @@ export default function HomeScreen() {
     syncGeofence();
   }, [activeShift]);
 
-  const isAttendanceLate = (() => {
-    if (!activeShift || activeShift.attendance) return false;
-    const ATTENDANCE_GRACE_MINS = 5;
-    const startMs = new Date(activeShift.startsAt).getTime();
-    const graceEndMs = startMs + ATTENDANCE_GRACE_MINS * 60000;
-    return new Date().getTime() > graceEndMs;
-  })();
+  const defaultAvatar =
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuDzcxM7B2Plj0M6rLwD5-jwCeXCJ-VxTGp8XT8dffCo7Cjv4BQ3_fM-MkOicyMU8jJxMw9Q81kjfqVm_zD_yfF92pmxUsZDY_fB7by9N3_LAOMNfdJlNjEUudjhqq7Cm5LUPTk9aKNVSgT9A4rsOYqHKU5vKRmjMZknp_AFtbKxzLh1PX2V_AKy5bez2tThvg_swnSuuvc4uRhd_JO8vfyGxuCUlrrS_Gt_LXaPHMHfgxPWTz6nvJqDPVw3QneYlTqVGg46xTuvrQDq';
 
   return (
-    <Box flex={1} bg="$backgroundLight50" position="relative">
+    <Box flex={1} bg="$backgroundDark950" position="relative">
       <SessionMonitor />
+
+      {/* Background Gradients to simulate the Deep Dark aesthetic */}
+      <Box position="absolute" top={0} left={0} right={0} height={400} opacity={0.3}>
+        <LinearGradient colors={['rgba(217, 35, 35, 0.1)', 'transparent']} style={{ flex: 1 }} />
+      </Box>
+
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: 20,
           paddingBottom: 100,
-          paddingTop: insets.top + 60, // Pushing down below status bar and language toggle
+          paddingTop: insets.top + 20,
         }}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#fff" />}
       >
         <VStack space="xl">
-          <Box mb="$4">
-            <Heading size="3xl" color="$textLight900" lineHeight="$tight">
-              {t('dashboard.welcome')}
-              <Text color="$blue600">{profile?.employee?.name || 'Employee'}</Text>
-            </Heading>
-            {profile?.employee?.employeeCode && (
-              <Text color="$textLight500" fontWeight="$bold" mt="$1">
-                {t('dashboard.employeeCode')} {profile.employee.employeeCode}
-              </Text>
-            )}
+          {/* Header */}
+          <Box px="$6" mb="$2">
+            <HStack justifyContent="space-between" alignItems="center">
+              <HStack space="md" alignItems="center">
+                <Box
+                  w="$12"
+                  h="$12"
+                  rounded="$full"
+                  borderWidth={1}
+                  borderColor="rgba(255,255,255,0.1)"
+                  overflow="hidden"
+                  bg="$backgroundDark900"
+                >
+                  <Image source={{ uri: defaultAvatar }} style={{ width: '100%', height: '100%', opacity: 0.8 }} />
+                </Box>
+                <VStack>
+                  <Text
+                    color="$red500"
+                    size="2xs"
+                    fontWeight="$bold"
+                    textTransform="uppercase"
+                    letterSpacing={1.5}
+                    mb="$1"
+                  >
+                    {profile?.employee?.designation?.name || t('dashboard.unit')}
+                  </Text>
+                  <Heading size="lg" color="$white" fontWeight="$bold">
+                    {profile?.employee?.name || ''}
+                  </Heading>
+                </VStack>
+              </HStack>
+              <GlassLanguageToggle />
+            </HStack>
           </Box>
 
           {isLoading ? (
             <Center h={200}>
-              <Spinner size="large" color="$blue600" />
+              <Spinner size="large" color="$red600" />
             </Center>
           ) : (
             <VStack space="xl">
-              {!activeShift && (
-                <Box
-                  bg="$white"
-                  p="$8"
-                  rounded="$2xl"
-                  borderWidth={2}
-                  borderStyle="dashed"
-                  borderColor="$borderLight300"
-                  alignItems="center"
-                >
-                  <Text color="$textLight500" textAlign="center" fontWeight="$medium">
-                    {t('dashboard.noActiveShift')}
-                  </Text>
-                </Box>
-              )}
+              {/* Shift Carousel */}
+              <Box>
+                {activeShift || nextShifts.length > 0 ? (
+                  <ShiftCarousel activeShift={activeShift} nextShifts={nextShifts} />
+                ) : (
+                  <Box px="$6">
+                    <Box
+                      bg="rgba(255,255,255,0.05)"
+                      p="$8"
+                      rounded="$2xl"
+                      borderWidth={1}
+                      borderStyle="dashed"
+                      borderColor="rgba(255,255,255,0.1)"
+                      alignItems="center"
+                    >
+                      <Text color="$textDark500" textAlign="center" fontWeight="$medium">
+                        {t('dashboard.noActiveShift')}
+                      </Text>
+                    </Box>
+                  </Box>
+                )}
+              </Box>
 
-              {(activeShift || nextShifts.length > 0) && (
-                <ShiftCarousel activeShift={activeShift} nextShifts={nextShifts} />
-              )}
-
+              {/* Checkpoint Authentication / Attendance */}
               {activeShift && (
-                <VStack space="md">
-                  <AttendanceRecord shift={activeShift} onAttendanceRecorded={refetch} />
-
-                  {/* Show CheckInCard if attendance is recorded OR late */}
-                  {(activeShift.attendance || isAttendanceLate) && (
+                <Box px="$6">
+                  <VStack space="md">
                     <CheckInCard activeShift={activeShift} refetchShift={refetch} />
-                  )}
-                </VStack>
+                    <AttendanceRecord shift={activeShift} onAttendanceRecorded={refetch} />
+                  </VStack>
+                </Box>
               )}
             </VStack>
           )}

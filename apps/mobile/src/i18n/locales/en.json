@@ -16,6 +16,9 @@
     "welcome": "Welcome,",
     "employeeCode": "Employee Code:",
     "noActiveShift": "You have no active shifts",
+    "unit": "Security Unit",
+    "station": "Station",
+    "timeframe": "Timeframe",
     "changePassword": "Change Password",
     "logout": "Logout",
     "logoutConfirmTitle": "Logout",
@@ -73,7 +76,12 @@
     "titleNext": "Next Check-in",
     "submitButton": "CHECK IN NOW",
     "submitLateButton": "Submit Late Check-in",
-    "graceMinutes": "Grace minutes: {{minutes}}"
+    "graceMinutes": "Grace minutes: {{minutes}}",
+    "checkpointTitle": "Checkpoint Authentication",
+    "windowClosing": "Verification window closing soon",
+    "urgent": "Urgent",
+    "responseRequired": "Response Required",
+    "checkInNow": "Check-in Now"
   },
   "passwordChange": {
     "successTitle": "Success",
@@ -95,6 +103,8 @@
     "activeStatus": "ACTIVE",
     "upcomingStatus": "UPCOMING",
     "defaultLocation": "Location",
+    "station": "Station",
+    "timeframe": "Timeframe",
     "typePrefix": "Shift Type: "
   },
   "tabs": {

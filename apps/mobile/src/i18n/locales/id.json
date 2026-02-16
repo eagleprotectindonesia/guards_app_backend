@@ -16,6 +16,9 @@
     "welcome": "Selamat Datang,",
     "employeeCode": "Kode Karyawan:",
     "noActiveShift": "Anda tidak memiliki shift aktif",
+    "unit": "Unit Keamanan",
+    "station": "Pos",
+    "timeframe": "Waktu",
     "changePassword": "Ubah Kata Sandi",
     "logout": "Keluar",
     "logoutConfirmTitle": "Keluar",
@@ -73,7 +76,12 @@
     "titleNext": "Check-in Berikutnya",
     "submitButton": "CHECK IN SEKARANG",
     "submitLateButton": "Rekam Check-in",
-    "graceMinutes": "Menit toleransi: {{minutes}}"
+    "graceMinutes": "Menit toleransi: {{minutes}}",
+    "checkpointTitle": "Autentikasi Pos Pemeriksaan",
+    "windowClosing": "Jendela verifikasi segera ditutup",
+    "urgent": "Mendesak",
+    "responseRequired": "Respon Diperlukan",
+    "checkInNow": "Check-in Sekarang"
   },
   "passwordChange": {
     "successTitle": "Sukses",
@@ -95,6 +103,8 @@
     "activeStatus": "AKTIF",
     "upcomingStatus": "MENDATANG",
     "defaultLocation": "Lokasi",
+    "station": "Pos",
+    "timeframe": "Waktu",
     "typePrefix": "Tipe Shift: "
   },
   "tabs": {
