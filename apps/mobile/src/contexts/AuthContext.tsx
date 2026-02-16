@@ -6,6 +6,7 @@ import { getSocket, disconnectSocket } from '../api/socket';
 import { stopGeofencing } from '../utils/geofence';
 import { authenticateWithBiometric } from '../utils/biometric';
 import { Employee } from '@repo/types';
+import { useTranslation } from 'react-i18next';
 
 type AuthState =
   | { isLoading: true; isAuthenticated: false; user: null; token: null }
@@ -32,6 +33,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isAuthenticated: false,
   });
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const { t } = useTranslation();
 
   const logout = useCallback(async (reason?: string) => {
     // reason could be used for showing specific alerts in the future
@@ -125,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!isEnabled) return false;
 
       // ENFORCE: Biometric verification happens HERE in the trusted context
-      const authResult = await authenticateWithBiometric('Scan to login');
+      const authResult = await authenticateWithBiometric(t('biometric.promptMessage'));
       if (!authResult.success) {
         return false;
       }
@@ -147,7 +149,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.error('Biometric login failed:', error);
       return false;
     }
-  }, [login]);
+  }, [login, t]);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -246,9 +248,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Disconnect socket immediately to prevent errors
       disconnectSocket();
 
-      Alert.alert('Session Expired', 'Your session has expired. Please login again.', [
+      Alert.alert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
         {
-          text: 'OK',
+          text: t('common.ok', 'OK'),
           onPress: async () => {
             await logout('session_expired');
             isHandling401 = false;
@@ -260,7 +262,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cleanup();
     };
-  }, [state.isAuthenticated, logout]);
+  }, [state.isAuthenticated, logout, t]);
 
   return (
     <AuthContext.Provider

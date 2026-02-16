@@ -61,12 +61,12 @@ export default function AccountScreen() {
   };
 
   const handlePasswordConfirm = async (password: string) => {
-    if (!user?.employeeCode) {
+    if (!user?.id) {
       Alert.alert('Error', 'User information missing');
       throw new Error('User missing');
     }
 
-    const success = await enableBiometric(user.employeeCode, password);
+    const success = await enableBiometric(user.id, password);
     if (success) {
       Alert.alert(t('common.successTitle', 'Success'), t('biometric.enableSuccess'));
       setIsPasswordModalOpen(false);

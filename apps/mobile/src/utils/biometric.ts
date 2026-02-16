@@ -60,6 +60,13 @@ export const authenticateWithBiometric = async (promptMessage: string) => {
 export const getBiometricTypeLabel = async () => {
   try {
     const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+    
+    // If multiple types are supported (common on modern Android), return generic 'Biometric'
+    // to avoid confusion when the OS chooses a different method than our predicted label.
+    if (types.length > 1) {
+      return 'Biometric';
+    }
+
     if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
       return 'Face ID / Face Unlock';
     }

@@ -55,7 +55,6 @@ export default function LoginScreen() {
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
   const [biometricType, setBiometricType] = useState('Biometric');
   const [isBioPending, setIsBioPending] = useState(false);
-  const hasAutoPrompted = React.useRef(false);
 
   const loginMutation = useMutation({
     mutationFn: async () => {
@@ -166,16 +165,10 @@ export default function LoginScreen() {
       if (available) {
         const typeLabel = await getBiometricTypeLabel();
         setBiometricType(typeLabel);
-
-        // Auto-trigger if enabled
-        if (isBiometricEnabled && !hasAutoPrompted.current) {
-          hasAutoPrompted.current = true;
-          handleBiometricLogin();
-        }
       }
     };
     initBiometric();
-  }, [isBiometricEnabled, handleBiometricLogin, setBiometricType]);
+  }, [setBiometricType]);
 
   const handleLogin = () => {
     if (!employeeId || !password) {
@@ -368,7 +361,8 @@ export default function LoginScreen() {
                           >
                             <Fingerprint size={20} color="#E6392D" />
                             <Text color="white" fontWeight="$medium" ml="$2" style={styles.biometricText}>
-                              {t('biometric.loginButton')} ({biometricType})
+                              {t('biometric.loginButton')}
+                              {biometricType !== 'Biometric' && ` (${biometricType})`}
                             </Text>
                           </Box>
                         )}
