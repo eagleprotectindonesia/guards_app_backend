@@ -5,6 +5,7 @@ export { redis } from './redis';
 export * from './data-access/admins';
 export * from './data-access/alerts';
 export * from './data-access/attendance';
+export * from './data-access/attendance-with-checkins';
 export * from './data-access/checkins';
 export * from './data-access/employees';
 export * from './data-access/settings';
