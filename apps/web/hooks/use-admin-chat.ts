@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSocket } from '@/components/socket-provider';
 import { useSocketEvent } from './use-socket-event';
 import { Conversation, ChatMessage } from '@/types/chat';
 import { uploadToS3 } from '@/lib/upload';
 import { optimizeImage } from '@/lib/image-utils';
 import { toast } from 'react-hot-toast';
+import { useInfiniteQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
 
 interface UseAdminChatOptions {
   initialEmployeeId?: string | null;
@@ -15,13 +16,12 @@ interface UseAdminChatOptions {
 
 export function useAdminChat(options: UseAdminChatOptions = {}) {
   const { socket, isConnected } = useSocket();
+  const queryClient = useQueryClient();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeEmployeeId, setActiveEmployeeId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'unread'>('all');
-  const [isLoading, setIsLoading] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -30,8 +30,43 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   const [conversationLocks, setConversationLocks] = useState<Record<string, { lockedBy: string; expiresAt: number }>>({});
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const lastFetchedIdRef = useRef<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  // Use Infinite Query for messages
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isLoading: isMessagesLoading,
+  } = useInfiniteQuery({
+    queryKey: ['admin', 'chat', 'messages', activeEmployeeId],
+    queryFn: async ({ pageParam }) => {
+      if (!activeEmployeeId) return [];
+      const url = new URL(`/api/shared/chat/${activeEmployeeId}`, window.location.origin);
+      url.searchParams.set('limit', '20');
+      if (pageParam) {
+        url.searchParams.set('cursor', pageParam);
+      }
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error('Failed to fetch messages');
+      return res.json() as Promise<ChatMessage[]>;
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => {
+      if (lastPage.length < 20) return undefined;
+      return lastPage[lastPage.length - 1].id;
+    },
+    enabled: !!activeEmployeeId,
+    // Keep data fresh but not too aggressive
+    staleTime: 1000 * 60, 
+  });
+
+  const messages = useMemo(() => {
+    const allMessages = data?.pages.flat() || [];
+    // Sort by date ascending for display (oldest at top, newest at bottom)
+    return [...allMessages].reverse();
+  }, [data]);
 
   // Audio Logic for Chat
   useEffect(() => {
@@ -89,11 +124,28 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       playNotificationSound();
     }
 
+    // Update messages cache
     if (activeEmployeeId === message.employeeId) {
-      setMessages(prev => {
-        if (prev.some(m => m.id === message.id)) return prev;
-        return [...prev, message];
+      queryClient.setQueryData<InfiniteData<ChatMessage[]>>(['admin', 'chat', 'messages', activeEmployeeId], old => {
+        if (!old || !old.pages || old.pages.length === 0) {
+          // If no data, maybe we should invalidate or create a new one
+          return {
+            pages: [[message]],
+            pageParams: [undefined],
+          };
+        }
+
+        // Avoid duplicates
+        const alreadyExists = old.pages.some(page => page.some(m => m.id === message.id));
+        if (alreadyExists) return old;
+
+        // Newest messages are at the beginning of the FIRST page in InfiniteQuery
+        return {
+          ...old,
+          pages: [[message, ...old.pages[0]], ...old.pages.slice(1)],
+        };
       });
+
       if (message.sender === 'employee' && socket) {
         socket.emit('mark_read', { employeeId: message.employeeId, messageIds: [message.id] });
       }
@@ -129,10 +181,17 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
   useSocketEvent('messages_read', (data) => {
     setConversations(prev => prev.map(c => (c.employeeId === data.employeeId ? { ...c, unreadCount: 0 } : c)));
+    
     if (activeEmployeeId === data.employeeId && data.messageIds) {
-      setMessages(prev =>
-        prev.map(m => (data.messageIds?.includes(m.id) ? { ...m, readAt: new Date().toISOString() } : m))
-      );
+      queryClient.setQueryData<InfiniteData<ChatMessage[]>>(['admin', 'chat', 'messages', activeEmployeeId], old => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map(page =>
+            page.map(msg => (data.messageIds?.includes(msg.id) ? { ...msg, readAt: new Date().toISOString() } : msg))
+          ),
+        };
+      });
     }
   });
 
@@ -176,45 +235,32 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   });
 
   const handleSelectConversation = useCallback(async (employeeId: string, skipCallback = false) => {
-    // Prevent redundant fetches if already loading or viewing this employee
-    if (lastFetchedIdRef.current === employeeId && messages.length > 0) {
-      setActiveEmployeeId(employeeId);
-      return;
-    }
-
     setActiveEmployeeId(employeeId);
-    lastFetchedIdRef.current = employeeId;
 
     if (!skipCallback && options.onSelectConversation) {
       options.onSelectConversation(employeeId);
     }
 
-    setIsLoading(true);
-
     // Optimistically clear unread count locally
     setConversations(prev => prev.map(c => (c.employeeId === employeeId ? { ...c, unreadCount: 0 } : c)));
 
-    try {
-      const res = await fetch(`/api/shared/chat/${employeeId}`);
-      if (res.ok) {
-        const data = await res.json();
-        const reversed: ChatMessage[] = data.reverse();
-        setMessages(reversed);
-        if (socket) {
-          const unreadIds = reversed
-            .filter((m: ChatMessage) => m.sender === 'employee' && !m.readAt)
-            .map((m: ChatMessage) => m.id);
-          if (unreadIds.length > 0) {
-            socket.emit('mark_read', { employeeId, messageIds: unreadIds });
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch messages', err);
-    } finally {
-      setIsLoading(false);
+    // We don't need to manually fetch messages anymore as useInfiniteQuery handles it
+    // But we might want to mark unread as read if data is already in cache or when it arrives
+    // This is handled by a side effect below or when new messages arrive.
+  }, [options]);
+
+  // Handle marking messages as read when a conversation is selected
+  useEffect(() => {
+    if (!activeEmployeeId || !socket || !messages.length) return;
+
+    const unreadIds = messages
+      .filter((m: ChatMessage) => m.sender === 'employee' && !m.readAt)
+      .map((m: ChatMessage) => m.id);
+
+    if (unreadIds.length > 0) {
+      socket.emit('mark_read', { employeeId: activeEmployeeId, messageIds: unreadIds });
     }
-  }, [options, socket, messages.length]);
+  }, [activeEmployeeId, messages, socket]);
 
   // Sync with initialEmployeeId (e.g. from URL)
   useEffect(() => {
@@ -318,7 +364,9 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     inputText,
     searchTerm,
     filterType,
-    isLoading,
+    isLoading: isMessagesLoading,
+    isFetchingNextPage,
+    hasNextPage,
     isUploading,
     isOptimizing,
     selectedFiles,
@@ -327,6 +375,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     conversationLocks,
     isConnected,
     socket,
+    fetchNextPage,
     setSearchTerm,
     setFilterType,
     handleSelectConversation,

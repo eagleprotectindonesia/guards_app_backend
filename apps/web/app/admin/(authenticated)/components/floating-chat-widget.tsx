@@ -35,6 +35,8 @@ function FloatingChatWidgetContent() {
     searchTerm,
     filterType,
     isLoading,
+    isFetchingNextPage,
+    hasNextPage,
     isUploading,
     isOptimizing,
     previews,
@@ -48,6 +50,7 @@ function FloatingChatWidgetContent() {
     removeFile,
     handleInputChange,
     fetchConversations,
+    fetchNextPage,
   } = useAdminChat();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -144,6 +147,9 @@ function FloatingChatWidgetContent() {
                   <ChatMessageList
                     messages={messages}
                     isLoading={isLoading}
+                    hasNextPage={hasNextPage}
+                    isFetchingNextPage={isFetchingNextPage}
+                    fetchNextPage={fetchNextPage}
                     currentAdminId={userId}
                     className="flex-1 overflow-y-auto scrollbar-thin"
                   />
@@ -158,7 +164,7 @@ function FloatingChatWidgetContent() {
 
                   {/* Footer Input */}
                   <form
-                    onSubmit={(e) => {
+                    onSubmit={e => {
                       e.preventDefault();
                       handleSendMessage();
                     }}
@@ -167,7 +173,7 @@ function FloatingChatWidgetContent() {
                     <input
                       type="file"
                       ref={fileInputRef}
-                      onChange={(e) => handleFileChange(Array.from(e.target.files || []))}
+                      onChange={e => handleFileChange(Array.from(e.target.files || []))}
                       accept="image/*"
                       multiple
                       className="hidden"
@@ -183,7 +189,7 @@ function FloatingChatWidgetContent() {
                     <input
                       type="text"
                       value={inputText}
-                      onChange={(e) => handleInputChange(e.target.value)}
+                      onChange={e => handleInputChange(e.target.value)}
                       disabled={isUploading || isOptimizing}
                       placeholder="Type a message..."
                       className="flex-1 bg-muted rounded-full px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-muted-foreground/50"
@@ -235,5 +241,3 @@ function FloatingChatWidgetContent() {
     </div>
   );
 }
-
-

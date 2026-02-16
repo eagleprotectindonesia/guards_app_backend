@@ -39,6 +39,8 @@ export function AdminChatClient() {
     searchTerm,
     filterType,
     isLoading,
+    isFetchingNextPage,
+    hasNextPage,
     isUploading,
     isOptimizing,
     previews,
@@ -53,6 +55,7 @@ export function AdminChatClient() {
     removeFile,
     handleInputChange,
     fetchConversations,
+    fetchNextPage,
   } = useAdminChat(chatOptions);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -62,7 +65,7 @@ export function AdminChatClient() {
   }, [fetchConversations]);
 
   const activeEmployee = conversations.find(c => c.employeeId === activeEmployeeId);
-  
+
   const currentLock = activeEmployeeId ? conversationLocks[activeEmployeeId] : null;
   const isLockedByOther = !!(currentLock && currentLock.lockedBy !== userId);
 
@@ -98,9 +101,7 @@ export function AdminChatClient() {
                     {activeEmployee && (
                       <span className="text-xs font-normal text-muted-foreground">({activeEmployee.employeeId})</span>
                     )}
-                    {isLockedByOther && (
-                      <Lock size={14} className="text-amber-500 fill-amber-500/10" />
-                    )}
+                    {isLockedByOther && <Lock size={14} className="text-amber-500 fill-amber-500/10" />}
                   </h3>
                   <div className="flex items-center gap-1.5">
                     {/* <div className={cn('w-2 h-2 rounded-full', isConnected ? 'bg-green-500' : 'bg-gray-400')} /> */}
@@ -120,6 +121,9 @@ export function AdminChatClient() {
             <ChatMessageList
               messages={messages}
               isLoading={isLoading}
+              hasNextPage={hasNextPage}
+              isFetchingNextPage={isFetchingNextPage}
+              fetchNextPage={fetchNextPage}
               currentAdminId={userId}
               typingEmployeeName={typingEmployees[activeEmployeeId] ? activeEmployee?.employeeName : undefined}
               className="flex-1 overflow-y-auto"
@@ -140,7 +144,7 @@ export function AdminChatClient() {
                   </div>
                 </div>
               )}
-              
+
               <form onSubmit={handleSendMessage} className="flex items-end gap-3 max-w-4xl mx-auto">
                 <div className="flex-1 bg-muted/50 rounded-2xl border border-border focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all flex items-end p-2 px-4 gap-3">
                   <input
@@ -175,14 +179,20 @@ export function AdminChatClient() {
                       }
                     }}
                     disabled={isUploading || isOptimizing || isLockedByOther}
-                    placeholder={isLockedByOther ? "Conversation locked" : "Type a message..."}
+                    placeholder={isLockedByOther ? 'Conversation locked' : 'Type a message...'}
                     className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-foreground py-2 resize-none max-h-[120px] placeholder:text-muted-foreground/50"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  disabled={(!inputText.trim() && previews.length === 0) || !isConnected || isUploading || isOptimizing || isLockedByOther}
+                  disabled={
+                    (!inputText.trim() && previews.length === 0) ||
+                    !isConnected ||
+                    isUploading ||
+                    isOptimizing ||
+                    isLockedByOther
+                  }
                   className="bg-blue-600 text-white p-3 rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-all shadow-md shrink-0 mb-1"
                 >
                   {isUploading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}

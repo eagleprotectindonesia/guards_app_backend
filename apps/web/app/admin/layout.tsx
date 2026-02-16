@@ -1,18 +1,5 @@
-import { ThemeProvider } from "@/components/theme-provider";
+import Providers from './providers';
 
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="light"
-      enableSystem={false}
-      disableTransitionOnChange
-    >
-      {children}
-    </ThemeProvider>
-  );
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return <Providers>{children}</Providers>;
 }
