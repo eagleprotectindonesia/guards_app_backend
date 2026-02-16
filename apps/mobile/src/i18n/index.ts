@@ -4,8 +4,9 @@ import * as Localization from 'expo-localization';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import 'intl-pluralrules';
 
-import en from './locales/en.json';
-import id from './locales/id.json';
+import { locales } from '@repo/shared';
+
+const { en, id } = locales;
 
 const STORE_LANGUAGE_KEY = 'user-language';
 

@@ -30,7 +30,9 @@
   "common": {
     "cancel": "Cancel",
     "minutes": "minutes",
-    "seconds": "seconds"
+    "seconds": "seconds",
+    "loading": "Loading...",
+    "processing": "Processing..."
   },
   "attendance": {
     "success": "Attendance Recorded Successfully!",
@@ -54,7 +56,8 @@
     "lateMessage": "Attendance deadline missed. Record late attendance now",
     "requiredMessage": "Please record your attendance to start the shift.",
     "submitButton": "Record Attendance",
-    "submitLateButton": "Record Late Attendance"
+    "submitLateButton": "Record Late Attendance",
+    "alreadyRecorded": "Attendance already recorded for this shift."
   },
   "checkin": {
     "success": "Check-in Successful!",
@@ -116,7 +119,10 @@
   "chat": {
     "title": "Messages",
     "noMessages": "No messages yet",
-    "placeholder": "Type a message..."
+    "placeholder": "Type a message...",
+    "connected": "Online",
+    "disconnected": "Disconnected",
+    "read": "Read"
   },
   "account": {
     "title": "Account",
@@ -139,5 +145,16 @@
     "settingsTitle": "Biometric Login",
     "settingsEnabled": "Enabled",
     "settingsDisabled": "Disabled"
+  },
+  "officeAttendance": {
+    "title": "Office Attendance",
+    "notRecorded": "You haven't recorded your attendance today.",
+    "clockedIn": "Clocked In ({{time}})",
+    "clockIn": "Clock In",
+    "clockOut": "Clock Out",
+    "clockOutSuccess": "Successfully clocked out",
+    "history": "Today's History",
+    "in": "In",
+    "out": "Out"
   }
 }

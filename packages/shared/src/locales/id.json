@@ -1,5 +1,7 @@
 {
   "login": {
+    "title": "Portal Karyawan",
+    "subtitle": "Masuk untuk mengelola shift dan kehadiran Anda.",
     "employeeIdLabel": "ID Karyawan",
     "employeeIdPlaceholder": "Masukkan ID Karyawan",
     "passwordLabel": "Kata Sandi",
@@ -14,6 +16,9 @@
     "welcome": "Selamat Datang,",
     "employeeCode": "Kode Karyawan:",
     "noActiveShift": "Anda tidak memiliki shift aktif",
+    "unit": "Unit Keamanan",
+    "station": "Pos",
+    "timeframe": "Waktu",
     "changePassword": "Ubah Kata Sandi",
     "logout": "Keluar",
     "logoutConfirmTitle": "Keluar",
@@ -48,7 +53,7 @@
     "recordedAt": "Kehadiran direkam pada {{date}}",
     "notRecordedTitle": "Kehadiran Tidak Terekam",
     "requiredTitle": "Kehadiran Diperlukan",
-    "lateMessage": "Batas waktu kehadiran terlewati. Silakan rekam kehadiran terlambat.",
+    "lateMessage": "Batas waktu kehadiran terlewati. Rekam kehadiran sekarang",
     "requiredMessage": "Harap rekam kehadiran Anda untuk memulai shift.",
     "submitButton": "Rekam Kehadiran",
     "submitLateButton": "Rekam Kehadiran Terlambat",
@@ -65,7 +70,6 @@
     "openStatus": "Check-in BUKA",
     "missed": "Jendela terlewat",
     "remainingTime": "Sisa waktu: {{time}} detik",
-    "lateStatus": "Anda terlambat untuk check-in ini",
     "gettingLocation": "Mendapatkan lokasi...",
     "locationRequired": "Lokasi diperlukan.",
     "processing": "Melakukan check-in...",
@@ -73,12 +77,15 @@
     "titleOpen": "Check-in Dibuka!",
     "titleLate": "Check-in Terlambat",
     "titleNext": "Check-in Berikutnya",
-    "windowClosing": "Jendela verifikasi segera ditutup",
-    "checkpointTitle": "Autentikasi Pos Pemeriksaan",
-    "checkInNow": "Check-in Sekarang",
     "submitButton": "CHECK IN SEKARANG",
     "submitLateButton": "Rekam Check-in",
-    "graceMinutes": "Menit toleransi: {{minutes}}"
+    "graceMinutes": "Menit toleransi: {{minutes}}",
+    "checkpointTitle": "Autentikasi Pos Pemeriksaan",
+    "windowClosing": "Jendela verifikasi segera ditutup",
+    "urgent": "Mendesak",
+    "responseRequired": "Respon Diperlukan",
+    "checkInNow": "Check-in Sekarang",
+    "lateStatus": "Anda terlambat untuk check-in ini"
   },
   "passwordChange": {
     "successTitle": "Sukses",
@@ -100,9 +107,9 @@
     "activeStatus": "AKTIF",
     "upcomingStatus": "MENDATANG",
     "defaultLocation": "Lokasi",
-    "typePrefix": "Tipe Shift: ",
     "station": "Pos",
-    "timeframe": "Waktu"
+    "timeframe": "Waktu",
+    "typePrefix": "Tipe Shift: "
   },
   "tabs": {
     "home": "Beranda",
@@ -110,16 +117,34 @@
     "account": "Akun"
   },
   "chat": {
-    "title": "Dukungan Admin",
+    "title": "Pesan",
+    "noMessages": "Belum ada pesan",
     "placeholder": "Ketik pesan...",
     "connected": "Online",
     "disconnected": "Terputus",
-    "read": "Dibaca",
-    "noMessages": "Belum ada pesan"
+    "read": "Dibaca"
   },
   "account": {
     "title": "Akun",
     "settings": "Pengaturan"
+  },
+  "biometric": {
+    "loginButton": "Masuk dengan Biometrik",
+    "enableTitle": "Aktifkan Login Biometrik",
+    "enableMessage": "Gunakan sidik jari atau pengenalan wajah untuk login cepat?",
+    "enableSuccess": "Login biometrik diaktifkan",
+    "disableConfirmTitle": "Nonaktifkan Biometrik",
+    "disableConfirmMessage": "Apakah Anda yakin ingin nonaktifkan login biometrik?",
+    "disableSuccess": "Login biometrik dinonaktifkan",
+    "notAvailable": "Autentikasi biometrik tidak tersedia",
+    "notEnrolled": "Tidak ada data biometrik yang terdaftar di perangkat ini",
+    "authFailed": "Autentikasi biometrik gagal",
+    "authCancelled": "Autentikasi dibatalkan",
+    "promptTitle": "Autentikasi",
+    "promptMessage": "Gunakan biometrik Anda untuk masuk",
+    "settingsTitle": "Login Biometrik",
+    "settingsEnabled": "Aktif",
+    "settingsDisabled": "Nonaktif"
   },
   "officeAttendance": {
     "title": "Kehadiran Kantor",
