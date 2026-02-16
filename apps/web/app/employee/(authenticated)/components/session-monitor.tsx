@@ -31,12 +31,20 @@ export default function SessionMonitor() {
       window.dispatchEvent(new CustomEvent('shift_updated'));
     };
 
+    const handleConnectError = (err: Error) => {
+      if (err.message === 'Unauthorized') {
+        handleForceLogout();
+      }
+    };
+
     socket.on('auth:force_logout', handleForceLogout);
     socket.on('shift:updated', handleShiftUpdated);
+    socket.on('connect_error', handleConnectError);
 
     return () => {
       socket.off('auth:force_logout', handleForceLogout);
       socket.off('shift:updated', handleShiftUpdated);
+      socket.off('connect_error', handleConnectError);
     };
   }, [socket, isConnected, router]);
 

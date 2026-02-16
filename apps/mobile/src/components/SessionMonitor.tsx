@@ -26,25 +26,28 @@ export default function SessionMonitor() {
     enabled: isAuthenticated, // Only run when authenticated
   });
 
-  const handleLogout = useCallback(async (reason: string) => {
-    if (reason === 'logged_in_elsewhere') {
-      // Disconnect socket immediately to prevent connection errors
-      disconnectSocket();
-      
-      Alert.alert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
-        { 
-          text: 'OK', 
-          onPress: async () => {
-            await logout(reason);
-            router.replace('/(auth)/login');
-          }
-        },
-      ]);
-    } else {
-      await logout(reason);
-      router.replace('/(auth)/login');
-    }
-  }, [logout, router, t]);
+  const handleLogout = useCallback(
+    async (reason: string) => {
+      if (reason === 'logged_in_elsewhere') {
+        // Disconnect socket immediately to prevent connection errors
+        disconnectSocket();
+
+        Alert.alert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
+          {
+            text: 'OK',
+            onPress: async () => {
+              await logout(reason);
+              router.replace('/(auth)/login');
+            },
+          },
+        ]);
+      } else {
+        await logout(reason);
+        router.replace('/(auth)/login');
+      }
+    },
+    [logout, router, t]
+  );
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -59,6 +62,14 @@ export default function SessionMonitor() {
 
       socket.on('auth:force_logout', (data: { reason: string }) => {
         handleLogout(data.reason);
+      });
+
+      socket.on('connect_error', (err: Error) => {
+        // If the server rejects the connection with "Unauthorized", it means
+        // our token is invalid (likely revoked/version mismatch).
+        if (err.message === 'Unauthorized') {
+          handleLogout('logged_in_elsewhere');
+        }
       });
 
       socket.on('shift:updated', () => {
