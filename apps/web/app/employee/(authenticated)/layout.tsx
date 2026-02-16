@@ -35,7 +35,7 @@ export default function GuardAuthenticatedLayout({ children }: { children: React
 
   return (
     <SocketProvider role="employee">
-      <div className="min-h-screen bg-gray-100 flex flex-col">
+      <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
         <SessionMonitor />
         <ForcePasswordChangeModal mustChange={profile.mustChangePassword} />
         <TopNav />

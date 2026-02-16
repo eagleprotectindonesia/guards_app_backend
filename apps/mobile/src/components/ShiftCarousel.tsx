@@ -71,8 +71,8 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
           <HStack justifyContent="space-between" alignItems="center" mb="$6">
             <HStack space="md" alignItems="center">
               <Box
-                w="$10"
-                h="$10"
+                w="$8"
+                h="$8"
                 rounded="$xl"
                 bg="$backgroundDark800"
                 alignItems="center"
@@ -80,10 +80,10 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
                 borderColor="$borderDark700"
                 borderWidth={1}
               >
-                <CalendarCheck size={20} color="#D92323" />
+                <CalendarCheck size={16} color="#D92323" />
               </Box>
               <VStack>
-                <Text color="$white" fontWeight="$bold" size="md">
+                <Text color="$white" fontWeight="$medium" size="sm">
                   {t('shift.currentTitle')}
                 </Text>
               </VStack>

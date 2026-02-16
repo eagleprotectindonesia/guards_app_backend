@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { useCheckIn } from '@/app/employee/(authenticated)/hooks/use-employee-queries';
 import { CheckInWindowResult } from '@/lib/scheduling';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import { Clock, CheckCircle, AlertTriangle, Fingerprint, Loader2, MapPin } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 type ActiveShiftWithWindow = ShiftWithRelationsDto & {
   checkInWindow?: CheckInWindowResult;
@@ -24,97 +26,93 @@ type CheckInCardProps = {
 export default function CheckInCard({ activeShift, status, setStatus, fetchShift }: CheckInCardProps) {
   const { t } = useTranslation();
   const checkInMutation = useCheckIn();
-  const [timeLeft, setTimeLeft] = useState<string>('');
+  const [timerDisplay, setTimerDisplay] = useState<string>('--');
+  const [timerLabel, setTimerLabel] = useState<string>('');
   const [canCheckIn, setCanCheckIn] = useState(false);
-  const expiryRefreshRef = useRef<string | null>(null);
+  const [uiState, setUiState] = useState<'upcoming' | 'open' | 'urgent' | 'late'>('upcoming');
 
-  // Sync state with activeShift window data
   useEffect(() => {
-    if (!activeShift?.checkInWindow) {
-      return;
-    }
+    if (!activeShift?.checkInWindow) return;
+
     const formatTime = (seconds: number) => {
-      if (seconds > 60) return `${Math.ceil(seconds / 60)} ${t('common.minutes')}`;
-      return `${seconds} ${t('common.seconds')}`;
+      const absSeconds = Math.abs(seconds);
+      if (absSeconds > 60) {
+        const mins = Math.ceil(absSeconds / 60);
+        return { value: mins.toString(), label: t('common.minutes') };
+      }
+      return { value: absSeconds.toString(), label: t('common.seconds') };
     };
 
     const updateTimer = () => {
-      const window = activeShift.checkInWindow!;
-      const now = new Date().getTime();
-      const currentSlotStartMs = new Date(window.currentSlotStart).getTime();
-      const currentSlotEndMs = new Date(window.currentSlotEnd).getTime();
-      const nextSlotStartMs = new Date(window.nextSlotStart).getTime();
+      const window = activeShift.checkInWindow;
+      if (!window) return;
 
+      const now = Date.now();
+      const currentSlotStart = new Date(window.currentSlotStart).getTime();
+      const currentSlotEnd = new Date(window.currentSlotEnd).getTime();
+      const nextSlotStart = new Date(window.nextSlotStart || window.currentSlotStart).getTime();
+
+      let newState: 'upcoming' | 'open' | 'urgent' | 'late' = 'upcoming';
+      let displayValue = '--';
+      let displayLabel = '';
       let isWindowOpen = false;
-      let message = '';
-
-      // 1. Auto-refresh if we pass the window end time while in early/open state (Expiry)
-      if ((window.status === 'early' || window.status === 'open') && now > currentSlotEndMs) {
-        const slotKey = new Date(window.currentSlotStart).toISOString();
-        if (expiryRefreshRef.current !== slotKey) {
-          expiryRefreshRef.current = slotKey;
-          // Trigger refresh to get 'late' status from server
-          fetchShift().catch(console.error);
-        }
-      }
-
-      // 2. Auto-refresh if we reach the next slot start time while in late/completed state (Opening)
-      if ((window.status === 'late' || window.status === 'completed') && now >= nextSlotStartMs) {
-        const nextSlotKey = new Date(window.nextSlotStart).toISOString();
-        if (expiryRefreshRef.current !== nextSlotKey) {
-          expiryRefreshRef.current = nextSlotKey;
-          // Trigger refresh to get 'open' status for the new slot
-          fetchShift().catch(console.error);
-        }
-      }
 
       if (window.status === 'completed') {
-        // Waiting for next slot
-        const diff = Math.ceil((nextSlotStartMs - now) / 1000);
+        const diff = Math.ceil((nextSlotStart - now) / 1000);
         if (diff > 0) {
-          message = t('checkin.nextIn', { time: formatTime(diff) });
+          newState = 'upcoming';
+          const ft = formatTime(diff);
+          displayValue = ft.value;
+          displayLabel = ft.label;
         } else {
-          // We might be in a drift state where frontend time > next slot but API hasn't updated.
-          // In this case, we should probably fetchShift?
-          // For now, just say "Opening..."
-          message = t('checkin.preparingNext');
+          displayValue = '...';
+          displayLabel = t('checkin.preparingNext');
+          fetchShift();
         }
-        isWindowOpen = false;
       } else if (window.status === 'early') {
-        // Early for the very first slot (or general early)
-        const diff = Math.ceil((currentSlotStartMs - now) / 1000);
+        const diff = Math.ceil((currentSlotStart - now) / 1000);
         if (diff > 0) {
-          message = t('checkin.opensIn', { time: formatTime(diff) });
+          newState = 'upcoming';
+          const ft = formatTime(diff);
+          displayValue = ft.value;
+          displayLabel = ft.label;
         } else {
-          // Check if we also passed the end time (missed the window locally)
-          const endDiff = Math.ceil((currentSlotEndMs - now) / 1000);
-          if (endDiff > 0) {
-            message = t('checkin.openStatus');
+          if (now < currentSlotEnd) {
+            newState = 'open';
             isWindowOpen = true;
           } else {
-            message = t('checkin.lateStatus', { defaultValue: 'You are late for this check-in' });
+            newState = 'late';
             isWindowOpen = true;
-            fetchShift().catch(console.error);
+            fetchShift();
           }
         }
       } else if (window.status === 'open') {
-        // Open now, counting down to close
-        const diff = Math.ceil((currentSlotEndMs - now) / 1000);
+        const diff = Math.ceil((currentSlotEnd - now) / 1000);
         if (diff > 0) {
-          message = t('checkin.remainingTime', { time: diff });
+          const ft = formatTime(diff);
+          displayValue = ft.value;
+          displayLabel = ft.label;
           isWindowOpen = true;
+          if (diff < 60) {
+            newState = 'urgent';
+          } else {
+            newState = 'open';
+          }
         } else {
-          message = t('checkin.lateStatus', { defaultValue: 'You are late for this check-in' });
+          newState = 'late';
           isWindowOpen = true;
-          fetchShift().catch(console.error);
+          fetchShift();
         }
       } else if (window.status === 'late') {
-        // Late for current, but now we allow check-in
-        message = t('checkin.lateStatus', { defaultValue: 'You are late for this check-in' });
+        newState = 'late';
         isWindowOpen = true;
+        displayValue = '!';
+        displayLabel = t('checkin.missed');
       }
 
-      setTimeLeft(message);
+      setUiState(newState);
+      setTimerDisplay(displayValue);
+      setTimerLabel(displayLabel);
       setCanCheckIn(isWindowOpen);
     };
 
@@ -174,62 +172,116 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
         return;
       }
       setStatus(`${t('checkin.fail')}: ${errorData.message || errorData.error}`);
-      console.error('Network error during check-in:', err);
     }
   };
 
-  if (!activeShift?.checkInWindow) {
-    return null;
-  }
+  if (!activeShift?.checkInWindow) return null;
 
-  const { checkInWindow } = activeShift;
-  const isLate = checkInWindow.status === 'late' || (checkInWindow.status === 'open' && timeLeft.includes('late'));
+  const getUIConfig = () => {
+    switch (uiState) {
+      case 'upcoming':
+        return {
+          bgGradient: 'from-neutral-900 to-neutral-900',
+          glowColor: 'bg-blue-500',
+          glowShadow: 'shadow-[0_0_20px_rgba(59,130,246,0.6)]',
+          icon: <Clock className="w-6 h-6 text-blue-500" />,
+          title: t('checkin.titleNext'),
+          subtitle: t('checkin.opensIn', { time: '' }).replace('{{time}}', ''),
+          textColor: 'text-blue-400',
+          btnGradient: 'from-blue-500 to-blue-700',
+          showBtn: false,
+        };
+      case 'open':
+        return {
+          bgGradient: 'from-green-900/20 to-neutral-900',
+          glowColor: 'bg-green-500',
+          glowShadow: 'shadow-[0_0_20px_rgba(34,197,94,0.6)]',
+          icon: <CheckCircle className="w-6 h-6 text-green-500" />,
+          title: t('checkin.titleOpen'),
+          subtitle: t('checkin.windowClosing'),
+          textColor: 'text-green-400',
+          btnGradient: 'from-green-500 to-green-700',
+          showBtn: true,
+        };
+      case 'urgent':
+        return {
+          bgGradient: 'from-amber-900/30 to-neutral-900',
+          glowColor: 'bg-amber-500',
+          glowShadow: 'shadow-[0_0_20px_rgba(245,158,11,0.6)]',
+          icon: <AlertTriangle className="w-6 h-6 text-amber-500" />,
+          title: t('checkin.checkpointTitle'),
+          subtitle: t('checkin.windowClosing'),
+          textColor: 'text-amber-400',
+          btnGradient: 'from-amber-500 to-amber-700',
+          showBtn: true,
+        };
+      case 'late':
+        return {
+          bgGradient: 'from-red-900/30 to-neutral-900',
+          glowColor: 'bg-red-500',
+          glowShadow: 'shadow-[0_0_20px_rgba(239,68,68,0.6)]',
+          icon: <AlertTriangle className="w-6 h-6 text-red-500" />,
+          title: t('checkin.titleLate'),
+          subtitle: t('checkin.lateStatus'),
+          textColor: 'text-red-400',
+          btnGradient: 'from-red-600 to-red-800',
+          showBtn: true,
+        };
+    }
+  };
 
-  // Display nextDue based on status
-  let nextDueDisplay = new Date(checkInWindow.nextSlotStart);
-  if (checkInWindow.status === 'open' || checkInWindow.status === 'early') {
-    nextDueDisplay = new Date(checkInWindow.currentSlotStart);
-  }
+  const ui = getUIConfig();
 
   return (
-    <Card className="mb-6 shadow-sm">
-      <CardContent className="pt-6">
-        <div className="mb-6">
-          {canCheckIn ? (
-            <h2 className={`text-2xl font-bold mb-2 ${isLate ? 'text-amber-600' : 'text-green-600'}`}>
-              {isLate ? t('checkin.titleLate', { defaultValue: 'Late Check-in' }) : t('checkin.titleOpen')}
-            </h2>
-          ) : (
-            <>
-              <p className="font-semibold text-gray-500">{t('checkin.titleNext')}:</p>
-              <p className="text-3xl font-mono font-bold text-blue-600">
-                {nextDueDisplay.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </p>
-              <p className="text-sm font-bold text-gray-400 mt-1">
-                {t('checkin.graceMinutes', { minutes: activeShift.graceMinutes })}
-              </p>
-            </>
-          )}
-          <p className={`text-sm font-semibold mt-2 ${canCheckIn && !isLate ? 'text-green-600' : 'text-amber-600'}`}>
-            {timeLeft}
-          </p>
+    <Card className={`mb-6 shadow-2xl bg-neutral-950 border border-neutral-800 relative overflow-hidden rounded-3xl`}>
+      {/* Background Gradient Mesh */}
+      <div className={cn('absolute inset-0 bg-gradient-to-b opacity-50', ui.bgGradient)} />
+
+      <div className="relative z-10 flex flex-col">
+        {/* Header */}
+        <div className="p-6 pb-2 flex flex-col items-center border-b border-white/5 relative">
+          {/* Top Glow Pill */}
+          <div className={cn('w-32 h-1 rounded-full mb-6 opacity-60', ui.glowColor, ui.glowShadow)} />
+
+          <div className="w-12 h-12 bg-neutral-900 rounded-full flex items-center justify-center mb-3 border border-white/5 shadow-lg">
+            {ui.icon}
+          </div>
+
+          <h2 className="text-white font-bold text-lg mb-1">{ui.title}</h2>
+          <p className="text-neutral-400 text-xs font-medium uppercase tracking-wider">{ui.subtitle}</p>
         </div>
 
-        {canCheckIn && (
-          <button
-            onClick={handleCheckIn}
-            className={`w-full text-lg font-bold py-4 rounded-lg shadow transition-all active:scale-95 text-white ${
-              isLate ? 'bg-amber-600 hover:bg-amber-700' : 'bg-green-600 hover:bg-green-700'
-            }`}
-          >
-            {isLate
-              ? t('checkin.submitLateButton', { defaultValue: 'Submit Late Check-in' })
-              : t('checkin.submitButton')}
-          </button>
-        )}
+        {/* Content */}
+        <div className="p-6 pt-8 flex flex-col items-center">
+          {uiState !== 'late' && (
+            <div className="flex flex-col items-center mb-8">
+              <span className="text-white text-6xl font-light tracking-tighter leading-none">{timerDisplay}</span>
+              <span className="text-neutral-500 text-xs font-bold uppercase tracking-[0.2em] mt-2">{timerLabel}</span>
+            </div>
+          )}
 
-        {status && <p className="mt-4 text-center font-medium text-sm text-gray-700">{status}</p>}
-      </CardContent>
+          {ui.showBtn && (
+            <button
+              onClick={canCheckIn ? handleCheckIn : undefined}
+              disabled={!canCheckIn || checkInMutation.isPending}
+              className={cn(
+                'w-full py-4 rounded-xl flex items-center justify-center gap-2 text-white font-bold uppercase tracking-widest text-sm shadow-lg transition-all active:scale-95 bg-gradient-to-br',
+                ui.btnGradient,
+                (!canCheckIn || checkInMutation.isPending) && 'opacity-50 cursor-not-allowed'
+              )}
+            >
+              {checkInMutation.isPending ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Fingerprint className="w-5 h-5" />
+              )}
+              {uiState === 'late' ? t('checkin.submitLateButton') : t('checkin.checkInNow')}
+            </button>
+          )}
+
+          {status && <p className="mt-4 text-neutral-400 text-xs text-center">{status}</p>}
+        </div>
+      </div>
     </Card>
   );
 }

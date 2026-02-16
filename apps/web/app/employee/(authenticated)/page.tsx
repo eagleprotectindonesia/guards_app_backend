@@ -61,16 +61,22 @@ export default function EmployeePage() {
 
   const isOfficeEmployee = employeeDetails?.role === 'office';
 
+  const defaultAvatar =
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuDzcxM7B2Plj0M6rLwD5-jwCeXCJ-VxTGp8XT8dffCo7Cjv4BQ3_fM-MkOicyMU8jJxMw9Q81kjfqVm_zD_yfF92pmxUsZDY_fB7by9N3_LAOMNfdJlNjEUudjhqq7Cm5LUPTk9aKNVSgT9A4rsOYqHKU5vKRmjMZknp_AFtbKxzLh1PX2V_AKy5bez2tThvg_swnSuuvc4uRhd_JO8vfyGxuCUlrrS_Gt_LXaPHMHfgxPWTz6nvJqDPVw3QneYlTqVGg46xTuvrQDq';
+
   return (
-    <div className="p-8 max-w-md mx-auto font-sans">
-      <h1 className="text-3xl font-bold mb-1">
-        {t('dashboard.welcome')} <br /> {employeeDetails?.name || 'Employee'}!
-      </h1>
-      {employeeDetails?.employeeCode && (
-        <p className="text-gray-500 text font-semibold mb-4">
-          {t('dashboard.employeeCode')} {employeeDetails.employeeCode}
-        </p>
-      )}
+    <div className="p-6 max-w-md mx-auto font-sans">
+      <div className="flex items-center gap-4 mb-8">
+        <div className="w-14 h-14 rounded-full border border-white/10 overflow-hidden bg-neutral-900 shadow-lg">
+          <img src={defaultAvatar} alt="Profile" className="w-full h-full object-cover opacity-90" />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-red-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-0.5">
+            {employeeDetails?.designation?.name || t('dashboard.unit', { defaultValue: 'Security Unit' })}
+          </span>
+          <h1 className="text-2xl font-bold text-white leading-tight">{employeeDetails?.name || 'Employee'}</h1>
+        </div>
+      </div>
 
       {loading && <p>{t('common.loading')}</p>}
 
@@ -85,24 +91,16 @@ export default function EmployeePage() {
       ) : (
         <>
           {!loading && !activeShift && (
-            <div className="text-center p-8 border-2 border-dashed rounded">
-              <p className="text-gray-500">{t('dashboard.noActiveShift')}</p>
+            <div className="text-center p-8 border-2 border-dashed border-neutral-800 rounded bg-[#0F0F0F]">
+              <p className="text-neutral-500">{t('dashboard.noActiveShift')}</p>
             </div>
           )}
 
           {(activeShift || nextShifts.length > 0) && (
             <>
               <EmployeeCarousel activeShift={activeShift} nextShifts={nextShifts} />
-
               {activeShift && (
                 <>
-                  <AttendanceRecord
-                    shift={activeShift}
-                    onAttendanceRecorded={refetchShift}
-                    status={status}
-                    setStatus={setStatus}
-                    currentTime={currentTime}
-                  />
                   {activeShift.attendance && (
                     <CheckInCard
                       activeShift={activeShift}
@@ -113,6 +111,13 @@ export default function EmployeePage() {
                       fetchShift={refetchShift}
                     />
                   )}
+                  <AttendanceRecord
+                    shift={activeShift}
+                    onAttendanceRecorded={refetchShift}
+                    status={status}
+                    setStatus={setStatus}
+                    currentTime={currentTime}
+                  />
                 </>
               )}
             </>

@@ -81,7 +81,8 @@
     "windowClosing": "Jendela verifikasi segera ditutup",
     "urgent": "Mendesak",
     "responseRequired": "Respon Diperlukan",
-    "checkInNow": "Check-in Sekarang"
+    "checkInNow": "Check-in Sekarang",
+    "lateStatus": "Anda terlambat untuk check-in ini"
   },
   "passwordChange": {
     "successTitle": "Sukses",

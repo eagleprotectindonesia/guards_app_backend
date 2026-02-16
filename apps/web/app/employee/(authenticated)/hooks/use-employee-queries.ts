@@ -40,6 +40,7 @@ export function useProfile() {
         role?: 'on_site' | 'office';
         officeId?: string;
         office?: { id: string; name: string; latitude?: number; longitude?: number };
+        designation?: { id: string; name: string };
       };
     },
   });

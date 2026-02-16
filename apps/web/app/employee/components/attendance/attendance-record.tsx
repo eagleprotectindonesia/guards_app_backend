@@ -16,12 +16,7 @@ interface AttendanceRecordProps {
   currentTime?: Date; // Optional for backward compatibility, but recommended
 }
 
-export function AttendanceRecord({
-  shift,
-  onAttendanceRecorded,
-  setStatus,
-  currentTime,
-}: AttendanceRecordProps) {
+export function AttendanceRecord({ shift, onAttendanceRecorded, setStatus, currentTime }: AttendanceRecordProps) {
   const { t } = useTranslation();
   const attendanceMutation = useRecordAttendance();
   const [message, setMessage] = useState('');
@@ -96,50 +91,75 @@ export function AttendanceRecord({
   const isLateTime = !hasAttendance && now.getTime() > graceEndMs;
 
   return (
-    <Card
-      className={`mb-4 shadow-sm ${
-        isLateTime ? 'bg-red-50 border-red-200' : isLateAttendance ? 'bg-yellow-50 border-yellow-200' : 'bg-white'
+    <div
+      className={`mb-4 rounded-2xl p-5 border transition-all duration-300 ${
+        hasAttendance
+          ? isLateAttendance
+            ? 'bg-[#111111] border-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.15)]'
+            : 'bg-[#111111] border-green-500 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+          : isLateTime
+            ? 'bg-[#111111] border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.15)]'
+            : 'bg-[#111111] border-white/10 shadow-[0_10px_30px_-10px_rgba(0,0,0,0.5)]'
       }`}
     >
-      <CardHeader className="pb-2">
-        <CardTitle className="text-2xl">{t('attendance.recordedTitle')}</CardTitle>
-      </CardHeader>
-      <CardContent>
+      <div className="flex flex-col gap-1">
+        <h3
+          className={`text-lg font-bold mb-1 ${
+            hasAttendance ? (isLateAttendance ? 'text-amber-500' : 'text-green-500') : 'text-white'
+          }`}
+        >
+          {hasAttendance
+            ? isLateAttendance
+              ? t('attendance.lateTitle')
+              : t('attendance.recordedTitle')
+            : isLateTime
+              ? t('attendance.notRecordedTitle')
+              : t('attendance.requiredTitle')}
+        </h3>
+
         {hasAttendance ? (
-          <p className={`font-medium ${isLateAttendance ? 'text-yellow-600' : 'text-green-600'}`}>
+          <p className="text-neutral-400 text-sm">
             {isLateAttendance
-              ? t('attendance.recordedLateAt', { date: format(new Date(shift.attendance!.recordedAt), 'MM/dd/yyyy HH:mm') })
-              : t('attendance.recordedAt', { date: format(new Date(shift.attendance!.recordedAt), 'MM/dd/yyyy HH:mm') })}
+              ? t('attendance.recordedLateAt', {
+                  date: format(new Date(shift.attendance!.recordedAt), 'PPpp'),
+                })
+              : t('attendance.recordedAt', {
+                  date: format(new Date(shift.attendance!.recordedAt), 'PPpp'),
+                })}
           </p>
-        ) : isLateTime ? (
-          <p className="text-red-600 font-bold">{t('attendance.notRecordedTitle')}</p>
         ) : (
-          <p className="text-red-500 font-medium">{t('attendance.requiredMessage')}</p>
-        )}
-
-        {message && (
-          <p className={`mt-2 text-sm ${messageType === 'success' ? 'text-green-600' : 'text-red-600'}`}>{message}</p>
-        )}
-
-        {!hasAttendance && (
-          <>
-            <Button
-              onClick={handleRecordAttendance}
-              disabled={attendanceMutation.isPending || !canRecordAttendance}
-              className={`mt-4 w-full ${isLateTime ? 'bg-red-600 hover:bg-red-700' : ''}`}
-            >
-              {attendanceMutation.isPending 
-                ? t('attendance.recording') 
-                : isLateTime 
-                  ? t('attendance.submitLateButton', { defaultValue: 'Record Late Attendance' })
-                  : t('attendance.submitButton')}
-            </Button>
-            {!canRecordAttendance && (
-              <p className="text-sm text-gray-500 font-semibold mt-2">{t('attendance.alreadyRecorded')}</p>
+          <div className="flex flex-col gap-4">
+            {isLateTime ? (
+              <p className="text-red-400 font-bold text-base">{t('attendance.lateMessage')}</p>
+            ) : (
+              <p className="text-neutral-400 text-sm">{t('attendance.requiredMessage')}</p>
             )}
-          </>
+
+            {message && (
+              <p className={`text-sm font-medium ${messageType === 'success' ? 'text-green-400' : 'text-blue-400'}`}>
+                {message}
+              </p>
+            )}
+
+            <button
+              onClick={handleRecordAttendance}
+              disabled={attendanceMutation.isPending}
+              className={`w-full py-4 rounded-xl font-bold uppercase tracking-widest text-sm text-white shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${
+                isLateTime
+                  ? 'bg-gradient-to-br from-red-600 to-red-800 shadow-red-600/40'
+                  : 'bg-gradient-to-br from-blue-600 to-blue-800 shadow-blue-600/40'
+              } ${attendanceMutation.isPending ? 'opacity-80 cursor-not-allowed' : ''}`}
+            >
+              {attendanceMutation.isPending && (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              )}
+              {isLateTime
+                ? t('attendance.submitLateButton', { defaultValue: 'Record Late Attendance' })
+                : t('attendance.submitButton')}
+            </button>
+          </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

@@ -224,7 +224,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
           glowColor: '#EF4444', // Red
           icon: <AlertTriangle size={24} color="#EF4444" />,
           title: t('checkin.titleLate'),
-          subtitle: t('attendance.lateMessage'),
+          subtitle: t('checkin.lateStatus'),
           textColor: '$red400',
           btnColors: ['#DC2626', '#991B1B'] as const,
           showBtn: true,

@@ -81,7 +81,8 @@
     "windowClosing": "Verification window closing soon",
     "urgent": "Urgent",
     "responseRequired": "Response Required",
-    "checkInNow": "Check-in Now"
+    "checkInNow": "Check-in Now",
+    "lateStatus": "You are late for this check-in"
   },
   "passwordChange": {
     "successTitle": "Success",

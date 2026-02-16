@@ -73,9 +73,12 @@
     "titleOpen": "Check-in Dibuka!",
     "titleLate": "Check-in Terlambat",
     "titleNext": "Check-in Berikutnya",
+    "windowClosing": "Jendela verifikasi segera ditutup",
+    "checkpointTitle": "Autentikasi Pos Pemeriksaan",
+    "checkInNow": "Check-in Sekarang",
     "submitButton": "CHECK IN SEKARANG",
-    "submitLateButton": "SUBMIT CHECK-IN TERLAMBAT",
-    "graceMinutes": "Toleransi: {{minutes}} menit"
+    "submitLateButton": "Rekam Check-in",
+    "graceMinutes": "Menit toleransi: {{minutes}}"
   },
   "passwordChange": {
     "successTitle": "Sukses",
@@ -97,7 +100,9 @@
     "activeStatus": "AKTIF",
     "upcomingStatus": "MENDATANG",
     "defaultLocation": "Lokasi",
-    "typePrefix": "Tipe Shift: "
+    "typePrefix": "Tipe Shift: ",
+    "station": "Pos",
+    "timeframe": "Waktu"
   },
   "tabs": {
     "home": "Beranda",

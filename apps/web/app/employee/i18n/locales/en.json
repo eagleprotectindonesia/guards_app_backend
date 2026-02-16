@@ -75,8 +75,11 @@
     "titleOpen": "Check-in Open!",
     "titleLate": "Late Check-in",
     "titleNext": "Next Check-in",
+    "windowClosing": "Verification window closing soon",
+    "checkpointTitle": "Checkpoint Authentication",
+    "checkInNow": "Check-in Now",
     "submitButton": "CHECK IN NOW",
-    "submitLateButton": "SUBMIT LATE CHECK-IN",
+    "submitLateButton": "Submit Late Check-in",
     "graceMinutes": "Grace minutes: {{minutes}}"
   },
   "passwordChange": {
@@ -99,7 +102,9 @@
     "activeStatus": "ACTIVE",
     "upcomingStatus": "UPCOMING",
     "defaultLocation": "Location",
-    "typePrefix": "Shift Type: "
+    "typePrefix": "Shift Type: ",
+    "station": "Station",
+    "timeframe": "Timeframe"
   },
   "tabs": {
     "home": "Home",
