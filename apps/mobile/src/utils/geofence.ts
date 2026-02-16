@@ -185,10 +185,7 @@ export async function isGeofencingActive(): Promise<boolean> {
         }
         return false;
       })(),
-    ]);
-    console.log(geo);
-    console.log(loc);
-    
+    ]);    
     return geo && loc;
   } catch (err) {
     console.error('[Geofence] Error checking if active:', err);
