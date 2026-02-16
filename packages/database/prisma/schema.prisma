@@ -191,6 +191,7 @@ model Employee {
   chatMessages    ChatMessage[]
   lastUpdatedBy   Admin?       @relation("EmployeeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
   createdBy       Admin?       @relation("EmployeeCreatedBy", fields: [createdById], references: [id])
+  refreshTokens   RefreshToken[]
 
   @@index([status])
   @@index([deletedAt])
@@ -447,4 +448,21 @@ model ApiKey {
   updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@map("api_keys")
+}
+
+model RefreshToken {
+  id          String   @id @default(uuid())
+  token       String   @unique // Hashed token
+  employeeId  String   @map("employee_id")
+  deviceInfo  String?  @map("device_info")
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  revokedAt   DateTime? @map("revoked_at")
+  replacedByToken String? @map("replaced_by_token")
+
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([token])
+  @@map("refresh_tokens")
 }

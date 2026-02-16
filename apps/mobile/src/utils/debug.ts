@@ -15,8 +15,8 @@ export async function sendDebugChat(message: string) {
   if (!DEBUG_CHAT_LOGGING) return;
 
   try {
-    const token = await storage.getItem(STORAGE_KEYS.TOKEN);
-    const user = await storage.getItem(STORAGE_KEYS.EMPLOYEE_INFO);
+    const token = await storage.getItem(STORAGE_KEYS.USER_TOKEN);
+    const user = await storage.getItem(STORAGE_KEYS.USER_INFO);
 
     if (!token || !user) return;
 

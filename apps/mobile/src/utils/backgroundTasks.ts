@@ -79,7 +79,7 @@ export async function checkAndReportLocationServices(
 
 export async function reportBreach(shiftId: string, reason: 'geofence_breach' | 'location_services_disabled') {
   try {
-    const token = await storage.getItem(STORAGE_KEYS.TOKEN);
+    const token = await storage.getItem(STORAGE_KEYS.USER_TOKEN);
     if (!token) return;
 
     // Avoid double reporting
@@ -109,7 +109,7 @@ export async function reportBreach(shiftId: string, reason: 'geofence_breach' | 
 
 export async function resolveBreach(shiftId: string, reason: 'geofence_breach' | 'location_services_disabled') {
   try {
-    const token = await storage.getItem(STORAGE_KEYS.TOKEN);
+    const token = await storage.getItem(STORAGE_KEYS.USER_TOKEN);
     if (!token) return;
 
     // Unconditionally attempt to resolve on server (Server is idempotent)
@@ -137,7 +137,7 @@ export async function resolveBreach(shiftId: string, reason: 'geofence_breach' |
 
 async function sendHeartbeat(shiftId: string) {
   try {
-    const token = await storage.getItem(STORAGE_KEYS.TOKEN);
+    const token = await storage.getItem(STORAGE_KEYS.USER_TOKEN);
     if (!token) return;
 
     await axios.post(

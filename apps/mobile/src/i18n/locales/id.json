@@ -110,5 +110,23 @@
   "account": {
     "title": "Akun",
     "settings": "Pengaturan"
+  },
+  "biometric": {
+    "loginButton": "Masuk dengan Biometrik",
+    "enableTitle": "Aktifkan Login Biometrik",
+    "enableMessage": "Gunakan sidik jari atau pengenalan wajah untuk login cepat?",
+    "enableSuccess": "Login biometrik diaktifkan",
+    "disableConfirmTitle": "Nonaktifkan Biometrik",
+    "disableConfirmMessage": "Apakah Anda yakin ingin menonaktifkan login biometrik?",
+    "disableSuccess": "Login biometrik dinonaktifkan",
+    "notAvailable": "Autentikasi biometrik tidak tersedia",
+    "notEnrolled": "Tidak ada data biometrik yang terdaftar di perangkat ini",
+    "authFailed": "Autentikasi biometrik gagal",
+    "authCancelled": "Autentikasi dibatalkan",
+    "promptTitle": "Autentikasi",
+    "promptMessage": "Gunakan biometrik Anda untuk masuk",
+    "settingsTitle": "Login Biometrik",
+    "settingsEnabled": "Aktif",
+    "settingsDisabled": "Nonaktif"
   }
 }

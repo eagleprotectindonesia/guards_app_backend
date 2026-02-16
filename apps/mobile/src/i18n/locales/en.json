@@ -110,5 +110,23 @@
   "account": {
     "title": "Account",
     "settings": "Settings"
+  },
+  "biometric": {
+    "loginButton": "Login with Biometric",
+    "enableTitle": "Enable Biometric Login",
+    "enableMessage": "Use fingerprint or face recognition for quick login?",
+    "enableSuccess": "Biometric login enabled",
+    "disableConfirmTitle": "Disable Biometric",
+    "disableConfirmMessage": "Are you sure you want to disable biometric login?",
+    "disableSuccess": "Biometric login disabled",
+    "notAvailable": "Biometric authentication not available",
+    "notEnrolled": "No biometric data enrolled on this device",
+    "authFailed": "Biometric authentication failed",
+    "authCancelled": "Authentication cancelled",
+    "promptTitle": "Authenticate",
+    "promptMessage": "Use your biometric to login",
+    "settingsTitle": "Biometric Login",
+    "settingsEnabled": "Enabled",
+    "settingsDisabled": "Disabled"
   }
 }

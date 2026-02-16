@@ -13,7 +13,7 @@ export const getSocket = async () => {
     return socket;
   }
 
-  const token = await storage.getItem(STORAGE_KEYS.TOKEN);
+  const token = await storage.getItem(STORAGE_KEYS.USER_TOKEN);
 
   if (!token) {
     return null;

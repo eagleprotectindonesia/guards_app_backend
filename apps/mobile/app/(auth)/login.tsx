@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
   Alert,
@@ -36,16 +36,26 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
 import LogoIcon from '../../assets/icons/icon.svg';
+import {
+  checkBiometricAvailability,
+  authenticateWithBiometric,
+  getBiometricTypeLabel,
+} from '../../src/utils/biometric';
+import { Fingerprint } from 'lucide-react-native';
 
 const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, biometricLogin, enableBiometric, isBiometricEnabled } = useAuth();
   const [employeeId, setEmployeeId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+  const [biometricType, setBiometricType] = useState('Biometric');
+  const [isBioPending, setIsBioPending] = useState(false);
+  const hasAutoPrompted = React.useRef(false);
 
   const loginMutation = useMutation({
     mutationFn: async () => {
@@ -58,12 +68,114 @@ export default function LoginScreen() {
     onSuccess: async data => {
       if (data.token && data.employee) {
         await login(data.token, data.employee);
+
+        // After successful login, check if we should prompt to enable biometric
+        if (isBiometricAvailable && !isBiometricEnabled) {
+          Alert.alert(t('biometric.enableTitle'), t('biometric.enableMessage'), [
+            { text: t('common.cancel'), style: 'cancel' },
+            {
+              text: t('biometric.enableTitle'),
+              onPress: async () => {
+                // enableBiometric in context handles the prompt now (Wait, enableBiometric in context DOES NOT handle prompt, only SAVING)
+                // Actually, reading AuthContext.tsx, enableBiometric just saves.
+                // The prompt for enableBiometric was done in login.tsx previously.
+                // The audit says: "Account screen toggle can disable biometric, but enable path does not call enableBiometric(...)".
+                // But specifically for login.tsx, we previously prompted then saved.
+                // If I want to fix "Biometric verification is enforced ... not in auth boundary", that applies to LOGIN.
+                // For ENABLE, we should probably also enforce it.
+                // But for now, let's look at the Login flow change.
+
+                // Oops, I might have broken the "Enable" flow if I remove authenticateWithBiometric from login.tsx
+                // because enableBiometric in AuthContext does NOT prompt.
+
+                // Let's check AuthContext enableBiometric:
+                // const enableBiometric = useCallback(async (employeeId: string, password: string) => { ... saves keys ... });
+
+                // So I still need to prompt here for ENABLE.
+                // But for LOGIN, biometricLogin handles it.
+
+                // Hmmm. The user said "remove items in BIOMETRIC_AUTH_AUDIT.md".
+                // One item is "Move biometric enforcement into biometricLogin()".
+                // So biometricLogin() prompts.
+
+                // Does enableBiometric() prompt? No.
+                // Should it? Maybe.
+                // But for now I will keep authenticateWithBiometric imported for ENABLE flow,
+                // but REMOVE it for LOGIN flow.
+
+                // Re-reading my plan: "Refactor biometricLogin: It needs to call authenticateWithBiometric internally." (DONE)
+                // "Refactor login.tsx to use the new biometricLogin". (DOING)
+
+                // So I should KEEP the import for the enable flow (lines 78-79)
+                // OR duplicate the prompt logic there.
+                // Or better: Use biometricLogin? No, that logs in.
+
+                // I will keep the import for the Enable flow, but remove it from handleBiometricLogin.
+
+                const auth = await authenticateWithBiometric(t('biometric.promptMessage'));
+                if (auth.success) {
+                  await enableBiometric(employeeId, password);
+                  Alert.alert(t('common.successTitle', 'Success'), t('biometric.enableSuccess'));
+                }
+              },
+            },
+          ]);
+        }
+
         router.replace('/(tabs)');
       } else {
         Alert.alert(t('login.errorTitle'), t('login.errorMessage'));
       }
     },
   });
+
+  const handleBiometricLogin = React.useCallback(async () => {
+    if (isBioPending) return;
+
+    try {
+      setIsBioPending(true);
+      // biometricLogin now handles the prompt internally
+      const success = await biometricLogin();
+      if (success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        router.replace('/(tabs)');
+      } else {
+        // If failed (and not cancelled implicitly handled by biometricLogin returning false)
+        // We might want to show alert only if it wasn't a user cancellation?
+        // biometricLogin implementation returns false on error/cancel.
+        // It logs error.
+        // We can show a generic failed message or just Haptics error.
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        // Alert.alert(t('biometric.authFailed'));
+        // Note: biometricLogin prompts. If user cancels, it returns false.
+        // If we alert here, we alert on cancel too?
+        // Let's look at biometricLogin result. It only returns boolean.
+        // Maybe we accept that for now.
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsBioPending(false);
+    }
+  }, [biometricLogin, isBioPending, router]);
+
+  useEffect(() => {
+    const initBiometric = async () => {
+      const { available } = await checkBiometricAvailability();
+      setIsBiometricAvailable(available);
+      if (available) {
+        const typeLabel = await getBiometricTypeLabel();
+        setBiometricType(typeLabel);
+
+        // Auto-trigger if enabled
+        if (isBiometricEnabled && !hasAutoPrompted.current) {
+          hasAutoPrompted.current = true;
+          handleBiometricLogin();
+        }
+      }
+    };
+    initBiometric();
+  }, [isBiometricEnabled, handleBiometricLogin, setBiometricType]);
 
   const handleLogin = () => {
     if (!employeeId || !password) {
@@ -213,15 +325,21 @@ export default function LoginScreen() {
                   </VStack>
 
                   <Box mt="$12">
-                    <Pressable onPress={handleLogin} disabled={loginMutation.isPending}>
+                    <Pressable onPress={handleLogin} disabled={loginMutation.isPending || isBioPending}>
                       {({ pressed }) => (
                         <LinearGradient
                           colors={['#FF1F1F', '#8B0000']}
                           start={{ x: 0, y: 0 }}
                           end={{ x: 1, y: 1 }}
-                          style={[styles.loginButton, pressed && { transform: [{ scale: 0.98 }] }]}
+                          style={[
+                            styles.loginButton,
+                            (pressed || loginMutation.isPending || isBioPending) && {
+                              transform: [{ scale: 0.98 }],
+                              opacity: 0.8,
+                            },
+                          ]}
                         >
-                          {loginMutation.isPending ? (
+                          {loginMutation.isPending || isBioPending ? (
                             <ButtonSpinner color="white" />
                           ) : (
                             <Box flexDirection="row" alignItems="center">
@@ -237,6 +355,26 @@ export default function LoginScreen() {
                       )}
                     </Pressable>
                   </Box>
+
+                  {isBiometricAvailable && isBiometricEnabled && (
+                    <Box mt="$4">
+                      <Pressable onPress={handleBiometricLogin} disabled={loginMutation.isPending || isBioPending}>
+                        {({ pressed }) => (
+                          <Box
+                            style={[
+                              styles.biometricButton,
+                              (pressed || isBioPending) && { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                            ]}
+                          >
+                            <Fingerprint size={20} color="#E6392D" />
+                            <Text color="white" fontWeight="$medium" ml="$2" style={styles.biometricText}>
+                              {t('biometric.loginButton')} ({biometricType})
+                            </Text>
+                          </Box>
+                        )}
+                      </Pressable>
+                    </Box>
+                  )}
 
                   {loginMutation.isError && (
                     <FormControlError mt="$4">
@@ -321,5 +459,19 @@ const styles = StyleSheet.create({
   buttonText: {
     letterSpacing: 1.5,
     fontSize: 14,
+  },
+  biometricButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(230, 57, 45, 0.3)',
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  },
+  biometricText: {
+    fontSize: 14,
+    letterSpacing: 1,
   },
 });

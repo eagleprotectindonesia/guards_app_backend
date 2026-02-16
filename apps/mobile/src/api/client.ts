@@ -32,7 +32,7 @@ export const client = axios.create({
 // Request Interceptor to inject token
 client.interceptors.request.use(
   async (config) => {
-    const token = await storage.getItem(STORAGE_KEYS.TOKEN);
+    const token = await storage.getItem(STORAGE_KEYS.USER_TOKEN);
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, ScrollView } from 'react-native';
+import { Alert, ScrollView, Switch } from 'react-native';
 import {
   Box,
   VStack,
@@ -19,13 +19,33 @@ import { LogOut, Lock } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
+import {
+  checkBiometricAvailability,
+  getBiometricTypeLabel,
+  authenticateWithBiometric,
+} from '../../src/utils/biometric';
+import { Fingerprint } from 'lucide-react-native';
+
+import PasswordConfirmationModal from '../../src/components/PasswordConfirmationModal';
 
 export default function AccountScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { logout } = useAuth();
+  const { logout, isBiometricEnabled, disableBiometric, enableBiometric, user } = useAuth();
   const { openPasswordChangeModal } = usePasswordChangeModal();
+  const [isBiometricAvailable, setIsBiometricAvailable] = React.useState(false);
+  const [biometricType, setBiometricType] = React.useState('Biometric');
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    checkBiometricAvailability().then(({ available }) => {
+      setIsBiometricAvailable(available);
+      if (available) {
+        getBiometricTypeLabel().then(setBiometricType);
+      }
+    });
+  }, []);
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -38,6 +58,44 @@ export default function AccountScreen() {
   const handleLogout = async () => {
     await logout();
     router.replace('/(auth)/login');
+  };
+
+  const handlePasswordConfirm = async (password: string) => {
+    if (!user?.employeeCode) {
+      Alert.alert('Error', 'User information missing');
+      throw new Error('User missing');
+    }
+
+    const success = await enableBiometric(user.employeeCode, password);
+    if (success) {
+      Alert.alert(t('common.successTitle', 'Success'), t('biometric.enableSuccess'));
+      setIsPasswordModalOpen(false);
+    } else {
+      Alert.alert('Error', 'Failed to enable biometric. Please check your password.');
+      throw new Error('Failed');
+    }
+  };
+
+  const handleToggleBiometric = async (value: boolean) => {
+    if (value) {
+      // 1. Verify Biometric First
+      const auth = await authenticateWithBiometric(t('biometric.promptMessage'));
+      if (auth.success) {
+        // 2. Prompt for Password to Enable
+        setIsPasswordModalOpen(true);
+      }
+    } else {
+      Alert.alert(t('biometric.disableConfirmTitle'), t('biometric.disableConfirmMessage'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm', 'Confirm'),
+          style: 'destructive',
+          onPress: async () => {
+            await disableBiometric();
+          },
+        },
+      ]);
+    }
   };
 
   return (
@@ -73,6 +131,23 @@ export default function AccountScreen() {
                 <ButtonText className="text-gray-700 ml-3">{t('dashboard.changePassword')}</ButtonText>
               </Button>
 
+              {isBiometricAvailable && (
+                <Box className="flex-row items-center justify-between h-16 px-4 border-b border-gray-100">
+                  <Box className="flex-row items-center">
+                    <Fingerprint size={20} stroke="#4B5563" />
+                    <VStack className="ml-3">
+                      <Text className="text-gray-700 font-medium">{t('biometric.settingsTitle')}</Text>
+                      <Text className="text-gray-400 text-xs">{biometricType}</Text>
+                    </VStack>
+                  </Box>
+                  <Switch
+                    value={isBiometricEnabled}
+                    onValueChange={handleToggleBiometric}
+                    trackColor={{ false: '#D1D5DB', true: '#E6392D' }}
+                  />
+                </Box>
+              )}
+
               <Button
                 variant="link"
                 className="justify-start h-16 px-4"
@@ -90,6 +165,12 @@ export default function AccountScreen() {
           </VStack>
         </VStack>
       </ScrollView>
+
+      <PasswordConfirmationModal
+        isOpen={isPasswordModalOpen}
+        onClose={() => setIsPasswordModalOpen(false)}
+        onConfirm={handlePasswordConfirm}
+      />
     </Box>
   );
 }

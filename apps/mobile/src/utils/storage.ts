@@ -2,17 +2,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
 export const STORAGE_KEYS = {
-  TOKEN: 'auth_token',
-  EMPLOYEE_INFO: 'employee_info',
+  USER_TOKEN: 'user_token',
+  USER_INFO: 'user_info',
+  SAVED_EMPLOYEE_ID: 'saved_employee_id',
+  BIOMETRIC_ENABLED: 'biometric_enabled',
+  BIOMETRIC_TOKEN: 'biometric_token',
+  // SAVED_PASSWORD removed for security
 };
 
-const SECURE_KEYS = [STORAGE_KEYS.TOKEN];
+const SECURE_KEYS = [
+  STORAGE_KEYS.USER_TOKEN,
+  STORAGE_KEYS.SAVED_EMPLOYEE_ID,
+  STORAGE_KEYS.BIOMETRIC_TOKEN,
+];
 
 export const storage = {
-  async setItem(key: string, value: any) {
+  async setItem(key: string, value: any): Promise<boolean> {
     if (!key) {
       console.error('storage.setItem: key is undefined or null');
-      return;
+      return false;
     }
     try {
       const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
@@ -24,8 +32,10 @@ export const storage = {
       } else {
         await AsyncStorage.setItem(key, stringValue);
       }
+      return true;
     } catch (e) {
       console.error('Error saving data', e);
+      return false;
     }
   },
 
