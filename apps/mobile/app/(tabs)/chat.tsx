@@ -16,7 +16,7 @@ import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import ImageView from 'react-native-image-viewing';
 import { VStack, Heading, Text, Center, Avatar, AvatarFallbackText, HStack, Spinner, Box } from '@gluestack-ui/themed';
 import { useTranslation } from 'react-i18next';
-import { Send, Paperclip, X, Video as VideoIcon, Camera } from 'lucide-react-native';
+import { Send, Paperclip, X, Video as VideoIcon, Camera, Check, CheckCheck } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
@@ -24,9 +24,11 @@ import { useSocket } from '../../src/hooks/useSocket';
 import { useSocketEvent } from '../../src/hooks/useSocketEvent';
 import { client } from '../../src/api/client';
 import { useAuth } from '../../src/contexts/AuthContext';
-import { format } from 'date-fns';
+import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import * as ImagePicker from 'expo-image-picker';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { uploadToS3 } from '../../src/api/upload';
 import { isVideoFile } from '../../src/utils/file';
 import { ChatMessage } from '@repo/types';
@@ -64,6 +66,7 @@ export default function ChatScreen() {
   // Lightbox state
   const [isViewerVisible, setIsViewerVisible] = useState(false);
   const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
+  const [currentVisibleDate, setCurrentVisibleDate] = useState<string | null>(null);
   const [viewerIndex, setViewerIndex] = useState(0);
 
   const flatListRef = useRef<FlatList>(null);
@@ -93,6 +96,27 @@ export default function ChatScreen() {
   });
 
   const messages = useMemo(() => data?.pages.flat() || [], [data]);
+
+  const messagesWithDates = useMemo(() => {
+    if (messages.length === 0) return [];
+
+    const result: (ChatMessage | { type: 'date'; date: string; id: string })[] = [];
+    for (let i = 0; i < messages.length; i++) {
+      const current = messages[i];
+      const next = messages[i + 1];
+
+      result.push(current);
+
+      if (!next || !isSameDay(new Date(current.createdAt), new Date(next.createdAt))) {
+        result.push({
+          type: 'date',
+          date: current.createdAt,
+          id: `date-${current.id}`,
+        });
+      }
+    }
+    return result;
+  }, [messages]);
 
   // Mark existing unread messages as read when focused or when messages are loaded while focused
   useEffect(() => {
@@ -187,10 +211,7 @@ export default function ChatScreen() {
 
   const pickAttachments = async () => {
     if (selectedAttachments.length >= 4) {
-      Alert.alert(
-        t('chat.limit_reached', 'Limit reached'),
-        t('chat.limit_reached_desc', 'You can only attach up to 4 files.')
-      );
+      Alert.alert(t('chat.limit_reached'), t('chat.limit_reached_desc'));
       return;
     }
 
@@ -207,25 +228,19 @@ export default function ChatScreen() {
       }
     } catch (error) {
       console.error('Error picking attachments:', error);
-      Alert.alert(t('chat.pick_error', 'Error'), t('chat.pick_error_desc', 'Failed to pick files.'));
+      Alert.alert(t('chat.pick_error'), t('chat.pick_error_desc'));
     }
   };
 
   const takePhoto = async () => {
     if (selectedAttachments.length >= 4) {
-      Alert.alert(
-        t('chat.limit_reached', 'Limit reached'),
-        t('chat.limit_reached_desc', 'You can only attach up to 4 files.')
-      );
+      Alert.alert(t('chat.limit_reached'), t('chat.limit_reached_desc'));
       return;
     }
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(
-        t('chat.camera_permission', 'Permission required'),
-        t('chat.camera_permission_desc', 'We need camera permission to take photos.')
-      );
+      Alert.alert(t('chat.camera_permission'), t('chat.camera_permission_desc'));
       return;
     }
 
@@ -240,7 +255,7 @@ export default function ChatScreen() {
       }
     } catch (error) {
       console.error('Error taking photo:', error);
-      Alert.alert(t('chat.camera_error', 'Error'), t('chat.camera_error_desc', 'Failed to take photo.'));
+      Alert.alert(t('chat.camera_error'), t('chat.camera_error_desc'));
     }
   };
 
@@ -277,7 +292,7 @@ export default function ChatScreen() {
       setSelectedAttachments([]);
     } catch (error) {
       console.error('Error sending message:', error);
-      Alert.alert(t('chat.send_error', 'Error'), t('chat.send_error_desc', 'Failed to send message.'));
+      Alert.alert(t('chat.send_error'), t('chat.send_error_desc'));
     } finally {
       setIsUploading(false);
     }
@@ -295,45 +310,88 @@ export default function ChatScreen() {
     setIsViewerVisible(true);
   };
 
-  const renderItem = ({ item }: { item: ChatMessage }) => {
-    const isMe = item.sender === 'employee';
+  const renderItem = ({ item }: { item: ChatMessage | { type: 'date'; date: string; id: string } }) => {
+    if ('type' in item && item.type === 'date') {
+      let dateLabel = format(new Date(item.date), 'MMM d, yyyy');
+      if (isToday(new Date(item.date))) dateLabel = t('chat.today');
+      else if (isYesterday(new Date(item.date))) dateLabel = t('chat.yesterday');
+
+      return (
+        <Center my="$4">
+          <BlurView intensity={20} tint="light" style={styles.dateSeparator}>
+            <Text style={styles.dateText}>{dateLabel}</Text>
+          </BlurView>
+        </Center>
+      );
+    }
+
+    const message = item as ChatMessage;
+    const isMe = message.sender === 'employee';
     return (
       <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
         {!isMe && (
-          <Avatar size="xs" bgColor="$blue600" mr="$2">
-            <AvatarFallbackText>{item.admin?.name || 'A'}</AvatarFallbackText>
+          <Avatar size="xs" bgColor="$blue600" mr="$2" mt="$1">
+            <AvatarFallbackText>{message.admin?.name || 'A'}</AvatarFallbackText>
           </Avatar>
         )}
-        <VStack style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
-          {item.attachments && item.attachments.length > 0 && (
-            <View style={styles.attachmentsContainer}>
-              {item.attachments.map((url, i) => {
-                const isVideo = isVideoFile(url);
-                return (
-                  <View key={i} style={styles.attachmentWrapper}>
-                    {isVideo ? (
-                      <VideoAttachment
-                        url={url}
-                        style={[styles.attachmentImage, item.attachments.length > 1 && styles.multiAttachmentImage]}
-                      />
-                    ) : (
-                      <TouchableOpacity onPress={() => openImageViewer(item.attachments, i)}>
-                        <Image
-                          source={{ uri: url }}
-                          style={[styles.attachmentImage, item.attachments.length > 1 && styles.multiAttachmentImage]}
-                          resizeMode="cover"
+        <VStack style={isMe ? styles.myVStack : styles.theirVStack}>
+          {!isMe && <Text style={styles.senderName}>{message.admin?.name || 'Admin'}</Text>}
+          <BlurView
+            intensity={isMe ? 40 : 25}
+            tint={isMe ? 'dark' : 'light'}
+            style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}
+          >
+            {isMe && (
+              <LinearGradient
+                colors={['rgba(239, 68, 68, 0.15)', 'transparent']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={StyleSheet.absoluteFill}
+              />
+            )}
+            {message.attachments && message.attachments.length > 0 && (
+              <View style={styles.attachmentsContainer}>
+                {message.attachments.map((url, i) => {
+                  const isVideo = isVideoFile(url);
+                  return (
+                    <View key={i} style={styles.attachmentWrapper}>
+                      {isVideo ? (
+                        <VideoAttachment
+                          url={url}
+                          style={[
+                            styles.attachmentImage,
+                            message.attachments.length > 1 && styles.multiAttachmentImage,
+                          ]}
                         />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                );
-              })}
-            </View>
-          )}
-          <Text style={[styles.messageText, isMe ? styles.myText : styles.theirText]}>{item.content}</Text>
-          <Text style={[styles.messageTime, isMe ? styles.myTime : styles.theirTime]}>
-            {format(new Date(item.createdAt), 'HH:mm')}
-          </Text>
+                      ) : (
+                        <TouchableOpacity onPress={() => openImageViewer(message.attachments, i)}>
+                          <Image
+                            source={{ uri: url }}
+                            style={[
+                              styles.attachmentImage,
+                              message.attachments.length > 1 && styles.multiAttachmentImage,
+                            ]}
+                            resizeMode="cover"
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+            <Text style={[styles.messageText, isMe ? styles.myText : styles.theirText]}>{message.content}</Text>
+            <HStack space="xs" justifyContent="flex-end" alignItems="center" mt="$1">
+              <Text style={[styles.messageTime, isMe ? styles.myTime : styles.theirTime]}>
+                {format(new Date(message.createdAt), 'HH:mm')}
+              </Text>
+              {isMe && (
+                <View style={styles.readStatusContainer}>
+                  {message.readAt ? <CheckCheck size={12} color="#EF4444" /> : <Check size={12} color="#6B7280" />}
+                </View>
+              )}
+            </HStack>
+          </BlurView>
         </VStack>
       </View>
     );
@@ -348,13 +406,33 @@ export default function ChatScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#F3F4F6' }}>
+    <View style={{ flex: 1, backgroundColor: '#121212' }}>
+      <LinearGradient
+        colors={['rgba(37, 99, 235, 0.05)', 'transparent']}
+        style={[StyleSheet.absoluteFill, { height: '40%' }]}
+      />
       {/* Header */}
-      <View style={{ paddingTop: insets.top, backgroundColor: 'white', borderBottomWidth: 1, borderColor: '#E5E7EB' }}>
-        <HStack px="$4" py="$3" alignItems="center">
-          <Heading size="lg">{t('chat.title', 'Admin Support')}</Heading>
+      <BlurView intensity={40} tint="dark" style={{ paddingTop: insets.top }}>
+        <HStack px="$4" py="$3" alignItems="center" justifyContent="space-between">
+          <HStack space="md" alignItems="center">
+            <View style={styles.headerLogo}>
+              <Text style={styles.headerLogoText}>E</Text>
+            </View>
+            <VStack>
+              <Heading size="md" color="white">
+                {t('chat.title')}
+              </Heading>
+              <HStack space="xs" alignItems="center">
+                <View style={styles.statusDot} />
+                <Text size="xs" color="$emerald500" bold>
+                  {t('chat.status_active').toUpperCase()}
+                </Text>
+              </HStack>
+            </VStack>
+          </HStack>
         </HStack>
-      </View>
+        <View style={styles.headerDivider} />
+      </BlurView>
 
       <KeyboardAvoidingView
         behavior="padding"
@@ -364,7 +442,7 @@ export default function ChatScreen() {
         <View style={{ flex: 1 }}>
           <FlatList
             ref={flatListRef}
-            data={messages}
+            data={messagesWithDates}
             inverted
             keyExtractor={item => item.id}
             renderItem={renderItem}
@@ -383,7 +461,39 @@ export default function ChatScreen() {
                 </View>
               ) : null
             }
+            onViewableItemsChanged={({ viewableItems }) => {
+              if (viewableItems.length > 0) {
+                // Find the last item (which is actually the top item in inverted list)
+                // or simply the first viewable item that has a date
+                const topItem = viewableItems[viewableItems.length - 1]; // Inverted list, last item is top
+                if (topItem && topItem.item) {
+                  const item = topItem.item as any;
+                  const date = item.createdAt || item.date;
+                  if (date) {
+                    let dateLabel = format(new Date(date), 'MMM d, yyyy');
+                    if (isToday(new Date(date))) dateLabel = t('chat.today');
+                    else if (isYesterday(new Date(date))) dateLabel = t('chat.yesterday');
+
+                    if (currentVisibleDate !== dateLabel) {
+                      setCurrentVisibleDate(dateLabel);
+                    }
+                  }
+                }
+              }
+            }}
+            viewabilityConfig={{
+              itemVisiblePercentThreshold: 10,
+            }}
           />
+
+          {/* Sticky Date Pill */}
+          {currentVisibleDate && (
+            <View style={styles.stickyDateContainer} pointerEvents="none">
+              <BlurView intensity={20} tint="dark" style={styles.stickyDateBlur}>
+                <Text style={styles.stickyDateText}>{currentVisibleDate}</Text>
+              </BlurView>
+            </View>
+          )}
         </View>
 
         {/* Selected Attachments Preview */}
@@ -393,7 +503,7 @@ export default function ChatScreen() {
               {selectedAttachments.map((asset, index) => (
                 <View key={index} style={styles.previewItem}>
                   {asset.type === 'video' ? (
-                    <Box style={styles.previewMedia} bgColor="$gray200" justifyContent="center" alignItems="center">
+                    <Box style={styles.previewMedia} bgColor="$gray800" justifyContent="center" alignItems="center">
                       <VideoIcon size={24} color="#6B7280" />
                     </Box>
                   ) : (
@@ -409,43 +519,43 @@ export default function ChatScreen() {
         )}
 
         {/* Input Area */}
-        <View
-          style={{
-            backgroundColor: 'white',
-            borderTopWidth: 1,
-            borderColor: '#E5E7EB',
-            paddingHorizontal: 16,
-            paddingTop: 8,
-            paddingBottom: insets.bottom + 8,
-          }}
-        >
-          <HStack space="xs" alignItems="center">
-            <TouchableOpacity onPress={pickAttachments} disabled={isUploading} style={styles.attachButton}>
-              <Paperclip size={24} color="#6B7280" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={takePhoto} disabled={isUploading} style={styles.attachButton}>
-              <Camera size={24} color="#6B7280" />
-            </TouchableOpacity>
-            <TextInput
-              style={styles.input}
-              placeholder={t('chat.placeholder', 'Type a message...')}
-              value={inputText}
-              onChangeText={setInputText}
-              multiline
-              editable={!isUploading}
-            />
+        <View style={styles.inputContainerWrapper}>
+          <BlurView intensity={60} tint="dark" style={styles.inputBlurContainer}>
+            <HStack space="xs" alignItems="center">
+              <TouchableOpacity onPress={pickAttachments} disabled={isUploading} style={styles.attachButton}>
+                <Paperclip size={22} color="#94A3B8" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={takePhoto} disabled={isUploading} style={styles.attachButton}>
+                <Camera size={22} color="#94A3B8" />
+              </TouchableOpacity>
+              <TextInput
+                style={styles.input}
+                placeholder={t('chat.placeholder')}
+                placeholderTextColor="#64748B"
+                value={inputText}
+                onChangeText={setInputText}
+                multiline
+                editable={!isUploading}
+              />
 
-            <TouchableOpacity
-              onPress={sendMessage}
-              disabled={(!inputText.trim() && selectedAttachments.length === 0) || isUploading}
-              style={[
-                styles.sendButton,
-                ((!inputText.trim() && selectedAttachments.length === 0) || isUploading) && styles.sendButtonDisabled,
-              ]}
-            >
-              {isUploading ? <Spinner color="white" size="small" /> : <Send size={20} color="white" />}
-            </TouchableOpacity>
-          </HStack>
+              <TouchableOpacity
+                onPress={sendMessage}
+                disabled={(!inputText.trim() && selectedAttachments.length === 0) || isUploading}
+              >
+                <LinearGradient
+                  colors={['#EF4444', '#991B1B']}
+                  style={[
+                    styles.sendButton,
+                    ((!inputText.trim() && selectedAttachments.length === 0) || isUploading) &&
+                      styles.sendButtonDisabled,
+                  ]}
+                >
+                  {isUploading ? <Spinner color="white" size="small" /> : <Send size={18} color="white" />}
+                </LinearGradient>
+              </TouchableOpacity>
+            </HStack>
+          </BlurView>
+          <View style={{ height: insets.bottom + 8 }} />
         </View>
       </KeyboardAvoidingView>
 
@@ -462,8 +572,8 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
   messageContainer: {
     flexDirection: 'row',
-    marginBottom: 12,
-    maxWidth: '80%',
+    marginBottom: 20,
+    maxWidth: '85%',
   },
   myMessage: {
     alignSelf: 'flex-end',
@@ -472,95 +582,139 @@ const styles = StyleSheet.create({
   theirMessage: {
     alignSelf: 'flex-start',
   },
+  myVStack: {
+    alignItems: 'flex-end',
+  },
+  theirVStack: {
+    alignItems: 'flex-start',
+  },
   messageBubble: {
-    padding: 10,
-    borderRadius: 16,
+    padding: 12,
+    borderRadius: 20,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   myBubble: {
-    backgroundColor: '#2563EB',
+    backgroundColor: 'rgba(60, 20, 20, 0.4)',
     borderBottomRightRadius: 4,
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 2,
   },
   theirBubble: {
-    backgroundColor: '#E5E7EB',
+    backgroundColor: 'rgba(40, 40, 40, 0.6)',
     borderBottomLeftRadius: 4,
   },
   messageText: {
     fontSize: 15,
+    lineHeight: 20,
   },
   myText: {
     color: 'white',
   },
   theirText: {
-    color: '#111827',
+    color: '#E2E8F0',
+  },
+  senderName: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginBottom: 4,
+    marginLeft: 4,
+    fontWeight: '600',
+    textTransform: 'uppercase',
   },
   messageTime: {
     fontSize: 10,
-    marginTop: 4,
-    alignSelf: 'flex-end',
   },
   myTime: {
-    color: 'rgba(255, 255, 255, 0.7)',
+    color: 'rgba(255, 255, 255, 0.5)',
   },
   theirTime: {
-    color: '#6B7280',
+    color: '#64748B',
+  },
+  readStatusContainer: {
+    marginLeft: 2,
+  },
+  inputContainerWrapper: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+  },
+  inputBlurContainer: {
+    borderRadius: 30,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 5,
   },
   input: {
     flex: 1,
-    backgroundColor: '#F3F4F6',
-    borderRadius: 20,
-    paddingHorizontal: 16,
+    color: 'white',
+    paddingHorizontal: 12,
     paddingVertical: 8,
-    maxHeight: 100,
+    maxHeight: 120,
     fontSize: 15,
   },
   attachButton: {
-    padding: 4,
+    padding: 8,
   },
   sendButton: {
-    backgroundColor: '#2563EB',
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 2,
   },
   sendButtonDisabled: {
-    backgroundColor: '#93C5FD',
+    opacity: 0.5,
   },
   attachmentsContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 4,
-    marginBottom: 8,
-    width: 200,
+    gap: 6,
+    marginBottom: 10,
+    width: 220,
   },
   attachmentWrapper: {
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   attachmentImage: {
-    width: 200,
-    height: 150,
+    width: 220,
+    height: 160,
   },
   multiAttachmentImage: {
-    width: 98,
-    height: 98,
+    width: 107,
+    height: 107,
   },
   previewsContainer: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderColor: '#F3F4F6',
+    padding: 8,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 16,
+    backgroundColor: 'rgba(30,30,30,0.8)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
   },
   previewItem: {
-    marginRight: 12,
+    marginRight: 10,
     position: 'relative',
   },
   previewMedia: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
+    width: 64,
+    height: 64,
+    borderRadius: 10,
   },
   removePreviewButton: {
     position: 'absolute',
@@ -573,6 +727,65 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: 'white',
+    borderColor: '#121212',
+  },
+  dateSeparator: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    overflow: 'hidden',
+  },
+  dateText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+  },
+  headerLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#991B1B',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  headerLogoText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  headerDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    marginTop: 8,
+  },
+  stickyDateContainer: {
+    position: 'absolute',
+    top: 10,
+    alignSelf: 'center',
+    borderRadius: 20,
+    overflow: 'hidden',
+    zIndex: 10,
+  },
+  stickyDateBlur: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(30, 30, 30, 0.6)',
+  },
+  stickyDateText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
   },
 });

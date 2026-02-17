@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Loader2, X, Paperclip, Camera, Video } from 'lucide-react';
-import { format } from 'date-fns';
+import { Send, Loader2, X, Paperclip, Camera, Video, Check, CheckCheck } from 'lucide-react';
+import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { useSocket } from '@/components/socket-provider';
 import { useProfile } from '../hooks/use-employee-queries';
@@ -12,7 +12,6 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog';
 import { cn, isVideoFile } from '@/lib/utils';
-import { TFunction } from 'i18next';
 import { uploadToS3 } from '@/lib/upload';
 import { toast } from 'react-hot-toast';
 import { optimizeImage } from '@/lib/image-utils';
@@ -45,7 +44,25 @@ export default function ChatPage() {
   const messages = useMemo(() => {
     const allMessages = data?.pages.flat() || [];
     // Sort by date ascending for display
-    return [...allMessages].reverse();
+    const sorted = [...allMessages].reverse();
+
+    if (sorted.length === 0) return [];
+
+    const result: (ChatMessage | { type: 'date'; date: string; id: string })[] = [];
+    for (let i = 0; i < sorted.length; i++) {
+      const current = sorted[i];
+      const previous = sorted[i - 1];
+
+      if (!previous || !isSameDay(new Date(current.createdAt), new Date(previous.createdAt))) {
+        result.push({
+          type: 'date',
+          date: current.createdAt,
+          id: `date-${current.id}`,
+        });
+      }
+      result.push(current);
+    }
+    return result;
   }, [data]);
 
   const lastMessageId = useMemo(() => (messages.length > 0 ? messages[messages.length - 1].id : null), [messages]);
@@ -173,7 +190,7 @@ export default function ChatPage() {
 
     const validFiles = files.filter(file => file.type.startsWith('image/') || file.type.startsWith('video/'));
     if (validFiles.length !== files.length) {
-      toast.error(t('chat.error_invalid_files', 'Only image and video files are allowed'));
+      toast.error(t('chat.error_invalid_files'));
     }
 
     if (validFiles.length === 0) return;
@@ -192,7 +209,7 @@ export default function ChatPage() {
       setPreviews(prev => [...prev, ...newPreviews].slice(0, 4));
     } catch (error) {
       console.error('File processing failed:', error);
-      toast.error(t('chat.processing_failed', 'Failed to process files'));
+      toast.error(t('chat.processing_failed'));
     } finally {
       setIsOptimizing(false);
     }
@@ -232,7 +249,7 @@ export default function ChatPage() {
       setPreviews([]);
     } catch (error) {
       console.error('Failed to send message:', error);
-      toast.error(t('chat.send_failed', 'Failed to send message'));
+      toast.error(t('chat.send_failed'));
     } finally {
       setIsUploading(false);
     }
@@ -247,55 +264,85 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex flex-col flex-1 bg-gray-50 overflow-hidden relative">
-      <div className="bg-white px-4 py-3 border-b border-gray-200 shadow-sm flex-none">
-        <h1 className="text-lg font-semibold text-gray-900">{t('chat.title', 'Admin Support')}</h1>
-        <div className="flex items-center gap-1.5">
-          <div className={cn('h-2 w-2 rounded-full', isConnected ? 'bg-green-500' : 'bg-red-500')} />
-          <span className="text-xs text-gray-500">
-            {isConnected ? t('chat.connected', 'Online') : t('chat.disconnected', 'Disconnected')}
-          </span>
+    <div className="flex flex-col flex-1 bg-[#121212] relative text-slate-300">
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[100px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-red-500/5 rounded-full blur-[100px]" />
+      </div>
+
+      <div className="bg-[#181818]/80 backdrop-blur-md px-6 py-4 border-b border-white/5 shadow-lg flex-none z-20">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-900 to-red-600 flex items-center justify-center border border-white/10 shadow-lg shadow-red-900/20">
+            <span className="font-bold text-white text-lg">E</span>
+          </div>
+          <div>
+            <h1 className="text-lg font-bold text-white tracking-tight leading-none mb-1">{t('chat.title')}</h1>
+            <div className="flex items-center gap-1.5">
+              <div
+                className={cn('h-1.5 w-1.5 rounded-full animate-pulse', isConnected ? 'bg-emerald-500' : 'bg-red-500')}
+              />
+              <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-500">
+                {isConnected ? t('chat.status_active') : t('chat.status_offline')}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <ScrollArea ref={scrollRef} className="flex-1">
-        <div className="flex flex-col space-y-4 p-4 pb-24">
+      <ScrollArea ref={scrollRef} className="flex-1 z-10">
+        <div className="flex flex-col space-y-6 p-6 pb-28 max-w-4xl mx-auto w-full">
           <div ref={observerTarget} className="h-4 w-full flex items-center justify-center">
-            {isFetchingNextPage && <Loader2 className="h-4 w-4 animate-spin text-gray-400" />}
+            {isFetchingNextPage && <Loader2 className="h-4 w-4 animate-spin text-gray-500" />}
           </div>
 
-          {messages.map(message => (
-            <ChatMessageItem
-              key={message.id}
-              message={message}
-              onVisible={queueMarkRead}
-              onImageClick={setViewerImage}
-              t={t}
-            />
-          ))}
+          {messages.map(item => {
+            if ('type' in item && item.type === 'date') {
+              let dateLabel = format(new Date(item.date), 'MMMM d, yyyy');
+              if (isToday(new Date(item.date))) dateLabel = t('chat.today');
+              else if (isYesterday(new Date(item.date))) dateLabel = t('chat.yesterday');
+
+              return (
+                <div key={item.id} className="flex justify-center my-6 sticky top-0 z-10 py-2">
+                  <span className="px-4 py-1.5 bg-[#181818]/80 backdrop-blur-md rounded-full text-[11px] font-semibold text-gray-400 border border-white/5 uppercase tracking-wider shadow-lg">
+                    {dateLabel}
+                  </span>
+                </div>
+              );
+            }
+
+            const message = item as ChatMessage;
+            return (
+              <ChatMessageItem
+                key={message.id}
+                message={message}
+                onVisible={queueMarkRead}
+                onImageClick={setViewerImage}
+              />
+            );
+          })}
           <div ref={messagesEndRef} className="h-1" />
         </div>
       </ScrollArea>
 
-      <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-col gap-2">
+      <div className="absolute bottom-6 left-4 right-4 z-20 flex flex-col gap-3 max-w-4xl mx-auto">
         {previews.length > 0 && (
-          <div className="flex gap-2 p-2 bg-white rounded-2xl shadow-lg border border-gray-100 overflow-x-auto">
+          <div className="flex gap-3 p-3 bg-[#1e1e1e]/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/5 overflow-x-auto">
             {previews.map((url, i) => (
-              <div key={i} className="relative h-16 w-16 shrink-0">
+              <div key={i} className="relative h-20 w-20 shrink-0">
                 {selectedFiles[i]?.type.startsWith('video/') ? (
-                  <div className="h-full w-full bg-gray-100 rounded-xl border border-gray-100 flex items-center justify-center">
-                    <Video className="h-6 w-6 text-gray-400" />
+                  <div className="h-full w-full bg-black/40 rounded-xl border border-white/5 flex items-center justify-center">
+                    <Video className="h-8 w-8 text-neutral-500" />
                   </div>
                 ) : (
                   <img
                     src={url}
                     alt="Preview"
-                    className="h-full w-full object-cover rounded-xl border border-gray-100"
+                    className="h-full w-full object-cover rounded-xl border border-white/10"
                   />
                 )}
                 <button
                   onClick={() => removeFile(i)}
-                  className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full p-0.5 shadow-md hover:bg-red-600 transition-colors"
+                  className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 shadow-lg hover:bg-red-700 transition-all border border-black/20"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -306,7 +353,7 @@ export default function ChatPage() {
 
         <form
           onSubmit={handleSendMessage}
-          className="flex items-center gap-2 bg-white p-1.5 rounded-full shadow-xl border border-gray-100"
+          className="flex items-center  bg-[#181818]/95 backdrop-blur-2xl px-3 py-2.5 rounded-[2rem] shadow-2xl border border-white/10 max-w-full"
         >
           <input
             type="file"
@@ -324,14 +371,14 @@ export default function ChatPage() {
             capture="environment"
             className="hidden"
           />
-          <div className="flex items-center">
+          <div className="flex items-center shrink-0">
             <Button
               type="button"
               variant="ghost"
               size="icon"
               onClick={() => fileInputRef.current?.click()}
               disabled={selectedFiles.length >= 4 || isUploading || isOptimizing}
-              className="rounded-full h-9 w-6 shrink-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+              className="rounded-full h-9 w-6 shrink-0 text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
             >
               <Paperclip className="h-5 w-5" />
             </Button>
@@ -341,7 +388,7 @@ export default function ChatPage() {
               size="icon"
               onClick={() => cameraInputRef.current?.click()}
               disabled={selectedFiles.length >= 4 || isUploading || isOptimizing}
-              className="rounded-full h-9 w-6 shrink-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+              className="rounded-full h-9 w-6 shrink-0 text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
             >
               {isOptimizing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
             </Button>
@@ -351,17 +398,17 @@ export default function ChatPage() {
             type="text"
             value={inputText}
             onChange={e => setInputText(e.target.value)}
-            placeholder={t('chat.placeholder', 'Type a message...')}
-            className="flex-1 px-2 py-2 bg-transparent border-none text-sm focus:ring-0 outline-none"
+            placeholder={t('chat.placeholder')}
+            className="flex-1 min-w-0 px-3 py-2 bg-transparent border-none text-sm text-white focus:ring-0 outline-none placeholder:text-neutral-600"
             disabled={isUploading || isOptimizing}
           />
           <Button
             type="submit"
             disabled={(!inputText.trim() && selectedFiles.length === 0) || !isConnected || isUploading || isOptimizing}
             size="icon"
-            className="rounded-full h-10 w-10 shrink-0 bg-blue-600 hover:bg-blue-700 shadow-md transition-all active:scale-95 disabled:opacity-50"
+            className="rounded-full h-11 w-11 shrink-0 bg-gradient-to-br from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 shadow-lg shadow-red-900/40 border border-red-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:grayscale"
           >
-            {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+            {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5 ml-0.5" />}
           </Button>
         </form>
       </div>
@@ -369,7 +416,7 @@ export default function ChatPage() {
       <Dialog open={!!viewerImage} onOpenChange={open => !open && setViewerImage(null)}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden bg-transparent border-none shadow-none [&>button[data-slot=dialog-close]]:bg-black/50 [&>button[data-slot=dialog-close]]:text-white [&>button[data-slot=dialog-close]]:hover:bg-black/70 [&>button[data-slot=dialog-close]]:rounded-full [&>button[data-slot=dialog-close]]:p-2 [&>button[data-slot=dialog-close]]:top-4 [&>button[data-slot=dialog-close]]:right-4 [&>button[data-slot=dialog-close]]:opacity-100 [&>button[data-slot=dialog-close]_svg]:size-6">
           <DialogHeader className="sr-only">
-            <DialogTitle>{t('chat.image_viewer', 'Image Viewer')}</DialogTitle>
+            <DialogTitle>{t('chat.image_viewer')}</DialogTitle>
           </DialogHeader>
           {viewerImage && (
             <div className="relative flex items-center justify-center min-h-[50vh]">
@@ -390,12 +437,10 @@ function ChatMessageItem({
   message,
   onVisible,
   onImageClick,
-  t,
 }: {
   message: ChatMessage;
   onVisible: (id: string) => void;
   onImageClick: (url: string) => void;
-  t: TFunction<'translation', undefined>;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const isMe = message.sender === 'guard' || message.sender === 'employee';
@@ -419,20 +464,25 @@ function ChatMessageItem({
   }, [message.id, isMe, message.readAt, onVisible]);
 
   return (
-    <div ref={ref} className={cn('flex flex-col max-w-[80%]', isMe ? 'self-end items-end' : 'self-start items-start')}>
+    <div ref={ref} className={cn('flex flex-col max-w-[85%]', isMe ? 'self-end items-end' : 'self-start items-start')}>
       {!isMe && (
-        <span className="text-[10px] text-gray-500 mb-1 ml-1 font-medium">{message.admin?.name || 'Admin'}</span>
+        <span className="text-[10px] text-neutral-500 mb-1.5 ml-1 font-bold uppercase tracking-wider">
+          {message.admin?.name || 'Admin'}
+        </span>
       )}
       <div
         className={cn(
-          'px-4 py-2.5 rounded-2xl text-sm shadow-sm',
+          'px-5 py-3 rounded-2xl text-sm transition-all duration-300 backdrop-blur-md border shadow-2xl relative overflow-hidden group',
           isMe
-            ? 'bg-blue-600 text-white rounded-tr-none'
-            : 'bg-white text-gray-900 border border-gray-100 rounded-tl-none'
+            ? 'bg-red-900/20 text-white border-red-500/20 rounded-tr-sm'
+            : 'bg-neutral-800/60 text-neutral-200 border-white/5 rounded-tl-sm'
         )}
       >
+        {isMe && (
+          <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        )}
         {message.attachments && message.attachments.length > 0 && (
-          <div className={cn('grid gap-1.5 mb-2', message.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
+          <div className={cn('grid gap-2 mb-3', message.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
             {message.attachments.map((url, i) => {
               if (isVideoFile(url)) {
                 return (
@@ -440,7 +490,7 @@ function ChatMessageItem({
                     key={i}
                     src={url}
                     controls
-                    className="w-full aspect-video object-cover rounded-xl"
+                    className="w-full aspect-video object-cover rounded-xl border border-white/10"
                   />
                 );
               }
@@ -449,19 +499,25 @@ function ChatMessageItem({
                   key={i}
                   src={url}
                   alt={`Attachment ${i + 1}`}
-                  className="w-full aspect-video object-cover rounded-xl cursor-pointer hover:opacity-90 transition-opacity"
+                  className="w-full aspect-video object-cover rounded-xl cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-all border border-white/10"
                   onClick={() => onImageClick(url)}
                 />
               );
             })}
           </div>
         )}
-        <p className="whitespace-pre-wrap wrap-break-word">{message.content}</p>
+        <p className="whitespace-pre-wrap break-words relative z-10">{message.content}</p>
       </div>
-      <div className="flex items-center mt-1 gap-1 px-1">
-        <span className="text-[10px] text-gray-400">{format(new Date(message.createdAt), 'HH:mm')}</span>
-        {isMe && message.readAt && (
-          <span className="text-[10px] text-blue-500 font-medium">{t('chat.read', 'Read')}</span>
+      <div className="flex items-center mt-1.5 gap-2 px-1">
+        <span className="text-[10px] font-medium text-neutral-600">{format(new Date(message.createdAt), 'HH:mm')}</span>
+        {isMe && (
+          <div className="flex items-center gap-0.5">
+            {message.readAt ? (
+              <CheckCheck className="h-3 w-3 text-red-500" />
+            ) : (
+              <Check className="h-3 w-3 text-neutral-600" />
+            )}
+          </div>
         )}
       </div>
     </div>
