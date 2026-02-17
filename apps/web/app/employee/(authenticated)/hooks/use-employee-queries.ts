@@ -35,11 +35,14 @@ export function useProfile() {
       return (data.employee || data.guard) as { 
         id: string; 
         name: string; 
+        firstName: string;
+        lastName: string;
         employeeCode?: string; 
         mustChangePassword: boolean;
         role?: 'on_site' | 'office';
         officeId?: string;
         office?: { id: string; name: string; latitude?: number; longitude?: number };
+        department?: { id: string; name: string };
         designation?: { id: string; name: string };
       };
     },

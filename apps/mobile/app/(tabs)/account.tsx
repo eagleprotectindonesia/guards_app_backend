@@ -1,21 +1,11 @@
-import React from 'react';
-import { Alert, ScrollView, Switch } from 'react-native';
-import {
-  Box,
-  VStack,
-  Heading,
-  Text,
-  Button,
-  ButtonText,
-  Avatar,
-  AvatarFallbackText,
-  Center,
-} from '@gluestack-ui/themed';
+import React, { useEffect } from 'react';
+import { Alert, ScrollView, Switch, Image, View, TouchableOpacity } from 'react-native';
+import { Box, VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { LogOut, Lock } from 'lucide-react-native';
+import { LogOut, Key, ChevronRight, Fingerprint } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
@@ -24,9 +14,17 @@ import {
   getBiometricTypeLabel,
   authenticateWithBiometric,
 } from '../../src/utils/biometric';
-import { Fingerprint } from 'lucide-react-native';
-
 import PasswordConfirmationModal from '../../src/components/PasswordConfirmationModal';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Employee } from '@repo/types';
+import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
+
+type ProfileResponse = {
+  employee: Employee & { mustChangePassword: boolean };
+};
+
+const DEFAULT_AVATAR =
+  'https://lh3.googleusercontent.com/aida-public/AB6AXuDzcxM7B2Plj0M6rLwD5-jwCeXCJ-VxTGp8XT8dffCo7Cjv4BQ3_fM-MkOicyMU8jJxMw9Q81kjfqVm_zD_yfF92pmxUsZDY_fB7by9N3_LAOMNfdJlNjEUudjhqq7Cm5LUPTk9aKNVSgT9A4rsOYqHKU5vKRmjMZknp_AFtbKxzLh1PX2V_AKy5bez2tThvg_swnSuuvc4uRhd_JO8vfyGxuCUlrrS_Gt_LXaPHMHfgxPWTz6nvJqDPVw3QneYlTqVGg46xTuvrQDq';
 
 export default function AccountScreen() {
   const { t } = useTranslation();
@@ -38,7 +36,7 @@ export default function AccountScreen() {
   const [biometricType, setBiometricType] = React.useState('Biometric');
   const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     checkBiometricAvailability().then(({ available }) => {
       setIsBiometricAvailable(available);
       if (available) {
@@ -47,13 +45,15 @@ export default function AccountScreen() {
     });
   }, []);
 
-  const { data: profile } = useQuery({
+  const { data: profile } = useQuery<ProfileResponse>({
     queryKey: ['profile'],
     queryFn: async () => {
       const res = await client.get('/api/employee/my/profile');
       return res.data;
     },
   });
+
+  const employee = profile?.employee;
 
   const handleLogout = async () => {
     await logout();
@@ -78,10 +78,8 @@ export default function AccountScreen() {
 
   const handleToggleBiometric = async (value: boolean) => {
     if (value) {
-      // 1. Verify Biometric First
       const auth = await authenticateWithBiometric(t('biometric.promptMessage'));
       if (auth.success) {
-        // 2. Prompt for Password to Enable
         setIsPasswordModalOpen(true);
       }
     } else {
@@ -99,70 +97,269 @@ export default function AccountScreen() {
   };
 
   return (
-    <Box className="flex-1 bg-gray-50">
+    <Box flex={1} bg="#121212" overflow="hidden">
+      {/* Background Ambient Glow */}
+      <Box position="absolute" top={0} right={0} w={256} h={256} opacity={0.2}>
+        <LinearGradient colors={['rgba(37, 99, 235, 0.3)', 'transparent']} style={{ flex: 1, borderRadius: 128 }} />
+      </Box>
+      <Box position="absolute" bottom={0} left={0} w={256} h={256} opacity={0.2}>
+        <LinearGradient colors={['rgba(239, 68, 68, 0.3)', 'transparent']} style={{ flex: 1, borderRadius: 128 }} />
+      </Box>
+
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: 20,
-          paddingTop: insets.top + 60,
-          paddingBottom: 20,
+          paddingBottom: 100,
+          paddingTop: insets.top + 20,
         }}
+        showsVerticalScrollIndicator={false}
       >
-        <VStack space="2xl">
-          <Heading size="2xl">{t('account.title', 'Account')}</Heading>
+        <VStack space="xl">
+          {/* Top Navigation / Language Toggle */}
+          <Box px="$6" flexDirection="row" justifyContent="flex-end">
+            <GlassLanguageToggle />
+          </Box>
 
-          <Center className="bg-white p-6 rounded-2xl shadow-sm">
-            <Avatar size="2xl" bgColor="$blue600" className="mb-4">
-              <AvatarFallbackText>{profile?.employee?.name || 'G'}</AvatarFallbackText>
-            </Avatar>
-            <Heading size="lg">{profile?.employee?.name}</Heading>
-            <Text className="text-gray-500">{profile?.employee?.employeeCode}</Text>
-          </Center>
-
-          <VStack space="md">
-            <Text className="text-gray-500 font-bold px-1">{t('account.settings', 'Settings')}</Text>
-
-            <Box className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <Button
-                variant="link"
-                className="justify-start h-16 px-4 border-b border-gray-100"
-                onPress={() => openPasswordChangeModal(false)}
+          {/* Header Section */}
+          <VStack space="lg" alignItems="center" mb="$8" px="$6">
+            <View style={{ width: 128, height: 128, marginBottom: 8, position: 'relative' }}>
+              <Box
+                w="100%"
+                h="100%"
+                rounded="$full"
+                p="$1"
+                borderWidth={1}
+                borderColor="rgba(239, 68, 68, 0.3)"
+                bg="$backgroundDark800"
+                style={{
+                  shadowColor: '#ef4444',
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.4,
+                  shadowRadius: 20,
+                }}
               >
-                <Lock size={20} stroke="#4B5563" />
-                <ButtonText className="text-gray-700 ml-3">{t('dashboard.changePassword')}</ButtonText>
-              </Button>
-
-              {isBiometricAvailable && (
-                <Box className="flex-row items-center justify-between h-16 px-4 border-b border-gray-100">
-                  <Box className="flex-row items-center">
-                    <Fingerprint size={20} stroke="#4B5563" />
-                    <VStack className="ml-3">
-                      <Text className="text-gray-700 font-medium">{t('biometric.settingsTitle')}</Text>
-                      <Text className="text-gray-400 text-xs">{biometricType}</Text>
-                    </VStack>
-                  </Box>
-                  <Switch
-                    value={isBiometricEnabled}
-                    onValueChange={handleToggleBiometric}
-                    trackColor={{ false: '#D1D5DB', true: '#E6392D' }}
+                <Box w="100%" h="100%" rounded="$full" overflow="hidden" borderWidth={2} borderColor="$red600">
+                  <Image
+                    source={{ uri: DEFAULT_AVATAR }}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                  <LinearGradient
+                    colors={['rgba(255,255,255,0.1)', 'transparent']}
+                    style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                   />
                 </Box>
-              )}
+              </Box>
+              <Box
+                position="absolute"
+                bottom={8}
+                right={8}
+                w="$6"
+                h="$6"
+                bg="#181818"
+                rounded="$full"
+                alignItems="center"
+                justifyContent="center"
+                borderWidth={1}
+                borderColor="$backgroundDark700"
+              >
+                <Box
+                  w="$3"
+                  h="$3"
+                  bg="$emerald500"
+                  rounded="$full"
+                  style={{
+                    shadowColor: '#10b981',
+                    shadowOffset: { width: 0, height: 0 },
+                    shadowOpacity: 0.8,
+                    shadowRadius: 8,
+                  }}
+                />
+              </Box>
+            </View>
 
-              <Button
-                variant="link"
-                className="justify-start h-16 px-4"
+            <VStack alignItems="center">
+              <HStack space="xs">
+                <Heading size="2xl" color="$white" fontWeight="$bold">
+                  {employee?.firstName}
+                </Heading>
+                <Heading size="2xl" color="$red500" fontWeight="$bold">
+                  {employee?.lastName}
+                </Heading>
+              </HStack>
+              <Text color="$textDark500" size="sm" fontWeight="$semibold" letterSpacing={0.5}>
+                ID: {employee?.employeeCode}
+              </Text>
+
+              <Box
+                mt="$4"
+                px="$4"
+                py="$1.5"
+                rounded="$full"
+                bg="rgba(255,255,255,0.05)"
+                borderWidth={1}
+                borderColor="rgba(255,255,255,0.05)"
+              >
+                <Text size="2xs" fontWeight="$bold" textTransform="uppercase" letterSpacing={1.2} color="$textDark400">
+                  {employee?.department?.name || 'Security Unit'} • {employee?.designation?.name || 'Alpha Team'}
+                </Text>
+              </Box>
+            </VStack>
+          </VStack>
+
+          {/* Account Settings */}
+          <VStack space="md" px="$6" mb="$8">
+            <Text
+              size="2xs"
+              fontWeight="$bold"
+              color="$textDark500"
+              textTransform="uppercase"
+              letterSpacing={1.2}
+              ml="$2"
+            >
+              {t('account.settings', 'Account Settings')}
+            </Text>
+
+            <Box bg="rgba(30, 30, 30, 0.4)" borderWidth={1} borderColor="rgba(255, 255, 255, 0.08)" rounded={32} p="$2">
+              <VStack space="sm">
+                {/* Change Password */}
+                <TouchableOpacity onPress={() => openPasswordChangeModal(false)} activeOpacity={0.7}>
+                  <Box
+                    flexDirection="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    p="$4"
+                    rounded={16}
+                    bg="rgba(255, 255, 255, 0.03)"
+                    borderWidth={1}
+                    borderColor="rgba(255, 255, 255, 0.05)"
+                  >
+                    <HStack space="md" alignItems="center">
+                      <Box
+                        w="$10"
+                        h="$10"
+                        rounded="$xl"
+                        bg="rgba(59, 130, 246, 0.1)"
+                        alignItems="center"
+                        justifyContent="center"
+                        borderWidth={1}
+                        borderColor="rgba(59, 130, 246, 0.2)"
+                      >
+                        <Key size={20} color="#3b82f6" />
+                      </Box>
+                      <Text size="sm" fontWeight="$semibold" color="$textDark200">
+                        {t('dashboard.changePassword')}
+                      </Text>
+                    </HStack>
+                    <ChevronRight size={16} color="#4b5563" />
+                  </Box>
+                </TouchableOpacity>
+
+                {/* Biometrics */}
+                {isBiometricAvailable && (
+                  <Box
+                    flexDirection="row"
+                    alignItems="center"
+                    justifyContent="space-between"
+                    p="$4"
+                    rounded={16}
+                    bg="rgba(255, 255, 255, 0.03)"
+                    borderWidth={1}
+                    borderColor="rgba(255, 255, 255, 0.05)"
+                  >
+                    <HStack space="md" alignItems="center">
+                      <Box
+                        w="$10"
+                        h="$10"
+                        rounded="$xl"
+                        bg="rgba(168, 85, 247, 0.1)"
+                        alignItems="center"
+                        justifyContent="center"
+                        borderWidth={1}
+                        borderColor="rgba(168, 85, 247, 0.2)"
+                      >
+                        <Fingerprint size={20} color="#a855f7" />
+                      </Box>
+                      <VStack>
+                        <Text size="sm" fontWeight="$semibold" color="$textDark200">
+                          {t('biometric.settingsTitle')}
+                        </Text>
+                        <Text
+                          color="$textDark500"
+                          size="2xs"
+                          fontWeight="$bold"
+                          textTransform="uppercase"
+                          letterSpacing={1}
+                        >
+                          {biometricType}
+                        </Text>
+                      </VStack>
+                    </HStack>
+                    <Switch
+                      value={isBiometricEnabled}
+                      onValueChange={handleToggleBiometric}
+                      trackColor={{ false: '#374151', true: '#ef4444' }}
+                      thumbColor={isBiometricEnabled ? '#ffffff' : '#9ca3af'}
+                    />
+                  </Box>
+                )}
+              </VStack>
+            </Box>
+          </VStack>
+
+          {/* Logout Section */}
+          <Box px="$6">
+            <Box bg="rgba(30, 30, 30, 0.4)" borderWidth={1} borderColor="rgba(255, 255, 255, 0.08)" rounded={32} p="$2">
+              <TouchableOpacity
                 onPress={() =>
                   Alert.alert(t('dashboard.logoutConfirmTitle'), t('dashboard.logoutConfirmMessage'), [
                     { text: t('dashboard.cancel'), style: 'cancel' },
                     { text: t('dashboard.logout'), style: 'destructive', onPress: handleLogout },
                   ])
                 }
+                activeOpacity={0.7}
               >
-                <LogOut size={20} stroke="#EF4444" />
-                <ButtonText className="text-red-500 ml-3">{t('dashboard.logout')}</ButtonText>
-              </Button>
+                <Box
+                  flexDirection="row"
+                  alignItems="center"
+                  p="$4"
+                  rounded={16}
+                  bg="rgba(255, 255, 255, 0.03)"
+                  borderWidth={1}
+                  borderColor="rgba(255, 255, 255, 0.05)"
+                >
+                  <HStack space="md" alignItems="center">
+                    <Box
+                      w="$10"
+                      h="$10"
+                      rounded="$xl"
+                      bg="rgba(239, 68, 68, 0.1)"
+                      alignItems="center"
+                      justifyContent="center"
+                      borderWidth={1}
+                      borderColor="rgba(239, 68, 68, 0.2)"
+                    >
+                      <LogOut size={20} color="#ef4444" />
+                    </Box>
+                    <Text size="sm" fontWeight="$bold" color="$red500" letterSpacing={0.5}>
+                      {t('dashboard.logout')}
+                    </Text>
+                  </HStack>
+                </Box>
+              </TouchableOpacity>
             </Box>
-          </VStack>
+
+            <Text
+              mt="$12"
+              textAlign="center"
+              size="2xs"
+              color="$textDark600"
+              textTransform="uppercase"
+              letterSpacing={1.2}
+              fontWeight="$medium"
+            >
+              Eagle Protect v2.4.0 (Build 892)
+            </Text>
+          </Box>
         </VStack>
       </ScrollView>
 
