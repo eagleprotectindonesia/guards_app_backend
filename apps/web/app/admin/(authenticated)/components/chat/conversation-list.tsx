@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Search, User, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -36,7 +36,7 @@ export function ConversationList({
   itemClassName,
   showExportButton = true,
 }: ConversationListProps) {
-  const exportEmployees = React.useMemo(
+  const exportEmployees = useMemo(
     () => conversations.map(c => ({ id: c.employeeId, fullName: c.employeeName })),
     [conversations]
   );
@@ -48,15 +48,13 @@ export function ConversationList({
           <h2 className="text-lg font-semibold">Messages</h2>
           {showExportButton && <ChatExport activeEmployeeId={activeEmployeeId} employees={exportEmployees} />}
         </div>
-        
+
         <div className="flex gap-2 mb-4">
           <button
             onClick={() => onFilterChange?.('all')}
             className={cn(
               'px-3 py-1 text-xs font-medium rounded-full transition-all',
-              filterType === 'all'
-                ? 'bg-blue-600 text-white'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              filterType === 'all' ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
             )}
           >
             All
@@ -65,9 +63,7 @@ export function ConversationList({
             onClick={() => onFilterChange?.('unread')}
             className={cn(
               'px-3 py-1 text-xs font-medium rounded-full transition-all flex items-center gap-1.5',
-              filterType === 'unread'
-                ? 'bg-blue-600 text-white'
-                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              filterType === 'unread' ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
             )}
           >
             Unread
@@ -137,8 +133,8 @@ export function ConversationList({
                           {conv.lastMessage.sender === 'admin' && conv.lastMessage.adminName === undefined
                             ? 'You'
                             : currentAdminId && conv.lastMessage.adminId === currentAdminId
-                            ? 'You'
-                            : conv.lastMessage.adminName || 'Admin'}
+                              ? 'You'
+                              : conv.lastMessage.adminName || 'Admin'}
                           :{' '}
                         </span>
                       ) : null}

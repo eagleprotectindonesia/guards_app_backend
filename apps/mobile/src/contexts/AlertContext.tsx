@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useRef } from 'react';
 import {
   AlertDialog,
   AlertDialogBackdrop,
@@ -78,7 +78,7 @@ export const AlertProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  const initialFocusRef = React.useRef(null);
+  const initialFocusRef = useRef(null);
 
   const getIcon = () => {
     switch (options.icon) {

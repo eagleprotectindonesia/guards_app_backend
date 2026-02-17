@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useRef } from 'react';
+import { useState, useTransition, useRef, ChangeEvent, FormEvent } from 'react';
 import Modal from '../../components/modal';
 import { bulkCreateEmployees } from '../actions';
 import toast from 'react-hot-toast';
@@ -17,7 +17,7 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
   const [isPending, startTransition] = useTransition();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
       setError(null);
@@ -25,7 +25,7 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (!file) {
       setError('Please select a CSV file.');
@@ -53,7 +53,8 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
 
   const handleDownloadExample = () => {
     // Create CSV content with headers only
-    const csvContent = 'Title,First Name,Last Name,Phone,Employee ID,Employee Code,Note,Join Date (YYYY-MM-DD),Password,Department,Designation,Office\n';
+    const csvContent =
+      'Title,First Name,Last Name,Phone,Employee ID,Employee Code,Note,Join Date (YYYY-MM-DD),Password,Department,Designation,Office\n';
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -82,10 +83,12 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
             </button>
           </div>
           <code className="text-xs bg-muted p-2 rounded block border border-border whitespace-pre-wrap overflow-x-auto">
-            Title, First Name, Last Name, Phone, Employee ID, Employee Code, Note, Join Date (YYYY-MM-DD), Password, Department, Designation, Office
+            Title, First Name, Last Name, Phone, Employee ID, Employee Code, Note, Join Date (YYYY-MM-DD), Password,
+            Department, Designation, Office
           </code>
           <p className="text-xs text-muted-foreground/60 mt-1">
-            Note: Titles must be one of: Mr, Miss, Mrs. Department, Designation, and Office names must match existing records exactly (case-insensitive).
+            Note: Titles must be one of: Mr, Miss, Mrs. Department, Designation, and Office names must match existing
+            records exactly (case-insensitive).
           </p>
         </div>
 

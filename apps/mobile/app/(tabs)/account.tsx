@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ScrollView, Switch, Image, View, TouchableOpacity } from 'react-native';
 import { Box, VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { useTranslation } from 'react-i18next';
@@ -30,9 +30,9 @@ export default function AccountScreen() {
   const { openPasswordChangeModal } = usePasswordChangeModal();
   const { showAlert } = useAlert();
   const toast = useCustomToast();
-  const [isBiometricAvailable, setIsBiometricAvailable] = React.useState(false);
-  const [biometricType, setBiometricType] = React.useState('Biometric');
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
+  const [biometricType, setBiometricType] = useState('Biometric');
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
   useEffect(() => {
     checkBiometricAvailability().then(({ available }) => {

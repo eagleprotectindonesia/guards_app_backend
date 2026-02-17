@@ -16,12 +16,12 @@ type ChatExportModalProps = {
   initialEmployeeId?: string;
 };
 
-export default function ChatExportModal({ 
-  isOpen, 
-  onClose, 
-  onExport, 
+export default function ChatExportModal({
+  isOpen,
+  onClose,
+  onExport,
   employees,
-  initialEmployeeId 
+  initialEmployeeId,
 }: ChatExportModalProps) {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
@@ -29,7 +29,7 @@ export default function ChatExportModal({
 
   // Update selected employee if initialEmployeeId changes and modal opens
   if (isOpen && initialEmployeeId && selectedEmployeeId === '' && initialEmployeeId !== selectedEmployeeId) {
-     setSelectedEmployeeId(initialEmployeeId);
+    setSelectedEmployeeId(initialEmployeeId);
   }
 
   const handleExport = () => {
@@ -77,14 +77,18 @@ export default function ChatExportModal({
         <div className="space-y-4">
           {/* Employee Selection */}
           <div>
-            <Label htmlFor="employee">Employee <span className="text-red-500">*</span></Label>
+            <Label htmlFor="employee">
+              Employee <span className="text-red-500">*</span>
+            </Label>
             <select
               id="employee"
               value={selectedEmployeeId}
               onChange={e => setSelectedEmployeeId(e.target.value)}
               className="w-full mt-1 rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground"
             >
-              <option value="" disabled className="bg-card">Select an Employee</option>
+              <option value="" disabled className="bg-card">
+                Select an Employee
+              </option>
               {employees.map(employee => (
                 <option key={employee.id} value={employee.id} className="bg-card">
                   {employee.fullName}
@@ -95,18 +99,17 @@ export default function ChatExportModal({
 
           {/* Start Date */}
           <div>
-            <Label htmlFor="export-start-date">Start Date <span className="text-red-500">*</span></Label>
-            <DatePicker
-              date={startDate}
-              setDate={setStartDate}
-              maxDate={endDate}
-              className="mt-1"
-            />
+            <Label htmlFor="export-start-date">
+              Start Date <span className="text-red-500">*</span>
+            </Label>
+            <DatePicker date={startDate} setDate={setStartDate} maxDate={endDate} className="mt-1" />
           </div>
 
           {/* End Date */}
           <div>
-            <Label htmlFor="export-end-date">End Date <span className="text-red-500">*</span></Label>
+            <Label htmlFor="export-end-date">
+              End Date <span className="text-red-500">*</span>
+            </Label>
             <DatePicker
               date={endDate}
               setDate={setEndDate}

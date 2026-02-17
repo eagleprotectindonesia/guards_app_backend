@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { MessageSquare, Send, User, Paperclip, Loader2, Lock } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAdminChat } from '@/hooks/use-admin-chat';
@@ -22,7 +22,7 @@ export function AdminChatClient() {
     [router]
   );
 
-  const chatOptions = React.useMemo(
+  const chatOptions = useMemo(
     () => ({
       initialEmployeeId: employeeIdParam,
       onSelectConversation,

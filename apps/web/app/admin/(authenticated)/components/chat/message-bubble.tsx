@@ -37,12 +37,7 @@ export function ChatMessageBubble({ message, isAdmin, currentAdminId, className 
         )}
       >
         {message.attachments && message.attachments.length > 0 && (
-          <div
-            className={cn(
-              'grid gap-2 mb-3',
-              message.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2'
-            )}
-          >
+          <div className={cn('grid gap-2 mb-3', message.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
             {message.attachments.map((url, i) => {
               if (isVideoFile(url)) {
                 return (
@@ -69,16 +64,9 @@ export function ChatMessageBubble({ message, isAdmin, currentAdminId, className 
         <p className="whitespace-pre-wrap break-words">{message.content}</p>
       </div>
       <div className="flex items-center gap-1.5 px-1 mt-1.5">
-        <span className="text-[10px] text-muted-foreground/60">
-          {format(new Date(message.createdAt), 'HH:mm')}
-        </span>
+        <span className="text-[10px] text-muted-foreground/60">{format(new Date(message.createdAt), 'HH:mm')}</span>
         {isAdmin && (
-          <span
-            className={cn(
-              'text-[10px]',
-              message.readAt ? 'text-blue-500' : 'text-muted-foreground/40'
-            )}
-          >
+          <span className={cn('text-[10px]', message.readAt ? 'text-blue-500' : 'text-muted-foreground/40')}>
             {message.readAt ? 'Read' : 'Sent'}
           </span>
         )}

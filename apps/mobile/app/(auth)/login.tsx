@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet, Dimensions, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useAlert } from '../../src/contexts/AlertContext';
@@ -87,7 +87,7 @@ export default function LoginScreen() {
     },
   });
 
-  const handleBiometricLogin = React.useCallback(async () => {
+  const handleBiometricLogin = useCallback(async () => {
     if (isBioPending) return;
 
     try {

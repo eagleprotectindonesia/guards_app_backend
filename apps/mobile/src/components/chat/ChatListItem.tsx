@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { VStack, Text, Center, Avatar, AvatarFallbackText, HStack } from '@gluestack-ui/themed';
 import { Check, CheckCheck } from 'lucide-react-native';
@@ -85,7 +85,10 @@ function ChatListItemBase({ item, getDateLabel, onOpenImageViewer }: ChatListIte
                       <TouchableOpacity onPress={() => onOpenImageViewer(message.attachments, i)}>
                         <Image
                           source={{ uri: url }}
-                          style={[styles.attachmentImage, message.attachments.length > 1 && styles.multiAttachmentImage]}
+                          style={[
+                            styles.attachmentImage,
+                            message.attachments.length > 1 && styles.multiAttachmentImage,
+                          ]}
                           resizeMode="cover"
                         />
                       </TouchableOpacity>
@@ -112,7 +115,7 @@ function ChatListItemBase({ item, getDateLabel, onOpenImageViewer }: ChatListIte
   );
 }
 
-export const ChatListItem = React.memo(ChatListItemBase);
+export const ChatListItem = memo(ChatListItemBase);
 
 const styles = StyleSheet.create({
   messageContainer: {
