@@ -1,8 +1,6 @@
 import React, { useEffect } from 'react';
 import { ScrollView, Switch, Image, View, TouchableOpacity } from 'react-native';
 import { Box, VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
-import { useQuery } from '@tanstack/react-query';
-import { client } from '../../src/api/client';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { LogOut, Key, ChevronRight, Fingerprint } from 'lucide-react-native';
@@ -18,12 +16,8 @@ import {
 } from '../../src/utils/biometric';
 import PasswordConfirmationModal from '../../src/components/PasswordConfirmationModal';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Employee } from '@repo/types';
 import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
-
-type ProfileResponse = {
-  employee: Employee & { mustChangePassword: boolean };
-};
+import { useProfile } from '../../src/hooks/useProfile';
 
 const DEFAULT_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuDzcxM7B2Plj0M6rLwD5-jwCeXCJ-VxTGp8XT8dffCo7Cjv4BQ3_fM-MkOicyMU8jJxMw9Q81kjfqVm_zD_yfF92pmxUsZDY_fB7by9N3_LAOMNfdJlNjEUudjhqq7Cm5LUPTk9aKNVSgT9A4rsOYqHKU5vKRmjMZknp_AFtbKxzLh1PX2V_AKy5bez2tThvg_swnSuuvc4uRhd_JO8vfyGxuCUlrrS_Gt_LXaPHMHfgxPWTz6nvJqDPVw3QneYlTqVGg46xTuvrQDq';
@@ -49,13 +43,7 @@ export default function AccountScreen() {
     });
   }, []);
 
-  const { data: profile } = useQuery<ProfileResponse>({
-    queryKey: ['profile'],
-    queryFn: async () => {
-      const res = await client.get('/api/employee/my/profile');
-      return res.data;
-    },
-  });
+  const { data: profile } = useProfile();
 
   const employee = profile?.employee;
 

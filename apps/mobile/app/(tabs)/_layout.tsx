@@ -5,10 +5,10 @@ import { useTranslation } from 'react-i18next';
 import { useChatUnread } from '../../src/hooks/useChatUnread';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { View, ActivityIndicator } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
-import { client } from '../../src/api/client';
 import PasswordChangeModal from '../../src/components/PasswordChangeModal';
 import { PasswordChangeModalProvider, usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
+import SessionMonitor from '../../src/components/SessionMonitor';
+import { useProfile } from '../../src/hooks/useProfile';
 
 export default function TabsLayout() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -23,6 +23,7 @@ export default function TabsLayout() {
 
   return (
     <PasswordChangeModalProvider>
+      <SessionMonitor />
       <TabsContent isAuthenticated={isAuthenticated} />
       <PasswordChangeManager />
     </PasswordChangeModalProvider>
@@ -32,13 +33,7 @@ export default function TabsLayout() {
 function PasswordChangeManager() {
   const { isOpen, isForce, openPasswordChangeModal, closePasswordChangeModal } = usePasswordChangeModal();
 
-  const { data: profile } = useQuery({
-    queryKey: ['profile'],
-    queryFn: async () => {
-      const res = await client.get('/api/employee/my/profile');
-      return res.data;
-    },
-  });
+  const { data: profile } = useProfile();
 
   useEffect(() => {
     if (profile?.employee?.mustChangePassword) {

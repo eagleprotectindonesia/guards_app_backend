@@ -3,6 +3,8 @@ import Constants from 'expo-constants';
 import { QueryClient } from '@tanstack/react-query';
 import { storage, STORAGE_KEYS } from '../utils/storage';
 
+let authTokenCache: string | null = null;
+
 // Determine the base URL based on the environment
 const getBaseUrl = () => {
   if (process.env.EXPO_PUBLIC_API_URL) {
@@ -29,10 +31,17 @@ export const client = axios.create({
   },
 });
 
+export const setCachedAuthToken = (token: string | null) => {
+  authTokenCache = token;
+};
+
 // Request Interceptor to inject token
 client.interceptors.request.use(
   async (config) => {
-    const token = await storage.getItem(STORAGE_KEYS.USER_TOKEN);
+    const token = authTokenCache ?? (await storage.getItem(STORAGE_KEYS.USER_TOKEN));
+    if (token && !authTokenCache) {
+      authTokenCache = token;
+    }
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }

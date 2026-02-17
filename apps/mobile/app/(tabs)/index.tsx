@@ -6,35 +6,25 @@ import { client } from '../../src/api/client';
 import AttendanceRecord from '../../src/components/AttendanceRecord';
 import CheckInCard from '../../src/components/CheckInCard';
 import ShiftCarousel from '../../src/components/ShiftCarousel';
-import SessionMonitor from '../../src/components/SessionMonitor';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ShiftWithRelations, Employee } from '@repo/types';
+import { ShiftWithRelations } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
 import { startGeofencing, stopGeofencing, isGeofencingActive } from '../../src/utils/geofence';
 import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useProfile } from '../../src/hooks/useProfile';
 
 type ActiveShiftData = {
   activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;
   nextShifts: ShiftWithRelations[];
 };
 
-type ProfileData = {
-  employee: Employee;
-};
-
 export default function HomeScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
-  const { data: profile } = useQuery<ProfileData>({
-    queryKey: ['profile'],
-    queryFn: async () => {
-      const res = await client.get('/api/employee/my/profile');
-      return res.data;
-    },
-  });
+  const { data: profile } = useProfile();
 
   const {
     data: shiftData,
@@ -78,8 +68,6 @@ export default function HomeScreen() {
 
   return (
     <Box flex={1} bg="$backgroundDark950" position="relative">
-      <SessionMonitor />
-
       {/* Background Gradients to simulate the Deep Dark aesthetic */}
       <Box position="absolute" top={0} left={0} right={0} height={400} opacity={0.3}>
         <LinearGradient colors={['rgba(217, 35, 35, 0.1)', 'transparent']} style={{ flex: 1 }} />

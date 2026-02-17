@@ -11,13 +11,14 @@ export function useSocket() {
 
   useEffect(() => {
     let active = true;
+    let cleanupSocketListeners: (() => void) | undefined;
 
     async function init() {
       const s = await getSocket();
       if (!active) return;
-      
+
       if (s) {
-        setSocket(s as any);
+        setSocket(s);
         setIsConnected(s.connected);
 
         const onConnect = () => setIsConnected(true);
@@ -26,7 +27,7 @@ export function useSocket() {
         s.on('connect', onConnect);
         s.on('disconnect', onDisconnect);
 
-        return () => {
+        cleanupSocketListeners = () => {
           s.off('connect', onConnect);
           s.off('disconnect', onDisconnect);
         };
@@ -37,6 +38,7 @@ export function useSocket() {
 
     return () => {
       active = false;
+      cleanupSocketListeners?.();
     };
   }, []);
 

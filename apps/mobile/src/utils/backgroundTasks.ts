@@ -16,6 +16,7 @@ const LOCATION_DISABLED_START_TIME_KEY = '@location_disabled_start_time';
 const LOCATION_DISABLED_REPORTED_KEY = '@location_disabled_reported';
 const ACTIVE_SHIFT_ID_KEY = 'active_shift_id';
 const GEOFENCE_CONFIG_KEY = 'geofence_config';
+export const SETTINGS_CACHE_KEY = '@system_settings_cache';
 
 // Default values as fallbacks
 const DEFAULT_SETTINGS: SystemSettings = {
@@ -27,6 +28,20 @@ const DEFAULT_SETTINGS: SystemSettings = {
 export function getSettings(): SystemSettings {
   const cached = queryClient.getQueryData<SystemSettings>(['settings']);
   return cached || DEFAULT_SETTINGS;
+}
+
+export async function getSettingsAsync(): Promise<SystemSettings> {
+  const cached = queryClient.getQueryData<SystemSettings>(['settings']);
+  if (cached) {
+    return cached;
+  }
+
+  const persisted = await storage.getItem(SETTINGS_CACHE_KEY);
+  if (persisted) {
+    return persisted as SystemSettings;
+  }
+
+  return DEFAULT_SETTINGS;
 }
 export async function checkAndReportLocationServices(
   shiftId: string,
@@ -42,7 +57,7 @@ export async function checkAndReportLocationServices(
     ]);
 
     const hasPermissions = fgStatus === 'granted' && bgStatus === 'granted';
-    const settings = getSettings();
+    const settings = await getSettingsAsync();
     if (!settings.ENABLE_LOCATION_MONITORING) {
       return;
     }
@@ -189,7 +204,7 @@ TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
 
   try {
     const shiftId = await storage.getItem(ACTIVE_SHIFT_ID_KEY);
-    const settings = getSettings();
+    const settings = await getSettingsAsync();
 
     if (!settings.ENABLE_LOCATION_MONITORING) {
       console.log('[Background] Location monitoring is disabled via system settings.');

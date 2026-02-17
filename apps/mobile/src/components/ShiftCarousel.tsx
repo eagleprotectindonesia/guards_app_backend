@@ -108,7 +108,7 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
               <Box flex={1}>
                 <Text
                   color="$textDark500"
-                  size="sm"
+                  size="xs"
                   textTransform="uppercase"
                   letterSpacing={1.5}
                   mb="$1.5"
@@ -126,7 +126,7 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
               <Box flex={1} alignItems="flex-end">
                 <Text
                   color="$textDark500"
-                  size="sm"
+                  size="xs"
                   textTransform="uppercase"
                   letterSpacing={1.5}
                   mb="$1.5"
@@ -223,7 +223,7 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
           <VStack space="md">
             <HStack space="md" alignItems="center">
               <Box flex={1}>
-                <Text color="$textDark600" size="sm" textTransform="uppercase" letterSpacing={1.5} mb="$1">
+                <Text color="$textDark600" size="xs" textTransform="uppercase" letterSpacing={1.5} mb="$1">
                   {t('shift.station')}
                 </Text>
                 <HStack space="xs" alignItems="center">
@@ -234,7 +234,7 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
                 </HStack>
               </Box>
               <Box flex={1} alignItems="flex-end">
-                <Text color="$textDark600" size="sm" textTransform="uppercase" letterSpacing={1.5} mb="$1">
+                <Text color="$textDark600" size="xs" textTransform="uppercase" letterSpacing={1.5} mb="$1">
                   {t('shift.timeframe')}
                 </Text>
                 <Text color="$textDark300" size="md" fontWeight="$medium" letterSpacing={0.5}>

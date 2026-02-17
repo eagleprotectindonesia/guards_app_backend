@@ -1,5 +1,5 @@
 import * as Location from 'expo-location';
-import { GEOFENCE_TASK, LOCATION_MONITOR_TASK, checkAndReportLocationServices, getSettings } from './backgroundTasks';
+import { GEOFENCE_TASK, LOCATION_MONITOR_TASK, checkAndReportLocationServices, getSettingsAsync } from './backgroundTasks';
 import { storage } from './storage';
 import { sendDebugChat } from './debug';
 
@@ -31,7 +31,7 @@ export async function startGeofencing(shift: {
     geofenceRadius?: number | null;
   };
 }) {
-  const settings = getSettings();
+  const settings = await getSettingsAsync();
   if (!settings.ENABLE_LOCATION_MONITORING) {
     console.log('[Geofence] Monitoring is disabled via system settings.');
     return;

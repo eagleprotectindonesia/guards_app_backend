@@ -56,35 +56,46 @@ export default function SessionMonitor() {
     }
 
     let isMounted = true;
+    let cleanupSocketListeners: (() => void) | undefined;
 
     const setupSocket = async () => {
       const socket = await getSocket();
       if (!socket || !isMounted) return;
 
-      socket.on('auth:force_logout', (data: { reason: string }) => {
+      const onForceLogout = (data: { reason: string }) => {
         handleLogout(data.reason);
-      });
+      };
 
-      socket.on('connect_error', (err: Error) => {
+      const onConnectError = (err: Error) => {
         // If the server rejects the connection with "Unauthorized", it means
         // our token is invalid (likely revoked/version mismatch).
         if (err.message === 'Unauthorized') {
           handleLogout('logged_in_elsewhere');
         }
-      });
+      };
 
-      socket.on('shift:updated', () => {
+      const onShiftUpdated = () => {
         // Invalidate queries to refresh dashboard/shift data
         queryClient.invalidateQueries({ queryKey: ['active-shift'] });
         queryClient.invalidateQueries({ queryKey: ['shifts'] });
-      });
+      };
+
+      socket.on('auth:force_logout', onForceLogout);
+      socket.on('connect_error', onConnectError);
+      socket.on('shift:updated', onShiftUpdated);
+
+      cleanupSocketListeners = () => {
+        socket.off('auth:force_logout', onForceLogout);
+        socket.off('connect_error', onConnectError);
+        socket.off('shift:updated', onShiftUpdated);
+      };
     };
 
     setupSocket();
 
     return () => {
       isMounted = false;
-      // We don't disconnectSocket here as it's a global singleton
+      cleanupSocketListeners?.();
     };
   }, [handleLogout, queryClient, isAuthenticated]);
 

@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAlert } from './AlertContext';
 import { storage, STORAGE_KEYS } from '../utils/storage';
-import { client, setupInterceptors } from '../api/client';
+import { client, setupInterceptors, setCachedAuthToken } from '../api/client';
 import { getSocket, disconnectSocket } from '../api/socket';
 import { stopGeofencing } from '../utils/geofence';
 import { authenticateWithBiometric } from '../utils/biometric';
@@ -46,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // but we should clear the login token and user info
     await storage.removeItem(STORAGE_KEYS.USER_TOKEN);
     await storage.removeItem(STORAGE_KEYS.USER_INFO);
+    setCachedAuthToken(null);
 
     setState({
       user: null,
@@ -58,6 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (token: string, user: Employee) => {
     await storage.setItem(STORAGE_KEYS.USER_TOKEN, token);
     await storage.setItem(STORAGE_KEYS.USER_INFO, user);
+    setCachedAuthToken(token);
 
     setState({
       user,
@@ -180,6 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setBiometricEnabled(!!isBioEnabled);
 
         if (token && user) {
+          setCachedAuthToken(token);
           // Validate token with backend
           try {
             await client.get('/api/employee/auth/check');
@@ -204,6 +207,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }
         } else {
+          setCachedAuthToken(null);
           setState({
             isLoading: false,
             isAuthenticated: false,
@@ -213,6 +217,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (error) {
         console.error('Auth hydration error:', error);
+        setCachedAuthToken(null);
         setState({
           isLoading: false,
           isAuthenticated: false,

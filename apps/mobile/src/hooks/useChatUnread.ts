@@ -18,30 +18,31 @@ export function useChatUnread() {
 
   useEffect(() => {
     let socketInstance: any = null;
+    const handleNewMessage = (message: any) => {
+      if (message.sender === 'admin') {
+        // Optimistically update the cache
+        queryClient.setQueryData(['chat', 'unread'], (old: number = 0) => old + 1);
+
+        // Play sound
+        if (player) {
+          player.seekTo(0);
+          player.play();
+        }
+      }
+    };
+    const handleMessagesRead = () => {
+      // Optimistically reset count to 0 and invalidate cache
+      queryClient.setQueryData(['chat', 'unread'], 0);
+      queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
+    };
 
     const setupSocket = async () => {
       const socket = await getSocket();
       if (socket) {
         socketInstance = socket;
-        
-        socket.on('new_message', (message: any) => {
-          if (message.sender === 'admin') {
-            // Optimistically update the cache
-            queryClient.setQueryData(['chat', 'unread'], (old: number = 0) => old + 1);
-            
-            // Play sound
-            if (player) {
-              player.seekTo(0);
-              player.play();
-            }
-          }
-        });
 
-        socket.on('messages_read', () => {
-          // Optimistically reset count to 0 and invalidate cache
-          queryClient.setQueryData(['chat', 'unread'], 0);
-          queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
-        });
+        socket.on('new_message', handleNewMessage);
+        socket.on('messages_read', handleMessagesRead);
       }
     };
 
@@ -49,8 +50,8 @@ export function useChatUnread() {
 
     return () => {
       if (socketInstance) {
-        socketInstance.off('new_message');
-        socketInstance.off('messages_read');
+        socketInstance.off('new_message', handleNewMessage);
+        socketInstance.off('messages_read', handleMessagesRead);
       }
     };
   }, [queryClient, player]);
