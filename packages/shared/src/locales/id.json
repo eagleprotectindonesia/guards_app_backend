@@ -29,6 +29,7 @@
   },
   "common": {
     "cancel": "Batal",
+    "confirm": "Konfirmasi",
     "minutes": "menit",
     "seconds": "detik",
     "loading": "Memuat...",

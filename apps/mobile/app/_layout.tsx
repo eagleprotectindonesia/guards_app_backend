@@ -11,7 +11,7 @@ import { useEffect, useRef } from 'react';
 import { storage } from '../src/utils/storage';
 import { checkAndReportLocationServices } from '../src/utils/backgroundTasks';
 
-export default function RootLayout() {
+function AppContent() {
   useUpdates();
   const appState = useRef(AppState.currentState);
 
@@ -35,13 +35,21 @@ export default function RootLayout() {
   }, []);
 
   return (
+    <>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(auth)" />
+        <Stack.Screen name="(tabs)" />
+      </Stack>
+      <StatusBar style="light" />
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
     <Providers>
       <AuthProvider>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" />
-          <Stack.Screen name="(tabs)" />
-        </Stack>
-        <StatusBar style="light" />
+        <AppContent />
       </AuthProvider>
     </Providers>
   );

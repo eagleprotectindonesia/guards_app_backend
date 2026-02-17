@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { Alert } from 'react-native';
+import { useAlert } from '../contexts/AlertContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { getSocket, disconnectSocket } from '../api/socket';
@@ -12,6 +12,7 @@ export default function SessionMonitor() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { logout, isAuthenticated } = useAuth();
+  const { showAlert } = useAlert();
 
   // Keep legacy polling as a secondary safety measure, but increase interval
   // IMPORTANT: Only run when authenticated to avoid triggering 401s during login
@@ -32,7 +33,7 @@ export default function SessionMonitor() {
         // Disconnect socket immediately to prevent connection errors
         disconnectSocket();
 
-        Alert.alert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
+        showAlert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
           {
             text: 'OK',
             onPress: async () => {
@@ -46,7 +47,7 @@ export default function SessionMonitor() {
         router.replace('/(auth)/login');
       }
     },
-    [logout, router, t]
+    [logout, router, t, showAlert]
   );
 
   useEffect(() => {

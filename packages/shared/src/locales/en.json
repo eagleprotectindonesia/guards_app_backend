@@ -29,6 +29,7 @@
   },
   "common": {
     "cancel": "Cancel",
+    "confirm": "Confirm",
     "minutes": "minutes",
     "seconds": "seconds",
     "loading": "Loading...",

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { Alert } from 'react-native';
+import { useAlert } from './AlertContext';
 import { storage, STORAGE_KEYS } from '../utils/storage';
 import { client, setupInterceptors } from '../api/client';
 import { getSocket, disconnectSocket } from '../api/socket';
@@ -34,6 +34,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const { t } = useTranslation();
+  const { showAlert } = useAlert();
 
   const logout = useCallback(async (reason?: string) => {
     // reason could be used for showing specific alerts in the future
@@ -248,7 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Disconnect socket immediately to prevent errors
       disconnectSocket();
 
-      Alert.alert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
+      showAlert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
         {
           text: t('common.ok', 'OK'),
           onPress: async () => {
@@ -262,7 +263,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cleanup();
     };
-  }, [state.isAuthenticated, logout, t]);
+  }, [state.isAuthenticated, logout, t, showAlert]);
 
   return (
     <AuthContext.Provider

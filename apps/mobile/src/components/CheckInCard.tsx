@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Alert } from 'react-native';
+import { useCustomToast } from '../hooks/useCustomToast';
 import { Box, Heading, Text, VStack, HStack, Pressable, Spinner } from '@gluestack-ui/themed';
 import * as Location from 'expo-location';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -24,6 +24,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
   const [timerLabel, setTimerLabel] = useState<string>('');
   const [canCheckIn, setCanCheckIn] = useState(false);
   const [status, setStatus] = useState('');
+  const toast = useCustomToast();
   const [uiState, setUiState] = useState<'upcoming' | 'open' | 'urgent' | 'late'>('upcoming');
 
   const checkInMutation = useMutation({
@@ -46,7 +47,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
 
       if (data.isLastSlot) {
         await stopGeofencing();
-        Alert.alert(t('checkin.shiftCompletedTitle'), t('checkin.shiftCompletedMessage'));
+        toast.info(t('checkin.shiftCompletedTitle'), t('checkin.shiftCompletedMessage'));
       }
     },
     onError: (error: any) => {
@@ -160,7 +161,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
     let { status: permStatus } = await Location.requestForegroundPermissionsAsync();
     if (permStatus !== 'granted') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(t('attendance.permissionDeniedTitle'), t('checkin.locationRequired'));
+      toast.error(t('attendance.permissionDeniedTitle'), t('checkin.locationRequired'));
       return;
     }
 
@@ -173,7 +174,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
       });
     } catch {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert('Error', t('checkin.locationError'));
+      toast.error('Error', t('checkin.locationError'));
     }
   };
 

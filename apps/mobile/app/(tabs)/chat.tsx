@@ -7,11 +7,11 @@ import {
   TouchableOpacity,
   View,
   Image,
-  Alert,
-  ScrollView,
   AppState,
   AppStateStatus,
+  ScrollView,
 } from 'react-native';
+import { useCustomToast } from '../../src/hooks/useCustomToast';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import ImageView from 'react-native-image-viewing';
 import { VStack, Heading, Text, Center, Avatar, AvatarFallbackText, HStack, Spinner, Box } from '@gluestack-ui/themed';
@@ -56,6 +56,7 @@ export default function ChatScreen() {
   const queryClient = useQueryClient();
   const auth = useAuth();
   const { socket } = useSocket();
+  const toast = useCustomToast();
 
   const [inputText, setInputText] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -211,7 +212,7 @@ export default function ChatScreen() {
 
   const pickAttachments = async () => {
     if (selectedAttachments.length >= 4) {
-      Alert.alert(t('chat.limit_reached'), t('chat.limit_reached_desc'));
+      toast.warning(t('chat.limit_reached'), t('chat.limit_reached_desc'));
       return;
     }
 
@@ -228,19 +229,19 @@ export default function ChatScreen() {
       }
     } catch (error) {
       console.error('Error picking attachments:', error);
-      Alert.alert(t('chat.pick_error'), t('chat.pick_error_desc'));
+      toast.error(t('chat.pick_error'), t('chat.pick_error_desc'));
     }
   };
 
   const takePhoto = async () => {
     if (selectedAttachments.length >= 4) {
-      Alert.alert(t('chat.limit_reached'), t('chat.limit_reached_desc'));
+      toast.warning(t('chat.limit_reached'), t('chat.limit_reached_desc'));
       return;
     }
 
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert(t('chat.camera_permission'), t('chat.camera_permission_desc'));
+      toast.error(t('chat.camera_permission'), t('chat.camera_permission_desc'));
       return;
     }
 
@@ -255,7 +256,7 @@ export default function ChatScreen() {
       }
     } catch (error) {
       console.error('Error taking photo:', error);
-      Alert.alert(t('chat.camera_error'), t('chat.camera_error_desc'));
+      toast.error(t('chat.camera_error'), t('chat.camera_error_desc'));
     }
   };
 
@@ -292,7 +293,7 @@ export default function ChatScreen() {
       setSelectedAttachments([]);
     } catch (error) {
       console.error('Error sending message:', error);
-      Alert.alert(t('chat.send_error'), t('chat.send_error_desc'));
+      toast.error(t('chat.send_error'), t('chat.send_error_desc'));
     } finally {
       setIsUploading(false);
     }

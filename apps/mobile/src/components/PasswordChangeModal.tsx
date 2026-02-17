@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import { useCustomToast } from '../hooks/useCustomToast';
 import {
   Modal,
   ModalBackdrop,
@@ -42,8 +42,8 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{ field: string; message: string }[]>([]);
+  const toast = useCustomToast();
   const queryClient = useQueryClient();
-
   const mutation = useMutation({
     mutationFn: async () => {
       const response = await client.post('/api/employee/my/profile/change-password', {
@@ -53,7 +53,7 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
       return response.data;
     },
     onSuccess: () => {
-      Alert.alert(t('passwordChange.successTitle'), t('passwordChange.successMessage'));
+      toast.success(t('passwordChange.successTitle'), t('passwordChange.successMessage'));
       setCurrentPassword('');
       setNewPassword('');
       setValidationErrors([]);
@@ -63,12 +63,14 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
     onError: (error: any) => {
       const data = error.response?.data;
       if (data?.errors) {
-        setValidationErrors(data.errors.map((e: any) => ({
-          field: e.path?.[0] || 'unknown',
-          message: e.message
-        })));
+        setValidationErrors(
+          data.errors.map((e: any) => ({
+            field: e.path?.[0] || 'unknown',
+            message: e.message,
+          }))
+        );
       } else {
-        Alert.alert('Error', data?.message || t('passwordChange.failMessage'));
+        toast.error('Error', data?.message || t('passwordChange.failMessage'));
       }
     },
   });
@@ -90,11 +92,7 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
   const currentPasswordError = validationErrors.find(e => e.field === 'currentPassword');
 
   return (
-    <Modal 
-      isOpen={isOpen} 
-      onClose={isForce ? () => {} : onClose}
-      closeOnOverlayClick={!isForce}
-    >
+    <Modal isOpen={isOpen} onClose={isForce ? () => {} : onClose} closeOnOverlayClick={!isForce}>
       <ModalBackdrop />
       <ModalContent>
         <ModalHeader>
@@ -163,7 +161,13 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
               <ButtonText>{t('common.cancel')}</ButtonText>
             </Button>
           )}
-          <Button action="primary" onPress={handleUpdate} isDisabled={mutation.isPending} ml={isForce ? "$0" : "$3"} className={isForce ? "w-full" : ""}>
+          <Button
+            action="primary"
+            onPress={handleUpdate}
+            isDisabled={mutation.isPending}
+            ml={isForce ? '$0' : '$3'}
+            className={isForce ? 'w-full' : ''}
+          >
             {mutation.isPending && <ButtonSpinner mr="$2" />}
             <ButtonText>{t('passwordChange.submitButton')}</ButtonText>
           </Button>

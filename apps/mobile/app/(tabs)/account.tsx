@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Alert, ScrollView, Switch, Image, View, TouchableOpacity } from 'react-native';
+import { ScrollView, Switch, Image, View, TouchableOpacity } from 'react-native';
 import { Box, VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
@@ -9,6 +9,8 @@ import { LogOut, Key, ChevronRight, Fingerprint } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
+import { useAlert } from '../../src/contexts/AlertContext';
+import { useCustomToast } from '../../src/hooks/useCustomToast';
 import {
   checkBiometricAvailability,
   getBiometricTypeLabel,
@@ -32,6 +34,8 @@ export default function AccountScreen() {
   const insets = useSafeAreaInsets();
   const { logout, isBiometricEnabled, disableBiometric, enableBiometric, user } = useAuth();
   const { openPasswordChangeModal } = usePasswordChangeModal();
+  const { showAlert } = useAlert();
+  const toast = useCustomToast();
   const [isBiometricAvailable, setIsBiometricAvailable] = React.useState(false);
   const [biometricType, setBiometricType] = React.useState('Biometric');
   const [isPasswordModalOpen, setIsPasswordModalOpen] = React.useState(false);
@@ -62,16 +66,16 @@ export default function AccountScreen() {
 
   const handlePasswordConfirm = async (password: string) => {
     if (!user?.id) {
-      Alert.alert('Error', 'User information missing');
+      toast.error('Error', 'User information missing');
       throw new Error('User missing');
     }
 
     const success = await enableBiometric(user.id, password);
     if (success) {
-      Alert.alert(t('common.successTitle', 'Success'), t('biometric.enableSuccess'));
+      toast.success(t('common.successTitle', 'Success'), t('biometric.enableSuccess'));
       setIsPasswordModalOpen(false);
     } else {
-      Alert.alert('Error', 'Failed to enable biometric. Please check your password.');
+      toast.error('Error', 'Failed to enable biometric. Please check your password.');
       throw new Error('Failed');
     }
   };
@@ -83,16 +87,21 @@ export default function AccountScreen() {
         setIsPasswordModalOpen(true);
       }
     } else {
-      Alert.alert(t('biometric.disableConfirmTitle'), t('biometric.disableConfirmMessage'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.confirm', 'Confirm'),
-          style: 'destructive',
-          onPress: async () => {
-            await disableBiometric();
+      showAlert(
+        t('biometric.disableConfirmTitle'),
+        t('biometric.disableConfirmMessage'),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('common.confirm', 'Confirm'),
+            style: 'destructive',
+            onPress: async () => {
+              await disableBiometric();
+            },
           },
-        },
-      ]);
+        ],
+        { icon: 'warning' }
+      );
     }
   };
 
@@ -311,10 +320,15 @@ export default function AccountScreen() {
             <Box bg="rgba(30, 30, 30, 0.4)" borderWidth={1} borderColor="rgba(255, 255, 255, 0.08)" rounded={32} p="$2">
               <TouchableOpacity
                 onPress={() =>
-                  Alert.alert(t('dashboard.logoutConfirmTitle'), t('dashboard.logoutConfirmMessage'), [
-                    { text: t('dashboard.cancel'), style: 'cancel' },
-                    { text: t('dashboard.logout'), style: 'destructive', onPress: handleLogout },
-                  ])
+                  showAlert(
+                    t('dashboard.logoutConfirmTitle'),
+                    t('dashboard.logoutConfirmMessage'),
+                    [
+                      { text: t('dashboard.cancel'), style: 'cancel' },
+                      { text: t('dashboard.logout'), style: 'destructive', onPress: handleLogout },
+                    ],
+                    { icon: 'warning' }
+                  )
                 }
                 activeOpacity={0.7}
               >

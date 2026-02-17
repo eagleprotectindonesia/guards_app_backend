@@ -1,15 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import {
-  Alert,
-  View,
-  StyleSheet,
-  Dimensions,
-  Pressable,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-} from 'react-native';
+import { View, StyleSheet, Dimensions, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { useAlert } from '../../src/contexts/AlertContext';
+import { useCustomToast } from '../../src/hooks/useCustomToast';
 import {
   VStack,
   Box,
@@ -47,6 +40,8 @@ const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const { t } = useTranslation();
+  const { showAlert } = useAlert();
+  const toast = useCustomToast();
   const router = useRouter();
   const { login, biometricLogin, enableBiometric, isBiometricEnabled } = useAuth();
   const [employeeId, setEmployeeId] = useState('');
@@ -70,51 +65,15 @@ export default function LoginScreen() {
 
         // After successful login, check if we should prompt to enable biometric
         if (isBiometricAvailable && !isBiometricEnabled) {
-          Alert.alert(t('biometric.enableTitle'), t('biometric.enableMessage'), [
+          showAlert(t('biometric.enableTitle'), t('biometric.enableMessage'), [
             { text: t('common.cancel'), style: 'cancel' },
             {
               text: t('biometric.enableTitle'),
               onPress: async () => {
-                // enableBiometric in context handles the prompt now (Wait, enableBiometric in context DOES NOT handle prompt, only SAVING)
-                // Actually, reading AuthContext.tsx, enableBiometric just saves.
-                // The prompt for enableBiometric was done in login.tsx previously.
-                // The audit says: "Account screen toggle can disable biometric, but enable path does not call enableBiometric(...)".
-                // But specifically for login.tsx, we previously prompted then saved.
-                // If I want to fix "Biometric verification is enforced ... not in auth boundary", that applies to LOGIN.
-                // For ENABLE, we should probably also enforce it.
-                // But for now, let's look at the Login flow change.
-
-                // Oops, I might have broken the "Enable" flow if I remove authenticateWithBiometric from login.tsx
-                // because enableBiometric in AuthContext does NOT prompt.
-
-                // Let's check AuthContext enableBiometric:
-                // const enableBiometric = useCallback(async (employeeId: string, password: string) => { ... saves keys ... });
-
-                // So I still need to prompt here for ENABLE.
-                // But for LOGIN, biometricLogin handles it.
-
-                // Hmmm. The user said "remove items in BIOMETRIC_AUTH_AUDIT.md".
-                // One item is "Move biometric enforcement into biometricLogin()".
-                // So biometricLogin() prompts.
-
-                // Does enableBiometric() prompt? No.
-                // Should it? Maybe.
-                // But for now I will keep authenticateWithBiometric imported for ENABLE flow,
-                // but REMOVE it for LOGIN flow.
-
-                // Re-reading my plan: "Refactor biometricLogin: It needs to call authenticateWithBiometric internally." (DONE)
-                // "Refactor login.tsx to use the new biometricLogin". (DOING)
-
-                // So I should KEEP the import for the enable flow (lines 78-79)
-                // OR duplicate the prompt logic there.
-                // Or better: Use biometricLogin? No, that logs in.
-
-                // I will keep the import for the Enable flow, but remove it from handleBiometricLogin.
-
                 const auth = await authenticateWithBiometric(t('biometric.promptMessage'));
                 if (auth.success) {
                   await enableBiometric(employeeId, password);
-                  Alert.alert(t('common.successTitle', 'Success'), t('biometric.enableSuccess'));
+                  toast.success(t('common.successTitle', 'Success'), t('biometric.enableSuccess'));
                 }
               },
             },
@@ -123,7 +82,7 @@ export default function LoginScreen() {
 
         router.replace('/(tabs)');
       } else {
-        Alert.alert(t('login.errorTitle'), t('login.errorMessage'));
+        toast.error(t('login.errorTitle'), t('login.errorMessage'));
       }
     },
   });
@@ -145,7 +104,7 @@ export default function LoginScreen() {
         // It logs error.
         // We can show a generic failed message or just Haptics error.
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        // Alert.alert(t('biometric.authFailed'));
+
         // Note: biometricLogin prompts. If user cancels, it returns false.
         // If we alert here, we alert on cancel too?
         // Let's look at biometricLogin result. It only returns boolean.
@@ -173,7 +132,7 @@ export default function LoginScreen() {
   const handleLogin = () => {
     if (!employeeId || !password) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      Alert.alert(t('login.validationErrorTitle'), t('login.validationErrorMessage'));
+      toast.error(t('login.validationErrorTitle'), t('login.validationErrorMessage'));
       return;
     }
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);

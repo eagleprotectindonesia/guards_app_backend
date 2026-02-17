@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import { useCustomToast } from '../hooks/useCustomToast';
 import { Box, Button, ButtonText, Heading, Text, VStack, ButtonSpinner } from '@gluestack-ui/themed';
 import * as Location from 'expo-location';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -20,6 +20,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<string>('');
+  const toast = useCustomToast();
 
   const attendanceMutation = useMutation({
     mutationFn: async (location: { lat: number; lng: number }) => {
@@ -38,7 +39,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
     onError: (error: any) => {
       const msg = error.response?.data?.error || error.message || t('attendance.fail');
       setStatus(t('attendance.failPrefix') + msg);
-      Alert.alert('Error', msg);
+      toast.error('Error', msg);
     },
   });
 
@@ -50,7 +51,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
     if (permStatus !== 'granted') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setStatus(t('attendance.permissionDenied'));
-      Alert.alert(t('attendance.permissionDeniedTitle'), t('attendance.locationRequired'));
+      toast.error(t('attendance.permissionDeniedTitle'), t('attendance.locationRequired'));
       return;
     }
 
@@ -67,7 +68,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
       console.error(err);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setStatus(t('attendance.locationFetchError'));
-      Alert.alert(t('attendance.locationErrorTitle'), t('attendance.locationErrorMessage'));
+      toast.error(t('attendance.locationErrorTitle'), t('attendance.locationErrorMessage'));
     }
   };
 
