@@ -5,8 +5,33 @@ import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { format, isSameDay, isToday, isYesterday } from 'date-fns';
 import { client } from '../api/client';
 import { useSocketEvent } from './useSocketEvent';
-import { ChatMessage } from '@repo/types';
+import { ChatMessage, ClientToServerEvents, ServerToClientEvents } from '@repo/types';
 import { ChatListItemData } from '../components/chat/ChatListItem';
+import { Socket } from 'socket.io-client';
+import { queryKeys } from '../api/queryKeys';
+import { incrementTelemetryCounter } from '../utils/telemetry';
+
+type ChatMessagesQueryData = {
+  pages: ChatMessage[][];
+  pageParams: (string | undefined)[];
+};
+
+const isMessageReadPayload = (
+  value: unknown
+): value is Parameters<ServerToClientEvents['messages_read']>[0] => {
+  if (!value || typeof value !== 'object') return false;
+  const payload = value as { messageIds?: unknown };
+  return Array.isArray(payload.messageIds);
+};
+
+const emitMarkRead = (
+  socket: Socket<ServerToClientEvents, ClientToServerEvents> | null,
+  employeeId: string,
+  messageIds: string[]
+) => {
+  if (!socket || messageIds.length === 0) return;
+  socket.emit('mark_read', { employeeId, messageIds });
+};
 
 export function useChatMessages({
   employeeId,
@@ -16,7 +41,7 @@ export function useChatMessages({
 }: {
   employeeId?: string;
   isAuthenticated: boolean;
-  socket: any;
+  socket: Socket<ServerToClientEvents, ClientToServerEvents> | null;
   t: (key: string) => string;
 }) {
   const queryClient = useQueryClient();
@@ -24,7 +49,7 @@ export function useChatMessages({
   const lastForegroundSyncAtRef = useRef(0);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
-    queryKey: ['chat', 'messages', employeeId],
+    queryKey: queryKeys.chat.messages(employeeId),
     queryFn: async ({ pageParam }) => {
       if (!isAuthenticated || !employeeId) throw new Error('Not authenticated');
       const response = await client.get(`/api/shared/chat/${employeeId}`, {
@@ -92,16 +117,16 @@ export function useChatMessages({
       const withinDebounceWindow = now - lastForegroundSyncAtRef.current < 10000;
 
       if (isActive && employeeId && !withinDebounceWindow) {
-        const messageState = queryClient.getQueryState(['chat', 'messages', employeeId]);
-        const unreadState = queryClient.getQueryState(['chat', 'unread']);
+        const messageState = queryClient.getQueryState(queryKeys.chat.messages(employeeId));
+        const unreadState = queryClient.getQueryState(queryKeys.chat.unread);
         const isMessagesStale = !messageState?.dataUpdatedAt || now - messageState.dataUpdatedAt > 30000;
         const isUnreadStale = !unreadState?.dataUpdatedAt || now - unreadState.dataUpdatedAt > 30000;
 
         if (isMessagesStale) {
-          queryClient.invalidateQueries({ queryKey: ['chat', 'messages', employeeId] });
+          queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(employeeId) });
         }
         if (isUnreadStale) {
-          queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
+          queryClient.invalidateQueries({ queryKey: queryKeys.chat.unread });
         }
         lastForegroundSyncAtRef.current = now;
       }
@@ -115,45 +140,41 @@ export function useChatMessages({
   useEffect(() => {
     if (messages.length > 0 && socket && employeeId && isFocusedRef.current) {
       const unreadIds = messages.filter(m => m.sender === 'admin' && !m.readAt).map(m => m.id);
-      if (unreadIds.length > 0) {
-        socket.emit('mark_read', {
-          employeeId,
-          messageIds: unreadIds,
-        });
-      }
+      emitMarkRead(socket, employeeId, unreadIds);
     }
   }, [messages, employeeId, socket]);
 
   useSocketEvent(socket, 'new_message', message => {
     if (!employeeId) return;
 
-    queryClient.setQueryData(['chat', 'messages', employeeId], (old: any) => {
+    queryClient.setQueryData<ChatMessagesQueryData>(queryKeys.chat.messages(employeeId), old => {
       if (!old) return old;
 
       const exists = old.pages.some((page: ChatMessage[]) => page.some(m => m.id === message.id));
       if (exists) return old;
 
+      incrementTelemetryCounter('chat.message.received');
       return {
         ...old,
         pages: [[message, ...old.pages[0]], ...old.pages.slice(1)],
       };
     });
 
-    if (isFocusedRef.current && message.sender === 'admin' && socket) {
-      socket.emit('mark_read', {
-        employeeId,
-        messageIds: [message.id],
-      });
+    if (isFocusedRef.current && message.sender === 'admin') {
+      emitMarkRead(socket, employeeId, [message.id]);
     }
 
-    queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.chat.unread });
   });
 
   useSocketEvent(socket, 'messages_read', data => {
     if (!employeeId) return;
+    if (!isMessageReadPayload(data)) return;
 
-    queryClient.setQueryData(['chat', 'messages', employeeId], (old: any) => {
+    queryClient.setQueryData<ChatMessagesQueryData>(queryKeys.chat.messages(employeeId), old => {
       if (!old) return old;
+
+      incrementTelemetryCounter('chat.message.read.sync');
       return {
         ...old,
         pages: old.pages.map((page: ChatMessage[]) =>
@@ -162,7 +183,7 @@ export function useChatMessages({
       };
     });
 
-    queryClient.invalidateQueries({ queryKey: ['chat', 'unread'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.chat.unread });
   });
 
   const onViewableItemsChanged = useCallback(

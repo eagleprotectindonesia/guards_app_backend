@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { FlatList, Platform, StyleSheet, View } from 'react-native';
+import { FlatList, Platform, StyleSheet, View, ViewToken } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import ImageView from 'react-native-image-viewing';
 import { Text, Spinner, Center } from '@gluestack-ui/themed';
@@ -35,7 +35,7 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList>(null);
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
 
-  const employeeId = auth.isAuthenticated ? auth.user.id : undefined;
+  const employeeId = auth.user?.id;
 
   const {
     messages,
@@ -172,8 +172,8 @@ export default function ChatScreen() {
   );
 
   const handleViewableItemsChanged = useCallback(
-    (info: { viewableItems: any[] }) => {
-      const label = getVisibleDateLabel({ viewableItems: info.viewableItems as any });
+    (info: { viewableItems: ViewToken[] }) => {
+      const label = getVisibleDateLabel({ viewableItems: info.viewableItems });
       if (label) {
         setCurrentVisibleDate(prev => (prev === label ? prev : label));
       }

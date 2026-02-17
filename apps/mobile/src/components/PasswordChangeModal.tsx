@@ -28,6 +28,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
+import { queryKeys } from '../api/queryKeys';
 
 type PasswordChangeModalProps = {
   isOpen: boolean;
@@ -57,7 +58,7 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
       setCurrentPassword('');
       setNewPassword('');
       setValidationErrors([]);
-      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile });
       onClose();
     },
     onError: (error: any) => {

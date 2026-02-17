@@ -6,6 +6,7 @@ import { BASE_URL, queryClient } from '../api/client';
 import { SystemSettings } from '../hooks/useSettings';
 import { calculateDistance } from '@repo/shared';
 import { sendDebugChat } from './debug';
+import { queryKeys } from '../api/queryKeys';
 
 export const GEOFENCE_TASK = 'GEOFENCE_TASK';
 export const LOCATION_MONITOR_TASK = 'LOCATION_MONITOR_TASK';
@@ -26,12 +27,12 @@ const DEFAULT_SETTINGS: SystemSettings = {
 };
 
 export function getSettings(): SystemSettings {
-  const cached = queryClient.getQueryData<SystemSettings>(['settings']);
+  const cached = queryClient.getQueryData<SystemSettings>(queryKeys.settings);
   return cached || DEFAULT_SETTINGS;
 }
 
 export async function getSettingsAsync(): Promise<SystemSettings> {
-  const cached = queryClient.getQueryData<SystemSettings>(['settings']);
+  const cached = queryClient.getQueryData<SystemSettings>(queryKeys.settings);
   if (cached) {
     return cached;
   }

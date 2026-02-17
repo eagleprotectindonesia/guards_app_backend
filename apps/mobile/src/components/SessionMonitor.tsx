@@ -6,6 +6,8 @@ import { getSocket, disconnectSocket } from '../api/socket';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
+import { queryKeys } from '../api/queryKeys';
+import { incrementTelemetryCounter } from '../utils/telemetry';
 
 export default function SessionMonitor() {
   const { t } = useTranslation();
@@ -17,7 +19,7 @@ export default function SessionMonitor() {
   // Keep legacy polling as a secondary safety measure, but increase interval
   // IMPORTANT: Only run when authenticated to avoid triggering 401s during login
   useQuery({
-    queryKey: ['session-monitor'],
+    queryKey: queryKeys.sessionMonitor,
     queryFn: async () => {
       const res = await client.get('/api/employee/auth/check');
       return res.data;
@@ -63,6 +65,7 @@ export default function SessionMonitor() {
       if (!socket || !isMounted) return;
 
       const onForceLogout = (data: { reason: string }) => {
+        incrementTelemetryCounter('session.force_logout');
         handleLogout(data.reason);
       };
 
@@ -76,8 +79,8 @@ export default function SessionMonitor() {
 
       const onShiftUpdated = () => {
         // Invalidate queries to refresh dashboard/shift data
-        queryClient.invalidateQueries({ queryKey: ['active-shift'] });
-        queryClient.invalidateQueries({ queryKey: ['shifts'] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.shifts.active });
+        queryClient.invalidateQueries({ queryKey: queryKeys.shifts.list });
       };
 
       socket.on('auth:force_logout', onForceLogout);

@@ -1,17 +1,24 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAlert } from './AlertContext';
 import { storage, STORAGE_KEYS } from '../utils/storage';
-import { client, setupInterceptors, setCachedAuthToken } from '../api/client';
+import { client, queryClient, setupInterceptors, setCachedAuthToken } from '../api/client';
 import { getSocket, disconnectSocket } from '../api/socket';
 import { stopGeofencing } from '../utils/geofence';
 import { authenticateWithBiometric } from '../utils/biometric';
 import { Employee } from '@repo/types';
 import { useTranslation } from 'react-i18next';
+import { queryKeys } from '../api/queryKeys';
+import { clearDebugChatCache } from '../utils/debug';
 
-type AuthState =
-  | { isLoading: true; isAuthenticated: false; user: null; token: null }
-  | { isLoading: false; isAuthenticated: true; user: Employee; token: string }
-  | { isLoading: false; isAuthenticated: false; user: null; token: null };
+type AuthValidationState = 'unknown' | 'validated' | 'failed';
+
+type AuthState = {
+  isLoading: boolean;
+  isAuthenticated: boolean;
+  user: Employee | null;
+  token: string | null;
+  authValidationState: AuthValidationState;
+};
 
 type AuthContextType = AuthState & {
   login: (token: string, user: Employee) => Promise<void>;
@@ -31,6 +38,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     token: null,
     isLoading: true,
     isAuthenticated: false,
+    authValidationState: 'unknown',
   });
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const { t } = useTranslation();
@@ -43,22 +51,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await stopGeofencing();
 
     // We don't want to clear biometric settings on logout usually
-    // but we should clear the login token and user info
+    // but we should clear the login token and related in-memory caches
     await storage.removeItem(STORAGE_KEYS.USER_TOKEN);
-    await storage.removeItem(STORAGE_KEYS.USER_INFO);
     setCachedAuthToken(null);
+    clearDebugChatCache();
+    queryClient.removeQueries({ queryKey: queryKeys.profile });
 
     setState({
       user: null,
       token: null,
       isLoading: false,
       isAuthenticated: false,
+      authValidationState: 'unknown',
     });
   }, []);
 
   const login = useCallback(async (token: string, user: Employee) => {
     await storage.setItem(STORAGE_KEYS.USER_TOKEN, token);
-    await storage.setItem(STORAGE_KEYS.USER_INFO, user);
     setCachedAuthToken(token);
 
     setState({
@@ -66,7 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       token,
       isLoading: false,
       isAuthenticated: true,
+      authValidationState: 'validated',
     });
+    queryClient.setQueryData(queryKeys.profile, { employee: user });
   }, []);
 
   const disableBiometric = useCallback(async () => {
@@ -158,10 +169,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await client.get('/api/employee/my/profile');
       const user = res.data.employee;
-      await storage.setItem(STORAGE_KEYS.USER_INFO, user);
+      queryClient.setQueryData(queryKeys.profile, { employee: user });
       setState(prev => {
         if (prev.isAuthenticated) {
-          return { ...prev, user };
+          return { ...prev, user, authValidationState: 'validated' };
         }
         return prev;
       });
@@ -173,37 +184,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const hydrate = async () => {
       try {
-        const [token, user, isBioEnabled] = await Promise.all([
+        const [token, isBioEnabled] = await Promise.all([
           storage.getItem(STORAGE_KEYS.USER_TOKEN),
-          storage.getItem(STORAGE_KEYS.USER_INFO),
           storage.getItem(STORAGE_KEYS.BIOMETRIC_ENABLED),
         ]);
 
         setBiometricEnabled(!!isBioEnabled);
 
-        if (token && user) {
+        if (token) {
           setCachedAuthToken(token);
-          // Validate token with backend
-          try {
-            await client.get('/api/employee/auth/check');
-            setState({
-              user,
-              token,
-              isLoading: false,
-              isAuthenticated: true,
-            });
-          } catch (error: any) {
-            // If it's a 401, clear everything
-            if (error.response?.status === 401) {
-              await logout();
-            } else {
-              // Other errors (network, etc) - maybe keep old state but set loading false
+          let attempts = 0;
+
+          while (attempts < 3) {
+            attempts += 1;
+            try {
+              const profileRes = await client.get('/api/employee/my/profile');
+              const user = profileRes.data.employee as Employee;
               setState({
                 user,
                 token,
                 isLoading: false,
                 isAuthenticated: true,
+                authValidationState: 'validated',
               });
+              queryClient.setQueryData(queryKeys.profile, { employee: user });
+              return;
+            } catch (error: unknown) {
+              const status = (error as { response?: { status?: number } })?.response?.status;
+              if (status === 401) {
+                await logout();
+                return;
+              }
+
+              if (attempts >= 3) {
+                await storage.removeItem(STORAGE_KEYS.USER_TOKEN);
+                setCachedAuthToken(null);
+                clearDebugChatCache();
+                setState({
+                  isLoading: false,
+                  isAuthenticated: false,
+                  user: null,
+                  token: null,
+                  authValidationState: 'failed',
+                });
+                queryClient.removeQueries({ queryKey: queryKeys.profile });
+                return;
+              }
+
+              await new Promise(resolve => setTimeout(resolve, 1500));
             }
           }
         } else {
@@ -213,17 +241,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isAuthenticated: false,
             user: null,
             token: null,
+            authValidationState: 'unknown',
           });
+          queryClient.removeQueries({ queryKey: queryKeys.profile });
         }
       } catch (error) {
         console.error('Auth hydration error:', error);
         setCachedAuthToken(null);
+        clearDebugChatCache();
         setState({
           isLoading: false,
           isAuthenticated: false,
           user: null,
           token: null,
+          authValidationState: 'failed',
         });
+        queryClient.removeQueries({ queryKey: queryKeys.profile });
       }
     };
 

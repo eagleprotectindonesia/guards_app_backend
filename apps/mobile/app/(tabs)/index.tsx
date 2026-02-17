@@ -14,6 +14,7 @@ import { startGeofencing, stopGeofencing, isGeofencingActive } from '../../src/u
 import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useProfile } from '../../src/hooks/useProfile';
+import { queryKeys } from '../../src/api/queryKeys';
 
 type ActiveShiftData = {
   activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;
@@ -32,7 +33,7 @@ export default function HomeScreen() {
     refetch,
     isRefetching,
   } = useQuery<ActiveShiftData>({
-    queryKey: ['active-shift'],
+    queryKey: queryKeys.shifts.active,
     queryFn: async () => {
       const res = await client.get('/api/employee/my/active-shift');
       return res.data;

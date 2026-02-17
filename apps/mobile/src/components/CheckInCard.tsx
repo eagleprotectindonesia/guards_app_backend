@@ -11,6 +11,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { stopGeofencing } from '../utils/geofence';
 import { AlertTriangle, Fingerprint, Clock, CheckCircle } from 'lucide-react-native';
+import { queryKeys } from '../api/queryKeys';
 
 type CheckInCardProps = {
   activeShift: ShiftWithRelations & { checkInWindow?: CheckInWindowResult };
@@ -38,7 +39,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
     onSuccess: async data => {
       const successMsg = t('checkin.success');
       setStatus(successMsg);
-      queryClient.invalidateQueries({ queryKey: ['active-shift'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.shifts.active });
       refetchShift();
 
       setTimeout(() => {

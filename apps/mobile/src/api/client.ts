@@ -7,8 +7,17 @@ let authTokenCache: string | null = null;
 
 // Determine the base URL based on the environment
 const getBaseUrl = () => {
-  if (process.env.EXPO_PUBLIC_API_URL) {
-    return process.env.EXPO_PUBLIC_API_URL;
+  const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+
+  if (configuredUrl) {
+    if (!__DEV__ && !configuredUrl.startsWith('https://')) {
+      throw new Error('EXPO_PUBLIC_API_URL must use HTTPS for non-development builds');
+    }
+    return configuredUrl;
+  }
+
+  if (!__DEV__) {
+    throw new Error('EXPO_PUBLIC_API_URL is required for non-development builds');
   }
 
   // For development (Expo Go / Emulator)

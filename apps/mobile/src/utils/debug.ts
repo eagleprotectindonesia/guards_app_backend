@@ -6,6 +6,11 @@ import { BASE_URL } from '../api/client';
  * TOGGLE THIS FOR DEBUG LOGS TO CHAT
  */
 export const DEBUG_CHAT_LOGGING = false;
+let cachedDebugEmployeeId: string | null = null;
+
+export const clearDebugChatCache = () => {
+  cachedDebugEmployeeId = null;
+};
 
 /**
  * Sends a debug message to the admin chat if DEBUG_CHAT_LOGGING is true.
@@ -16,16 +21,26 @@ export async function sendDebugChat(message: string) {
 
   try {
     const token = await storage.getItem(STORAGE_KEYS.USER_TOKEN);
-    const user = await storage.getItem(STORAGE_KEYS.USER_INFO);
 
-    if (!token || !user) return;
+    if (!token) return;
 
-    const employeeId = user.id;
+    if (!cachedDebugEmployeeId) {
+      let user = await storage.getItem(STORAGE_KEYS.USER_INFO);
 
-    if (!employeeId) return;
+      if (!user) {
+        const profileRes = await axios.get(`${BASE_URL}/api/employee/my/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        user = profileRes.data?.employee;
+      }
+
+      cachedDebugEmployeeId = user?.id ?? null;
+    }
+
+    if (!cachedDebugEmployeeId) return;
 
     await axios.post(
-      `${BASE_URL}/api/shared/chat/${employeeId}`,
+      `${BASE_URL}/api/shared/chat/${cachedDebugEmployeeId}`,
       {
         content: `[DEBUG] ${message}`,
       },
@@ -34,6 +49,7 @@ export async function sendDebugChat(message: string) {
       }
     );
   } catch (error) {
+    cachedDebugEmployeeId = null;
     // Silently fail debug logs
     console.warn('[DebugChat] Failed to send:', error);
     console.log('Original message', message);

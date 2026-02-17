@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Socket } from 'socket.io-client';
 import { getSocket } from '../api/socket';
+import { incrementTelemetryCounter } from '../utils/telemetry';
 
 /**
  * Hook to access the authenticated socket instance.
@@ -26,10 +27,12 @@ export function useSocket() {
 
         s.on('connect', onConnect);
         s.on('disconnect', onDisconnect);
+        incrementTelemetryCounter('socket.connection.listener.registered');
 
         cleanupSocketListeners = () => {
           s.off('connect', onConnect);
           s.off('disconnect', onDisconnect);
+          incrementTelemetryCounter('socket.connection.listener.removed');
         };
       }
     }
