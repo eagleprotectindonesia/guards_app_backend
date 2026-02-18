@@ -95,12 +95,25 @@
     "currentPasswordRequired": "Current password is required",
     "newPasswordMinLength": "New password must be at least 8 characters",
     "title": "Change Password",
+    "description": "Ensure your account stays secure with a strong password.",
     "forceChangeMessage": "For security, you are required to change your password on your first login.",
     "currentPasswordLabel": "Current Password",
     "currentPasswordPlaceholder": "Enter current password",
     "newPasswordLabel": "New Password",
     "newPasswordPlaceholder": "Enter new password",
-    "submitButton": "Update"
+    "confirmPasswordLabel": "Confirm New Password",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "submitButton": "Update Password"
+  },
+  "passwordConfirmation": {
+    "title": "Confirm Password",
+    "description": "Please enter your password to continue.",
+    "passwordLabel": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "error": {
+      "required": "Password is required",
+      "invalid": "Incorrect password"
+    }
   },
   "shift": {
     "currentTitle": "Current Shift",

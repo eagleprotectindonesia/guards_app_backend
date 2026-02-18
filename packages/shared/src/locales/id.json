@@ -95,12 +95,25 @@
     "currentPasswordRequired": "Kata sandi saat ini wajib diisi",
     "newPasswordMinLength": "Kata sandi baru harus minimal 8 karakter",
     "title": "Ubah Kata Sandi",
+    "description": "Pastikan akun Anda tetap aman dengan kata sandi yang kuat.",
     "forceChangeMessage": "Demi keamanan, Anda diwajibkan untuk mengganti kata sandi saat pertama kali masuk.",
     "currentPasswordLabel": "Kata Sandi Saat Ini",
     "currentPasswordPlaceholder": "Masukkan kata sandi saat ini",
     "newPasswordLabel": "Kata Sandi Baru",
     "newPasswordPlaceholder": "Masukkan kata sandi baru",
-    "submitButton": "Perbarui"
+    "confirmPasswordLabel": "Konfirmasi Kata Sandi Baru",
+    "passwordsDoNotMatch": "Kata sandi tidak cocok",
+    "submitButton": "Perbarui Kata Sandi"
+  },
+  "passwordConfirmation": {
+    "title": "Konfirmasi Kata Sandi",
+    "description": "Silakan masukkan kata sandi Anda untuk melanjutkan.",
+    "passwordLabel": "Kata Sandi",
+    "passwordPlaceholder": "Masukkan kata sandi Anda",
+    "error": {
+      "required": "Kata sandi wajib diisi",
+      "invalid": "Kata sandi salah"
+    }
   },
   "shift": {
     "currentTitle": "Shift Sekarang",

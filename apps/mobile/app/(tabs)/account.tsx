@@ -350,7 +350,7 @@ export default function AccountScreen() {
               </TouchableOpacity>
             </Box>
 
-            <Text
+            {/* <Text
               mt="$12"
               textAlign="center"
               size="2xs"
@@ -360,7 +360,7 @@ export default function AccountScreen() {
               fontWeight="$medium"
             >
               Eagle Protect v2.4.0 (Build 892)
-            </Text>
+            </Text> */}
           </Box>
         </VStack>
       </ScrollView>
