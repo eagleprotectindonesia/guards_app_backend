@@ -107,11 +107,8 @@ export default async function ShiftsPage({
     employee: shift.employee
       ? {
           id: shift.employee.id,
-          firstName: shift.employee.firstName,
-          lastName: shift.employee.lastName,
-          fullName:
-            shift.employee.fullName ?? [shift.employee.firstName, shift.employee.lastName].filter(Boolean).join(' '),
-          employeeCode: shift.employee.employeeCode,
+          fullName: shift.employee.fullName,
+          employeeNumber: shift.employee.employeeNumber,
         }
       : null,
     attendance: shift.attendance
@@ -133,10 +130,8 @@ export default async function ShiftsPage({
   const shiftTypeOptions = shiftTypes.map(shiftType => ({ id: shiftType.id, name: shiftType.name }));
   const employeeOptions: EmployeeSummary[] = employees.map(employee => ({
     id: employee.id,
-    firstName: employee.firstName,
-    lastName: employee.lastName,
     fullName: employee.fullName,
-    employeeCode: employee.employeeCode,
+    employeeNumber: employee.employeeNumber,
   }));
 
   return (

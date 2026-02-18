@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Checkin, Shift, Site } from '@prisma/client';
-import { ExtendedEmployee } from '@repo/database';
+import { EmployeeWithRelations } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import PaginationNav from '../../components/pagination-nav';
 import { MapPin, Clock, Filter } from 'lucide-react'; // Added Globe icon
@@ -33,7 +33,7 @@ function hasValidLocation(metadata: JsonValue): metadata is CheckinMetadata {
 }
 
 type CheckinWithRelations = Checkin & {
-  employee: ExtendedEmployee;
+  employee: EmployeeWithRelations;
   shift: Shift & {
     site: Site;
   };
@@ -44,7 +44,7 @@ type CheckinListProps = {
   page: number;
   perPage: number;
   totalCount: number;
-  employees: Serialized<ExtendedEmployee>[];
+  employees: Serialized<EmployeeWithRelations>[];
   initialFilters: {
     startDate?: string;
     endDate?: string;

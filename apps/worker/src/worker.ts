@@ -11,6 +11,8 @@ import {
   DATA_CLEAN_JOB_NAME,
   EMPLOYEE_STATUS_QUEUE_NAME,
   EMPLOYEE_STATUS_CHECK_JOB_NAME,
+  EMPLOYEE_SYNC_QUEUE_NAME,
+  EMPLOYEE_SYNC_JOB_NAME,
 } from '@repo/shared';
 
 import { createQueue, createWorker } from './infrastructure/bullmq';
@@ -18,6 +20,7 @@ import { closeRedisConnections } from './infrastructure/redis';
 import { SchedulingProcessor } from './processors/scheduling.processor';
 import { MaintenanceProcessor } from './processors/maintenance.processor';
 import { EmployeeStatusProcessor } from './processors/employee-status.processor';
+import { EmployeeSyncProcessor } from './processors/employee-sync.processor';
 
 // Configuration
 const TICK_INTERVAL_MS = 5 * 1000; // 5 seconds
@@ -31,11 +34,13 @@ async function start() {
   const schedulingProcessor = new SchedulingProcessor();
   const maintenanceProcessor = new MaintenanceProcessor();
   const employeeStatusProcessor = new EmployeeStatusProcessor();
+  const employeeSyncProcessor = new EmployeeSyncProcessor();
 
   // 2. Initialize Queues and Add Repeatable Jobs
   const schedulingQueue = createQueue(SCHEDULING_QUEUE_NAME);
   const maintenanceQueue = createQueue(MAINTENANCE_QUEUE_NAME);
   const employeeStatusQueue = createQueue(EMPLOYEE_STATUS_QUEUE_NAME);
+  const employeeSyncQueue = createQueue(EMPLOYEE_SYNC_QUEUE_NAME);
 
   console.log('Registering repeatable jobs...');
 
@@ -69,11 +74,22 @@ async function start() {
     }
   );
 
+  await employeeSyncQueue.add(
+    EMPLOYEE_SYNC_JOB_NAME,
+    {},
+    {
+      repeat: { pattern: DAILY_CRON_PATTERN },
+      removeOnComplete: true,
+      removeOnFail: true,
+    }
+  );
+
   // 3. Initialize Workers
   const workers = [
     createWorker(SCHEDULING_QUEUE_NAME, job => schedulingProcessor.process(job)),
     createWorker(MAINTENANCE_QUEUE_NAME, job => maintenanceProcessor.process(job)),
     createWorker(EMPLOYEE_STATUS_QUEUE_NAME, job => employeeStatusProcessor.process(job)),
+    createWorker(EMPLOYEE_SYNC_QUEUE_NAME, job => employeeSyncProcessor.process(job)),
   ];
 
   console.log('All workers started.');
@@ -86,6 +102,7 @@ async function start() {
     await schedulingQueue.close();
     await maintenanceQueue.close();
     await employeeStatusQueue.close();
+    await employeeSyncQueue.close();
     await closeRedisConnections();
 
     console.log('Graceful shutdown complete.');

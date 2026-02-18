@@ -7,14 +7,14 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { differenceInDays, addDays } from 'date-fns';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { ExtendedEmployee } from '@repo/database';
+import { EmployeeWithRelations } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 
 type CheckinExportModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onExport: (startDate: Date, endDate: Date, employeeId?: string) => void;
-  employees: Serialized<ExtendedEmployee>[];
+  employees: Serialized<EmployeeWithRelations>[];
 };
 
 export default function CheckinExportModal({ isOpen, onClose, onExport, employees }: CheckinExportModalProps) {

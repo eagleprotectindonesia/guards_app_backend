@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { ExtendedEmployee } from '@repo/database';
+import { EmployeeWithRelations } from '@repo/database';
 import { startOfDay, endOfDay, format } from 'date-fns';
 
 const include = {
@@ -13,7 +13,7 @@ const include = {
 
 type AlertWithRels = Omit<Prisma.AlertGetPayload<{ include: typeof include }>, 'shift'> & {
   shift: (Omit<NonNullable<Prisma.AlertGetPayload<{ include: typeof include }>['shift']>, 'employee'> & {
-    employee: ExtendedEmployee | null;
+    employee: EmployeeWithRelations | null;
   }) | null;
 };
 

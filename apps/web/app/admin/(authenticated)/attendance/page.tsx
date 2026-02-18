@@ -54,7 +54,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
       skip,
       take: perPage,
     }),
-    getAllEmployees({ firstName: 'asc' }),
+    getAllEmployees({ fullName: 'asc' }),
   ]);
 
   const serializedAttendances: SerializedAttendanceWithRelationsDto[] = attendances.map(att => ({

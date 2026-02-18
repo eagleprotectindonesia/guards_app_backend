@@ -4,28 +4,23 @@ import { Serialized } from '@/lib/utils';
 import { createEmployee, updateEmployee } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateEmployeeInput, createEmployeeSchema, updateEmployeeSchema } from '@/lib/validations';
-import { startTransition, useActionState, useEffect, useRef, useMemo } from 'react';
+import { startTransition, useActionState, useEffect, useRef } from 'react';
 import { useForm, Controller, Resolver, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { Department, Designation, Office } from '@prisma/client';
-import { ExtendedEmployee } from '@repo/database';
-import { DatePicker } from '@/components/ui/date-picker';
+import { EmployeeWithRelations } from '@repo/database';
 import { useRouter } from 'next/navigation';
 import { PasswordInput } from '@/components/ui/password-input';
 import PhoneInput from '@/components/ui/phone-input';
 import { E164Number } from 'libphonenumber-js';
-import { format } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { EmployeeRole } from '@prisma/client';
 
 type Props = {
-  employee?: Serialized<ExtendedEmployee>; // If provided, it's an edit form
-  departments?: Serialized<Department>[];
-  designations?: Serialized<Designation>[];
-  offices?: Serialized<Office>[];
+  employee?: Serialized<EmployeeWithRelations>; // If provided, it's an edit form
 };
 
-export default function EmployeeForm({ employee, departments = [], designations = [], offices = [] }: Props) {
+export default function EmployeeForm({ employee }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -40,47 +35,24 @@ export default function EmployeeForm({ employee, departments = [], designations 
     setError,
     clearErrors,
     trigger,
-    watch,
-    setValue,
     formState: { errors },
   } = useForm<CreateEmployeeInput>({
     resolver: zodResolver(employee ? updateEmployeeSchema : createEmployeeSchema) as Resolver<CreateEmployeeInput>,
     defaultValues: {
-      title: (employee?.title as 'Mr' | 'Miss' | 'Mrs') || 'Mr',
-      firstName: employee?.firstName || '',
-      lastName: employee?.lastName || '',
+      fullName: employee?.fullName || '',
+      nickname: employee?.nickname || '',
       phone: (employee?.phone as string) || '',
       id: employee?.id || '',
-      employeeCode: employee?.employeeCode || '',
+      employeeNumber: employee?.employeeNumber || '',
+      personnelId: employee?.personnelId || '',
+      jobTitle: employee?.jobTitle || '',
+      department: employee?.department || '',
+      role: (employee?.role as EmployeeRole) || undefined,
       status: employee?.status ?? true,
-      departmentId: employee?.departmentId || '',
-      designationId: employee?.designationId || '',
-      officeId: employee?.officeId || '',
-      joinDate: employee?.joinDate ? new Date(employee.joinDate) : undefined,
-      leftDate: employee?.leftDate ? new Date(employee.leftDate) : undefined,
       note: employee?.note || '',
       password: employee ? undefined : '123456',
     },
   });
-
-  const [firstName, lastName, selectedDepartmentId, selectedDesignationId] = watch([
-    'firstName',
-    'lastName',
-    'departmentId',
-    'designationId',
-  ]);
-
-  const fullName = `${firstName || ''} ${lastName || ''}`.trim();
-
-  const filteredDesignations = useMemo(() => {
-    if (!selectedDepartmentId) return [];
-    return designations.filter(d => d.departmentId === selectedDepartmentId);
-  }, [selectedDepartmentId, designations]);
-
-  const isOfficeRole = useMemo(() => {
-    const designation = designations.find(d => d.id === selectedDesignationId);
-    return designation?.role === 'office';
-  }, [selectedDesignationId, designations]);
 
   useEffect(() => {
     if (state.success) {
@@ -131,98 +103,33 @@ export default function EmployeeForm({ employee, departments = [], designations 
         autoComplete="off"
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Title & Full Name Row */}
-          <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-4 gap-8">
-            {/* Title Field */}
-            <div className="md:col-span-1">
-              <label htmlFor="title" className="block font-medium text-foreground mb-1">
-                Title <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                control={control}
-                name="title"
-                render={({ field }) => (
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value ?? undefined}
-                    value={field.value ?? undefined}
-                    name={field.name}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select Title" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Mr">Mr</SelectItem>
-                      <SelectItem value="Miss">Miss</SelectItem>
-                      <SelectItem value="Mrs">Mrs</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.title && <p className="text-red-500 text-xs mt-1">{errors.title.message}</p>}
-            </div>
-
-            {/* Full Name Field */}
-            <div className="md:col-span-3">
-              <label htmlFor="fullName" className="block font-medium text-foreground mb-1">
-                Full Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="fullName"
-                defaultValue={fullName}
-                onChange={e => {
-                  const value = e.target.value;
-                  const trimmed = value.trim();
-
-                  if (trimmed.length <= 15) {
-                    setValue('firstName', trimmed, { shouldValidate: true });
-                    setValue('lastName', '', { shouldValidate: true });
-                  } else {
-                    const first15 = trimmed.substring(0, 15);
-                    const lastSpaceIndex = first15.lastIndexOf(' ');
-
-                    if (lastSpaceIndex !== -1) {
-                      setValue('firstName', trimmed.substring(0, lastSpaceIndex), { shouldValidate: true });
-                      setValue('lastName', trimmed.substring(lastSpaceIndex + 1), { shouldValidate: true });
-                    } else {
-                      setValue('firstName', trimmed.substring(0, 15), { shouldValidate: true });
-                      setValue('lastName', trimmed.substring(15), { shouldValidate: true });
-                    }
-                  }
-                }}
-                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
-                placeholder="e.g. John Doe"
-              />
-            </div>
+          {/* Full Name Field */}
+          <div className="md:col-span-2">
+            <label htmlFor="fullName" className="block font-medium text-foreground mb-1">
+              Full Name <span className="text-red-500">*</span>
+            </label>
+            <input
+              {...register('fullName')}
+              type="text"
+              id="fullName"
+              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
+              placeholder="e.g. John Doe"
+            />
+            {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName.message}</p>}
           </div>
 
-          {/* Hidden inputs for form submission */}
-          <input type="hidden" {...register('firstName')} />
-          <input type="hidden" {...register('lastName')} />
-
-          {/* First Name Field (Disabled) */}
+          {/* Nickname Field */}
           <div>
-            <label className="block font-medium text-muted-foreground mb-1">First Name</label>
+            <label htmlFor="nickname" className="block font-medium text-foreground mb-1">
+              Nickname
+            </label>
             <input
+              {...register('nickname')}
               type="text"
-              disabled
-              value={firstName}
-              className="w-full h-10 px-3 rounded-lg border border-border bg-muted text-muted-foreground cursor-not-allowed outline-none transition-all"
+              id="nickname"
+              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
+              placeholder="e.g. Johnny"
             />
-            {errors.firstName && <p className="text-red-500 text-xs mt-1">{errors.firstName.message}</p>}
-          </div>
-
-          {/* Last Name Field (Disabled) */}
-          <div>
-            <label className="block font-medium text-muted-foreground mb-1">Last Name</label>
-            <input
-              type="text"
-              disabled
-              value={lastName}
-              className="w-full h-10 px-3 rounded-lg border border-border bg-muted text-muted-foreground cursor-not-allowed outline-none transition-all"
-            />
-            {errors.lastName && <p className="text-red-500 text-xs mt-1">{errors.lastName.message}</p>}
           </div>
 
           {/* Phone Field */}
@@ -247,64 +154,105 @@ export default function EmployeeForm({ employee, departments = [], designations 
             {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
           </div>
 
-          {/* Employee ID Field */}
+          {/* System ID Field (Read-only if editing) */}
           <div>
             <label htmlFor="id" className="block font-medium text-foreground mb-1">
-              Employee ID <span className="text-red-500">*</span>
+              System ID (Unique) <span className="text-red-500">*</span>
             </label>
-            <Controller
-              control={control}
-              name="id"
-              render={({ field }) => (
-                <input
-                  {...field}
-                  type="text"
-                  id="id"
-                  readOnly={!!employee}
-                  maxLength={6}
-                  minLength={6}
-                  title="Employee ID must be exactly 6 alphanumeric characters"
-                  className={`w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all ${
-                    employee ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''
-                  }`}
-                  placeholder="e.g. EMP001"
-                  autoComplete="off"
-                  onChange={e => {
-                    const val = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-                    field.onChange(val);
-                  }}
-                />
-              )}
+            <input
+              {...register('id')}
+              type="text"
+              id="id"
+              readOnly={!!employee}
+              className={`w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all ${
+                employee ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''
+              }`}
+              placeholder="e.g. ADM001"
             />
             {errors.id && <p className="text-red-500 text-xs mt-1">{errors.id.message}</p>}
           </div>
 
-          {/* Employee Code Field */}
+          {/* Employee Number Field */}
           <div>
-            <label htmlFor="employeeCode" className="block font-medium text-foreground mb-1">
-              Employee Code <span className="text-red-500">*</span>
+            <label htmlFor="employeeNumber" className="block font-medium text-foreground mb-1">
+              Employee Number
+            </label>
+            <input
+              {...register('employeeNumber')}
+              type="text"
+              id="employeeNumber"
+              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
+              placeholder="e.g. 123456"
+            />
+            {errors.employeeNumber && <p className="text-red-500 text-xs mt-1">{errors.employeeNumber.message}</p>}
+          </div>
+
+          {/* Personnel ID Field */}
+          <div>
+            <label htmlFor="personnelId" className="block font-medium text-foreground mb-1">
+              Personnel ID
+            </label>
+            <input
+              {...register('personnelId')}
+              type="text"
+              id="personnelId"
+              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
+              placeholder="Internal HR ID"
+            />
+          </div>
+
+          {/* Job Title Field */}
+          <div>
+            <label htmlFor="jobTitle" className="block font-medium text-foreground mb-1">
+              Job Title
+            </label>
+            <input
+              {...register('jobTitle')}
+              type="text"
+              id="jobTitle"
+              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
+              placeholder="e.g. Security Guard"
+            />
+          </div>
+
+          {/* Department Field */}
+          <div>
+            <label htmlFor="department" className="block font-medium text-foreground mb-1">
+              Department
+            </label>
+            <input
+              {...register('department')}
+              type="text"
+              id="department"
+              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
+              placeholder="e.g. Operations"
+            />
+          </div>
+
+          {/* Role Field */}
+          <div>
+            <label htmlFor="role" className="block font-medium text-foreground mb-1">
+              App Role
             </label>
             <Controller
               control={control}
-              name="employeeCode"
+              name="role"
               render={({ field }) => (
-                <input
-                  {...field}
-                  type="text"
-                  id="employeeCode"
-                  maxLength={12}
-                  title="Employee code must be alphanumeric only, maximum 12 characters"
-                  className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
-                  placeholder="e.g. E001"
-                  autoComplete="off"
-                  onChange={e => {
-                    const val = e.target.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-                    field.onChange(val);
-                  }}
-                />
+                <Select
+                  onValueChange={field.onChange}
+                  defaultValue={field.value || undefined}
+                  value={field.value || undefined}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="on_site">On-Site Guard</SelectItem>
+                    <SelectItem value="office">Office Staff</SelectItem>
+                  </SelectContent>
+                </Select>
               )}
             />
-            {errors.employeeCode && <p className="text-red-500 text-xs mt-1">{errors.employeeCode.message}</p>}
           </div>
 
           {/* Status Field */}
@@ -335,152 +283,6 @@ export default function EmployeeForm({ employee, departments = [], designations 
                     <span className="ml-2 text-foreground">Inactive</span>
                   </label>
                 </div>
-              )}
-            />
-          </div>
-
-          {/* Department Field */}
-          <div>
-            <label htmlFor="departmentId" className="block font-medium text-foreground mb-1">
-              Department
-            </label>
-            <Controller
-              control={control}
-              name="departmentId"
-              render={({ field }) => (
-                <Select
-                  onValueChange={value => {
-                    field.onChange(value);
-                    setValue('designationId', '');
-                  }}
-                  defaultValue={field.value ?? undefined}
-                  value={field.value ?? undefined}
-                  name={field.name}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select Department" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {departments.map(dept => (
-                      <SelectItem key={dept.id} value={dept.id}>
-                        {dept.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.departmentId && <p className="text-red-500 text-xs mt-1">{errors.departmentId.message}</p>}
-          </div>
-
-          {/* Designation Field */}
-          <div>
-            <label htmlFor="designationId" className="block font-medium text-foreground mb-1">
-              Designation
-            </label>
-            <Controller
-              control={control}
-              name="designationId"
-              render={({ field }) => (
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value ?? undefined}
-                  value={field.value ?? undefined}
-                  name={field.name}
-                  disabled={!selectedDepartmentId}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select Designation" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredDesignations.map(desig => (
-                      <SelectItem key={desig.id} value={desig.id}>
-                        {desig.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.designationId && <p className="text-red-500 text-xs mt-1">{errors.designationId.message}</p>}
-          </div>
-
-          {/* Office Field - Only show if designation role is office */}
-          {isOfficeRole && (
-            <div>
-              <label htmlFor="officeId" className="block font-medium text-foreground mb-1">
-                Office
-              </label>
-              <Controller
-                control={control}
-                name="officeId"
-                render={({ field }) => (
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value ?? undefined}
-                    value={field.value ?? undefined}
-                    name={field.name}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select Office" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {offices.map(office => (
-                        <SelectItem key={office.id} value={office.id}>
-                          {office.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.officeId && <p className="text-red-500 text-xs mt-1">{errors.officeId.message}</p>}
-            </div>
-          )}
-
-          {/* Join Date Field */}
-          <div>
-            <label htmlFor="joinDate" className="block font-medium text-foreground mb-1">
-              Join Date <span className="text-red-500">*</span>
-            </label>
-            <Controller
-              control={control}
-              name="joinDate"
-              render={({ field }) => (
-                <>
-                  <input type="hidden" name="joinDate" value={field.value ? format(field.value, 'yyyy-MM-dd') : ''} />
-                  <DatePicker
-                    date={field.value}
-                    setDate={field.onChange}
-                    placeholder="Select date"
-                    className={`w-full h-10 px-3 rounded-lg border ${
-                      errors.joinDate ? 'border-red-500' : 'border-border'
-                    } bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all`}
-                  />
-                </>
-              )}
-            />
-            {errors.joinDate && <p className="text-red-500 text-xs mt-1">{errors.joinDate.message}</p>}
-          </div>
-
-          {/* Left Date Field */}
-          <div>
-            <label htmlFor="leftDate" className="block font-medium text-foreground mb-1">
-              Left Date
-            </label>
-            <Controller
-              control={control}
-              name="leftDate"
-              render={({ field }) => (
-                <>
-                  <input type="hidden" name="leftDate" value={field.value ? format(field.value, 'yyyy-MM-dd') : ''} />
-                  <DatePicker
-                    date={field.value}
-                    setDate={field.onChange}
-                    placeholder="Select date"
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
-                  />
-                </>
               )}
             />
           </div>

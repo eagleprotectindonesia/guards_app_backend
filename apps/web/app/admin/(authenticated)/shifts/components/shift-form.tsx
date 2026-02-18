@@ -47,7 +47,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
   const siteOptions = sites.map(site => ({ value: site.id, label: site.name }));
   const employeeOptions = employees.map(employee => ({
     value: employee.id,
-    label: `${employee.firstName} ${employee.lastName}`,
+    label: employee.fullName,
   }));
   const shiftTypeOptions = shiftTypes.map(st => ({
     value: st.id,

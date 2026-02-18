@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Modal from '../../components/modal';
 import { Serialized } from '@/lib/utils';
-import { ExtendedEmployee } from '@repo/database';
+import { EmployeeWithRelations } from '@repo/database';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { parseISO } from 'date-fns';
@@ -18,7 +18,7 @@ type Props = {
     endDate?: string;
     employeeId?: string;
   };
-  employees: Serialized<ExtendedEmployee>[];
+  employees: Serialized<EmployeeWithRelations>[];
 };
 
 export default function CheckinFilterModal({ isOpen, onClose, onApply, initialFilters, employees }: Props) {

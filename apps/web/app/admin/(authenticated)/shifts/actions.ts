@@ -308,7 +308,7 @@ export async function bulkCreateShifts(
 
   const siteMap = new Map(sites.map(s => [s.name.toLowerCase(), s.id]));
   const shiftTypeMap = new Map(shiftTypes.map(st => [st.name.toLowerCase(), st]));
-  const employeeMap = new Map(employees.map(g => [`${g.firstName} ${g.lastName}`.toLowerCase(), g.id]));
+  const employeeMap = new Map(employees.map(g => [g.fullName.toLowerCase(), g.id]));
 
   const errors: string[] = [];
   const shiftsToCreate: Prisma.ShiftCreateManyInput[] = [];

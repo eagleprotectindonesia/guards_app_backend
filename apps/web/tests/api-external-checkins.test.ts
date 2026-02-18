@@ -13,7 +13,7 @@ describe('GET /api/external/v1/check-ins', () => {
 
   test('returns paginated check-ins with valid parameters', async () => {
     const mockCheckins = [
-      { id: '1', status: 'on_time', at: new Date(), employee: { id: 'e1', firstName: 'John' }, shift: { id: 's1', site: { name: 'Site A' } } },
+      { id: '1', status: 'on_time', at: new Date(), employee: { id: 'e1', fullName: 'John Doe' }, shift: { id: 's1', site: { name: 'Site A' } } },
     ];
     (getPaginatedCheckins as jest.Mock).mockResolvedValue({
       checkins: mockCheckins,

@@ -3,13 +3,13 @@ import { cookies, headers } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { redis } from '@/lib/redis';
+import { prisma } from '@repo/database';
 import { z } from 'zod';
-import { getEmployeeById, updateEmployee } from '@/lib/data-access/employees';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
 const employeeLoginSchema = z.object({
-  employeeId: z.string().min(1, 'ID Karyawan wajib diisi'),
+  employeeNumber: z.string().min(1, 'Nomor Karyawan wajib diisi'),
   password: z.string().min(1, 'Kata sandi wajib diisi'),
 });
 
@@ -41,9 +41,11 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { employeeId, password } = employeeLoginSchema.parse(body);
+    const { employeeNumber, password } = employeeLoginSchema.parse(body);
 
-    const employee = await getEmployeeById(employeeId);
+    const employee = await prisma.employee.findFirst({
+      where: { employeeNumber, deletedAt: null },
+    });
 
     if (!employee) {
       return NextResponse.json({ message: 'Karyawan tidak valid' }, { status: 401 });
@@ -60,7 +62,7 @@ export async function POST(req: Request) {
     const passwordMatch = await bcrypt.compare(password, employee.hashedPassword);
 
     if (!passwordMatch) {
-      return NextResponse.json({ message: 'Kredensial tidak valid', data: employee }, { status: 401 });
+      return NextResponse.json({ message: 'Kredensial tidak valid' }, { status: 401 });
     }
 
     // Detect client type
@@ -68,8 +70,9 @@ export async function POST(req: Request) {
     const clientType = getClientType(headersList);
 
     // Increment token version to invalidate other sessions
-    const updatedEmployee = await updateEmployee(employee.id, {
-      tokenVersion: { increment: 1 },
+    const updatedEmployee = await prisma.employee.update({
+      where: { id: employee.id },
+      data: { tokenVersion: { increment: 1 } },
     });
 
     // Notify other active sessions to logout via Redis Stream

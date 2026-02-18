@@ -3,13 +3,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap } from '@vis.gl/react-google-maps';
 import { Alert, Site, Shift } from '@prisma/client';
-import { ExtendedEmployee } from '@repo/database';
+import { EmployeeWithRelations } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import { format } from 'date-fns';
 
 type SiteWithOptionalRelations = Serialized<Site>;
 type ShiftWithOptionalRelations = Serialized<Shift> & {
-  employee?: Serialized<ExtendedEmployee> | null;
+  employee?: Serialized<EmployeeWithRelations> | null;
 };
 type AlertWithRelations = Serialized<Alert> & {
   site?: SiteWithOptionalRelations;

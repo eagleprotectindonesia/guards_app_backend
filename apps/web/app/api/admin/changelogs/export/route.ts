@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
-  EMPLOYEE_TRACKED_FIELDS,
+  // EMPLOYEE_TRACKED_FIELDS,
   OFFICE_TRACKED_FIELDS,
   prisma,
   SHIFT_TRACKED_FIELDS,
@@ -24,8 +24,8 @@ const getTrackedFields = (entityType: string | null) => {
   switch (entityType) {
     case 'Shift':
       return [...SHIFT_TRACKED_FIELDS];
-    case 'Employee':
-      return [...EMPLOYEE_TRACKED_FIELDS];
+    // case 'Employee':
+    //   return [...EMPLOYEE_TRACKED_FIELDS];
     case 'Site':
       return [...SITE_TRACKED_FIELDS];
     case 'Office':
@@ -37,7 +37,7 @@ const getTrackedFields = (entityType: string | null) => {
       return Array.from(
         new Set([
           ...SHIFT_TRACKED_FIELDS,
-          ...EMPLOYEE_TRACKED_FIELDS,
+          // ...EMPLOYEE_TRACKED_FIELDS,
           ...SITE_TRACKED_FIELDS,
           ...OFFICE_TRACKED_FIELDS,
           ...SHIFT_TYPE_TRACKED_FIELDS,

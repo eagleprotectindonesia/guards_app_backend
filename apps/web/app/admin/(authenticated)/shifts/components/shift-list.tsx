@@ -283,8 +283,7 @@ export default function ShiftList({
                         {shift.employee ? (
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold border border-border">
-                              {shift.employee.firstName.substring(0, 1).toUpperCase()}
-                              {(shift.employee.lastName || '').substring(0, 1).toUpperCase()}
+                              {shift.employee.fullName.toUpperCase()}
                             </div>
                             {shift.employee.fullName}
                           </div>

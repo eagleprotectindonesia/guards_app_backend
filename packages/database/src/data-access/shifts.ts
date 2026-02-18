@@ -34,7 +34,7 @@ export async function getPaginatedShifts(params: {
           include: include || {
             site: { select: { name: true } },
             shiftType: { select: { name: true, startTime: true, endTime: true } },
-            employee: { select: { firstName: true, lastName: true } },
+            employee: { select: { fullName: true, employeeNumber: true } },
             createdBy: { select: { name: true } },
             lastUpdatedBy: { select: { name: true } },
           },
@@ -183,8 +183,8 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
       const emp = updatedShift.employee as any;
       const prevEmp = beforeShift.employee as any;
 
-      const updatedEmpName = emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned';
-      const beforeEmpName = prevEmp ? `${prevEmp.firstName} ${prevEmp.lastName}` : 'Unassigned';
+      const updatedEmpName = emp ? emp.fullName : 'Unassigned';
+      const beforeEmpName = prevEmp ? prevEmp.fullName : 'Unassigned';
 
       // Calculate changes
       const changes: Record<string, { from: any; to: any }> = {};
@@ -485,7 +485,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
         include: {
           site: { select: { name: true } },
           shiftType: { select: { name: true } },
-          employee: { select: { firstName: true, lastName: true } },
+          employee: { select: { fullName: true } },
         },
       });
 
@@ -502,7 +502,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
               method: 'BULK_UPLOAD',
               siteName: s.site.name,
               typeName: s.shiftType.name,
-              employeeName: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
+              employeeName: emp ? emp.fullName : 'Unassigned',
               date: s.date,
               startsAt: s.startsAt,
               endsAt: s.endsAt,

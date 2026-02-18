@@ -33,6 +33,7 @@ export async function GET(req: Request) {
         _count: {
           id: true,
         },
+        orderBy: { createdAt: 'desc' },
       }),
     ]);
 
@@ -44,7 +45,8 @@ export async function GET(req: Request) {
     };
 
     groupedCounts.forEach(group => {
-      const count = group._count.id;
+      const groupCount = group._count as { id: number };
+      const count = groupCount.id;
       if (group.reason === 'missed_attendance') {
         counts.attendance += count;
       } else if (group.reason === 'missed_checkin') {

@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import CheckinExportModal from './checkin-export-modal';
 import { format } from 'date-fns';
 import { Serialized } from '@/lib/utils';
-import { ExtendedEmployee } from '@repo/database';
+import { EmployeeWithRelations } from '@repo/database';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
@@ -16,7 +16,7 @@ type CheckinExportProps = {
     endDate?: string;
     employeeId?: string;
   };
-  employees: Serialized<ExtendedEmployee>[];
+  employees: Serialized<EmployeeWithRelations>[];
 };
 
 export default function CheckinExport({ initialFilters, employees }: CheckinExportProps) {

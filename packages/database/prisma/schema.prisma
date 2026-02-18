@@ -16,12 +16,6 @@ enum EmployeeRole {
   office
 }
 
-enum EmployeeTitle {
-  Mr
-  Miss
-  Mrs
-}
-
 model Permission {
   id          String   @id @default(uuid())
   action      String // e.g., "view", "create", "edit", "delete"
@@ -66,12 +60,10 @@ model Admin {
   note               String?     @db.Text
   acknowledgedAlerts Alert[]     @relation("AcknowledgedBy")
   resolvedAlerts     Alert[]     @relation("ResolvedBy")
-  updatedEmployees   Employee[]  @relation("EmployeeLastUpdatedBy")
   updatedSites       Site[]      @relation("SiteLastUpdatedBy")
   updatedOffices     Office[]    @relation("OfficeLastUpdatedBy")
   updatedShiftTypes  ShiftType[] @relation("ShiftTypeLastUpdatedBy")
   updatedShifts      Shift[]     @relation("ShiftLastUpdatedBy")
-  createdEmployees   Employee[]  @relation("EmployeeCreatedBy")
   createdSites       Site[]      @relation("SiteCreatedBy")
   createdOffices     Office[]    @relation("OfficeCreatedBy")
   createdShiftTypes  ShiftType[] @relation("ShiftTypeCreatedBy")
@@ -129,58 +121,21 @@ enum ChatSenderType {
   employee
 }
 
-model Department {
-  id           String        @id @default(uuid())
-  name         String        @unique
-  note         String?       @db.Text
-  designations Designation[]
-  employees    Employee[]
-  createdAt    DateTime      @default(now()) @map("created_at")
-  updatedAt    DateTime      @updatedAt @map("updated_at")
-  deletedAt    DateTime?     @map("deleted_at")
-
-  @@index([deletedAt])
-  @@map("departments")
-}
-
-model Designation {
-  id           String     @id @default(uuid())
-  name         String
-  role         EmployeeRole @default(on_site)
-  note         String?    @db.Text
-  departmentId String     @map("department_id")
-  department   Department @relation(fields: [departmentId], references: [id])
-  employees    Employee[]
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
-  deletedAt    DateTime?  @map("deleted_at")
-
-  @@index([deletedAt])
-  @@map("designations")
-}
 
 model Employee {
   id              String       @id
-  title           EmployeeTitle @default(Mr)
-  firstName       String       @map("first_name")
-  lastName        String?      @map("last_name")
+  employeeNumber  String?      @map("employee_number")
+  personnelId     String?      @map("personnel_id")
+  nickname        String?
+  fullName        String       @map("full_name")
+  jobTitle        String?      @map("job_title")
+  department      String?
   phone           String       @unique
-  hashedPassword  String       @map("hashed_password")
+  hashedPassword  String       @map("password")
   tokenVersion    Int          @default(0) @map("token_version")
-  employeeCode    String?      @map("employee_code") @db.VarChar(12)
   role            EmployeeRole?
   status          Boolean?     @default(true)
-  departmentId    String?      @map("department_id")
-  designationId   String?      @map("designation_id")
-  officeId        String?      @map("office_id")
-  department      Department?  @relation(fields: [departmentId], references: [id])
-  designation     Designation? @relation(fields: [designationId], references: [id])
-  office          Office?      @relation(fields: [officeId], references: [id])
-  joinDate        DateTime?    @map("join_date") @db.Date
-  leftDate        DateTime?    @map("left_date") @db.Date
   note            String?      @db.Text
-  lastUpdatedById String?      @map("last_updated_by_id")
-  createdById     String?      @map("created_by_id")
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
   deletedAt       DateTime?    @map("deleted_at")
@@ -189,14 +144,11 @@ model Employee {
   attendances     Attendance[]
   officeAttendances OfficeAttendance[]
   chatMessages    ChatMessage[]
-  lastUpdatedBy   Admin?       @relation("EmployeeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  createdBy       Admin?       @relation("EmployeeCreatedBy", fields: [createdById], references: [id])
   refreshTokens   RefreshToken[]
 
   @@index([status])
   @@index([deletedAt])
-  @@index([employeeCode])
-  @@index([officeId])
+  @@index([employeeNumber])
   @@map("employees")
 }
 
@@ -240,7 +192,6 @@ model Office {
   deletedAt       DateTime? @map("deleted_at")
   note            String?   @db.Text
   officeAttendances OfficeAttendance[]
-  employees       Employee[]
   lastUpdatedBy   Admin?    @relation("OfficeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
   createdBy       Admin?    @relation("OfficeCreatedBy", fields: [createdById], references: [id])
 

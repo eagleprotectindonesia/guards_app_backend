@@ -35,41 +35,18 @@ const prismaInstance = globalForPrisma.prisma || createPrismaClient();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prismaInstance;
 
-export const db = prismaInstance.$extends({
-  result: {
-    employee: {
-      fullName: {
-        needs: { firstName: true, lastName: true },
-        compute(employee) {
-          return `${employee.firstName} ${employee.lastName || ''}`.trim();
-        },
-      },
-    },
-  },
-});
+export const db = prismaInstance;
 
 export type ExtendedPrismaClient = typeof db;
 
-export type ExtendedEmployee = NonNullable<Prisma.Result<typeof db.employee, {}, 'findUnique'>>;
-
 export type EmployeeSummary = {
   id: string;
-  firstName: string;
-  lastName: string | null;
   fullName: string;
-  employeeCode: string | null;
+  employeeNumber: string | null;
 };
 
 export type EmployeeWithRelations = NonNullable<Prisma.Result<
   typeof db.employee,
-  {
-    include: {
-      department: { select: { id: true; name: true } };
-      designation: { select: { id: true; name: true } };
-      office: { select: { id: true; name: true } };
-      lastUpdatedBy: { select: { name: true } };
-      createdBy: { select: { name: true } };
-    };
-  },
+  {},
   'findUnique'
 >>;

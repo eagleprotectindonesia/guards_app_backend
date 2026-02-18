@@ -1,6 +1,6 @@
 import { Shift, ShiftType, Site, Attendance } from '@prisma/client';
 import { calculateCheckInWindow, CHECK_SHIFTS_JOB_NAME } from '@repo/shared';
-import { db as prisma, ExtendedEmployee } from '@repo/database';
+import { db as prisma, EmployeeWithRelations } from '@repo/database';
 import {
   getActiveShifts,
   getShiftsUpdates,
@@ -20,7 +20,7 @@ const ATTENDANCE_GRACE_PERIOD_MINS = 5;
 // Types
 type CachedShift = Shift & {
   shiftType: ShiftType;
-  employee: ExtendedEmployee | null;
+  employee: EmployeeWithRelations | null;
   site: Site;
   attendance: Attendance | null;
   lastAttentionIndexSent?: number;
@@ -33,7 +33,7 @@ type ShiftState = {
 
 type BroadcastedShift = {
   id: string;
-  employee: ExtendedEmployee | null;
+  employee: EmployeeWithRelations | null;
   shiftType: ShiftType;
   startsAt: Date;
   endsAt: Date;

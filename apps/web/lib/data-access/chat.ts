@@ -30,8 +30,7 @@ export async function saveMessage(data: {
       employee: {
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          fullName: true,
         },
       },
       admin: {

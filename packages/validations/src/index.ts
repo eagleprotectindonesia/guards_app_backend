@@ -46,9 +46,8 @@ const emptyStringToNull = z.literal('').transform(() => null);
 const uuidOrEmpty = z.union([z.string().uuid(), emptyStringToNull]);
 
 export const createEmployeeSchema = z.object({
-  title: EmployeeTitleEnum,
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().optional(),
+  fullName: z.string().min(1, 'Full name is required'),
+  nickname: z.string().optional(),
   phone: z
     .string()
     .min(1, 'Phone number is required')
@@ -76,22 +75,16 @@ export const createEmployeeSchema = z.object({
     ),
   id: z
     .string()
-    .length(6, 'Employee ID (System ID) must be exactly 6 characters')
-    .regex(/^[a-zA-Z0-9]*$/, 'Employee ID must be alphanumeric only'),
-  employeeCode: z
+    .min(1, 'Employee ID is required'),
+  employeeNumber: z
     .string()
-    .min(1)
-    .max(12)
-    .regex(/^[a-zA-Z0-9]*$/, 'Employee code must be alphanumeric only')
+    .min(1, 'Employee Number is required')
     .optional(),
-  // For backward compatibility
-  guardCode: z.string().max(12).optional(),
+  personnelId: z.string().optional(),
+  jobTitle: z.string().optional(),
+  department: z.string().optional(),
+  role: EmployeeRoleEnum.optional(),
   status: z.boolean().optional(),
-  departmentId: uuidOrEmpty.nullable().optional(),
-  designationId: uuidOrEmpty.nullable().optional(),
-  officeId: uuidOrEmpty.nullable().optional(),
-  joinDate: z.coerce.date(),
-  leftDate: z.coerce.date().optional(),
   note: z.string().optional(),
   password: z.string().min(6, 'Password must be at least 6 characters long'), // Required for creation
 });
@@ -101,9 +94,8 @@ export const createGuardSchema = createEmployeeSchema;
 
 export const updateEmployeeSchema = z.object({
   id: z.string().optional(), // Allow id in the schema for form compatibility
-  title: EmployeeTitleEnum,
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().optional(),
+  fullName: z.string().min(1, 'Full name is required'),
+  nickname: z.string().optional(),
   phone: z
     .string()
     .min(1, 'Phone number is required')
@@ -129,20 +121,13 @@ export const updateEmployeeSchema = z.object({
         message: 'Phone number must be between 6 and 17 characters',
       }
     ),
-  employeeCode: z
-    .string()
-    .max(12)
-    .regex(/^[a-zA-Z0-9]*$/, 'Employee code must be alphanumeric only')
-    .optional(),
-  // For backward compatibility
-  guardCode: z.string().max(12).optional(),
+  employeeNumber: z.string().optional(),
+  personnelId: z.string().optional(),
+  jobTitle: z.string().optional(),
+  department: z.string().optional(),
+  role: EmployeeRoleEnum.optional(),
   status: z.boolean().optional(),
-  departmentId: uuidOrEmpty.nullable().optional(),
-  designationId: uuidOrEmpty.nullable().optional(),
-  officeId: uuidOrEmpty.nullable().optional(),
-  joinDate: z.coerce.date(),
-  leftDate: z.coerce.date().nullable().optional(),
-  note: z.string().nullable().optional(),
+  note: z.string().optional(),
   password: z.string().min(6, 'Password must be at least 6 characters long').optional(), // Optional for updates
 });
 

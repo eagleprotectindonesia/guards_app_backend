@@ -2,14 +2,14 @@
 
 import { useState } from 'react';
 import { Alert, Shift, Site, ShiftType, Admin } from '@prisma/client';
-import { ExtendedEmployee } from '@repo/database';
+import { EmployeeWithRelations } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import AlertItem from './alert-item';
 import { Check } from 'lucide-react';
 import { useSession } from '../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
-type EmployeeWithOptionalRelations = Serialized<ExtendedEmployee>;
+type EmployeeWithOptionalRelations = Serialized<EmployeeWithRelations>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
 type SiteWithOptionalRelations = Serialized<Site>;
 type AdminWithOptionalRelations = Serialized<Admin>;

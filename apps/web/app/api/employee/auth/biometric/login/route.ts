@@ -72,7 +72,7 @@ export async function POST(req: Request) {
       token,
       employee: {
         id: employee.id,
-        name: employee.firstName + ' ' + (employee.lastName || ''),
+        name: employee.fullName,
         role: employee.role,
         // Add other needed fields
       }

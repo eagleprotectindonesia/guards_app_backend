@@ -14,16 +14,13 @@ export async function GET() {
   const safeEmployee = {
     id: employeeAuth.id,
     name: employeeAuth.fullName,
-    firstName: employeeAuth.firstName,
-    lastName: employeeAuth.lastName,
+    fullName: employeeAuth.fullName,
     phone: employeeAuth.phone,
-    employeeCode: employeeAuth.employeeCode,
+    employeeNumber: employeeAuth.employeeNumber,
     mustChangePassword: !!mustChangePassword,
     department: employeeAuth.department,
-    designation: employeeAuth.designation,
+    jobTitle: employeeAuth.jobTitle,
     role: employeeAuth.role,
-    officeId: employeeAuth.officeId,
-    office: employeeAuth.office,
   };
 
   return NextResponse.json({ 
