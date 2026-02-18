@@ -108,7 +108,8 @@ export default function ShiftList({
     if (filters.startDate) {
       params.set('startDate', format(filters.startDate, 'yyyy-MM-dd'));
     } else {
-      params.delete('startDate');
+      // If cleared, explicitly set to empty string so server doesn't fallback to default (today)
+      params.set('startDate', '');
     }
 
     if (filters.endDate) {
@@ -176,7 +177,9 @@ export default function ShiftList({
           <button
             onClick={() => setIsFilterOpen(true)}
             className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
-              activeFiltersCount > 0 ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400' : ''
+              activeFiltersCount > 0
+                ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400'
+                : ''
             }`}
           >
             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -231,7 +234,9 @@ export default function ShiftList({
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift Type</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Shift Type
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
                 <th
                   className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
@@ -278,7 +283,8 @@ export default function ShiftList({
                         {shift.employee ? (
                           <div className="flex items-center gap-2">
                             <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold border border-border">
-                              {shift.employee.firstName.substring(0, 1).toUpperCase()}{(shift.employee.lastName || '').substring(0, 1).toUpperCase()}
+                              {shift.employee.firstName.substring(0, 1).toUpperCase()}
+                              {(shift.employee.lastName || '').substring(0, 1).toUpperCase()}
                             </div>
                             {shift.employee.fullName}
                           </div>
@@ -287,7 +293,9 @@ export default function ShiftList({
                         )}
                       </td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">
-                        <div className="font-medium text-foreground">{format(new Date(shift.startsAt), 'yyyy/MM/dd')}</div>
+                        <div className="font-medium text-foreground">
+                          {format(new Date(shift.startsAt), 'yyyy/MM/dd')}
+                        </div>
                         <div className="text-xs text-muted-foreground/80">
                           {format(new Date(shift.startsAt), 'HH:mm')} - {format(new Date(shift.endsAt), 'HH:mm')}
                         </div>
@@ -302,26 +310,28 @@ export default function ShiftList({
                         </span>
                       </td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">
-                        <div className="max-w-[200px] whitespace-normal wrap-break-words text-xs">{shift.note || '-'}</div>
+                        <div className="max-w-[200px] whitespace-normal wrap-break-words text-xs">
+                          {shift.note || '-'}
+                        </div>
                       </td>
                       <td className="py-4 px-6 text-sm text-muted-foreground text-center">
                         <div className="flex flex-col items-center gap-1">
-                          <div 
+                          <div
                             className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
-                              shift.createdBy?.name 
-                                ? 'bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800' 
+                              shift.createdBy?.name
+                                ? 'bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800'
                                 : 'text-muted-foreground/40'
-                            }`} 
+                            }`}
                             title="Created By"
                           >
                             {shift.createdBy?.name || '-'}
                           </div>
-                          <div 
+                          <div
                             className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
-                              shift.lastUpdatedBy?.name 
-                                ? 'bg-muted text-muted-foreground border border-border' 
+                              shift.lastUpdatedBy?.name
+                                ? 'bg-muted text-muted-foreground border border-border'
                                 : 'text-muted-foreground/40'
-                            }`} 
+                            }`}
                             title="Last Updated By"
                           >
                             {shift.lastUpdatedBy?.name || '-'}
@@ -337,13 +347,17 @@ export default function ShiftList({
                           />
                           <DeleteButton
                             onClick={() => handleDeleteClick(shift.id)}
-                            disabled={isPending || !canDelete || (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled')}
+                            disabled={
+                              isPending ||
+                              !canDelete ||
+                              (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled')
+                            }
                             title={
-                              !canDelete 
+                              !canDelete
                                 ? 'Permission Denied'
-                                : (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled'
+                                : !isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled'
                                   ? 'Only in-progress or scheduled shifts can be cancelled'
-                                  : 'Actions')
+                                  : 'Actions'
                             }
                           />
                         </div>
