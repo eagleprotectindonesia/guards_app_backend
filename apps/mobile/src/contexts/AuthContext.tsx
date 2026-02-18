@@ -66,23 +66,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const login = useCallback(async (token: string, user: Employee) => {
-    await storage.setItem(STORAGE_KEYS.USER_TOKEN, token);
-    setCachedAuthToken(token);
-
-    setState({
-      user,
-      token,
-      isLoading: false,
-      isAuthenticated: true,
-      authValidationState: 'validated',
-    });
-
-    // Don't seed profile cache from auth/login payload: it may be partial and
-    // can overwrite the richer shape returned by /api/employee/my/profile.
-    queryClient.removeQueries({ queryKey: queryKeys.profile });
-  }, []);
-
   const disableBiometric = useCallback(async () => {
     // Try to revoke on server if we have a token
     const token = await storage.getItem(STORAGE_KEYS.BIOMETRIC_TOKEN);
@@ -99,10 +82,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Clean up legacy keys just in case
     await storage.removeItem(STORAGE_KEYS.SAVED_EMPLOYEE_ID);
-    // await storage.removeItem(STORAGE_KEYS.SAVED_PASSWORD); // Removed from keys but good to clean if exists
 
     setBiometricEnabled(false);
   }, []);
+
+  const login = useCallback(
+    async (token: string, user: Employee) => {
+      await storage.setItem(STORAGE_KEYS.USER_TOKEN, token);
+      setCachedAuthToken(token);
+
+      // Security check: If a different user is logging in, clear unrelated biometric data
+      const [savedBiometricId, isBioEnabled] = await Promise.all([
+        storage.getItem(STORAGE_KEYS.SAVED_EMPLOYEE_ID),
+        storage.getItem(STORAGE_KEYS.BIOMETRIC_ENABLED),
+      ]);
+
+      if (isBioEnabled && savedBiometricId && savedBiometricId !== user.id) {
+        console.log('[AuthContext] Different user logged in. Clearing previous user biometric data.');
+        await disableBiometric();
+      } else if (isBioEnabled && savedBiometricId === user.id) {
+        setBiometricEnabled(true);
+      }
+
+      setState({
+        user,
+        token,
+        isLoading: false,
+        isAuthenticated: true,
+        authValidationState: 'validated',
+      });
+
+      // Don't seed profile cache from auth/login payload: it may be partial and
+      // can overwrite the richer shape returned by /api/employee/my/profile.
+      queryClient.removeQueries({ queryKey: queryKeys.profile });
+    },
+    [disableBiometric]
+  );
 
   const enableBiometric = useCallback(
     async (employeeId: string, password: string) => {
