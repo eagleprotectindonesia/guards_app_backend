@@ -129,6 +129,18 @@ export async function upsertEmployeeFromExternal(data: {
   });
 }
 
+export const EMPLOYEE_TRACKED_FIELDS = [
+  'employeeNumber',
+  'personnelId',
+  'nickname',
+  'fullName',
+  'jobTitle',
+  'department',
+  'role',
+  'status',
+  'phone',
+] as const;
+
 /**
  * Deactivates employees not present in the provided list of IDs.
  * Used at the end of a sync process.
@@ -138,7 +150,10 @@ export async function upsertEmployeeFromExternal(data: {
  * - In-progress shifts are cancelled
  * - All active alerts are resolved
  */
-export async function deactivateEmployeesNotIn(activeIds: string[]) {
+export async function deactivateEmployeesNotIn(
+  activeIds: string[],
+  actor: { type: 'admin' | 'system' | 'unknown'; id?: string } = { type: 'system' }
+) {
   return prisma.$transaction(async tx => {
     // 1. Find employees to deactivate
     const toDeactivate = await tx.employee.findMany({
@@ -147,7 +162,18 @@ export async function deactivateEmployeesNotIn(activeIds: string[]) {
         status: true,
         deletedAt: null,
       },
-      select: { id: true, tokenVersion: true },
+      select: {
+        id: true,
+        tokenVersion: true,
+        employeeNumber: true,
+        fullName: true,
+        personnelId: true,
+        nickname: true,
+        jobTitle: true,
+        department: true,
+        role: true,
+        phone: true,
+      },
     });
 
     if (toDeactivate.length === 0) return { deactivatedCount: 0 };
@@ -173,7 +199,7 @@ export async function deactivateEmployeesNotIn(activeIds: string[]) {
 
       // 3c. Resolve any remaining open alerts (for completed/other shifts)
       const now = new Date();
-      const remainingAlertsResult = await tx.alert.updateMany({
+      await tx.alert.updateMany({
         where: {
           shift: {
             employeeId: employee.id,
@@ -187,7 +213,27 @@ export async function deactivateEmployeesNotIn(activeIds: string[]) {
         },
       });
 
-      // 3d. Notify employee session revocation via Redis stream
+      // 3d. Create changelog entry
+      await tx.changelog.create({
+        data: {
+          action: 'UPDATE',
+          entityType: 'Employee',
+          entityId: employee.id,
+          actor: actor.type as any,
+          actorId: actor.id,
+          details: {
+            employeeNumber: employee.employeeNumber,
+            fullName: employee.fullName,
+            status: false,
+            changes: {
+              status: { from: true, to: false },
+              reason: 'External sync deactivation',
+            },
+          },
+        },
+      });
+
+      // 3e. Notify employee session revocation via Redis stream
       try {
         const newTokenVersion = (employee.tokenVersion + 1).toString();
         await Promise.all([
@@ -254,19 +300,20 @@ export async function updateEmployeePasswordWithChangelog(id: string, password: 
  * Sync employees from external API.
  * Returns counts of added, updated, and deactivated employees.
  */
-export async function syncEmployeesFromExternal() {
+export async function syncEmployeesFromExternal(
+  actor: { type: 'admin' | 'system' | 'unknown'; id?: string } = { type: 'system' }
+) {
   // 1. Fetch from external API
   const externalEmployees = await fetchExternalEmployees();
   console.log(`[SyncEmployees] Fetched ${externalEmployees.length} employees from external API`);
 
   const externalIds = externalEmployees.map(e => e.id);
 
-  // 2. Fetch existing employees to avoid unnecessary hashing
+  // 2. Fetch existing employees to avoid unnecessary hashing and for change detection
   const existingEmployees = await prisma.employee.findMany({
     where: { id: { in: externalIds } },
-    select: { id: true },
   });
-  const existingIds = new Set(existingEmployees.map(e => e.id));
+  const existingMap = new Map(existingEmployees.map(e => [e.id, e]));
 
   let addedCount = 0;
   let updatedCount = 0;
@@ -274,44 +321,120 @@ export async function syncEmployeesFromExternal() {
   for (const ext of externalEmployees) {
     const isSecurityDepartment = ext.department?.toLowerCase().includes('security') ?? false;
     const role: EmployeeRole = isSecurityDepartment && !ext.office_id ? 'on_site' : 'office';
+    const existing = existingMap.get(ext.id);
 
-    if (!existingIds.has(ext.id)) {
+    if (!existing) {
       // New employee: use personnel_id as default password
       const defaultPassword = ext.personnel_id || '123456';
       const hashedPassword = await hashPassword(defaultPassword);
 
-      await upsertEmployeeFromExternal({
-        id: ext.id,
-        employeeNumber: ext.employee_number,
-        personnelId: ext.personnel_id,
-        nickname: ext.nickname,
-        fullName: ext.full_name,
-        jobTitle: ext.job_title,
-        department: ext.department,
-        phone: '',
-        password: hashedPassword,
-        role,
+      await prisma.$transaction(async tx => {
+        const newEmployee = await tx.employee.create({
+          data: {
+            id: ext.id,
+            employeeNumber: ext.employee_number,
+            personnelId: ext.personnel_id,
+            nickname: ext.nickname,
+            fullName: ext.full_name,
+            jobTitle: ext.job_title,
+            department: ext.department,
+            phone: '',
+            hashedPassword: hashedPassword,
+            role,
+            status: true,
+          },
+        });
+
+        await tx.changelog.create({
+          data: {
+            action: 'CREATE',
+            entityType: 'Employee',
+            entityId: newEmployee.id,
+            actor: actor.type,
+            details: {
+              employeeNumber: newEmployee.employeeNumber,
+              fullName: newEmployee.fullName,
+              personnelId: newEmployee.personnelId,
+              nickname: newEmployee.nickname,
+              jobTitle: newEmployee.jobTitle,
+              department: newEmployee.department,
+              role: newEmployee.role,
+              status: newEmployee.status,
+            },
+          },
+        });
       });
       addedCount++;
     } else {
-      // Existing employee: only update profile fields
-      await upsertEmployeeFromExternal({
-        id: ext.id,
-        employeeNumber: ext.employee_number,
-        personnelId: ext.personnel_id,
-        nickname: ext.nickname,
-        fullName: ext.full_name,
-        jobTitle: ext.job_title,
-        department: ext.department,
-        role,
-        phone: '',
-      });
-      updatedCount++;
+      // Existing employee: only update if changed
+      const updateData: Record<string, any> = {};
+      const changes: Record<string, { from: any; to: any }> = {};
+
+      const fieldsToCompare = [
+        { key: 'employeeNumber', extKey: 'employee_number' },
+        { key: 'personnelId', extKey: 'personnel_id' },
+        { key: 'nickname', extKey: 'nickname' },
+        { key: 'fullName', extKey: 'full_name' },
+        { key: 'jobTitle', extKey: 'job_title' },
+        { key: 'department', extKey: 'department' },
+      ] as const;
+
+      for (const field of fieldsToCompare) {
+        const oldValue = (existing as any)[field.key];
+        const newValue = (ext as any)[field.extKey];
+        if (oldValue !== newValue) {
+          updateData[field.key] = newValue;
+          changes[field.key] = { from: oldValue, to: newValue };
+        }
+      }
+
+      // Special handling for role
+      if (existing.role !== role) {
+        updateData.role = role;
+        changes.role = { from: existing.role, to: role };
+      }
+
+      // Reactivate if deactivated
+      if (existing.status === false) {
+        updateData.status = true;
+        updateData.deletedAt = null;
+        changes.status = { from: false, to: true };
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await prisma.$transaction(async tx => {
+          const updatedEmployee = await tx.employee.update({
+            where: { id: ext.id },
+            data: updateData,
+          });
+
+          await tx.changelog.create({
+            data: {
+              action: 'UPDATE',
+              entityType: 'Employee',
+              entityId: updatedEmployee.id,
+              actor: actor.type,
+              details: {
+                employeeNumber: updatedEmployee.employeeNumber,
+                fullName: updatedEmployee.fullName,
+                personnelId: updatedEmployee.personnelId,
+                nickname: updatedEmployee.nickname,
+                jobTitle: updatedEmployee.jobTitle,
+                department: updatedEmployee.department,
+                role: updatedEmployee.role,
+                status: updatedEmployee.status,
+                changes,
+              },
+            },
+          });
+        });
+        updatedCount++;
+      }
     }
   }
 
   // 3. Deactivate those not in external list
-  const { deactivatedCount } = await deactivateEmployeesNotIn(externalIds);
+  const { deactivatedCount } = await deactivateEmployeesNotIn(externalIds, actor);
 
   console.log(
     `[SyncEmployees] Sync completed: ${addedCount} added, ${updatedCount} updated, ${deactivatedCount} deactivated`

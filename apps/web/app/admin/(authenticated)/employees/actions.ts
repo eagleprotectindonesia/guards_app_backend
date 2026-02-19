@@ -16,6 +16,7 @@ import { revalidatePath } from 'next/cache';
 import { EmployeeWithRelations } from '@repo/database';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { ActionState } from '@/types/actions';
+import { syncEmployeesFromExternal } from '@repo/database';
 
 revalidatePath('/admin/employees');
 
@@ -109,10 +110,9 @@ export async function syncEmployeesAction() {
   if (!adminId) return { success: false, message: 'Unauthorized' };
 
   try {
-    const { syncEmployeesFromExternal } = await import('@repo/database');
-    const result = await syncEmployeesFromExternal();
-    return { 
-      success: true, 
+    const result = await syncEmployeesFromExternal({ type: 'system', id: adminId });
+    return {
+      success: true,
       message: 'Sync completed successfully',
       added: result.added,
       updated: result.updated,

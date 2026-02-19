@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server';
 import { syncEmployeesFromExternal } from '@repo/database';
 
-export const dynamic = 'force-dynamic';
-
 export async function POST() {
   try {
     console.log('[ManualSync] Starting manual employee sync...');
-    const result = await syncEmployeesFromExternal();
+    const result = await syncEmployeesFromExternal({ type: 'system' });
     return NextResponse.json({
       success: true,
       added: result.added,
@@ -15,9 +13,6 @@ export async function POST() {
     });
   } catch (error) {
     console.error('[ManualSync] Failed:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to sync employees' },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: 'Failed to sync employees' }, { status: 500 });
   }
 }
