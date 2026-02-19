@@ -1,15 +1,12 @@
 'use server';
 
 import {
-  createEmployee as createEmployeeDb,
   updateEmployee as updateEmployeeDb,
   getAllEmployees,
   updateEmployeePasswordWithChangelog,
 } from '@/lib/data-access/employees';
 import {
-  createEmployeeSchema,
   updateEmployeeSchema,
-  CreateEmployeeInput,
   UpdateEmployeeInput,
   updateEmployeePasswordSchema,
   UpdateEmployeePasswordInput,
@@ -19,50 +16,8 @@ import { revalidatePath } from 'next/cache';
 import { EmployeeWithRelations } from '@repo/database';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { ActionState } from '@/types/actions';
-import { cookies } from 'next/headers';
 
-export async function createEmployee(
-  prevState: ActionState<CreateEmployeeInput>,
-  formData: FormData
-): Promise<ActionState<CreateEmployeeInput>> {
-  const adminId = await getAdminIdFromToken();
-  if (!adminId) return { success: false, message: 'Unauthorized' };
-
-  const rawData = Object.fromEntries(formData.entries());
-  const dataToValidate = {
-    ...rawData,
-    status: rawData.status === 'true'
-  };
-
-  const validatedFields = createEmployeeSchema.safeParse(dataToValidate);
-
-  if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Invalid input. Failed to create employee.',
-      success: false,
-    };
-  }
-
-  try {
-    const { password, ...data } = validatedFields.data;
-    const hashedPassword = await hashPassword(password);
-    
-    await createEmployeeDb({
-      ...data,
-      hashedPassword,
-    });
-  } catch (error) {
-    console.error('Database Error:', error);
-    return {
-      message: 'Database Error: Failed to create employee.',
-      success: false,
-    };
-  }
-
-  revalidatePath('/admin/employees');
-  return { success: true, message: 'Employee created successfully' };
-}
+revalidatePath('/admin/employees');
 
 export async function updateEmployee(
   id: string,
@@ -75,7 +30,7 @@ export async function updateEmployee(
   const rawData = Object.fromEntries(formData.entries());
   const dataToValidate = {
     ...rawData,
-    status: rawData.status === 'true'
+    status: rawData.status === 'true',
   };
 
   const validatedFields = updateEmployeeSchema.safeParse(dataToValidate);
@@ -91,11 +46,11 @@ export async function updateEmployee(
   try {
     const { password, ...data } = validatedFields.data;
     const updateData: Record<string, unknown> = { ...data };
-    
+
     if (password) {
       updateData.hashedPassword = await hashPassword(password);
     }
-    
+
     await updateEmployeeDb(id, updateData);
   } catch (error) {
     console.error('Database Error:', error);
@@ -109,9 +64,7 @@ export async function updateEmployee(
   return { success: true, message: 'Employee updated successfully' };
 }
 
-export async function getAllEmployeesForExport(): Promise<
-  Serialized<EmployeeWithRelations>[]
-> {
+export async function getAllEmployeesForExport(): Promise<Serialized<EmployeeWithRelations>[]> {
   const employees = await getAllEmployees(undefined, true);
   return serialize(employees);
 }
@@ -156,20 +109,17 @@ export async function syncEmployeesAction() {
   if (!adminId) return { success: false, message: 'Unauthorized' };
 
   try {
-    // This calls the internal API route or the processor directly
-    // For simplicity, we trigger the API route we created
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const cookieStore = await cookies();
-    const token = cookieStore.get('token')?.value;
-    const res = await fetch(`${baseUrl}/api/admin/employees/sync`, { 
-      method: 'POST',
-      headers: {
-        'Cookie': `token=${token}` 
-      }
-    });
-    return await res.json();
+    const { syncEmployeesFromExternal } = await import('@repo/database');
+    const result = await syncEmployeesFromExternal();
+    return { 
+      success: true, 
+      message: 'Sync completed successfully',
+      added: result.added,
+      updated: result.updated,
+      deactivated: result.deactivated,
+    };
   } catch (error) {
     console.error('Sync Action Error:', error);
-    return { success: false, message: 'Failed to trigger sync' };
+    return { success: false, message: 'Failed to sync employees' };
   }
 }

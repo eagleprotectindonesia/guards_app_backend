@@ -1,31 +1,30 @@
 'use client';
 
 import { Serialized } from '@/lib/utils';
-import { createEmployee, updateEmployee } from '../actions';
+import { updateEmployee } from '../actions';
 import { ActionState } from '@/types/actions';
-import { CreateEmployeeInput, createEmployeeSchema, updateEmployeeSchema } from '@/lib/validations';
+import { updateEmployeeSchema, UpdateEmployeeInput } from '@/lib/validations';
 import { startTransition, useActionState, useEffect, useRef } from 'react';
 import { useForm, Controller, Resolver, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import { EmployeeWithRelations } from '@repo/database';
 import { useRouter } from 'next/navigation';
-import { PasswordInput } from '@/components/ui/password-input';
 import PhoneInput from '@/components/ui/phone-input';
 import { E164Number } from 'libphonenumber-js';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EmployeeRole } from '@prisma/client';
 
 type Props = {
-  employee?: Serialized<EmployeeWithRelations>; // If provided, it's an edit form
+  employee: Serialized<EmployeeWithRelations>;
 };
 
 export default function EmployeeForm({ employee }: Props) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
-  const [state, formAction, isPending] = useActionState<ActionState<CreateEmployeeInput>, FormData>(
-    employee ? updateEmployee.bind(null, employee.id) : createEmployee,
+  const [state, formAction, isPending] = useActionState<ActionState<UpdateEmployeeInput>, FormData>(
+    updateEmployee.bind(null, employee.id),
     { success: false }
   );
 
@@ -36,27 +35,26 @@ export default function EmployeeForm({ employee }: Props) {
     clearErrors,
     trigger,
     formState: { errors },
-  } = useForm<CreateEmployeeInput>({
-    resolver: zodResolver(employee ? updateEmployeeSchema : createEmployeeSchema) as Resolver<CreateEmployeeInput>,
+  } = useForm<UpdateEmployeeInput>({
+    resolver: zodResolver(updateEmployeeSchema) as Resolver<UpdateEmployeeInput>,
     defaultValues: {
-      fullName: employee?.fullName || '',
-      nickname: employee?.nickname || '',
-      phone: (employee?.phone as string) || '',
-      id: employee?.id || '',
-      employeeNumber: employee?.employeeNumber || '',
-      personnelId: employee?.personnelId || '',
-      jobTitle: employee?.jobTitle || '',
-      department: employee?.department || '',
-      role: (employee?.role as EmployeeRole) || undefined,
-      status: employee?.status ?? true,
-      note: employee?.note || '',
-      password: employee ? undefined : '123456',
+      fullName: employee.fullName || '',
+      nickname: employee.nickname || '',
+      phone: (employee.phone as string) || '',
+      id: employee.id || '',
+      employeeNumber: employee.employeeNumber || '',
+      personnelId: employee.personnelId || '',
+      jobTitle: employee.jobTitle || '',
+      department: employee.department || '',
+      role: (employee.role as EmployeeRole) || undefined,
+      status: employee.status ?? true,
+      note: employee.note || '',
     },
   });
 
   useEffect(() => {
     if (state.success) {
-      toast.success(state.message || (employee ? 'Employee updated successfully!' : 'Employee created successfully!'));
+      toast.success(state.message || 'Employee updated successfully!');
       router.push('/admin/employees');
     } else if (state.message && !state.success) {
       toast.error(state.message);
@@ -65,7 +63,7 @@ export default function EmployeeForm({ employee }: Props) {
     if (state.errors) {
       Object.entries(state.errors).forEach(([key, value]) => {
         if (Array.isArray(value) && value.length > 0) {
-          setError(key as Path<CreateEmployeeInput>, { type: 'server', message: value[0] });
+          setError(key as Path<UpdateEmployeeInput>, { type: 'server', message: value[0] });
         }
       });
     }
@@ -92,7 +90,7 @@ export default function EmployeeForm({ employee }: Props) {
 
   return (
     <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-foreground mb-6">{employee ? 'Edit Employee' : 'Add New Employee'}</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-6">Edit Employee</h1>
       <form
         ref={formRef}
         onSubmit={e => {
@@ -154,7 +152,7 @@ export default function EmployeeForm({ employee }: Props) {
             {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
           </div>
 
-          {/* System ID Field (Read-only if editing) */}
+          {/* System ID Field (Read-only) */}
           <div>
             <label htmlFor="id" className="block font-medium text-foreground mb-1">
               System ID (Unique) <span className="text-red-500">*</span>
@@ -163,10 +161,8 @@ export default function EmployeeForm({ employee }: Props) {
               {...register('id')}
               type="text"
               id="id"
-              readOnly={!!employee}
-              className={`w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all ${
-                employee ? 'bg-muted text-muted-foreground cursor-not-allowed' : ''
-              }`}
+              readOnly
+              className="w-full h-10 px-3 rounded-lg border border-border bg-muted text-muted-foreground cursor-not-allowed outline-none transition-all"
               placeholder="e.g. ADM001"
             />
             {errors.id && <p className="text-red-500 text-xs mt-1">{errors.id.message}</p>}
@@ -287,23 +283,6 @@ export default function EmployeeForm({ employee }: Props) {
             />
           </div>
 
-          {/* Password Field - Only show for creation, not editing */}
-          {!employee && (
-            <div className="md:col-span-2">
-              <label htmlFor="password" className="block font-medium text-foreground mb-1">
-                Password <span className="text-red-500">*</span>
-              </label>
-              <PasswordInput
-                {...register('password')}
-                id="password"
-                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
-                placeholder="Enter password (at least 6 characters)"
-                autoComplete="new-password"
-              />
-              {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
-            </div>
-          )}
-
           {/* Note Field */}
           <div className="md:col-span-2">
             <label htmlFor="note" className="block font-medium text-foreground mb-1">
@@ -340,7 +319,7 @@ export default function EmployeeForm({ employee }: Props) {
             disabled={isPending}
             className="px-6 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/20"
           >
-            {isPending ? 'Saving...' : employee ? 'Save Changes' : 'Create Employee'}
+            {isPending ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </form>

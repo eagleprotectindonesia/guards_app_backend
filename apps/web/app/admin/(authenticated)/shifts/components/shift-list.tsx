@@ -281,12 +281,7 @@ export default function ShiftList({
                       <td className="py-4 px-6 text-sm text-muted-foreground">{shift.shiftType.name}</td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">
                         {shift.employee ? (
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-bold border border-border">
-                              {shift.employee.fullName.toUpperCase()}
-                            </div>
-                            {shift.employee.fullName}
-                          </div>
+                          <div className="flex items-center gap-2">{shift.employee.fullName}</div>
                         ) : (
                           <span className="text-muted-foreground/40 italic">Unassigned</span>
                         )}

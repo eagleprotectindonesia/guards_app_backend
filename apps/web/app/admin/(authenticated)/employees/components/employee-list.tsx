@@ -13,6 +13,7 @@ import SortableHeader from '@/components/sortable-header';
 import Search from '../../components/search';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { syncEmployeesAction } from '../actions';
 
 type EmployeeListProps = {
   employees: Serialized<EmployeeWithRelations>[];
@@ -55,18 +56,17 @@ export default function EmployeeList({
   const handleSync = async () => {
     startTransition(async () => {
       try {
-        const res = await fetch('/api/admin/employees/sync', { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
+        const result = await syncEmployeesAction();
+        if (result.success) {
           toast.success(
-            `Sync successful! Added: ${data.added}, Updated: ${data.updated}, Deactivated: ${data.deactivated}`
+            `Sync successful! Added: ${result.added}, Updated: ${result.updated}, Deactivated: ${result.deactivated}`
           );
           router.refresh();
         } else {
-          toast.error(data.error || 'Failed to sync employees.');
+          toast.error(result.message || 'Failed to sync employees.');
         }
-      } catch (err) {
-        toast.error('Sync failed at network level.');
+      } catch {
+        toast.error('Sync failed.');
       }
     });
   };
@@ -108,7 +108,7 @@ export default function EmployeeList({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch (error) {
+    } catch {
       toast.error('Failed to export CSV.');
     }
   };

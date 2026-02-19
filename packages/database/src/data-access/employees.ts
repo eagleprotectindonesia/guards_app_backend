@@ -2,6 +2,8 @@ import { db as prisma, EmployeeSummary } from '../client';
 import { redis } from '../redis';
 import { EmployeeRole, Prisma } from '@prisma/client';
 import { deleteFutureShiftsByEmployee } from './shifts';
+import { fetchExternalEmployees } from '../external-employee-api';
+import { hashPassword } from '@repo/shared';
 
 export async function getAllEmployees(
   orderBy: Prisma.EmployeeOrderByWithRelationInput = { createdAt: 'desc' },
@@ -82,7 +84,7 @@ export async function getPaginatedEmployees(params: {
 
 /**
  * Upsert an employee from external API data.
- * Does NOT overwrite hashedPassword, tokenVersion, or phone if they already exist, 
+ * Does NOT overwrite hashedPassword, tokenVersion, or phone if they already exist,
  * unless specifically intended (phone comes from external too).
  */
 export async function upsertEmployeeFromExternal(data: {
@@ -159,15 +161,20 @@ export async function deactivateEmployeesNotIn(activeIds: string[]) {
     // 3. Cleanup future shifts and notify sessions
     for (const employee of toDeactivate) {
       await deleteFutureShiftsByEmployee(employee.id, 'SYSTEM_SYNC', tx);
-      
+
       try {
         const newTokenVersion = (employee.tokenVersion + 1).toString();
         await Promise.all([
           redis.xadd(
             `employee:stream:${employee.id}`,
-            'MAXLEN', '~', 100, '*',
-            'type', 'session_revoked',
-            'newTokenVersion', newTokenVersion
+            'MAXLEN',
+            '~',
+            100,
+            '*',
+            'type',
+            'session_revoked',
+            'newTokenVersion',
+            newTokenVersion
           ),
           redis.set(`employee:${employee.id}:token_version`, newTokenVersion, 'EX', 3600),
         ]);
@@ -177,12 +184,6 @@ export async function deactivateEmployeesNotIn(activeIds: string[]) {
     }
 
     return { deactivatedCount: idsToDeactivate.length };
-  });
-}
-
-export async function createEmployee(data: Prisma.EmployeeCreateInput) {
-  return prisma.employee.create({
-    data,
   });
 }
 
@@ -196,7 +197,7 @@ export async function updateEmployee(id: string, data: Prisma.EmployeeUpdateInpu
 export async function deleteEmployee(id: string) {
   return prisma.employee.update({
     where: { id },
-    data: { 
+    data: {
       deletedAt: new Date(),
       status: false,
     },
@@ -221,4 +222,78 @@ export async function updateEmployeePasswordWithChangelog(id: string, password: 
       },
     });
   });
+}
+
+/**
+ * Sync employees from external API.
+ * Returns counts of added, updated, and deactivated employees.
+ */
+export async function syncEmployeesFromExternal() {
+  // 1. Fetch from external API
+  const externalEmployees = await fetchExternalEmployees();
+  console.log(`[SyncEmployees] Fetched ${externalEmployees.length} employees from external API`);
+
+  const externalIds = externalEmployees.map(e => e.id);
+
+  // 2. Fetch existing employees to avoid unnecessary hashing
+  const existingEmployees = await prisma.employee.findMany({
+    where: { id: { in: externalIds } },
+    select: { id: true },
+  });
+  const existingIds = new Set(existingEmployees.map(e => e.id));
+
+  let addedCount = 0;
+  let updatedCount = 0;
+
+  for (const ext of externalEmployees) {
+    // Role mapping: office_id != null -> office, office_id == null -> on_site
+    const role: EmployeeRole = ext.office_id ? 'office' : 'on_site';
+
+    if (!existingIds.has(ext.id)) {
+      // New employee: use personnel_id as default password
+      const defaultPassword = ext.personnel_id || '123456';
+      const hashedPassword = await hashPassword(defaultPassword);
+
+      await upsertEmployeeFromExternal({
+        id: ext.id,
+        employeeNumber: ext.employee_number,
+        personnelId: ext.personnel_id,
+        nickname: ext.nickname,
+        fullName: ext.full_name,
+        jobTitle: ext.job_title,
+        department: ext.department,
+        phone: '',
+        password: hashedPassword,
+        role,
+      });
+      addedCount++;
+    } else {
+      // Existing employee: only update profile fields
+      await upsertEmployeeFromExternal({
+        id: ext.id,
+        employeeNumber: ext.employee_number,
+        personnelId: ext.personnel_id,
+        nickname: ext.nickname,
+        fullName: ext.full_name,
+        jobTitle: ext.job_title,
+        department: ext.department,
+        role,
+        phone: '',
+      });
+      updatedCount++;
+    }
+  }
+
+  // 3. Deactivate those not in external list
+  const { deactivatedCount } = await deactivateEmployeesNotIn(externalIds);
+
+  console.log(
+    `[SyncEmployees] Sync completed: ${addedCount} added, ${updatedCount} updated, ${deactivatedCount} deactivated`
+  );
+
+  return {
+    added: addedCount,
+    updated: updatedCount,
+    deactivated: deactivatedCount,
+  };
 }
