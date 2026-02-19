@@ -142,6 +142,8 @@ model Employee {
   checkins        Checkin[]
   shifts          Shift[]
   attendances     Attendance[]
+  officeId        String?      @map("office_id")
+  office          Office?      @relation(fields: [officeId], references: [id])
   officeAttendances OfficeAttendance[]
   chatMessages    ChatMessage[]
   refreshTokens   RefreshToken[]
@@ -192,6 +194,7 @@ model Office {
   deletedAt       DateTime? @map("deleted_at")
   note            String?   @db.Text
   officeAttendances OfficeAttendance[]
+  employees       Employee[]
   lastUpdatedBy   Admin?    @relation("OfficeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
   createdBy       Admin?    @relation("OfficeCreatedBy", fields: [createdById], references: [id])
 

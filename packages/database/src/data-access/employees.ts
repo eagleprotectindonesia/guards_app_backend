@@ -3,7 +3,8 @@ import { redis } from '../redis';
 import { EmployeeRole, Prisma } from '@prisma/client';
 import { deleteFutureShiftsByEmployee, cancelInProgressShiftsForDeactivatedEmployee } from './shifts';
 import { hashPassword } from '@repo/shared';
-import { fetchExternalEmployees } from '../external-employee-api';
+import { fetchExternalEmployees, ExternalEmployee } from '../external-employee-api';
+import { syncOfficesFromExternalEmployees } from './offices';
 
 const LAST_EMPLOYEE_SYNC_KEY = 'employee:sync:last_timestamp';
 
@@ -97,6 +98,7 @@ export async function upsertEmployeeFromExternal(data: {
   department: string | null;
   role: EmployeeRole | null;
   phone: string;
+  officeId?: string | null;
   password?: string; // Hashed default password for new employees
 }) {
   return prisma.employee.upsert({
@@ -112,6 +114,7 @@ export async function upsertEmployeeFromExternal(data: {
       phone: data.phone,
       hashedPassword: data.password || '', // Should be provided for new employees
       role: data.role,
+      office: data.officeId ? { connect: { id: data.officeId } } : undefined,
       status: true,
     },
     update: {
@@ -123,6 +126,7 @@ export async function upsertEmployeeFromExternal(data: {
       department: data.department,
       phone: data.phone,
       role: data.role,
+      office: data.officeId ? { connect: { id: data.officeId } } : { disconnect: true },
       status: true, // Reactivate if it was deactivated but returned to external list
       deletedAt: null, // Restore if soft-deleted
     },
@@ -139,6 +143,7 @@ export const EMPLOYEE_TRACKED_FIELDS = [
   'role',
   'status',
   'phone',
+  'officeId',
 ] as const;
 
 /**
@@ -301,11 +306,15 @@ export async function updateEmployeePasswordWithChangelog(id: string, password: 
  * Returns counts of added, updated, and deactivated employees.
  */
 export async function syncEmployeesFromExternal(
-  actor: { type: 'admin' | 'system' | 'unknown'; id?: string } = { type: 'system' }
+  actor: { type: 'admin' | 'system' | 'unknown'; id?: string } = { type: 'system' },
+  employees?: ExternalEmployee[]
 ) {
-  // 1. Fetch from external API
-  const externalEmployees = await fetchExternalEmployees();
-  console.log(`[SyncEmployees] Fetched ${externalEmployees.length} employees from external API`);
+  // 1. Fetch from external API if not provided
+  const externalEmployees = employees || (await fetchExternalEmployees());
+  console.log(`[SyncEmployees] Processing ${externalEmployees.length} employees from external source`);
+
+  // 2. Sync offices first (single source of truth for both)
+  await syncOfficesFromExternalEmployees(externalEmployees);
 
   const externalIds = externalEmployees.map(e => e.id);
 
@@ -341,6 +350,7 @@ export async function syncEmployeesFromExternal(
             phone: '',
             hashedPassword: hashedPassword,
             role,
+            office: ext.office_id ? { connect: { id: ext.office_id } } : undefined,
             status: true,
           },
         });
@@ -359,6 +369,7 @@ export async function syncEmployeesFromExternal(
               jobTitle: newEmployee.jobTitle,
               department: newEmployee.department,
               role: newEmployee.role,
+              officeId: newEmployee.officeId,
               status: newEmployee.status,
             },
           },
@@ -394,6 +405,12 @@ export async function syncEmployeesFromExternal(
         changes.role = { from: existing.role, to: role };
       }
 
+      // Special handling for office
+      if (existing.officeId !== ext.office_id) {
+        updateData.office = ext.office_id ? { connect: { id: ext.office_id } } : { disconnect: true };
+        changes.officeId = { from: existing.officeId, to: ext.office_id };
+      }
+
       // Reactivate if deactivated
       if (existing.status === false) {
         updateData.status = true;
@@ -422,6 +439,7 @@ export async function syncEmployeesFromExternal(
                 jobTitle: updatedEmployee.jobTitle,
                 department: updatedEmployee.department,
                 role: updatedEmployee.role,
+                officeId: updatedEmployee.officeId,
                 status: updatedEmployee.status,
                 changes,
               },

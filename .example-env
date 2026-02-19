@@ -28,3 +28,9 @@ AWS_S3_BUCKET_NAME=""
 
 EXTERNAL_EMPLOYEE_ADDRESS=
 EXTERNAL_EMPLOYEE_API_KEY=
+
+# Internal API / Revalidation
+INTERNAL_REVALIDATE_SECRET="your_shared_revalidate_secret_here"
+# Use http://localhost:3000 for local dev
+# Use http://app:3000 for production (Docker service name)
+WEB_APP_URL="http://localhost:3000"

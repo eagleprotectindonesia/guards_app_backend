@@ -34,14 +34,8 @@ ALTER TABLE "employees" DROP CONSTRAINT "employees_designation_id_fkey";
 -- DropForeignKey
 ALTER TABLE "employees" DROP CONSTRAINT "employees_last_updated_by_id_fkey";
 
--- DropForeignKey
-ALTER TABLE "employees" DROP CONSTRAINT "employees_office_id_fkey";
-
 -- DropIndex
 DROP INDEX "employees_employee_code_idx";
-
--- DropIndex
-DROP INDEX "employees_office_id_idx";
 
 -- AlterTable
 ALTER TABLE "employees" DROP COLUMN "created_by_id",
@@ -54,7 +48,6 @@ DROP COLUMN "join_date",
 DROP COLUMN "last_name",
 DROP COLUMN "last_updated_by_id",
 DROP COLUMN "left_date",
-DROP COLUMN "office_id",
 DROP COLUMN "title",
 ADD COLUMN     "department" TEXT,
 ADD COLUMN     "employee_number" TEXT,

@@ -165,16 +165,14 @@ export const updateDesignationSchema = createDesignationSchema;
 export const updateSettingsSchema = z.record(z.string(), z.string());
 
 // --- Office ---
-export const createOfficeSchema = z.object({
-  name: z.string().min(1),
+// Note: Offices are managed by the external employee sync. Admins may only edit
+// location/supplementary details not provided by the external system.
+export const updateOfficeSchema = z.object({
   address: z.string().optional(),
-  latitude: z.number(),
-  longitude: z.number(),
-  status: z.boolean().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
   note: z.string().optional(),
 });
-
-export const updateOfficeSchema = createOfficeSchema;
 
 // --- Office Attendance ---
 export const createOfficeAttendanceSchema = z.object({
@@ -230,7 +228,6 @@ export type UpdateDepartmentInput = CreateDepartmentInput;
 export type CreateDesignationInput = z.infer<typeof createDesignationSchema>;
 export type UpdateDesignationInput = CreateDesignationInput;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
-export type CreateOfficeInput = z.infer<typeof createOfficeSchema>;
 export type UpdateOfficeInput = z.infer<typeof updateOfficeSchema>;
 
 export type ReportAlertInput = z.infer<typeof reportAlertSchema>;
