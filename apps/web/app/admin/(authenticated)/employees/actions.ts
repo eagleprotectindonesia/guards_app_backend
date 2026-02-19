@@ -16,7 +16,8 @@ import { revalidatePath } from 'next/cache';
 import { EmployeeWithRelations } from '@repo/database';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { ActionState } from '@/types/actions';
-import { syncEmployeesFromExternal } from '@repo/database';
+import { EMPLOYEE_SYNC_JOB_NAME } from '@repo/shared';
+import { employeeSyncQueue } from '@/lib/queues';
 
 revalidatePath('/admin/employees');
 
@@ -110,16 +111,13 @@ export async function syncEmployeesAction() {
   if (!adminId) return { success: false, message: 'Unauthorized' };
 
   try {
-    const result = await syncEmployeesFromExternal({ type: 'system', id: adminId });
+    await employeeSyncQueue.add(EMPLOYEE_SYNC_JOB_NAME, { triggeredBy: adminId });
     return {
       success: true,
-      message: 'Sync completed successfully',
-      added: result.added,
-      updated: result.updated,
-      deactivated: result.deactivated,
+      message: 'Sync queued. The employee list will update shortly.',
     };
   } catch (error) {
     console.error('Sync Action Error:', error);
-    return { success: false, message: 'Failed to sync employees' };
+    return { success: false, message: 'Failed to queue sync' };
   }
 }

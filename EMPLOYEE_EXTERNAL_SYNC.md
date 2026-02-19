@@ -50,17 +50,13 @@ export async function syncEmployeesAction() {
   const adminId = await getAdminIdFromToken();
   if (!adminId) return { success: false, message: 'Unauthorized' };
 
-  // 2. Call the shared sync function
-  const { syncEmployeesFromExternal } = await import('@repo/database');
-  const result = await syncEmployeesFromExternal();
+  // 2. Enqueue the sync job
+  await employeeSyncQueue.add(EMPLOYEE_SYNC_JOB_NAME, { triggeredBy: adminId });
 
-  // 3. Return sync statistics
+  // 3. Return immediate success (Job is async)
   return {
     success: true,
-    message: 'Sync completed successfully',
-    added: result.added,
-    updated: result.updated,
-    deactivated: result.deactivated,
+    message: 'Sync queued. The employee list will update shortly.',
   };
 }
 ```
@@ -220,9 +216,8 @@ Content-Type: application/json
 ```json
 {
   "success": true,
-  "added": 5,
-  "updated": 120,
-  "deactivated": 2
+  "jobId": "123",
+  "message": "Sync queued. Results will appear shortly."
 }
 ```
 
@@ -250,8 +245,9 @@ The sync process outputs console logs for monitoring:
 
 1. Navigate to `/admin/employees`
 2. Click the **"Sync Employees"** button
-3. Verify toast notification shows sync statistics
-4. Check employee list for updates
+3. Verify toast notification shows "Sync queued"
+4. Check **Worker Logs** to see sync processing
+5. Refresh employee list after a few seconds
 
 ### Programmatic Test
 

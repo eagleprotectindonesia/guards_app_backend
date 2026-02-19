@@ -1,15 +1,15 @@
 import { NextResponse } from 'next/server';
-import { syncEmployeesFromExternal } from '@repo/database';
+import { EMPLOYEE_SYNC_JOB_NAME } from '@repo/shared';
+import { employeeSyncQueue } from '@/lib/queues';
 
 export async function POST() {
   try {
     console.log('[ManualSync] Starting manual employee sync...');
-    const result = await syncEmployeesFromExternal({ type: 'system' });
+    const job = await employeeSyncQueue.add(EMPLOYEE_SYNC_JOB_NAME, { triggeredBy: 'api' });
     return NextResponse.json({
       success: true,
-      added: result.added,
-      updated: result.updated,
-      deactivated: result.deactivated,
+      jobId: job.id,
+      message: 'Sync queued. Results will appear shortly.',
     });
   } catch (error) {
     console.error('[ManualSync] Failed:', error);

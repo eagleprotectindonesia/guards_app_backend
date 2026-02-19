@@ -62,9 +62,7 @@ export default function EmployeeList({
       try {
         const result = await syncEmployeesAction();
         if (result.success) {
-          toast.success(
-            `Sync successful! Added: ${result.added}, Updated: ${result.updated}, Deactivated: ${result.deactivated}`
-          );
+          toast.success(result.message || 'Sync queued. The employee list will update shortly.');
           router.refresh();
         } else {
           toast.error(result.message || 'Failed to sync employees.');
