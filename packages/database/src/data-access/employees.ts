@@ -1,9 +1,15 @@
 import { db as prisma, EmployeeSummary } from '../client';
 import { redis } from '../redis';
 import { EmployeeRole, Prisma } from '@prisma/client';
-import { deleteFutureShiftsByEmployee } from './shifts';
-import { fetchExternalEmployees } from '../external-employee-api';
+import { deleteFutureShiftsByEmployee, cancelInProgressShiftsForDeactivatedEmployee } from './shifts';
 import { hashPassword } from '@repo/shared';
+import { fetchExternalEmployees } from '../external-employee-api';
+
+const LAST_EMPLOYEE_SYNC_KEY = 'employee:sync:last_timestamp';
+
+export async function getLastEmployeeSyncTimestamp(): Promise<string | null> {
+  return redis.get(LAST_EMPLOYEE_SYNC_KEY);
+}
 
 export async function getAllEmployees(
   orderBy: Prisma.EmployeeOrderByWithRelationInput = { createdAt: 'desc' },
@@ -45,12 +51,6 @@ export async function getActiveEmployeesSummary(role?: EmployeeRole): Promise<Em
 export async function getEmployeeById(id: string) {
   return prisma.employee.findUnique({
     where: { id, deletedAt: null },
-  });
-}
-
-export async function findEmployeeByPhone(phone: string) {
-  return prisma.employee.findUnique({
-    where: { phone, deletedAt: null },
   });
 }
 
@@ -132,6 +132,11 @@ export async function upsertEmployeeFromExternal(data: {
 /**
  * Deactivates employees not present in the provided list of IDs.
  * Used at the end of a sync process.
+ *
+ * For each deactivated employee:
+ * - Future shifts are soft-deleted
+ * - In-progress shifts are cancelled
+ * - All active alerts are resolved
  */
 export async function deactivateEmployeesNotIn(activeIds: string[]) {
   return prisma.$transaction(async tx => {
@@ -158,10 +163,31 @@ export async function deactivateEmployeesNotIn(activeIds: string[]) {
       },
     });
 
-    // 3. Cleanup future shifts and notify sessions
+    // 3. Process each deactivated employee
     for (const employee of toDeactivate) {
-      await deleteFutureShiftsByEmployee(employee.id, 'SYSTEM_SYNC', tx);
+      // 3a. Delete future shifts
+      await deleteFutureShiftsByEmployee(employee.id, tx);
 
+      // 3b. Cancel in-progress shifts (this also resolves alerts for those shifts)
+      await cancelInProgressShiftsForDeactivatedEmployee(employee.id, tx);
+
+      // 3c. Resolve any remaining open alerts (for completed/other shifts)
+      const now = new Date();
+      const remainingAlertsResult = await tx.alert.updateMany({
+        where: {
+          shift: {
+            employeeId: employee.id,
+          },
+          resolvedAt: null,
+        },
+        data: {
+          resolvedAt: now,
+          resolutionType: 'auto',
+          resolutionNote: 'Auto-resolved: Employee deactivated.',
+        },
+      });
+
+      // 3d. Notify employee session revocation via Redis stream
       try {
         const newTokenVersion = (employee.tokenVersion + 1).toString();
         await Promise.all([
@@ -246,8 +272,8 @@ export async function syncEmployeesFromExternal() {
   let updatedCount = 0;
 
   for (const ext of externalEmployees) {
-    // Role mapping: office_id != null -> office, office_id == null -> on_site
-    const role: EmployeeRole = ext.office_id ? 'office' : 'on_site';
+    const isSecurityDepartment = ext.department?.toLowerCase().includes('security') ?? false;
+    const role: EmployeeRole = isSecurityDepartment && !ext.office_id ? 'on_site' : 'office';
 
     if (!existingIds.has(ext.id)) {
       // New employee: use personnel_id as default password
@@ -290,6 +316,13 @@ export async function syncEmployeesFromExternal() {
   console.log(
     `[SyncEmployees] Sync completed: ${addedCount} added, ${updatedCount} updated, ${deactivatedCount} deactivated`
   );
+
+  // 4. Update last sync timestamp in Redis
+  try {
+    await redis.set(LAST_EMPLOYEE_SYNC_KEY, new Date().toISOString());
+  } catch (err) {
+    console.error('[SyncEmployees] Failed to update last sync timestamp:', err);
+  }
 
   return {
     added: addedCount,

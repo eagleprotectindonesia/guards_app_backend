@@ -3,7 +3,7 @@ import EmployeeList from './components/employee-list';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
-import { getPaginatedEmployees } from '@/lib/data-access/employees';
+import { getPaginatedEmployees, getLastEmployeeSyncTimestamp } from '@/lib/data-access/employees';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
@@ -56,6 +56,8 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
     take: perPage,
   });
 
+  const lastSyncTimestamp = await getLastEmployeeSyncTimestamp();
+
   const serializedEmployees = serialize(employees);
 
   return (
@@ -68,6 +70,7 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
           totalCount={totalCount}
           sortBy={sortField}
           sortOrder={sortOrder}
+          lastSyncTimestamp={lastSyncTimestamp}
         />
       </Suspense>
     </div>

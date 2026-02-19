@@ -62,7 +62,8 @@ ADD COLUMN     "full_name" TEXT NOT NULL,
 ADD COLUMN     "job_title" TEXT,
 ADD COLUMN     "nickname" TEXT,
 ADD COLUMN     "password" TEXT NOT NULL,
-ADD COLUMN     "personnel_id" TEXT;
+ADD COLUMN     "personnel_id" TEXT,
+ALTER COLUMN "phone" DROP NOT NULL;
 
 -- DropTable
 DROP TABLE "departments";
@@ -72,6 +73,10 @@ DROP TABLE "designations";
 
 -- DropEnum
 DROP TYPE "EmployeeTitle";
+
+-- DropIndex
+DROP INDEX "employees_phone_key";
+
 
 -- CreateIndex
 CREATE INDEX "employees_employee_number_idx" ON "employees"("employee_number");

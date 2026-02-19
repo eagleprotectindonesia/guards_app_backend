@@ -346,14 +346,13 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
  * Soft deletes all future shifts for an employee.
  * Used when an employee's role changes from on_site to office.
  */
-export async function deleteFutureShiftsByEmployee(employeeId: string, adminId: string, tx: any) {
+export async function deleteFutureShiftsByEmployee(employeeId: string, tx: any) {
   const now = new Date();
 
   // Find future shifts to log them (optional but good for history)
   const futureShifts: { id: string }[] = await tx.shift.findMany({
     where: {
       employeeId,
-      startsAt: { gt: now },
       deletedAt: null,
     },
     select: { id: true },
@@ -369,7 +368,6 @@ export async function deleteFutureShiftsByEmployee(employeeId: string, adminId: 
     },
     data: {
       deletedAt: now,
-      lastUpdatedById: adminId,
     },
   });
 
@@ -379,8 +377,7 @@ export async function deleteFutureShiftsByEmployee(employeeId: string, adminId: 
       action: 'BULK_DELETE',
       entityType: 'Shift',
       entityId: `employee:${employeeId}`,
-      actor: 'admin',
-      actorId: adminId,
+      actor: 'system',
       details: {
         reason: 'ROLE_CHANGE_TO_OFFICE',
         count: shiftIds.length,
@@ -401,78 +398,6 @@ export async function deleteFutureShiftsByEmployee(employeeId: string, adminId: 
     'reason',
     'role_change'
   );
-
-  return shiftIds.length;
-}
-
-/**
- * Soft deletes all future shifts for all employees of a designation.
- * Used when a designation's role changes from on_site to office.
- */
-export async function deleteFutureShiftsByDesignation(designationId: string, adminId: string, tx: any) {
-  const now = new Date();
-
-  const futureShifts: { id: string; employeeId: string | null }[] = await tx.shift.findMany({
-    where: {
-      employee: {
-        designationId,
-      },
-      startsAt: { gt: now },
-      deletedAt: null,
-    },
-    select: { id: true, employeeId: true },
-  });
-
-  if (futureShifts.length === 0) return 0;
-
-  const shiftIds = futureShifts.map((s: { id: string }) => s.id);
-  const employeeIds = Array.from(
-    new Set(
-      futureShifts
-        .map((s: { employeeId: string | null }) => s.employeeId)
-        .filter((id: string | null): id is string => !!id)
-    )
-  );
-
-  await tx.shift.updateMany({
-    where: {
-      id: { in: shiftIds },
-    },
-    data: {
-      deletedAt: now,
-      lastUpdatedById: adminId,
-    },
-  });
-
-  await tx.changelog.create({
-    data: {
-      action: 'BULK_DELETE',
-      entityType: 'Shift',
-      entityId: `designation:${designationId}`,
-      actor: 'admin',
-      actorId: adminId,
-      details: {
-        reason: 'DESIGNATION_ROLE_CHANGE_TO_OFFICE',
-        count: shiftIds.length,
-        shiftIds,
-      },
-    },
-  });
-
-  // Notify all affected employees
-  for (const employeeId of employeeIds) {
-    await redis.xadd(
-      `employee:stream:${employeeId}`,
-      'MAXLEN',
-      '~',
-      100,
-      '*',
-      'type',
-      'shifts_deleted',
-      'reason',
-      'role_change'
-    );
-  }
 
   return shiftIds.length;
 }
@@ -611,8 +536,7 @@ export async function markOverdueScheduledShiftsAsMissed(now: Date, batchSize = 
         data: {
           resolvedAt: now,
           resolutionType: 'auto',
-          resolutionNote:
-            'Auto-resolved: shift ended without attendance/check-in (status moved to missed)',
+          resolutionNote: 'Auto-resolved: shift ended without attendance/check-in (status moved to missed)',
         },
         include: {
           site: true,
@@ -780,4 +704,72 @@ export async function recordHeartbeat(params: { shiftId: string; employeeId: str
 
     return { updatedShift, resolvedAlerts };
   });
+}
+
+/**
+ * Cancels all in-progress shifts for a deactivated employee.
+ * Also resolves all open alerts for those shifts.
+ */
+export async function cancelInProgressShiftsForDeactivatedEmployee(employeeId: string, tx: any) {
+  const now = new Date();
+
+  // Find in-progress shifts for this employee
+  const inProgressShifts = await tx.shift.findMany({
+    where: {
+      employeeId,
+      status: 'in_progress',
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+
+  if (inProgressShifts.length === 0) return { cancelledCount: 0, resolvedAlertsCount: 0 };
+
+  const shiftIds = inProgressShifts.map((s: { id: string }) => s.id);
+
+  // Cancel the shifts
+  await tx.shift.updateMany({
+    where: {
+      id: { in: shiftIds },
+    },
+    data: {
+      status: 'cancelled',
+      deletedAt: now,
+    },
+  });
+
+  // Resolve all open alerts for these shifts
+  const resolvedAlertsResult = await tx.alert.updateMany({
+    where: {
+      shiftId: { in: shiftIds },
+      resolvedAt: null,
+    },
+    data: {
+      resolvedAt: now,
+      resolutionType: 'auto',
+      resolutionNote: 'Auto-resolved: Employee deactivated, shift cancelled.',
+    },
+  });
+
+  // Log in changelog
+  await tx.changelog.create({
+    data: {
+      action: 'BULK_CANCEL',
+      entityType: 'Shift',
+      entityId: `employee:${employeeId}`,
+      actor: 'system',
+      actorId: null,
+      details: {
+        reason: 'EMPLOYEE_DEACTIVATED',
+        count: shiftIds.length,
+        shiftIds,
+        resolvedAlertsCount: resolvedAlertsResult.count,
+      },
+    },
+  });
+
+  return {
+    cancelledCount: shiftIds.length,
+    resolvedAlertsCount: resolvedAlertsResult.count,
+  };
 }

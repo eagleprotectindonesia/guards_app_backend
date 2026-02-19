@@ -14,6 +14,8 @@ import Search from '../../components/search';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { syncEmployeesAction } from '../actions';
+import { format } from 'date-fns';
+import { enUS } from 'date-fns/locale';
 
 type EmployeeListProps = {
   employees: Serialized<EmployeeWithRelations>[];
@@ -22,6 +24,7 @@ type EmployeeListProps = {
   totalCount: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
+  lastSyncTimestamp?: string | null;
 };
 
 export default function EmployeeList({
@@ -31,6 +34,7 @@ export default function EmployeeList({
   totalCount,
   sortBy = 'fullName',
   sortOrder = 'asc',
+  lastSyncTimestamp,
 }: EmployeeListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -94,7 +98,6 @@ export default function EmployeeList({
             `"${e.nickname || ''}"`,
             `"${e.jobTitle || ''}"`,
             `"${e.department || ''}"`,
-            `"${e.phone.split('#')[0]}"`,
             e.status ? 'Active' : 'Inactive',
           ].join(',')
         ),
@@ -118,7 +121,14 @@ export default function EmployeeList({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Employees</h1>
-          <p className="text-sm text-muted-foreground mt-1">Managed via external sync.</p>
+          <div className="flex flex-col sm:flex-row sm:items-baseline gap-x-2 mt-1">
+            <p className="text-sm text-muted-foreground">Managed via external sync.</p>
+            {lastSyncTimestamp && (
+              <p className="text-xs text-muted-foreground italic">
+                Last synced at: {format(new Date(lastSyncTimestamp), 'PPP p', { locale: enUS })}
+              </p>
+            )}
+          </div>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
           <div className="w-full md:w-64">

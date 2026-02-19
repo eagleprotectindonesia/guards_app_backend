@@ -130,7 +130,7 @@ model Employee {
   fullName        String       @map("full_name")
   jobTitle        String?      @map("job_title")
   department      String?
-  phone           String       @unique
+  phone           String?      
   hashedPassword  String       @map("password")
   tokenVersion    Int          @default(0) @map("token_version")
   role            EmployeeRole?
