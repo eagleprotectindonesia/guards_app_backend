@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export default function AlertNotifications() {
-  const { isMuted, setIsMuted, alerts } = useAlerts();
+  const { isMuted, setIsMuted, alerts, isInitialized } = useAlerts();
   const pathname = usePathname();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -18,6 +18,7 @@ export default function AlertNotifications() {
     alert => !alert.acknowledgedAt && !alert.resolvedAt && alert.status !== 'need_attention'
   );
   const hasActiveAlerts = activeAlerts.length > 0;
+  const shouldPlaySound = isInitialized && hasActiveAlerts && !isMuted;
 
   // Audio Logic
   useEffect(() => {
@@ -37,19 +38,25 @@ export default function AlertNotifications() {
   useEffect(() => {
     const unlockAudio = () => {
       if (audioRef.current) {
-        const playPromise = audioRef.current.play();
+        const audio = audioRef.current;
+        if (!shouldPlaySound) {
+          audio.muted = true;
+        }
+
+        const playPromise = audio.play();
         if (playPromise !== undefined) {
           playPromise
             .then(() => {
-              if (!hasActiveAlerts || isMuted) {
-                audioRef.current?.pause();
-                if (audioRef.current) audioRef.current.currentTime = 0;
+              if (!shouldPlaySound) {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.muted = false;
               }
               document.removeEventListener('click', unlockAudio);
               document.removeEventListener('keydown', unlockAudio);
             })
             .catch(() => {
-              // Audio unlock failed
+              audio.muted = false;
             });
         }
       }
@@ -62,7 +69,7 @@ export default function AlertNotifications() {
       document.removeEventListener('click', unlockAudio);
       document.removeEventListener('keydown', unlockAudio);
     };
-  }, [hasActiveAlerts, isMuted]);
+  }, [shouldPlaySound]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -70,9 +77,7 @@ export default function AlertNotifications() {
 
     if (hasActiveAlerts && !isMuted) {
       if (audio.paused) {
-        audio.play().catch(() => {
-          // Autoplay prevented
-        });
+        audio.play().catch(() => {});
       }
     } else {
       if (!audio.paused) {

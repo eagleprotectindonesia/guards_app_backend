@@ -53,7 +53,8 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
 
   const handleDownloadExample = () => {
     // Create CSV content with headers only
-    const csvContent = 'Site Name,Shift Type Name,Date (YYYY-MM-DD),Employee Name,Required Check-in Interval (minutes),Grace Period (minutes)\n';
+    const csvContent =
+      'Site Name,Shift Type Name,Date (YYYY-MM-DD),Employee Name,Required Check-in Interval (minutes),Grace Period (minutes)\n';
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -82,7 +83,8 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
             </button>
           </div>
           <code className="text-xs bg-muted p-2 rounded block border border-border text-foreground">
-            Site Name, Shift Type Name, Date (YYYY-MM-DD), Employee Name, Required Check-in Interval (minutes), Grace Period (minutes)
+            Site Name, Shift Type Name, Date (YYYY-MM-DD), Employee Name, Required Check-in Interval (minutes), Grace
+            Period (minutes)
           </code>
         </div>
 

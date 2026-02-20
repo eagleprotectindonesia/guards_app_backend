@@ -33,7 +33,7 @@ export async function GET(req: Request) {
         _count: {
           id: true,
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { reason: 'asc' },
       }),
     ]);
 
@@ -51,10 +51,7 @@ export async function GET(req: Request) {
         counts.attendance += count;
       } else if (group.reason === 'missed_checkin') {
         counts.checkin += count;
-      } else if (
-        group.reason === 'geofence_breach' ||
-        group.reason === 'location_services_disabled'
-      ) {
+      } else if (group.reason === 'geofence_breach' || group.reason === 'location_services_disabled') {
         counts.security += count;
       }
     });

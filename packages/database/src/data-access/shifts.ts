@@ -101,7 +101,7 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
           details: {
             siteName: createdShift.site.name,
             typeName: createdShift.shiftType.name,
-            employeeName: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
+            employeeName: emp ? emp.fullName : 'Unassigned',
             date: createdShift.date,
             startsAt: createdShift.startsAt,
             endsAt: createdShift.endsAt,
@@ -303,7 +303,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
           details: {
             siteName: shiftToDelete.site.name,
             typeName: shiftToDelete.shiftType.name,
-            employeeName: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
+            employeeName: emp ? emp.fullName : 'Unassigned',
             date: shiftToDelete.date,
             startsAt: shiftToDelete.startsAt,
             endsAt: shiftToDelete.endsAt,
