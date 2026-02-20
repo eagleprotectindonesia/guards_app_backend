@@ -35,7 +35,7 @@
     "@types/cookie": "^0.6.0",
     "@types/swagger-ui-react": "^5.18.0",
     "@vis.gl/react-google-maps": "^1.7.1",
-    "better-auth": "^1.4.10",
+    "bullmq": "^5.66.4",
     "class-variance-authority": "^0.7.1",
     "cookie": "^0.7.2",
     "date-fns": "^4.1.0",
