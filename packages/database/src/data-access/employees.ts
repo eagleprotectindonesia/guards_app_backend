@@ -342,8 +342,8 @@ export async function syncEmployeesFromExternal(
     const existing = existingMap.get(ext.id);
 
     if (!existing) {
-      // New employee: use personnel_id as default password
-      const defaultPassword = ext.personnel_id || '123456';
+      // New employee: use default password
+      const defaultPassword = '12345678';
       const hashedPassword = await hashPassword(defaultPassword);
 
       await prisma.$transaction(async tx => {

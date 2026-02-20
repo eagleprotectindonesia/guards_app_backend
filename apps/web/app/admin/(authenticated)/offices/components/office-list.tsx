@@ -57,7 +57,7 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
             office.longitude !== null && office.longitude !== undefined ? office.longitude.toString() : '',
             office.status ? 'Active' : 'Inactive',
             `"${office.note ? office.note.replace(/"/g, '""') : ''}"`,
-            `"${office.createdBy?.name || ''}"`,
+            `"${office.createdBy?.name || 'System'}"`,
             `"${format(new Date(office.createdAt), 'yyyy/MM/dd HH:mm')}"`,
             `"${office.lastUpdatedBy?.name || ''}"`,
             `"${office.deletedAt ? format(new Date(office.deletedAt), 'yyyy/MM/dd HH:mm') : ''}"`,
