@@ -13,7 +13,7 @@ import SortableHeader from '@/components/sortable-header';
 import Search from '../../components/search';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { syncEmployeesAction } from '../actions';
+import { syncEmployeesAction, getAllEmployeesForExport } from '../actions';
 import { format } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 
@@ -74,8 +74,15 @@ export default function EmployeeList({
   };
 
   const handleExportCSV = async () => {
-    // Basic CSV export of current list
+    const toastId = toast.loading('Preparing export...');
     try {
+      const query = searchParams.get('q') || undefined;
+      const allEmployees = await getAllEmployeesForExport({
+        query,
+        sortBy,
+        sortOrder,
+      });
+
       const headers = [
         'Employee No',
         'Full Name',
@@ -85,11 +92,13 @@ export default function EmployeeList({
         'Department',
         'Office',
         'Phone',
+        'Role',
         'Status',
+        'Note',
       ];
       const csvContent = [
         headers.join(','),
-        ...employees.map(e =>
+        ...allEmployees.map((e: Serialized<EmployeeWithRelations>) =>
           [
             `"${e.employeeNumber || ''}"`,
             `"${e.fullName}"`,
@@ -98,7 +107,10 @@ export default function EmployeeList({
             `"${e.jobTitle || ''}"`,
             `"${e.department || ''}"`,
             `"${e.office?.name || ''}"`,
+            `"${e.phone || ''}"`,
+            `"${e.role === 'on_site' ? 'Onsite' : e.role === 'office' ? 'Office' : e.role || ''}"`,
             e.status ? 'Active' : 'Inactive',
+            `"${(e.note || '').replace(/"/g, '""')}"`,
           ].join(',')
         ),
       ].join('\n');
@@ -111,8 +123,10 @@ export default function EmployeeList({
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-    } catch {
-      toast.error('Failed to export CSV.');
+      toast.success('Export completed.', { id: toastId });
+    } catch (error) {
+      console.error('Export Error:', error);
+      toast.error('Failed to export CSV.', { id: toastId });
     }
   };
 

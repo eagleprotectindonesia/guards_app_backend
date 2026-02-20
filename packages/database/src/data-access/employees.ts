@@ -13,11 +13,18 @@ export async function getLastEmployeeSyncTimestamp(): Promise<string | null> {
 }
 
 export async function getAllEmployees(
-  orderBy: Prisma.EmployeeOrderByWithRelationInput = { createdAt: 'desc' },
-  includeDeleted = false
+  params: {
+    where?: Prisma.EmployeeWhereInput;
+    orderBy?: Prisma.EmployeeOrderByWithRelationInput;
+    includeDeleted?: boolean;
+  } = {}
 ) {
+  const { where = {}, orderBy = { createdAt: 'desc' }, includeDeleted = false } = params;
   return prisma.employee.findMany({
-    where: includeDeleted ? {} : { deletedAt: null },
+    where: {
+      ...where,
+      ...(includeDeleted ? {} : { deletedAt: null }),
+    },
     include: { office: { select: { name: true } } },
     orderBy,
   });

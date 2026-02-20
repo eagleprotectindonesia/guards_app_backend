@@ -1,5 +1,7 @@
 'use server';
 
+import { Prisma } from '@prisma/client';
+
 import {
   updateEmployee as updateEmployeeDb,
   getAllEmployees,
@@ -66,8 +68,37 @@ export async function updateEmployee(
   return { success: true, message: 'Employee updated successfully' };
 }
 
-export async function getAllEmployeesForExport(): Promise<Serialized<EmployeeWithRelations>[]> {
-  const employees = await getAllEmployees(undefined, true);
+export async function getAllEmployeesForExport(params: {
+  query?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}): Promise<Serialized<EmployeeWithRelations>[]> {
+  const { query, sortBy, sortOrder } = params;
+
+  // Build where clause to match the main employees page
+  const where: Prisma.EmployeeWhereInput = {};
+  if (query) {
+    where.OR = [
+      { fullName: { contains: query, mode: 'insensitive' } },
+      { id: { contains: query, mode: 'insensitive' } },
+      { employeeNumber: { contains: query, mode: 'insensitive' } },
+      { personnelId: { contains: query, mode: 'insensitive' } },
+      { nickname: { contains: query, mode: 'insensitive' } },
+      { jobTitle: { contains: query, mode: 'insensitive' } },
+      { department: { contains: query, mode: 'insensitive' } },
+    ];
+  }
+
+  // Handle sorting parameters
+  const validSortFields = ['fullName', 'employeeNumber', 'id', 'department', 'jobTitle'];
+  const sortField = validSortFields.includes(sortBy || '') ? sortBy : 'fullName';
+
+  const employees = await getAllEmployees({
+    where,
+    orderBy: { [sortField as string]: sortOrder || 'asc' },
+    includeDeleted: false, // Exporting active employees typically
+  });
+
   return serialize(employees);
 }
 

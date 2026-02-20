@@ -171,51 +171,6 @@ export async function updateOfficeWithChangelog(id: string, data: Prisma.OfficeU
   );
 }
 
-export async function deleteOfficeWithChangelog(id: string, adminId: string) {
-  return prisma.$transaction(
-    async tx => {
-      const officeToDelete = await tx.office.findUnique({
-        where: { id, deletedAt: null },
-        select: { name: true },
-      });
-
-      if (!officeToDelete) return;
-
-      await tx.office.update({
-        where: { id },
-        data: {
-          deletedAt: new Date(),
-          status: false,
-          lastUpdatedBy: { connect: { id: adminId } },
-        },
-      });
-
-      await tx.changelog.create({
-        data: {
-          action: 'DELETE',
-          entityType: 'Office',
-          entityId: id,
-          actor: 'admin',
-          actorId: adminId,
-          details: {
-            name: officeToDelete.name,
-            deletedAt: new Date(),
-          },
-        },
-      });
-    },
-    { timeout: 5000 }
-  );
-}
-
-export async function checkOfficeRelations(id: string) {
-  const attendance = await prisma.officeAttendance.findFirst({ where: { officeId: id } });
-
-  return {
-    hasAttendance: !!attendance,
-  };
-}
-
 /**
  * Sync offices from external employee data.
  * The external system is the source of truth for office id, name, and status.
@@ -285,6 +240,9 @@ export async function syncOfficesFromExternalEmployees(
         changes.name = { from: existing.name, to: officeName };
         updateData.name = officeName;
       }
+
+      // Record update timestamp for every touched record
+      updateData.updatedAt = new Date();
 
       // Reactivate if previously deactivated
       if (existing.status === false || existing.deletedAt !== null) {

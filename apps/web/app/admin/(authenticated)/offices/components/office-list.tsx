@@ -1,10 +1,9 @@
 'use client';
 
-import { useTransition } from 'react';
+import { getAllOfficesForExport } from '../actions';
+import { EditButton } from '../../components/action-buttons';
 import { Office } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
-import { deleteOffice, getAllOfficesForExport } from '../actions';
-import { EditButton, DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -27,28 +26,10 @@ type OfficeListProps = {
 };
 
 export default function OfficeList({ offices, page, perPage, totalCount }: OfficeListProps) {
-  const [isPending, startTransition] = useTransition();
   const { hasPermission } = useSession();
 
   const canEdit = hasPermission(PERMISSIONS.OFFICES.EDIT);
-  const canDelete = hasPermission(PERMISSIONS.OFFICES.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
-
-  const handleDelete = async (id: string) => {
-    if (!canDelete) return;
-    if (!window.confirm('Are you sure you want to delete this office? This action cannot be undone.')) {
-      return;
-    }
-
-    startTransition(async () => {
-      const result = await deleteOffice(id);
-      if (result.success) {
-        toast.success('Office deleted successfully!');
-      } else {
-        toast.error(result.message || 'Failed to delete office.');
-      }
-    });
-  };
 
   const handleExportCSV = async () => {
     try {
@@ -195,21 +176,21 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
                           className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
                             office.createdBy?.name
                               ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30'
-                              : 'text-muted-foreground/50'
+                              : 'bg-muted text-foreground border border-border'
                           }`}
                           title="Created By"
                         >
-                          {office.createdBy?.name || '-'}
+                          {office.createdBy?.name || 'System'}
                         </div>
                         <div
                           className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
                             office.lastUpdatedBy?.name
                               ? 'bg-muted text-foreground border border-border'
-                              : 'text-muted-foreground/50'
+                              : 'bg-muted text-foreground border border-border'
                           }`}
                           title="Last Updated By"
                         >
-                          {office.lastUpdatedBy?.name || '-'}
+                          {office.lastUpdatedBy?.name || 'System'}
                         </div>
                       </div>
                     </td>
@@ -219,11 +200,6 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
                           href={`/admin/offices/${office.id}/edit`}
                           disabled={!canEdit}
                           title={!canEdit ? 'Permission Denied' : 'Edit'}
-                        />
-                        <DeleteButton
-                          onClick={() => handleDelete(office.id)}
-                          disabled={!canDelete || isPending}
-                          title={!canDelete ? 'Permission Denied' : 'Delete'}
                         />
                       </div>
                     </td>
