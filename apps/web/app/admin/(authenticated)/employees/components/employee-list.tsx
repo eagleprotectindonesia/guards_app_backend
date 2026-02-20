@@ -83,6 +83,7 @@ export default function EmployeeList({
         'Nickname',
         'Job Title',
         'Department',
+        'Office',
         'Phone',
         'Status',
       ];
@@ -96,6 +97,7 @@ export default function EmployeeList({
             `"${e.nickname || ''}"`,
             `"${e.jobTitle || ''}"`,
             `"${e.department || ''}"`,
+            `"${e.office?.name || ''}"`,
             e.status ? 'Active' : 'Inactive',
           ].join(',')
         ),
@@ -184,20 +186,10 @@ export default function EmployeeList({
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Personnel ID
                 </th>
-                <SortableHeader
-                  label="Job Title"
-                  field="jobTitle"
-                  currentSortBy={sortBy}
-                  currentSortOrder={sortOrder}
-                  onSort={handleSort}
-                />
-                <SortableHeader
-                  label="Department"
-                  field="department"
-                  currentSortBy={sortBy}
-                  currentSortOrder={sortOrder}
-                  onSort={handleSort}
-                />
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-left">
+                  Department / Job Title
+                </th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Office</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
                   Status
                 </th>
@@ -222,8 +214,11 @@ export default function EmployeeList({
                       {employee.nickname && <div className="text-xs text-muted-foreground">({employee.nickname})</div>}
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground font-mono">{employee.personnelId || '-'}</td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">{employee.jobTitle || '-'}</td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">{employee.department || '-'}</td>
+                    <td className="py-4 px-6 text-sm">
+                      <div className="font-semibold text-foreground">{employee.department || '-'}</div>
+                      <div className="text-xs text-muted-foreground">{employee.jobTitle || '-'}</div>
+                    </td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground">{employee.office?.name || '-'}</td>
                     <td className="py-4 px-6 text-sm text-center">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

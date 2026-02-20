@@ -18,6 +18,7 @@ export async function getAllEmployees(
 ) {
   return prisma.employee.findMany({
     where: includeDeleted ? {} : { deletedAt: null },
+    include: { office: { select: { name: true } } },
     orderBy,
   });
 }
@@ -73,6 +74,7 @@ export async function getPaginatedEmployees(params: {
   const [employees, totalCount] = await prisma.$transaction([
     prisma.employee.findMany({
       where: finalWhere,
+      include: { office: { select: { name: true } } },
       orderBy,
       skip,
       take,

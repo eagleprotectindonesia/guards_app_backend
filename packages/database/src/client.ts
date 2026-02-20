@@ -19,7 +19,8 @@ export { PrismaClient, Prisma };
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
 export const createPrismaClient = (databaseUrl?: string) => {
-  const connectionString = databaseUrl || process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/postgres";
+  const connectionString =
+    databaseUrl || process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres';
 
   const pool = new Pool({ connectionString });
 
@@ -45,8 +46,6 @@ export type EmployeeSummary = {
   employeeNumber: string | null;
 };
 
-export type EmployeeWithRelations = NonNullable<Prisma.Result<
-  typeof db.employee,
-  {},
-  'findUnique'
->>;
+export type EmployeeWithRelations = NonNullable<
+  Prisma.Result<typeof db.employee, { include: { office: { select: { name: true } } } }, 'findUnique'>
+>;

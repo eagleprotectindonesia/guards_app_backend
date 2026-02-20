@@ -8,7 +8,7 @@ export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
     include: include || {
       site: true,
       shiftType: true,
-      employee: true,
+      employee: { include: { office: { select: { name: true } } } },
     },
   });
 }
@@ -34,7 +34,7 @@ export async function getPaginatedShifts(params: {
           include: include || {
             site: { select: { name: true } },
             shiftType: { select: { name: true, startTime: true, endTime: true } },
-            employee: { select: { fullName: true, employeeNumber: true } },
+            employee: { include: { office: { select: { name: true } } } },
             createdBy: { select: { name: true } },
             lastUpdatedBy: { select: { name: true } },
           },
@@ -85,7 +85,7 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
         include: {
           site: true,
           shiftType: true,
-          employee: true,
+          employee: { include: { office: { select: { name: true } } } },
         },
       });
 
@@ -159,7 +159,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
         include: {
           site: true,
           shiftType: true,
-          employee: true,
+          employee: { include: { office: { select: { name: true } } } },
         },
       });
 
@@ -176,7 +176,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
         include: {
           site: true,
           shiftType: true,
-          employee: true,
+          employee: { include: { office: { select: { name: true } } } },
         },
       });
 
@@ -278,7 +278,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
     async tx => {
       const shiftToDelete = await tx.shift.findUnique({
         where: { id, deletedAt: null },
-        include: { site: true, shiftType: true, employee: true },
+        include: { site: true, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
       });
 
       if (!shiftToDelete) return null;
@@ -410,7 +410,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
         include: {
           site: { select: { name: true } },
           shiftType: { select: { name: true } },
-          employee: { select: { fullName: true } },
+          employee: { include: { office: { select: { name: true } } } },
         },
       });
 
@@ -465,7 +465,7 @@ export async function getExportShiftsBatch(params: { where: Prisma.ShiftWhereInp
     include: {
       site: true,
       shiftType: true,
-      employee: true,
+      employee: { include: { office: { select: { name: true } } } },
       createdBy: { select: { name: true } },
     },
     ...(cursor && { skip: 1, cursor: { id: cursor } }),
@@ -491,7 +491,12 @@ export async function getActiveShifts(now: Date) {
         },
       ],
     },
-    include: { shiftType: true, employee: true, site: true, attendance: true },
+    include: {
+      shiftType: true,
+      employee: { include: { office: { select: { name: true } } } },
+      site: true,
+      attendance: true,
+    },
   });
 }
 
@@ -540,7 +545,7 @@ export async function markOverdueScheduledShiftsAsMissed(now: Date, batchSize = 
         },
         include: {
           site: true,
-          shift: { include: { employee: true, shiftType: true } },
+          shift: { include: { employee: { include: { office: { select: { name: true } } } }, shiftType: true } },
         },
       });
 
@@ -579,7 +584,7 @@ export async function getUpcomingShifts(now: Date, take = 50) {
     },
     include: {
       shiftType: true,
-      employee: true,
+      employee: { include: { office: { select: { name: true } } } },
       site: true,
     },
     orderBy: {
@@ -615,7 +620,12 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
         },
       ],
     },
-    include: { site: true, shiftType: true, employee: true, attendance: true },
+    include: {
+      site: true,
+      shiftType: true,
+      employee: { include: { office: { select: { name: true } } } },
+      attendance: true,
+    },
     orderBy: { startsAt: 'asc' },
   });
 
@@ -632,7 +642,12 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
       startsAt: 'asc',
     },
     take: 4,
-    include: { site: true, shiftType: true, employee: true, attendance: true },
+    include: {
+      site: true,
+      shiftType: true,
+      employee: { include: { office: { select: { name: true } } } },
+      attendance: true,
+    },
   });
 
   return { activeShift, nextShifts };
@@ -672,7 +687,7 @@ export async function createMissedCheckinAlert(params: {
       where: { id: newAlert.id },
       include: {
         site: true,
-        shift: { include: { employee: true, shiftType: true } },
+        shift: { include: { employee: { include: { office: { select: { name: true } } } }, shiftType: true } },
       },
     });
   });
