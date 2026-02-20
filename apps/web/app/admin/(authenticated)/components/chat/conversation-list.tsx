@@ -74,7 +74,7 @@ export function ConversationList({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
           <input
             type="text"
-            placeholder="Search by name or ID..."
+            placeholder="Search by name or employee number..."
             value={searchTerm}
             onChange={e => onSearchChange(e.target.value)}
             className="w-full bg-background border border-border rounded-lg pl-10 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
@@ -117,7 +117,7 @@ export function ConversationList({
                 <div className="flex justify-between items-start mb-1">
                   <p className="font-semibold text-foreground truncate">
                     {conv.employeeName}{' '}
-                    <span className="text-xs font-normal text-muted-foreground">({conv.employeeId})</span>
+                    <span className="text-xs font-normal text-muted-foreground">({conv.employeeNumber})</span>
                   </p>
                   <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
                     {format(new Date(conv.lastMessage.createdAt), 'MMM d, HH:mm')}

@@ -76,7 +76,12 @@ export async function getConversationList() {
     },
     distinct: ['employeeId'],
     include: {
-      employee: true,
+      employee: {
+        select: {
+          fullName: true,
+          employeeNumber: true,
+        },
+      },
       admin: {
         select: {
           name: true,
@@ -104,6 +109,7 @@ export async function getConversationList() {
   return conversations.map((conv) => ({
     employeeId: conv.employeeId,
     employeeName: conv.employee.fullName,
+    employeeNumber: conv.employee.employeeNumber || conv.employeeId,
     lastMessage: {
       content: conv.content,
       sender: conv.sender,

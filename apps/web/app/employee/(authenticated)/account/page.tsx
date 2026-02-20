@@ -7,7 +7,6 @@ import { LogOut, Key, ChevronRight } from 'lucide-react';
 import { useProfile, useLogout, useChangePassword } from '../hooks/use-employee-queries';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import Image from 'next/image';
 import { GlassLanguageToggle } from '@/components/glass-language-toggle';
 
 const DEFAULT_AVATAR =
@@ -37,15 +36,10 @@ export default function AccountPage() {
     <div className="flex-1 min-h-screen bg-[#121212] overflow-hidden relative flex flex-col">
       {/* Background Ambient Glow */}
       <div className="absolute top-0 right-0 w-64 h-64 opacity-20 pointer-events-none">
-        <div className="w-full h-full rounded-full bg-gradient-to-b from-blue-600/30 to-transparent blur-3xl" />
+        <div className="w-full h-full rounded-full bg-linear-to-b from-blue-600/30 to-transparent blur-3xl" />
       </div>
       <div className="absolute bottom-0 left-0 w-64 h-64 opacity-20 pointer-events-none">
-        <div className="w-full h-full rounded-full bg-gradient-to-t from-red-600/30 to-transparent blur-3xl" />
-      </div>
-
-      {/* Top Navigation / Language Toggle */}
-      <div className="px-6 pt-6 flex justify-end">
-        <GlassLanguageToggle />
+        <div className="w-full h-full rounded-full bg-linear-to-t from-red-600/30 to-transparent blur-3xl" />
       </div>
 
       <div className="flex-1 overflow-y-auto pb-24 pt-6 px-6 space-y-8">
@@ -54,8 +48,8 @@ export default function AccountPage() {
           <div className="relative w-32 h-32">
             <div className="w-full h-full rounded-full p-1 border border-red-500/30 bg-neutral-800/50 shadow-[0_0_20px_rgba(239,68,68,0.4)]">
               <div className="w-full h-full rounded-full overflow-hidden border-2 border-red-600 relative">
-                <Image src={DEFAULT_AVATAR} alt="Profile" fill className="object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                <img src={DEFAULT_AVATAR} alt="Profile" className="w-full h-full object-cover opacity-90" />
+                <div className="absolute inset-0 bg-linear-to-b from-white/10 to-transparent pointer-events-none" />
               </div>
             </div>
             <div className="absolute bottom-2 right-2 w-6 h-6 bg-[#181818] rounded-full flex items-center justify-center border border-neutral-700">
@@ -64,18 +58,16 @@ export default function AccountPage() {
           </div>
 
           <div className="flex flex-col items-center">
-            <div className="flex items-center gap-2">
-              <h1 className="text-2xl text-white font-bold">{employeeDetails?.firstName}</h1>
-              <h1 className="text-2xl text-red-500 font-bold">{employeeDetails?.lastName}</h1>
+            <div className="flex items-center gap-2 text-center">
+              <h1 className="text-2xl text-white font-bold">{employeeDetails?.fullName}</h1>
             </div>
             <p className="text-neutral-500 text-sm font-semibold tracking-wider mt-1">
-              ID: {employeeDetails?.employeeCode}
+              ID: {employeeDetails?.employeeNumber}
             </p>
 
             <div className="mt-4 px-4 py-1.5 rounded-full bg-neutral-800/50 border border-white/5">
               <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
-                {employeeDetails?.department?.name || 'Security Unit'} •{' '}
-                {employeeDetails?.designation?.name || 'Alpha Team'}
+                {employeeDetails?.department || 'Security Unit'} • {employeeDetails?.jobTitle || 'Officer'}
               </p>
             </div>
           </div>
@@ -104,7 +96,7 @@ export default function AccountPage() {
 
         {/* Logout Section */}
         <div>
-          <div className="bg-[#1e1e1e]/40 border border-white/10 rounded-[2rem] p-2 overflow-hidden backdrop-blur-md">
+          <div className="bg-[#1e1e1e]/40 border border-white/10 rounded-4xl p-2 overflow-hidden backdrop-blur-md">
             <button
               onClick={handleLogout}
               className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-red-500/10 hover:border-red-500/20 transition-colors active:scale-[0.98] group"

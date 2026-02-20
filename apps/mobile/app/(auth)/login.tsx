@@ -44,7 +44,7 @@ export default function LoginScreen() {
   const toast = useCustomToast();
   const router = useRouter();
   const { login, biometricLogin, enableBiometric, isBiometricEnabled } = useAuth();
-  const [employeeId, setEmployeeId] = useState('');
+  const [employeeNumber, setEmployeeNumber] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
@@ -54,7 +54,7 @@ export default function LoginScreen() {
   const loginMutation = useMutation({
     mutationFn: async () => {
       const response = await client.post('/api/employee/auth/login', {
-        employeeId,
+        employeeNumber,
         password,
       });
       return response.data;
@@ -72,7 +72,7 @@ export default function LoginScreen() {
               onPress: async () => {
                 const auth = await authenticateWithBiometric(t('biometric.promptMessage'));
                 if (auth.success) {
-                  await enableBiometric(employeeId, password);
+                  await enableBiometric(employeeNumber, password);
                   toast.success(t('common.successTitle', 'Success'), t('biometric.enableSuccess'));
                 }
               },
@@ -130,7 +130,7 @@ export default function LoginScreen() {
   }, [setBiometricType]);
 
   const handleLogin = () => {
-    if (!employeeId || !password) {
+    if (!employeeNumber || !password) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       toast.error(t('login.validationErrorTitle'), t('login.validationErrorMessage'));
       return;
@@ -238,9 +238,9 @@ export default function LoginScreen() {
                           placeholder={t('login.employeeIdPlaceholder')}
                           placeholderTextColor="#3F3F46"
                           color="white"
-                          value={employeeId}
+                          value={employeeNumber}
                           onChangeText={(text: string) => {
-                            setEmployeeId(text.toUpperCase());
+                            setEmployeeNumber(text.toUpperCase());
                             if (loginMutation.isError) loginMutation.reset();
                           }}
                           autoCapitalize="characters"

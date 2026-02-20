@@ -7,14 +7,13 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { differenceInDays, addDays } from 'date-fns';
 import { X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { EmployeeWithRelations } from '@repo/database';
-import { Serialized } from '@/lib/utils';
+import { CheckinListProps } from './checkin-list';
 
 type CheckinExportModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onExport: (startDate: Date, endDate: Date, employeeId?: string) => void;
-  employees: Serialized<EmployeeWithRelations>[];
+  employees: CheckinListProps['employees'];
 };
 
 export default function CheckinExportModal({ isOpen, onClose, onExport, employees }: CheckinExportModalProps) {
@@ -69,7 +68,9 @@ export default function CheckinExportModal({ isOpen, onClose, onExport, employee
               onChange={e => setSelectedemployeeId(e.target.value)}
               className="w-full mt-1 rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground"
             >
-              <option value="" className="bg-card">All Employees</option>
+              <option value="" className="bg-card">
+                All Employees
+              </option>
               {employees.map(employee => (
                 <option key={employee.id} value={employee.id} className="bg-card">
                   {employee.fullName}
@@ -81,12 +82,7 @@ export default function CheckinExportModal({ isOpen, onClose, onExport, employee
           {/* Start Date */}
           <div>
             <Label htmlFor="export-start-date">Start Date</Label>
-            <DatePicker
-              date={startDate}
-              setDate={setStartDate}
-              maxDate={endDate}
-              className="mt-1"
-            />
+            <DatePicker date={startDate} setDate={setStartDate} maxDate={endDate} className="mt-1" />
           </div>
 
           {/* End Date */}

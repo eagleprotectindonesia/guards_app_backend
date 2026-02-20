@@ -349,7 +349,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
       conv.employeeName.toLowerCase().includes(term) ||
-      conv.employeeId.toLowerCase().includes(term);
+      conv.employeeNumber?.toLowerCase().includes(term);
     
     const matchesFilter = filterType === 'all' || conv.unreadCount > 0;
 

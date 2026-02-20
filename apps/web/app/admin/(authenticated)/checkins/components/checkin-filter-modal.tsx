@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import Modal from '../../components/modal';
-import { Serialized } from '@/lib/utils';
-import { EmployeeWithRelations } from '@repo/database';
+import { CheckinListProps } from './checkin-list';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { parseISO } from 'date-fns';
@@ -13,12 +12,8 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   onApply: (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => void;
-  initialFilters: {
-    startDate?: string;
-    endDate?: string;
-    employeeId?: string;
-  };
-  employees: Serialized<EmployeeWithRelations>[];
+  initialFilters: CheckinListProps['initialFilters'];
+  employees: CheckinListProps['employees'];
 };
 
 export default function CheckinFilterModal({ isOpen, onClose, onApply, initialFilters, employees }: Props) {
@@ -104,7 +99,11 @@ export default function CheckinFilterModal({ isOpen, onClose, onApply, initialFi
 
         {/* Actions */}
         <div className="flex justify-between pt-6">
-          <button type="button" onClick={handleClear} className="text-sm text-muted-foreground hover:text-foreground underline">
+          <button
+            type="button"
+            onClick={handleClear}
+            className="text-sm text-muted-foreground hover:text-foreground underline"
+          >
             Clear Filters
           </button>
           <div className="flex gap-2">

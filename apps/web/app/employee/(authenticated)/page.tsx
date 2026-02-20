@@ -72,9 +72,9 @@ export default function EmployeePage() {
         </div>
         <div className="flex flex-col">
           <span className="text-red-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-0.5">
-            {employeeDetails?.designation?.name || t('dashboard.unit', { defaultValue: 'Security Unit' })}
+            {employeeDetails?.jobTitle || t('dashboard.unit', { defaultValue: 'Security Unit' })}
           </span>
-          <h1 className="text-2xl font-bold text-white leading-tight">{employeeDetails?.name || 'Employee'}</h1>
+          <h1 className="text-2xl font-bold text-white leading-tight">{employeeDetails?.fullName || 'Employee'}</h1>
         </div>
       </div>
 

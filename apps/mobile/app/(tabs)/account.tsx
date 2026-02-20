@@ -177,14 +177,11 @@ export default function AccountScreen() {
             <VStack alignItems="center">
               <HStack space="xs">
                 <Heading size="2xl" color="$white" fontWeight="$bold">
-                  {employee?.firstName}
-                </Heading>
-                <Heading size="2xl" color="$red500" fontWeight="$bold">
-                  {employee?.lastName}
+                  {employee?.fullName}
                 </Heading>
               </HStack>
               <Text color="$textDark500" size="sm" fontWeight="$semibold" letterSpacing={0.5}>
-                ID: {employee?.employeeCode}
+                ID: {employee?.employeeNumber}
               </Text>
 
               <Box
@@ -197,7 +194,7 @@ export default function AccountScreen() {
                 borderColor="rgba(255,255,255,0.05)"
               >
                 <Text size="2xs" fontWeight="$bold" textTransform="uppercase" letterSpacing={1.2} color="$textDark400">
-                  {employee?.department?.name || 'Security Unit'} • {employee?.designation?.name || 'Alpha Team'}
+                  {employee?.department || 'Security Unit'} • {employee?.jobTitle || 'Officer'}
                 </Text>
               </Box>
             </VStack>

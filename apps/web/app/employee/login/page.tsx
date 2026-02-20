@@ -14,26 +14,26 @@ export default function GuardLoginPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const loginMutation = useLogin();
-  const [employeeId, setEmployeeId] = useState('');
+  const [employeeNumber, setEmployeeNumber] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   // Clear error when user modifies inputs
   // useEffect(() => {
   //   if (error) setError(null);
-  // }, [employeeId, password]);
+  // }, [employeeNumber, password]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!employeeId || !password) {
+    if (!employeeNumber || !password) {
       setError(t('login.validationErrorMessage'));
       return;
     }
 
     try {
-      await loginMutation.mutateAsync({ employeeId, password });
+      await loginMutation.mutateAsync({ employeeNumber, password });
       router.push('/employee');
     } catch (err: unknown) {
       setError(t('login.errorMessage'));
@@ -88,7 +88,7 @@ export default function GuardLoginPage() {
             {/* Employee ID */}
             <div className="space-y-3">
               <label
-                htmlFor="employeeId"
+                htmlFor="employeeNumber"
                 className="block text-sm font-bold tracking-[0.1em] text-gray-400 ml-1 uppercase"
               >
                 {t('login.employeeIdLabel')}
@@ -99,15 +99,15 @@ export default function GuardLoginPage() {
                 </div>
                 <input
                   type="text"
-                  id="employeeId"
-                  name="employeeId"
+                  id="employeeNumber"
+                  name="employeeNumber"
                   placeholder={t('login.employeeIdPlaceholder')}
-                  value={employeeId}
+                  value={employeeNumber}
                   required
                   autoCapitalize="characters"
                   className="w-full bg-[#0F0F11]/80 pl-12 pr-4 py-4 rounded-2xl border border-white/5 focus:border-red-500/50 focus:bg-[#0F0F11] outline-none transition-all placeholder:text-gray-700 text-white font-medium"
                   onChange={e => {
-                    setEmployeeId(e.target.value.toUpperCase());
+                    setEmployeeNumber(e.target.value.toUpperCase());
                   }}
                 />
               </div>

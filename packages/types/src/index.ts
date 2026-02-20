@@ -37,18 +37,15 @@ export interface Office {
 
 export interface Employee {
   id: string;
-  firstName: string;
-  lastName: string;
-  name: string; // Computed/Backward compatibility
-  phone: string;
-  employeeCode?: string | null;
+  fullName: string;
+  phone?: string;
+  personnelId: string;
+  employeeNumber?: string | null;
   role: EmployeeRole;
   status?: boolean | null;
-  departmentId?: string | null;
-  designationId?: string | null;
+  jobTitle?: string | null;
+  department?: string | null;
   officeId?: string | null;
-  department?: Department | null;
-  designation?: Designation | null;
   office?: Office | null;
   joinDate?: string | Date | null;
   leftDate?: string | Date | null;
@@ -56,9 +53,6 @@ export interface Employee {
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }
-
-// Deprecated: Use Employee instead
-export type Guard = Employee & { guardCode?: string | null };
 
 export interface Site {
   id: string;
@@ -136,14 +130,10 @@ export interface ShiftWithRelations extends Shift {
   attendance?: Attendance | null;
 }
 
-// Deprecated: Use ShiftWithRelations
-export interface GuardShiftWithRelations extends ShiftWithRelations {
-  guard?: Guard | null;
-}
-
 export interface Conversation {
   employeeId: string;
   employeeName: string;
+  employeeNumber: string;
   lastMessage: {
     content: string;
     sender: string;

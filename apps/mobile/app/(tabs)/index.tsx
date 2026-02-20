@@ -106,10 +106,10 @@ export default function HomeScreen() {
                     letterSpacing={1.5}
                     mb="$1"
                   >
-                    {profile?.employee?.designation?.name || t('dashboard.unit')}
+                    {profile?.employee?.jobTitle || t('dashboard.unit')}
                   </Text>
                   <Heading size="lg" color="$white" fontWeight="$bold">
-                    {profile?.employee?.name || ''}
+                    {profile?.employee?.fullName || ''}
                   </Heading>
                 </VStack>
               </HStack>

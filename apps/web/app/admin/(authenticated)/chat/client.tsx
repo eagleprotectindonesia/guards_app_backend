@@ -99,7 +99,7 @@ export function AdminChatClient() {
                   <h3 className="font-semibold text-foreground flex items-center gap-2">
                     {activeEmployee?.employeeName || 'Chat'}{' '}
                     {activeEmployee && (
-                      <span className="text-xs font-normal text-muted-foreground">({activeEmployee.employeeId})</span>
+                      <span className="text-xs font-normal text-muted-foreground">({activeEmployee.employeeNumber})</span>
                     )}
                     {isLockedByOther && <Lock size={14} className="text-amber-500 fill-amber-500/10" />}
                   </h3>

@@ -5,18 +5,13 @@ import { Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import CheckinExportModal from './checkin-export-modal';
 import { format } from 'date-fns';
-import { Serialized } from '@/lib/utils';
-import { EmployeeWithRelations } from '@repo/database';
+import { CheckinListProps } from './checkin-list';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 type CheckinExportProps = {
-  initialFilters: {
-    startDate?: string;
-    endDate?: string;
-    employeeId?: string;
-  };
-  employees: Serialized<EmployeeWithRelations>[];
+  initialFilters: CheckinListProps['initialFilters'];
+  employees: CheckinListProps['employees'];
 };
 
 export default function CheckinExport({ initialFilters, employees }: CheckinExportProps) {
@@ -30,24 +25,23 @@ export default function CheckinExport({ initialFilters, employees }: CheckinExpo
   const performExport = async (startDate: Date, endDate: Date, selectedemployeeId?: string) => {
     try {
       const params = new URLSearchParams();
-      
+
       const employeeIdToUse = selectedemployeeId || initialFilters.employeeId;
       if (employeeIdToUse) {
         params.set('employeeId', employeeIdToUse);
       }
-      
+
       params.set('startDate', format(startDate, 'yyyy-MM-dd'));
       params.set('endDate', format(endDate, 'yyyy-MM-dd'));
 
       const downloadUrl = `/api/admin/checkins/export?${params.toString()}`;
-      
+
       // Trigger download
       window.location.href = downloadUrl;
-      
+
       // Close modal
       setIsExportOpen(false);
       toast.success('Export started');
-
     } catch (error) {
       console.error('Failed to start export:', error);
       toast.error('Failed to start export.');
