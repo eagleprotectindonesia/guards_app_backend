@@ -244,6 +244,7 @@ export default function LoginScreen() {
                             if (loginMutation.isError) loginMutation.reset();
                           }}
                           autoCapitalize="characters"
+                          maxLength={6}
                         />
                       </Input>
                     </Box>

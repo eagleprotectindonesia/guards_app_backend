@@ -105,6 +105,7 @@ export default function GuardLoginPage() {
                   value={employeeNumber}
                   required
                   autoCapitalize="characters"
+                  maxLength={6}
                   className="w-full bg-[#0F0F11]/80 pl-12 pr-4 py-4 rounded-2xl border border-white/5 focus:border-red-500/50 focus:bg-[#0F0F11] outline-none transition-all placeholder:text-gray-700 text-white font-medium"
                   onChange={e => {
                     setEmployeeNumber(e.target.value.toUpperCase());
