@@ -235,7 +235,7 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
   return (
     <Card className={`mb-6 shadow-2xl bg-neutral-950 border border-neutral-800 relative overflow-hidden rounded-3xl`}>
       {/* Background Gradient Mesh */}
-      <div className={cn('absolute inset-0 bg-gradient-to-b opacity-50', ui.bgGradient)} />
+      <div className={cn('absolute inset-0 bg-linear-to-b opacity-50', ui.bgGradient)} />
 
       <div className="relative z-10 flex flex-col">
         {/* Header */}
@@ -265,7 +265,7 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
               onClick={canCheckIn ? handleCheckIn : undefined}
               disabled={!canCheckIn || checkInMutation.isPending}
               className={cn(
-                'w-full py-4 rounded-xl flex items-center justify-center gap-2 text-white font-bold uppercase tracking-widest text-sm shadow-lg transition-all active:scale-95 bg-gradient-to-br',
+                'w-full py-4 rounded-xl flex items-center justify-center gap-2 text-white font-bold uppercase tracking-widest text-sm shadow-lg transition-all active:scale-95 bg-linear-to-br',
                 ui.btnGradient,
                 (!canCheckIn || checkInMutation.isPending) && 'opacity-50 cursor-not-allowed'
               )}
