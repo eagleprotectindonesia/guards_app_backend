@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { redis } from '@/lib/redis';
 import { prisma } from '@repo/database';
 import { z } from 'zod';
+import { DEFAULT_PASSWORD } from '@repo/shared';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
@@ -22,7 +23,7 @@ function getClientType(headersList: Headers): 'mobile' | 'pwa' {
   // Check for custom header from mobile app
   const clientType = headersList.get('x-client-type');
   if (clientType === 'mobile') return 'mobile';
-  
+
   // Fallback to User-Agent detection
   const userAgent = headersList.get('user-agent');
   return isMobileUserAgent(userAgent) ? 'mobile' : 'pwa';
@@ -94,18 +95,23 @@ export async function POST(req: Request) {
 
       // Update cache for high-frequency polling
       await redis.set(`employee:${employee.id}:token_version`, updatedEmployee.tokenVersion.toString(), 'EX', 3600);
+
+      // If user is logging in with default password, set the force reset flag
+      if (password === DEFAULT_PASSWORD) {
+        await redis.set(`employee:${employee.id}:must-change-password`, 'true');
+      }
     } catch (error) {
       console.error('Failed to publish session revocation event:', error);
     }
 
     // Generate JWT token with token version and client type
     const token = jwt.sign(
-      { 
-        employeeId: employee.id, 
+      {
+        employeeId: employee.id,
         tokenVersion: updatedEmployee.tokenVersion,
-        clientType 
-      }, 
-      JWT_SECRET, 
+        clientType,
+      },
+      JWT_SECRET,
       { expiresIn: '1d' }
     );
 

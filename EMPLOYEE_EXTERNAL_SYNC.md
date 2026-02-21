@@ -83,7 +83,8 @@ export async function syncEmployeesFromExternal() {
 
     if (!existingIds.has(ext.id)) {
       // NEW: Create with default password
-      const hashedPassword = await hashPassword(ext.personnel_id || '123456');
+      const defaultPassword = '12345678';
+      const hashedPassword = await hashPassword(defaultPassword);
       await upsertEmployeeFromExternal({ ...ext, password: hashedPassword, role });
       addedCount++;
     } else {
@@ -156,8 +157,7 @@ EXTERNAL_EMPLOYEE_API_KEY=your-secret-api-key
 ### Default Password
 
 For **new employees**, the default password is set to:
-1. `personnel_id` (if available)
-2. `123456` (fallback)
+1. `12345678` (static default)
 
 The password is hashed using bcrypt before storage.
 

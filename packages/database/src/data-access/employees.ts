@@ -2,7 +2,7 @@ import { db as prisma, EmployeeSummary } from '../client';
 import { redis } from '../redis';
 import { EmployeeRole, Prisma } from '@prisma/client';
 import { deleteFutureShiftsByEmployee, cancelInProgressShiftsForDeactivatedEmployee } from './shifts';
-import { hashPassword } from '@repo/shared';
+import { hashPassword, DEFAULT_PASSWORD } from '@repo/shared';
 import { fetchExternalEmployees, ExternalEmployee } from '../external-employee-api';
 import { syncOfficesFromExternalEmployees } from './offices';
 
@@ -343,8 +343,7 @@ export async function syncEmployeesFromExternal(
 
     if (!existing) {
       // New employee: use default password
-      const defaultPassword = '12345678';
-      const hashedPassword = await hashPassword(defaultPassword);
+      const hashedPassword = await hashPassword(DEFAULT_PASSWORD);
 
       await prisma.$transaction(async tx => {
         const newEmployee = await tx.employee.create({
@@ -356,7 +355,7 @@ export async function syncEmployeesFromExternal(
             fullName: ext.full_name,
             jobTitle: ext.job_title,
             department: ext.department,
-            phone: '',
+            phone: ext.phone,
             hashedPassword: hashedPassword,
             role,
             office: ext.office_id ? { connect: { id: ext.office_id } } : undefined,
@@ -377,6 +376,7 @@ export async function syncEmployeesFromExternal(
               nickname: newEmployee.nickname,
               jobTitle: newEmployee.jobTitle,
               department: newEmployee.department,
+              phone: newEmployee.phone,
               role: newEmployee.role,
               officeId: newEmployee.officeId,
               status: newEmployee.status,
@@ -384,6 +384,10 @@ export async function syncEmployeesFromExternal(
           },
         });
       });
+
+      // Set force password reset flag in Redis
+      await redis.set(`employee:${ext.id}:must-change-password`, 'true');
+
       addedCount++;
     } else {
       // Existing employee: only update if changed
@@ -397,6 +401,7 @@ export async function syncEmployeesFromExternal(
         { key: 'fullName', extKey: 'full_name' },
         { key: 'jobTitle', extKey: 'job_title' },
         { key: 'department', extKey: 'department' },
+        { key: 'phone', extKey: 'phone' },
       ] as const;
 
       for (const field of fieldsToCompare) {

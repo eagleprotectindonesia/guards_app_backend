@@ -8,6 +8,7 @@ export interface ExternalEmployee {
   department: string | null;
   office_id: string | null;
   office_name: string | null;
+  phone: string | null;
 }
 
 const EXTERNAL_EMPLOYEE_ADDRESS = process.env.EXTERNAL_EMPLOYEE_ADDRESS;

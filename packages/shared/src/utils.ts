@@ -4,6 +4,8 @@ import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { JsonValue } from '@prisma/client/runtime/client';
 
+export const DEFAULT_PASSWORD = '12345678';
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
