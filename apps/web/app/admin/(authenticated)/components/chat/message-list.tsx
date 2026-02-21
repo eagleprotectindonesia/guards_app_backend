@@ -2,8 +2,9 @@
 
 import React, { useEffect, useRef, useCallback } from 'react';
 import { ChatMessage } from '@/types/chat';
-import { ChatMessageBubble } from './message-bubble';
 import { MessageSquare, Loader2 } from 'lucide-react';
+import { format, isToday, isYesterday, isSameDay } from 'date-fns';
+import { ChatMessageBubble } from './message-bubble';
 
 interface ChatMessageListProps {
   messages: ChatMessage[];
@@ -141,14 +142,42 @@ export function ChatMessageList({
           {isFetchingNextPage && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
         </div>
 
-        {messages.map(msg => (
-          <ChatMessageBubble
-            key={msg.id}
-            message={msg}
-            isAdmin={msg.sender === 'admin'}
-            currentAdminId={currentAdminId}
-          />
-        ))}
+        {(() => {
+          const groups: { date: Date; label: string; items: ChatMessage[] }[] = [];
+
+          messages.forEach(msg => {
+            const msgDate = new Date(msg.createdAt);
+            const lastGroup = groups[groups.length - 1];
+
+            if (!lastGroup || !isSameDay(lastGroup.date, msgDate)) {
+              let dateLabel = format(msgDate, 'MMMM d, yyyy');
+              if (isToday(msgDate)) dateLabel = 'Today';
+              else if (isYesterday(msgDate)) dateLabel = 'Yesterday';
+
+              groups.push({ date: msgDate, label: dateLabel, items: [msg] });
+            } else {
+              lastGroup.items.push(msg);
+            }
+          });
+
+          return groups.map(group => (
+            <div key={group.date.toISOString()} className="flex flex-col gap-4 relative">
+              <div className="flex justify-center my-4 sticky top-2 z-10 py-1">
+                <span className="px-3 py-1 bg-muted/80 backdrop-blur-sm rounded-full text-[11px] font-medium text-muted-foreground border shadow-sm">
+                  {group.label}
+                </span>
+              </div>
+              {group.items.map(current => (
+                <ChatMessageBubble
+                  key={current.id}
+                  message={current}
+                  isAdmin={current.sender === 'admin'}
+                  currentAdminId={currentAdminId}
+                />
+              ))}
+            </div>
+          ));
+        })()}
 
         {typingEmployeeName && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground animate-pulse ml-1">

@@ -43,26 +43,7 @@ export default function ChatPage() {
 
   const messages = useMemo(() => {
     const allMessages = data?.pages.flat() || [];
-    // Sort by date ascending for display
-    const sorted = [...allMessages].reverse();
-
-    if (sorted.length === 0) return [];
-
-    const result: (ChatMessage | { type: 'date'; date: string; id: string })[] = [];
-    for (let i = 0; i < sorted.length; i++) {
-      const current = sorted[i];
-      const previous = sorted[i - 1];
-
-      if (!previous || !isSameDay(new Date(current.createdAt), new Date(previous.createdAt))) {
-        result.push({
-          type: 'date',
-          date: current.createdAt,
-          id: `date-${current.id}`,
-        });
-      }
-      result.push(current);
-    }
-    return result;
+    return [...allMessages].reverse();
   }, [data]);
 
   const lastMessageId = useMemo(() => (messages.length > 0 ? messages[messages.length - 1].id : null), [messages]);
@@ -300,7 +281,7 @@ export default function ChatPage() {
 
       <div className="bg-[#181818]/80 backdrop-blur-md px-6 py-4 border-b border-white/5 shadow-lg flex-none z-20">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-900 to-red-600 flex items-center justify-center border border-white/10 shadow-lg shadow-red-900/20">
+          <div className="w-10 h-10 rounded-full bg-linear-to-br from-red-900 to-red-600 flex items-center justify-center border border-white/10 shadow-lg shadow-red-900/20">
             <span className="font-bold text-white text-lg">E</span>
           </div>
           <div>
@@ -323,31 +304,42 @@ export default function ChatPage() {
             {isFetchingNextPage && <Loader2 className="h-4 w-4 animate-spin text-gray-500" />}
           </div>
 
-          {messages.map(item => {
-            if ('type' in item && item.type === 'date') {
-              let dateLabel = format(new Date(item.date), 'MMMM d, yyyy');
-              if (isToday(new Date(item.date))) dateLabel = t('chat.today');
-              else if (isYesterday(new Date(item.date))) dateLabel = t('chat.yesterday');
+          {(() => {
+            const groups: { date: Date; label: string; items: ChatMessage[] }[] = [];
 
-              return (
-                <div key={item.id} className="flex justify-center my-6 sticky top-0 z-10 py-2">
+            messages.forEach(msg => {
+              const msgDate = new Date(msg.createdAt);
+              const lastGroup = groups[groups.length - 1];
+
+              if (!lastGroup || !isSameDay(lastGroup.date, msgDate)) {
+                let dateLabel = format(msgDate, 'MMMM d, yyyy');
+                if (isToday(msgDate)) dateLabel = t('chat.today');
+                else if (isYesterday(msgDate)) dateLabel = t('chat.yesterday');
+
+                groups.push({ date: msgDate, label: dateLabel, items: [msg] });
+              } else {
+                lastGroup.items.push(msg);
+              }
+            });
+
+            return groups.map(group => (
+              <div key={group.date.toISOString()} className="flex flex-col gap-6 relative">
+                <div className="flex justify-center my-4 sticky top-2 z-10 py-2">
                   <span className="px-4 py-1.5 bg-[#181818]/80 backdrop-blur-md rounded-full text-[11px] font-semibold text-gray-400 border border-white/5 uppercase tracking-wider shadow-lg">
-                    {dateLabel}
+                    {group.label}
                   </span>
                 </div>
-              );
-            }
-
-            const message = item as ChatMessage;
-            return (
-              <ChatMessageItem
-                key={message.id}
-                message={message}
-                onVisible={queueMarkRead}
-                onImageClick={setViewerImage}
-              />
-            );
-          })}
+                {group.items.map(message => (
+                  <ChatMessageItem
+                    key={message.id}
+                    message={message}
+                    onVisible={queueMarkRead}
+                    onImageClick={setViewerImage}
+                  />
+                ))}
+              </div>
+            ));
+          })()}
           <div ref={messagesEndRef} className="h-1" />
         </div>
       </ScrollArea>
@@ -381,7 +373,7 @@ export default function ChatPage() {
 
         <form
           onSubmit={handleSendMessage}
-          className="flex items-center  bg-[#181818]/95 backdrop-blur-2xl px-3 py-2.5 rounded-[2rem] shadow-2xl border border-white/10 max-w-full"
+          className="flex items-center  bg-[#181818]/95 backdrop-blur-2xl px-3 py-2.5 rounded-4xl shadow-2xl border border-white/10 max-w-full"
         >
           <input
             type="file"
@@ -444,7 +436,7 @@ export default function ChatPage() {
             type="submit"
             disabled={(!inputText.trim() && selectedFiles.length === 0) || !isConnected || isUploading || isOptimizing}
             size="icon"
-            className="rounded-full h-11 w-11 shrink-0 bg-gradient-to-br from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 shadow-lg shadow-red-900/40 border border-red-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:grayscale"
+            className="rounded-full h-11 w-11 shrink-0 bg-linear-to-br from-red-600 to-red-800 hover:from-red-500 hover:to-red-700 shadow-lg shadow-red-900/40 border border-red-500/20 transition-all active:scale-95 disabled:opacity-30 disabled:grayscale"
           >
             {isUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5 ml-0.5" />}
           </Button>
@@ -517,7 +509,7 @@ function ChatMessageItem({
         )}
       >
         {isMe && (
-          <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="absolute inset-0 bg-linear-to-r from-red-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         )}
         {message.attachments && message.attachments.length > 0 && (
           <div className={cn('grid gap-2 mb-3', message.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
@@ -565,7 +557,9 @@ function ChatMessageItem({
             </div>
           </a>
         )}
-        {message.content ? <p className="whitespace-pre-wrap break-words relative z-10">{message.content}</p> : null}
+        {message.content ? (
+          <p className="whitespace-pre-wrap wrap-break-word relative z-10">{message.content}</p>
+        ) : null}
       </div>
       <div className="flex items-center mt-1.5 gap-2 px-1">
         <span className="text-[10px] font-medium text-neutral-600">{format(new Date(message.createdAt), 'HH:mm')}</span>

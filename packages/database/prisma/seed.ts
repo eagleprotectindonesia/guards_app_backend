@@ -297,11 +297,108 @@ async function main() {
         })
       )
     );
-
-    console.log('\n--- SEED COMPLETE ---');
-    console.log(`Admin Role ID: ${superadminRole.id}`);
-    console.log(`Admin User Email: ${admin.email}`);
   }
+
+  // 9. Seed Chat Messages
+  const existingChatMessages = await prisma.chatMessage.count();
+  if (existingChatMessages === 0) {
+    console.log('Seeding chat messages...');
+
+    // We will create some chat messages between Admin and Employee 1.
+    // Spread them over a few days to test date separators.
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const fiveDaysAgo = new Date(today);
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+
+    const fourDaysAgo = new Date(today);
+    fourDaysAgo.setDate(fourDaysAgo.getDate() - 4);
+
+    const threeDaysAgo = new Date(today);
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+    const twoDaysAgo = new Date(today);
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    await prisma.chatMessage.createMany({
+      data: [
+        // Five days ago
+        {
+          employeeId: employee1.id,
+          sender: 'employee',
+          content: 'Hello Admin, here are some updates from last week.',
+          createdAt: new Date(fiveDaysAgo.setHours(9, 0, 0, 0)),
+        },
+
+        // Four days ago
+        {
+          employeeId: employee1.id,
+          adminId: admin.id,
+          sender: 'admin',
+          content: 'Thanks, I will check them now.',
+          createdAt: new Date(fourDaysAgo.setHours(11, 0, 0, 0)),
+        },
+
+        // Three days ago
+        {
+          employeeId: employee1.id,
+          sender: 'employee',
+          content: 'I will be at the downtown branch for the next check.',
+          createdAt: new Date(threeDaysAgo.setHours(15, 30, 0, 0)),
+        },
+
+        // Two days ago messages
+        {
+          employeeId: employee1.id,
+          sender: 'employee',
+          content: 'Hi admin, this is a test message from a few days ago.',
+          createdAt: new Date(twoDaysAgo.setHours(10, 0, 0, 0)),
+        },
+        {
+          employeeId: employee1.id,
+          adminId: admin.id,
+          sender: 'admin',
+          content: 'Received. Thank you!',
+          createdAt: new Date(twoDaysAgo.setHours(10, 5, 0, 0)),
+          readAt: new Date(twoDaysAgo.setHours(10, 5, 0, 0)),
+        },
+
+        // Yesterday messages with Location
+        {
+          employeeId: employee1.id,
+          sender: 'employee',
+          content: '',
+          latitude: -8.6695866,
+          longitude: 115.1538065,
+          createdAt: new Date(yesterday.setHours(14, 0, 0, 0)),
+        },
+        {
+          employeeId: employee1.id,
+          adminId: admin.id,
+          sender: 'admin',
+          content: 'Thanks for sharing your location at Headquarters.',
+          createdAt: new Date(yesterday.setHours(14, 2, 0, 0)),
+        },
+
+        // Today messages
+        {
+          employeeId: employee1.id,
+          sender: 'employee',
+          content: 'Checking in for my shift today.',
+          createdAt: new Date(today.setHours(8, 0, 0, 0)),
+        },
+      ],
+    });
+  }
+
+  console.log('\n--- SEED COMPLETE ---');
+  console.log(`Admin Role ID: ${superadminRole.id}`);
+  console.log(`Admin User Email: ${admin.email}`);
 }
 
 main()
