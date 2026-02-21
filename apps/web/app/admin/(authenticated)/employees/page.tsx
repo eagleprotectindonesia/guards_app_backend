@@ -1,9 +1,12 @@
 import { serialize, getPaginationParams } from '@/lib/utils';
 import EmployeeList from './components/employee-list';
 import { Suspense } from 'react';
-import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
-import { getPaginatedEmployees, getLastEmployeeSyncTimestamp } from '@/lib/data-access/employees';
+import {
+  getPaginatedEmployees,
+  getLastEmployeeSyncTimestamp,
+  getEmployeeSearchWhere,
+} from '@/lib/data-access/employees';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
@@ -35,19 +38,7 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
   const validSortFields = ['fullName', 'employeeNumber', 'id', 'department', 'jobTitle'];
   const sortField: string = validSortFields.includes(sortBy) ? sortBy : 'fullName';
 
-  const where: Prisma.EmployeeWhereInput = {};
-
-  if (query) {
-    where.OR = [
-      { fullName: { contains: query, mode: 'insensitive' } },
-      { id: { contains: query, mode: 'insensitive' } },
-      { employeeNumber: { contains: query, mode: 'insensitive' } },
-      { personnelId: { contains: query, mode: 'insensitive' } },
-      { nickname: { contains: query, mode: 'insensitive' } },
-      { jobTitle: { contains: query, mode: 'insensitive' } },
-      { department: { contains: query, mode: 'insensitive' } },
-    ];
-  }
+  const where = getEmployeeSearchWhere(query);
 
   const { employees, totalCount } = await getPaginatedEmployees({
     where,

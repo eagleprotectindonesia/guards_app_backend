@@ -84,6 +84,7 @@ export default function EmployeeList({
       });
 
       const headers = [
+        'ID',
         'Employee No',
         'Full Name',
         'Personnel ID',
@@ -100,6 +101,7 @@ export default function EmployeeList({
         headers.join(','),
         ...allEmployees.map((e: Serialized<EmployeeWithRelations>) =>
           [
+            `"${e.id}"`,
             `"${e.employeeNumber || ''}"`,
             `"${e.fullName}"`,
             `"${e.personnelId || ''}"`,
@@ -184,6 +186,14 @@ export default function EmployeeList({
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <SortableHeader
+                  label="ID"
+                  field="id"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                  className="w-[140px]"
+                />
+                <SortableHeader
                   label="Employee No"
                   field="employeeNumber"
                   currentSortBy={sortBy}
@@ -215,13 +225,16 @@ export default function EmployeeList({
             <tbody className="divide-y divide-border">
               {employees.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
                     No employees found. Trigger sync to fetch data.
                   </td>
                 </tr>
               ) : (
                 employees.map(employee => (
                   <tr key={employee.id} className="hover:bg-muted/30 transition-colors group">
+                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono max-w-[140px] break-all">
+                      {employee.id}
+                    </td>
                     <td className="py-4 px-6 text-sm text-foreground font-medium">{employee.employeeNumber || '-'}</td>
                     <td className="py-4 px-6 text-sm text-foreground">
                       <div className="font-semibold">{employee.fullName}</div>

@@ -12,6 +12,21 @@ export async function getLastEmployeeSyncTimestamp(): Promise<string | null> {
   return redis.get(LAST_EMPLOYEE_SYNC_KEY);
 }
 
+export function getEmployeeSearchWhere(query?: string): Prisma.EmployeeWhereInput {
+  if (!query) return {};
+  return {
+    OR: [
+      { id: { contains: query, mode: 'insensitive' } },
+      { fullName: { contains: query, mode: 'insensitive' } },
+      { employeeNumber: { contains: query, mode: 'insensitive' } },
+      { personnelId: { contains: query, mode: 'insensitive' } },
+      { nickname: { contains: query, mode: 'insensitive' } },
+      { jobTitle: { contains: query, mode: 'insensitive' } },
+      { department: { contains: query, mode: 'insensitive' } },
+    ],
+  };
+}
+
 export async function getAllEmployees(
   params: {
     where?: Prisma.EmployeeWhereInput;

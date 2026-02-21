@@ -1,11 +1,10 @@
 'use server';
 
-import { Prisma } from '@prisma/client';
-
 import {
   updateEmployee as updateEmployeeDb,
   getAllEmployees,
   updateEmployeePasswordWithChangelog,
+  getEmployeeSearchWhere,
 } from '@/lib/data-access/employees';
 import {
   updateEmployeeSchema,
@@ -76,18 +75,7 @@ export async function getAllEmployeesForExport(params: {
   const { query, sortBy, sortOrder } = params;
 
   // Build where clause to match the main employees page
-  const where: Prisma.EmployeeWhereInput = {};
-  if (query) {
-    where.OR = [
-      { fullName: { contains: query, mode: 'insensitive' } },
-      { id: { contains: query, mode: 'insensitive' } },
-      { employeeNumber: { contains: query, mode: 'insensitive' } },
-      { personnelId: { contains: query, mode: 'insensitive' } },
-      { nickname: { contains: query, mode: 'insensitive' } },
-      { jobTitle: { contains: query, mode: 'insensitive' } },
-      { department: { contains: query, mode: 'insensitive' } },
-    ];
-  }
+  const where = getEmployeeSearchWhere(query);
 
   // Handle sorting parameters
   const validSortFields = ['fullName', 'employeeNumber', 'id', 'department', 'jobTitle'];
