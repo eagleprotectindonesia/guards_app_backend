@@ -9,7 +9,6 @@ import { useSocket } from '@/components/socket-provider';
 import { useProfile } from '../hooks/use-employee-queries';
 import { useChatMessages, ChatMessage } from '../hooks/use-chat-queries';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog';
 import { cn, isVideoFile } from '@/lib/utils';
 import { uploadToS3 } from '@/lib/upload';
@@ -274,7 +273,7 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col flex-1 bg-[#121212] relative text-slate-300">
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-500/5 rounded-full blur-[100px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-red-500/5 rounded-full blur-[100px]" />
       </div>
@@ -298,7 +297,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <ScrollArea ref={scrollRef} className="flex-1 z-10">
+      <div ref={scrollRef} className="flex-1 w-full z-10 bg-[#0e0e0e]">
         <div className="flex flex-col space-y-6 p-6 pb-28 max-w-4xl mx-auto w-full">
           <div ref={observerTarget} className="h-4 w-full flex items-center justify-center">
             {isFetchingNextPage && <Loader2 className="h-4 w-4 animate-spin text-gray-500" />}
@@ -324,8 +323,8 @@ export default function ChatPage() {
 
             return groups.map(group => (
               <div key={group.date.toISOString()} className="flex flex-col gap-6 relative">
-                <div className="flex justify-center my-4 sticky top-2 z-10 py-2">
-                  <span className="px-4 py-1.5 bg-[#181818]/80 backdrop-blur-md rounded-full text-[11px] font-semibold text-gray-400 border border-white/5 uppercase tracking-wider shadow-lg">
+                <div className="flex justify-center my-4 sticky top-[72px] z-30 py-2">
+                  <span className="px-4 py-1.5 bg-[#181818]/95 backdrop-blur-xl rounded-full text-[11px] font-semibold text-gray-300 border border-white/10 uppercase tracking-wider shadow-lg">
                     {group.label}
                   </span>
                 </div>
@@ -342,7 +341,7 @@ export default function ChatPage() {
           })()}
           <div ref={messagesEndRef} className="h-1" />
         </div>
-      </ScrollArea>
+      </div>
 
       <div className="absolute bottom-6 left-4 right-4 z-20 flex flex-col gap-3 max-w-4xl mx-auto">
         {previews.length > 0 && (
