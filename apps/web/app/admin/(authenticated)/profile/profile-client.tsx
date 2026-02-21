@@ -21,16 +21,14 @@ interface ProfileClientProps {
 export default function ProfileClient({ admin }: ProfileClientProps) {
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
-  
+
   const [isPasswordPending, startPasswordTransition] = useTransition();
   const [isSetupPending, startSetupTransition] = useTransition();
   const [isEnablePending, startEnableTransition] = useTransition();
   const [isDisablePending, startDisableTransition] = useTransition();
-  
+
   const [setupData, setSetupData] = useState<{ secret: string; qrCode: string } | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
-
-  const initials = admin.name.substring(0, 2).toUpperCase();
 
   const handlePasswordSubmit = async (formData: FormData) => {
     startPasswordTransition(async () => {
@@ -58,7 +56,7 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
 
   const handleEnable2FA = () => {
     if (!setupData || !verificationCode) return;
-    
+
     startEnableTransition(async () => {
       const result = await enable2FA(setupData.secret, verificationCode);
       if (result.error) {
@@ -74,7 +72,7 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
 
   const handleDisable2FA = () => {
     if (!confirm('Are you sure you want to disable 2FA? This will decrease your account security.')) return;
-    
+
     startDisableTransition(async () => {
       const result = await disable2FA();
       if (result.error) {
@@ -150,11 +148,13 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
                 Add an extra layer of security to your account using an authenticator app.
               </p>
               <div className="mt-2">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  admin.twoFactorEnabled 
-                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
-                    : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
-                }`}>
+                <span
+                  className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    admin.twoFactorEnabled
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                  }`}
+                >
                   {admin.twoFactorEnabled ? 'Enabled' : 'Disabled'}
                 </span>
               </div>
@@ -232,7 +232,11 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={isPasswordPending} className="bg-red-600 hover:bg-red-700 text-white font-bold">
+            <Button
+              type="submit"
+              disabled={isPasswordPending}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold"
+            >
               {isPasswordPending ? 'Updating...' : 'Update Password'}
             </Button>
           </div>
@@ -240,13 +244,13 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
       </Modal>
 
       {/* 2FA Setup Modal */}
-      <Modal 
-        isOpen={is2FAModalOpen} 
+      <Modal
+        isOpen={is2FAModalOpen}
         onClose={() => {
           setIs2FAModalOpen(false);
           setSetupData(null);
           setVerificationCode('');
-        }} 
+        }}
         title="Setup Two-Factor Authentication"
       >
         <div className="py-4 px-6 space-y-6">
@@ -256,11 +260,11 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
             </p>
             {setupData?.qrCode && (
               <div className="flex justify-center p-4 bg-white rounded-lg border border-border">
-                <Image 
-                  src={setupData.qrCode} 
-                  alt="2FA QR Code" 
-                  width={192} 
-                  height={192} 
+                <Image
+                  src={setupData.qrCode}
+                  alt="2FA QR Code"
+                  width={192}
+                  height={192}
                   unoptimized // data: urls don't need optimization
                 />
               </div>
@@ -268,13 +272,9 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm text-foreground">
-              2. Or enter this secret key manually:
-            </p>
+            <p className="text-sm text-foreground">2. Or enter this secret key manually:</p>
             <div className="bg-muted p-3 rounded-lg border border-border flex items-center justify-between">
-              <code className="text-sm font-mono font-bold text-foreground break-all">
-                {setupData?.secret}
-              </code>
+              <code className="text-sm font-mono font-bold text-foreground break-all">{setupData?.secret}</code>
             </div>
           </div>
 
@@ -288,7 +288,7 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
                 type="text"
                 maxLength={6}
                 value={verificationCode}
-                onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                onChange={e => setVerificationCode(e.target.value.replace(/\D/g, ''))}
                 placeholder="000000"
                 className="w-full px-3 py-2 border border-border bg-card text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-center text-2xl tracking-[0.5em] font-bold"
               />
@@ -302,8 +302,8 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
               >
                 Cancel
               </Button>
-              <Button 
-                onClick={handleEnable2FA} 
+              <Button
+                onClick={handleEnable2FA}
                 disabled={isEnablePending || verificationCode.length !== 6}
                 className="bg-primary text-primary-foreground hover:bg-primary/90"
               >

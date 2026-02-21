@@ -26,7 +26,7 @@ import {
 } from '@gluestack-ui/themed';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
-import { Eye, EyeOff, Lock, RefreshCcw, ShieldCheck } from 'lucide-react-native';
+import { Eye, EyeOff, Lock, RefreshCcw } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { queryKeys } from '../api/queryKeys';
 import { Platform } from 'react-native';

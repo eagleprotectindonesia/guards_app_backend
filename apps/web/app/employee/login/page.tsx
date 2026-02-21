@@ -1,8 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 import { PasswordInput } from '@/components/ui/password-input';
 import { useLogin } from '../(authenticated)/hooks/use-employee-queries';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +34,7 @@ export default function GuardLoginPage() {
     try {
       await loginMutation.mutateAsync({ employeeNumber, password });
       router.push('/employee');
-    } catch (err: unknown) {
+    } catch {
       setError(t('login.errorMessage'));
     }
   };

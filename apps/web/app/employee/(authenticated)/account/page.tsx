@@ -7,7 +7,6 @@ import { LogOut, Key, ChevronRight } from 'lucide-react';
 import { useProfile, useLogout, useChangePassword } from '../hooks/use-employee-queries';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
-import { GlassLanguageToggle } from '@/components/glass-language-toggle';
 
 const DEFAULT_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuDzcxM7B2Plj0M6rLwD5-jwCeXCJ-VxTGp8XT8dffCo7Cjv4BQ3_fM-MkOicyMU8jJxMw9Q81kjfqVm_zD_yfF92pmxUsZDY_fB7by9N3_LAOMNfdJlNjEUudjhqq7Cm5LUPTk9aKNVSgT9A4rsOYqHKU5vKRmjMZknp_AFtbKxzLh1PX2V_AKy5bez2tThvg_swnSuuvc4uRhd_JO8vfyGxuCUlrrS_Gt_LXaPHMHfgxPWTz6nvJqDPVw3QneYlTqVGg46xTuvrQDq';

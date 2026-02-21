@@ -6,7 +6,7 @@ import { UseMutationResult } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { PasswordInput } from '@/components/ui/password-input';
-import { Lock, ShieldCheck, RefreshCcw, Radio } from 'lucide-react';
+import { Lock, RefreshCcw, Radio } from 'lucide-react';
 
 interface ChangePasswordError {
   message?: string;

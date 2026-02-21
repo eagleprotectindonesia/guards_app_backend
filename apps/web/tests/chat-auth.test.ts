@@ -11,7 +11,6 @@ jest.mock('@/lib/prisma', () => ({
 
 describe('Chat Authorization - markAsRead', () => {
   const employeeId = 'emp-123';
-  const otherEmployeeId = 'emp-456';
   const messageIds = ['msg-1', 'msg-2'];
 
   beforeEach(() => {

@@ -8,8 +8,6 @@ import {
   ClipboardCheck,
   UserCog,
   Settings,
-  Building2,
-  Briefcase,
   Hotel,
   MessageSquare,
   type LucideIcon,

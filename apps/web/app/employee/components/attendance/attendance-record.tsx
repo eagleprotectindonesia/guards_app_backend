@@ -1,11 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { useRecordAttendance } from '@/app/employee/(authenticated)/hooks/use-employee-queries'; // Adjust import path as necessary
 import { format } from 'date-fns';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useTranslation } from 'react-i18next';
 
 interface AttendanceRecordProps {
@@ -76,7 +74,6 @@ export function AttendanceRecord({ shift, onAttendanceRecorded, setStatus, curre
 
   // Determine if attendance can be recorded
   const hasAttendance = !!shift.attendance;
-  const canRecordAttendance = !hasAttendance;
 
   // Calculate late status
   const ATTENDANCE_GRACE_MINS = 5;
