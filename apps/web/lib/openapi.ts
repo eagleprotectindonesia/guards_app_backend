@@ -12,11 +12,6 @@ const ApiKeyAuth = registry.registerComponent('securitySchemes', 'ApiKeyAuth', {
   name: 'X-API-KEY',
 });
 
-// --- Enums ---
-const ShiftStatusSchema = registry.register(
-  'ShiftStatus',
-  z.enum(['scheduled', 'in_progress', 'completed', 'missed', 'cancelled']).openapi({ example: 'completed' })
-);
 const AttendanceStatusSchema = registry.register(
   'AttendanceStatus',
   z.enum(['present', 'absent', 'late']).openapi({ example: 'present' })
@@ -26,41 +21,22 @@ const CheckInStatusSchema = registry.register(
   z.enum(['on_time', 'late']).openapi({ example: 'on_time' })
 );
 
+const ErrorSchema = registry.register(
+  'Error',
+  z.object({
+    error: z.string().openapi({ example: 'Invalid request' }),
+  })
+);
+
 // --- Grouped Attendance Schemas ---
-const SiteMiniSchema = z.object({
-  name: z.string().openapi({ example: 'Headquarters' }),
-  clientName: z.string().nullable().openapi({ example: 'Headquarters Owner' }),
-  address: z.string().nullable().openapi({ example: 'Jl. Umalas 1 Gg. XXII...' }),
-  latitude: z.number().nullable().openapi({ example: -8.6695866 }),
-  longitude: z.number().nullable().openapi({ example: 115.1538065 }),
-});
-
-const ShiftTypeMiniSchema = z.object({
-  name: z.string().openapi({ example: 'Morning Shift' }),
-});
-
-const GroupedShiftSchema = z.object({
-  date: z.string().openapi({ example: '2026-02-15T00:00:00.000Z' }),
-  startsAt: z.string().openapi({ example: '2026-02-16T00:00:00.000Z' }),
-  endsAt: z.string().openapi({ example: '2026-02-16T08:00:00.000Z' }),
-  status: ShiftStatusSchema,
-  missedCount: z.number().openapi({ example: 1 }),
-  site: SiteMiniSchema,
-  shiftType: ShiftTypeMiniSchema,
-});
 
 const AttendanceItemSchema = z.object({
-  id: z.uuid().openapi({ example: '8c44a2f3-4ed6-4f89-a653-ae31e1844d43' }),
-  employeeId: z.string().openapi({ example: 'EMP001' }),
   recordedAt: z.string().openapi({ example: '2026-02-16T05:20:21.265Z' }),
   status: AttendanceStatusSchema,
   latenessMins: z.number().optional().openapi({ example: 15 }),
-  shift: GroupedShiftSchema,
 });
 
 const CheckInItemSchema = z.object({
-  id: z.uuid().openapi({ example: '9f5720de-d10c-4517-9e45-ddc980a952fa' }),
-  employeeId: z.string().openapi({ example: 'EMP001' }),
   at: z.string().openapi({ example: '2026-02-16T05:20:25.268Z' }),
   status: CheckInStatusSchema,
   latenessMins: z.number().optional().openapi({ example: 5 }),
@@ -84,29 +60,64 @@ registry.registerPath({
   security: [{ [ApiKeyAuth.name]: [] }],
   request: {
     query: z.object({
-      employeeId: z.string().optional().openapi({ description: 'Filter by employee ID' }),
-      startDate: z.iso.datetime().optional().openapi({
-        description: 'Start date (ISO 8601). If not provided, defaults to 7 days before endDate.',
+      employee_id: z.string().optional().openapi({ description: 'Filter by employee ID' }),
+      start_date: z.string().datetime().optional().openapi({
+        description: 'Start date (ISO 8601). If not provided, defaults to 7 days before end_date.',
       }),
-      endDate: z.iso.datetime().optional().openapi({
+      end_date: z.string().datetime().optional().openapi({
         description:
-          'End date (ISO 8601). If not provided, defaults to current time. If `employeeId` is not provided, the range between startDate and endDate cannot exceed 1 week.',
+          'End date (ISO 8601). If not provided, defaults to current time. If `employee_id` is not provided, the range between start_date and end_date cannot exceed 1 week.',
       }),
     }),
   },
   responses: {
     200: {
       description:
-        'Streamed list of attendances with check-ins. Returns a JSON object with a `data` array containing the records. This response is chunk-encoded and streamed to conserve memory.',
+        'Streamed response grouped by employee ID. Each key is an employee ID and its value is an array of attendance+checkin records for that employee within the requested date range.',
       content: {
         'application/json': {
           schema: z.object({
-            data: z.array(GroupedAttendanceResponseSchema),
+            data: z.record(z.string(), z.array(GroupedAttendanceResponseSchema)).openapi({
+              example: {
+                EMP001: [
+                  {
+                    attendance: { recordedAt: '2026-02-16T05:20:21.265Z', status: 'present' },
+                    checkins: [{ at: '2026-02-16T06:20:00.000Z', status: 'on_time' }],
+                  },
+                ],
+              },
+            }),
           }),
         },
       },
     },
-    401: { description: 'Unauthorized' },
+    400: {
+      description: 'Bad Request',
+      content: {
+        'application/json': {
+          schema: ErrorSchema,
+          examples: {
+            dateRangeError: {
+              summary: 'Date range limit exceeded',
+              value: { error: 'Date range cannot exceed 1 week when not querying a specific employee.' },
+            },
+            invalidFormat: {
+              summary: 'Invalid date format',
+              value: { error: 'Invalid start_date format. Use ISO 8601 format.' },
+            },
+          },
+        },
+      },
+    },
+    401: {
+      description: 'Unauthorized - Invalid or missing API Key',
+      content: {
+        'application/json': {
+          schema: ErrorSchema,
+          example: { error: 'Unauthorized' },
+        },
+      },
+    },
   },
 });
 

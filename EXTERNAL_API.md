@@ -37,5 +37,5 @@ API Keys are securely generated and managed via the Admin Dashboard.
 When using the `/api/external/v1/attendance/grouped` endpoint:
 
 - **Streaming Response:** To efficiently handle potentially massive datasets without crashing the system's memory, this endpoint utilizes a chunk-encoded `ReadableStream` to send the JSON response. Your consuming application can parse it simultaneously as a stream for highest efficiency or wait for the entire response to finish and parse it as a standard JSON object.
-- **Date Constraints:** The `startDate` and `endDate` parameters accept ISO 8601 strings. If you are querying for all attendances in the system (i.e. `employeeId` is omitted), the maximum allowed span between these two dates is **1 week (7 days)**. If an `employeeId` is provided, you can query across any date range.
-- **Defaults:** If `endDate` is omitted, it defaults to the exact time of the API request. If `startDate` is omitted, it defaults to exactly 7 days prior to `endDate`.
+- **Date Constraints:** The `start_date` and `end_date` parameters accept ISO 8601 strings. If you are querying for all attendances in the system (i.e. `employee_id` is omitted), the maximum allowed span between these two dates is **1 week (7 days)**. If an `employee_id` is provided, you can query across any date range.
+- **Defaults:** If `end_date` is omitted, it defaults to the exact time of the API request. If `start_date` is omitted, it defaults to exactly 7 days prior to `end_date`.

@@ -5,15 +5,15 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
   // Optional filters
-  const employeeId = searchParams.get('employeeId') || undefined;
-  const startDateParam = searchParams.get('startDate');
-  const endDateParam = searchParams.get('endDate');
+  const employeeId = searchParams.get('employee_id') || undefined;
+  const startDateParam = searchParams.get('start_date');
+  const endDateParam = searchParams.get('end_date');
 
   let endDate: Date;
   if (endDateParam) {
     endDate = new Date(endDateParam);
     if (isNaN(endDate.getTime())) {
-      return NextResponse.json({ error: 'Invalid endDate format. Use ISO 8601 format.' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid end_date format. Use ISO 8601 format.' }, { status: 400 });
     }
   } else {
     endDate = new Date();
@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
   if (startDateParam) {
     startDate = new Date(startDateParam);
     if (isNaN(startDate.getTime())) {
-      return NextResponse.json({ error: 'Invalid startDate format. Use ISO 8601 format.' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid start_date format. Use ISO 8601 format.' }, { status: 400 });
     }
   } else {
     startDate = new Date(endDate);
@@ -41,19 +41,18 @@ export async function GET(request: NextRequest) {
   }
 
   if (startDate.getTime() > endDate.getTime()) {
-    return NextResponse.json({ error: 'startDate cannot be after endDate.' }, { status: 400 });
+    return NextResponse.json({ error: 'start_date cannot be after end_date.' }, { status: 400 });
   }
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        // Start the JSON response with the `data` array
-        controller.enqueue(encoder.encode('{\n"data": [\n'));
+        // Accumulate grouped data across all paginated chunks
+        const grouped: Record<string, unknown[]> = {};
 
         let skip = 0;
-        const take = 20;
-        let isFirstChunk = true;
+        const take = 50;
 
         while (true) {
           const { data } = await getAttendancesWithCheckins({
@@ -64,24 +63,34 @@ export async function GET(request: NextRequest) {
             take,
           });
 
-          if (data.length === 0) {
-            break; // No more data to fetch
+          // Merge new chunk into grouped accumulator
+          for (const [empId, records] of Object.entries(data)) {
+            if (!grouped[empId]) grouped[empId] = [];
+            grouped[empId].push(...records);
           }
 
-          // Write each item to the stream
-          for (const item of data) {
-            if (!isFirstChunk) {
-              controller.enqueue(encoder.encode(',\n'));
-            }
-            controller.enqueue(encoder.encode(JSON.stringify(item)));
-            isFirstChunk = false;
+          const chunkSize = Object.values(data).reduce((sum, arr) => sum + arr.length, 0);
+          if (chunkSize < take) {
+            break; // Last page reached
           }
 
           skip += take;
         }
 
-        // Close the JSON array and object
-        controller.enqueue(encoder.encode('\n]\n}'));
+        // Stream the grouped result as a JSON object, one employee key at a time
+        controller.enqueue(encoder.encode('{\n"data": {\n'));
+
+        const keys = Object.keys(grouped);
+        for (let i = 0; i < keys.length; i++) {
+          const key = keys[i];
+          const records = grouped[key];
+          controller.enqueue(encoder.encode(`${JSON.stringify(key)}: ${JSON.stringify(records)}`));
+          if (i < keys.length - 1) {
+            controller.enqueue(encoder.encode(',\n'));
+          }
+        }
+
+        controller.enqueue(encoder.encode('\n}\n}'));
         controller.close();
       } catch (error) {
         console.error('Error streaming grouped attendances:', error);

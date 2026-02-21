@@ -2,9 +2,9 @@ import { db as prisma } from '../client';
 import { Prisma } from '@prisma/client';
 
 /**
- * Get attendances with their associated check-ins, grouped by shift
+ * Get attendances with their associated check-ins, grouped by employeeId
  * @param params - Filter parameters
- * @returns Array of attendances with check-ins and total count
+ * @returns Record of employeeId => array of attendance+checkin records
  */
 export async function getAttendancesWithCheckins(params: {
   employeeId?: string;
@@ -33,21 +33,18 @@ export async function getAttendancesWithCheckins(params: {
   };
   if (employeeId) attendanceWhere.employeeId = employeeId;
 
-  // Fetch attendances with their shifts and check-ins
-  const [attendances, totalCount] = await Promise.all([
-    prisma.attendance.findMany({
-      where: attendanceWhere,
-      skip,
-      take,
-      orderBy: {
-        recordedAt: 'desc',
-      },
-    }),
-    prisma.attendance.count({ where: attendanceWhere }),
-  ]);
+  // Fetch attendances
+  const attendances = await prisma.attendance.findMany({
+    where: attendanceWhere,
+    skip,
+    take,
+    orderBy: {
+      recordedAt: 'desc',
+    },
+  });
 
   // For each attendance, fetch the associated check-ins
-  const data = await Promise.all(
+  const items = await Promise.all(
     attendances.map(async attendance => {
       const checkinsResult = await prisma.checkin.findMany({
         where: {
@@ -55,8 +52,6 @@ export async function getAttendancesWithCheckins(params: {
           ...(attendance.employeeId && { employeeId: attendance.employeeId }),
         },
         select: {
-          id: true,
-          employeeId: true,
           at: true,
           status: true,
           metadata: true,
@@ -69,8 +64,6 @@ export async function getAttendancesWithCheckins(params: {
       const checkins = checkinsResult.map(c => {
         const metadata = c.metadata as any;
         return {
-          id: c.id,
-          employeeId: c.employeeId,
           at: c.at,
           status: c.status,
           ...(c.status === 'late' && metadata?.latenessMins !== undefined
@@ -82,9 +75,8 @@ export async function getAttendancesWithCheckins(params: {
       // Format the response structure
       const attendanceMetadata = attendance.metadata as any;
       return {
+        employeeId: attendance.employeeId,
         attendance: {
-          id: attendance.id,
-          employeeId: attendance.employeeId,
           recordedAt: attendance.recordedAt,
           status: attendance.status,
           ...(attendance.status === 'late' && attendanceMetadata?.latenessMins !== undefined
@@ -96,5 +88,16 @@ export async function getAttendancesWithCheckins(params: {
     })
   );
 
-  return { data, totalCount };
+  // Group by employeeId
+  const grouped: Record<
+    string,
+    { attendance: (typeof items)[number]['attendance']; checkins: (typeof items)[number]['checkins'] }[]
+  > = {};
+  for (const item of items) {
+    const key = item.employeeId ?? 'unknown';
+    if (!grouped[key]) grouped[key] = [];
+    grouped[key].push({ attendance: item.attendance, checkins: item.checkins });
+  }
+
+  return { data: grouped };
 }
