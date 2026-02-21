@@ -1,8 +1,4 @@
-import {
-  OpenAPIRegistry,
-  OpenApiGeneratorV3,
-  extendZodWithOpenApi,
-} from '@asteasolutions/zod-to-openapi';
+import { OpenAPIRegistry, OpenApiGeneratorV3, extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 
 extendZodWithOpenApi(z);
@@ -16,18 +12,19 @@ const ApiKeyAuth = registry.registerComponent('securitySchemes', 'ApiKeyAuth', {
   name: 'X-API-KEY',
 });
 
-// --- Common Schemas ---
-const PaginationSchema = registry.register('Pagination', z.object({
-  total: z.number(),
-  page: z.number(),
-  limit: z.number(),
-  totalPages: z.number(),
-}));
-
 // --- Enums ---
-const ShiftStatusSchema = registry.register('ShiftStatus', z.enum(['scheduled', 'in_progress', 'completed', 'missed', 'cancelled']).openapi({ example: 'completed' }));
-const AttendanceStatusSchema = registry.register('AttendanceStatus', z.enum(['present', 'absent', 'late']).openapi({ example: 'present' }));
-const CheckInStatusSchema = registry.register('CheckInStatus', z.enum(['on_time', 'late']).openapi({ example: 'on_time' }));
+const ShiftStatusSchema = registry.register(
+  'ShiftStatus',
+  z.enum(['scheduled', 'in_progress', 'completed', 'missed', 'cancelled']).openapi({ example: 'completed' })
+);
+const AttendanceStatusSchema = registry.register(
+  'AttendanceStatus',
+  z.enum(['present', 'absent', 'late']).openapi({ example: 'present' })
+);
+const CheckInStatusSchema = registry.register(
+  'CheckInStatus',
+  z.enum(['on_time', 'late']).openapi({ example: 'on_time' })
+);
 
 // --- Grouped Attendance Schemas ---
 const SiteMiniSchema = z.object({
@@ -53,28 +50,29 @@ const GroupedShiftSchema = z.object({
 });
 
 const AttendanceItemSchema = z.object({
-  id: z.string().uuid().openapi({ example: '8c44a2f3-4ed6-4f89-a653-ae31e1844d43' }),
+  id: z.uuid().openapi({ example: '8c44a2f3-4ed6-4f89-a653-ae31e1844d43' }),
   employeeId: z.string().openapi({ example: 'EMP001' }),
   recordedAt: z.string().openapi({ example: '2026-02-16T05:20:21.265Z' }),
   status: AttendanceStatusSchema,
-  metadata: z.any().nullable(),
+  latenessMins: z.number().optional().openapi({ example: 15 }),
   shift: GroupedShiftSchema,
 });
 
 const CheckInItemSchema = z.object({
-  id: z.string().uuid().openapi({ example: '9f5720de-d10c-4517-9e45-ddc980a952fa' }),
+  id: z.uuid().openapi({ example: '9f5720de-d10c-4517-9e45-ddc980a952fa' }),
   employeeId: z.string().openapi({ example: 'EMP001' }),
   at: z.string().openapi({ example: '2026-02-16T05:20:25.268Z' }),
-  source: z.string().nullable().openapi({ example: 'web-ui' }),
   status: CheckInStatusSchema,
-  metadata: z.any().nullable(),
-  createdAt: z.string().openapi({ example: '2026-02-16T05:20:25.278Z' }),
+  latenessMins: z.number().optional().openapi({ example: 5 }),
 });
 
-const GroupedAttendanceResponseSchema = registry.register('GroupedAttendance', z.object({
-  attendance: AttendanceItemSchema,
-  checkins: z.array(CheckInItemSchema),
-}));
+const GroupedAttendanceResponseSchema = registry.register(
+  'GroupedAttendance',
+  z.object({
+    attendance: AttendanceItemSchema,
+    checkins: z.array(CheckInItemSchema),
+  })
+);
 
 // --- Paths ---
 
@@ -84,21 +82,26 @@ registry.registerPath({
   path: '/api/external/v1/attendance/grouped',
   summary: 'Get all attendances with check-ins grouped by shift',
   security: [{ [ApiKeyAuth.name]: [] }],
-  parameters: [
-    { name: 'page', in: 'query', schema: { type: 'integer', default: 1 } },
-    { name: 'limit', in: 'query', schema: { type: 'integer', default: 10 } },
-    { name: 'employeeId', in: 'query', schema: { type: 'string' } },
-    { name: 'startDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
-    { name: 'endDate', in: 'query', schema: { type: 'string', format: 'date-time' } },
-  ],
+  request: {
+    query: z.object({
+      employeeId: z.string().optional().openapi({ description: 'Filter by employee ID' }),
+      startDate: z.iso.datetime().optional().openapi({
+        description: 'Start date (ISO 8601). If not provided, defaults to 7 days before endDate.',
+      }),
+      endDate: z.iso.datetime().optional().openapi({
+        description:
+          'End date (ISO 8601). If not provided, defaults to current time. If `employeeId` is not provided, the range between startDate and endDate cannot exceed 1 week.',
+      }),
+    }),
+  },
   responses: {
     200: {
-      description: 'List of attendances with check-ins',
+      description:
+        'Streamed list of attendances with check-ins. Returns a JSON object with a `data` array containing the records. This response is chunk-encoded and streamed to conserve memory.',
       content: {
         'application/json': {
           schema: z.object({
             data: z.array(GroupedAttendanceResponseSchema),
-            pagination: PaginationSchema,
           }),
         },
       },

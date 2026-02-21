@@ -1,4 +1,4 @@
-import { db as prisma } from "../client";
+import { db as prisma } from '../client';
 import { Prisma } from '@prisma/client';
 
 /**
@@ -39,26 +39,6 @@ export async function getAttendancesWithCheckins(params: {
       where: attendanceWhere,
       skip,
       take,
-      include: {
-        shift: {
-          include: {
-            site: {
-              select: {
-                name: true,
-                clientName: true,
-                address: true,
-                latitude: true,
-                longitude: true,
-              },
-            },
-            shiftType: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
-      },
       orderBy: {
         recordedAt: 'desc',
       },
@@ -68,8 +48,8 @@ export async function getAttendancesWithCheckins(params: {
 
   // For each attendance, fetch the associated check-ins
   const data = await Promise.all(
-    attendances.map(async (attendance) => {
-      const checkins = await prisma.checkin.findMany({
+    attendances.map(async attendance => {
+      const checkinsResult = await prisma.checkin.findMany({
         where: {
           shiftId: attendance.shiftId,
           ...(attendance.employeeId && { employeeId: attendance.employeeId }),
@@ -78,33 +58,38 @@ export async function getAttendancesWithCheckins(params: {
           id: true,
           employeeId: true,
           at: true,
-          source: true,
           status: true,
           metadata: true,
-          createdAt: true,
         },
         orderBy: {
           at: 'asc',
         },
       });
 
+      const checkins = checkinsResult.map(c => {
+        const metadata = c.metadata as any;
+        return {
+          id: c.id,
+          employeeId: c.employeeId,
+          at: c.at,
+          status: c.status,
+          ...(c.status === 'late' && metadata?.latenessMins !== undefined
+            ? { latenessMins: metadata.latenessMins }
+            : {}),
+        };
+      });
+
       // Format the response structure
+      const attendanceMetadata = attendance.metadata as any;
       return {
         attendance: {
           id: attendance.id,
           employeeId: attendance.employeeId,
           recordedAt: attendance.recordedAt,
           status: attendance.status,
-          metadata: attendance.metadata,
-          shift: {
-            date: attendance.shift.date,
-            startsAt: attendance.shift.startsAt,
-            endsAt: attendance.shift.endsAt,
-            status: attendance.shift.status,
-            missedCount: attendance.shift.missedCount,
-            site: attendance.shift.site,
-            shiftType: attendance.shift.shiftType,
-          },
+          ...(attendance.status === 'late' && attendanceMetadata?.latenessMins !== undefined
+            ? { latenessMins: attendanceMetadata.latenessMins }
+            : {}),
         },
         checkins,
       };
