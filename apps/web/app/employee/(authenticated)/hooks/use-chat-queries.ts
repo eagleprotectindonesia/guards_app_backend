@@ -8,6 +8,8 @@ export interface ChatMessage {
   sender: 'admin' | 'guard' | 'employee';
   content: string;
   attachments: string[];
+  latitude?: number | null;
+  longitude?: number | null;
   createdAt: string;
   readAt?: string | null;
   admin?: {
@@ -27,13 +29,13 @@ export function useChatMessages(employeeId?: string) {
       if (pageParam) {
         url.searchParams.set('cursor', pageParam);
       }
-      
+
       const res = await fetchWithAuth(url.toString());
       if (!res.ok) throw new Error('Failed to fetch messages');
       return res.json() as Promise<ChatMessage[]>;
     },
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => {
+    getNextPageParam: lastPage => {
       if (lastPage.length < 20) return undefined;
       return lastPage[lastPage.length - 1].id;
     },

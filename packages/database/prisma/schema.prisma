@@ -106,6 +106,8 @@ model ChatMessage {
   sender      ChatSenderType
   content     String         @db.Text
   attachments String[]
+  latitude    Float?
+  longitude   Float?
   createdAt   DateTime       @default(now()) @map("created_at")
   readAt      DateTime?      @map("read_at")
 
@@ -151,6 +153,7 @@ model Employee {
   @@index([status])
   @@index([deletedAt])
   @@index([employeeNumber])
+  @@index([officeId])
   @@map("employees")
 }
 

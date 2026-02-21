@@ -187,7 +187,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await client.get('/api/employee/my/profile');
       const user = res.data.employee;
-      console.log(user);
       queryClient.setQueryData(queryKeys.profile, { employee: user });
       setState(prev => {
         if (prev.isAuthenticated) {
@@ -226,7 +225,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 isAuthenticated: true,
                 authValidationState: 'validated',
               });
-              console.log('from auth context', user);
               queryClient.setQueryData(queryKeys.profile, { employee: user });
               return;
             } catch (error: unknown) {

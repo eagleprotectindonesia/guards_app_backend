@@ -25,7 +25,14 @@ export interface ServerToClientEvents {
 
 export interface ClientToServerEvents {
   // Chat events
-  send_message: (data: { content: string; employeeId?: string; guardId?: string; attachments?: string[] }) => void;
+  send_message: (data: {
+    content: string;
+    employeeId?: string;
+    guardId?: string;
+    attachments?: string[];
+    latitude?: number;
+    longitude?: number;
+  }) => void;
 
   mark_read: (data: { messageIds: string[]; employeeId?: string; guardId?: string }) => void;
 

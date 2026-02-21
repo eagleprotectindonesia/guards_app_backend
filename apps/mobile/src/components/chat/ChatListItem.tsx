@@ -1,8 +1,9 @@
 import React, { memo } from 'react';
 import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { VStack, Text, Center, Avatar, AvatarFallbackText, HStack } from '@gluestack-ui/themed';
-import { Check, CheckCheck } from 'lucide-react-native';
+import { Check, CheckCheck, MapPin } from 'lucide-react-native';
 import { format } from 'date-fns';
+import * as Linking from 'expo-linking';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -98,7 +99,21 @@ function ChatListItemBase({ item, getDateLabel, onOpenImageViewer }: ChatListIte
               })}
             </View>
           )}
-          <Text style={[styles.messageText, isMe ? styles.myText : styles.theirText]}>{message.content}</Text>
+          {message.latitude && message.longitude && (
+            <TouchableOpacity
+              onPress={() => Linking.openURL(`https://maps.google.com/?q=${message.latitude},${message.longitude}`)}
+              style={[styles.locationWrapper, isMe ? styles.myLocationWrapper : styles.theirLocationWrapper]}
+            >
+              <MapPin size={24} color={isMe ? '#FFF' : '#EF4444'} />
+              <VStack ml="$2">
+                <Text style={isMe ? styles.myLocationText : styles.theirLocationText}>Shared Location</Text>
+                <Text style={styles.locationSubText}>Tap to open in Maps</Text>
+              </VStack>
+            </TouchableOpacity>
+          )}
+          {message.content ? (
+            <Text style={[styles.messageText, isMe ? styles.myText : styles.theirText]}>{message.content}</Text>
+          ) : null}
           <HStack space="xs" justifyContent="flex-end" alignItems="center" mt="$1">
             <Text style={[styles.messageTime, isMe ? styles.myTime : styles.theirTime]}>
               {format(new Date(message.createdAt), 'HH:mm')}
@@ -206,6 +221,35 @@ const styles = StyleSheet.create({
   multiAttachmentImage: {
     width: 107,
     height: 107,
+  },
+  locationWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  myLocationWrapper: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  theirLocationWrapper: {
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  },
+  myLocationText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  theirLocationText: {
+    color: '#E2E8F0',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  locationSubText: {
+    color: '#94A3B8',
+    fontSize: 12,
   },
   dateSeparator: {
     paddingHorizontal: 16,

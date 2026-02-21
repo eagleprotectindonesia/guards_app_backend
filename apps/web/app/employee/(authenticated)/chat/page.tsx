@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Loader2, X, Paperclip, Camera, Video, Check, CheckCheck } from 'lucide-react';
+import { Send, Loader2, X, Paperclip, Camera, Video, Check, CheckCheck, MapPin } from 'lucide-react';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { useSocket } from '@/components/socket-provider';
@@ -255,6 +255,34 @@ export default function ChatPage() {
     }
   };
 
+  const handleShareLocation = async () => {
+    if (!socket || !isConnected || !employeeId || isUploading) return;
+
+    if (!navigator.geolocation) {
+      toast.error(t('chat.location_not_supported', 'Geolocation is not supported by your browser'));
+      return;
+    }
+
+    setIsUploading(true);
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        socket.emit('send_message', {
+          content: '',
+          attachments: [],
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setIsUploading(false);
+      },
+      error => {
+        console.error('Error getting location:', error);
+        toast.error(t('chat.location_error', 'Unable to fetch your location.'));
+        setIsUploading(false);
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  };
+
   if (isLoading && messages.length === 0) {
     return (
       <div className="flex flex-col flex-1 items-center justify-center">
@@ -392,6 +420,16 @@ export default function ChatPage() {
             >
               {isOptimizing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
             </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={handleShareLocation}
+              disabled={isUploading || isOptimizing}
+              className="rounded-full h-9 w-6 shrink-0 text-neutral-400 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <MapPin className="h-5 w-5" />
+            </Button>
           </div>
 
           <input
@@ -506,7 +544,28 @@ function ChatMessageItem({
             })}
           </div>
         )}
-        <p className="whitespace-pre-wrap break-words relative z-10">{message.content}</p>
+        {message.latitude && message.longitude && (
+          <a
+            href={`https://maps.google.com/?q=${message.latitude},${message.longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'flex items-center gap-3 p-3 rounded-xl mb-2 flex-1 border transition-all hover:opacity-90 max-w-xs',
+              isMe
+                ? 'bg-red-950/40 border-red-500/30 text-white hover:bg-red-950/60'
+                : 'bg-neutral-900/60 border-white/5 text-neutral-200 hover:bg-neutral-800'
+            )}
+          >
+            <div className={cn('p-2 rounded-full shrink-0', isMe ? 'bg-red-500/20' : 'bg-neutral-700/50')}>
+              <MapPin size={20} className={isMe ? 'text-red-400' : 'text-neutral-400'} />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-semibold text-[14px]">Shared Location</span>
+              <span className="text-[11px] opacity-70 mt-0.5 pointer-events-none">Click to open map</span>
+            </div>
+          </a>
+        )}
+        {message.content ? <p className="whitespace-pre-wrap break-words relative z-10">{message.content}</p> : null}
       </div>
       <div className="flex items-center mt-1.5 gap-2 px-1">
         <span className="text-[10px] font-medium text-neutral-600">{format(new Date(message.createdAt), 'HH:mm')}</span>

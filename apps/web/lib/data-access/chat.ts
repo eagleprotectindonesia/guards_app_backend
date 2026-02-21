@@ -5,7 +5,7 @@ import { getCachedPresignedDownloadUrl } from '@/lib/s3';
 export async function enrichMessageWithUrls<T extends { attachments?: string[] }>(message: T): Promise<T> {
   if (message.attachments && message.attachments.length > 0) {
     const enrichedAttachments = await Promise.all(
-      message.attachments.map(async (keyOrUrl) => {
+      message.attachments.map(async keyOrUrl => {
         // If it's already a full URL (legacy or external), return as is
         if (keyOrUrl.startsWith('http')) return keyOrUrl;
         // Otherwise treat as S3 key and get presigned URL
@@ -23,6 +23,8 @@ export async function saveMessage(data: {
   sender: ChatSenderType;
   content: string;
   attachments?: string[];
+  latitude?: number;
+  longitude?: number;
 }) {
   const message = await prisma.chatMessage.create({
     data,
@@ -101,12 +103,15 @@ export async function getConversationList() {
     },
   });
 
-  const unreadMap = unreadCounts.reduce((acc, curr) => {
-    acc[curr.employeeId] = curr._count.id;
-    return acc;
-  }, {} as Record<string, number>);
+  const unreadMap = unreadCounts.reduce(
+    (acc, curr) => {
+      acc[curr.employeeId] = curr._count.id;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
-  return conversations.map((conv) => ({
+  return conversations.map(conv => ({
     employeeId: conv.employeeId,
     employeeName: conv.employee.fullName,
     employeeNumber: conv.employee.employeeNumber || conv.employeeId,
@@ -203,7 +208,13 @@ export async function markAsReadForAdmin(employeeId: string, messageIds: string[
 
 // --- Backward Compatibility Aliases ---
 /** @deprecated Use saveMessage with employeeId */
-export async function saveGuardMessage(data: { guardId: string; adminId?: string; sender: ChatSenderType; content: string; attachments?: string[] }) {
+export async function saveGuardMessage(data: {
+  guardId: string;
+  adminId?: string;
+  sender: ChatSenderType;
+  content: string;
+  attachments?: string[];
+}) {
   const { guardId, ...rest } = data;
   return saveMessage({ employeeId: guardId, ...rest });
 }

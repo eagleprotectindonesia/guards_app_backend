@@ -155,6 +155,8 @@ export interface ChatMessage {
   sender: 'admin' | 'employee';
   content: string;
   attachments: string[];
+  latitude?: number | null;
+  longitude?: number | null;
   createdAt: string;
   readAt?: string | null;
 }

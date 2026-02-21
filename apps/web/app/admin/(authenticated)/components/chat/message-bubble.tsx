@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { format } from 'date-fns';
+import { MapPin } from 'lucide-react';
 import { cn, isVideoFile } from '@/lib/utils';
 import { ChatMessage } from '@/types/chat';
 
@@ -61,7 +62,28 @@ export function ChatMessageBubble({ message, isAdmin, currentAdminId, className 
             })}
           </div>
         )}
-        <p className="whitespace-pre-wrap break-words">{message.content}</p>
+        {message.latitude && message.longitude && (
+          <a
+            href={`https://maps.google.com/?q=${message.latitude},${message.longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={cn(
+              'flex items-center gap-3 p-3 rounded-xl mb-2 border transition-all hover:opacity-90',
+              isAdmin
+                ? 'bg-blue-700/40 border-blue-500/50 text-white'
+                : 'bg-muted border-border text-foreground hover:bg-muted/80'
+            )}
+          >
+            <div className={cn('p-2.5 rounded-full shrink-0', isAdmin ? 'bg-blue-600' : 'bg-muted-foreground/10')}>
+              <MapPin size={22} className={isAdmin ? 'text-white' : 'text-muted-foreground'} />
+            </div>
+            <div className="flex flex-col">
+              <span className="font-semibold text-[15px]">Shared Location</span>
+              <span className="text-xs opacity-80 mt-0.5">Click to open map</span>
+            </div>
+          </a>
+        )}
+        {message.content ? <p className="whitespace-pre-wrap wrap-break-word">{message.content}</p> : null}
       </div>
       <div className="flex items-center gap-1.5 px-1 mt-1.5">
         <span className="text-[10px] text-muted-foreground/60">{format(new Date(message.createdAt), 'HH:mm')}</span>

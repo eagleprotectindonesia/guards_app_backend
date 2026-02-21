@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { useSocket } from '../../src/hooks/useSocket';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useCustomToast } from '../../src/hooks/useCustomToast';
@@ -100,6 +101,38 @@ export default function ChatScreen() {
     } catch (error) {
       console.error('Error taking photo:', error);
       toast.error(t('chat.camera_error'), t('chat.camera_error_desc'));
+    }
+  };
+
+  const shareLocation = async () => {
+    if (isUploading) return;
+    try {
+      setIsUploading(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        toast.error(
+          t('chat.location_permission', 'Permission denied'),
+          t('chat.location_permission_desc', 'Cannot access location.')
+        );
+        return;
+      }
+      const location = await Location.getCurrentPositionAsync({});
+      if (socket) {
+        socket.emit('send_message', {
+          content: '',
+          attachments: [],
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+        });
+      }
+    } catch (error) {
+      console.error('Error sharing location:', error);
+      toast.error(
+        t('chat.location_error', 'Location error'),
+        t('chat.location_error_desc', 'Unable to fetch your location.')
+      );
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -198,7 +231,11 @@ export default function ChatScreen() {
 
       <ChatHeader topInset={insets.top} title={t('chat.title')} statusText={t('chat.status_active').toUpperCase()} />
 
-      <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0} style={{ flex: 1 }}>
+      <KeyboardAvoidingView
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={{ flex: 1 }}
+      >
         <View style={{ flex: 1 }}>
           <FlatList
             ref={flatListRef}
@@ -240,6 +277,7 @@ export default function ChatScreen() {
           placeholder={t('chat.placeholder')}
           onPickAttachments={pickAttachments}
           onTakePhoto={takePhoto}
+          onShareLocation={shareLocation}
           onRemoveAttachment={removeAttachment}
           onChangeText={setInputText}
           onSendMessage={sendMessage}

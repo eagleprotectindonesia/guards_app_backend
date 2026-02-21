@@ -22,6 +22,8 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
           sender: 'employee',
           content: data.content,
           attachments: data.attachments,
+          latitude: data.latitude,
+          longitude: data.longitude,
         })) as unknown as ChatMessage;
         io.to('admin').to(`employee:${auth.id}`).emit('new_message', msg);
       } else if (auth.type === 'admin' && targetId) {
@@ -42,6 +44,8 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
           sender: 'admin',
           content: data.content,
           attachments: data.attachments,
+          latitude: data.latitude,
+          longitude: data.longitude,
         })) as unknown as ChatMessage;
         io.to(`employee:${targetId}`).to('admin').emit('new_message', msg);
       }

@@ -16,9 +16,6 @@ export default function EmployeePage() {
   const activeShift = useMemo(() => shiftData?.activeShift || null, [shiftData]);
   const nextShifts = useMemo(() => shiftData?.nextShifts || [], [shiftData]);
 
-  console.log('activeShift', activeShift);
-  console.log('nextShifts', shiftData);
-
   const [status, setStatus] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
 

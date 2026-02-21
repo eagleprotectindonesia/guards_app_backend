@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Image, TouchableOpacity, TextInput, ScrollView, StyleSheet } from 'react-native';
 import { HStack, Spinner, Box } from '@gluestack-ui/themed';
-import { Paperclip, X, Video as VideoIcon, Camera, Send } from 'lucide-react-native';
+import { Paperclip, X, Video as VideoIcon, Camera, Send, MapPin } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
@@ -14,6 +14,7 @@ type ChatComposerProps = {
   placeholder: string;
   onPickAttachments: () => void;
   onTakePhoto: () => void;
+  onShareLocation: () => void;
   onRemoveAttachment: (index: number) => void;
   onChangeText: (value: string) => void;
   onSendMessage: () => void;
@@ -27,6 +28,7 @@ export function ChatComposer({
   placeholder,
   onPickAttachments,
   onTakePhoto,
+  onShareLocation,
   onRemoveAttachment,
   onChangeText,
   onSendMessage,
@@ -64,6 +66,9 @@ export function ChatComposer({
             </TouchableOpacity>
             <TouchableOpacity onPress={onTakePhoto} disabled={isUploading} style={styles.attachButton}>
               <Camera size={22} color="#94A3B8" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onShareLocation} disabled={isUploading} style={styles.attachButton}>
+              <MapPin size={22} color="#94A3B8" />
             </TouchableOpacity>
             <TextInput
               style={styles.input}

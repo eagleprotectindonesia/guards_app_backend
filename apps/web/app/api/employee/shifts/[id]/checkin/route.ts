@@ -122,11 +122,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // Add current slot
     let currentLatenessMins = 0;
-    console.log('status', status);
 
     if (status === 'late') {
       currentLatenessMins = Math.max(0, Math.floor((now.getTime() - (currentSlotStartMs + graceMs)) / 60000));
-      console.log('currentLatenessMins', currentLatenessMins);
     }
 
     checkinsToRecord.push({
