@@ -130,6 +130,7 @@ export async function POST(req: Request) {
         employee: {
           id: employee.id,
           name: employee.fullName,
+          mustChangePassword: password === DEFAULT_PASSWORD,
         },
       },
       { status: 200 }

@@ -84,8 +84,8 @@ export default function HomeScreen() {
         <VStack space="xl">
           {/* Header */}
           <Box px="$6" mb="$2">
-            <HStack justifyContent="space-between" alignItems="center">
-              <HStack space="md" alignItems="center">
+            <HStack justifyContent="space-between" alignItems="center" w="100%">
+              <HStack space="md" alignItems="center" flex={1} mr="$4" flexShrink={1}>
                 <Box
                   w="$12"
                   h="$12"
@@ -94,10 +94,11 @@ export default function HomeScreen() {
                   borderColor="rgba(255,255,255,0.1)"
                   overflow="hidden"
                   bg="$backgroundDark900"
+                  flexShrink={0}
                 >
                   <Image source={{ uri: defaultAvatar }} style={{ width: '100%', height: '100%', opacity: 0.8 }} />
                 </Box>
-                <VStack>
+                <VStack flex={1} flexShrink={1}>
                   <Text
                     color="$red500"
                     size="2xs"
@@ -105,15 +106,18 @@ export default function HomeScreen() {
                     textTransform="uppercase"
                     letterSpacing={1.5}
                     mb="$1"
+                    flexShrink={1}
                   >
                     {profile?.employee?.jobTitle || t('dashboard.unit')}
                   </Text>
-                  <Heading size="lg" color="$white" fontWeight="$bold">
+                  <Heading size="lg" color="$white" fontWeight="$bold" flexShrink={1}>
                     {profile?.employee?.fullName || ''}
                   </Heading>
                 </VStack>
               </HStack>
-              <GlassLanguageToggle />
+              <Box flexShrink={0}>
+                <GlassLanguageToggle />
+              </Box>
             </HStack>
           </Box>
 

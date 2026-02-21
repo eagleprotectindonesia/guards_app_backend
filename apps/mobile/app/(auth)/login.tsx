@@ -64,7 +64,7 @@ export default function LoginScreen() {
         await login(data.token, data.employee);
 
         // After successful login, check if we should prompt to enable biometric
-        if (isBiometricAvailable && !isBiometricEnabled) {
+        if (isBiometricAvailable && !isBiometricEnabled && !data.employee.mustChangePassword) {
           showAlert(t('biometric.enableTitle'), t('biometric.enableMessage'), [
             { text: t('common.cancel'), style: 'cancel' },
             {
@@ -72,7 +72,7 @@ export default function LoginScreen() {
               onPress: async () => {
                 const auth = await authenticateWithBiometric(t('biometric.promptMessage'));
                 if (auth.success) {
-                  await enableBiometric(employeeNumber, password);
+                  await enableBiometric(data.employee.id, password);
                   toast.success(t('common.successTitle', 'Success'), t('biometric.enableSuccess'));
                 }
               },

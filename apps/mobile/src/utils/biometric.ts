@@ -16,10 +16,10 @@ export const checkBiometricAvailability = async () => {
     }
 
     const supportedTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
-    
-    return { 
-      available: true, 
-      types: supportedTypes 
+
+    return {
+      available: true,
+      types: supportedTypes,
     };
   } catch (error) {
     console.error('[Biometric] Availability check failed:', error);
@@ -60,7 +60,7 @@ export const authenticateWithBiometric = async (promptMessage: string) => {
 export const getBiometricTypeLabel = async () => {
   try {
     const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-    
+
     // If multiple types are supported (common on modern Android), return generic 'Biometric'
     // to avoid confusion when the OS chooses a different method than our predicted label.
     if (types.length > 1) {
