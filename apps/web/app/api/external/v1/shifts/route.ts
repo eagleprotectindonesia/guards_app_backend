@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
             select: { id: true, name: true },
           },
           employee: {
-            select: { id: true, firstName: true, lastName: true },
+            select: { id: true, fullName: true },
           },
           shiftType: {
             select: { id: true, name: true, startTime: true, endTime: true },

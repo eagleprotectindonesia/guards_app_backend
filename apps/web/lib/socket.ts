@@ -1,164 +1,69 @@
-import { Server as SocketIOServer } from 'socket.io';
+import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { Server as HttpsServer } from 'https';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { redis } from './redis';
 import { authenticateSocket } from './socket-auth';
-import { saveMessage, markAsRead } from './data-access/chat';
-import '../types/socket'; // Import to ensure module augmentation is applied
+import { registerChatHandlers } from './socket/chat';
+import { registerAdminHandlers } from './socket/admin';
+import { registerEmployeeHandlers } from './socket/employee';
+import { registerSystemHandlers } from './socket/system';
+import { ServerToClientEvents, ClientToServerEvents, InterServerEvents, SocketData } from '@repo/types';
 
+export type UnifiedServer = SocketIOServer<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
+
+export type UnifiedSocket = Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
+
+/**
+ * Initializes the Socket.io server with Redis adapter and unified handlers.
+ */
 export function initSocket(server: HttpServer | HttpsServer) {
-  const io = new SocketIOServer(server, {
+  const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : '*';
+
+  const io: UnifiedServer = new SocketIOServer(server, {
     cors: {
-      origin: '*', // Adjust in production
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
     },
   });
 
-  // Setup Redis Adapter for horizontal scaling / blue-green deployment
-  const pubClient = redis.duplicate();
-  const subClient = redis.duplicate();
-
-  // Handle Redis errors for the adapter
-  pubClient.on('error', err => console.error('Socket.io Redis PubClient Error:', err));
-  subClient.on('error', err => console.error('Socket.io Redis SubClient Error:', err));
-
+  // 1. Redis Adapter Setup
+  const pubClient = redis.duplicate({ enableOfflineQueue: true });
+  const subClient = redis.duplicate({ enableOfflineQueue: true });
   io.adapter(createAdapter(pubClient, subClient));
 
+  // 2. System-wide Redis Subscribers (Alerts, Dashboard)
+  registerSystemHandlers(io);
+
+  // 3. Auth Middleware
   io.use(async (socket, next) => {
     try {
-      const auth = await authenticateSocket(socket.handshake);
+      const auth = await authenticateSocket(socket.handshake as unknown as Parameters<typeof authenticateSocket>[0]);
       if (auth) {
-        socket.auth = auth;
-        console.log(`Socket ${socket.id} authenticated as ${auth.type} ${auth.id}`);
+        socket.data.auth = auth;
         next();
       } else {
-        console.warn(`Socket ${socket.id} authentication failed`);
         next(new Error('Unauthorized'));
       }
     } catch (error) {
-      console.error(`Socket ${socket.id} authentication error:`, error);
+      console.error('Socket Auth Error:', error);
       next(new Error('Internal Server Error'));
     }
   });
 
-  io.on('connection', socket => {
-    const auth = socket.auth!;
-    console.log(`Socket connected: ${auth.type} ${auth.id} (${auth.name})`);
+  // 4. Connection Handler
+  io.on('connection', (socket: UnifiedSocket) => {
+    const auth = socket.data.auth!;
+    console.log(`Socket connected: ${auth.type} ${auth.id}`);
 
+    // Register Handlers
     if (auth.type === 'admin') {
-      socket.join('admin');
+      registerAdminHandlers(io, socket);
     } else {
-      socket.join(`employee:${auth.id}`);
+      registerEmployeeHandlers(io, socket);
     }
 
-    socket.on('send_message', async (data: { content: string; employeeId?: string; guardId?: string; attachments?: string[] }) => {
-      try {
-        const targetEmployeeId = data.employeeId || data.guardId;
-
-        // Enforce max 4 attachments
-        if (data.attachments && data.attachments.length > 4) {
-          socket.emit('error', { message: 'Maximum 4 attachments allowed' });
-          return;
-        }
-
-        if (auth.type === 'employee') {
-          // Employee sending to admins
-          const message = await saveMessage({
-            employeeId: auth.id,
-            sender: 'employee',
-            content: data.content,
-            attachments: data.attachments,
-          });
-
-          io.to('admin').emit('new_message', message);
-          // Also send back to employee room (for multi-device sync)
-          io.to(`employee:${auth.id}`).emit('new_message', message);
-        } else if (auth.type === 'admin' && targetEmployeeId) {
-          // Check for conversation lock
-          const lockKey = `chat_lock:${targetEmployeeId}`;
-          const lockedBy = await redis.get(lockKey);
-
-          if (lockedBy && lockedBy !== auth.id) {
-            socket.emit('error', { message: 'This conversation is currently locked by another admin.' });
-            return;
-          }
-
-          // Lock the conversation for 2 minutes
-          const LOCK_DURATION = 120;
-          await redis.set(lockKey, auth.id, 'EX', LOCK_DURATION);
-
-          // Broadcast lock status to all admins
-          io.to('admin').emit('conversation_locked', {
-            employeeId: targetEmployeeId,
-            lockedBy: auth.id,
-            expiresAt: Date.now() + LOCK_DURATION * 1000,
-          });
-
-          // Admin sending to a specific employee
-          const message = await saveMessage({
-            employeeId: targetEmployeeId,
-            adminId: auth.id,
-            sender: 'admin',
-            content: data.content,
-            attachments: data.attachments,
-          });
-
-          io.to(`employee:${targetEmployeeId}`).emit('new_message', message);
-          io.to('admin').emit('new_message', message);
-        }
-      } catch (error) {
-        console.error('Error handling send_message:', error);
-        socket.emit('error', { message: 'Failed to send message' });
-      }
-    });
-
-    socket.on('mark_read', async (data: { employeeId?: string; guardId?: string; messageIds: string[] }) => {
-      try {
-        const targetEmployeeId = auth.type === 'admin' ? (data.employeeId || data.guardId) : auth.id;
-
-        if (!targetEmployeeId) {
-          console.error('mark_read: Missing employeeId');
-          return;
-        }
-
-        await markAsRead(data.messageIds);
-
-        if (auth.type === 'admin') {
-          // Notify the employee that admin read their messages
-          io.to(`employee:${targetEmployeeId}`).emit('messages_read', {
-            messageIds: data.messageIds,
-            readBy: auth.id,
-          });
-          // Also notify admins (to update unread counts in UI)
-          io.to('admin').emit('messages_read', {
-            employeeId: targetEmployeeId,
-            messageIds: data.messageIds,
-          });
-        } else {
-          // Notify admins that employee read their messages
-          io.to('admin').emit('messages_read', {
-            employeeId: targetEmployeeId,
-            messageIds: data.messageIds,
-          });
-          // Also notify the employee themselves (for other sessions/hooks)
-          io.to(`employee:${targetEmployeeId}`).emit('messages_read', {
-            messageIds: data.messageIds,
-          });
-        }
-      } catch (error) {
-        console.error('Error handling mark_read:', error);
-      }
-    });
-
-    socket.on('typing', (data: { employeeId?: string; guardId?: string; isTyping: boolean }) => {
-      const targetEmployeeId = data.employeeId || data.guardId;
-      if (auth.type === 'employee') {
-        io.to('admin').emit('typing', { employeeId: auth.id, isTyping: data.isTyping });
-      } else if (auth.type === 'admin' && targetEmployeeId) {
-        io.to(`employee:${targetEmployeeId}`).emit('typing', { isTyping: data.isTyping });
-      }
-    });
+    registerChatHandlers(io, socket);
 
     socket.on('disconnect', () => {
       console.log(`Socket disconnected: ${auth.type} ${auth.id}`);

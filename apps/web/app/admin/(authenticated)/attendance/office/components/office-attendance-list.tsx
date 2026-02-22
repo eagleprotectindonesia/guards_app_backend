@@ -1,41 +1,28 @@
 'use client';
 
-import { Office, OfficeAttendance } from '@prisma/client';
-import { ExtendedEmployee } from '@repo/database';
-import { Serialized } from '@/lib/utils';
-import PaginationNav from '../../../components/pagination-nav';
 import { Clock, Hotel } from 'lucide-react';
 import { format } from 'date-fns';
+import {
+  AttendanceEmployeeSummary,
+  OfficeAttendanceMetadataDto,
+  SerializedOfficeAttendanceWithRelationsDto,
+} from '@/types/attendance';
+import PaginationNav from '../../../components/pagination-nav';
 
-type AttendanceMetadata = {
-  location?: {
-    lat: number;
-    lng: number;
-  };
-};
-
-function hasValidLocation(metadata: unknown): metadata is { location: { lat: number; lng: number } } {
-  if (!metadata || typeof metadata !== 'object') return false;
-
-  const m = metadata as Record<string, unknown>;
-  if (!('location' in m) || !m.location || typeof m.location !== 'object') return false;
-
-  const loc = m.location as Record<string, unknown>;
-  return typeof loc.lat === 'number' && typeof loc.lng === 'number';
+function hasValidLocation(metadata: OfficeAttendanceMetadataDto | null): metadata is OfficeAttendanceMetadataDto & { location: { lat: number; lng: number } } {
+  return (
+    !!metadata?.location &&
+    typeof metadata.location.lat === 'number' &&
+    typeof metadata.location.lng === 'number'
+  );
 }
 
-export type OfficeAttendanceWithRelations = Omit<OfficeAttendance, 'metadata'> & {
-  office: Office;
-  employee: ExtendedEmployee;
-  metadata: AttendanceMetadata;
-};
-
 type OfficeAttendanceListProps = {
-  attendances: Serialized<OfficeAttendanceWithRelations>[];
+  attendances: SerializedOfficeAttendanceWithRelationsDto[];
   page: number;
   perPage: number;
   totalCount: number;
-  employees: Serialized<ExtendedEmployee>[];
+  employees: AttendanceEmployeeSummary[];
   initialFilters: {
     startDate?: string;
     endDate?: string;

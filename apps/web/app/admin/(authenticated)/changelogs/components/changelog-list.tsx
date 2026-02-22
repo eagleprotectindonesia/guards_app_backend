@@ -1,32 +1,42 @@
 'use client';
 
 import { useState, ComponentType } from 'react';
-import { Changelog, Prisma, Site, ShiftType } from '@prisma/client';
-import { ExtendedEmployee } from '@repo/database';
-import { Serialized } from '@/lib/utils';
+import { Prisma } from '@prisma/client';
+import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
 import PaginationNav from '../../components/pagination-nav';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
 import { Eye, Filter } from 'lucide-react';
 import ChangelogDetailsModal from './changelog-details-modal';
 import { format } from 'date-fns';
+import ChangelogExport from './changelog-export';
 
-type ChangelogWithAdmin = Changelog & {
-  admin?: { name: string } | null;
-};
 
 type FilterModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (filters: Record<string, string | Date | null | undefined>) => void;
-  initialFilters: Record<string, string | null>;
-  employees?: Serialized<ExtendedEmployee>[];
-  sites?: Serialized<Site>[];
-  shiftTypes?: Serialized<ShiftType>[];
+  onApply: (filters: {
+    startDate?: Date;
+    endDate?: Date;
+    action?: string;
+    entityType?: string;
+    entityId?: string;
+  }) => void;
+  initialFilters: {
+    startDate?: string | null;
+    endDate?: string | null;
+    action?: string | null;
+    entityType?: string | null;
+    entityId?: string | null;
+  };
+  employees?: EntitySummary[];
+  sites?: EntitySummary[];
+  shiftTypes?: EntitySummary[];
+  offices?: EntitySummary[];
 };
 
 type ChangelogListProps = {
-  changelogs: Serialized<ChangelogWithAdmin>[];
+  changelogs: SerializedChangelogWithAdminDto[];
   page: number;
   perPage: number;
   totalCount: number;
@@ -36,9 +46,10 @@ type ChangelogListProps = {
   fixedEntityType?: string;
   showEntityName?: boolean;
   FilterModal: ComponentType<FilterModalProps>;
-  employees?: Serialized<ExtendedEmployee>[];
-  sites?: Serialized<Site>[];
-  shiftTypes?: Serialized<ShiftType>[];
+  employees?: EntitySummary[];
+  sites?: EntitySummary[];
+  shiftTypes?: EntitySummary[];
+  offices?: EntitySummary[];
 };
 
 export default function ChangelogList({
@@ -55,6 +66,7 @@ export default function ChangelogList({
   employees,
   sites,
   shiftTypes,
+  offices,
 }: ChangelogListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -138,10 +150,13 @@ export default function ChangelogList({
           </p>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
+          <ChangelogExport entityType={fixedEntityType} />
           <button
             onClick={() => setIsFilterOpen(true)}
             className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm w-full md:w-auto ${
-              activeFiltersCount > 0 ? 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-950/30' : ''
+              activeFiltersCount > 0
+                ? 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-950/30'
+                : ''
             }`}
           >
             <Filter className="w-4 h-4 mr-2" />
@@ -169,14 +184,9 @@ export default function ChangelogList({
                   onSort={handleSort}
                   className="pl-6"
                 />
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Admin</th>
-                <SortableHeader
-                  label="Action"
-                  field="action"
-                  currentSortBy={sortBy}
-                  currentSortOrder={sortOrder}
-                  onSort={handleSort}
-                />
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Actor Type</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Actor</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Action</th>
                 {!hideEntityType && (
                   <SortableHeader
                     label="Entity Type"
@@ -186,13 +196,6 @@ export default function ChangelogList({
                     onSort={handleSort}
                   />
                 )}
-                <SortableHeader
-                  label="Entity ID"
-                  field="entityId"
-                  currentSortBy={sortBy}
-                  currentSortOrder={sortOrder}
-                  onSort={handleSort}
-                />
                 {showEntityName && (
                   <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
                 )}
@@ -217,8 +220,17 @@ export default function ChangelogList({
                     <td className="py-4 px-6 text-sm text-muted-foreground whitespace-nowrap">
                       {new Date(log.createdAt).toLocaleString()}
                     </td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground capitalize">{log.actor}</td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
-                      {log.admin?.name || <span className="text-muted-foreground/50 italic">System</span>}
+                      {log.actor === 'system' ? (
+                        <span className="text-muted-foreground/70 italic bg-muted/50 px-2 py-0.5 rounded text-xs">
+                          System
+                        </span>
+                      ) : log.actor === 'admin' ? (
+                        log.admin?.name || 'Administrator'
+                      ) : (
+                        <span className="text-muted-foreground/50 italic">Unknown</span>
+                      )}
                     </td>
                     <td className="py-4 px-6 text-sm">
                       <span
@@ -227,15 +239,14 @@ export default function ChangelogList({
                           log.action === 'CREATE' || log.action === 'BULK_CREATE'
                             ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
                             : log.action === 'DELETE'
-                            ? 'bg-red-100 dark:bg-red-950/30 text-red-800 dark:text-red-400'
-                            : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
+                              ? 'bg-red-100 dark:bg-red-950/30 text-red-800 dark:text-red-400'
+                              : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
                         }`}
                       >
                         {log.action}
                       </span>
                     </td>
                     {!hideEntityType && <td className="py-4 px-6 text-sm text-muted-foreground">{log.entityType}</td>}
-                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono text-xs">{log.entityId}</td>
                     {showEntityName && (
                       <td className="py-4 px-6 text-sm text-muted-foreground">
                         {/* Safe access to details.name if it exists */}
@@ -266,7 +277,9 @@ export default function ChangelogList({
       <ChangelogDetailsModal
         isOpen={!!selectedDetails}
         onClose={() => setSelectedDetails(null)}
-        details={selectedDetails}
+        details={
+          selectedDetails as Record<string, string> | { changes: Record<string, { from: string; to: string }> } | null
+        }
       />
 
       <FilterModal
@@ -284,6 +297,7 @@ export default function ChangelogList({
         employees={employees}
         sites={sites}
         shiftTypes={shiftTypes}
+        offices={offices}
       />
     </div>
   );

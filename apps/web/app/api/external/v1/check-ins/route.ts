@@ -44,19 +44,19 @@ export async function GET(request: NextRequest) {
       let safeEmployee = null;
       if (employee) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { hashedPassword, tokenVersion, lastUpdatedById, createdById, deletedAt, ...empRest } = employee;
+        const { hashedPassword, tokenVersion, deletedAt, ...empRest } = employee;
         safeEmployee = empRest;
       }
 
       let safeShift = null;
       if (shift) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { lastUpdatedById, createdById, deletedAt, ...shiftRest } = shift;
+        const { deletedAt, ...shiftRest } = shift;
 
         let safeSite = null;
         if (shift.site) {
           // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          const { lastUpdatedById, createdById, deletedAt, ...siteRest } = shift.site;
+          const { deletedAt, ...siteRest } = shift.site;
           safeSite = siteRest;
         }
 

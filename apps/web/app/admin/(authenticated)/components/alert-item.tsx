@@ -1,14 +1,14 @@
 'use client';
 
 import { Alert, Shift, Site, ShiftType, Admin } from '@prisma/client';
-import { ExtendedEmployee } from '@repo/database';
+import { EmployeeWithRelations } from '@repo/database';
 import { Serialized } from '@/lib/utils';
 import { Check, CheckCircle, Clock, Eye, User } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 
 // Define types locally or import if shared (duplicating for now to ensure self-containment)
-type EmployeeWithOptionalRelations = Serialized<ExtendedEmployee>;
+type EmployeeWithOptionalRelations = Serialized<EmployeeWithRelations>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
 type SiteWithOptionalRelations = Serialized<Site>;
 type AdminWithOptionalRelations = Serialized<Admin>;

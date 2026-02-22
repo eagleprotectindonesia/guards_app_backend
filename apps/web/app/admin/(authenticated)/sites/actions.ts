@@ -32,6 +32,7 @@ export async function createSite(
     address: formData.get('address'),
     latitude: parseFloat(formData.get('latitude') as string),
     longitude: parseFloat(formData.get('longitude') as string),
+    geofenceRadius: parseFloat(formData.get('geofenceRadius') as string),
     status: formData.get('status') === 'true',
   });
 
@@ -54,6 +55,8 @@ export async function createSite(
   }
 
   revalidatePath('/admin/sites');
+  revalidatePath('/admin/shifts', 'layout');
+  revalidatePath('/admin/dashboard');
   return { success: true, message: 'Site created successfully' };
 }
 
@@ -69,6 +72,7 @@ export async function updateSite(
     address: formData.get('address'),
     latitude: parseFloat(formData.get('latitude') as string),
     longitude: parseFloat(formData.get('longitude') as string),
+    geofenceRadius: parseFloat(formData.get('geofenceRadius') as string),
     status: formData.get('status') === 'true',
   });
 
@@ -91,6 +95,8 @@ export async function updateSite(
   }
 
   revalidatePath('/admin/sites');
+  revalidatePath('/admin/shifts', 'layout');
+  revalidatePath('/admin/dashboard');
   return { success: true, message: 'Site updated successfully' };
 }
 
@@ -110,6 +116,8 @@ export async function deleteSite(id: string) {
     await deleteSiteWithChangelog(id, adminId!);
 
     revalidatePath('/admin/sites');
+    revalidatePath('/admin/shifts', 'layout');
+    revalidatePath('/admin/dashboard');
     return { success: true };
   } catch (error) {
     console.error('Database Error:', error);

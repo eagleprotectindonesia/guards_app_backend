@@ -17,7 +17,7 @@ import { ADMIN_LABEL_MAP } from '@/lib/admin-navigation';
 export function AdminBreadcrumb() {
   const pathname = usePathname();
   const allPaths = pathname.split('/').filter(Boolean);
-  
+
   // Create objects with path and original index to ensure correct href generation
   const paths = allPaths
     .map((path, index) => ({ path, index }))
@@ -34,7 +34,7 @@ export function AdminBreadcrumb() {
             </Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
-        
+
         {paths.map(({ path, index }, filteredIndex) => {
           const href = `/${allPaths.slice(0, index + 1).join('/')}`;
           const isLast = filteredIndex === paths.length - 1;

@@ -7,6 +7,8 @@ export const EmployeeTitleEnum = z.enum(['Mr', 'Miss', 'Mrs']);
 
 export const EmployeeRoleEnum = z.enum(['on_site', 'office']);
 
+const optionalNumber = z.preprocess(val => (!val ? undefined : Number(val)), z.number().optional());
+
 // --- Site ---
 export const createSiteSchema = z.object({
   name: z.string().min(1),
@@ -14,6 +16,7 @@ export const createSiteSchema = z.object({
   address: z.string().optional(),
   latitude: z.number(),
   longitude: z.number(),
+  geofenceRadius: optionalNumber,
   status: z.boolean().optional(),
   note: z.string().optional(),
 });
@@ -21,7 +24,7 @@ export const createSiteSchema = z.object({
 // --- Admin ---
 export const createAdminSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(6, 'Password must be at least 6 characters long'),
   roleId: z.string().min(1, 'Role is required'),
   note: z.string().optional(),
@@ -29,7 +32,7 @@ export const createAdminSchema = z.object({
 
 export const updateAdminSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  email: z.email(),
   password: z.string().min(6, 'Password must be at least 6 characters long').optional(),
   roleId: z.string().min(1, 'Role is required'),
   note: z.string().optional(),
@@ -37,67 +40,11 @@ export const updateAdminSchema = z.object({
 
 // --- Employee ---
 const emptyStringToNull = z.literal('').transform(() => null);
-const uuidOrEmpty = z.union([z.string().uuid(), emptyStringToNull]);
-
-export const createEmployeeSchema = z.object({
-  title: EmployeeTitleEnum,
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().optional(),
-  phone: z
-    .string()
-    .min(1, 'Phone number is required')
-    .max(17, 'Phone number is too long')
-    .refine(
-      value => {
-        return isValidPhoneNumber(value);
-      },
-      {
-        message: 'Invalid phone number format',
-      }
-    )
-    .refine(
-      value => {
-        try {
-          const phoneNumber = parsePhoneNumberWithError(value);
-          return phoneNumber && phoneNumber.nationalNumber.length >= 6 && phoneNumber.nationalNumber.length <= 17;
-        } catch {
-          return false; // Parsing failed, so it's not a valid phone number for our length check
-        }
-      },
-      {
-        message: 'Phone number must be between 6 and 17 characters',
-      }
-    ),
-  id: z
-    .string()
-    .length(6, 'Employee ID (System ID) must be exactly 6 characters')
-    .regex(/^[a-zA-Z0-9]*$/, 'Employee ID must be alphanumeric only'),
-  employeeCode: z
-    .string()
-    .min(1)
-    .max(12)
-    .regex(/^[a-zA-Z0-9]*$/, 'Employee code must be alphanumeric only')
-    .optional(),
-  // For backward compatibility
-  guardCode: z.string().max(12).optional(),
-  status: z.boolean().optional(),
-  departmentId: uuidOrEmpty.nullable().optional(),
-  designationId: uuidOrEmpty.nullable().optional(),
-  officeId: uuidOrEmpty.nullable().optional(),
-  joinDate: z.coerce.date(),
-  leftDate: z.coerce.date().optional(),
-  note: z.string().optional(),
-  password: z.string().min(6, 'Password must be at least 6 characters long'), // Required for creation
-});
-
-// Deprecated: Use createEmployeeSchema
-export const createGuardSchema = createEmployeeSchema;
 
 export const updateEmployeeSchema = z.object({
   id: z.string().optional(), // Allow id in the schema for form compatibility
-  title: EmployeeTitleEnum,
-  firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().optional(),
+  fullName: z.string().min(1, 'Full name is required'),
+  nickname: z.string().optional(),
   phone: z
     .string()
     .min(1, 'Phone number is required')
@@ -123,20 +70,13 @@ export const updateEmployeeSchema = z.object({
         message: 'Phone number must be between 6 and 17 characters',
       }
     ),
-  employeeCode: z
-    .string()
-    .max(12)
-    .regex(/^[a-zA-Z0-9]*$/, 'Employee code must be alphanumeric only')
-    .optional(),
-  // For backward compatibility
-  guardCode: z.string().max(12).optional(),
+  employeeNumber: z.string().optional(),
+  personnelId: z.string().optional(),
+  jobTitle: z.string().optional(),
+  department: z.string().optional(),
+  role: EmployeeRoleEnum.optional(),
   status: z.boolean().optional(),
-  departmentId: uuidOrEmpty.nullable().optional(),
-  designationId: uuidOrEmpty.nullable().optional(),
-  officeId: uuidOrEmpty.nullable().optional(),
-  joinDate: z.coerce.date(),
-  leftDate: z.coerce.date().nullable().optional(),
-  note: z.string().nullable().optional(),
+  note: z.string().optional(),
   password: z.string().min(6, 'Password must be at least 6 characters long').optional(), // Optional for updates
 });
 
@@ -166,20 +106,22 @@ export const createShiftTypeSchema = z.object({
 });
 
 // --- Shift ---
-export const createShiftSchema = z.object({
-  siteId: z.uuid(),
-  shiftTypeId: z.uuid(),
-  employeeId: z.string().min(1).optional(),
-  // For backward compatibility
-  guardId: z.string().min(1).optional(),
-  date: z.string().min(1), // Expects "YYYY-MM-DD"
-  requiredCheckinIntervalMins: z.number().int().min(5).default(60),
-  graceMinutes: z.number().int().min(1).default(15),
-  note: z.string().optional(),
-}).refine(data => data.employeeId || data.guardId, {
-  message: "Employee ID or Guard ID is required",
-  path: ["employeeId"]
-});
+export const createShiftSchema = z
+  .object({
+    siteId: z.string().uuid(),
+    shiftTypeId: z.string().uuid(),
+    employeeId: z.string().min(1).optional(),
+    // For backward compatibility
+    guardId: z.string().min(1).optional(),
+    date: z.string().min(1), // Expects "YYYY-MM-DD"
+    requiredCheckinIntervalMins: z.number().int().min(5).default(60),
+    graceMinutes: z.number().int().min(1).default(15),
+    note: z.string().optional(),
+  })
+  .refine(data => data.employeeId || data.guardId, {
+    message: 'Employee ID or Guard ID is required',
+    path: ['employeeId'],
+  });
 
 // --- Checkin ---
 export const checkInSchema = z.object({
@@ -223,38 +165,54 @@ export const updateDesignationSchema = createDesignationSchema;
 export const updateSettingsSchema = z.record(z.string(), z.string());
 
 // --- Office ---
-export const createOfficeSchema = z.object({
-  name: z.string().min(1),
+// Note: Offices are managed by the external employee sync. Admins may only edit
+// location/supplementary details not provided by the external system.
+export const updateOfficeSchema = z.object({
   address: z.string().optional(),
-  latitude: z.number(),
-  longitude: z.number(),
-  status: z.boolean().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
   note: z.string().optional(),
 });
-
-export const updateOfficeSchema = createOfficeSchema;
 
 // --- Office Attendance ---
 export const createOfficeAttendanceSchema = z.object({
   officeId: z.string().uuid(),
   employeeId: z.string().min(1),
-  location: z.object({
-    lat: z.number(),
-    lng: z.number(),
-  }).optional(),
+  location: z
+    .object({
+      lat: z.number(),
+      lng: z.number(),
+    })
+    .optional(),
   metadata: z.record(z.string(), z.any()).optional(),
+});
+
+// --- Alert Reporting ---
+export const reportAlertSchema = z.object({
+  shiftId: z.string().uuid(),
+  reason: z.enum(['geofence_breach', 'location_services_disabled']),
+  location: z
+    .object({
+      lat: z.number(),
+      lng: z.number(),
+    })
+    .optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
+});
+
+export const resolveAlertSchema = z.object({
+  shiftId: z.string().uuid(),
+  reason: z.enum(['geofence_breach', 'location_services_disabled']),
 });
 
 export type CreateSiteInput = z.infer<typeof createSiteSchema>;
 export type UpdateSiteInput = CreateSiteInput; // Same for now
 export type CreateAdminInput = z.infer<typeof createAdminSchema>;
 export type UpdateAdminInput = z.infer<typeof updateAdminSchema>;
-export type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
 export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 export type UpdateEmployeePasswordInput = z.infer<typeof updateEmployeePasswordSchema>;
 
 // Deprecated
-export type CreateGuardInput = CreateEmployeeInput;
 export type UpdateGuardInput = UpdateEmployeeInput;
 export type UpdateGuardPasswordInput = UpdateEmployeePasswordInput;
 
@@ -270,6 +228,7 @@ export type UpdateDepartmentInput = CreateDepartmentInput;
 export type CreateDesignationInput = z.infer<typeof createDesignationSchema>;
 export type UpdateDesignationInput = CreateDesignationInput;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
-export type CreateOfficeInput = z.infer<typeof createOfficeSchema>;
 export type UpdateOfficeInput = z.infer<typeof updateOfficeSchema>;
-export type CreateOfficeAttendanceInput = z.infer<typeof createOfficeAttendanceSchema>;
+
+export type ReportAlertInput = z.infer<typeof reportAlertSchema>;
+export type ResolveAlertInput = z.infer<typeof resolveAlertSchema>;

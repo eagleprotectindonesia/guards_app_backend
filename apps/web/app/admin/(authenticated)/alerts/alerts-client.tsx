@@ -16,6 +16,9 @@ export default function AdminAlertsPage() {
 
   const [alerts, setAlerts] = useState<AlertWithRelations[]>([]);
   const [totalCount, setTotalCount] = useState(0);
+  const [counts, setCounts] = useState<{ attendance: number; checkin: number; security: number } | undefined>(
+    undefined
+  );
 
   const { connectionStatus, lastAlertEvent } = useAlerts();
 
@@ -28,6 +31,7 @@ export default function AdminAlertsPage() {
         const data = await res.json();
         setAlerts(data.data);
         setTotalCount(data.meta.total);
+        setCounts(data.meta.counts);
       } catch (err) {
         console.error('Error fetching alerts:', err);
       }
@@ -65,11 +69,11 @@ export default function AdminAlertsPage() {
     } else if ('id' in data) {
       // Fallback logic for raw alert object
       if (page === 1) {
-         setAlerts(prev => {
-             if (prev.find(a => a.id === data.id)) return prev;
-             return [data, ...prev];
-         });
-         setTotalCount(prev => prev + 1);
+        setAlerts(prev => {
+          if (prev.find(a => a.id === data.id)) return prev;
+          return [data, ...prev];
+        });
+        setTotalCount(prev => prev + 1);
       }
     }
   }, [lastAlertEvent, page]);
@@ -125,6 +129,7 @@ export default function AdminAlertsPage() {
           alerts={alerts}
           onAcknowledge={handleAcknowledge}
           showResolutionDetails={true}
+          totalCounts={counts}
         />
         <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
       </div>

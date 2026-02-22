@@ -1,0 +1,24 @@
+[
+  {
+    "id": "5129e367-9763-44a5-adf9-7d6438d90bf8",
+    "employee_number": "EP0098",
+    "personnel_id": "0290188",
+    "nickname": "Ivan",
+    "full_name": "Abu Hanivan Naneng",
+    "job_title": "Security Standby",
+    "department": "Security Standby",
+    "office_id": null,
+    "office_name": null
+  },
+  {
+    "id": "b7a1eb70-6048-418d-ad8c-292b7fdfa1a3",
+    "employee_number": "EP0047",
+    "personnel_id": "IT29003",
+    "nickname": "Ahmad",
+    "full_name": "Achmad Iman Elhaq",
+    "job_title": "IT Tech Lead",
+    "department": "IT",
+    "office_id": "014f793c-83ca-4ca7-89e2-929fbb4c6833",
+    "office_name": "BALI CENTRAL OFFICE"
+  }
+]

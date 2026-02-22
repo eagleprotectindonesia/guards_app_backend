@@ -7,7 +7,7 @@ import { parse, addDays, isBefore } from 'date-fns';
 import { Prisma, ShiftStatus } from '@prisma/client';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { getActiveSites } from '@/lib/data-access/sites';
-import { getActiveEmployees } from '@/lib/data-access/employees';
+import { getActiveEmployeesSummary } from '@/lib/data-access/employees';
 import {
   checkOverlappingShift,
   createShiftWithChangelog,
@@ -303,12 +303,12 @@ export async function bulkCreateShifts(
   const [sites, shiftTypes, employees] = await Promise.all([
     getActiveSites(),
     prisma.shiftType.findMany({ select: { id: true, name: true, startTime: true, endTime: true } }),
-    getActiveEmployees(),
+    getActiveEmployeesSummary(),
   ]);
 
   const siteMap = new Map(sites.map(s => [s.name.toLowerCase(), s.id]));
   const shiftTypeMap = new Map(shiftTypes.map(st => [st.name.toLowerCase(), st]));
-  const employeeMap = new Map(employees.map(g => [`${g.firstName} ${g.lastName}`.toLowerCase(), g.id]));
+  const employeeMap = new Map(employees.map(g => [g.fullName.toLowerCase(), g.id]));
 
   const errors: string[] = [];
   const shiftsToCreate: Prisma.ShiftCreateManyInput[] = [];

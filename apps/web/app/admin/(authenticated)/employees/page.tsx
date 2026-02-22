@@ -1,14 +1,14 @@
 import { serialize, getPaginationParams } from '@/lib/utils';
 import EmployeeList from './components/employee-list';
 import { Suspense } from 'react';
-import { Prisma } from '@prisma/client';
-import { parseISO, isValid } from 'date-fns';
 import type { Metadata } from 'next';
-import { getPaginatedEmployees } from '@/lib/data-access/employees';
+import {
+  getPaginatedEmployees,
+  getLastEmployeeSyncTimestamp,
+  getEmployeeSearchWhere,
+} from '@/lib/data-access/employees';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { getAllDepartments } from '@/lib/data-access/departments';
-import { getAllOffices } from '@/lib/data-access/offices';
 
 export const metadata: Metadata = {
   title: 'Employees Management',
@@ -25,75 +25,29 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
   const query = searchParams.q as string | undefined;
-  const startDateParam = searchParams.startDate as string | undefined;
-  const endDateParam = searchParams.endDate as string | undefined;
-  const departmentId = searchParams.departmentId as string | undefined;
-  const officeId = searchParams.officeId as string | undefined;
 
   // Handle sorting parameters
-  const sortBy = typeof searchParams.sortBy === 'string' ? searchParams.sortBy : 'joinDate'; // Default to joinDate
+  const sortBy = typeof searchParams.sortBy === 'string' ? searchParams.sortBy : 'fullName';
 
   const sortOrder =
     typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
       ? (searchParams.sortOrder as 'asc' | 'desc')
-      : 'desc';
+      : 'asc';
 
   // Validate sortBy field to prevent SQL injection
-  const validSortFields = ['firstName', 'lastName', 'id', 'employeeCode', 'joinDate'];
-  let sortField: string = validSortFields.includes(sortBy)
-    ? sortBy
-    : 'joinDate';
-  
-  // Handle backward compatibility or simplified sorting
-  if (sortBy === 'name') sortField = 'firstName';
+  const validSortFields = ['fullName', 'employeeNumber', 'id', 'department', 'jobTitle'];
+  const sortField: string = validSortFields.includes(sortBy) ? sortBy : 'fullName';
 
-  const where: Prisma.EmployeeWhereInput = {};
+  const where = getEmployeeSearchWhere(query);
 
-  if (query) {
-    where.OR = [
-      { firstName: { contains: query, mode: 'insensitive' } },
-      { lastName: { contains: query, mode: 'insensitive' } },
-      { phone: { contains: query, mode: 'insensitive' } },
-      { id: { contains: query, mode: 'insensitive' } },
-      { employeeCode: { contains: query, mode: 'insensitive' } },
-    ];
-  }
+  const { employees, totalCount } = await getPaginatedEmployees({
+    where,
+    orderBy: { [sortField]: sortOrder as 'asc' | 'desc' },
+    skip,
+    take: perPage,
+  });
 
-  if (departmentId) {
-    where.departmentId = departmentId;
-  }
-
-  if (officeId) {
-    where.officeId = officeId;
-  }
-
-  // Date Range Filter logic
-  if (startDateParam || endDateParam) {
-    where.joinDate = {};
-    if (startDateParam) {
-      const startDate = parseISO(startDateParam);
-      if (isValid(startDate)) {
-        where.joinDate.gte = startDate;
-      }
-    }
-    if (endDateParam) {
-      const endDate = parseISO(endDateParam);
-      if (isValid(endDate)) {
-        where.joinDate.lte = endDate;
-      }
-    }
-  }
-
-  const [{ employees, totalCount }, departments, offices] = await Promise.all([
-    getPaginatedEmployees({
-      where,
-      orderBy: { [sortField]: sortOrder as 'asc' | 'desc' },
-      skip,
-      take: perPage,
-    }),
-    getAllDepartments(),
-    getAllOffices(),
-  ]);
+  const lastSyncTimestamp = await getLastEmployeeSyncTimestamp();
 
   const serializedEmployees = serialize(employees);
 
@@ -107,12 +61,7 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
           totalCount={totalCount}
           sortBy={sortField}
           sortOrder={sortOrder}
-          startDate={startDateParam}
-          endDate={endDateParam}
-          departmentId={departmentId}
-          officeId={officeId}
-          departments={serialize(departments)}
-          offices={serialize(offices)}
+          lastSyncTimestamp={lastSyncTimestamp}
         />
       </Suspense>
     </div>

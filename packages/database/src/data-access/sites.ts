@@ -95,7 +95,8 @@ export async function createSiteWithChangelog(data: Prisma.SiteCreateInput, admi
           action: 'CREATE',
           entityType: 'Site',
           entityId: createdSite.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             name: createdSite.name,
             clientName: createdSite.clientName,
@@ -103,6 +104,7 @@ export async function createSiteWithChangelog(data: Prisma.SiteCreateInput, admi
             latitude: createdSite.latitude,
             longitude: createdSite.longitude,
             note: createdSite.note,
+            status: createdSite.status,
           },
         },
       });
@@ -113,9 +115,27 @@ export async function createSiteWithChangelog(data: Prisma.SiteCreateInput, admi
   );
 }
 
+export const SITE_TRACKED_FIELDS = [
+  'name',
+  'clientName',
+  'address',
+  'latitude',
+  'longitude',
+  'status',
+  'note',
+] as const;
+
 export async function updateSiteWithChangelog(id: string, data: Prisma.SiteUpdateInput, adminId: string) {
   return prisma.$transaction(
     async tx => {
+      const beforeSite = await tx.site.findUnique({
+        where: { id, deletedAt: null },
+      });
+
+      if (!beforeSite) {
+        throw new Error('Site not found');
+      }
+
       const updatedSite = await tx.site.update({
         where: { id, deletedAt: null },
         data: {
@@ -124,19 +144,35 @@ export async function updateSiteWithChangelog(id: string, data: Prisma.SiteUpdat
         },
       });
 
+      // Calculate changes
+      const changes: Record<string, { from: any; to: any }> = {};
+      const fieldsToTrack = ['name', 'clientName', 'address', 'latitude', 'longitude', 'status', 'note'] as const;
+
+      for (const field of fieldsToTrack) {
+        const oldValue = (beforeSite as any)[field];
+        const newValue = (updatedSite as any)[field];
+
+        if (oldValue !== newValue) {
+          changes[field] = { from: oldValue, to: newValue };
+        }
+      }
+
       await tx.changelog.create({
         data: {
           action: 'UPDATE',
           entityType: 'Site',
           entityId: updatedSite.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
-            name: data.name ? updatedSite.name : undefined,
-            clientName: data.clientName ? updatedSite.clientName : undefined,
-            address: data.address ? updatedSite.address : undefined,
-            latitude: data.latitude ? updatedSite.latitude : undefined,
-            longitude: data.longitude ? updatedSite.longitude : undefined,
-            note: data.note !== undefined ? updatedSite.note : undefined,
+            name: updatedSite.name,
+            clientName: updatedSite.clientName,
+            address: updatedSite.address,
+            latitude: updatedSite.latitude,
+            longitude: updatedSite.longitude,
+            status: updatedSite.status,
+            note: updatedSite.note,
+            changes: Object.keys(changes).length > 0 ? changes : undefined,
           },
         },
       });
@@ -152,7 +188,6 @@ export async function deleteSiteWithChangelog(id: string, adminId: string) {
     async tx => {
       const siteToDelete = await tx.site.findUnique({
         where: { id, deletedAt: null },
-        select: { name: true, clientName: true },
       });
 
       if (!siteToDelete) return;
@@ -171,10 +206,16 @@ export async function deleteSiteWithChangelog(id: string, adminId: string) {
           action: 'DELETE',
           entityType: 'Site',
           entityId: id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             name: siteToDelete.name,
             clientName: siteToDelete.clientName,
+            address: siteToDelete.address,
+            latitude: siteToDelete.latitude,
+            longitude: siteToDelete.longitude,
+            note: siteToDelete.note,
+            status: siteToDelete.status,
             deletedAt: new Date(),
           },
         },

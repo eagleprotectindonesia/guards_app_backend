@@ -31,7 +31,7 @@ async function main() {
   ];
 
   const createdPermissions = await Promise.all(
-    permissionsData.map((p) =>
+    permissionsData.map(p =>
       prisma.permission.upsert({
         where: { code: p.code },
         update: p,
@@ -50,7 +50,7 @@ async function main() {
       description: 'Full system access',
       isSystem: true,
       permissions: {
-        connect: createdPermissions.map((p) => ({ id: p.id })),
+        connect: createdPermissions.map(p => ({ id: p.id })),
       },
     },
   });
@@ -63,9 +63,7 @@ async function main() {
       description: 'Standard administrative access',
       isSystem: true,
       permissions: {
-        connect: createdPermissions
-          .filter((p) => !p.code.startsWith('roles:'))
-          .map((p) => ({ id: p.id })),
+        connect: createdPermissions.filter(p => !p.code.startsWith('roles:')).map(p => ({ id: p.id })),
       },
     },
   });
@@ -110,116 +108,45 @@ async function main() {
   });
   console.log('Created Site 3:', site3.id);
 
-  // 4. Create Departments and Designations
-  console.log('Creating departments and designations...');
-  const opsDept = await prisma.department.upsert({
-    where: { name: 'Operations' },
-    update: {},
-    create: {
-      name: 'Operations',
-    },
-  });
-
-  let guardDesignation = await prisma.designation.findFirst({
-    where: {
-      name: 'Security Guard',
-      departmentId: opsDept.id,
-      deletedAt: null,
-    },
-  });
-
-  if (guardDesignation) {
-    guardDesignation = await prisma.designation.update({
-      where: { id: guardDesignation.id },
-      data: { role: 'on_site' },
-    });
-  } else {
-    guardDesignation = await prisma.designation.create({
-      data: {
-        name: 'Security Guard',
-        departmentId: opsDept.id,
-        role: 'on_site',
-      },
-    });
-  }
-
-  let officeDesignation = await prisma.designation.findFirst({
-    where: {
-      name: 'Office Staff',
-      departmentId: opsDept.id,
-      deletedAt: null,
-    },
-  });
-
-  if (officeDesignation) {
-    officeDesignation = await prisma.designation.update({
-      where: { id: officeDesignation.id },
-      data: { role: 'on_site' },
-    });
-  } else {
-    officeDesignation = await prisma.designation.create({
-      data: {
-        name: 'Office Staff',
-        departmentId: opsDept.id,
-        role: 'on_site',
-      },
-    });
-  }
-
   // 5. Create Employees
-  const employeePassword = '123456'; 
+  const employeePassword = '123456';
   const hashedEmployeePassword = await bcrypt.hash(employeePassword, 10);
 
   const employee1 = await prisma.employee.upsert({
-    where: { id: 'EMP001' },
+    where: { id: '5129e367-9763-44a5-adf9-7d6438d90bf8' },
     update: { role: 'on_site' },
     create: {
-      id: 'EMP001',
-      firstName: 'Jackie',
-      lastName: 'Chan',
+      id: '5129e367-9763-44a5-adf9-7d6438d90bf8',
+      employeeNumber: 'EP0098',
+      personnelId: '0290188',
+      nickname: 'Ivan',
+      fullName: 'Abu Hanivan Naneng',
+      jobTitle: 'Security Standby',
+      department: 'Security Standby',
       phone: '+62551234567',
       hashedPassword: hashedEmployeePassword,
-      employeeCode: '00001',
       role: 'on_site',
-      departmentId: opsDept.id,
-      designationId: guardDesignation.id,
     },
   });
   console.log('Created Employee 1:', employee1.id);
 
   const employee2 = await prisma.employee.upsert({
-    where: { id: 'EMP002' },
+    where: { id: 'b7a1eb70-6048-418d-ad8c-292b7fdfa1a3' },
     update: { role: 'on_site' },
     create: {
-      id: 'EMP002',
-      firstName: 'Bruce',
-      lastName: 'Lee',
+      id: 'b7a1eb70-6048-418d-ad8c-292b7fdfa1a3',
+      employeeNumber: 'EP0047',
+      personnelId: 'IT29003',
+      nickname: 'Ahmad',
+      fullName: 'Achmad Iman Elhaq',
+      jobTitle: 'IT Tech Lead',
+      department: 'IT',
       phone: '+625551234568',
       hashedPassword: hashedEmployeePassword,
-      employeeCode: '00002',
-      role: 'on_site',
-      departmentId: opsDept.id,
-      designationId: guardDesignation.id,
+      role: 'office',
     },
   });
   console.log('Created Employee 2:', employee2.id);
-
-  const employee3 = await prisma.employee.upsert({
-    where: { id: 'EMP003' },
-    update: { role: 'on_site' },
-    create: {
-      id: 'EMP003',
-      firstName: 'Chuck',
-      lastName: 'Norris',
-      phone: '+625551234569',
-      hashedPassword: hashedEmployeePassword,
-      employeeCode: '00003',
-      role: 'on_site',
-      departmentId: opsDept.id,
-      designationId: guardDesignation.id,
-    },
-  });
-  console.log('Created Employee 3:', employee3.id);
 
   // 6. Create Admin
   const adminPassword = 'password123';
@@ -283,7 +210,7 @@ async function main() {
 
   // Note: Shifts don't have a natural unique key in this seed, so we just create them if they don't exist for the day
   const existingShifts = await prisma.shift.count({
-    where: { date: today }
+    where: { date: today },
   });
 
   if (existingShifts === 0) {
@@ -329,20 +256,144 @@ async function main() {
     nightShiftEndsAt.setDate(nightShiftEndsAt.getDate() + 1);
     nightShiftEndsAt.setHours(6, 0, 0, 0);
 
-    const overnightShift = await prisma.shift.create({
-      data: {
-        siteId: site3.id,
-        shiftTypeId: nightShiftType.id,
-        employeeId: employee3.id,
-        date: today,
-        startsAt: nightShiftStartsAt,
-        endsAt: nightShiftEndsAt,
-        status: 'scheduled',
-        requiredCheckinIntervalMins: 5,
-        graceMinutes: 4,
+    //   const overnightShift = await prisma.shift.create({
+    //     data: {
+    //       siteId: site3.id,
+    //       shiftTypeId: nightShiftType.id,
+    //       employeeId: employee3.id,
+    //       date: today,
+    //       startsAt: nightShiftStartsAt,
+    //       endsAt: nightShiftEndsAt,
+    //       status: 'scheduled',
+    //       requiredCheckinIntervalMins: 5,
+    //       graceMinutes: 4,
+    //     },
+    //   });
+    //   console.log('Created Overnight Shift:', overnightShift.id);
+    // }
+
+    // 8. Create System Settings
+    console.log('Creating system settings...');
+    const systemSettings = [
+      { name: 'GEOFENCE_GRACE_MINUTES', value: '5', note: 'Grace period for returning to the geofence (minutes)' },
+      {
+        name: 'LOCATION_DISABLED_GRACE_MINUTES',
+        value: '2',
+        note: 'Grace period for re-enabling location services (minutes)',
       },
+      {
+        name: 'ENABLE_LOCATION_MONITORING',
+        value: '0',
+        note: 'Feature toggle to enable/disable geofencing and location monitoring (1=ON, 0=OFF)',
+      },
+    ];
+
+    await Promise.all(
+      systemSettings.map(setting =>
+        prisma.systemSetting.upsert({
+          where: { name: setting.name },
+          update: {},
+          create: setting,
+        })
+      )
+    );
+  }
+
+  // 9. Seed Chat Messages
+  const existingChatMessages = await prisma.chatMessage.count();
+  if (existingChatMessages === 0) {
+    console.log('Seeding chat messages...');
+
+    // We will create some chat messages between Admin and Employee 1.
+    // Spread them over a few days to test date separators.
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const fiveDaysAgo = new Date(today);
+    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+
+    const fourDaysAgo = new Date(today);
+    fourDaysAgo.setDate(fourDaysAgo.getDate() - 4);
+
+    const threeDaysAgo = new Date(today);
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+
+    const twoDaysAgo = new Date(today);
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    await prisma.chatMessage.createMany({
+      data: [
+        // Five days ago
+        {
+          employeeId: employee1.id,
+          sender: 'employee',
+          content: 'Hello Admin, here are some updates from last week.',
+          createdAt: new Date(fiveDaysAgo.setHours(9, 0, 0, 0)),
+        },
+
+        // Four days ago
+        {
+          employeeId: employee1.id,
+          adminId: admin.id,
+          sender: 'admin',
+          content: 'Thanks, I will check them now.',
+          createdAt: new Date(fourDaysAgo.setHours(11, 0, 0, 0)),
+        },
+
+        // Three days ago
+        {
+          employeeId: employee1.id,
+          sender: 'employee',
+          content: 'I will be at the downtown branch for the next check.',
+          createdAt: new Date(threeDaysAgo.setHours(15, 30, 0, 0)),
+        },
+
+        // Two days ago messages
+        {
+          employeeId: employee1.id,
+          sender: 'employee',
+          content: 'Hi admin, this is a test message from a few days ago.',
+          createdAt: new Date(twoDaysAgo.setHours(10, 0, 0, 0)),
+        },
+        {
+          employeeId: employee1.id,
+          adminId: admin.id,
+          sender: 'admin',
+          content: 'Received. Thank you!',
+          createdAt: new Date(twoDaysAgo.setHours(10, 5, 0, 0)),
+          readAt: new Date(twoDaysAgo.setHours(10, 5, 0, 0)),
+        },
+
+        // Yesterday messages with Location
+        {
+          employeeId: employee1.id,
+          sender: 'employee',
+          content: '',
+          latitude: -8.6695866,
+          longitude: 115.1538065,
+          createdAt: new Date(yesterday.setHours(14, 0, 0, 0)),
+        },
+        {
+          employeeId: employee1.id,
+          adminId: admin.id,
+          sender: 'admin',
+          content: 'Thanks for sharing your location at Headquarters.',
+          createdAt: new Date(yesterday.setHours(14, 2, 0, 0)),
+        },
+
+        // Today messages
+        {
+          employeeId: employee1.id,
+          sender: 'employee',
+          content: 'Checking in for my shift today.',
+          createdAt: new Date(today.setHours(8, 0, 0, 0)),
+        },
+      ],
     });
-    console.log('Created Overnight Shift:', overnightShift.id);
   }
 
   console.log('\n--- SEED COMPLETE ---');
@@ -354,7 +405,7 @@ main()
   .then(async () => {
     await prisma.$disconnect();
   })
-  .catch(async (e) => {
+  .catch(async e => {
     console.error(e);
     await prisma.$disconnect();
     process.exit(1);

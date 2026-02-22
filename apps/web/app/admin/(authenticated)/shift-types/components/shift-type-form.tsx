@@ -1,18 +1,17 @@
 'use client';
 
-import { Serialized } from '@/lib/utils';
+import { SerializedShiftTypeWithAdminInfoDto } from '@/types/shift-types';
 import { createShiftType, updateShiftType } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateShiftTypeInput } from '@/lib/validations';
 import { useActionState, useEffect, useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { ShiftType } from '@prisma/client';
 import { useRouter } from 'next/navigation';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Clock } from 'lucide-react';
 
 type Props = {
-  shiftType?: Serialized<ShiftType>;
+  shiftType?: Omit<SerializedShiftTypeWithAdminInfoDto, 'createdBy' | 'lastUpdatedBy'>;
 };
 
 const calculateDuration = (start: string | null, end: string | null) => {

@@ -7,10 +7,9 @@ export async function getOfficeAttendanceById(id: string) {
     include: {
       employee: {
         select: {
-          firstName: true,
-          lastName: true,
+          fullName: true,
           phone: true,
-          employeeCode: true,
+          employeeNumber: true,
         },
       },
       office: {

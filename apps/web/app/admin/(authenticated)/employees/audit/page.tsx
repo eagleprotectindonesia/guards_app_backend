@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { serialize, getPaginationParams } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
 import EmployeeChangelogFilterModal from '../../changelogs/components/employee-changelog-filter-modal';
 import { Suspense } from 'react';
@@ -9,6 +9,7 @@ import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 import { getAllEmployees } from '@/lib/data-access/employees';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
 
 export const metadata: Metadata = {
   title: 'Employee Audit Logs',
@@ -82,11 +83,25 @@ export default async function EmployeeAuditPage(props: PageProps) {
       },
     }),
     prisma.changelog.count({ where }),
-    getAllEmployees({ firstName: 'asc' }),
+    getAllEmployees({ orderBy: { fullName: 'asc' } }),
   ]);
 
-  const serializedChangelogs = serialize(changelogs);
-  const serializedEmployees = serialize(employees);
+  const serializedChangelogs: SerializedChangelogWithAdminDto[] = changelogs.map(log => ({
+    id: log.id,
+    action: log.action,
+    entityType: log.entityType,
+    entityId: log.entityId,
+    details: log.details,
+    actor: log.actor,
+    actorId: log.actorId,
+    createdAt: log.createdAt.toISOString(),
+    admin: log.admin ? { name: log.admin.name } : null,
+  }));
+
+  const serializedEmployees: EntitySummary[] = employees.map(emp => ({
+    id: emp.id,
+    fullName: emp.fullName,
+  }));
 
   return (
     <div className="max-w-7xl mx-auto">

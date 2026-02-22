@@ -2,51 +2,32 @@
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Attendance, Shift, ShiftType, Site } from '@prisma/client';
-import { ExtendedEmployee } from '@repo/database';
-import { Serialized } from '@/lib/utils';
 import PaginationNav from '../../components/pagination-nav';
 import { MapPin, Clock, Filter, Calendar } from 'lucide-react';
 import AttendanceFilterModal from './attendance-filter-modal';
 import AttendanceExport from './attendance-export';
 import { format } from 'date-fns';
+import {
+  AttendanceEmployeeSummary,
+  AttendanceMetadataDto,
+  SerializedAttendanceWithRelationsDto,
+} from '@/types/attendance';
 
-// Define a type for the attendance metadata that includes location information
-type AttendanceMetadata = {
-  location?: {
-    lat: number;
-    lng: number;
-  };
-  latenessMins?: number;
-};
-
-// Type employee to check if an object has valid location data
-function hasValidLocation(metadata: unknown): metadata is AttendanceMetadata {
+// Type guard to check if metadata has valid location data
+function hasLocation(metadata: AttendanceMetadataDto | null): metadata is AttendanceMetadataDto & { location: { lat: number; lng: number } } {
   return (
-    !!metadata &&
-    typeof metadata === 'object' &&
-    'lat' in metadata &&
-    'lng' in metadata &&
-    typeof metadata.lat === 'number' &&
-    typeof metadata.lng === 'number'
+    !!metadata?.location &&
+    typeof metadata.location.lat === 'number' &&
+    typeof metadata.location.lng === 'number'
   );
 }
 
-export type AttendanceWithRelations = Omit<Attendance, 'metadata'> & {
-  shift: Shift & {
-    site: Site;
-    shiftType: ShiftType;
-  };
-  metadata: AttendanceMetadata;
-  employee: ExtendedEmployee | null;
-};
-
 type AttendanceListProps = {
-  attendances: Serialized<AttendanceWithRelations>[];
+  attendances: SerializedAttendanceWithRelationsDto[];
   page: number;
   perPage: number;
   totalCount: number;
-  employees: Serialized<ExtendedEmployee>[];
+  employees: AttendanceEmployeeSummary[];
   initialFilters: {
     startDate?: string;
     endDate?: string;
@@ -204,10 +185,10 @@ export default function AttendanceList({
                       )}
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {hasValidLocation(attendance.metadata?.location) ? (
+                      {hasLocation(attendance.metadata) ? (
                         <div className="flex flex-col">
-                          <div>Lat: {attendance.metadata?.location.lat.toFixed(3)}</div>
-                          <div>Lng: {attendance.metadata?.location.lng.toFixed(3)}</div>
+                          <div>Lat: {attendance.metadata.location.lat.toFixed(3)}</div>
+                          <div>Lng: {attendance.metadata.location.lng.toFixed(3)}</div>
                         </div>
                       ) : (
                         '-'

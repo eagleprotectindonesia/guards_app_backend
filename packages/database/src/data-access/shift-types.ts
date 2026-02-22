@@ -14,10 +14,33 @@ export function getShiftTypeDurationInMins(startTime: string, endTime: string) {
   return differenceInMinutes(end, start);
 }
 
+export async function getShiftTypeSummaries(orderBy: Prisma.ShiftTypeOrderByWithRelationInput = { name: 'asc' }) {
+  return prisma.shiftType.findMany({
+    where: { deletedAt: null },
+    orderBy,
+    select: {
+      id: true,
+      name: true,
+    },
+  });
+}
+
 export async function getAllShiftTypes(orderBy: Prisma.ShiftTypeOrderByWithRelationInput = { createdAt: 'desc' }) {
   return prisma.shiftType.findMany({
     where: { deletedAt: null },
     orderBy,
+    include: {
+      lastUpdatedBy: {
+        select: {
+          name: true,
+        },
+      },
+      createdBy: {
+        select: {
+          name: true,
+        },
+      },
+    },
   });
 }
 
@@ -94,7 +117,8 @@ export async function createShiftTypeWithChangelog(data: Prisma.ShiftTypeCreateI
           action: 'CREATE',
           entityType: 'ShiftType',
           entityId: createdShiftType.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             name: createdShiftType.name,
             startTime: createdShiftType.startTime,
@@ -109,14 +133,16 @@ export async function createShiftTypeWithChangelog(data: Prisma.ShiftTypeCreateI
   );
 }
 
+export const SHIFT_TYPE_TRACKED_FIELDS = ['name', 'startTime', 'endTime'] as const;
+
 export async function updateShiftTypeWithChangelog(id: string, data: Prisma.ShiftTypeUpdateInput, adminId: string) {
   return prisma.$transaction(
     async tx => {
-      const existingShiftType = await tx.shiftType.findUnique({
+      const beforeShiftType = await tx.shiftType.findUnique({
         where: { id, deletedAt: null },
       });
 
-      if (!existingShiftType) {
+      if (!beforeShiftType) {
         throw new Error('Shift Type not found');
       }
 
@@ -128,23 +154,38 @@ export async function updateShiftTypeWithChangelog(id: string, data: Prisma.Shif
         },
       });
 
+      // Calculate changes
+      const changes: Record<string, { from: any; to: any }> = {};
+      const fieldsToTrack = ['name', 'startTime', 'endTime'] as const;
+
+      for (const field of fieldsToTrack) {
+        const oldValue = (beforeShiftType as any)[field];
+        const newValue = (updatedShiftType as any)[field];
+
+        if (oldValue !== newValue) {
+          changes[field] = { from: oldValue, to: newValue };
+        }
+      }
+
       await tx.changelog.create({
         data: {
           action: 'UPDATE',
           entityType: 'ShiftType',
           entityId: updatedShiftType.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
-            name: data.name ? updatedShiftType.name : undefined,
-            startTime: data.startTime ? updatedShiftType.startTime : undefined,
-            endTime: data.endTime ? updatedShiftType.endTime : undefined,
+            name: updatedShiftType.name,
+            startTime: updatedShiftType.startTime,
+            endTime: updatedShiftType.endTime,
+            changes: Object.keys(changes).length > 0 ? changes : undefined,
           },
         },
       });
 
-      const startTime = (data.startTime as string) || existingShiftType.startTime;
-      const endTime = (data.endTime as string) || existingShiftType.endTime;
-      const timesChanged = existingShiftType.startTime !== startTime || existingShiftType.endTime !== endTime;
+      const startTime = (data.startTime as string) || beforeShiftType.startTime;
+      const endTime = (data.endTime as string) || beforeShiftType.endTime;
+      const timesChanged = beforeShiftType.startTime !== startTime || beforeShiftType.endTime !== endTime;
 
       return { updatedShiftType, timesChanged, startTime, endTime };
     },
@@ -157,7 +198,7 @@ export async function deleteShiftTypeWithChangelog(id: string, adminId: string) 
     async tx => {
       const shiftTypeToDelete = await tx.shiftType.findUnique({
         where: { id, deletedAt: null },
-        select: { name: true, id: true },
+        select: { name: true, id: true, startTime: true, endTime: true },
       });
 
       if (!shiftTypeToDelete) {
@@ -186,9 +227,12 @@ export async function deleteShiftTypeWithChangelog(id: string, adminId: string) 
           action: 'DELETE',
           entityType: 'ShiftType',
           entityId: id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
             name: shiftTypeToDelete.name,
+            startTime: shiftTypeToDelete.startTime,
+            endTime: shiftTypeToDelete.endTime,
             deletedAt: new Date(),
           },
         },

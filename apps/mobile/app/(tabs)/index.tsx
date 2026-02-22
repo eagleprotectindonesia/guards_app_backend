@@ -1,55 +1,31 @@
 import React, { useEffect } from 'react';
-import { ScrollView, RefreshControl, Alert } from 'react-native';
-import { Box, VStack, Heading, Text, Spinner, Center } from '@gluestack-ui/themed';
+import { ScrollView, RefreshControl, Image } from 'react-native';
+import { Box, VStack, Heading, Text, Spinner, Center, HStack } from '@gluestack-ui/themed';
 import { useQuery } from '@tanstack/react-query';
-import { client, setupInterceptors } from '../../src/api/client';
+import { client } from '../../src/api/client';
 import AttendanceRecord from '../../src/components/AttendanceRecord';
 import CheckInCard from '../../src/components/CheckInCard';
 import ShiftCarousel from '../../src/components/ShiftCarousel';
-import SessionMonitor from '../../src/components/SessionMonitor';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ShiftWithRelations, Employee } from '@repo/types';
+import { ShiftWithRelations } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
-import { disconnectSocket } from '../../src/api/socket';
+import { startGeofencing, stopGeofencing, isGeofencingActive } from '../../src/utils/geofence';
+import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useProfile } from '../../src/hooks/useProfile';
+import { queryKeys } from '../../src/api/queryKeys';
 
 type ActiveShiftData = {
   activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;
   nextShifts: ShiftWithRelations[];
 };
 
-type ProfileData = {
-  employee: Employee;
-};
-
 export default function HomeScreen() {
   const { t } = useTranslation();
-  const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Setup Global Logout Interceptor once
-  useEffect(() => {
-    setupInterceptors(() => {
-      // Close socket connection on unauthorized
-      disconnectSocket();
-      
-      Alert.alert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
-        {
-          text: 'OK',
-          onPress: () => router.replace('/(auth)/login'),
-        },
-      ]);
-    });
-  }, [router, t]);
-
-  const { data: profile } = useQuery<ProfileData>({
-    queryKey: ['profile'],
-    queryFn: async () => {
-      const res = await client.get('/api/employee/my/profile');
-      return res.data;
-    },
-  });
+  const { data: profile } = useProfile();
 
   const {
     data: shiftData,
@@ -57,7 +33,7 @@ export default function HomeScreen() {
     refetch,
     isRefetching,
   } = useQuery<ActiveShiftData>({
-    queryKey: ['active-shift'],
+    queryKey: queryKeys.shifts.active,
     queryFn: async () => {
       const res = await client.get('/api/employee/my/active-shift');
       return res.data;
@@ -68,63 +44,120 @@ export default function HomeScreen() {
   const activeShift = shiftData?.activeShift;
   const nextShifts = shiftData?.nextShifts || [];
 
-  const isAttendanceLate = (() => {
-    if (!activeShift || activeShift.attendance) return false;
-    const ATTENDANCE_GRACE_MINS = 5;
-    const startMs = new Date(activeShift.startsAt).getTime();
-    const graceEndMs = startMs + ATTENDANCE_GRACE_MINS * 60000;
-    return new Date().getTime() > graceEndMs;
-  })();
+  // Re-sync geofencing lifecycle
+  useEffect(() => {
+    const syncGeofence = async () => {
+      const isRunning = await isGeofencingActive();
+
+      if (activeShift?.attendance) {
+        if (!isRunning) {
+          await startGeofencing(activeShift);
+        }
+      } else {
+        // No active shift or no attendance yet - ensure geofencing is OFF
+        if (isRunning) {
+          console.log('[Geofence] No active shift with attendance, stopping...');
+          await stopGeofencing();
+        }
+      }
+    };
+    syncGeofence();
+  }, [activeShift]);
+
+  const defaultAvatar =
+    'https://lh3.googleusercontent.com/aida-public/AB6AXuDzcxM7B2Plj0M6rLwD5-jwCeXCJ-VxTGp8XT8dffCo7Cjv4BQ3_fM-MkOicyMU8jJxMw9Q81kjfqVm_zD_yfF92pmxUsZDY_fB7by9N3_LAOMNfdJlNjEUudjhqq7Cm5LUPTk9aKNVSgT9A4rsOYqHKU5vKRmjMZknp_AFtbKxzLh1PX2V_AKy5bez2tThvg_swnSuuvc4uRhd_JO8vfyGxuCUlrrS_Gt_LXaPHMHfgxPWTz6nvJqDPVw3QneYlTqVGg46xTuvrQDq';
 
   return (
-    <Box className="flex-1 bg-gray-50 relative">
-      <SessionMonitor />
+    <Box flex={1} bg="$backgroundDark950" position="relative">
+      {/* Background Gradients to simulate the Deep Dark aesthetic */}
+      <Box position="absolute" top={0} left={0} right={0} height={400} opacity={0.3}>
+        <LinearGradient colors={['rgba(217, 35, 35, 0.1)', 'transparent']} style={{ flex: 1 }} />
+      </Box>
+
       <ScrollView
         contentContainerStyle={{
-          paddingHorizontal: 20,
           paddingBottom: 100,
-          paddingTop: insets.top + 60, // Pushing down below status bar and language toggle
+          paddingTop: insets.top + 20,
         }}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#fff" />}
       >
         <VStack space="xl">
-          <Box className="mb-4">
-            <Heading size="3xl" className="text-gray-900 leading-tight">
-              {t('dashboard.welcome')}
-              <Text className="text-blue-600">{profile?.employee?.name || 'Employee'}</Text>
-            </Heading>
-            {profile?.employee?.employeeCode && (
-              <Text className="text-gray-500 font-bold mt-1">
-                {t('dashboard.employeeCode')} {profile.employee.employeeCode}
-              </Text>
-            )}
+          {/* Header */}
+          <Box px="$6" mb="$2">
+            <HStack justifyContent="space-between" alignItems="center" w="100%">
+              <HStack space="md" alignItems="center" flex={1} mr="$4" flexShrink={1}>
+                <Box
+                  w="$12"
+                  h="$12"
+                  rounded="$full"
+                  borderWidth={1}
+                  borderColor="rgba(255,255,255,0.1)"
+                  overflow="hidden"
+                  bg="$backgroundDark900"
+                  flexShrink={0}
+                >
+                  <Image source={{ uri: defaultAvatar }} style={{ width: '100%', height: '100%', opacity: 0.8 }} />
+                </Box>
+                <VStack flex={1} flexShrink={1}>
+                  <Text
+                    color="$red500"
+                    size="2xs"
+                    fontWeight="$bold"
+                    textTransform="uppercase"
+                    letterSpacing={1.5}
+                    mb="$1"
+                    flexShrink={1}
+                  >
+                    {profile?.employee?.jobTitle || t('dashboard.unit')}
+                  </Text>
+                  <Heading size="lg" color="$white" fontWeight="$bold" flexShrink={1}>
+                    {profile?.employee?.fullName || ''}
+                  </Heading>
+                </VStack>
+              </HStack>
+              <Box flexShrink={0}>
+                <GlassLanguageToggle />
+              </Box>
+            </HStack>
           </Box>
 
           {isLoading ? (
             <Center h={200}>
-              <Spinner size="large" color="$blue600" />
+              <Spinner size="large" color="$red600" />
             </Center>
           ) : (
             <VStack space="xl">
-              {!activeShift && (
-                <Box className="bg-white p-8 rounded-2xl border-2 border-dashed border-gray-300 items-center">
-                  <Text className="text-gray-500 text-center font-medium">{t('dashboard.noActiveShift')}</Text>
-                </Box>
-              )}
+              {/* Shift Carousel */}
+              <Box>
+                {activeShift || nextShifts.length > 0 ? (
+                  <ShiftCarousel activeShift={activeShift} nextShifts={nextShifts} />
+                ) : (
+                  <Box px="$6">
+                    <Box
+                      bg="rgba(255,255,255,0.05)"
+                      p="$8"
+                      rounded="$2xl"
+                      borderWidth={1}
+                      borderStyle="dashed"
+                      borderColor="rgba(255,255,255,0.1)"
+                      alignItems="center"
+                    >
+                      <Text color="$textDark500" textAlign="center" fontWeight="$medium">
+                        {t('dashboard.noActiveShift')}
+                      </Text>
+                    </Box>
+                  </Box>
+                )}
+              </Box>
 
-              {(activeShift || nextShifts.length > 0) && (
-                <ShiftCarousel activeShift={activeShift} nextShifts={nextShifts} />
-              )}
-
+              {/* Checkpoint Authentication / Attendance */}
               {activeShift && (
-                <VStack space="md">
-                  <AttendanceRecord shift={activeShift} onAttendanceRecorded={refetch} />
-
-                  {/* Show CheckInCard if attendance is recorded OR late */}
-                  {(activeShift.attendance || isAttendanceLate) && (
+                <Box px="$6">
+                  <VStack space="md">
                     <CheckInCard activeShift={activeShift} refetchShift={refetch} />
-                  )}
-                </VStack>
+                    <AttendanceRecord shift={activeShift} onAttendanceRecorded={refetch} />
+                  </VStack>
+                </Box>
               )}
             </VStack>
           )}

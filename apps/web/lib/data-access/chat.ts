@@ -2,10 +2,10 @@ import { db as prisma } from '@/lib/prisma';
 import { ChatSenderType } from '@prisma/client';
 import { getCachedPresignedDownloadUrl } from '@/lib/s3';
 
-async function enrichMessageWithUrls<T extends { attachments?: string[] }>(message: T): Promise<T> {
+export async function enrichMessageWithUrls<T extends { attachments?: string[] }>(message: T): Promise<T> {
   if (message.attachments && message.attachments.length > 0) {
     const enrichedAttachments = await Promise.all(
-      message.attachments.map(async (keyOrUrl) => {
+      message.attachments.map(async keyOrUrl => {
         // If it's already a full URL (legacy or external), return as is
         if (keyOrUrl.startsWith('http')) return keyOrUrl;
         // Otherwise treat as S3 key and get presigned URL
@@ -23,6 +23,8 @@ export async function saveMessage(data: {
   sender: ChatSenderType;
   content: string;
   attachments?: string[];
+  latitude?: number;
+  longitude?: number;
 }) {
   const message = await prisma.chatMessage.create({
     data,
@@ -30,8 +32,7 @@ export async function saveMessage(data: {
       employee: {
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          fullName: true,
         },
       },
       admin: {
@@ -77,7 +78,17 @@ export async function getConversationList() {
     },
     distinct: ['employeeId'],
     include: {
-      employee: true,
+      employee: {
+        select: {
+          fullName: true,
+          employeeNumber: true,
+        },
+      },
+      admin: {
+        select: {
+          name: true,
+        },
+      },
     },
   });
 
@@ -92,18 +103,24 @@ export async function getConversationList() {
     },
   });
 
-  const unreadMap = unreadCounts.reduce((acc, curr) => {
-    acc[curr.employeeId] = curr._count.id;
-    return acc;
-  }, {} as Record<string, number>);
+  const unreadMap = unreadCounts.reduce(
+    (acc, curr) => {
+      acc[curr.employeeId] = curr._count.id;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
 
-  return conversations.map((conv) => ({
+  return conversations.map(conv => ({
     employeeId: conv.employeeId,
     employeeName: conv.employee.fullName,
+    employeeNumber: conv.employee.employeeNumber || conv.employeeId,
     lastMessage: {
       content: conv.content,
       sender: conv.sender,
       createdAt: conv.createdAt,
+      adminId: conv.adminId || undefined,
+      adminName: conv.admin?.name,
     },
     unreadCount: unreadMap[conv.employeeId] || 0,
   }));
@@ -115,6 +132,35 @@ export async function getUnreadCount(params: { employeeId?: string; isAdmin: boo
       employeeId: params.employeeId,
       sender: params.isAdmin ? 'employee' : 'admin',
       readAt: null,
+    },
+  });
+}
+
+export async function getChatExportBatch(params: {
+  take: number;
+  where: import('@prisma/client').Prisma.ChatMessageWhereInput;
+  cursor?: string;
+}) {
+  return prisma.chatMessage.findMany({
+    take: params.take,
+    skip: params.cursor ? 1 : 0,
+    cursor: params.cursor ? { id: params.cursor } : undefined,
+    where: params.where,
+    orderBy: {
+      createdAt: 'asc',
+    },
+    include: {
+      employee: {
+        select: {
+          fullName: true,
+          id: true,
+        },
+      },
+      admin: {
+        select: {
+          name: true,
+        },
+      },
     },
   });
 }
@@ -132,9 +178,43 @@ export async function markAsRead(messageIds: string[]) {
   });
 }
 
+export async function markAsReadForEmployee(employeeId: string, messageIds: string[]) {
+  return prisma.chatMessage.updateMany({
+    where: {
+      id: { in: messageIds },
+      employeeId,
+      sender: 'admin',
+      readAt: null,
+    },
+    data: {
+      readAt: new Date(),
+    },
+  });
+}
+
+export async function markAsReadForAdmin(employeeId: string, messageIds: string[]) {
+  return prisma.chatMessage.updateMany({
+    where: {
+      id: { in: messageIds },
+      employeeId,
+      sender: 'employee',
+      readAt: null,
+    },
+    data: {
+      readAt: new Date(),
+    },
+  });
+}
+
 // --- Backward Compatibility Aliases ---
 /** @deprecated Use saveMessage with employeeId */
-export async function saveGuardMessage(data: { guardId: string; adminId?: string; sender: ChatSenderType; content: string; attachments?: string[] }) {
+export async function saveGuardMessage(data: {
+  guardId: string;
+  adminId?: string;
+  sender: ChatSenderType;
+  content: string;
+  attachments?: string[];
+}) {
   const { guardId, ...rest } = data;
   return saveMessage({ employeeId: guardId, ...rest });
 }

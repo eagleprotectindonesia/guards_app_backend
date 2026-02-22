@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import { useCustomToast } from '../hooks/useCustomToast';
 import { Box, Button, ButtonText, Heading, Text, VStack, ButtonSpinner } from '@gluestack-ui/themed';
 import * as Location from 'expo-location';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -7,6 +7,10 @@ import { format } from 'date-fns';
 import { client } from '../api/client';
 import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
+import * as Haptics from 'expo-haptics';
+import { startGeofencing } from '../utils/geofence';
+import { LinearGradient } from 'expo-linear-gradient';
+import { queryKeys } from '../api/queryKeys';
 
 type AttendanceRecordProps = {
   shift: ShiftWithRelations;
@@ -17,6 +21,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<string>('');
+  const toast = useCustomToast();
 
   const attendanceMutation = useMutation({
     mutationFn: async (location: { lat: number; lng: number }) => {
@@ -26,25 +31,28 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
       });
       return response.data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
       setStatus(t('attendance.success'));
-      queryClient.invalidateQueries({ queryKey: ['active-shift'] });
+      await startGeofencing(shift);
+      queryClient.invalidateQueries({ queryKey: queryKeys.shifts.active });
       if (onAttendanceRecorded) onAttendanceRecorded();
     },
     onError: (error: any) => {
       const msg = error.response?.data?.error || error.message || t('attendance.fail');
       setStatus(t('attendance.failPrefix') + msg);
-      Alert.alert('Error', msg);
+      toast.error('Error', msg);
     },
   });
 
   const handleRecordAttendance = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setStatus(t('attendance.requestingPermission'));
     let { status: permStatus } = await Location.requestForegroundPermissionsAsync();
 
     if (permStatus !== 'granted') {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setStatus(t('attendance.permissionDenied'));
-      Alert.alert(t('attendance.permissionDeniedTitle'), t('attendance.locationRequired'));
+      toast.error(t('attendance.permissionDeniedTitle'), t('attendance.locationRequired'));
       return;
     }
 
@@ -59,8 +67,9 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
       });
     } catch (err) {
       console.error(err);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setStatus(t('attendance.locationFetchError'));
-      Alert.alert(t('attendance.locationErrorTitle'), t('attendance.locationErrorMessage'));
+      toast.error(t('attendance.locationErrorTitle'), t('attendance.locationErrorMessage'));
     }
   };
 
@@ -81,12 +90,22 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   if (hasAttendance) {
     return (
       <Box
-        className={`${isLateAttendance ? 'bg-yellow-50 border-yellow-200' : 'bg-white'} p-4 rounded-lg shadow-sm border border-gray-200 mb-4`}
+        bg="$backgroundDark900"
+        borderColor={isLateAttendance ? '$amber500' : '$green500'}
+        p="$5"
+        rounded="$2xl"
+        borderWidth={1}
+        mb="$4"
+        sx={{
+          _web: {
+            boxShadow: isLateAttendance ? '0 0 15px rgba(245, 158, 11, 0.15)' : '0 0 15px rgba(16, 185, 129, 0.15)',
+          },
+        }}
       >
-        <Heading size="md" className={`mb-2 ${isLateAttendance ? 'text-yellow-600' : 'text-green-600'}`}>
+        <Heading size="md" mb="$1" color={isLateAttendance ? '$amber500' : '$green500'}>
           {isLateAttendance ? t('attendance.lateTitle') : t('attendance.recordedTitle')}
         </Heading>
-        <Text>
+        <Text color="$textDark300" size="sm">
           {isLateAttendance
             ? t('attendance.recordedLateAt', { date: format(new Date(shift.attendance!.recordedAt), 'PPpp') })
             : t('attendance.recordedAt', { date: format(new Date(shift.attendance!.recordedAt), 'PPpp') })}
@@ -97,35 +116,73 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
 
   return (
     <Box
-      className={`${isLateTime ? 'bg-red-50 border-red-200' : 'bg-white'} p-4 rounded-lg shadow-sm border border-red-100 mb-4`}
+      bg="$backgroundDark900"
+      borderColor={isLateTime ? '$red500' : 'rgba(255,255,255,0.1)'}
+      p="$5"
+      rounded="$2xl"
+      borderWidth={1}
+      mb="$4"
+      sx={{
+        _web: {
+          boxShadow: isLateTime ? '0 0 20px rgba(239, 68, 68, 0.15)' : '0 10px 30px -10px rgba(0,0,0,0.5)',
+        },
+      }}
     >
       <VStack space="md">
-        <Heading size="md" className={isLateTime ? 'text-red-600' : 'text-gray-900'}>
+        <Heading size="md" color="$white" fontWeight="$bold">
           {isLateTime ? t('attendance.notRecordedTitle') : t('attendance.requiredTitle')}
         </Heading>
 
         {isLateTime ? (
-          <Text className="text-red-600 font-medium italic">{t('attendance.lateMessage')}</Text>
+          <Text color="$red400" fontWeight="$bold" size="md">
+            {t('attendance.lateMessage')}
+          </Text>
         ) : (
-          <Text className="text-gray-500">{t('attendance.requiredMessage')}</Text>
+          <Text color="$textDark400">{t('attendance.requiredMessage')}</Text>
         )}
 
-        {status ? <Text className="text-sm text-blue-600 font-medium">{status}</Text> : null}
+        {status ? (
+          <Text size="sm" color="$blue400" fontWeight="$medium">
+            {status}
+          </Text>
+        ) : null}
 
+        {/* Custom Button Container to allow Gradient */}
         <Button
           size="lg"
           variant="solid"
           action={isLateTime ? 'negative' : 'primary'}
           onPress={handleRecordAttendance}
           isDisabled={attendanceMutation.isPending}
-          className={isLateTime ? 'bg-red-600' : ''}
+          p="$0" // Remove padding to let gradient fill
+          overflow="hidden"
+          rounded="$xl"
+          sx={{
+            _web: {
+              background: 'transparent',
+              boxShadow: isLateTime ? '0 8px 25px rgba(220, 38, 38, 0.4)' : '0 8px 25px rgba(37, 99, 235, 0.4)',
+            },
+          }}
         >
-          {attendanceMutation.isPending ? <ButtonSpinner mr="$2" color="white" /> : null}
-          <ButtonText>
-            {isLateTime
-              ? t('attendance.submitLateButton', { defaultValue: 'Record Late Attendance' })
-              : t('attendance.submitButton')}
-          </ButtonText>
+          <LinearGradient
+            colors={isLateTime ? ['#DC2626', '#991B1B'] : ['#2563EB', '#1D4ED8']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={{
+              width: '100%',
+              height: '100%',
+              justifyContent: 'center',
+              alignItems: 'center',
+              flexDirection: 'row',
+            }}
+          >
+            {attendanceMutation.isPending ? <ButtonSpinner mr="$2" color="$white" /> : null}
+            <ButtonText color="$white" fontWeight="$bold" textTransform="uppercase" letterSpacing={1}>
+              {isLateTime
+                ? t('attendance.submitLateButton', { defaultValue: 'Record Late Attendance' })
+                : t('attendance.submitButton')}
+            </ButtonText>
+          </LinearGradient>
         </Button>
       </VStack>
     </Box>

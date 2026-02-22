@@ -1,8 +1,9 @@
 import * as Updates from 'expo-updates';
 import { useEffect } from 'react';
-import { Alert } from 'react-native';
+import { useAlert } from '../contexts/AlertContext';
 
 export function useUpdates() {
+  const { showAlert } = useAlert();
   useEffect(() => {
     if (__DEV__) return;
 
@@ -12,7 +13,7 @@ export function useUpdates() {
 
         if (update.isAvailable) {
           await Updates.fetchUpdateAsync();
-          Alert.alert(
+          showAlert(
             'Update Available',
             'A new version of the app is available. The app will restart to apply the update.',
             [
@@ -32,5 +33,5 @@ export function useUpdates() {
     }
 
     onFetchUpdateAsync();
-  }, []);
+  }, [showAlert]);
 }

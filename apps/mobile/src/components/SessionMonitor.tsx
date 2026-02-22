@@ -1,19 +1,106 @@
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useCallback } from 'react';
+import { useAlert } from '../contexts/AlertContext';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
+import { getSocket, disconnectSocket } from '../api/socket';
+import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import { useAuth } from '../contexts/AuthContext';
+import { queryKeys } from '../api/queryKeys';
+import { incrementTelemetryCounter } from '../utils/telemetry';
 
 export default function SessionMonitor() {
-  // Poll profile every 5 seconds to check session validity
+  const { t } = useTranslation();
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  const { logout, isAuthenticated } = useAuth();
+  const { showAlert } = useAlert();
+
+  // Keep legacy polling as a secondary safety measure, but increase interval
+  // IMPORTANT: Only run when authenticated to avoid triggering 401s during login
   useQuery({
-    queryKey: ['session-monitor'],
+    queryKey: queryKeys.sessionMonitor,
     queryFn: async () => {
       const res = await client.get('/api/employee/auth/check');
       return res.data;
     },
-    refetchInterval: 15000,
+    refetchInterval: 5 * 60000, // Reduced from 15s to 5 minutes
     retry: false,
-    // We don't need to handle onError here because the global interceptor 
-    // in client.ts (setup in DashboardScreen) handles 401s.
+    enabled: isAuthenticated, // Only run when authenticated
   });
+
+  const handleLogout = useCallback(
+    async (reason: string) => {
+      if (reason === 'logged_in_elsewhere') {
+        // Disconnect socket immediately to prevent connection errors
+        disconnectSocket();
+
+        showAlert(t('dashboard.sessionExpiredTitle'), t('dashboard.sessionExpiredMessage'), [
+          {
+            text: 'OK',
+            onPress: async () => {
+              await logout(reason);
+              router.replace('/(auth)/login');
+            },
+          },
+        ]);
+      } else {
+        await logout(reason);
+        router.replace('/(auth)/login');
+      }
+    },
+    [logout, router, t, showAlert]
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    let isMounted = true;
+    let cleanupSocketListeners: (() => void) | undefined;
+
+    const setupSocket = async () => {
+      const socket = await getSocket();
+      if (!socket || !isMounted) return;
+
+      const onForceLogout = (data: { reason: string }) => {
+        incrementTelemetryCounter('session.force_logout');
+        handleLogout(data.reason);
+      };
+
+      const onConnectError = (err: Error) => {
+        // If the server rejects the connection with "Unauthorized", it means
+        // our token is invalid (likely revoked/version mismatch).
+        if (err.message === 'Unauthorized') {
+          handleLogout('logged_in_elsewhere');
+        }
+      };
+
+      const onShiftUpdated = () => {
+        // Invalidate queries to refresh dashboard/shift data
+        queryClient.invalidateQueries({ queryKey: queryKeys.shifts.active });
+        queryClient.invalidateQueries({ queryKey: queryKeys.shifts.list });
+      };
+
+      socket.on('auth:force_logout', onForceLogout);
+      socket.on('connect_error', onConnectError);
+      socket.on('shift:updated', onShiftUpdated);
+
+      cleanupSocketListeners = () => {
+        socket.off('auth:force_logout', onForceLogout);
+        socket.off('connect_error', onConnectError);
+        socket.off('shift:updated', onShiftUpdated);
+      };
+    };
+
+    setupSocket();
+
+    return () => {
+      isMounted = false;
+      cleanupSocketListeners?.();
+    };
+  }, [handleLogout, queryClient, isAuthenticated]);
 
   return null;
 }

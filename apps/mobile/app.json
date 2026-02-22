@@ -8,7 +8,10 @@
     "icon": "./assets/icons/android-launchericon-512-512.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "platforms": ["ios", "android"],
+    "platforms": [
+      "ios",
+      "android"
+    ],
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -20,7 +23,14 @@
       "icon": "./assets/icons/180.png",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "The app needs access to your photo library to let you attach photos and videos to chat messages.",
-        "NSCameraUsageDescription": "The app needs access to your camera to let you take photos and videos to attach to chat messages."
+        "NSCameraUsageDescription": "The app needs access to your camera to let you take photos and videos to attach to chat messages.",
+        "NSLocationWhenInUseUsageDescription": "We need your location to track attendance and monitor site geofencing during your shift.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to track attendance and monitor site geofencing during your shift, even when the app is in the background.",
+        "NSLocationAlwaysUsageDescription": "We need your location to track attendance and monitor site geofencing during your shift, even when the app is closed.",
+        "UIBackgroundModes": [
+          "location",
+          "fetch"
+        ]
       }
     },
     "android": {
@@ -36,21 +46,32 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION",
         "ACCESS_BACKGROUND_LOCATION",
+        "POST_NOTIFICATIONS",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE"
       ]
     },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ],
+      "expo-secure-store"
+    ],
     "updates": {
-      "url": "https://u.expo.dev/1745481a-0e61-4fe1-ba06-1ac4e9c0deba"
+      "url": "https://u.expo.dev/aa42139c-be53-41d6-8761-ae35510a83ca"
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
+    "owner": "eagleprotect",
     "extra": {
       "eas": {
-        "projectId": "1745481a-0e61-4fe1-ba06-1ac4e9c0deba"
+        "projectId": "aa42139c-be53-41d6-8761-ae35510a83ca"
       }
     }
   }

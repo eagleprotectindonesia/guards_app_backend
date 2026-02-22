@@ -1,10 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEmployeeApi } from './use-employee-api';
-import { ShiftWithRelations } from '@/app/admin/(authenticated)/shifts/components/shift-list';
+import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { CheckInWindowResult } from '@/lib/scheduling';
 import { OfficeAttendance } from '@repo/types';
 
-export type ShiftWithCheckInWindow = ShiftWithRelations & { checkInWindow?: CheckInWindowResult };
+export type ShiftWithCheckInWindow = ShiftWithRelationsDto & { checkInWindow?: CheckInWindowResult };
 
 const parseShiftDates = (shift: ShiftWithCheckInWindow) => {
   if (!shift) return null;
@@ -25,21 +25,23 @@ const parseShiftDates = (shift: ShiftWithCheckInWindow) => {
 
 export function useProfile() {
   const { fetchWithAuth } = useEmployeeApi();
-  
+
   return useQuery({
     queryKey: ['employee', 'profile'],
     queryFn: async () => {
       const res = await fetchWithAuth('/api/employee/my/profile');
       if (!res.ok) throw new Error('Failed to fetch profile');
       const data = await res.json();
-      return (data.employee || data.guard) as { 
-        id: string; 
-        name: string; 
-        employeeCode?: string; 
+      return (data.employee || data.guard) as {
+        id: string;
+        fullName: string;
+        employeeNumber?: string;
         mustChangePassword: boolean;
         role?: 'on_site' | 'office';
         officeId?: string;
         office?: { id: string; name: string; latitude?: number; longitude?: number };
+        department?: string;
+        jobTitle?: string;
       };
     },
   });
@@ -54,17 +56,8 @@ export function useActiveShift() {
       const res = await fetchWithAuth('/api/employee/my/active-shift');
       if (!res.ok) throw new Error('Failed to fetch active shift');
       const data = await res.json();
-      
-      let activeShift = null;
-      if (
-        data.activeShift &&
-        !(
-          data.activeShift.checkInWindow?.isLastSlot &&
-          ['late', 'completed'].includes(data.activeShift.checkInWindow?.status)
-        )
-      ) {
-        activeShift = parseShiftDates(data.activeShift);
-      }
+
+      const activeShift = data.activeShift ? parseShiftDates(data.activeShift) : null;
 
       const nextShifts = (data.nextShifts || []).map(parseShiftDates);
 
@@ -95,13 +88,13 @@ export function useLogin() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ employeeId, password }: Record<string, string>) => {
+    mutationFn: async ({ employeeNumber, password }: Record<string, string>) => {
       const res = await fetch('/api/employee/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ employeeId, password }),
+        body: JSON.stringify({ employeeNumber, password }),
       });
 
       const data = await res.json();
@@ -187,12 +180,12 @@ export function useRecordOfficeAttendance() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ 
-      officeId, 
+    mutationFn: async ({
+      officeId,
       location,
-      status = 'present' 
-    }: { 
-      officeId: string; 
+      status = 'present',
+    }: {
+      officeId: string;
       location?: { lat: number; lng: number };
       status?: 'present' | 'clocked_out';
     }) => {

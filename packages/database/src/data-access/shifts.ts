@@ -8,7 +8,7 @@ export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
     include: include || {
       site: true,
       shiftType: true,
-      employee: true,
+      employee: { include: { office: { select: { name: true } } } },
     },
   });
 }
@@ -34,7 +34,7 @@ export async function getPaginatedShifts(params: {
           include: include || {
             site: { select: { name: true } },
             shiftType: { select: { name: true, startTime: true, endTime: true } },
-            employee: { select: { firstName: true, lastName: true } },
+            employee: { include: { office: { select: { name: true } } } },
             createdBy: { select: { name: true } },
             lastUpdatedBy: { select: { name: true } },
           },
@@ -85,7 +85,7 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
         include: {
           site: true,
           shiftType: true,
-          employee: true,
+          employee: { include: { office: { select: { name: true } } } },
         },
       });
 
@@ -96,14 +96,21 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
           action: 'CREATE',
           entityType: 'Shift',
           entityId: createdShift.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
-            site: createdShift.site.name,
-            type: createdShift.shiftType.name,
-            employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
+            siteName: createdShift.site.name,
+            typeName: createdShift.shiftType.name,
+            employeeName: emp ? emp.fullName : 'Unassigned',
             date: createdShift.date,
             startsAt: createdShift.startsAt,
             endsAt: createdShift.endsAt,
+            requiredCheckinIntervalMins: createdShift.requiredCheckinIntervalMins,
+            status: createdShift.status,
+            note: createdShift.note,
+            siteId: createdShift.siteId,
+            shiftTypeId: createdShift.shiftTypeId,
+            employeeId: createdShift.employeeId,
           },
         },
       });
@@ -132,9 +139,34 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
   return result;
 }
 
+export const SHIFT_TRACKED_FIELDS = [
+  'employeeName',
+  'siteName',
+  'typeName',
+  'date',
+  'startsAt',
+  'endsAt',
+  'requiredCheckinIntervalMins',
+  'status',
+  'note',
+] as const;
+
 export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpdateInput, adminId: string) {
   const result = await prisma.$transaction(
     async tx => {
+      const beforeShift = await tx.shift.findUnique({
+        where: { id, deletedAt: null },
+        include: {
+          site: true,
+          shiftType: true,
+          employee: { include: { office: { select: { name: true } } } },
+        },
+      });
+
+      if (!beforeShift) {
+        throw new Error('Shift not found');
+      }
+
       const updatedShift = await tx.shift.update({
         where: { id, deletedAt: null },
         data: {
@@ -144,28 +176,75 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
         include: {
           site: true,
           shiftType: true,
-          employee: true,
+          employee: { include: { office: { select: { name: true } } } },
         },
       });
 
       const emp = updatedShift.employee as any;
+      const prevEmp = beforeShift.employee as any;
+
+      const updatedEmpName = emp ? emp.fullName : 'Unassigned';
+      const beforeEmpName = prevEmp ? prevEmp.fullName : 'Unassigned';
+
+      // Calculate changes
+      const changes: Record<string, { from: any; to: any }> = {};
+      const fieldsToTrack = [
+        'siteId',
+        'shiftTypeId',
+        'employeeId',
+        'date',
+        'startsAt',
+        'endsAt',
+        'requiredCheckinIntervalMins',
+        'graceMinutes',
+        'status',
+        'note',
+      ] as const;
+
+      for (const field of fieldsToTrack) {
+        const oldValue = (beforeShift as any)[field];
+        const newValue = (updatedShift as any)[field];
+
+        if (oldValue instanceof Date && newValue instanceof Date) {
+          if (oldValue.getTime() !== newValue.getTime()) {
+            changes[field] = { from: oldValue, to: newValue };
+          }
+        } else if (oldValue !== newValue) {
+          changes[field] = { from: oldValue, to: newValue };
+        }
+      }
+
+      if (updatedEmpName !== beforeEmpName) {
+        changes['employeeName'] = { from: beforeEmpName, to: updatedEmpName };
+      }
+      if (beforeShift.site.name !== updatedShift.site.name) {
+        changes['siteName'] = { from: beforeShift.site.name, to: updatedShift.site.name };
+      }
+      if (beforeShift.shiftType.name !== updatedShift.shiftType.name) {
+        changes['typeName'] = { from: beforeShift.shiftType.name, to: updatedShift.shiftType.name };
+      }
 
       await tx.changelog.create({
         data: {
           action: 'UPDATE',
           entityType: 'Shift',
           entityId: updatedShift.id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
-            site: updatedShift.site.name,
-            type: updatedShift.shiftType.name,
-            employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
+            siteName: updatedShift.site.name,
+            typeName: updatedShift.shiftType.name,
+            employeeName: updatedEmpName,
             date: updatedShift.date,
             startsAt: updatedShift.startsAt,
             endsAt: updatedShift.endsAt,
-            interval: updatedShift.requiredCheckinIntervalMins,
-            grace: updatedShift.graceMinutes,
+            requiredCheckinIntervalMins: updatedShift.requiredCheckinIntervalMins,
             status: updatedShift.status,
+            note: updatedShift.note,
+            siteId: updatedShift.siteId,
+            shiftTypeId: updatedShift.shiftTypeId,
+            employeeId: updatedShift.employeeId,
+            changes: Object.keys(changes).length > 0 ? changes : undefined,
           },
         },
       });
@@ -199,7 +278,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
     async tx => {
       const shiftToDelete = await tx.shift.findUnique({
         where: { id, deletedAt: null },
-        include: { site: true, shiftType: true, employee: true },
+        include: { site: true, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
       });
 
       if (!shiftToDelete) return null;
@@ -219,12 +298,21 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
           action: 'DELETE',
           entityType: 'Shift',
           entityId: id,
-          adminId: adminId,
+          actor: 'admin',
+          actorId: adminId,
           details: {
-            site: shiftToDelete.site.name,
-            type: shiftToDelete.shiftType.name,
-            employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
+            siteName: shiftToDelete.site.name,
+            typeName: shiftToDelete.shiftType.name,
+            employeeName: emp ? emp.fullName : 'Unassigned',
             date: shiftToDelete.date,
+            startsAt: shiftToDelete.startsAt,
+            endsAt: shiftToDelete.endsAt,
+            requiredCheckinIntervalMins: shiftToDelete.requiredCheckinIntervalMins,
+            status: shiftToDelete.status,
+            note: shiftToDelete.note,
+            siteId: shiftToDelete.siteId,
+            shiftTypeId: shiftToDelete.shiftTypeId,
+            employeeId: shiftToDelete.employeeId,
             deletedAt: new Date(),
           },
         },
@@ -236,7 +324,17 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
   );
 
   if (result?.employeeId) {
-    await redis.xadd(`employee:stream:${result.employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shift_updated', 'shiftId', id);
+    await redis.xadd(
+      `employee:stream:${result.employeeId}`,
+      'MAXLEN',
+      '~',
+      100,
+      '*',
+      'type',
+      'shift_updated',
+      'shiftId',
+      id
+    );
   }
 
   await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_DELETED', id: id }));
@@ -248,14 +346,13 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
  * Soft deletes all future shifts for an employee.
  * Used when an employee's role changes from on_site to office.
  */
-export async function deleteFutureShiftsByEmployee(employeeId: string, adminId: string, tx: any) {
+export async function deleteFutureShiftsByEmployee(employeeId: string, tx: any) {
   const now = new Date();
-  
+
   // Find future shifts to log them (optional but good for history)
   const futureShifts: { id: string }[] = await tx.shift.findMany({
     where: {
       employeeId,
-      startsAt: { gt: now },
       deletedAt: null,
     },
     select: { id: true },
@@ -271,7 +368,6 @@ export async function deleteFutureShiftsByEmployee(employeeId: string, adminId: 
     },
     data: {
       deletedAt: now,
-      lastUpdatedById: adminId,
     },
   });
 
@@ -281,7 +377,7 @@ export async function deleteFutureShiftsByEmployee(employeeId: string, adminId: 
       action: 'BULK_DELETE',
       entityType: 'Shift',
       entityId: `employee:${employeeId}`,
-      adminId: adminId,
+      actor: 'system',
       details: {
         reason: 'ROLE_CHANGE_TO_OFFICE',
         count: shiftIds.length,
@@ -291,62 +387,17 @@ export async function deleteFutureShiftsByEmployee(employeeId: string, adminId: 
   });
 
   // Notify employee via stream
-  await redis.xadd(`employee:stream:${employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shifts_deleted', 'reason', 'role_change');
-
-  return shiftIds.length;
-}
-
-/**
- * Soft deletes all future shifts for all employees of a designation.
- * Used when a designation's role changes from on_site to office.
- */
-export async function deleteFutureShiftsByDesignation(designationId: string, adminId: string, tx: any) {
-  const now = new Date();
-
-  const futureShifts: { id: string; employeeId: string | null }[] = await tx.shift.findMany({
-    where: {
-      employee: {
-        designationId,
-      },
-      startsAt: { gt: now },
-      deletedAt: null,
-    },
-    select: { id: true, employeeId: true },
-  });
-
-  if (futureShifts.length === 0) return 0;
-
-  const shiftIds = futureShifts.map((s: { id: string }) => s.id);
-  const employeeIds = Array.from(new Set(futureShifts.map((s: { employeeId: string | null }) => s.employeeId).filter((id: string | null): id is string => !!id)));
-
-  await tx.shift.updateMany({
-    where: {
-      id: { in: shiftIds },
-    },
-    data: {
-      deletedAt: now,
-      lastUpdatedById: adminId,
-    },
-  });
-
-  await tx.changelog.create({
-    data: {
-      action: 'BULK_DELETE',
-      entityType: 'Shift',
-      entityId: `designation:${designationId}`,
-      adminId: adminId,
-      details: {
-        reason: 'DESIGNATION_ROLE_CHANGE_TO_OFFICE',
-        count: shiftIds.length,
-        shiftIds,
-      },
-    },
-  });
-
-  // Notify all affected employees
-  for (const employeeId of employeeIds) {
-    await redis.xadd(`employee:stream:${employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shifts_deleted', 'reason', 'role_change');
-  }
+  await redis.xadd(
+    `employee:stream:${employeeId}`,
+    'MAXLEN',
+    '~',
+    100,
+    '*',
+    'type',
+    'shifts_deleted',
+    'reason',
+    'role_change'
+  );
 
   return shiftIds.length;
 }
@@ -359,7 +410,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
         include: {
           site: { select: { name: true } },
           shiftType: { select: { name: true } },
-          employee: { select: { firstName: true, lastName: true } },
+          employee: { include: { office: { select: { name: true } } } },
         },
       });
 
@@ -370,15 +421,22 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
             action: 'CREATE',
             entityType: 'Shift',
             entityId: s.id,
-            adminId: adminId,
+            actor: 'admin',
+            actorId: adminId,
             details: {
               method: 'BULK_UPLOAD',
-              site: s.site.name,
-              type: s.shiftType.name,
-              employee: emp ? `${emp.firstName} ${emp.lastName}` : 'Unassigned',
+              siteName: s.site.name,
+              typeName: s.shiftType.name,
+              employeeName: emp ? emp.fullName : 'Unassigned',
               date: s.date,
               startsAt: s.startsAt,
               endsAt: s.endsAt,
+              requiredCheckinIntervalMins: s.requiredCheckinIntervalMins,
+              status: s.status,
+              note: s.note,
+              siteId: s.siteId,
+              shiftTypeId: s.shiftTypeId,
+              employeeId: s.employeeId,
             },
           };
         }),
@@ -407,7 +465,7 @@ export async function getExportShiftsBatch(params: { where: Prisma.ShiftWhereInp
     include: {
       site: true,
       shiftType: true,
-      employee: true,
+      employee: { include: { office: { select: { name: true } } } },
       createdBy: { select: { name: true } },
     },
     ...(cursor && { skip: 1, cursor: { id: cursor } }),
@@ -420,13 +478,84 @@ export async function getActiveShifts(now: Date) {
 
   return prisma.shift.findMany({
     where: {
-      status: { in: ['scheduled', 'in_progress'] },
-      startsAt: { lte: lookaheadDate },
-      employeeId: { not: null },
       deletedAt: null,
+      employeeId: { not: null },
+      OR: [
+        {
+          status: 'scheduled',
+          startsAt: { lte: lookaheadDate },
+          endsAt: { gt: now },
+        },
+        {
+          status: 'in_progress',
+        },
+      ],
     },
-    include: { shiftType: true, employee: true, site: true, attendance: true },
+    include: {
+      shiftType: true,
+      employee: { include: { office: { select: { name: true } } } },
+      site: true,
+      attendance: true,
+    },
   });
+}
+
+/**
+ * Transitions 'scheduled' shifts that have reached their 'endsAt' time to 'missed' status.
+ * Also auto-resolves any open alerts for these shifts.
+ */
+export async function markOverdueScheduledShiftsAsMissed(now: Date, batchSize = 200) {
+  return prisma.$transaction(
+    async tx => {
+      // 1. Select a batch of candidate shifts
+      const overdueShifts = await tx.shift.findMany({
+        where: {
+          status: 'scheduled',
+          endsAt: { lte: now },
+          deletedAt: null,
+          employeeId: { not: null },
+        },
+        select: { id: true, siteId: true },
+        orderBy: { endsAt: 'asc' },
+        take: batchSize,
+      });
+
+      if (overdueShifts.length === 0) {
+        return { updatedShiftIds: [], resolvedAlerts: [] };
+      }
+
+      const shiftIds = overdueShifts.map(s => s.id);
+
+      // 2. Update selected shifts to status = 'missed'
+      await tx.shift.updateMany({
+        where: { id: { in: shiftIds } },
+        data: { status: 'missed' },
+      });
+
+      // 3. Resolve open related alerts for those shift IDs
+      const resolvedAlerts = await tx.alert.updateManyAndReturn({
+        where: {
+          shiftId: { in: shiftIds },
+          resolvedAt: null,
+        },
+        data: {
+          resolvedAt: now,
+          resolutionType: 'auto',
+          resolutionNote: 'Auto-resolved: shift ended without attendance/check-in (status moved to missed)',
+        },
+        include: {
+          site: true,
+          shift: { include: { employee: { include: { office: { select: { name: true } } } }, shiftType: true } },
+        },
+      });
+
+      return {
+        updatedShiftIds: shiftIds,
+        resolvedAlerts,
+      };
+    },
+    { timeout: 15000 }
+  );
 }
 
 export async function getShiftsUpdates(ids: string[]) {
@@ -455,7 +584,7 @@ export async function getUpcomingShifts(now: Date, take = 50) {
     },
     include: {
       shiftType: true,
-      employee: true,
+      employee: { include: { office: { select: { name: true } } } },
       site: true,
     },
     orderBy: {
@@ -478,11 +607,25 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
     where: {
       employeeId,
       deletedAt: null,
-      status: { in: ['scheduled', 'in_progress'] },
-      startsAt: { lte: new Date(now.getTime() + LEADUP_MS) },
-      endsAt: { gte: new Date(now.getTime() - LEADUP_MS) },
+      OR: [
+        {
+          // For scheduled shifts, we only show them if they are current (within 5 min buffer)
+          status: 'scheduled',
+          startsAt: { lte: new Date(now.getTime() + LEADUP_MS) },
+          endsAt: { gte: new Date(now.getTime() - LEADUP_MS) },
+        },
+        {
+          // For in_progress shifts, we show them regardless of end time (to allow late check-ins)
+          status: 'in_progress',
+        },
+      ],
     },
-    include: { site: true, shiftType: true, employee: true, attendance: true },
+    include: {
+      site: true,
+      shiftType: true,
+      employee: { include: { office: { select: { name: true } } } },
+      attendance: true,
+    },
     orderBy: { startsAt: 'asc' },
   });
 
@@ -496,10 +639,15 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
       ...(activeShift ? { NOT: { id: activeShift.id } } : {}),
     },
     orderBy: {
-      startsAt: 'asc'
+      startsAt: 'asc',
     },
     take: 4,
-    include: { site: true, shiftType: true, employee: true, attendance: true },
+    include: {
+      site: true,
+      shiftType: true,
+      employee: { include: { office: { select: { name: true } } } },
+      attendance: true,
+    },
   });
 
   return { activeShift, nextShifts };
@@ -511,7 +659,7 @@ export const getGuardActiveAndUpcomingShifts = getEmployeeActiveAndUpcomingShift
 export async function createMissedCheckinAlert(params: {
   shiftId: string;
   siteId: string;
-  reason: 'missed_attendance' | 'missed_checkin';
+  reason: 'missed_attendance' | 'missed_checkin' | 'location_services_disabled';
   windowStart: Date;
   incrementMissedCount: boolean;
 }) {
@@ -539,8 +687,104 @@ export async function createMissedCheckinAlert(params: {
       where: { id: newAlert.id },
       include: {
         site: true,
-        shift: { include: { employee: true, shiftType: true } },
+        shift: { include: { employee: { include: { office: { select: { name: true } } } }, shiftType: true } },
       },
     });
   });
+}
+export async function recordHeartbeat(params: { shiftId: string; employeeId: string }) {
+  const { shiftId, employeeId } = params;
+
+  return prisma.$transaction(async tx => {
+    // 1. Update Shift Heartbeat
+    const updatedShift = await tx.shift.update({
+      where: { id: shiftId, employeeId, deletedAt: null },
+      data: { lastDeviceHeartbeatAt: new Date() },
+      include: { site: true },
+    });
+
+    // 2. Auto-resolve ALL open 'location_services_disabled' alerts for this shift
+    const resolvedAlerts = await tx.alert.updateManyAndReturn({
+      where: {
+        shiftId,
+        reason: 'location_services_disabled',
+        resolvedAt: null,
+      },
+      data: {
+        resolvedAt: new Date(),
+        resolutionType: 'auto',
+        resolutionNote: 'Resolved by heartbeat receipt.',
+      },
+    });
+
+    return { updatedShift, resolvedAlerts };
+  });
+}
+
+/**
+ * Cancels all in-progress shifts for a deactivated employee.
+ * Also resolves all open alerts for those shifts.
+ */
+export async function cancelInProgressShiftsForDeactivatedEmployee(employeeId: string, tx: any) {
+  const now = new Date();
+
+  // Find in-progress shifts for this employee
+  const inProgressShifts = await tx.shift.findMany({
+    where: {
+      employeeId,
+      status: 'in_progress',
+      deletedAt: null,
+    },
+    select: { id: true },
+  });
+
+  if (inProgressShifts.length === 0) return { cancelledCount: 0, resolvedAlertsCount: 0 };
+
+  const shiftIds = inProgressShifts.map((s: { id: string }) => s.id);
+
+  // Cancel the shifts
+  await tx.shift.updateMany({
+    where: {
+      id: { in: shiftIds },
+    },
+    data: {
+      status: 'cancelled',
+      deletedAt: now,
+    },
+  });
+
+  // Resolve all open alerts for these shifts
+  const resolvedAlertsResult = await tx.alert.updateMany({
+    where: {
+      shiftId: { in: shiftIds },
+      resolvedAt: null,
+    },
+    data: {
+      resolvedAt: now,
+      resolutionType: 'auto',
+      resolutionNote: 'Auto-resolved: Employee deactivated, shift cancelled.',
+    },
+  });
+
+  // Log in changelog
+  await tx.changelog.create({
+    data: {
+      action: 'BULK_CANCEL',
+      entityType: 'Shift',
+      entityId: `employee:${employeeId}`,
+      actor: 'system',
+      actorId: null,
+      details: {
+        reason: 'EMPLOYEE_DEACTIVATED',
+        count: shiftIds.length,
+        shiftIds,
+        resolvedAlertsCount: resolvedAlertsResult.count,
+      },
+    },
+  });
+
+  return {
+    cancelledCount: shiftIds.length,
+    resolvedAlertsCount: resolvedAlertsResult.count,
+  };
 }

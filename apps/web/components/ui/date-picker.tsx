@@ -1,17 +1,13 @@
 'use client';
 
-import * as React from 'react';
 import { format } from 'date-fns';
 import { CalendarIcon, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { useState } from 'react';
 
 interface DatePickerProps {
   date?: Date;
@@ -30,7 +26,7 @@ export function DatePicker({
   minDate,
   maxDate,
 }: DatePickerProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleSelect = (selectedDate: Date | undefined) => {
     setDate(selectedDate);
@@ -72,8 +68,7 @@ export function DatePicker({
           mode="single"
           selected={date}
           onSelect={handleSelect}
-          fromDate={minDate}
-          toDate={maxDate}
+          disabled={(minDate && { before: new Date(minDate) }) || (maxDate && { after: new Date(maxDate) })}
           initialFocus
         />
       </PopoverContent>

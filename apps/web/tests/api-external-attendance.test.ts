@@ -13,7 +13,7 @@ describe('GET /api/external/v1/attendance', () => {
 
   test('returns paginated attendance with valid parameters', async () => {
     const mockAttendances = [
-      { id: '1', status: 'present', recordedAt: new Date(), employee: { id: 'e1', firstName: 'John' }, shift: { id: 's1', site: { name: 'Site A' } } },
+      { id: '1', status: 'present', recordedAt: new Date(), employee: { id: 'e1', fullName: 'John Doe' }, shift: { id: 's1', site: { name: 'Site A' } } },
     ];
     (getPaginatedAttendance as jest.Mock).mockResolvedValue({
       attendances: mockAttendances,

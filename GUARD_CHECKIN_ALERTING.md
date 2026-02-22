@@ -89,16 +89,17 @@ Guards perform recurring check-ins based on the shift's interval. Attendance is 
     -   **Auto-Resolution**: Automatically resolves **all** open `missed_checkin` alerts for the shift.
     -   **Completion**: If the check-in covers the last slot, the shift status is updated to `completed`.
 
-### C. Admin Real-time Dashboard (`/api/admin/alerts/stream`)
-Admins monitor operations via a Server-Sent Events (SSE) stream.
+### C. Admin Real-time Dashboard (Socket.io)
+Admins monitor operations via a unified Socket.io connection.
 
 1.  **Data Feeds**:
-    -   **Alerts**: Real-time creation and updates of alerts.
-    -   **Active Shifts**: Live status of all ongoing shifts (syncs with worker).
-    -   **Upcoming Shifts**: Rolling list of shifts starting in the next 24 hours.
+    -   **Alerts**: Real-time creation and updates of alerts via `alert` event.
+    -   **Active Shifts**: Live status of all ongoing shifts via `active_shifts` event (syncs with worker).
+    -   **Upcoming Shifts**: Rolling list of shifts starting in the next 24 hours via `upcoming_shifts` event.
+    -   **Backfill**: Upon connection, admins request initial state via `request_dashboard_backfill` and receive it via `dashboard:backfill`.
 2.  **Alert Management**:
     -   Alerts are **auto-resolved** by the system when the guard eventually performs the required action (late attendance or check-in).
-    -   Admins use the dashboard to monitor these resolutions in real-time. Any remaining manual actions (like "forgiving" an alert) may be handled separately.
+    -   Admins monitor these resolutions in real-time. The dashboard re-joins the `admin` room automatically on reconnection.
 
 ## 3. API Reference
 

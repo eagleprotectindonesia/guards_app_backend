@@ -7,6 +7,10 @@ POSTGRES_DB="ep_guard"
 # Redis
 REDIS_URL="redis://localhost:6379"
 
+# Socket.io (CORS)
+# Comma-separated list of allowed origins (e.g., http://localhost:3000,https://admin.example.com)
+ALLOWED_ORIGINS="*"
+
 # Authentication
 JWT_SECRET="your_secure_jwt_secret_here"
 
@@ -17,7 +21,16 @@ NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=""
 REQUIRE_MOBILE_GUARD_LOGIN="false"
 
 # AWS S3 (File Uploads)
-AWS_REGION="us-east-1"
+AWS_REGION=""
 AWS_ACCESS_KEY_ID=""
 AWS_SECRET_ACCESS_KEY=""
 AWS_S3_BUCKET_NAME=""
+
+EXTERNAL_EMPLOYEE_ADDRESS=
+EXTERNAL_EMPLOYEE_API_KEY=
+
+# Internal API / Revalidation
+INTERNAL_REVALIDATE_SECRET="your_shared_revalidate_secret_here"
+# Use http://localhost:3000 for local dev
+# Use http://app:3000 for production (Docker service name)
+WEB_APP_URL="http://localhost:3000"

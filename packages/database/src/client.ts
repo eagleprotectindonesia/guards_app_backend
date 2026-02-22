@@ -18,8 +18,9 @@ export { PrismaClient, Prisma };
 
 const globalForPrisma = global as unknown as { prisma: PrismaClient };
 
-const createPrismaClient = () => {
-  const connectionString = process.env.DATABASE_URL || "postgresql://postgres:postgres@localhost:5432/postgres";
+export const createPrismaClient = (databaseUrl?: string) => {
+  const connectionString =
+    databaseUrl || process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres';
 
   const pool = new Pool({ connectionString });
 
@@ -35,33 +36,16 @@ const prismaInstance = globalForPrisma.prisma || createPrismaClient();
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prismaInstance;
 
-export const db = prismaInstance.$extends({
-  result: {
-    employee: {
-      fullName: {
-        needs: { firstName: true, lastName: true },
-        compute(employee) {
-          return `${employee.firstName} ${employee.lastName || ''}`.trim();
-        },
-      },
-    },
-  },
-});
+export const db = prismaInstance;
 
 export type ExtendedPrismaClient = typeof db;
 
-export type ExtendedEmployee = NonNullable<Prisma.Result<typeof db.employee, {}, 'findUnique'>>;
+export type EmployeeSummary = {
+  id: string;
+  fullName: string;
+  employeeNumber: string | null;
+};
 
-export type EmployeeWithRelations = NonNullable<Prisma.Result<
-  typeof db.employee,
-  {
-    include: {
-      department: { select: { id: true; name: true } };
-      designation: { select: { id: true; name: true } };
-      office: { select: { id: true; name: true } };
-      lastUpdatedBy: { select: { name: true } };
-      createdBy: { select: { name: true } };
-    };
-  },
-  'findUnique'
->>;
+export type EmployeeWithRelations = NonNullable<
+  Prisma.Result<typeof db.employee, { include: { office: { select: { name: true } } } }, 'findUnique'>
+>;

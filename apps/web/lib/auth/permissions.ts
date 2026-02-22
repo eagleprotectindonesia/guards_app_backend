@@ -19,6 +19,7 @@ export const RESOURCES = [
   'dashboard',
   'departments',
   'designations',
+  'chat'
 ] as const;
 
 export const ACTIONS = ['view', 'create', 'edit', 'delete'] as const;
@@ -107,6 +108,10 @@ export const PERMISSIONS = {
     CREATE: 'designations:create',
     EDIT: 'designations:edit',
     DELETE: 'designations:delete',
+  },
+  CHAT: {
+    VIEW: 'chat:view',
+    CREATE: 'chat:create',
   },
 } satisfies Record<string, Record<string, PermissionCode>>;
 

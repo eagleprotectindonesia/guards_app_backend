@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   const skip = (page - 1) * perPage;
 
   try {
-    const [total, alerts] = await prisma.$transaction([
+    const [total, alerts, groupedCounts] = await prisma.$transaction([
       prisma.alert.count(),
       prisma.alert.findMany({
         orderBy: { createdAt: 'desc' },
@@ -28,7 +28,33 @@ export async function GET(req: Request) {
           },
         },
       }),
+      prisma.alert.groupBy({
+        by: ['reason'],
+        _count: {
+          id: true,
+        },
+        orderBy: { reason: 'asc' },
+      }),
     ]);
+
+    // Process counts into category buckets
+    const counts = {
+      attendance: 0,
+      checkin: 0,
+      security: 0,
+    };
+
+    groupedCounts.forEach(group => {
+      const groupCount = group._count as { id: number };
+      const count = groupCount.id;
+      if (group.reason === 'missed_attendance') {
+        counts.attendance += count;
+      } else if (group.reason === 'missed_checkin') {
+        counts.checkin += count;
+      } else if (group.reason === 'geofence_breach' || group.reason === 'location_services_disabled') {
+        counts.security += count;
+      }
+    });
 
     return NextResponse.json({
       data: alerts,
@@ -36,6 +62,7 @@ export async function GET(req: Request) {
         total,
         page,
         perPage,
+        counts,
       },
     });
   } catch (error) {

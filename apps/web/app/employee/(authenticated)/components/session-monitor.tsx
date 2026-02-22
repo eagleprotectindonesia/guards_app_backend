@@ -2,56 +2,51 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSocket } from '@/components/socket-provider';
 
 export default function SessionMonitor() {
   const router = useRouter();
+  const { socket, isConnected } = useSocket();
 
   useEffect(() => {
-    let eventSource: EventSource | null = null;
+    if (!socket || !isConnected) return;
 
-    const connect = () => {
-      eventSource = new EventSource('/api/employee/notifications/stream');
-
-      eventSource.onmessage = () => {
-        // Handle generic messages if any
-      };
-
-      eventSource.addEventListener('force_logout', async () => {
-        try {
-          // Perform logout
-          await fetch('/api/employee/auth/logout', { method: 'POST' });
-          // Redirect to login
-          router.push('/employee/login?reason=concurrent_login');
-        } catch (error) {
-          console.error('Logout failed', error);
-          // Force redirect anyway
-          router.push('/employee/login');
-        }
-      });
-
-      eventSource.addEventListener('shift_updated', () => {
-        // Refresh the current route to pick up shift changes
-        router.refresh();
-        // Also dispatch a custom event for client components to listen to
-        window.dispatchEvent(new CustomEvent('shift_updated'));
-      });
-
-      eventSource.onerror = () => {
-        // If 401 or similar, we might want to stop.
-        // EventSource doesn't give status codes easily in onerror.
-        // But if connection fails repeatedly, we usually just let it retry.
-        // console.error('SSE Error:', err);
-      };
-    };
-
-    connect();
-
-    return () => {
-      if (eventSource) {
-        eventSource.close();
+    const handleForceLogout = async () => {
+      try {
+        // Perform logout
+        await fetch('/api/employee/auth/logout', { method: 'POST' });
+        // Redirect to login
+        router.push('/employee/login?reason=concurrent_login');
+      } catch (error) {
+        console.error('Logout failed', error);
+        // Force redirect anyway
+        router.push('/employee/login');
       }
     };
-  }, [router]);
+
+    const handleShiftUpdated = () => {
+      // Refresh the current route to pick up shift changes
+      router.refresh();
+      // Also dispatch a custom event for client components to listen to
+      window.dispatchEvent(new CustomEvent('shift_updated'));
+    };
+
+    const handleConnectError = (err: Error) => {
+      if (err.message === 'Unauthorized') {
+        handleForceLogout();
+      }
+    };
+
+    socket.on('auth:force_logout', handleForceLogout);
+    socket.on('shift:updated', handleShiftUpdated);
+    socket.on('connect_error', handleConnectError);
+
+    return () => {
+      socket.off('auth:force_logout', handleForceLogout);
+      socket.off('shift:updated', handleShiftUpdated);
+      socket.off('connect_error', handleConnectError);
+    };
+  }, [socket, isConnected, router]);
 
   return null;
 }

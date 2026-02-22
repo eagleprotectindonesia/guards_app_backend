@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma';
-import { serialize, getPaginationParams } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
 import SiteChangelogFilterModal from '../../changelogs/components/site-changelog-filter-modal';
 import { Suspense } from 'react';
@@ -9,6 +9,7 @@ import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 import { getAllSites } from '@/lib/data-access/sites';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
 
 export const metadata: Metadata = {
   title: 'Site Audit Logs',
@@ -85,8 +86,22 @@ export default async function SiteAuditPage(props: PageProps) {
     getAllSites(),
   ]);
 
-  const serializedChangelogs = serialize(changelogs);
-  const serializedSites = serialize(sites);
+  const serializedChangelogs: SerializedChangelogWithAdminDto[] = changelogs.map(log => ({
+    id: log.id,
+    action: log.action,
+    entityType: log.entityType,
+    entityId: log.entityId,
+    details: log.details,
+    actor: log.actor,
+    actorId: log.actorId,
+    createdAt: log.createdAt.toISOString(),
+    admin: log.admin ? { name: log.admin.name } : null,
+  }));
+
+  const serializedSites: EntitySummary[] = sites.map(site => ({
+    id: site.id,
+    name: site.name,
+  }));
 
   return (
     <div className="max-w-7xl mx-auto">

@@ -7,7 +7,6 @@ import dotenv from 'dotenv';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const nextConfig: NextConfig = {
-  output: 'standalone',
   /* config options here */
   experimental: {
     authInterrupts: true,

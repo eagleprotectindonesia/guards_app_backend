@@ -32,6 +32,20 @@ export async function updateSettings(
     if (field === 'note') settingsMap[name].note = val;
   });
 
+  // Validation
+  const numericSettings = ['GEOFENCE_GRACE_MINUTES', 'LOCATION_DISABLED_GRACE_MINUTES'];
+  for (const name of numericSettings) {
+    if (settingsMap[name]?.value !== undefined) {
+      const val = parseInt(settingsMap[name].value, 10);
+      if (isNaN(val) || val <= 0) {
+        return {
+          success: false,
+          message: `Setting ${name.replace(/_/g, ' ')} must be a positive number.`,
+        };
+      }
+    }
+  }
+
   try {
     await Promise.all(
       Object.entries(settingsMap).map(([name, { value, note }]) => 
