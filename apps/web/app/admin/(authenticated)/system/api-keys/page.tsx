@@ -1,16 +1,13 @@
 import { prisma } from '@/lib/prisma';
-import { checkSuperAdmin } from '@/lib/admin-auth';
-import { forbidden } from 'next/navigation';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 import ApiKeyList from './components/api-key-list';
 import { serialize } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ApiKeysPage() {
-  const session = await checkSuperAdmin();
-  if (!session) {
-    forbidden();
-  }
+  await requirePermission(PERMISSIONS.SYSTEM.VIEW_SETTINGS);
 
   const apiKeys = await prisma.apiKey.findMany({
     orderBy: { createdAt: 'desc' },

@@ -1,15 +1,13 @@
 'use server';
 
 import { prisma } from '@/lib/prisma';
-import { checkSuperAdmin } from '@/lib/admin-auth';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 import { generateApiKey, hashApiKey } from '@/lib/api-key';
 import { revalidatePath } from 'next/cache';
 
 export async function createApiKey(name: string) {
-  const session = await checkSuperAdmin();
-  if (!session) {
-    throw new Error('Unauthorized: Superadmin only');
-  }
+  await requirePermission(PERMISSIONS.SYSTEM.EDIT_SETTINGS);
 
   const rawKey = generateApiKey();
   const hashedKey = hashApiKey(rawKey);
@@ -22,16 +20,13 @@ export async function createApiKey(name: string) {
   });
 
   revalidatePath('/admin/system/api-keys');
-  
+
   // Return the raw key ONLY once so the admin can copy it
   return { rawKey };
 }
 
 export async function toggleApiKeyStatus(id: string, currentStatus: boolean) {
-  const session = await checkSuperAdmin();
-  if (!session) {
-    throw new Error('Unauthorized: Superadmin only');
-  }
+  await requirePermission(PERMISSIONS.SYSTEM.EDIT_SETTINGS);
 
   await prisma.apiKey.update({
     where: { id },
@@ -42,10 +37,7 @@ export async function toggleApiKeyStatus(id: string, currentStatus: boolean) {
 }
 
 export async function deleteApiKey(id: string) {
-  const session = await checkSuperAdmin();
-  if (!session) {
-    throw new Error('Unauthorized: Superadmin only');
-  }
+  await requirePermission(PERMISSIONS.SYSTEM.EDIT_SETTINGS);
 
   await prisma.apiKey.delete({
     where: { id },
