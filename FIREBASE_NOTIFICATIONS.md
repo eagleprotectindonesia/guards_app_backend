@@ -15,15 +15,19 @@ FCM tokens are stored in the PostgreSQL database via Prisma:
 
 *Design Note:* The table is keyed by the unique `token` string, meaning one Employee can have multiple active tokens (e.g., if they log in on two different phones).
 
-### 2. Mobile App (Expo / React Native)
+The mobile app (`com.eagleprotect.employee`) uses `@react-native-firebase/app` and `@react-native-firebase/messaging` (v23+).
 
-The mobile app (`com.eagleprotect.employee`) uses `@react-native-firebase/app` and `@react-native-firebase/messaging`.
+> [!IMPORTANT]
+> **Modular API Standard (v22+):**
+> This project has been migrated to the modern **Modular API**. Do NOT revert code to the legacy namespaced API (e.g., avoid `messaging().onMessage`).
+> - **Mandatory:** Use functional imports: `import { getMessaging, getToken, onMessage } from '@react-native-firebase/messaging'`.
+> - **Rationale:** React Native Firebase v22+ officially deprecated the namespaced pattern. Reverting to legacy syntax will re-introduce deprecation warnings and break compatibility with future v24+ TypeScript enhancements.
 
 **Registration Flow (`src/lib/fcm.ts`):**
-1. App calls `messaging().requestPermission()` to ensure the user has authorized notifications (required for Android 13+).
-2. App calls `messaging().getToken()` to retrieve the device FCM token.
+1. App calls `requestPermission(getMessaging())` to ensure the user has authorized notifications (required for Android 13+).
+2. App calls `getToken(getMessaging())` to retrieve the device FCM token.
 3. The token is sent to the backend `POST /api/employee/fcm-token`.
-4. A background listener `messaging().onTokenRefresh()` ensures that if Firebase rotates the token, the backend is immediately updated.
+4. A background listener `onTokenRefresh(getMessaging(), callback)` ensures that if Firebase rotates the token, the backend is immediately updated.
 
 **App Lifecycle Hook (`src/hooks/usePushNotifications.ts`):**
 - **Authentication**: The setup only runs if the `user` is currently logged in.

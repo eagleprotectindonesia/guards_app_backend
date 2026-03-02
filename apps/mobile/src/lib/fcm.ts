@@ -1,4 +1,10 @@
-import messaging from '@react-native-firebase/messaging';
+import {
+  getMessaging,
+  getToken,
+  requestPermission,
+  onTokenRefresh,
+  AuthorizationStatus,
+} from '@react-native-firebase/messaging';
 import { Platform } from 'react-native';
 import { client } from '../api/client';
 
@@ -7,10 +13,10 @@ import { client } from '../api/client';
  * Returns whether permission is enabled and whether it was explicitly denied.
  */
 export async function requestUserPermission(): Promise<{ enabled: boolean; denied: boolean }> {
-  const authStatus = await messaging().requestPermission();
-  const enabled =
-    authStatus === messaging.AuthorizationStatus.AUTHORIZED || authStatus === messaging.AuthorizationStatus.PROVISIONAL;
-  const denied = authStatus === messaging.AuthorizationStatus.DENIED;
+  const messaging = getMessaging();
+  const authStatus = await requestPermission(messaging);
+  const enabled = authStatus === AuthorizationStatus.AUTHORIZED || authStatus === AuthorizationStatus.PROVISIONAL;
+  const denied = authStatus === AuthorizationStatus.DENIED;
 
   return { enabled, denied };
 }
@@ -26,7 +32,8 @@ export async function registerFcmToken() {
       return null;
     }
 
-    const token = await messaging().getToken();
+    const messaging = getMessaging();
+    const token = await getToken(messaging);
     const deviceInfo = `${Platform.OS} ${Platform.Version}`;
 
     await client.post('/api/employee/fcm-token', {
@@ -45,7 +52,8 @@ export async function registerFcmToken() {
  * Listen for token refreshes and re-register with the backend.
  */
 export function setupTokenRefreshListener() {
-  return messaging().onTokenRefresh(async newToken => {
+  const messaging = getMessaging();
+  return onTokenRefresh(messaging, async newToken => {
     try {
       const deviceInfo = `${Platform.OS} ${Platform.Version}`;
       await client.post('/api/employee/fcm-token', {

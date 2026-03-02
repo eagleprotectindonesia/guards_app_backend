@@ -1,5 +1,10 @@
 import { useEffect } from 'react';
-import messaging from '@react-native-firebase/messaging';
+import {
+  getMessaging,
+  onMessage,
+  onNotificationOpenedApp,
+  getInitialNotification,
+} from '@react-native-firebase/messaging';
 import { Linking, Platform } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../contexts/AlertContext';
@@ -69,8 +74,10 @@ export function usePushNotifications() {
   }, [user?.id, t, showAlert]);
 
   useEffect(() => {
+    const messaging = getMessaging();
+
     // Handle foreground messages with an in-app toast
-    const unsubscribeForeground = messaging().onMessage(async remoteMessage => {
+    const unsubscribeForeground = onMessage(messaging, async remoteMessage => {
       if (remoteMessage.notification) {
         showToast({
           title: remoteMessage.notification.title || 'New Message',
@@ -81,22 +88,20 @@ export function usePushNotifications() {
     });
 
     // Handle notification tap while app is in the background
-    const unsubscribeNotificationOpenedApp = messaging().onNotificationOpenedApp(remoteMessage => {
+    const unsubscribeNotificationOpenedApp = onNotificationOpenedApp(messaging, remoteMessage => {
       if (remoteMessage.data?.type === 'chat') {
         router.push('/(tabs)/chat');
       }
     });
 
     // Handle notification tap while app was killed/quit
-    messaging()
-      .getInitialNotification()
-      .then(remoteMessage => {
-        if (remoteMessage?.data?.type === 'chat') {
-          setTimeout(() => {
-            router.push('/(tabs)/chat');
-          }, 500);
-        }
-      });
+    getInitialNotification(messaging).then(remoteMessage => {
+      if (remoteMessage?.data?.type === 'chat') {
+        setTimeout(() => {
+          router.push('/(tabs)/chat');
+        }, 500);
+      }
+    });
 
     return () => {
       unsubscribeForeground();
