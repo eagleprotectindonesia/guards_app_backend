@@ -188,5 +188,11 @@
     "history": "Today's History",
     "in": "In",
     "out": "Out"
+  },
+  "notifications": {
+    "permission_title": "Enable Notifications",
+    "permission_message": "Notification permission was denied. To receive messages from admin, please enable notifications in app settings.",
+    "permission_settings": "Open Settings",
+    "permission_later": "Later"
   }
 }

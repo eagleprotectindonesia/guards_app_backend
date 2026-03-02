@@ -16,8 +16,8 @@ export async function GET(request: Request) {
 
   try {
     // If role is specified, prioritize that role if authenticated
-    const isAdmin = requestedRole === 'admin' ? !!admin : (requestedRole === 'employee' ? false : !!admin);
-    const targetEmployeeId = (requestedRole === 'employee' && employee) ? employee.id : (admin ? undefined : employee?.id);
+    const isAdmin = requestedRole === 'admin' ? !!admin : requestedRole === 'employee' ? false : !!admin;
+    const targetEmployeeId = requestedRole === 'employee' && employee ? employee.id : admin ? undefined : employee?.id;
 
     const count = await getUnreadCount({
       employeeId: targetEmployeeId,

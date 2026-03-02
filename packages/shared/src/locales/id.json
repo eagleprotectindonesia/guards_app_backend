@@ -188,5 +188,11 @@
     "history": "Riwayat Hari Ini",
     "in": "Masuk",
     "out": "Keluar"
+  },
+  "notifications": {
+    "permission_title": "Aktifkan Notifikasi",
+    "permission_message": "Izin notifikasi ditolak. Untuk menerima pesan dari admin, aktifkan notifikasi di pengaturan aplikasi.",
+    "permission_settings": "Buka Pengaturan",
+    "permission_later": "Nanti"
   }
 }

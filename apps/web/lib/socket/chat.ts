@@ -2,6 +2,7 @@ import { redis } from '../redis';
 import { saveMessage, markAsReadForEmployee, markAsReadForAdmin } from '../data-access/chat';
 import { UnifiedServer, UnifiedSocket } from '../socket';
 import { ChatMessage } from '@repo/types';
+import { sendChatPushNotification } from '../fcm';
 
 /**
  * Handlers for Chat functionality.
@@ -48,6 +49,17 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
           longitude: data.longitude,
         })) as unknown as ChatMessage;
         io.to(`employee:${targetId}`).to('admin').emit('new_message', msg);
+
+        // Only push if the employee has no active socket connections
+        const sockets = await io.in(`employee:${targetId}`).fetchSockets();
+        if (sockets.length === 0) {
+          await sendChatPushNotification({
+            employeeId: targetId,
+            senderName: msg.admin?.name || 'Admin',
+            content: data.content,
+            messageId: msg.id,
+          });
+        }
       }
     } catch (err) {
       console.error('Send Message Error:', err);

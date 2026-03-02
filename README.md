@@ -101,4 +101,4 @@ The project is structured as a monorepo under the `apps/` and `packages/` direct
 
 ## Documentation
 
-For more detailed information on the check-in logic and alerting system, please refer to [GUARD_CHECKIN_ALERTING.md](GUARD_CHECKIN_ALERTING.md).
+For more detailed information on the check-in logic and alerting system, please refer to [docs/GUARD_CHECKIN_ALERTING.md](docs/GUARD_CHECKIN_ALERTING.md).

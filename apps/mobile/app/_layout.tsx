@@ -10,9 +10,11 @@ import { useUpdates } from '../src/hooks/useUpdates';
 import { useEffect, useRef } from 'react';
 import { storage } from '../src/utils/storage';
 import { checkAndReportLocationServices } from '../src/utils/backgroundTasks';
+import { usePushNotifications } from '../src/hooks/usePushNotifications';
 
 function AppContent() {
   useUpdates();
+  usePushNotifications();
   const appState = useRef(AppState.currentState);
 
   useEffect(() => {
