@@ -1,0 +1,67 @@
+{
+  "project_info": {
+    "project_number": "637362998023",
+    "project_id": "ep-employee",
+    "storage_bucket": "ep-employee.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:637362998023:android:c51c9dad92151250d093a2",
+        "android_client_info": {
+          "package_name": "com.eagleprotect.employee"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlT9WkYkebmfX5On8mwCYAf6bmzP8PkLw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:637362998023:android:aa804effc0aed047d093a2",
+        "android_client_info": {
+          "package_name": "com.eagleprotect.employee.dev"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlT9WkYkebmfX5On8mwCYAf6bmzP8PkLw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:637362998023:android:d9515b26b3057f9cd093a2",
+        "android_client_info": {
+          "package_name": "com.eagleprotect.employee.preview"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlT9WkYkebmfX5On8mwCYAf6bmzP8PkLw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
