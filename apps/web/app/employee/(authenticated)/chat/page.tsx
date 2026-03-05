@@ -213,7 +213,15 @@ export default function ChatPage() {
       let attachments: string[] = [];
 
       if (selectedFiles.length > 0) {
-        const uploadPromises = selectedFiles.map(file => uploadToS3(file, 'chat'));
+        const messageId = crypto.randomUUID();
+        const uploadPromises = selectedFiles.map(file =>
+          uploadToS3(file, {
+            folder: 'chat',
+            conversationId: employeeId,
+            messageId,
+            fileType: file.type.startsWith('video/') ? 'video' : 'image',
+          })
+        );
         const results = await Promise.all(uploadPromises);
         attachments = results.map(r => r.key);
       }

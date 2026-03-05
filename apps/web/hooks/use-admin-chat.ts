@@ -27,7 +27,9 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   const [isUploading, setIsUploading] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [typingEmployees, setTypingEmployees] = useState<Record<string, boolean>>({});
-  const [conversationLocks, setConversationLocks] = useState<Record<string, { lockedBy: string; expiresAt: number }>>({});
+  const [conversationLocks, setConversationLocks] = useState<Record<string, { lockedBy: string; expiresAt: number }>>(
+    {}
+  );
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -53,13 +55,13 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       return res.json() as Promise<ChatMessage[]>;
     },
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (lastPage) => {
+    getNextPageParam: lastPage => {
       if (lastPage.length < 20) return undefined;
       return lastPage[lastPage.length - 1].id;
     },
     enabled: !!activeEmployeeId,
     // Keep data fresh but not too aggressive
-    staleTime: 1000 * 60, 
+    staleTime: 1000 * 60,
   });
 
   const messages = useMemo(() => {
@@ -118,7 +120,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   }, []);
 
   // Socket Event Handlers
-  useSocketEvent('new_message', (message) => {
+  useSocketEvent('new_message', message => {
     // Play sound if sender is employee
     if (message.sender === 'employee') {
       playNotificationSound();
@@ -179,9 +181,9 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     });
   });
 
-  useSocketEvent('messages_read', (data) => {
+  useSocketEvent('messages_read', data => {
     setConversations(prev => prev.map(c => (c.employeeId === data.employeeId ? { ...c, unreadCount: 0 } : c)));
-    
+
     if (activeEmployeeId === data.employeeId && data.messageIds) {
       queryClient.setQueryData<InfiniteData<ChatMessage[]>>(['admin', 'chat', 'messages', activeEmployeeId], old => {
         if (!old) return old;
@@ -195,7 +197,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     }
   });
 
-  useSocketEvent('typing', (data) => {
+  useSocketEvent('typing', data => {
     setTypingEmployees(prev => ({ ...prev, [data.employeeId]: data.isTyping }));
 
     // Auto-clear typing status after 5 seconds of inactivity
@@ -213,7 +215,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     }
   });
 
-  useSocketEvent('conversation_locked', (data) => {
+  useSocketEvent('conversation_locked', data => {
     setConversationLocks(prev => ({
       ...prev,
       [data.employeeId]: { lockedBy: data.lockedBy, expiresAt: data.expiresAt },
@@ -234,20 +236,23 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     }
   });
 
-  const handleSelectConversation = useCallback(async (employeeId: string, skipCallback = false) => {
-    setActiveEmployeeId(employeeId);
+  const handleSelectConversation = useCallback(
+    async (employeeId: string, skipCallback = false) => {
+      setActiveEmployeeId(employeeId);
 
-    if (!skipCallback && options.onSelectConversation) {
-      options.onSelectConversation(employeeId);
-    }
+      if (!skipCallback && options.onSelectConversation) {
+        options.onSelectConversation(employeeId);
+      }
 
-    // Optimistically clear unread count locally
-    setConversations(prev => prev.map(c => (c.employeeId === employeeId ? { ...c, unreadCount: 0 } : c)));
+      // Optimistically clear unread count locally
+      setConversations(prev => prev.map(c => (c.employeeId === employeeId ? { ...c, unreadCount: 0 } : c)));
 
-    // We don't need to manually fetch messages anymore as useInfiniteQuery handles it
-    // But we might want to mark unread as read if data is already in cache or when it arrives
-    // This is handled by a side effect below or when new messages arrive.
-  }, [options]);
+      // We don't need to manually fetch messages anymore as useInfiniteQuery handles it
+      // But we might want to mark unread as read if data is already in cache or when it arrives
+      // This is handled by a side effect below or when new messages arrive.
+    },
+    [options]
+  );
 
   // Handle marking messages as read when a conversation is selected
   useEffect(() => {
@@ -308,7 +313,15 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     try {
       let attachments: string[] = [];
       if (selectedFiles.length > 0) {
-        const uploadPromises = selectedFiles.map(file => uploadToS3(file, 'chat'));
+        const messageId = crypto.randomUUID();
+        const uploadPromises = selectedFiles.map(file =>
+          uploadToS3(file, {
+            folder: 'chat',
+            conversationId: activeEmployeeId,
+            messageId,
+            fileType: file.type.startsWith('video/') ? 'video' : 'image',
+          })
+        );
         const results = await Promise.all(uploadPromises);
         attachments = results.map(r => r.key);
       }
@@ -348,9 +361,8 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   const filteredConversations = conversations.filter(conv => {
     const term = searchTerm.toLowerCase();
     const matchesSearch =
-      conv.employeeName.toLowerCase().includes(term) ||
-      conv.employeeNumber?.toLowerCase().includes(term);
-    
+      conv.employeeName.toLowerCase().includes(term) || conv.employeeNumber?.toLowerCase().includes(term);
+
     const matchesFilter = filterType === 'all' || conv.unreadCount > 0;
 
     return matchesSearch && matchesFilter;

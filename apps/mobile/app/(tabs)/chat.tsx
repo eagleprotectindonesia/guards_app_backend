@@ -148,10 +148,17 @@ export default function ChatScreen() {
       let attachmentKeys: string[] = [];
 
       if (selectedAttachments.length > 0) {
+        const messageId = Date.now().toString() + '_' + Math.random().toString(36).substring(7);
         const uploadPromises = selectedAttachments.map(async asset => {
           const fileName = asset.fileName || `file_${Date.now()}.${asset.uri.split('.').pop()}`;
           const mimeType = asset.mimeType || (asset.type === 'video' ? 'video/mp4' : 'image/jpeg');
-          const response = await uploadToS3(asset.uri, fileName, mimeType, asset.fileSize || 0, 'chat');
+          const fileType = asset.type === 'video' ? 'video' : 'image';
+          const response = await uploadToS3(asset.uri, fileName, mimeType, asset.fileSize || 0, {
+            folder: 'chat',
+            conversationId: employeeId,
+            messageId,
+            fileType,
+          });
           return response.key;
         });
 

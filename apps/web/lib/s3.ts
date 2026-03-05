@@ -1,5 +1,6 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import crypto from 'crypto';
 import { redis } from './redis';
 
 const region = process.env.AWS_REGION;
@@ -27,13 +28,29 @@ export const BUCKET_NAME = bucketName;
 export async function getPresignedUploadUrl(
   fileName: string,
   contentType: string,
-  folder: string = 'uploads'
+  folderOrOptions:
+    | string
+    | { folder?: string; conversationId?: string; messageId?: string; fileType?: string } = 'uploads'
 ) {
   if (!BUCKET_NAME) {
     throw new Error('AWS_S3_BUCKET_NAME is not configured');
   }
 
-  const key = `${folder}/${Date.now()}-${fileName.replace(/\s+/g, '-')}`;
+  const options = typeof folderOrOptions === 'string' ? { folder: folderOrOptions } : folderOrOptions;
+  const folder = options.folder || 'uploads';
+
+  let key: string;
+
+  if (folder === 'chat' && options.conversationId && options.messageId) {
+    const ext = fileName.includes('.') ? fileName.split('.').pop() : '';
+    const uuid = crypto.randomUUID();
+    const env = process.env.NODE_ENV === 'production' ? 'prod' : process.env.NODE_ENV || 'development';
+    const fileType = options.fileType || 'file'; // image, video, thumb, etc.
+
+    key = `chat/env=${env}/conv_${options.conversationId}/msg_${options.messageId}/${fileType}/${uuid}${ext ? '.' + ext : ''}`;
+  } else {
+    key = `${folder}/${Date.now()}-${fileName.replace(/\s+/g, '-')}`;
+  }
 
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,
@@ -71,7 +88,7 @@ export async function getPresignedDownloadUrl(key: string, expiresIn: number = 6
  */
 export async function getCachedPresignedDownloadUrl(key: string, expiresIn: number = 604800) {
   const cacheKey = `s3:presigned:${key}`;
-  
+
   try {
     const cached = await redis.get(cacheKey);
     if (cached) return cached;
@@ -96,13 +113,29 @@ export async function uploadFile(
   file: Buffer | Uint8Array,
   fileName: string,
   contentType: string,
-  folder: string = 'uploads'
+  folderOrOptions:
+    | string
+    | { folder?: string; conversationId?: string; messageId?: string; fileType?: string } = 'uploads'
 ) {
   if (!BUCKET_NAME) {
     throw new Error('AWS_S3_BUCKET_NAME is not configured');
   }
 
-  const key = `${folder}/${Date.now()}-${fileName.replace(/\s+/g, '-')}`;
+  const options = typeof folderOrOptions === 'string' ? { folder: folderOrOptions } : folderOrOptions;
+  const folder = options.folder || 'uploads';
+
+  let key: string;
+
+  if (folder === 'chat' && options.conversationId && options.messageId) {
+    const ext = fileName.includes('.') ? fileName.split('.').pop() : '';
+    const uuid = crypto.randomUUID();
+    const env = process.env.NODE_ENV === 'production' ? 'prod' : process.env.NODE_ENV || 'development';
+    const fileType = options.fileType || 'file'; // image, video, thumb, etc.
+
+    key = `chat/env=${env}/conv_${options.conversationId}/msg_${options.messageId}/${fileType}/${uuid}${ext ? '.' + ext : ''}`;
+  } else {
+    key = `${folder}/${Date.now()}-${fileName.replace(/\s+/g, '-')}`;
+  }
 
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,

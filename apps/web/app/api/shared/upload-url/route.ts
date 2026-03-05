@@ -3,7 +3,15 @@ import { getPresignedUploadUrl } from '@/lib/s3';
 
 export async function POST(req: NextRequest) {
   try {
-    const { fileName, contentType, folder = 'uploads', fileSize } = await req.json();
+    const {
+      fileName,
+      contentType,
+      folder = 'uploads',
+      fileSize,
+      conversationId,
+      messageId,
+      fileType,
+    } = await req.json();
 
     if (!fileName || !contentType) {
       return NextResponse.json({ error: 'Missing fileName or contentType' }, { status: 400 });
@@ -31,7 +39,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
     }
 
-    const { uploadUrl, publicUrl, key } = await getPresignedUploadUrl(fileName, contentType, folder);
+    const { uploadUrl, publicUrl, key } = await getPresignedUploadUrl(fileName, contentType, {
+      folder,
+      conversationId,
+      messageId,
+      fileType,
+    });
 
     return NextResponse.json({
       uploadUrl,

@@ -6,6 +6,9 @@ export async function POST(req: NextRequest) {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const folder = (formData.get('folder') as string) || 'uploads';
+    const conversationId = formData.get('conversationId') as string | null;
+    const messageId = formData.get('messageId') as string | null;
+    const fileType = formData.get('fileType') as string | null;
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -25,7 +28,12 @@ export async function POST(req: NextRequest) {
 
     // Convert file to buffer and upload
     const buffer = Buffer.from(await file.arrayBuffer());
-    const { url, key } = await uploadFile(buffer, file.name, file.type, folder);
+    const { url, key } = await uploadFile(buffer, file.name, file.type, {
+      folder,
+      conversationId: conversationId || undefined,
+      messageId: messageId || undefined,
+      fileType: fileType || undefined,
+    });
 
     return NextResponse.json({
       url,

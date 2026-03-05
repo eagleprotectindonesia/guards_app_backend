@@ -6,6 +6,13 @@ export interface PresignedUrlResponse {
   contentType: string;
 }
 
+export interface UploadOptions {
+  folder?: string;
+  conversationId?: string;
+  messageId?: string;
+  fileType?: string;
+}
+
 export interface UploadResponse {
   url: string;
   key: string;
@@ -27,24 +34,25 @@ export async function getPresignedUrl(
   fileName: string,
   contentType: string,
   size: number,
-  folder: string = "uploads"
+  folderOrOptions: string | UploadOptions = 'uploads'
 ): Promise<PresignedUrlResponse> {
-  const response = await fetch("/api/shared/upload-url", {
-    method: "POST",
+  const options = typeof folderOrOptions === 'string' ? { folder: folderOrOptions } : folderOrOptions;
+  const response = await fetch('/api/shared/upload-url', {
+    method: 'POST',
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
       fileName,
       contentType,
       fileSize: size,
-      folder,
+      ...options,
     }),
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || "Failed to get upload URL");
+    throw new Error(error.error || 'Failed to get upload URL');
   }
 
   return response.json();
@@ -53,26 +61,21 @@ export async function getPresignedUrl(
 /**
  * Uploads a file directly to S3 using a presigned URL.
  */
-async function uploadToS3Presigned(file: File, folder: string = "uploads"): Promise<UploadResponse> {
+async function uploadToS3Presigned(file: File, options: string | UploadOptions = 'uploads'): Promise<UploadResponse> {
   // 1. Get presigned URL
-  const { uploadUrl, publicUrl, key } = await getPresignedUrl(
-    file.name,
-    file.type,
-    file.size,
-    folder
-  );
+  const { uploadUrl, publicUrl, key } = await getPresignedUrl(file.name, file.type, file.size, options);
 
   // 2. Upload the file directly to S3 (Frontend to S3)
   const uploadResponse = await fetch(uploadUrl, {
-    method: "PUT",
+    method: 'PUT',
     body: file,
     headers: {
-      "Content-Type": file.type,
+      'Content-Type': file.type,
     },
   });
 
   if (!uploadResponse.ok) {
-    throw new Error("Failed to upload file to S3");
+    throw new Error('Failed to upload file to S3');
   }
 
   return {
@@ -87,19 +90,27 @@ async function uploadToS3Presigned(file: File, folder: string = "uploads"): Prom
 /**
  * Uploads a file through the server.
  */
-async function uploadThroughServer(file: File, folder: string = "uploads"): Promise<UploadResponse> {
+async function uploadThroughServer(
+  file: File,
+  folderOrOptions: string | UploadOptions = 'uploads'
+): Promise<UploadResponse> {
   const formData = new FormData();
-  formData.append("file", file);
-  formData.append("folder", folder);
+  formData.append('file', file);
 
-  const response = await fetch("/api/shared/upload", {
-    method: "POST",
+  const options = typeof folderOrOptions === 'string' ? { folder: folderOrOptions } : folderOrOptions;
+  if (options.folder) formData.append('folder', options.folder);
+  if (options.conversationId) formData.append('conversationId', options.conversationId);
+  if (options.messageId) formData.append('messageId', options.messageId);
+  if (options.fileType) formData.append('fileType', options.fileType);
+
+  const response = await fetch('/api/shared/upload', {
+    method: 'POST',
     body: formData,
   });
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || "Failed to upload file");
+    throw new Error(error.error || 'Failed to upload file');
   }
 
   return response.json();
@@ -108,10 +119,10 @@ async function uploadThroughServer(file: File, folder: string = "uploads"): Prom
 /**
  * Main upload function that uses either presigned URL or server-side upload based on USE_PRESIGNED_URL toggle.
  */
-export async function uploadToS3(file: File, folder: string = "uploads"): Promise<UploadResponse> {
+export async function uploadToS3(file: File, options: string | UploadOptions = 'uploads'): Promise<UploadResponse> {
   if (USE_PRESIGNED_URL) {
-    return uploadToS3Presigned(file, folder);
+    return uploadToS3Presigned(file, options);
   } else {
-    return uploadThroughServer(file, folder);
+    return uploadThroughServer(file, options);
   }
 }

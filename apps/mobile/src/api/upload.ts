@@ -8,6 +8,13 @@ export interface PresignedUrlResponse {
   contentType: string;
 }
 
+export interface UploadOptions {
+  folder?: string;
+  conversationId?: string;
+  messageId?: string;
+  fileType?: string;
+}
+
 export interface UploadResponse {
   url: string;
   key: string;
@@ -23,13 +30,14 @@ export async function getPresignedUrl(
   fileName: string,
   contentType: string,
   size: number,
-  folder: string = 'uploads'
+  folderOrOptions: string | UploadOptions = 'uploads'
 ): Promise<PresignedUrlResponse> {
+  const options = typeof folderOrOptions === 'string' ? { folder: folderOrOptions } : folderOrOptions;
   const response = await client.post('/api/shared/upload-url', {
     fileName,
     contentType,
     fileSize: size,
-    folder,
+    ...options,
   });
 
   return response.data;
@@ -44,15 +52,10 @@ export async function uploadToS3(
   fileName: string,
   contentType: string,
   size: number,
-  folder: string = 'uploads'
+  folderOrOptions: string | UploadOptions = 'uploads'
 ): Promise<UploadResponse> {
   // 1. Get presigned URL
-  const { uploadUrl, publicUrl, key } = await getPresignedUrl(
-    fileName,
-    contentType,
-    size,
-    folder
-  );
+  const { uploadUrl, publicUrl, key } = await getPresignedUrl(fileName, contentType, size, folderOrOptions);
 
   // 2. Convert URI to Blob
   const blob = await new Promise<Blob>((resolve, reject) => {
