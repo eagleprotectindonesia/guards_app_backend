@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
+import { AppState, AppStateStatus } from 'react-native';
 import { getSocket } from '../api/socket';
 import { client } from '../api/client';
 import { useAudioPlayer } from 'expo-audio';
@@ -60,6 +61,20 @@ export function useChatUnread() {
       }
     };
   }, [queryClient, player]);
+
+  // Re-sync unread count whenever the app returns from background.
+  // Socket events are missed during disconnection, so we must re-fetch here.
+  // This hook is always mounted (tab-bar), making it the right owner of this logic.
+  useEffect(() => {
+    let previousAppState: AppStateStatus = AppState.currentState;
+    const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
+      if (previousAppState === 'background' && nextAppState === 'active') {
+        queryClient.invalidateQueries({ queryKey: queryKeys.chat.unread });
+      }
+      previousAppState = nextAppState;
+    });
+    return () => subscription.remove();
+  }, [queryClient]);
 
   return {
     unreadCount,

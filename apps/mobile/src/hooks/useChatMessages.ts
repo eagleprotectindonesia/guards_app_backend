@@ -16,9 +16,7 @@ type ChatMessagesQueryData = {
   pageParams: (string | undefined)[];
 };
 
-const isMessageReadPayload = (
-  value: unknown
-): value is Parameters<ServerToClientEvents['messages_read']>[0] => {
+const isMessageReadPayload = (value: unknown): value is Parameters<ServerToClientEvents['messages_read']>[0] => {
   if (!value || typeof value !== 'object') return false;
   const payload = value as { messageIds?: unknown };
   return Array.isArray(payload.messageIds);
@@ -111,23 +109,22 @@ export function useChatMessages({
   );
 
   useEffect(() => {
+    // Track previous state so FCM's brief 'inactive' wakeup doesn't reset the
+    // debounce timer and block the real foreground sync that follows.
+    let previousAppState: AppStateStatus = AppState.currentState;
+
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      const isActive = nextAppState === 'active';
+      const isRealForeground = previousAppState === 'background' && nextAppState === 'active';
+      previousAppState = nextAppState;
+
       const now = Date.now();
       const withinDebounceWindow = now - lastForegroundSyncAtRef.current < 10000;
 
-      if (isActive && employeeId && !withinDebounceWindow) {
-        const messageState = queryClient.getQueryState(queryKeys.chat.messages(employeeId));
-        const unreadState = queryClient.getQueryState(queryKeys.chat.unread);
-        const isMessagesStale = !messageState?.dataUpdatedAt || now - messageState.dataUpdatedAt > 30000;
-        const isUnreadStale = !unreadState?.dataUpdatedAt || now - unreadState.dataUpdatedAt > 30000;
-
-        if (isMessagesStale) {
-          queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(employeeId) });
-        }
-        if (isUnreadStale) {
-          queryClient.invalidateQueries({ queryKey: queryKeys.chat.unread });
-        }
+      if (isRealForeground && employeeId && !withinDebounceWindow) {
+        // Always invalidate on a real foreground transition — any background
+        // period may have produced missed socket events regardless of data age.
+        queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(employeeId) });
+        queryClient.invalidateQueries({ queryKey: queryKeys.chat.unread });
         lastForegroundSyncAtRef.current = now;
       }
     });
