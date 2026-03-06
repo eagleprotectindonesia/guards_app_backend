@@ -21,6 +21,11 @@ const CheckInStatusSchema = registry.register(
   z.enum(['on_time', 'late']).openapi({ example: 'on_time' })
 );
 
+const ShiftStatusSchema = registry.register(
+  'ShiftStatus',
+  z.enum(['scheduled', 'in_progress', 'completed', 'missed', 'cancelled']).openapi({ example: 'scheduled' })
+);
+
 const ErrorSchema = registry.register(
   'Error',
   z.object({
@@ -49,6 +54,16 @@ const GroupedAttendanceResponseSchema = registry.register(
     checkins: z.array(CheckInItemSchema),
   })
 );
+
+// --- Grouped Shifts Schemas ---
+
+const ShiftItemSchema = z.object({
+  site_name: z.string().nullable().openapi({ example: 'Main Gate' }),
+  date: z.string().openapi({ example: '2026-02-16T00:00:00.000Z' }),
+  starts_at: z.string().openapi({ example: '2026-02-16T08:00:00.000Z' }),
+  ends_at: z.string().openapi({ example: '2026-02-16T16:00:00.000Z' }),
+  status: ShiftStatusSchema,
+});
 
 // --- Paths ---
 
@@ -121,6 +136,78 @@ registry.registerPath({
   },
 });
 
+// Get Shifts grouped by employee
+registry.registerPath({
+  method: 'get',
+  path: '/api/external/v1/shifts/grouped',
+  summary: 'Get all shifts grouped by employee',
+  security: [{ [ApiKeyAuth.name]: [] }],
+  request: {
+    query: z.object({
+      employee_id: z.string().optional().openapi({ description: 'Filter by employee ID' }),
+      start_date: z.string().datetime().optional().openapi({
+        description: 'Start date (ISO 8601). If not provided, defaults to 7 days before end_date.',
+      }),
+      end_date: z.string().datetime().optional().openapi({
+        description:
+          'End date (ISO 8601). If not provided, defaults to current time. If `employee_id` is not provided, the range between start_date and end_date cannot exceed 1 week.',
+      }),
+    }),
+  },
+  responses: {
+    200: {
+      description:
+        'Streamed response grouped by employee ID. Each key is an employee ID and its value is an array of shift records for that employee within the requested date range.',
+      content: {
+        'application/json': {
+          schema: z.object({
+            data: z.record(z.string(), z.array(ShiftItemSchema)).openapi({
+              example: {
+                EMP001: [
+                  {
+                    site_name: 'Main Gate',
+                    date: '2026-02-16T00:00:00.000Z',
+                    starts_at: '2026-02-16T08:00:00.000Z',
+                    ends_at: '2026-02-16T16:00:00.000Z',
+                    status: 'scheduled',
+                  },
+                ],
+              },
+            }),
+          }),
+        },
+      },
+    },
+    400: {
+      description: 'Bad Request',
+      content: {
+        'application/json': {
+          schema: ErrorSchema,
+          examples: {
+            dateRangeError: {
+              summary: 'Date range limit exceeded',
+              value: { error: 'Date range cannot exceed 1 week when not querying a specific employee.' },
+            },
+            invalidFormat: {
+              summary: 'Invalid date format',
+              value: { error: 'Invalid start_date format. Use ISO 8601 format.' },
+            },
+          },
+        },
+      },
+    },
+    401: {
+      description: 'Unauthorized - Invalid or missing API Key',
+      content: {
+        'application/json': {
+          schema: ErrorSchema,
+          example: { error: 'Unauthorized' },
+        },
+      },
+    },
+  },
+});
+
 export function getOpenApiSpec() {
   const generator = new OpenApiGeneratorV3(registry.definitions);
 
@@ -128,8 +215,8 @@ export function getOpenApiSpec() {
     openapi: '3.0.0',
     info: {
       version: '1.0.0',
-      title: 'Eagle Protect Grouped Attendance API',
-      description: 'API for external access to grouped attendance and check-in data.',
+      title: 'Eagle Protect External API',
+      description: 'API for external access to grouped attendance, shifts, and check-in data.',
     },
     servers: [{ url: '/api/external/v1' }],
   });
