@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getChatMessages, saveMessage } from '@/lib/data-access/chat';
+import { getChatMessages, getMessagesSince, saveMessage } from '@/lib/data-access/chat';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { getCurrentAdmin } from '@/lib/admin-auth';
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ employeeId: string }> }
-) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ employeeId: string }> }) {
   const { employeeId } = await params;
 
   // Auth check: Either the employee themselves or an admin
@@ -19,6 +16,18 @@ export async function GET(
 
   try {
     const { searchParams } = request.nextUrl;
+    const sinceParam = searchParams.get('since');
+
+    if (sinceParam) {
+      // Targeted reconciliation: return only messages newer than `since`.
+      const since = new Date(sinceParam);
+      if (isNaN(since.getTime())) {
+        return NextResponse.json({ error: 'Invalid since parameter' }, { status: 400 });
+      }
+      const messages = await getMessagesSince(employeeId, since);
+      return NextResponse.json(messages);
+    }
+
     const limit = parseInt(searchParams.get('limit') || '15');
     const cursor = searchParams.get('cursor') || undefined;
 
@@ -30,10 +39,7 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ employeeId: string }> }
-) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ employeeId: string }> }) {
   const { employeeId } = await params;
 
   // Auth check: Either the employee themselves or an admin

@@ -24,7 +24,7 @@
         "NSLocationWhenInUseUsageDescription": "We need your location to track attendance and monitor site geofencing during your shift.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to track attendance and monitor site geofencing during your shift, even when the app is in the background.",
         "NSLocationAlwaysUsageDescription": "We need your location to track attendance and monitor site geofencing during your shift, even when the app is closed.",
-        "UIBackgroundModes": ["location", "fetch"]
+        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
       }
     },
     "android": {

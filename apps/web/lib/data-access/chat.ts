@@ -47,6 +47,27 @@ export async function saveMessage(data: {
   return enrichMessageWithUrls(message);
 }
 
+/**
+ * Fetch all messages newer than a given ISO timestamp.
+ * Used for targeted foreground reconciliation — avoids a full page-1 refetch.
+ * Returns messages in ascending order so the client can prepend them.
+ */
+export async function getMessagesSince(employeeId: string, since: Date) {
+  const messages = await prisma.chatMessage.findMany({
+    where: {
+      employeeId,
+      createdAt: { gt: since },
+    },
+    orderBy: { createdAt: 'asc' },
+    include: {
+      admin: {
+        select: { id: true, name: true },
+      },
+    },
+  });
+  return Promise.all(messages.map(enrichMessageWithUrls));
+}
+
 export async function getChatMessages(employeeId: string, limit = 50, cursorId?: string) {
   const messages = await prisma.chatMessage.findMany({
     where: {

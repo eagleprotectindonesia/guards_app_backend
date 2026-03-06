@@ -1,24 +1,23 @@
 import { useEffect } from 'react';
-import {
-  getMessaging,
-  onMessage,
-  onNotificationOpenedApp,
-  getInitialNotification,
-} from '@react-native-firebase/messaging';
+import { getMessaging, onMessage } from '@react-native-firebase/messaging';
+import notifee, { EventType } from '@notifee/react-native';
 import { Linking, Platform } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../contexts/AlertContext';
 import { registerFcmToken, requestUserPermission, setupTokenRefreshListener } from '../lib/fcm';
 import { useCustomToast } from './useCustomToast';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { consumePendingChatOpen, ensureChatNotificationChannel } from '../utils/chatNotifications';
 
 export function usePushNotifications() {
   const { user } = useAuth();
   const { showAlert } = useAlert();
   const { showToast } = useCustomToast();
   const router = useRouter();
+  const pathname = usePathname();
   const { t } = useTranslation();
+  const isChatRoute = pathname.endsWith('/chat');
 
   useEffect(() => {
     let unsubscribeRefresh: (() => void) | undefined;
@@ -58,6 +57,7 @@ export function usePushNotifications() {
 
       if (!enabled) return;
 
+      await ensureChatNotificationChannel();
       const token = await registerFcmToken();
       if (token) {
         unsubscribeRefresh = setupTokenRefreshListener();
@@ -76,27 +76,40 @@ export function usePushNotifications() {
   useEffect(() => {
     const messaging = getMessaging();
 
-    // Handle foreground messages with an in-app toast
-    const unsubscribeForeground = onMessage(messaging, async remoteMessage => {
-      if (remoteMessage.notification) {
-        showToast({
-          title: remoteMessage.notification.title || 'New Message',
-          description: remoteMessage.notification.body || '',
-          status: 'info',
-        });
+    const openChatFromNotification = async () => {
+      const pending = await consumePendingChatOpen();
+      if (pending?.type === 'chat' && !isChatRoute) {
+        router.push('/(tabs)/chat');
       }
-    });
+    };
 
-    // Handle notification tap while app is in the background
-    const unsubscribeNotificationOpenedApp = onNotificationOpenedApp(messaging, remoteMessage => {
-      if (remoteMessage.data?.type === 'chat') {
+    void openChatFromNotification();
+    void notifee.getInitialNotification().then(initialNotification => {
+      if (initialNotification?.notification?.data?.type === 'chat' && !isChatRoute) {
         router.push('/(tabs)/chat');
       }
     });
 
-    // Handle notification tap while app was killed/quit
-    getInitialNotification(messaging).then(remoteMessage => {
-      if (remoteMessage?.data?.type === 'chat') {
+    const unsubscribeForeground = onMessage(messaging, async remoteMessage => {
+      const data = remoteMessage.data ?? {};
+
+      if (data.type !== 'chat' || isChatRoute) {
+        return;
+      }
+
+      const senderName = typeof data.senderName === 'string' && data.senderName.trim() ? data.senderName : 'Eagle Protect';
+      const messagePreview = typeof data.messagePreview === 'string' ? data.messagePreview.trim() : '';
+
+      showToast({
+        title: `Message from ${senderName}`,
+        description: messagePreview || 'You have a new message',
+        status: 'info',
+      });
+    });
+
+    const unsubscribeForegroundEvents = notifee.onForegroundEvent(async ({ type, detail }) => {
+      if (type === EventType.PRESS && detail.notification?.data?.type === 'chat' && !isChatRoute) {
+        await consumePendingChatOpen();
         setTimeout(() => {
           router.push('/(tabs)/chat');
         }, 500);
@@ -105,7 +118,7 @@ export function usePushNotifications() {
 
     return () => {
       unsubscribeForeground();
-      unsubscribeNotificationOpenedApp();
+      unsubscribeForegroundEvents();
     };
-  }, [router, showToast]);
+  }, [isChatRoute, router, showToast]);
 }

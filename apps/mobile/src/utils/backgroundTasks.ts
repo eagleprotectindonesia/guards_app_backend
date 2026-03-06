@@ -89,7 +89,7 @@ export async function checkAndReportLocationServices(
       }
     }
   } catch (error) {
-     console.error(`[${source}] Error checking location services:`, error);
+    console.error(`[${source}] Error checking location services:`, error);
   }
 }
 
@@ -119,7 +119,9 @@ export async function reportBreach(shiftId: string, reason: 'geofence_breach' | 
     await sendDebugChat(`Reported ${reason} for shift ${shiftId}`);
   } catch (error) {
     console.error(`[Background] Failed to report ${reason}:`, error);
-    await sendDebugChat(`FAILED to report ${reason} for shift ${shiftId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    await sendDebugChat(
+      `FAILED to report ${reason} for shift ${shiftId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -147,7 +149,9 @@ export async function resolveBreach(shiftId: string, reason: 'geofence_breach' |
     await sendDebugChat(`Resolved ${reason} for shift ${shiftId}`);
   } catch (error) {
     console.error(`[Background] Failed to resolve ${reason}:`, error);
-    await sendDebugChat(`FAILED to resolve ${reason} for shift ${shiftId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    await sendDebugChat(
+      `FAILED to resolve ${reason} for shift ${shiftId}: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
   }
 }
 
@@ -211,12 +215,12 @@ TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
       console.log('[Background] Location monitoring is disabled via system settings.');
       return;
     }
-    
+
     if (!shiftId) return;
 
     const locations = data?.locations || [];
     const lastLocation = locations[locations.length - 1];
-    
+
     // Log task trigger
     if (lastLocation) {
       await sendDebugChat(`LOCATION_MONITOR_TASK triggered. Accuracy: ${lastLocation.coords.accuracy?.toFixed(1)}m`);
@@ -247,13 +251,17 @@ TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
         if (isCurrentlyOutside) {
           if (!breachStartTime) {
             console.log(`[Background] Manual breach detection. Distance: ${distance.toFixed(2)}m`);
-            await sendDebugChat(`Manual BREACH detection. Distance: ${distance.toFixed(2)}m (Radius: ${geofenceConfig.radius}m)`);
+            await sendDebugChat(
+              `Manual BREACH detection. Distance: ${distance.toFixed(2)}m (Radius: ${geofenceConfig.radius}m)`
+            );
             await storage.setItem(BREACH_START_TIME_KEY, Date.now().toString());
           }
         } else {
           if (breachStartTime) {
             console.log(`[Background] Manual enter detection. Distance: ${distance.toFixed(2)}m`);
-            await sendDebugChat(`Manual ENTER detection. Distance: ${distance.toFixed(2)}m (Radius: ${geofenceConfig.radius}m)`);
+            await sendDebugChat(
+              `Manual ENTER detection. Distance: ${distance.toFixed(2)}m (Radius: ${geofenceConfig.radius}m)`
+            );
             await resolveBreach(shiftId, 'geofence_breach');
             await storage.removeItem(BREACH_START_TIME_KEY);
           }
@@ -272,6 +280,8 @@ TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
     }
   } catch (err) {
     console.error('[Background] monitor task error:', err);
-    await sendDebugChat(`LOCATION_MONITOR_TASK UNCAUGHT ERROR: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    await sendDebugChat(
+      `LOCATION_MONITOR_TASK UNCAUGHT ERROR: ${err instanceof Error ? err.message : 'Unknown error'}`
+    );
   }
 });

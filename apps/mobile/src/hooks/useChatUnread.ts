@@ -24,9 +24,10 @@ export function useChatUnread() {
     let socketInstance: Awaited<ReturnType<typeof getSocket>> | null = null;
     const handleNewMessage: ServerToClientEvents['new_message'] = (message: ChatMessage) => {
       if (message.sender === 'admin') {
-        // Optimistically update the cache
-        queryClient.setQueryData(queryKeys.chat.unread, (old: number = 0) => old + 1);
-        incrementTelemetryCounter('chat.unread.incremented');
+        // Invalidate from server — avoids count drift from optimistic increments.
+        // Sound plays immediately; badge updates after the ~200ms round-trip.
+        queryClient.invalidateQueries({ queryKey: queryKeys.chat.unread });
+        incrementTelemetryCounter('chat.unread.server_synced');
 
         // Play sound
         if (player) {

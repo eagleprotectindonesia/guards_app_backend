@@ -108,6 +108,45 @@ export function useChatMessages({
     }, [])
   );
 
+  // Reconcile messages after a background period by fetching only those
+  // newer than the latest message in cache — avoids a full page-1 refetch.
+  const reconcileSince = useCallback(async () => {
+    if (!employeeId) return;
+
+    const cached = queryClient.getQueryData<ChatMessagesQueryData>(queryKeys.chat.messages(employeeId));
+    const latestMessage = cached?.pages?.[0]?.[0];
+
+    if (!latestMessage) {
+      // Nothing in cache yet — fall back to a normal refetch.
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(employeeId) });
+      return;
+    }
+
+    try {
+      const response = await client.get(`/api/shared/chat/${employeeId}`, {
+        params: { since: latestMessage.createdAt },
+      });
+      const newMessages: ChatMessage[] = response.data;
+
+      if (newMessages.length === 0) return;
+
+      // Prepend new messages (server returns ascending) — flip so newest is first.
+      queryClient.setQueryData<ChatMessagesQueryData>(queryKeys.chat.messages(employeeId), old => {
+        if (!old) return old;
+        const existingIds = new Set(old.pages.flat().map(m => m.id));
+        const toAdd = newMessages.filter(m => !existingIds.has(m.id)).reverse();
+        if (toAdd.length === 0) return old;
+        return {
+          ...old,
+          pages: [[...toAdd, ...old.pages[0]], ...old.pages.slice(1)],
+        };
+      });
+    } catch {
+      // If reconciliation fails, fall back to a full refetch.
+      queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(employeeId) });
+    }
+  }, [employeeId, queryClient]);
+
   useEffect(() => {
     // Track previous state so FCM's brief 'inactive' wakeup doesn't reset the
     // debounce timer and block the real foreground sync that follows.
@@ -121,9 +160,8 @@ export function useChatMessages({
       const withinDebounceWindow = now - lastForegroundSyncAtRef.current < 10000;
 
       if (isRealForeground && employeeId && !withinDebounceWindow) {
-        // Always invalidate on a real foreground transition — any background
-        // period may have produced missed socket events regardless of data age.
-        queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(employeeId) });
+        // Targeted reconciliation for new messages; server query for accurate unread count.
+        reconcileSince();
         queryClient.invalidateQueries({ queryKey: queryKeys.chat.unread });
         lastForegroundSyncAtRef.current = now;
       }
@@ -132,7 +170,7 @@ export function useChatMessages({
     return () => {
       subscription.remove();
     };
-  }, [employeeId, queryClient]);
+  }, [employeeId, queryClient, reconcileSince]);
 
   useEffect(() => {
     if (messages.length > 0 && socket && employeeId && isFocusedRef.current) {
