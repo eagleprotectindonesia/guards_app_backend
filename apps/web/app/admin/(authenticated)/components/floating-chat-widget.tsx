@@ -47,7 +47,7 @@ function FloatingChatWidgetContent() {
     typingEmployees,
     isConnected,
     setSearchTerm,
-    setActiveView,
+    handleViewChange,
     handleSelectConversation,
     handleSendMessage,
     handleFileChange,
@@ -132,7 +132,7 @@ function FloatingChatWidgetContent() {
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
               activeView={activeView}
-              onViewChange={setActiveView}
+              onViewChange={handleViewChange}
               typingEmployees={typingEmployees}
               className="w-1/3 border-r border-border shrink-0"
               itemClassName="p-3 gap-3"

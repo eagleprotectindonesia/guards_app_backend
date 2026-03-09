@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback, useMemo } from 'react';
 import { ArchiveRestore, ArchiveX, MessageSquare, Send, User, Paperclip, Loader2, Lock } from 'lucide-react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { AdminChatLaunchPayload, useAdminChat } from '@/hooks/use-admin-chat';
 import { useSession } from '../context/session-context';
 import { ConversationList } from '../components/chat/conversation-list';
@@ -12,10 +12,12 @@ import { ChatAttachmentPreviews } from '../components/chat/attachment-previews';
 export function AdminChatClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
   const employeeIdParam = searchParams.get('employeeId');
   const employeeNameParam = searchParams.get('employeeName');
   const employeeNumberParam = searchParams.get('employeeNumber');
   const { userId } = useSession();
+  const currentQuery = searchParams.toString();
 
   const onSelectConversation = useCallback(
     (employeeId: string | null, draft?: AdminChatLaunchPayload | null) => {
@@ -27,13 +29,21 @@ export function AdminChatClient() {
         if (draft?.employeeNumber) {
           params.set('employeeNumber', draft.employeeNumber);
         }
-        router.push(`/admin/chat?${params.toString()}`, { scroll: false });
+        const nextQuery = params.toString();
+        const nextUrl = `${pathname}?${nextQuery}`;
+        const currentUrl = currentQuery ? `${pathname}?${currentQuery}` : pathname;
+
+        if (nextUrl !== currentUrl) {
+          router.replace(nextUrl, { scroll: false });
+        }
         return;
       }
 
-      router.push('/admin/chat', { scroll: false });
+      if (currentQuery) {
+        router.replace(pathname, { scroll: false });
+      }
     },
-    [router]
+    [currentQuery, pathname, router]
   );
 
   const chatOptions = useMemo(
@@ -70,7 +80,7 @@ export function AdminChatClient() {
     conversationLocks,
     isConnected,
     setSearchTerm,
-    setActiveView,
+    handleViewChange,
     handleSelectConversation,
     handleSendMessage,
     handleFileChange,
@@ -104,7 +114,7 @@ export function AdminChatClient() {
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         activeView={activeView}
-        onViewChange={setActiveView}
+        onViewChange={handleViewChange}
         typingEmployees={typingEmployees}
         className="w-1/3 border-r border-border shrink-0"
         onArchive={handleArchiveConversation}
@@ -125,7 +135,9 @@ export function AdminChatClient() {
                   <h3 className="font-semibold text-foreground flex items-center gap-2">
                     {activeEmployee?.employeeName || 'Chat'}{' '}
                     {activeEmployee && (
-                      <span className="text-xs font-normal text-muted-foreground">({activeEmployee.employeeNumber})</span>
+                      <span className="text-xs font-normal text-muted-foreground">
+                        ({activeEmployee.employeeNumber})
+                      </span>
                     )}
                     {isLockedByOther && <Lock size={14} className="text-amber-500 fill-amber-500/10" />}
                   </h3>

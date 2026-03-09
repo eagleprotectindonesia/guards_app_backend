@@ -69,9 +69,16 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     {}
   );
   const [isInitialSelectionReady, setIsInitialSelectionReady] = useState(!options.initialEmployeeId);
+  const [canRestoreInitialSelection, setCanRestoreInitialSelection] = useState(!options.initialEmployeeId);
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const initialEmployeeIdRef = useRef(options.initialEmployeeId ?? null);
+  const initialDraftRef = useRef(
+    options.initialDraft?.employeeId === options.initialEmployeeId ? options.initialDraft : null
+  );
+  const hasBootstrappedInitialSelectionRef = useRef(false);
+  const shouldClearSelectionOnViewMismatchRef = useRef(false);
 
   const {
     data,
@@ -205,7 +212,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
         console.error('Failed to fetch conversations', err);
       }
     },
-    [activeView, draftConversation, fetchConversationList]
+    [activeEmployeeId, activeView, draftConversation, fetchConversationList]
   );
 
   const handleSelectConversation = useCallback(
@@ -228,7 +235,16 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
         )
       );
     },
-    [options]
+    [activeEmployeeId, options]
+  );
+
+  const handleViewChange = useCallback(
+    (view: ConversationView) => {
+      shouldClearSelectionOnViewMismatchRef.current = true;
+      setActiveView(view);
+      handleSelectConversation(null);
+    },
+    [activeEmployeeId, activeView, handleSelectConversation]
   );
 
   const archiveConversation = useCallback(
@@ -501,19 +517,26 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   }, [options.initialDraft]);
 
   useEffect(() => {
+    if (hasBootstrappedInitialSelectionRef.current) {
+      return;
+    }
+
+    hasBootstrappedInitialSelectionRef.current = true;
     let cancelled = false;
 
     const restoreInitialConversation = async () => {
-      const initialEmployeeId = options.initialEmployeeId;
+      const initialEmployeeId = initialEmployeeIdRef.current;
+      const initialDraft = initialDraftRef.current;
 
       if (!initialEmployeeId) {
+        setCanRestoreInitialSelection(false);
         setIsInitialSelectionReady(true);
         return;
       }
 
-      const initialDraft = options.initialDraft?.employeeId === initialEmployeeId ? options.initialDraft : null;
       if (initialDraft) {
         setActiveView('inbox');
+        setCanRestoreInitialSelection(true);
         if (!cancelled) {
           setIsInitialSelectionReady(true);
         }
@@ -536,11 +559,14 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
         if (cancelled) return;
 
         setPersistedConversations(initialConversations);
+        const canRestore = initialConversations.some(conversation => conversation.employeeId === initialEmployeeId);
+        setCanRestoreInitialSelection(canRestore);
       } catch (error) {
         console.error('Failed to restore initial conversation view', error);
         if (cancelled) return;
         setActiveView('inbox');
         setPersistedConversations([]);
+        setCanRestoreInitialSelection(false);
       } finally {
         if (!cancelled) {
           setIsInitialSelectionReady(true);
@@ -554,14 +580,26 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     return () => {
       cancelled = true;
     };
-  }, [fetchConversationList, options.initialDraft, options.initialEmployeeId]);
+  }, [fetchConversationList]);
 
   useEffect(() => {
-    if (!isInitialSelectionReady || !options.initialEmployeeId || options.initialEmployeeId === activeEmployeeId) return;
+    if (
+      !isInitialSelectionReady ||
+      !canRestoreInitialSelection ||
+      !initialEmployeeIdRef.current ||
+      initialEmployeeIdRef.current === activeEmployeeId
+    ) {
+      return;
+    }
 
-    const initialDraft = options.initialDraft?.employeeId === options.initialEmployeeId ? options.initialDraft : null;
-    handleSelectConversation(options.initialEmployeeId, true, initialDraft);
-  }, [activeEmployeeId, handleSelectConversation, isInitialSelectionReady, options.initialDraft, options.initialEmployeeId]);
+    handleSelectConversation(initialEmployeeIdRef.current, true, initialDraftRef.current);
+    setCanRestoreInitialSelection(false);
+  }, [
+    activeEmployeeId,
+    canRestoreInitialSelection,
+    handleSelectConversation,
+    isInitialSelectionReady,
+  ]);
 
   useEffect(() => {
     fetchAdminUnreadCount();
@@ -569,14 +607,21 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   }, [fetchAdminUnreadCount, fetchArchivedConversationIds]);
 
   useEffect(() => {
-    if (!isInitialSelectionReady) return;
-    if (!activeEmployeeId) return;
+    if (!activeEmployeeId) {
+      shouldClearSelectionOnViewMismatchRef.current = false;
+      return;
+    }
+
+    if (!shouldClearSelectionOnViewMismatchRef.current) {
+      return;
+    }
 
     const existsInCurrentView = conversations.some(conversation => conversation.employeeId === activeEmployeeId);
     if (!existsInCurrentView) {
+      shouldClearSelectionOnViewMismatchRef.current = false;
       handleSelectConversation(null);
     }
-  }, [activeEmployeeId, conversations, handleSelectConversation, isInitialSelectionReady]);
+  }, [activeEmployeeId, conversations, handleSelectConversation]);
 
   const handleFileChange = async (files: File[]) => {
     if (files.length === 0) return;
@@ -700,6 +745,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     fetchNextPage,
     setSearchTerm,
     setActiveView,
+    handleViewChange,
     handleSelectConversation,
     handleSendMessage,
     handleFileChange,
