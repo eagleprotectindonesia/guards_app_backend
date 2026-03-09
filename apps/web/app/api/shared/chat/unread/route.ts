@@ -22,6 +22,7 @@ export async function GET(request: Request) {
     const count = await getUnreadCount({
       employeeId: targetEmployeeId,
       isAdmin: isAdmin,
+      adminId: isAdmin ? admin?.id : undefined,
     });
     return NextResponse.json({ count });
   } catch (error) {

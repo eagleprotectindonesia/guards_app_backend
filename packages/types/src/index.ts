@@ -134,6 +134,9 @@ export interface Conversation {
   employeeId: string;
   employeeName: string;
   employeeNumber: string;
+  isArchived: boolean;
+  isMuted: boolean;
+  isDraft?: boolean;
   lastMessage: {
     content: string;
     sender: string;

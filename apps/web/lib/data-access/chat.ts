@@ -2,6 +2,8 @@ import { db as prisma } from '@/lib/prisma';
 import { ChatSenderType } from '@prisma/client';
 import { getCachedPresignedDownloadUrl } from '@/lib/s3';
 
+type ConversationView = 'inbox' | 'unread' | 'archived';
+
 export async function enrichMessageWithUrls<T extends { attachments?: string[] }>(message: T): Promise<T> {
   if (message.attachments && message.attachments.length > 0) {
     const enrichedAttachments = await Promise.all(
@@ -92,7 +94,7 @@ export async function getChatMessages(employeeId: string, limit = 50, cursorId?:
   return Promise.all(messages.map(enrichMessageWithUrls));
 }
 
-export async function getConversationList() {
+export async function getConversationList(adminId: string, view: ConversationView = 'inbox') {
   const conversations = await prisma.chatMessage.findMany({
     orderBy: {
       createdAt: 'desc',
@@ -113,6 +115,23 @@ export async function getConversationList() {
     },
   });
 
+  const states = await prisma.adminChatConversationState.findMany({
+    where: {
+      adminId,
+      employeeId: {
+        in: conversations.map(conversation => conversation.employeeId),
+      },
+    },
+  });
+
+  const stateMap = states.reduce(
+    (acc, state) => {
+      acc[state.employeeId] = state;
+      return acc;
+    },
+    {} as Record<string, (typeof states)[number]>
+  );
+
   const unreadCounts = await prisma.chatMessage.groupBy({
     by: ['employeeId'],
     where: {
@@ -132,27 +151,96 @@ export async function getConversationList() {
     {} as Record<string, number>
   );
 
-  return conversations.map(conv => ({
-    employeeId: conv.employeeId,
-    employeeName: conv.employee.fullName,
-    employeeNumber: conv.employee.employeeNumber || conv.employeeId,
-    lastMessage: {
-      content: conv.content,
-      sender: conv.sender,
-      createdAt: conv.createdAt,
-      adminId: conv.adminId || undefined,
-      adminName: conv.admin?.name,
-    },
-    unreadCount: unreadMap[conv.employeeId] || 0,
-  }));
+  return conversations
+    .map(conv => {
+      const state = stateMap[conv.employeeId];
+
+      return {
+        employeeId: conv.employeeId,
+        employeeName: conv.employee.fullName,
+        employeeNumber: conv.employee.employeeNumber || conv.employeeId,
+        isArchived: state?.isArchived ?? false,
+        isMuted: state?.isMuted ?? false,
+        lastMessage: {
+          content: conv.content,
+          sender: conv.sender,
+          createdAt: conv.createdAt,
+          adminId: conv.adminId || undefined,
+          adminName: conv.admin?.name,
+        },
+        unreadCount: unreadMap[conv.employeeId] || 0,
+      };
+    })
+    .filter(conv => {
+      if (view === 'archived') return conv.isArchived;
+      if (view === 'unread') return !conv.isArchived && conv.unreadCount > 0;
+      return !conv.isArchived;
+    });
 }
 
-export async function getUnreadCount(params: { employeeId?: string; isAdmin: boolean }) {
+export async function getUnreadCount(params: { employeeId?: string; isAdmin: boolean; adminId?: string }) {
+  if (!params.isAdmin) {
+    return prisma.chatMessage.count({
+      where: {
+        employeeId: params.employeeId,
+        sender: 'admin',
+        readAt: null,
+      },
+    });
+  }
+
+  const archivedStates = params.adminId
+    ? await prisma.adminChatConversationState.findMany({
+        where: {
+          adminId: params.adminId,
+          isArchived: true,
+        },
+        select: {
+          employeeId: true,
+        },
+      })
+    : [];
+
   return prisma.chatMessage.count({
     where: {
-      employeeId: params.employeeId,
-      sender: params.isAdmin ? 'employee' : 'admin',
+      sender: 'employee',
       readAt: null,
+      employeeId: archivedStates.length
+        ? {
+            notIn: archivedStates.map(state => state.employeeId),
+          }
+        : undefined,
+    },
+  });
+}
+
+export async function setConversationArchiveState(params: {
+  adminId: string;
+  employeeId: string;
+  isArchived: boolean;
+}) {
+  const now = new Date();
+
+  return prisma.adminChatConversationState.upsert({
+    where: {
+      adminId_employeeId: {
+        adminId: params.adminId,
+        employeeId: params.employeeId,
+      },
+    },
+    update: {
+      isArchived: params.isArchived,
+      isMuted: params.isArchived,
+      archivedAt: params.isArchived ? now : null,
+      mutedAt: params.isArchived ? now : null,
+    },
+    create: {
+      adminId: params.adminId,
+      employeeId: params.employeeId,
+      isArchived: params.isArchived,
+      isMuted: params.isArchived,
+      archivedAt: params.isArchived ? now : null,
+      mutedAt: params.isArchived ? now : null,
     },
   });
 }

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useRef, useCallback, useMemo } from 'react';
-import { MessageSquare, Send, User, Paperclip, Loader2, Lock } from 'lucide-react';
+import { ArchiveRestore, ArchiveX, MessageSquare, Send, User, Paperclip, Loader2, Lock } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useAdminChat } from '@/hooks/use-admin-chat';
+import { AdminChatLaunchPayload, useAdminChat } from '@/hooks/use-admin-chat';
 import { useSession } from '../context/session-context';
 import { ConversationList } from '../components/chat/conversation-list';
 import { ChatMessageList } from '../components/chat/message-list';
@@ -13,11 +13,25 @@ export function AdminChatClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const employeeIdParam = searchParams.get('employeeId');
+  const employeeNameParam = searchParams.get('employeeName');
+  const employeeNumberParam = searchParams.get('employeeNumber');
   const { userId } = useSession();
 
   const onSelectConversation = useCallback(
-    (employeeId: string) => {
-      router.push(`/admin/chat?employeeId=${employeeId}`, { scroll: false });
+    (employeeId: string | null, draft?: AdminChatLaunchPayload | null) => {
+      if (employeeId) {
+        const params = new URLSearchParams({ employeeId });
+        if (draft?.employeeName) {
+          params.set('employeeName', draft.employeeName);
+        }
+        if (draft?.employeeNumber) {
+          params.set('employeeNumber', draft.employeeNumber);
+        }
+        router.push(`/admin/chat?${params.toString()}`, { scroll: false });
+        return;
+      }
+
+      router.push('/admin/chat', { scroll: false });
     },
     [router]
   );
@@ -25,9 +39,17 @@ export function AdminChatClient() {
   const chatOptions = useMemo(
     () => ({
       initialEmployeeId: employeeIdParam,
+      initialDraft:
+        employeeIdParam && employeeNameParam
+          ? {
+              employeeId: employeeIdParam,
+              employeeName: employeeNameParam,
+              employeeNumber: employeeNumberParam,
+            }
+          : null,
       onSelectConversation,
     }),
-    [employeeIdParam, onSelectConversation]
+    [employeeIdParam, employeeNameParam, employeeNumberParam, onSelectConversation]
   );
 
   const {
@@ -37,7 +59,7 @@ export function AdminChatClient() {
     messages,
     inputText,
     searchTerm,
-    filterType,
+    activeView,
     isLoading,
     isFetchingNextPage,
     hasNextPage,
@@ -48,7 +70,7 @@ export function AdminChatClient() {
     conversationLocks,
     isConnected,
     setSearchTerm,
-    setFilterType,
+    setActiveView,
     handleSelectConversation,
     handleSendMessage,
     handleFileChange,
@@ -56,13 +78,15 @@ export function AdminChatClient() {
     handleInputChange,
     fetchConversations,
     fetchNextPage,
+    handleArchiveConversation,
+    handleUnarchiveConversation,
   } = useAdminChat(chatOptions);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchConversations();
-  }, [fetchConversations]);
+    fetchConversations(activeView);
+  }, [activeView, fetchConversations]);
 
   const activeEmployee = conversations.find(c => c.employeeId === activeEmployeeId);
 
@@ -79,10 +103,12 @@ export function AdminChatClient() {
         onSelect={handleSelectConversation}
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        filterType={filterType}
-        onFilterChange={setFilterType}
+        activeView={activeView}
+        onViewChange={setActiveView}
         typingEmployees={typingEmployees}
         className="w-1/3 border-r border-border shrink-0"
+        onArchive={handleArchiveConversation}
+        onUnarchive={handleUnarchiveConversation}
       />
 
       {/* Main: Active Chat Area */}
@@ -115,6 +141,21 @@ export function AdminChatClient() {
                   </div>
                 </div>
               </div>
+              {activeEmployee && (
+                <button
+                  type="button"
+                  disabled={activeEmployee.isDraft}
+                  onClick={() =>
+                    activeEmployee.isArchived
+                      ? handleUnarchiveConversation(activeEmployee.employeeId)
+                      : handleArchiveConversation(activeEmployee.employeeId)
+                  }
+                  className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50"
+                >
+                  {activeEmployee.isArchived ? <ArchiveRestore size={16} /> : <ArchiveX size={16} />}
+                  {activeEmployee.isDraft ? 'Draft' : activeEmployee.isArchived ? 'Unarchive' : 'Archive'}
+                </button>
+              )}
             </div>
 
             {/* Messages */}

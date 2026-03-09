@@ -272,7 +272,13 @@ export default function EmployeeList({
                           type="button"
                           onClick={() =>
                             window.dispatchEvent(
-                              new CustomEvent('open-admin-chat', { detail: { employeeId: employee.id } })
+                              new CustomEvent('open-admin-chat', {
+                                detail: {
+                                  employeeId: employee.id,
+                                  employeeName: employee.fullName,
+                                  employeeNumber: employee.employeeNumber,
+                                },
+                              })
                             )
                           }
                           className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-900/10 rounded-lg transition-colors cursor-pointer"

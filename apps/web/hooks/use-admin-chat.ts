@@ -9,19 +9,57 @@ import { optimizeImage } from '@/lib/image-utils';
 import { toast } from 'react-hot-toast';
 import { useInfiniteQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
 
+export interface AdminChatLaunchPayload {
+  employeeId: string;
+  employeeName: string;
+  employeeNumber?: string | null;
+}
+
 interface UseAdminChatOptions {
   initialEmployeeId?: string | null;
-  onSelectConversation?: (employeeId: string) => void;
+  initialDraft?: AdminChatLaunchPayload | null;
+  onSelectConversation?: (employeeId: string | null, draft?: AdminChatLaunchPayload | null) => void;
 }
+
+type ConversationView = 'inbox' | 'unread' | 'archived';
+
+const reorderConversation = (items: Conversation[], employeeId: string) => {
+  const index = items.findIndex(item => item.employeeId === employeeId);
+  if (index <= 0) return items;
+
+  const updated = [...items];
+  const [moved] = updated.splice(index, 1);
+  updated.unshift(moved);
+  return updated;
+};
+
+const buildDraftConversation = (payload: AdminChatLaunchPayload): Conversation => ({
+  employeeId: payload.employeeId,
+  employeeName: payload.employeeName,
+  employeeNumber: payload.employeeNumber || payload.employeeId,
+  isArchived: false,
+  isMuted: false,
+  isDraft: true,
+  unreadCount: 0,
+  lastMessage: {
+    content: '',
+    sender: 'admin',
+    createdAt: new Date().toISOString(),
+  },
+});
 
 export function useAdminChat(options: UseAdminChatOptions = {}) {
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
-  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [persistedConversations, setPersistedConversations] = useState<Conversation[]>([]);
+  const [draftConversation, setDraftConversation] = useState<Conversation | null>(null);
+  const [pendingArchivedLaunch, setPendingArchivedLaunch] = useState<AdminChatLaunchPayload | null>(null);
   const [activeEmployeeId, setActiveEmployeeId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'unread'>('all');
+  const [activeView, setActiveView] = useState<ConversationView>('inbox');
+  const [adminUnreadCount, setAdminUnreadCount] = useState(0);
+  const [archivedEmployeeIds, setArchivedEmployeeIds] = useState<string[]>([]);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -34,7 +72,6 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Use Infinite Query for messages
   const {
     data,
     fetchNextPage,
@@ -60,17 +97,22 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       return lastPage[lastPage.length - 1].id;
     },
     enabled: !!activeEmployeeId,
-    // Keep data fresh but not too aggressive
     staleTime: 1000 * 60,
   });
 
   const messages = useMemo(() => {
     const allMessages = data?.pages.flat() || [];
-    // Sort by date ascending for display (oldest at top, newest at bottom)
     return [...allMessages].reverse();
   }, [data]);
 
-  // Audio Logic for Chat
+  const conversations = useMemo(() => {
+    if (!draftConversation) return persistedConversations;
+    if (persistedConversations.some(conversation => conversation.employeeId === draftConversation.employeeId)) {
+      return persistedConversations;
+    }
+    return [draftConversation, ...persistedConversations];
+  }, [draftConversation, persistedConversations]);
+
   useEffect(() => {
     if (!audioRef.current) {
       audioRef.current = new Audio('/audios/chat.wav');
@@ -106,42 +148,190 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     }
   }, []);
 
-  // Fetch conversations list
-  const fetchConversations = useCallback(async () => {
+  const fetchAdminUnreadCount = useCallback(async () => {
     try {
-      const res = await fetch('/api/shared/chat/conversations');
-      if (res.ok) {
-        const data = await res.json();
-        setConversations(data);
-      }
+      const res = await fetch('/api/shared/chat/unread?role=admin');
+      if (!res.ok) return;
+
+      const data = (await res.json()) as { count: number };
+      setAdminUnreadCount(data.count);
     } catch (err) {
-      console.error('Failed to fetch conversations', err);
+      console.error('Failed to fetch admin unread count', err);
     }
   }, []);
 
-  // Socket Event Handlers
+  const fetchArchivedConversationIds = useCallback(async () => {
+    try {
+      const url = new URL('/api/shared/chat/conversations', window.location.origin);
+      url.searchParams.set('view', 'archived');
+
+      const res = await fetch(url.toString());
+      if (!res.ok) return;
+
+      const data = (await res.json()) as Conversation[];
+      setArchivedEmployeeIds(data.map(conversation => conversation.employeeId));
+    } catch (err) {
+      console.error('Failed to fetch archived conversations', err);
+    }
+  }, []);
+
+  const fetchConversations = useCallback(
+    async (view: ConversationView = activeView) => {
+      try {
+        const url = new URL('/api/shared/chat/conversations', window.location.origin);
+        url.searchParams.set('view', view);
+
+        const res = await fetch(url.toString());
+        if (res.ok) {
+          const data = (await res.json()) as Conversation[];
+          setPersistedConversations(data);
+
+          if (draftConversation && data.some(conversation => conversation.employeeId === draftConversation.employeeId)) {
+            setDraftConversation(null);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch conversations', err);
+      }
+    },
+    [activeView, draftConversation]
+  );
+
+  const handleSelectConversation = useCallback(
+    async (employeeId: string | null, skipCallback = false, draft?: AdminChatLaunchPayload | null) => {
+      setActiveEmployeeId(employeeId);
+
+      if (!skipCallback && options.onSelectConversation) {
+        options.onSelectConversation(employeeId, draft || null);
+      }
+
+      if (!employeeId) return;
+
+      if (draft) {
+        setDraftConversation(buildDraftConversation(draft));
+      }
+
+      setPersistedConversations(prev =>
+        prev.map(conversation => (conversation.employeeId === employeeId ? { ...conversation, unreadCount: 0 } : conversation))
+      );
+    },
+    [options]
+  );
+
+  const archiveConversation = useCallback(
+    async (employeeId: string, isArchived: boolean) => {
+      const res = await fetch(`/api/shared/chat/conversations/${employeeId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isArchived }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to update archive state');
+      }
+
+      const data = (await res.json()) as Pick<Conversation, 'employeeId' | 'isArchived' | 'isMuted'>;
+
+      if (isArchived) {
+        setPersistedConversations(prev => prev.filter(conversation => conversation.employeeId !== employeeId));
+        setArchivedEmployeeIds(prev => (prev.includes(employeeId) ? prev : [...prev, employeeId]));
+        if (activeEmployeeId === employeeId) {
+          handleSelectConversation(null);
+        }
+      } else if (activeView === 'archived') {
+        setPersistedConversations(prev => prev.filter(conversation => conversation.employeeId !== employeeId));
+        setArchivedEmployeeIds(prev => prev.filter(id => id !== employeeId));
+        if (activeEmployeeId === employeeId) {
+          handleSelectConversation(null);
+        }
+      } else {
+        setArchivedEmployeeIds(prev => prev.filter(id => id !== employeeId));
+        await fetchConversations(activeView);
+      }
+
+      await fetchAdminUnreadCount();
+
+      return data;
+    },
+    [activeEmployeeId, activeView, fetchAdminUnreadCount, fetchConversations, handleSelectConversation]
+  );
+
+  const handleArchiveConversation = useCallback(
+    async (employeeId: string) => {
+      try {
+        await archiveConversation(employeeId, true);
+      } catch (error) {
+        console.error('Failed to archive conversation:', error);
+        toast.error('Failed to archive conversation');
+      }
+    },
+    [archiveConversation]
+  );
+
+  const handleUnarchiveConversation = useCallback(
+    async (employeeId: string) => {
+      try {
+        await archiveConversation(employeeId, false);
+      } catch (error) {
+        console.error('Failed to unarchive conversation:', error);
+        toast.error('Failed to unarchive conversation');
+      }
+    },
+    [archiveConversation]
+  );
+
+  const openConversationFromLaunch = useCallback(
+    async (launch: AdminChatLaunchPayload) => {
+      const existingConversation = conversations.find(conversation => conversation.employeeId === launch.employeeId);
+
+      if (archivedEmployeeIds.includes(launch.employeeId) && !existingConversation?.isDraft) {
+        setPendingArchivedLaunch(launch);
+        return;
+      }
+
+      setActiveView('inbox');
+      await handleSelectConversation(launch.employeeId, false, existingConversation ? null : launch);
+    },
+    [archivedEmployeeIds, conversations, handleSelectConversation]
+  );
+
+  const confirmArchivedLaunch = useCallback(async () => {
+    if (!pendingArchivedLaunch) return;
+
+    const launch = pendingArchivedLaunch;
+    setPendingArchivedLaunch(null);
+    setActiveView('inbox');
+    await archiveConversation(launch.employeeId, false);
+    await fetchConversations('inbox');
+    await handleSelectConversation(launch.employeeId, false, null);
+  }, [archiveConversation, fetchConversations, handleSelectConversation, pendingArchivedLaunch]);
+
+  const cancelArchivedLaunch = useCallback(() => {
+    setPendingArchivedLaunch(null);
+  }, []);
+
   useSocketEvent('new_message', message => {
-    // Play sound if sender is employee
-    if (message.sender === 'employee') {
+    const existingConversation = conversations.find(conversation => conversation.employeeId === message.employeeId);
+    const isArchivedConversation = existingConversation?.isArchived ?? archivedEmployeeIds.includes(message.employeeId);
+
+    if (message.sender === 'employee' && !isArchivedConversation) {
       playNotificationSound();
     }
 
-    // Update messages cache
     if (activeEmployeeId === message.employeeId) {
       queryClient.setQueryData<InfiniteData<ChatMessage[]>>(['admin', 'chat', 'messages', activeEmployeeId], old => {
         if (!old || !old.pages || old.pages.length === 0) {
-          // If no data, maybe we should invalidate or create a new one
           return {
             pages: [[message]],
             pageParams: [undefined],
           };
         }
 
-        // Avoid duplicates
-        const alreadyExists = old.pages.some(page => page.some(m => m.id === message.id));
+        const alreadyExists = old.pages.some(page => page.some(currentMessage => currentMessage.id === message.id));
         if (alreadyExists) return old;
 
-        // Newest messages are at the beginning of the FIRST page in InfiniteQuery
         return {
           ...old,
           pages: [[message, ...old.pages[0]], ...old.pages.slice(1)],
@@ -153,36 +343,50 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       }
     }
 
-    setConversations(prev => {
-      const index = prev.findIndex(c => c.employeeId === message.employeeId);
+    fetchAdminUnreadCount();
+
+    if (draftConversation?.employeeId === message.employeeId) {
+      setDraftConversation(null);
+      fetchConversations(activeView);
+      return;
+    }
+
+    setPersistedConversations(prev => {
+      const index = prev.findIndex(conversation => conversation.employeeId === message.employeeId);
       if (index === -1) {
-        fetchConversations();
+        fetchConversations(activeView);
         return prev;
       }
 
       const updated = [...prev];
-      const conv = updated[index];
+      const conversation = updated[index];
       const isCurrentlyViewing = activeEmployeeId === message.employeeId;
+      const unreadCount =
+        isCurrentlyViewing || message.sender === 'admin' ? conversation.unreadCount : conversation.unreadCount + 1;
 
       updated[index] = {
-        ...conv,
+        ...conversation,
         lastMessage: {
           content: message.content,
           sender: message.sender,
           createdAt: message.createdAt,
         },
-        unreadCount: isCurrentlyViewing || message.sender === 'admin' ? conv.unreadCount : conv.unreadCount + 1,
+        unreadCount,
       };
 
-      const [moved] = updated.splice(index, 1);
-      updated.unshift(moved);
+      if (conversation.isArchived) {
+        return updated;
+      }
 
-      return updated;
+      return reorderConversation(updated, message.employeeId);
     });
   });
 
   useSocketEvent('messages_read', data => {
-    setConversations(prev => prev.map(c => (c.employeeId === data.employeeId ? { ...c, unreadCount: 0 } : c)));
+    setPersistedConversations(prev =>
+      prev.map(conversation => (conversation.employeeId === data.employeeId ? { ...conversation, unreadCount: 0 } : conversation))
+    );
+    fetchAdminUnreadCount();
 
     if (activeEmployeeId === data.employeeId && data.messageIds) {
       queryClient.setQueryData<InfiniteData<ChatMessage[]>>(['admin', 'chat', 'messages', activeEmployeeId], old => {
@@ -190,7 +394,9 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
         return {
           ...old,
           pages: old.pages.map(page =>
-            page.map(msg => (data.messageIds?.includes(msg.id) ? { ...msg, readAt: new Date().toISOString() } : msg))
+            page.map(message =>
+              data.messageIds?.includes(message.id) ? { ...message, readAt: new Date().toISOString() } : message
+            )
           ),
         };
       });
@@ -200,12 +406,10 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   useSocketEvent('typing', data => {
     setTypingEmployees(prev => ({ ...prev, [data.employeeId]: data.isTyping }));
 
-    // Auto-clear typing status after 5 seconds of inactivity
     if (data.isTyping) {
       setTimeout(() => {
         setTypingEmployees(prev => {
           const updated = { ...prev };
-          // Only clear if still typing (haven't received an explicit isTyping: false)
           if (updated[data.employeeId]) {
             delete updated[data.employeeId];
           }
@@ -221,7 +425,6 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       [data.employeeId]: { lockedBy: data.lockedBy, expiresAt: data.expiresAt },
     }));
 
-    // Auto-clear lock after it expires locally
     const timeout = data.expiresAt - Date.now();
     if (timeout > 0) {
       setTimeout(() => {
@@ -236,43 +439,42 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     }
   });
 
-  const handleSelectConversation = useCallback(
-    async (employeeId: string, skipCallback = false) => {
-      setActiveEmployeeId(employeeId);
-
-      if (!skipCallback && options.onSelectConversation) {
-        options.onSelectConversation(employeeId);
-      }
-
-      // Optimistically clear unread count locally
-      setConversations(prev => prev.map(c => (c.employeeId === employeeId ? { ...c, unreadCount: 0 } : c)));
-
-      // We don't need to manually fetch messages anymore as useInfiniteQuery handles it
-      // But we might want to mark unread as read if data is already in cache or when it arrives
-      // This is handled by a side effect below or when new messages arrive.
-    },
-    [options]
-  );
-
-  // Handle marking messages as read when a conversation is selected
   useEffect(() => {
     if (!activeEmployeeId || !socket || !messages.length) return;
 
-    const unreadIds = messages
-      .filter((m: ChatMessage) => m.sender === 'employee' && !m.readAt)
-      .map((m: ChatMessage) => m.id);
+    const unreadIds = messages.filter(message => message.sender === 'employee' && !message.readAt).map(message => message.id);
 
     if (unreadIds.length > 0) {
       socket.emit('mark_read', { employeeId: activeEmployeeId, messageIds: unreadIds });
     }
   }, [activeEmployeeId, messages, socket]);
 
-  // Sync with initialEmployeeId (e.g. from URL)
   useEffect(() => {
-    if (options.initialEmployeeId && options.initialEmployeeId !== activeEmployeeId) {
-      handleSelectConversation(options.initialEmployeeId, true);
+    if (options.initialDraft) {
+      setDraftConversation(buildDraftConversation(options.initialDraft));
     }
-  }, [options, handleSelectConversation, activeEmployeeId]);
+  }, [options.initialDraft]);
+
+  useEffect(() => {
+    if (!options.initialEmployeeId || options.initialEmployeeId === activeEmployeeId) return;
+
+    const initialDraft = options.initialDraft?.employeeId === options.initialEmployeeId ? options.initialDraft : null;
+    handleSelectConversation(options.initialEmployeeId, true, initialDraft);
+  }, [activeEmployeeId, handleSelectConversation, options.initialDraft, options.initialEmployeeId]);
+
+  useEffect(() => {
+    fetchAdminUnreadCount();
+    fetchArchivedConversationIds();
+  }, [fetchAdminUnreadCount, fetchArchivedConversationIds]);
+
+  useEffect(() => {
+    if (!activeEmployeeId) return;
+
+    const existsInCurrentView = conversations.some(conversation => conversation.employeeId === activeEmployeeId);
+    if (!existsInCurrentView) {
+      handleSelectConversation(null);
+    }
+  }, [activeEmployeeId, conversations, handleSelectConversation]);
 
   const handleFileChange = async (files: File[]) => {
     if (files.length === 0) return;
@@ -301,8 +503,8 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
   const removeFile = (index: number) => {
     URL.revokeObjectURL(previews[index]);
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-    setPreviews(prev => prev.filter((_, i) => i !== index));
+    setSelectedFiles(prev => prev.filter((_, fileIndex) => fileIndex !== index));
+    setPreviews(prev => prev.filter((_, previewIndex) => previewIndex !== index));
   };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -323,7 +525,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
           })
         );
         const results = await Promise.all(uploadPromises);
-        attachments = results.map(r => r.key);
+        attachments = results.map(result => result.key);
       }
 
       socket.emit('send_message', {
@@ -332,6 +534,10 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
         attachments,
       });
 
+      if (draftConversation?.employeeId === activeEmployeeId) {
+        setDraftConversation(null);
+      }
+
       setInputText('');
       setSelectedFiles([]);
       previews.forEach(url => URL.revokeObjectURL(url));
@@ -339,6 +545,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
       socket.emit('typing', { employeeId: activeEmployeeId, isTyping: false });
+      fetchConversations(activeView);
     } catch (error) {
       console.error('Failed to send message:', error);
       toast.error('Failed to send message');
@@ -358,24 +565,24 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     }
   };
 
-  const filteredConversations = conversations.filter(conv => {
+  const filteredConversations = conversations.filter(conversation => {
     const term = searchTerm.toLowerCase();
-    const matchesSearch =
-      conv.employeeName.toLowerCase().includes(term) || conv.employeeNumber?.toLowerCase().includes(term);
-
-    const matchesFilter = filterType === 'all' || conv.unreadCount > 0;
-
-    return matchesSearch && matchesFilter;
+    return (
+      conversation.employeeName.toLowerCase().includes(term) || conversation.employeeNumber?.toLowerCase().includes(term)
+    );
   });
 
   return {
     conversations,
     filteredConversations,
+    draftConversation,
+    pendingArchivedLaunch,
     activeEmployeeId,
+    activeView,
+    adminUnreadCount,
     messages,
     inputText,
     searchTerm,
-    filterType,
     isLoading: isMessagesLoading,
     isFetchingNextPage,
     hasNextPage,
@@ -389,12 +596,18 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     socket,
     fetchNextPage,
     setSearchTerm,
-    setFilterType,
+    setActiveView,
     handleSelectConversation,
     handleSendMessage,
     handleFileChange,
     removeFile,
     handleInputChange,
     fetchConversations,
+    fetchAdminUnreadCount,
+    handleArchiveConversation,
+    handleUnarchiveConversation,
+    openConversationFromLaunch,
+    confirmArchivedLaunch,
+    cancelArchivedLaunch,
   };
 }

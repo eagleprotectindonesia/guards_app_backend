@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Search, User, X } from 'lucide-react';
+import { ArchiveRestore, ArchiveX, Search, User, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Conversation } from '@/types/chat';
@@ -14,12 +14,14 @@ interface ConversationListProps {
   onSelect: (employeeId: string) => void;
   searchTerm: string;
   onSearchChange: (value: string) => void;
-  filterType?: 'all' | 'unread';
-  onFilterChange?: (filter: 'all' | 'unread') => void;
+  activeView?: 'inbox' | 'unread' | 'archived';
+  onViewChange?: (view: 'inbox' | 'unread' | 'archived') => void;
   typingEmployees?: Record<string, boolean>;
   className?: string;
   itemClassName?: string;
   showExportButton?: boolean;
+  onArchive?: (employeeId: string) => void;
+  onUnarchive?: (employeeId: string) => void;
 }
 
 export function ConversationList({
@@ -29,12 +31,14 @@ export function ConversationList({
   onSelect,
   searchTerm,
   onSearchChange,
-  filterType = 'all',
-  onFilterChange,
+  activeView = 'inbox',
+  onViewChange,
   typingEmployees = {},
   className,
   itemClassName,
   showExportButton = true,
+  onArchive,
+  onUnarchive,
 }: ConversationListProps) {
   const exportEmployees = useMemo(
     () => conversations.map(c => ({ id: c.employeeId, fullName: c.employeeName })),
@@ -51,22 +55,31 @@ export function ConversationList({
 
         <div className="flex gap-2 mb-4">
           <button
-            onClick={() => onFilterChange?.('all')}
+            onClick={() => onViewChange?.('inbox')}
             className={cn(
               'px-3 py-1 text-xs font-medium rounded-full transition-all',
-              filterType === 'all' ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              activeView === 'inbox' ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
             )}
           >
-            All
+            Inbox
           </button>
           <button
-            onClick={() => onFilterChange?.('unread')}
+            onClick={() => onViewChange?.('unread')}
             className={cn(
               'px-3 py-1 text-xs font-medium rounded-full transition-all flex items-center gap-1.5',
-              filterType === 'unread' ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              activeView === 'unread' ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
             )}
           >
             Unread
+          </button>
+          <button
+            onClick={() => onViewChange?.('archived')}
+            className={cn(
+              'px-3 py-1 text-xs font-medium rounded-full transition-all',
+              activeView === 'archived' ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            )}
+          >
+            Archived
           </button>
         </div>
 
@@ -97,9 +110,17 @@ export function ConversationList({
           </div>
         ) : (
           conversations.map(conv => (
-            <button
+            <div
               key={conv.employeeId}
+              role="button"
+              tabIndex={0}
               onClick={() => onSelect(conv.employeeId)}
+              onKeyDown={event => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  onSelect(conv.employeeId);
+                }
+              }}
               className={cn(
                 'w-full text-left p-4 border-b border-border/50 hover:bg-muted/50 transition-all flex items-center gap-4 relative',
                 activeEmployeeId === conv.employeeId &&
@@ -126,6 +147,8 @@ export function ConversationList({
                 <p className="text-xs text-muted-foreground truncate">
                   {typingEmployees[conv.employeeId] ? (
                     <span className="text-green-600 dark:text-green-400 font-medium italic">typing...</span>
+                  ) : conv.isDraft ? (
+                    <span className="italic">No messages yet</span>
                   ) : (
                     <>
                       {conv.lastMessage.sender === 'admin' ? (
@@ -148,7 +171,34 @@ export function ConversationList({
                   {conv.unreadCount}
                 </div>
               )}
-            </button>
+              {conv.isDraft ? null : conv.isArchived ? (
+                <button
+                  type="button"
+                  aria-label="Unarchive conversation"
+                  title="Unarchive conversation"
+                  onClick={event => {
+                    event.stopPropagation();
+                    onUnarchive?.(conv.employeeId);
+                  }}
+                  className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ArchiveRestore size={16} />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Archive conversation"
+                  title="Archive conversation"
+                  onClick={event => {
+                    event.stopPropagation();
+                    onArchive?.(conv.employeeId);
+                  }}
+                  className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ArchiveX size={16} />
+                </button>
+              )}
+            </div>
           ))
         )}
       </div>

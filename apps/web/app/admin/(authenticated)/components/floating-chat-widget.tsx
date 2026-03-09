@@ -4,11 +4,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, User, Paperclip, Loader2, Maximize2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePathname, useRouter } from 'next/navigation';
-import { useAdminChat } from '@/hooks/use-admin-chat';
+import { AdminChatLaunchPayload, useAdminChat } from '@/hooks/use-admin-chat';
 import { useSession } from '../context/session-context';
 import { ConversationList } from './chat/conversation-list';
 import { ChatMessageList } from './chat/message-list';
 import { ChatAttachmentPreviews } from './chat/attachment-previews';
+import ConfirmDialog from './confirm-dialog';
 
 export default function FloatingChatWidget() {
   const pathname = usePathname();
@@ -29,11 +30,14 @@ function FloatingChatWidgetContent() {
   const {
     conversations,
     filteredConversations,
+    draftConversation,
+    pendingArchivedLaunch,
     activeEmployeeId,
+    adminUnreadCount,
     messages,
     inputText,
     searchTerm,
-    filterType,
+    activeView,
     isLoading,
     isFetchingNextPage,
     hasNextPage,
@@ -43,7 +47,7 @@ function FloatingChatWidgetContent() {
     typingEmployees,
     isConnected,
     setSearchTerm,
-    setFilterType,
+    setActiveView,
     handleSelectConversation,
     handleSendMessage,
     handleFileChange,
@@ -51,13 +55,25 @@ function FloatingChatWidgetContent() {
     handleInputChange,
     fetchConversations,
     fetchNextPage,
+    handleArchiveConversation,
+    handleUnarchiveConversation,
+    openConversationFromLaunch,
+    confirmArchivedLaunch,
+    cancelArchivedLaunch,
   } = useAdminChat();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleMaximize = () => {
     if (activeEmployeeId) {
-      router.push(`/admin/chat?employeeId=${activeEmployeeId}`);
+      const params = new URLSearchParams({ employeeId: activeEmployeeId });
+      if (draftConversation?.employeeId === activeEmployeeId) {
+        params.set('employeeName', draftConversation.employeeName);
+        if (draftConversation.employeeNumber) {
+          params.set('employeeNumber', draftConversation.employeeNumber);
+        }
+      }
+      router.push(`/admin/chat?${params.toString()}`);
     } else {
       router.push('/admin/chat');
     }
@@ -66,19 +82,18 @@ function FloatingChatWidgetContent() {
 
   // Listen for external open chat events
   useEffect(() => {
-    const handleOpenChat = (e: CustomEvent<{ employeeId: string }>) => {
+    const handleOpenChat = (e: CustomEvent<AdminChatLaunchPayload>) => {
       setIsOpen(true);
-      handleSelectConversation(e.detail.employeeId);
+      openConversationFromLaunch(e.detail);
     };
     window.addEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
     return () => window.removeEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
-  }, [handleSelectConversation]);
+  }, [openConversationFromLaunch]);
 
   useEffect(() => {
-    fetchConversations();
-  }, [fetchConversations]);
+    fetchConversations(activeView);
+  }, [activeView, fetchConversations]);
 
-  const totalUnread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
   const activeEmployee = conversations.find(c => c.employeeId === activeEmployeeId);
 
   return (
@@ -116,12 +131,14 @@ function FloatingChatWidgetContent() {
               onSelect={handleSelectConversation}
               searchTerm={searchTerm}
               onSearchChange={setSearchTerm}
-              filterType={filterType}
-              onFilterChange={setFilterType}
+              activeView={activeView}
+              onViewChange={setActiveView}
               typingEmployees={typingEmployees}
               className="w-1/3 border-r border-border shrink-0"
               itemClassName="p-3 gap-3"
               showExportButton={false}
+              onArchive={handleArchiveConversation}
+              onUnarchive={handleUnarchiveConversation}
             />
 
             {/* Main: Active Chat Area */}
@@ -228,9 +245,9 @@ function FloatingChatWidgetContent() {
       >
         {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
 
-        {!isOpen && totalUnread > 0 && (
+        {!isOpen && adminUnreadCount > 0 && (
           <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold border-2 border-white dark:border-slate-900">
-            {totalUnread}
+            {adminUnreadCount}
           </div>
         )}
 
@@ -238,6 +255,20 @@ function FloatingChatWidgetContent() {
           <div className="absolute bottom-0 right-0 w-3 h-3 bg-gray-400 rounded-full border-2 border-white dark:border-slate-900" />
         )}
       </button>
+
+      <ConfirmDialog
+        isOpen={!!pendingArchivedLaunch}
+        onClose={cancelArchivedLaunch}
+        onConfirm={confirmArchivedLaunch}
+        title="Resume archived chat?"
+        description={
+          pendingArchivedLaunch
+            ? `Chat with ${pendingArchivedLaunch.employeeName} is archived. Resuming will move it back to Inbox and unmute it.`
+            : ''
+        }
+        confirmText="Resume Chat"
+        variant="neutral"
+      />
     </div>
   );
 }
