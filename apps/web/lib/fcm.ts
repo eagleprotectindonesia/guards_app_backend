@@ -27,21 +27,32 @@ export async function sendChatPushNotification(params: {
 
     const tokenStrings = tokens.map(t => t.token);
 
-    // 2. Build the message payload (data-only: app handles localised display)
+    // 2. Build the message payload (hybrid: OS renders in background/killed, app uses data for routing)
     const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
+    const title = `Message from ${senderName}`;
+    const body = preview || 'You have a new message';
     const message = {
-      // No top-level `notification` block — prevents the OS from rendering
-      // a hardcoded English string, bypassing the app's i18n.
       android: {
         priority: 'high' as const,
         notification: {
+          title,
+          body,
           channelId: 'default',
         },
       },
       apns: {
-        // Required for iOS to wake the app in background for data-only messages.
+        // Include visible alert content so iOS can present the push when the app is backgrounded or killed.
         headers: { 'apns-priority': '10' },
-        payload: { aps: { 'content-available': 1 } },
+        payload: {
+          aps: {
+            alert: {
+              title,
+              body,
+            },
+            sound: 'default',
+            'content-available': 1,
+          },
+        },
       },
       data: {
         type: 'chat',

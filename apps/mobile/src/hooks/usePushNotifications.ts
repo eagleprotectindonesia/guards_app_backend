@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
-import { getMessaging, onMessage } from '@react-native-firebase/messaging';
-import notifee, { EventType } from '@notifee/react-native';
+import { getInitialNotification, getMessaging, onMessage, onNotificationOpenedApp } from '@react-native-firebase/messaging';
+import notifee from '@notifee/react-native';
 import { Linking, Platform } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useAlert } from '../contexts/AlertContext';
@@ -8,7 +8,7 @@ import { registerFcmToken, requestUserPermission, setupTokenRefreshListener } fr
 import { useCustomToast } from './useCustomToast';
 import { usePathname, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { consumePendingChatOpen, ensureChatNotificationChannel } from '../utils/chatNotifications';
+import { ensureChatNotificationChannel } from '../utils/chatNotifications';
 
 export function usePushNotifications() {
   const { user } = useAuth();
@@ -26,11 +26,13 @@ export function usePushNotifications() {
       if (!user?.id) return;
 
       // Check permission first before trying to get a token
-      const { enabled, denied } = await requestUserPermission();
+      const { enabled, denied, blocked } = await requestUserPermission();
 
-      if (denied) {
-        // Android 13+ and iOS: the OS will not show the dialog again after denial.
-        // Guide the user to app settings manually.
+      if (denied || blocked) {
+        console.log('[Push] Notifications require settings intervention', {
+          denied,
+          blocked,
+        });
         showAlert(
           t('notifications.permission_title'),
           t('notifications.permission_message'),
@@ -43,7 +45,9 @@ export function usePushNotifications() {
               text: t('notifications.permission_settings'),
               onPress: () => {
                 if (Platform.OS === 'android') {
-                  Linking.openSettings();
+                  void notifee.openNotificationSettings().catch(() => {
+                    Linking.openSettings();
+                  });
                 } else {
                   Linking.openURL('app-settings:');
                 }
@@ -76,24 +80,22 @@ export function usePushNotifications() {
   useEffect(() => {
     const messaging = getMessaging();
 
-    const openChatFromNotification = async () => {
-      const pending = await consumePendingChatOpen();
-      if (pending?.type === 'chat' && !isChatRoute) {
-        router.push('/(tabs)/chat');
-      }
-    };
-
-    void openChatFromNotification();
-    void notifee.getInitialNotification().then(initialNotification => {
-      if (initialNotification?.notification?.data?.type === 'chat' && !isChatRoute) {
+    void getInitialNotification(messaging).then(initialNotification => {
+      console.log('[Push] Initial Firebase notification', initialNotification);
+      if (initialNotification?.data?.type === 'chat' && !isChatRoute) {
         router.push('/(tabs)/chat');
       }
     });
 
     const unsubscribeForeground = onMessage(messaging, async remoteMessage => {
+      console.log('[Push] Foreground FCM message received', remoteMessage);
       const data = remoteMessage.data ?? {};
 
       if (data.type !== 'chat' || isChatRoute) {
+        console.log('[Push] Foreground message suppressed', {
+          isChatRoute,
+          type: data.type,
+        });
         return;
       }
 
@@ -107,17 +109,27 @@ export function usePushNotifications() {
       });
     });
 
-    const unsubscribeForegroundEvents = notifee.onForegroundEvent(async ({ type, detail }) => {
-      if (type === EventType.PRESS && detail.notification?.data?.type === 'chat' && !isChatRoute) {
-        await consumePendingChatOpen();
-        setTimeout(() => {
-          router.push('/(tabs)/chat');
-        }, 500);
+    const unsubscribeNotificationOpened = onNotificationOpenedApp(messaging, remoteMessage => {
+      console.log('[Push] Firebase notification opened from background', remoteMessage);
+      if (remoteMessage.data?.type === 'chat' && !isChatRoute) {
+        router.push('/(tabs)/chat');
       }
+    });
+
+    void notifee.getInitialNotification().then(initialNotification => {
+      console.log('[Push] Initial Notifee notification', initialNotification);
+    });
+
+    const unsubscribeForegroundEvents = notifee.onForegroundEvent(({ type, detail }) => {
+      console.log('[Push] Notifee foreground event', {
+        type,
+        notificationData: detail.notification?.data,
+      });
     });
 
     return () => {
       unsubscribeForeground();
+      unsubscribeNotificationOpened();
       unsubscribeForegroundEvents();
     };
   }, [isChatRoute, router, showToast]);

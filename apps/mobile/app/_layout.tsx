@@ -1,7 +1,6 @@
 import '../global.css';
 import '../src/i18n';
 import '../src/utils/backgroundTasks';
-import '../src/utils/chatNotifications';
 import { Stack } from 'expo-router';
 import { Providers } from '../src/components/Providers';
 import { AuthProvider } from '../src/contexts/AuthContext';
