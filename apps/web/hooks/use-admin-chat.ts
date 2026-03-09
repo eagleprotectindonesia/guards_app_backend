@@ -68,6 +68,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   const [conversationLocks, setConversationLocks] = useState<Record<string, { lockedBy: string; expiresAt: number }>>(
     {}
   );
+  const [isInitialSelectionReady, setIsInitialSelectionReady] = useState(!options.initialEmployeeId);
 
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -175,26 +176,36 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     }
   }, []);
 
+  const fetchConversationList = useCallback(async (view: ConversationView) => {
+    const url = new URL('/api/shared/chat/conversations', window.location.origin);
+    url.searchParams.set('view', view);
+
+    const res = await fetch(url.toString(), { cache: 'no-store' });
+    if (!res.ok) {
+      throw new Error(`Failed to fetch ${view} conversations`);
+    }
+
+    return (await res.json()) as Conversation[];
+  }, []);
+
   const fetchConversations = useCallback(
     async (view: ConversationView = activeView) => {
       try {
-        const url = new URL('/api/shared/chat/conversations', window.location.origin);
-        url.searchParams.set('view', view);
+        const data = await fetchConversationList(view);
+        setPersistedConversations(data);
 
-        const res = await fetch(url.toString());
-        if (res.ok) {
-          const data = (await res.json()) as Conversation[];
-          setPersistedConversations(data);
+        if (view === 'archived') {
+          setArchivedEmployeeIds(data.map(conversation => conversation.employeeId));
+        }
 
-          if (draftConversation && data.some(conversation => conversation.employeeId === draftConversation.employeeId)) {
-            setDraftConversation(null);
-          }
+        if (draftConversation && data.some(conversation => conversation.employeeId === draftConversation.employeeId)) {
+          setDraftConversation(null);
         }
       } catch (err) {
         console.error('Failed to fetch conversations', err);
       }
     },
-    [activeView, draftConversation]
+    [activeView, draftConversation, fetchConversationList]
   );
 
   const handleSelectConversation = useCallback(
@@ -212,7 +223,9 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       }
 
       setPersistedConversations(prev =>
-        prev.map(conversation => (conversation.employeeId === employeeId ? { ...conversation, unreadCount: 0 } : conversation))
+        prev.map(conversation =>
+          conversation.employeeId === employeeId ? { ...conversation, unreadCount: 0 } : conversation
+        )
       );
     },
     [options]
@@ -235,17 +248,45 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       const data = (await res.json()) as Pick<Conversation, 'employeeId' | 'isArchived' | 'isMuted'>;
 
       if (isArchived) {
-        setPersistedConversations(prev => prev.filter(conversation => conversation.employeeId !== employeeId));
         setArchivedEmployeeIds(prev => (prev.includes(employeeId) ? prev : [...prev, employeeId]));
+
         if (activeEmployeeId === employeeId) {
-          handleSelectConversation(null);
+          setActiveView('archived');
+          setPersistedConversations(prev => {
+            const targetConversation = prev.find(conversation => conversation.employeeId === employeeId);
+            if (!targetConversation) return prev;
+
+            return [
+              {
+                ...targetConversation,
+                isArchived: true,
+                isMuted: true,
+              },
+            ];
+          });
+          await fetchConversations('archived');
+        } else {
+          setPersistedConversations(prev => prev.filter(conversation => conversation.employeeId !== employeeId));
         }
+      } else if (activeEmployeeId === employeeId) {
+        setArchivedEmployeeIds(prev => prev.filter(id => id !== employeeId));
+        setActiveView('inbox');
+        setPersistedConversations(prev => {
+          const targetConversation = prev.find(conversation => conversation.employeeId === employeeId);
+          if (!targetConversation) return prev;
+
+          return [
+            {
+              ...targetConversation,
+              isArchived: false,
+              isMuted: false,
+            },
+          ];
+        });
+        await fetchConversations('inbox');
       } else if (activeView === 'archived') {
         setPersistedConversations(prev => prev.filter(conversation => conversation.employeeId !== employeeId));
         setArchivedEmployeeIds(prev => prev.filter(id => id !== employeeId));
-        if (activeEmployeeId === employeeId) {
-          handleSelectConversation(null);
-        }
       } else {
         setArchivedEmployeeIds(prev => prev.filter(id => id !== employeeId));
         await fetchConversations(activeView);
@@ -255,7 +296,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
       return data;
     },
-    [activeEmployeeId, activeView, fetchAdminUnreadCount, fetchConversations, handleSelectConversation]
+    [activeEmployeeId, activeView, fetchAdminUnreadCount, fetchConversations]
   );
 
   const handleArchiveConversation = useCallback(
@@ -384,7 +425,9 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
   useSocketEvent('messages_read', data => {
     setPersistedConversations(prev =>
-      prev.map(conversation => (conversation.employeeId === data.employeeId ? { ...conversation, unreadCount: 0 } : conversation))
+      prev.map(conversation =>
+        conversation.employeeId === data.employeeId ? { ...conversation, unreadCount: 0 } : conversation
+      )
     );
     fetchAdminUnreadCount();
 
@@ -442,7 +485,9 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   useEffect(() => {
     if (!activeEmployeeId || !socket || !messages.length) return;
 
-    const unreadIds = messages.filter(message => message.sender === 'employee' && !message.readAt).map(message => message.id);
+    const unreadIds = messages
+      .filter(message => message.sender === 'employee' && !message.readAt)
+      .map(message => message.id);
 
     if (unreadIds.length > 0) {
       socket.emit('mark_read', { employeeId: activeEmployeeId, messageIds: unreadIds });
@@ -456,11 +501,67 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   }, [options.initialDraft]);
 
   useEffect(() => {
-    if (!options.initialEmployeeId || options.initialEmployeeId === activeEmployeeId) return;
+    let cancelled = false;
+
+    const restoreInitialConversation = async () => {
+      const initialEmployeeId = options.initialEmployeeId;
+
+      if (!initialEmployeeId) {
+        setIsInitialSelectionReady(true);
+        return;
+      }
+
+      const initialDraft = options.initialDraft?.employeeId === initialEmployeeId ? options.initialDraft : null;
+      if (initialDraft) {
+        setActiveView('inbox');
+        if (!cancelled) {
+          setIsInitialSelectionReady(true);
+        }
+        return;
+      }
+
+      try {
+        const archivedConversations = await fetchConversationList('archived');
+        if (cancelled) return;
+
+        const isArchived = archivedConversations.some(conversation => conversation.employeeId === initialEmployeeId);
+        const targetView: ConversationView = isArchived ? 'archived' : 'inbox';
+
+        setArchivedEmployeeIds(archivedConversations.map(conversation => conversation.employeeId));
+        setActiveView(targetView);
+
+        const initialConversations =
+          targetView === 'archived' ? archivedConversations : await fetchConversationList(targetView);
+
+        if (cancelled) return;
+
+        setPersistedConversations(initialConversations);
+      } catch (error) {
+        console.error('Failed to restore initial conversation view', error);
+        if (cancelled) return;
+        setActiveView('inbox');
+        setPersistedConversations([]);
+      } finally {
+        if (!cancelled) {
+          setIsInitialSelectionReady(true);
+        }
+      }
+    };
+
+    setIsInitialSelectionReady(false);
+    void restoreInitialConversation();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchConversationList, options.initialDraft, options.initialEmployeeId]);
+
+  useEffect(() => {
+    if (!isInitialSelectionReady || !options.initialEmployeeId || options.initialEmployeeId === activeEmployeeId) return;
 
     const initialDraft = options.initialDraft?.employeeId === options.initialEmployeeId ? options.initialDraft : null;
     handleSelectConversation(options.initialEmployeeId, true, initialDraft);
-  }, [activeEmployeeId, handleSelectConversation, options.initialDraft, options.initialEmployeeId]);
+  }, [activeEmployeeId, handleSelectConversation, isInitialSelectionReady, options.initialDraft, options.initialEmployeeId]);
 
   useEffect(() => {
     fetchAdminUnreadCount();
@@ -468,13 +569,14 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   }, [fetchAdminUnreadCount, fetchArchivedConversationIds]);
 
   useEffect(() => {
+    if (!isInitialSelectionReady) return;
     if (!activeEmployeeId) return;
 
     const existsInCurrentView = conversations.some(conversation => conversation.employeeId === activeEmployeeId);
     if (!existsInCurrentView) {
       handleSelectConversation(null);
     }
-  }, [activeEmployeeId, conversations, handleSelectConversation]);
+  }, [activeEmployeeId, conversations, handleSelectConversation, isInitialSelectionReady]);
 
   const handleFileChange = async (files: File[]) => {
     if (files.length === 0) return;
@@ -568,7 +670,8 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   const filteredConversations = conversations.filter(conversation => {
     const term = searchTerm.toLowerCase();
     return (
-      conversation.employeeName.toLowerCase().includes(term) || conversation.employeeNumber?.toLowerCase().includes(term)
+      conversation.employeeName.toLowerCase().includes(term) ||
+      conversation.employeeNumber?.toLowerCase().includes(term)
     );
   });
 
