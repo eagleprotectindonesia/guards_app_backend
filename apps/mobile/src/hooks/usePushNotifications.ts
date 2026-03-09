@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { getInitialNotification, getMessaging, onMessage, onNotificationOpenedApp } from '@react-native-firebase/messaging';
 import notifee from '@notifee/react-native';
 import { Linking, Platform } from 'react-native';
@@ -8,7 +8,7 @@ import { registerFcmToken, requestUserPermission, setupTokenRefreshListener } fr
 import { useCustomToast } from './useCustomToast';
 import { usePathname, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ensureChatNotificationChannel } from '../utils/chatNotifications';
+import { clearDisplayedChatNotifications, ensureChatNotificationChannel } from '../utils/chatNotifications';
 
 export function usePushNotifications() {
   const { user } = useAuth();
@@ -18,6 +18,13 @@ export function usePushNotifications() {
   const pathname = usePathname();
   const { t } = useTranslation();
   const isChatRoute = pathname.endsWith('/chat');
+  const permissionLoggedForUserRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) {
+      permissionLoggedForUserRef.current = null;
+    }
+  }, [user?.id]);
 
   useEffect(() => {
     let unsubscribeRefresh: (() => void) | undefined;
@@ -25,8 +32,18 @@ export function usePushNotifications() {
     const setupPushNotifications = async () => {
       if (!user?.id) return;
 
-      // Check permission first before trying to get a token
-      const { enabled, denied, blocked } = await requestUserPermission();
+      const permissionState = await requestUserPermission({ logResult: false });
+      const { enabled, denied, blocked } = permissionState;
+
+      if (permissionLoggedForUserRef.current !== user.id) {
+        console.log('[Push] Notification permission state for authenticated session', {
+          userId: user.id,
+          enabled,
+          denied,
+          blocked,
+        });
+        permissionLoggedForUserRef.current = user.id;
+      }
 
       if (denied || blocked) {
         console.log('[Push] Notifications require settings intervention', {
@@ -62,7 +79,7 @@ export function usePushNotifications() {
       if (!enabled) return;
 
       await ensureChatNotificationChannel();
-      const token = await registerFcmToken();
+      const token = await registerFcmToken(permissionState);
       if (token) {
         unsubscribeRefresh = setupTokenRefreshListener();
       }
@@ -133,4 +150,12 @@ export function usePushNotifications() {
       unsubscribeForegroundEvents();
     };
   }, [isChatRoute, router, showToast]);
+
+  useEffect(() => {
+    if (!isChatRoute) {
+      return;
+    }
+
+    void clearDisplayedChatNotifications();
+  }, [isChatRoute]);
 }

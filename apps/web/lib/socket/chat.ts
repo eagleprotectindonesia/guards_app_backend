@@ -50,16 +50,27 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
         })) as unknown as ChatMessage;
         io.to(`employee:${targetId}`).to('admin').emit('new_message', msg);
 
-        // Only push if the employee has no active socket connections
         const sockets = await io.in(`employee:${targetId}`).fetchSockets();
+        let pushResult = null;
         if (sockets.length === 0) {
-          await sendChatPushNotification({
+          pushResult = await sendChatPushNotification({
             employeeId: targetId,
             senderName: msg.admin?.name || 'Admin',
             content: data.content,
             messageId: msg.id,
           });
         }
+
+        console.info('[Chat] Admin message push decision', {
+          employeeId: targetId,
+          messageId: msg.id,
+          socketCount: sockets.length,
+          pushAttempted: sockets.length === 0,
+          pushResult: pushResult ?? {
+            attempted: false,
+            reason: 'active_socket',
+          },
+        });
       }
     } catch (err) {
       console.error('Send Message Error:', err);

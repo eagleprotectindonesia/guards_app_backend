@@ -1,7 +1,7 @@
 import notifee, { AndroidImportance } from '@notifee/react-native';
 import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
 
-const CHAT_NOTIFICATION_CHANNEL_ID = 'default';
+export const CHAT_NOTIFICATION_CHANNEL_ID = 'chat_messages_v2';
 
 type ChatNotificationData = {
   messageId?: string;
@@ -36,6 +36,17 @@ export function ensureChatNotificationChannel() {
   }
 
   return channelPromise;
+}
+
+export async function clearDisplayedChatNotifications() {
+  try {
+    await notifee.cancelAllNotifications();
+    await notifee.setBadgeCount(0);
+
+    console.log('[Push] Cleared app notifications and badge for chat open');
+  } catch (error) {
+    console.error('[Push] Failed to clear app notifications for chat open', error);
+  }
 }
 
 setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
