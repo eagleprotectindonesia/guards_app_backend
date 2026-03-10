@@ -78,7 +78,7 @@ export async function getAllEmployeesForExport(params: {
   const where = getEmployeeSearchWhere(query);
 
   // Handle sorting parameters
-  const validSortFields = ['fullName', 'employeeNumber', 'id', 'department', 'jobTitle'];
+  const validSortFields = ['fullName', 'employeeNumber', 'department', 'jobTitle'];
   const sortField = validSortFields.includes(sortBy || '') ? sortBy : 'fullName';
 
   const employees = await getAllEmployees({

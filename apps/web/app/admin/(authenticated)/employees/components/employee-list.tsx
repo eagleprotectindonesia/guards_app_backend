@@ -84,7 +84,7 @@ export default function EmployeeList({
       });
 
       const headers = [
-        'ID',
+        'No.',
         'Employee No',
         'Full Name',
         'Personnel ID',
@@ -99,9 +99,9 @@ export default function EmployeeList({
       ];
       const csvContent = [
         headers.join(','),
-        ...allEmployees.map((e: Serialized<EmployeeWithRelations>) =>
+        ...allEmployees.map((e: Serialized<EmployeeWithRelations>, index) =>
           [
-            `"${e.id}"`,
+            `${index + 1}`,
             `"${e.employeeNumber || ''}"`,
             `"${e.fullName}"`,
             `"${e.personnelId || ''}"`,
@@ -185,14 +185,9 @@ export default function EmployeeList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <SortableHeader
-                  label="ID"
-                  field="id"
-                  currentSortBy={sortBy}
-                  currentSortOrder={sortOrder}
-                  onSort={handleSort}
-                  className="w-[140px]"
-                />
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-20">
+                  No.
+                </th>
                 <SortableHeader
                   label="Employee No"
                   field="employeeNumber"
@@ -225,15 +220,15 @@ export default function EmployeeList({
             <tbody className="divide-y divide-border">
               {employees.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
                     No employees found. Trigger sync to fetch data.
                   </td>
                 </tr>
               ) : (
-                employees.map(employee => (
+                employees.map((employee, index) => (
                   <tr key={employee.id} className="hover:bg-muted/30 transition-colors group">
-                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono max-w-[140px] break-all">
-                      {employee.id}
+                    <td className="py-4 px-6 text-sm text-muted-foreground font-medium">
+                      {(page - 1) * perPage + index + 1}
                     </td>
                     <td className="py-4 px-6 text-sm text-foreground font-medium">{employee.employeeNumber || '-'}</td>
                     <td className="py-4 px-6 text-sm text-foreground">

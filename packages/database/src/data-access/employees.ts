@@ -16,7 +16,6 @@ export function getEmployeeSearchWhere(query?: string): Prisma.EmployeeWhereInpu
   if (!query) return {};
   return {
     OR: [
-      { id: { contains: query, mode: 'insensitive' } },
       { fullName: { contains: query, mode: 'insensitive' } },
       { employeeNumber: { contains: query, mode: 'insensitive' } },
       { personnelId: { contains: query, mode: 'insensitive' } },

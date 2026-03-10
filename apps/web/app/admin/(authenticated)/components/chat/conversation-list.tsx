@@ -167,7 +167,7 @@ export function ConversationList({
                 </p>
               </div>
               {conv.unreadCount > 0 && (
-                <div className="min-w-[20px] h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold px-1.5 ml-2">
+                <div className="min-w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold px-1.5 ml-2">
                   {conv.unreadCount}
                 </div>
               )}

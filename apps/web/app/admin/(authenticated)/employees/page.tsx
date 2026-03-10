@@ -35,7 +35,7 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
       : 'asc';
 
   // Validate sortBy field to prevent SQL injection
-  const validSortFields = ['fullName', 'employeeNumber', 'id', 'department', 'jobTitle'];
+  const validSortFields = ['fullName', 'employeeNumber', 'department', 'jobTitle'];
   const sortField: string = validSortFields.includes(sortBy) ? sortBy : 'fullName';
 
   const where = getEmployeeSearchWhere(query);
