@@ -8,16 +8,16 @@ const workspaceRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
-// 1. Watch all files within the monorepo
+// Watch the monorepo so workspace packages resolve correctly in Expo.
 config.watchFolders = [workspaceRoot];
 
-// 2. Let Metro know where to resolve packages and ensure deduplication
+// Resolve packages from both the app and workspace root to avoid duplicate installs.
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
-// 3. Exclude large, unnecessary directories from the watcher
+// Exclude unrelated heavy directories from Metro's watcher.
 config.resolver.blockList = [
   /.*\.git\/.*/,
   /.*\/apps\/web\/*/,
@@ -26,7 +26,7 @@ config.resolver.blockList = [
   /.*\/node_modules\/.*\/__tests__\/.*/,
 ];
 
-// 4. Force deduplication for React and related packages
+// Pin shared dependencies to the workspace root to prevent duplicate React instances.
 config.resolver.extraNodeModules = {
   react: path.resolve(workspaceRoot, 'node_modules/react'),
   'react-dom': path.resolve(workspaceRoot, 'node_modules/react-dom'),
@@ -34,7 +34,7 @@ config.resolver.extraNodeModules = {
   '@tanstack/react-query': path.resolve(workspaceRoot, 'node_modules/@tanstack/react-query'),
 };
 
-// 5. Configure SVG Transformer
+// Preserve SVG imports through the custom transformer.
 const { transformer, resolver } = config;
 
 config.transformer = {

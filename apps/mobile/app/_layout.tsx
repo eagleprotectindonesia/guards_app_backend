@@ -1,6 +1,7 @@
 import '../global.css';
 import '../src/i18n';
 import '../src/utils/backgroundTasks';
+import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import { Stack } from 'expo-router';
 import { Providers } from '../src/components/Providers';
 import { AuthProvider } from '../src/contexts/AuthContext';
@@ -49,10 +50,12 @@ function AppContent() {
 
 export default function RootLayout() {
   return (
-    <Providers>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </Providers>
+    <GluestackUIProvider mode="dark">
+      <Providers>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </Providers>
+    </GluestackUIProvider>
   );
 }
