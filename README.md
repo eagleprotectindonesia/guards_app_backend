@@ -43,7 +43,8 @@ Ensure you have the following installed:
 1.  **Clone the repository** and install dependencies from the root:
 
     ```bash
-    npm install
+    corepack enable
+    pnpm install
     ```
 
 2.  **Environment Setup**:
@@ -58,17 +59,17 @@ Ensure you have the following installed:
 
     ```bash
     # Generate Prisma Client for all packages
-    npm run postinstall
+    pnpm postinstall
 
     # Push schema to DB
-    npx turbo run db:push
+    pnpm turbo run db:push
     ```
 
 4.  **Run the Application**:
     Start the development environment. This command runs the Next.js app, the background worker, and the mobile dev server concurrently.
 
     ```bash
-    npm run dev
+    pnpm dev
     ```
 
     - **Admin Dashboard**: [http://localhost:3000/admin/dashboard](http://localhost:3000/admin/dashboard)
@@ -76,10 +77,19 @@ Ensure you have the following installed:
 
 ## Key Commands
 
-- `npm run dev`: Starts all applications in development mode.
-- `npm run build`: Builds all applications for production.
-- `npm run lint`: Runs ESLint and type checking across the entire monorepo.
-- `npm run test`: Executes the test suite.
+- `pnpm dev`: Starts all applications in development mode.
+- `pnpm build`: Builds all applications for production.
+- `pnpm lint`: Runs ESLint and type checking across the entire monorepo.
+- `pnpm test`: Executes the test suite.
+
+## Dependency Policy
+
+- Install dependencies from the repository root with `pnpm install`.
+- Add app dependencies with workspace filters, for example `pnpm add <pkg> --filter web`.
+- Add root-only tooling with `pnpm add -D -w <pkg>`.
+- Keep runtime framework dependencies owned by their app workspace, not the root package.
+
+See [docs/DEPENDENCY_POLICY.md](docs/DEPENDENCY_POLICY.md) for the full workspace dependency rules.
 
 ## Architecture Overview
 

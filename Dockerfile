@@ -1,7 +1,11 @@
 FROM node:24-alpine AS base
 ENV TZ=Asia/Makassar
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
 WORKDIR /app
 RUN apk add --no-cache libc6-compat && \
+    corepack enable && \
+    corepack prepare pnpm@10.17.1 --activate && \
     npm install -g turbo@latest
 
 # 1. Prune the monorepo for each service
@@ -19,23 +23,20 @@ RUN apk add --no-cache python3 make g++
 # 3. Web dependencies
 FROM deps-base AS web-deps
 COPY --from=pruner /app/out-web/json/ .
-COPY --from=pruner /app/out-web/package-lock.json ./package-lock.json
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --ignore-scripts --prefer-offline
+RUN --mount=type=cache,target=/pnpm/store \
+    pnpm install --frozen-lockfile --ignore-scripts
 
 # 4. Worker dependencies
 FROM deps-base AS worker-deps
 COPY --from=pruner /app/out-worker/json/ .
-COPY --from=pruner /app/out-worker/package-lock.json ./package-lock.json
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --ignore-scripts --prefer-offline
+RUN --mount=type=cache,target=/pnpm/store \
+    pnpm install --frozen-lockfile --ignore-scripts
 
 # 4b. Worker prod dependencies
 FROM deps-base AS worker-prod-deps
 COPY --from=pruner /app/out-worker/json/ .
-COPY --from=pruner /app/out-worker/package-lock.json ./package-lock.json
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --omit=dev --ignore-scripts --prefer-offline
+RUN --mount=type=cache,target=/pnpm/store \
+    pnpm install --frozen-lockfile --prod --ignore-scripts
 
 # 5. Build Web
 FROM web-deps AS web-builder
@@ -47,7 +48,7 @@ ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY} \
     DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
     NODE_ENV=production
 
-RUN npx turbo run build --filter=web && \
+RUN turbo run build --filter=web && \
     # Inject BUILD_ID into Service Worker for cache busting
     BUILD_ID=$(cat apps/web/.next/BUILD_ID) && \
     sed -i "s/{{BUILD_ID}}/$BUILD_ID/g" apps/web/public/sw.js && \
@@ -62,7 +63,7 @@ COPY turbo.json turbo.json
 ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
     NODE_ENV=production
 
-RUN npx turbo run build --filter=worker
+RUN turbo run build --filter=worker
 
 # 7. Web Runner (production image)
 FROM base AS app-runner
@@ -77,15 +78,12 @@ RUN apk add --no-cache libc6-compat wget
 # Copy full monorepo structure needed for runtime (since we're not using standalone)
 COPY --from=web-builder /app ./
 
-USER root
-RUN npm install -g tsx
-
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-CMD ["npm", "run", "start", "--workspace=web"]
+CMD ["pnpm", "--filter", "web", "start"]
 
 # 8. Worker Runner (production image)
 FROM node:24-alpine AS worker-runner

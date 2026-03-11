@@ -30,12 +30,12 @@
 ## Key Commands
 Run these from the project root:
 
--   **Start Development:** `npm run dev` (Starts Web, Worker, and potentially Mobile via Turbo)
--   **Build:** `npm run build`
--   **Lint:** `npm run lint`
+-   **Start Development:** `pnpm dev` (Starts Web, Worker, and potentially Mobile via Turbo)
+-   **Build:** `pnpm build`
+-   **Lint:** `pnpm lint`
 -   **Database (Prisma):**
-    -   Generate Client: `npx turbo run prisma:generate` (or `npx prisma generate` inside `packages/database`)
-    -   Push Schema: `npx turbo run db:push` (or `npx prisma db push` inside `packages/database`)
+    -   Generate Client: `pnpm turbo run prisma:generate` (or `pnpm --filter @repo/database prisma:generate`)
+    -   Push Schema: `pnpm turbo run db:push` (or `pnpm --filter @repo/database db:push`)
 
 ## Critical Business Logic
 Refer to `GUARD_CHECKIN_ALERTING.md` for detailed logic on:

@@ -67,7 +67,7 @@ The E2E tests require the web server and worker to be running:
 
 ```bash
 # Terminal 1: Start web and worker
-npm run dev
+pnpm dev
 ```
 
 ## Running Tests
@@ -75,29 +75,29 @@ npm run dev
 ### Run All E2E Tests
 
 ```bash
-npm run test:e2e
+pnpm test:e2e
 ```
 
 ### Run Specific Test Suite
 
 ```bash
 # Attendance tests only
-npm run test:e2e tests/e2e/attendance/
+pnpm test:e2e tests/e2e/attendance/
 
 # Chat tests only
-npm run test:e2e tests/e2e/chat/
+pnpm test:e2e tests/e2e/chat/
 
 # Real-time tests only
-npm run test:e2e tests/e2e/realtime/
+pnpm test:e2e tests/e2e/realtime/
 
 # Specific test file
-npm run test:e2e tests/e2e/attendance/initial-attendance.spec.ts
+pnpm test:e2e tests/e2e/attendance/initial-attendance.spec.ts
 ```
 
 ### Interactive UI Mode
 
 ```bash
-npm run test:e2e:ui
+pnpm test:e2e:ui
 ```
 
 This opens Playwright's UI mode where you can:
@@ -109,7 +109,7 @@ This opens Playwright's UI mode where you can:
 ### Debug Mode
 
 ```bash
-npm run test:e2e:debug
+pnpm test:e2e:debug
 ```
 
 This runs tests with the Playwright Inspector for step-by-step debugging.
@@ -119,7 +119,7 @@ This runs tests with the Playwright Inspector for step-by-step debugging.
 After running tests, view the HTML report:
 
 ```bash
-npm run test:e2e:report
+pnpm test:e2e:report
 ```
 
 ## Test Structure
@@ -193,7 +193,7 @@ psql -U postgres -d guards_app_test
 **Solution**: Start the development server in a separate terminal:
 
 ```bash
-npm run dev
+pnpm dev
 ```
 
 ### Socket.io Tests Timeout

@@ -1,10 +1,19 @@
+const Module = require('module');
 const { getDefaultConfig } = require('expo/metro-config');
-const { withNativeWind } = require('nativewind/metro');
 const path = require('path');
 
 // Find the project and workspace root
 const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, '../..');
+
+// NativeWind loads from the workspace root in this monorepo, so expose the app's
+// node_modules to plain Node resolution before requiring its Metro integration.
+process.env.NODE_PATH = [path.resolve(projectRoot, 'node_modules'), process.env.NODE_PATH]
+  .filter(Boolean)
+  .join(path.delimiter);
+Module._initPaths();
+
+const { withNativeWind } = require('nativewind/metro');
 
 const config = getDefaultConfig(projectRoot);
 
@@ -48,4 +57,8 @@ config.resolver = {
   sourceExts: [...resolver.sourceExts, 'svg'],
 };
 
-module.exports = withNativeWind(config, { input: './global.css' });
+module.exports = withNativeWind(config, {
+  input: path.resolve(projectRoot, 'global.css'),
+  configPath: path.resolve(projectRoot, 'tailwind.config.js'),
+  typescriptEnvPath: path.resolve(projectRoot, 'nativewind-env.d.ts'),
+});

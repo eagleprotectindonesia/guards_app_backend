@@ -10,18 +10,18 @@ This repository is a TurboRepo monorepo.
 
 ## Build, Test, and Development Commands
 Run from repository root unless noted.
-- `npm run dev`: starts web + worker in development.
-- `npm run dev:https`: runs HTTPS dev flow for web and worker.
-- `npm run build`: builds all workspaces through Turbo.
-- `npm run lint`: runs workspace lint and type-check tasks.
-- `npm run test`: runs Jest unit/integration tests.
-- `npm run test:e2e`: runs Playwright E2E tests.
-- `npx turbo run db:push`: applies Prisma schema to the configured database.
+- `pnpm dev`: starts web + worker in development.
+- `pnpm dev:https`: runs HTTPS dev flow for web and worker.
+- `pnpm build`: builds all workspaces through Turbo.
+- `pnpm lint`: runs workspace lint and type-check tasks.
+- `pnpm test`: runs Jest unit/integration tests.
+- `pnpm test:e2e`: runs Playwright E2E tests.
+- `pnpm turbo run db:push`: applies Prisma schema to the configured database.
 
 ## Coding Style & Naming Conventions
 - TypeScript-first across apps and packages.
 - Prettier config: 2 spaces, single quotes, semicolons, `printWidth: 120`.
-- Use ESLint per workspace (`npm run lint`).
+- Use ESLint per workspace (`pnpm lint`).
 - Naming patterns: React components in `PascalCase`; utility/modules in `kebab-case` or descriptive file names (follow nearby files); tests use `*.spec.ts` or `*.test.ts`.
 
 ## Testing Guidelines
@@ -29,7 +29,7 @@ Run from repository root unless noted.
 - E2E: Playwright (`tests/e2e`, see `tests/e2e/README.md`).
 - Keep tests close to behavior boundaries (API routes, worker processors, realtime events).
 - Use deterministic fixtures/factories from `tests/e2e/fixtures`.
-- Before opening a PR, run: `npm run test` and `npm run test:e2e` for relevant touched flows.
+- Before opening a PR, run: `pnpm test` and `pnpm test:e2e` for relevant touched flows.
 
 ## Commit & Pull Request Guidelines
 Git history shows mostly concise, imperative commits, often with Conventional Commit style (e.g., `feat(database): ...`).

@@ -50,7 +50,7 @@ export default defineConfig({
   // Run your local dev server before starting the tests
   // Uncomment if you want Playwright to start the server automatically
   // webServer: {
-  //   command: 'npm run dev',
+  //   command: 'pnpm dev',
   //   url: 'http://localhost:3000',
   //   reuseExistingServer: !process.env.CI,
   //   timeout: 120 * 1000,

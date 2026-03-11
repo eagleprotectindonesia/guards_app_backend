@@ -10,7 +10,7 @@
     "libphonenumber-js": "^1.12.31"
   },
   "devDependencies": {
-    "@repo/tsconfig": "*",
+    "@repo/tsconfig": "workspace:*",
     "typescript": "^5"
   }
 }

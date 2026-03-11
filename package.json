@@ -2,23 +2,19 @@
   "name": "ep-guard-scheduling",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "npm@10.9.2",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ],
+  "packageManager": "pnpm@10.32.1+sha512.a706938f0e89ac1456b6563eab4edf1d1faf3368d1191fc5c59790e96dc918e4456ab2e67d613de1043d2e8c81f87303e6b40d4ffeca9df15ef1ad567348f2be",
   "scripts": {
     "build": "turbo build",
-    "dev": "node --env-file=.env node_modules/.bin/turbo dev --filter=web --filter=worker",
-    "dev:https": "node --env-file=.env node_modules/.bin/turbo run dev:https --filter=web --filter=worker",
-    "dev:mobile": "node --env-file=.env node_modules/.bin/turbo dev",
+    "dev": "node --env-file=.env ./node_modules/turbo/bin/turbo run dev --filter=web --filter=worker",
+    "dev:https": "node --env-file=.env ./node_modules/turbo/bin/turbo run dev:https --filter=web --filter=worker",
+    "dev:mobile": "node --env-file=.env ./node_modules/turbo/bin/turbo run dev",
     "lint": "turbo lint",
     "test": "jest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:report": "playwright show-report",
-    "postinstall": "if [ -f .env ]; then node --env-file=.env node_modules/.bin/turbo run prisma:generate; else node_modules/.bin/turbo run prisma:generate; fi"
+    "postinstall": "if [ -f .env ]; then node --env-file=.env ./node_modules/turbo/bin/turbo run prisma:generate; else ./node_modules/turbo/bin/turbo run prisma:generate; fi"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
