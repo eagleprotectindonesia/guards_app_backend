@@ -58,12 +58,16 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-audio",
+      "expo-localization",
+      "expo-router",
+      "expo-video"
     ],
     "updates": {
       "url": "https://u.expo.dev/aa42139c-be53-41d6-8761-ae35510a83ca"
     },
-    "runtimeVersion": "1.0.0",
+    "runtimeVersion": "1.1.0",
     "owner": "eagleprotect",
     "extra": {
       "eas": {
