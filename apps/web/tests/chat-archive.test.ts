@@ -74,6 +74,7 @@ describe('chat archive data-access', () => {
 
     expect(prisma.chatMessage.count).toHaveBeenCalledWith({
       where: {
+        status: 'sent',
         sender: 'employee',
         readAt: null,
         employeeId: {

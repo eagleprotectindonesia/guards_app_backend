@@ -21,6 +21,18 @@ export interface UploadResponse {
   size: number;
 }
 
+function assertValidChatUploadOptions(options: UploadOptions) {
+  if (options.folder !== 'chat') return;
+
+  if (!options.conversationId?.trim()) {
+    throw new Error('Chat uploads require a conversationId');
+  }
+
+  if (!options.messageId?.trim()) {
+    throw new Error('Chat uploads require a messageId');
+  }
+}
+
 /**
  * Toggle between presigned URL (client-side) and server-side upload.
  * Client-side upload is preferred for large files like videos.
@@ -37,6 +49,7 @@ export async function getPresignedUrl(
   folderOrOptions: string | UploadOptions = 'uploads'
 ): Promise<PresignedUrlResponse> {
   const options = typeof folderOrOptions === 'string' ? { folder: folderOrOptions } : folderOrOptions;
+  assertValidChatUploadOptions(options);
   const response = await fetch('/api/shared/upload-url', {
     method: 'POST',
     headers: {
@@ -98,6 +111,7 @@ async function uploadThroughServer(
   formData.append('file', file);
 
   const options = typeof folderOrOptions === 'string' ? { folder: folderOrOptions } : folderOrOptions;
+  assertValidChatUploadOptions(options);
   if (options.folder) formData.append('folder', options.folder);
   if (options.conversationId) formData.append('conversationId', options.conversationId);
   if (options.messageId) formData.append('messageId', options.messageId);

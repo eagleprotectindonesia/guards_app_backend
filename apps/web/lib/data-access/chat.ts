@@ -1,8 +1,31 @@
 import { db as prisma } from '@/lib/prisma';
-import { ChatSenderType } from '@prisma/client';
+import { ChatMessageStatus, ChatSenderType, Prisma } from '@prisma/client';
 import { getCachedPresignedDownloadUrl } from '@/lib/s3';
 
 type ConversationView = 'inbox' | 'unread' | 'archived';
+const CHAT_DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+
+const chatMessageInclude = {
+  employee: {
+    select: {
+      id: true,
+      fullName: true,
+    },
+  },
+  admin: {
+    select: {
+      id: true,
+      name: true,
+    },
+  },
+} satisfies Prisma.ChatMessageInclude;
+
+function sentMessageWhere(where: Prisma.ChatMessageWhereInput = {}): Prisma.ChatMessageWhereInput {
+  return {
+    ...where,
+    status: ChatMessageStatus.sent,
+  };
+}
 
 export async function enrichMessageWithUrls<T extends { attachments?: string[] }>(message: T): Promise<T> {
   if (message.attachments && message.attachments.length > 0) {
@@ -29,24 +52,113 @@ export async function saveMessage(data: {
   longitude?: number;
 }) {
   const message = await prisma.chatMessage.create({
-    data,
-    include: {
-      employee: {
-        select: {
-          id: true,
-          fullName: true,
-        },
-      },
-      admin: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
+    data: {
+      ...data,
+      status: ChatMessageStatus.sent,
+      sentAt: new Date(),
     },
+    include: chatMessageInclude,
   });
 
   return enrichMessageWithUrls(message);
+}
+
+export async function reserveMessageDraft(data: {
+  employeeId: string;
+  adminId?: string;
+  sender: ChatSenderType;
+}) {
+  const draft = await prisma.chatMessage.create({
+    data: {
+      employeeId: data.employeeId,
+      adminId: data.adminId,
+      sender: data.sender,
+      status: ChatMessageStatus.draft,
+      content: '',
+      attachments: [],
+      draftExpiresAt: new Date(Date.now() + CHAT_DRAFT_TTL_MS),
+    },
+    include: chatMessageInclude,
+  });
+
+  return draft;
+}
+
+export async function finalizeMessageDraft(data: {
+  messageId: string;
+  employeeId: string;
+  adminId?: string;
+  sender: ChatSenderType;
+  content: string;
+  attachments?: string[];
+  latitude?: number;
+  longitude?: number;
+}) {
+  const draft = await prisma.chatMessage.findUnique({
+    where: { id: data.messageId },
+    include: chatMessageInclude,
+  });
+
+  if (!draft) {
+    throw new Error('Chat draft not found');
+  }
+
+  if (draft.employeeId !== data.employeeId || draft.sender !== data.sender) {
+    throw new Error('Chat draft does not belong to this conversation');
+  }
+
+  if ((draft.adminId || null) !== (data.adminId || null)) {
+    throw new Error('Chat draft does not belong to this sender');
+  }
+
+  if (draft.status === ChatMessageStatus.sent) {
+    throw new Error('Chat draft already finalized');
+  }
+
+  if (draft.status === ChatMessageStatus.expired) {
+    throw new Error('Chat draft has expired');
+  }
+
+  if (draft.draftExpiresAt && draft.draftExpiresAt <= new Date()) {
+    await prisma.chatMessage.update({
+      where: { id: data.messageId },
+      data: {
+        status: ChatMessageStatus.expired,
+      },
+    });
+    throw new Error('Chat draft has expired');
+  }
+
+  const message = await prisma.chatMessage.update({
+    where: { id: data.messageId },
+    data: {
+      content: data.content,
+      attachments: data.attachments || [],
+      latitude: data.latitude,
+      longitude: data.longitude,
+      createdAt: new Date(),
+      status: ChatMessageStatus.sent,
+      sentAt: new Date(),
+      draftExpiresAt: null,
+    },
+    include: chatMessageInclude,
+  });
+
+  return enrichMessageWithUrls(message);
+}
+
+export async function expireStaleChatDrafts(now: Date = new Date()) {
+  return prisma.chatMessage.updateMany({
+    where: {
+      status: ChatMessageStatus.draft,
+      draftExpiresAt: {
+        lte: now,
+      },
+    },
+    data: {
+      status: ChatMessageStatus.expired,
+    },
+  });
 }
 
 /**
@@ -56,10 +168,10 @@ export async function saveMessage(data: {
  */
 export async function getMessagesSince(employeeId: string, since: Date) {
   const messages = await prisma.chatMessage.findMany({
-    where: {
+    where: sentMessageWhere({
       employeeId,
       createdAt: { gt: since },
-    },
+    }),
     orderBy: { createdAt: 'asc' },
     include: {
       admin: {
@@ -72,9 +184,9 @@ export async function getMessagesSince(employeeId: string, since: Date) {
 
 export async function getChatMessages(employeeId: string, limit = 50, cursorId?: string) {
   const messages = await prisma.chatMessage.findMany({
-    where: {
+    where: sentMessageWhere({
       employeeId,
-    },
+    }),
     orderBy: {
       createdAt: 'desc',
     },
@@ -96,6 +208,7 @@ export async function getChatMessages(employeeId: string, limit = 50, cursorId?:
 
 export async function getConversationList(adminId: string, view: ConversationView = 'inbox') {
   const conversations = await prisma.chatMessage.findMany({
+    where: sentMessageWhere(),
     orderBy: {
       createdAt: 'desc',
     },
@@ -134,10 +247,10 @@ export async function getConversationList(adminId: string, view: ConversationVie
 
   const unreadCounts = await prisma.chatMessage.groupBy({
     by: ['employeeId'],
-    where: {
+    where: sentMessageWhere({
       sender: 'employee',
       readAt: null,
-    },
+    }),
     _count: {
       id: true,
     },
@@ -181,11 +294,11 @@ export async function getConversationList(adminId: string, view: ConversationVie
 export async function getUnreadCount(params: { employeeId?: string; isAdmin: boolean; adminId?: string }) {
   if (!params.isAdmin) {
     return prisma.chatMessage.count({
-      where: {
+      where: sentMessageWhere({
         employeeId: params.employeeId,
         sender: 'admin',
         readAt: null,
-      },
+      }),
     });
   }
 
@@ -202,7 +315,7 @@ export async function getUnreadCount(params: { employeeId?: string; isAdmin: boo
     : [];
 
   return prisma.chatMessage.count({
-    where: {
+    where: sentMessageWhere({
       sender: 'employee',
       readAt: null,
       employeeId: archivedStates.length
@@ -210,7 +323,7 @@ export async function getUnreadCount(params: { employeeId?: string; isAdmin: boo
             notIn: archivedStates.map(state => state.employeeId),
           }
         : undefined,
-    },
+    }),
   });
 }
 
@@ -247,14 +360,14 @@ export async function setConversationArchiveState(params: {
 
 export async function getChatExportBatch(params: {
   take: number;
-  where: import('@prisma/client').Prisma.ChatMessageWhereInput;
+  where: Prisma.ChatMessageWhereInput;
   cursor?: string;
 }) {
   return prisma.chatMessage.findMany({
     take: params.take,
     skip: params.cursor ? 1 : 0,
     cursor: params.cursor ? { id: params.cursor } : undefined,
-    where: params.where,
+    where: sentMessageWhere(params.where),
     orderBy: {
       createdAt: 'asc',
     },
@@ -280,6 +393,7 @@ export async function markAsRead(messageIds: string[]) {
       id: {
         in: messageIds,
       },
+      status: ChatMessageStatus.sent,
     },
     data: {
       readAt: new Date(),
@@ -294,6 +408,7 @@ export async function markAsReadForEmployee(employeeId: string, messageIds: stri
       employeeId,
       sender: 'admin',
       readAt: null,
+      status: ChatMessageStatus.sent,
     },
     data: {
       readAt: new Date(),
@@ -308,6 +423,7 @@ export async function markAsReadForAdmin(employeeId: string, messageIds: string[
       employeeId,
       sender: 'employee',
       readAt: null,
+      status: ChatMessageStatus.sent,
     },
     data: {
       readAt: new Date(),

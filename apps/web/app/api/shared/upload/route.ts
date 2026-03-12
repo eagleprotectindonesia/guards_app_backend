@@ -26,6 +26,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
     }
 
+    if (folder === 'chat' && (!conversationId || !messageId)) {
+      console.warn('[Server Upload API] Chat upload missing metadata; falling back to generic key', {
+        folder,
+        hasConversationId: Boolean(conversationId),
+        hasMessageId: Boolean(messageId),
+        fileName: file.name,
+        contentType: file.type,
+        fileType: fileType || null,
+      });
+    }
+
     // Convert file to buffer and upload
     const buffer = Buffer.from(await file.arrayBuffer());
     const { url, key } = await uploadFile(buffer, file.name, file.type, {

@@ -78,6 +78,24 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     options.initialDraft?.employeeId === options.initialEmployeeId ? options.initialDraft : null
   );
   const hasBootstrappedInitialSelectionRef = useRef(false);
+
+  const reserveChatDraft = useCallback(async (employeeId: string) => {
+    const response = await fetch(`/api/shared/chat/${employeeId}/draft`, {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => null);
+      throw new Error(error?.error || 'Failed to reserve chat draft');
+    }
+
+    const body = (await response.json()) as { messageId?: string };
+    if (!body.messageId) {
+      throw new Error('Draft reservation did not return a messageId');
+    }
+
+    return body.messageId;
+  }, []);
   const shouldClearSelectionOnViewMismatchRef = useRef(false);
 
   const {
@@ -661,8 +679,10 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     setIsUploading(true);
     try {
       let attachments: string[] = [];
+      let messageId: string | undefined;
       if (selectedFiles.length > 0) {
-        const messageId = crypto.randomUUID();
+        messageId = await reserveChatDraft(activeEmployeeId);
+
         const uploadPromises = selectedFiles.map(file =>
           uploadToS3(file, {
             folder: 'chat',
@@ -678,6 +698,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       socket.emit('send_message', {
         content: inputText.trim(),
         employeeId: activeEmployeeId,
+        messageId,
         attachments,
       });
 

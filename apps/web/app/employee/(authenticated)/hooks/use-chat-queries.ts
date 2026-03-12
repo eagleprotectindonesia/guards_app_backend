@@ -10,7 +10,10 @@ export interface ChatMessage {
   attachments: string[];
   latitude?: number | null;
   longitude?: number | null;
+  status?: 'draft' | 'sent' | 'expired';
   createdAt: string;
+  sentAt?: string | null;
+  draftExpiresAt?: string | null;
   readAt?: string | null;
   admin?: {
     id: string;

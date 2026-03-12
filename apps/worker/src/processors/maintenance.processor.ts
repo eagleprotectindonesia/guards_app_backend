@@ -1,5 +1,7 @@
 import { Job } from 'bullmq';
 import { DATA_CLEAN_JOB_NAME } from '@repo/shared';
+import { db as prisma } from '@repo/database';
+import { ChatMessageStatus } from '@prisma/client';
 
 export class MaintenanceProcessor {
   async process(job: Job) {
@@ -11,7 +13,21 @@ export class MaintenanceProcessor {
   private async clean() {
     try {
       console.log(`[MaintenanceProcessor] Running data cleaning tasks...`);
-      // Placeholder for data cleaning logic
+      const result = await prisma.chatMessage.updateMany({
+        where: {
+          status: ChatMessageStatus.draft,
+          draftExpiresAt: {
+            lte: new Date(),
+          },
+        },
+        data: {
+          status: ChatMessageStatus.expired,
+        },
+      });
+
+      if (result.count > 0) {
+        console.log(`[MaintenanceProcessor] Expired ${result.count} stale chat drafts.`);
+      }
     } catch (error) {
       console.error(`[MaintenanceProcessor] Data clean error:`, error);
     }

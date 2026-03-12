@@ -22,16 +22,22 @@ jest.mock('@/lib/socket-auth');
 jest.mock('@/lib/prisma', () => ({ prisma: { chatMessage: { create: jest.fn() } } }));
 jest.mock('@/lib/data-access/chat', () => ({
   saveMessage: jest.fn(),
+  finalizeMessageDraft: jest.fn(),
   markAsReadForEmployee: jest.fn(),
   markAsReadForAdmin: jest.fn(),
 }));
+jest.mock('@/lib/fcm', () => ({
+  sendChatPushNotification: jest.fn(),
+}));
 
 describe('Chat Locking Logic', () => {
+  const mockSaveMessage = jest.requireMock('@/lib/data-access/chat').saveMessage as jest.Mock;
   let mockIo: {
     adapter: jest.Mock;
     use: jest.Mock;
     on: jest.Mock;
     to: jest.Mock;
+    in: jest.Mock;
     emit: jest.Mock;
     connectionHandler?: any;
   };
@@ -39,6 +45,7 @@ describe('Chat Locking Logic', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSaveMessage.mockResolvedValue({ id: 'msg-1', admin: { name: 'Admin One' } });
     mockIo = {
       adapter: jest.fn(),
       use: jest.fn(),
@@ -46,6 +53,9 @@ describe('Chat Locking Logic', () => {
         if (event === 'connection') mockIo.connectionHandler = cb;
       }),
       to: jest.fn(() => mockIo),
+      in: jest.fn(() => ({
+        fetchSockets: jest.fn().mockResolvedValue([]),
+      })),
       emit: jest.fn(),
     };
     mockSocket = {

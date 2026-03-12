@@ -27,6 +27,7 @@ export interface ClientToServerEvents {
   // Chat events
   send_message: (data: {
     content: string;
+    messageId?: string;
     employeeId?: string;
     guardId?: string;
     attachments?: string[];

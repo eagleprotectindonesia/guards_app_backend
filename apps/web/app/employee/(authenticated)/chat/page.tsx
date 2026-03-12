@@ -8,6 +8,7 @@ import { useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { useSocket } from '@/components/socket-provider';
 import { useProfile } from '../hooks/use-employee-queries';
 import { useChatMessages, ChatMessage } from '../hooks/use-chat-queries';
+import { useEmployeeApi } from '../hooks/use-employee-api';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog';
 import { cn, isVideoFile } from '@/lib/utils';
@@ -21,6 +22,7 @@ export default function ChatPage() {
   const { socket, isConnected } = useSocket();
   const { data: profile } = useProfile();
   const employeeId = profile?.id;
+  const { fetchWithAuth } = useEmployeeApi();
 
   const [inputText, setInputText] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -70,6 +72,27 @@ export default function ChatPage() {
       readTimeoutRef.current = setTimeout(flushMarkRead, 500);
     },
     [flushMarkRead]
+  );
+
+  const reserveChatDraft = useCallback(
+    async (targetEmployeeId: string) => {
+      const response = await fetchWithAuth(`/api/shared/chat/${targetEmployeeId}/draft`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error || 'Failed to reserve chat draft');
+      }
+
+      const body = (await response.json()) as { messageId?: string };
+      if (!body.messageId) {
+        throw new Error('Draft reservation did not return a messageId');
+      }
+
+      return body.messageId;
+    },
+    [fetchWithAuth]
   );
 
   // Socket setup
@@ -211,9 +234,11 @@ export default function ChatPage() {
     setIsUploading(true);
     try {
       let attachments: string[] = [];
+      let messageId: string | undefined;
 
       if (selectedFiles.length > 0) {
-        const messageId = crypto.randomUUID();
+        messageId = await reserveChatDraft(employeeId);
+
         const uploadPromises = selectedFiles.map(file =>
           uploadToS3(file, {
             folder: 'chat',
@@ -228,6 +253,7 @@ export default function ChatPage() {
 
       socket.emit('send_message', {
         content: inputText.trim(),
+        messageId,
         attachments,
       });
 

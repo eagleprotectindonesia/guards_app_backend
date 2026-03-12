@@ -27,6 +27,7 @@ describe('Chat Authorization - markAsRead', () => {
           employeeId: employeeId,
           sender: 'admin',
           readAt: null,
+          status: 'sent',
         },
         data: expect.objectContaining({
           readAt: expect.any(Date),
@@ -45,6 +46,7 @@ describe('Chat Authorization - markAsRead', () => {
           employeeId: employeeId,
           sender: 'employee',
           readAt: null,
+          status: 'sent',
         },
         data: expect.objectContaining({
           readAt: expect.any(Date),

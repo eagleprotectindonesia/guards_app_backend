@@ -1,5 +1,5 @@
 import { redis } from '../redis';
-import { saveMessage, markAsReadForEmployee, markAsReadForAdmin } from '../data-access/chat';
+import { finalizeMessageDraft, saveMessage, markAsReadForEmployee, markAsReadForAdmin } from '../data-access/chat';
 import { UnifiedServer, UnifiedSocket } from '../socket';
 import { ChatMessage } from '@repo/types';
 import { sendChatPushNotification } from '../fcm';
@@ -18,14 +18,26 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
       }
 
       if (auth.type === 'employee') {
-        const msg = (await saveMessage({
-          employeeId: auth.id,
-          sender: 'employee',
-          content: data.content,
-          attachments: data.attachments,
-          latitude: data.latitude,
-          longitude: data.longitude,
-        })) as unknown as ChatMessage;
+        const msg = (
+          data.messageId
+            ? await finalizeMessageDraft({
+                messageId: data.messageId,
+                employeeId: auth.id,
+                sender: 'employee',
+                content: data.content,
+                attachments: data.attachments,
+                latitude: data.latitude,
+                longitude: data.longitude,
+              })
+            : await saveMessage({
+                employeeId: auth.id,
+                sender: 'employee',
+                content: data.content,
+                attachments: data.attachments,
+                latitude: data.latitude,
+                longitude: data.longitude,
+              })
+        ) as unknown as ChatMessage;
         io.to('admin').to(`employee:${auth.id}`).emit('new_message', msg);
       } else if (auth.type === 'admin' && targetId) {
         const lockKey = `chat_lock:${targetId}`;
@@ -39,15 +51,28 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
           expiresAt: Date.now() + 120000,
         });
 
-        const msg = (await saveMessage({
-          employeeId: targetId,
-          adminId: auth.id,
-          sender: 'admin',
-          content: data.content,
-          attachments: data.attachments,
-          latitude: data.latitude,
-          longitude: data.longitude,
-        })) as unknown as ChatMessage;
+        const msg = (
+          data.messageId
+            ? await finalizeMessageDraft({
+                messageId: data.messageId,
+                employeeId: targetId,
+                adminId: auth.id,
+                sender: 'admin',
+                content: data.content,
+                attachments: data.attachments,
+                latitude: data.latitude,
+                longitude: data.longitude,
+              })
+            : await saveMessage({
+                employeeId: targetId,
+                adminId: auth.id,
+                sender: 'admin',
+                content: data.content,
+                attachments: data.attachments,
+                latitude: data.latitude,
+                longitude: data.longitude,
+              })
+        ) as unknown as ChatMessage;
         io.to(`employee:${targetId}`).to('admin').emit('new_message', msg);
 
         const sockets = await io.in(`employee:${targetId}`).fetchSockets();

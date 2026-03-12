@@ -1,6 +1,7 @@
 const mockRedisGet = jest.fn();
 const mockRedisSet = jest.fn();
 const mockSaveMessage = jest.fn();
+const mockFinalizeMessageDraft = jest.fn();
 const mockSendChatPushNotification = jest.fn();
 
 jest.mock('@/lib/redis', () => ({
@@ -12,6 +13,7 @@ jest.mock('@/lib/redis', () => ({
 
 jest.mock('@/lib/data-access/chat', () => ({
   saveMessage: mockSaveMessage,
+  finalizeMessageDraft: mockFinalizeMessageDraft,
   markAsReadForEmployee: jest.fn(),
   markAsReadForAdmin: jest.fn(),
 }));

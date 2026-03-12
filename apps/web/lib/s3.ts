@@ -22,6 +22,53 @@ export const s3Client = new S3Client({
 
 export const BUCKET_NAME = bucketName;
 
+type UploadFolderOptions = {
+  folder?: string;
+  conversationId?: string;
+  messageId?: string;
+  fileType?: string;
+};
+
+function sanitizeFallbackFileName(fileName: string) {
+  const normalized = fileName
+    .replace(/[\\/]+/g, '-')
+    .replace(/\.\.(?=[\\/]|$)/g, '')
+    .replace(/^\.+/, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+/, '')
+    .trim();
+
+  return normalized || 'file';
+}
+
+function buildS3ObjectKey(fileName: string, options: UploadFolderOptions, context: 'presigned' | 'server-upload') {
+  const folder = options.folder || 'uploads';
+
+  if (folder === 'chat') {
+    if (options.conversationId && options.messageId) {
+      const ext = fileName.includes('.') ? fileName.split('.').pop() : '';
+      const uuid = crypto.randomUUID();
+      const env = process.env.NODE_ENV === 'production' ? 'prod' : process.env.NODE_ENV || 'development';
+      const fileType = options.fileType || 'file'; // image, video, thumb, etc.
+
+      return `chat/env=${env}/conv_${options.conversationId}/msg_${options.messageId}/${fileType}/${uuid}${ext ? '.' + ext : ''}`;
+    }
+
+    console.warn('[S3 Upload] Falling back to generic chat key due to missing metadata', {
+      context,
+      folder,
+      hasConversationId: Boolean(options.conversationId),
+      hasMessageId: Boolean(options.messageId),
+      fileName,
+      fileType: options.fileType || null,
+    });
+  }
+
+  const safeFileName = sanitizeFallbackFileName(fileName);
+  return `${folder}/${Date.now()}-${safeFileName}`;
+}
+
 /**
  * Generates a presigned URL for uploading a file to S3.
  */
@@ -30,27 +77,14 @@ export async function getPresignedUploadUrl(
   contentType: string,
   folderOrOptions:
     | string
-    | { folder?: string; conversationId?: string; messageId?: string; fileType?: string } = 'uploads'
+    | UploadFolderOptions = 'uploads'
 ) {
   if (!BUCKET_NAME) {
     throw new Error('AWS_S3_BUCKET_NAME is not configured');
   }
 
   const options = typeof folderOrOptions === 'string' ? { folder: folderOrOptions } : folderOrOptions;
-  const folder = options.folder || 'uploads';
-
-  let key: string;
-
-  if (folder === 'chat' && options.conversationId && options.messageId) {
-    const ext = fileName.includes('.') ? fileName.split('.').pop() : '';
-    const uuid = crypto.randomUUID();
-    const env = process.env.NODE_ENV === 'production' ? 'prod' : process.env.NODE_ENV || 'development';
-    const fileType = options.fileType || 'file'; // image, video, thumb, etc.
-
-    key = `chat/env=${env}/conv_${options.conversationId}/msg_${options.messageId}/${fileType}/${uuid}${ext ? '.' + ext : ''}`;
-  } else {
-    key = `${folder}/${Date.now()}-${fileName.replace(/\s+/g, '-')}`;
-  }
+  const key = buildS3ObjectKey(fileName, options, 'presigned');
 
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,
@@ -115,27 +149,14 @@ export async function uploadFile(
   contentType: string,
   folderOrOptions:
     | string
-    | { folder?: string; conversationId?: string; messageId?: string; fileType?: string } = 'uploads'
+    | UploadFolderOptions = 'uploads'
 ) {
   if (!BUCKET_NAME) {
     throw new Error('AWS_S3_BUCKET_NAME is not configured');
   }
 
   const options = typeof folderOrOptions === 'string' ? { folder: folderOrOptions } : folderOrOptions;
-  const folder = options.folder || 'uploads';
-
-  let key: string;
-
-  if (folder === 'chat' && options.conversationId && options.messageId) {
-    const ext = fileName.includes('.') ? fileName.split('.').pop() : '';
-    const uuid = crypto.randomUUID();
-    const env = process.env.NODE_ENV === 'production' ? 'prod' : process.env.NODE_ENV || 'development';
-    const fileType = options.fileType || 'file'; // image, video, thumb, etc.
-
-    key = `chat/env=${env}/conv_${options.conversationId}/msg_${options.messageId}/${fileType}/${uuid}${ext ? '.' + ext : ''}`;
-  } else {
-    key = `${folder}/${Date.now()}-${fileName.replace(/\s+/g, '-')}`;
-  }
+  const key = buildS3ObjectKey(fileName, options, 'server-upload');
 
   const command = new PutObjectCommand({
     Bucket: BUCKET_NAME,

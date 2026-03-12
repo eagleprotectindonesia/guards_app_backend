@@ -39,6 +39,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid file type' }, { status: 400 });
     }
 
+    if (folder === 'chat' && (!conversationId || !messageId)) {
+      console.warn('[Presigned Upload API] Chat upload missing metadata; falling back to generic key', {
+        folder,
+        hasConversationId: Boolean(conversationId),
+        hasMessageId: Boolean(messageId),
+        fileName,
+        contentType,
+        fileType: fileType || null,
+      });
+    }
+
     const { uploadUrl, publicUrl, key } = await getPresignedUploadUrl(fileName, contentType, {
       folder,
       conversationId,

@@ -105,11 +105,14 @@ model ChatMessage {
   employeeId  String         @map("employee_id")
   adminId     String?        @map("admin_id") // If sent by admin
   sender      ChatSenderType
+  status      ChatMessageStatus @default(sent)
   content     String         @db.Text
   attachments String[]
   latitude    Float?
   longitude   Float?
   createdAt   DateTime       @default(now()) @map("created_at")
+  sentAt      DateTime?      @map("sent_at")
+  draftExpiresAt DateTime?   @map("draft_expires_at")
   readAt      DateTime?      @map("read_at")
 
   employee Employee @relation(fields: [employeeId], references: [id])
@@ -142,6 +145,12 @@ model AdminChatConversationState {
 enum ChatSenderType {
   admin
   employee
+}
+
+enum ChatMessageStatus {
+  draft
+  sent
+  expired
 }
 
 
