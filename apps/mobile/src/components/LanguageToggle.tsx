@@ -1,5 +1,6 @@
 import React from 'react';
-import { Button, ButtonIcon } from '@gluestack-ui/themed';
+import { Button, ButtonIcon } from '@/components/ui/button';
+import { Icon } from '@/components/ui/icon';
 import { useTranslation } from 'react-i18next';
 import { Languages } from 'lucide-react-native';
 
@@ -21,9 +22,9 @@ export default function LanguageToggle({ className }: LanguageToggleProps) {
       variant="outline"
       action="secondary"
       onPress={toggleLanguage}
-      className={`rounded-full bg-white border-gray-300 w-10 h-10 p-0 items-center justify-center ${className}`}
+      className={`rounded-full bg-white border-outline-300 w-10 h-10 p-0 items-center justify-center ${className}`}
     >
-      <ButtonIcon as={Languages} size="md" className="text-gray-600" />
+      <ButtonIcon as={Languages} size="md" className="text-typography-600" />
     </Button>
   );
 }

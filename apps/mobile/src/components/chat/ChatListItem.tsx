@@ -1,6 +1,10 @@
 import React, { memo } from 'react';
 import { View, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { VStack, Text, Center, Avatar, AvatarFallbackText, HStack } from '@gluestack-ui/themed';
+import { VStack } from '@/components/ui/vstack';
+import { Text } from '@/components/ui/text';
+import { Center } from '@/components/ui/center';
+import { Avatar, AvatarFallbackText } from '@/components/ui/avatar';
+import { HStack } from '@/components/ui/hstack';
 import { Check, CheckCheck, MapPin } from 'lucide-react-native';
 import { format } from 'date-fns';
 import * as Linking from 'expo-linking';
@@ -38,7 +42,7 @@ const VideoAttachment = ({ url, style }: { url: string; style: any }) => {
 function ChatListItemBase({ item, getDateLabel, onOpenImageViewer }: ChatListItemProps) {
   if ('type' in item && item.type === 'date') {
     return (
-      <Center my="$4">
+      <Center className="my-4">
         <BlurView intensity={20} tint="light" style={styles.dateSeparator}>
           <Text style={styles.dateText}>{getDateLabel(item.date)}</Text>
         </BlurView>
@@ -52,8 +56,8 @@ function ChatListItemBase({ item, getDateLabel, onOpenImageViewer }: ChatListIte
   return (
     <View style={[styles.messageContainer, isMe ? styles.myMessage : styles.theirMessage]}>
       {!isMe && (
-        <Avatar size="xs" bgColor="$blue600" mr="$2" mt="$1">
-          <AvatarFallbackText>{message.admin?.name || 'A'}</AvatarFallbackText>
+        <Avatar size="xs" className="bg-info-600 mr-2 mt-1">
+          <AvatarFallbackText className="text-white">{message.admin?.name || 'A'}</AvatarFallbackText>
         </Avatar>
       )}
       <VStack style={isMe ? styles.myVStack : styles.theirVStack}>
@@ -105,7 +109,7 @@ function ChatListItemBase({ item, getDateLabel, onOpenImageViewer }: ChatListIte
               style={[styles.locationWrapper, isMe ? styles.myLocationWrapper : styles.theirLocationWrapper]}
             >
               <MapPin size={24} color={isMe ? '#FFF' : '#EF4444'} />
-              <VStack ml="$2">
+              <VStack className="ml-2">
                 <Text style={isMe ? styles.myLocationText : styles.theirLocationText}>Shared Location</Text>
                 <Text style={styles.locationSubText}>Tap to open in Maps</Text>
               </VStack>
@@ -114,7 +118,7 @@ function ChatListItemBase({ item, getDateLabel, onOpenImageViewer }: ChatListIte
           {message.content ? (
             <Text style={[styles.messageText, isMe ? styles.myText : styles.theirText]}>{message.content}</Text>
           ) : null}
-          <HStack space="xs" justifyContent="flex-end" alignItems="center" mt="$1">
+          <HStack space="xs" className="justify-end items-center mt-1">
             <Text style={[styles.messageTime, isMe ? styles.myTime : styles.theirTime]}>
               {format(new Date(message.createdAt), 'HH:mm')}
             </Text>
@@ -155,8 +159,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 20,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
   myBubble: {
     backgroundColor: 'rgba(60, 20, 20, 0.4)',
@@ -165,7 +167,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
-    elevation: 2,
+    elevation: 0,
   },
   theirBubble: {
     backgroundColor: 'rgba(40, 40, 40, 0.6)',
@@ -211,8 +213,6 @@ const styles = StyleSheet.create({
   attachmentWrapper: {
     borderRadius: 12,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   attachmentImage: {
     width: 220,
@@ -228,8 +228,6 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 12,
     marginBottom: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   myLocationWrapper: {
     backgroundColor: 'rgba(255, 255, 255, 0.1)',

@@ -1,0 +1,9 @@
+{
+  "projectType": "expo",
+  "componentsPath": "./components/ui",
+  "themePath": "./components/ui/gluestack-ui-provider/config.ts",
+  "useNpm": false,
+  "useYarn": false,
+  "usePnpm": true,
+  "useBun": false
+}

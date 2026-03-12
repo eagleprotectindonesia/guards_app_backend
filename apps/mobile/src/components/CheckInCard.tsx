@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useCustomToast } from '../hooks/useCustomToast';
-import { Box, Heading, Text, VStack, HStack, Pressable, Spinner } from '@gluestack-ui/themed';
+import { Box } from '@/components/ui/box';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { VStack } from '@/components/ui/vstack';
+import { HStack } from '@/components/ui/hstack';
+import { Pressable } from '@/components/ui/pressable';
+import { Spinner } from '@/components/ui/spinner';
 import * as Location from 'expo-location';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
@@ -203,7 +209,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
           icon: <CheckCircle size={24} color="#22C55E" />,
           title: t('checkin.titleOpen'),
           subtitle: t('checkin.windowClosing'),
-          textColor: '$green400',
+          textColor: 'text-success-400',
           btnColors: ['#22C55E', '#15803D'] as const,
           showBtn: true,
           glowStyles: { boxShadow: '0 0 20px rgba(34, 197, 94, 0.6)' },
@@ -215,7 +221,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
           icon: <AlertTriangle size={24} color="#F59E0B" />,
           title: t('checkin.checkpointTitle'), // "Checkpoint Authentication"
           subtitle: t('checkin.windowClosing'),
-          textColor: '$amber400',
+          textColor: 'text-warning-400',
           btnColors: ['#F59E0B', '#B45309'] as const,
           showBtn: true,
           glowStyles: { boxShadow: '0 0 20px rgba(245, 158, 11, 0.6)' },
@@ -227,7 +233,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
           icon: <AlertTriangle size={24} color="#EF4444" />,
           title: t('checkin.titleLate'),
           subtitle: t('checkin.lateStatus'),
-          textColor: '$red400',
+          textColor: 'text-error-400',
           btnColors: ['#DC2626', '#991B1B'] as const,
           showBtn: true,
           glowStyles: { boxShadow: '0 0 20px rgba(239, 68, 68, 0.6)' },
@@ -239,77 +245,48 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
 
   return (
     <Box
-      rounded="$3xl"
-      overflow="hidden"
-      bg="$backgroundDark900"
-      borderColor="$borderDark800"
-      borderWidth={1}
-      mb="$6"
-      sx={{
-        _web: {
-          boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.7)',
-        },
-      }}
+      className="rounded-[32px] overflow-hidden bg-background-900 border border-outline-800 mb-6 shadow-xl"
     >
       {/* Header Section with Gradient Mesh Background */}
-      <Box position="relative" overflow="hidden">
+      <Box className="relative overflow-hidden">
         <LinearGradient colors={ui.bgColors} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-        <Box p="$6" alignItems="center" borderBottomWidth={1} borderColor="rgba(255,255,255,0.05)">
+        <Box className="p-6 items-center border-b border-white/5">
           {/* Top Glow */}
           <Box
-            position="absolute"
-            top={0}
-            w={128}
-            h={4}
-            bg={ui.glowColor}
-            rounded="$full"
-            opacity={0.6}
-            sx={{
-              _web: ui.glowStyles,
+            className="absolute top-0 w-32 h-1 rounded-full opacity-60"
+            style={{
+              backgroundColor: ui.glowColor,
+              // @ts-ignore
+              boxShadow: ui.glowStyles.boxShadow,
             }}
           />
 
           <Box
-            w={48}
-            h={48}
-            bg="$backgroundDark900"
-            rounded="$full"
-            alignItems="center"
-            justifyContent="center"
-            mb="$3"
-            borderColor="rgba(255,255,255,0.05)"
-            borderWidth={1}
-            sx={{
-              _web: { boxShadow: '0 0 15px rgba(0,0,0,0.5)' },
-            }}
+            className="w-12 h-12 bg-background-900 rounded-full items-center justify-center mb-3 border border-white/5 shadow-2xl"
           >
             {ui.icon}
           </Box>
 
-          <Heading color="$white" size="md" mb="$1" textAlign="center">
+          <Heading size="md" className="text-white mb-1 text-center">
             {ui.title}
           </Heading>
-          <Text color="$textDark400" size="xs" fontWeight="$medium" textAlign="center">
+          <Text size="xs" className="text-typography-400 font-medium text-center">
             {ui.subtitle}
           </Text>
         </Box>
       </Box>
 
       {/* Content Section */}
-      <Box p="$6" pt="$8">
+      <Box className="p-6 pt-8">
         {uiState !== 'late' ? (
-          <HStack justifyContent="center" alignItems="center" space="md" mb={ui.showBtn ? '$8' : '$2'}>
-            <VStack alignItems="center">
-              <Text color="$white" size="5xl" fontWeight="$light" lineHeight={48}>
+          <HStack space="md" className="justify-center items-center" style={{ marginBottom: ui.showBtn ? 32 : 8 }}>
+            <VStack className="items-center">
+              <Text size="5xl" className="text-white font-light leading-[48px]">
                 {timerDisplay}
               </Text>
               <Text
-                color="$textDark500"
                 size="xs"
-                fontWeight="$bold"
-                textTransform="uppercase"
-                letterSpacing={2}
-                mt="$2"
+                className="text-typography-500 font-bold uppercase tracking-[2px] mt-2"
               >
                 {timerLabel}
               </Text>
@@ -334,9 +311,9 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
                   transform: [{ scale: pressed ? 0.98 : 1 }],
                 }}
               >
-                <HStack justifyContent="center" alignItems="center" space="md">
-                  {checkInMutation.isPending ? <Spinner color="$white" /> : <Fingerprint size={20} color="white" />}
-                  <Text color="$white" fontWeight="$bold" textTransform="uppercase" size="sm" letterSpacing={1}>
+                <HStack space="md" className="justify-center items-center">
+                  {checkInMutation.isPending ? <Spinner className="text-white" /> : <Fingerprint size={20} color="white" />}
+                  <Text size="sm" className="text-white font-bold uppercase tracking-[1px]">
                     {uiState === 'late' ? t('checkin.submitLateButton') : t('checkin.checkInNow')}
                   </Text>
                 </HStack>
@@ -346,7 +323,7 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
         )}
 
         {status ? (
-          <Text color="$textDark400" size="xs" textAlign="center" mt="$4">
+          <Text size="xs" className="text-typography-400 text-center mt-4">
             {status}
           </Text>
         ) : null}

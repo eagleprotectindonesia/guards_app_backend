@@ -1,5 +1,5 @@
 import React from 'react';
-import { useToast as useGluestackToast } from '@gluestack-ui/themed';
+import { useToast as useGluestackToast } from '@/components/ui/toast';
 import { CustomToast } from '../components/ui/CustomToast';
 
 interface ShowToastParams {

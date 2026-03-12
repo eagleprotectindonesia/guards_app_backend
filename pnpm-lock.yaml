@@ -48,8 +48,8 @@ importers:
   apps/mobile:
     dependencies:
       '@expo/html-elements':
-        specifier: ^0.10.1
-        version: 0.10.1
+        specifier: ^0.12.5
+        version: 0.12.5
       '@gluestack-style/react':
         specifier: ^1.0.57
         version: 1.0.57
@@ -188,6 +188,9 @@ importers:
       react-native:
         specifier: 0.83.2
         version: 0.83.2(@babel/core@7.29.0)(@types/react@19.2.7)(react@19.2.3)
+      react-native-css-interop:
+        specifier: 0.2.2
+        version: 0.2.2(react-native-reanimated@4.2.2(react-native-worklets@0.7.2(@babel/core@7.29.0)(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.7)(react@19.2.3))(react@19.2.3))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.7)(react@19.2.3))(react@19.2.3))(react-native-safe-area-context@5.7.0(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.7)(react@19.2.3))(react@19.2.3))(react-native-svg@15.15.3(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.7)(react@19.2.3))(react@19.2.3))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.7)(react@19.2.3))(react@19.2.3)(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.2))
       react-native-image-viewing:
         specifier: ^0.2.2
         version: 0.2.2(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.7)(react@19.2.3))(react@19.2.3)
@@ -228,6 +231,9 @@ importers:
         specifier: ^0.1.20
         version: 0.1.20(tailwindcss@3.4.19(tsx@4.21.0)(yaml@2.8.2))
     devDependencies:
+      '@eslint/eslintrc':
+        specifier: ^3.3.5
+        version: 3.3.5
       '@expo/config-plugins':
         specifier: ^55.0.6
         version: 55.0.6
@@ -1854,8 +1860,8 @@ packages:
     resolution: {integrity: sha512-mLrcymtgkW9IJ/G1e8MH1Xt2VIb1MOS86ePY0ePcnV3nVyJqm7gfa/AXD1Hk+eZXvf8XhioYz6QZaamBdEzR3A==}
     hasBin: true
 
-  '@expo/html-elements@0.10.1':
-    resolution: {integrity: sha512-3PTmtkV15D7+lykXVtvkH1jQ5Y6JE+e3zCaoMMux7z2cSLGQUNwDEUwG37gew3OEB1/E4/SEWgjvg8m7E6/e2Q==}
+  '@expo/html-elements@0.12.5':
+    resolution: {integrity: sha512-28KWO88YKykKU7ke5sEQs5TivFRMs1Aktz13xxgqAf5rTgb+lka0VKVt3W2fG7ksbUQ407rtUqz7SEAq298NvQ==}
 
   '@expo/html-elements@55.0.3':
     resolution: {integrity: sha512-/adnZVHXZ9NaaR7z5bz9lIFmIvMX8ghEfWucAjwuUwcq4jFfgun6VYjhs/9s0j93EC1FQl9HXWnl8oGCxp0YZg==}
@@ -12420,7 +12426,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@expo/html-elements@0.10.1': {}
+  '@expo/html-elements@0.12.5': {}
 
   '@expo/html-elements@55.0.3(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.83.2(@babel/core@7.29.0)(@types/react@19.2.7)(react@19.2.3))(react@19.2.3)':
     dependencies:

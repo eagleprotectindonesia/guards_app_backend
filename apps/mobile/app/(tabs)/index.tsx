@@ -1,6 +1,12 @@
 import React, { useEffect } from 'react';
 import { ScrollView, RefreshControl, Image } from 'react-native';
-import { Box, VStack, Heading, Text, Spinner, Center, HStack } from '@gluestack-ui/themed';
+import { Box } from '@/components/ui/box';
+import { VStack } from '@/components/ui/vstack';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { Spinner } from '@/components/ui/spinner';
+import { Center } from '@/components/ui/center';
+import { HStack } from '@/components/ui/hstack';
 import { useQuery } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
 import AttendanceRecord from '../../src/components/AttendanceRecord';
@@ -68,9 +74,9 @@ export default function HomeScreen() {
     'https://lh3.googleusercontent.com/aida-public/AB6AXuDzcxM7B2Plj0M6rLwD5-jwCeXCJ-VxTGp8XT8dffCo7Cjv4BQ3_fM-MkOicyMU8jJxMw9Q81kjfqVm_zD_yfF92pmxUsZDY_fB7by9N3_LAOMNfdJlNjEUudjhqq7Cm5LUPTk9aKNVSgT9A4rsOYqHKU5vKRmjMZknp_AFtbKxzLh1PX2V_AKy5bez2tThvg_swnSuuvc4uRhd_JO8vfyGxuCUlrrS_Gt_LXaPHMHfgxPWTz6nvJqDPVw3QneYlTqVGg46xTuvrQDq';
 
   return (
-    <Box flex={1} bg="$backgroundDark950" position="relative">
+    <Box className="flex-1 bg-background-950 relative">
       {/* Background Gradients to simulate the Deep Dark aesthetic */}
-      <Box position="absolute" top={0} left={0} right={0} height={400} opacity={0.3}>
+      <Box className="absolute top-0 left-0 right-0 h-[400px] opacity-30">
         <LinearGradient colors={['rgba(217, 35, 35, 0.1)', 'transparent']} style={{ flex: 1 }} />
       </Box>
 
@@ -83,47 +89,30 @@ export default function HomeScreen() {
       >
         <VStack space="xl">
           {/* Header */}
-          <Box px="$6" mb="$2">
-            <HStack justifyContent="space-between" alignItems="center" w="100%">
-              <HStack space="md" alignItems="center" flex={1} mr="$4" flexShrink={1}>
-                <Box
-                  w="$12"
-                  h="$12"
-                  rounded="$full"
-                  borderWidth={1}
-                  borderColor="rgba(255,255,255,0.1)"
-                  overflow="hidden"
-                  bg="$backgroundDark900"
-                  flexShrink={0}
-                >
+          <Box className="px-6 mb-2">
+            <HStack className="justify-between items-center w-full">
+              <HStack space="md" className="items-center flex-1 mr-4 shrink">
+                <Box className="w-12 h-12 rounded-full border border-white/10 overflow-hidden bg-background-900 shrink-0">
                   <Image source={{ uri: defaultAvatar }} style={{ width: '100%', height: '100%', opacity: 0.8 }} />
                 </Box>
-                <VStack flex={1} flexShrink={1}>
-                  <Text
-                    color="$red500"
-                    size="2xs"
-                    fontWeight="$bold"
-                    textTransform="uppercase"
-                    letterSpacing={1.5}
-                    mb="$1"
-                    flexShrink={1}
-                  >
+                <VStack className="flex-1 shrink">
+                  <Text size="2xs" className="text-brand-500 font-bold uppercase tracking-[1.5px] mb-1 shrink">
                     {profile?.employee?.jobTitle || t('dashboard.unit')}
                   </Text>
-                  <Heading size="lg" color="$white" fontWeight="$bold" flexShrink={1}>
+                  <Heading size="lg" className="text-white font-bold shrink">
                     {profile?.employee?.fullName || ''}
                   </Heading>
                 </VStack>
               </HStack>
-              <Box flexShrink={0}>
+              <Box className="shrink-0">
                 <GlassLanguageToggle />
               </Box>
             </HStack>
           </Box>
 
           {isLoading ? (
-            <Center h={200}>
-              <Spinner size="large" color="$red600" />
+            <Center className="h-[200px]">
+              <Spinner size="large" className="text-brand-600" />
             </Center>
           ) : (
             <VStack space="xl">
@@ -132,17 +121,9 @@ export default function HomeScreen() {
                 {activeShift || nextShifts.length > 0 ? (
                   <ShiftCarousel activeShift={activeShift} nextShifts={nextShifts} />
                 ) : (
-                  <Box px="$6">
-                    <Box
-                      bg="rgba(255,255,255,0.05)"
-                      p="$8"
-                      rounded="$2xl"
-                      borderWidth={1}
-                      borderStyle="dashed"
-                      borderColor="rgba(255,255,255,0.1)"
-                      alignItems="center"
-                    >
-                      <Text color="$textDark500" textAlign="center" fontWeight="$medium">
+                  <Box className="px-6">
+                    <Box className="bg-white/5 p-8 rounded-2xl border border-dashed border-white/10 items-center">
+                      <Text className="text-typography-500 text-center font-medium">
                         {t('dashboard.noActiveShift')}
                       </Text>
                     </Box>
@@ -152,7 +133,7 @@ export default function HomeScreen() {
 
               {/* Checkpoint Authentication / Attendance */}
               {activeShift && (
-                <Box px="$6">
+                <Box className="px-6">
                   <VStack space="md">
                     <CheckInCard activeShift={activeShift} refetchShift={refetch} />
                     <AttendanceRecord shift={activeShift} onAttendanceRecorded={refetch} />

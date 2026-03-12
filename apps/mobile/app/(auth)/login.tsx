@@ -3,21 +3,19 @@ import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet, Dimensions, Pressable, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { useAlert } from '../../src/contexts/AlertContext';
 import { useCustomToast } from '../../src/hooks/useCustomToast';
+import { VStack } from '@/components/ui/vstack';
+import { Box } from '@/components/ui/box';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { ButtonSpinner } from '@/components/ui/button';
+import { Input, InputField, InputSlot, InputIcon } from '@/components/ui/input';
+import { Icon } from '@/components/ui/icon';
 import {
-  VStack,
-  Box,
-  Heading,
-  Text,
-  ButtonSpinner,
-  Input,
-  InputField,
-  InputSlot,
-  InputIcon,
   FormControl,
   FormControlError,
   FormControlErrorText,
   FormControlErrorIcon,
-} from '@gluestack-ui/themed';
+} from '@/components/ui/form-control';
 import { useMutation } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
 import { useAuth } from '../../src/contexts/AuthContext';
@@ -140,7 +138,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <Box flex={1} bg="#050505">
+    <Box className="flex-1 bg-[#050505]">
       <StatusBar style="light" />
       {/* Background Effects */}
       <View style={StyleSheet.absoluteFill}>
@@ -185,31 +183,24 @@ export default function LoginScreen() {
           </View>
 
           {/* Logo & Header */}
-          <VStack space="md" alignItems="center" mb="$10">
-            <Box position="relative">
+          <VStack space="md" className="items-center mb-10">
+            <Box className="relative">
               <Box
-                position="absolute"
-                top={0}
-                left={0}
-                right={0}
-                bottom={0}
-                bg="#E6392D"
-                opacity={0.15}
-                rounded="$full"
+                className="absolute top-0 left-0 right-0 bottom-0 bg-brand-600 opacity-15 rounded-full"
                 style={{ filter: 'blur(35px)' }}
               />
-              <Box w={120} h={120} alignItems="center" justifyContent="center">
+              <Box className="w-[120px] h-[120px] items-center justify-center">
                 <LogoIcon width={120} height={120} />
               </Box>
             </Box>
-            <VStack alignItems="center">
-              <Heading size="3xl" color="white" style={styles.heading}>
+            <VStack className="items-center">
+              <Heading size="3xl" className="text-white tracking-tighter" style={styles.heading}>
                 Eagle
-                <Text color="#E6392D" size="3xl" style={styles.headingStrong}>
+                <Text size="3xl" className="text-brand-600" style={styles.headingStrong}>
                   Protect
                 </Text>
               </Heading>
-              <Text size="sm" color="#6B7280" fontWeight="$bold" style={styles.subtitle}>
+              <Text size="sm" className="text-typography-500 font-bold tracking-[2px] mt-1 opacity-60">
                 EMPLOYEE PORTAL
               </Text>
             </VStack>
@@ -226,18 +217,18 @@ export default function LoginScreen() {
               <VStack space="lg">
                 <FormControl isInvalid={loginMutation.isError}>
                   <VStack space="sm">
-                    <Text size="sm" fontWeight="$bold" color="#6B7280" style={styles.inputLabel}>
+                    <Text size="sm" className="font-bold text-typography-500 tracking-[2px] ml-1">
                       {t('login.employeeIdLabel')}
                     </Text>
                     <Box style={styles.inputContainer}>
-                      <Input size="md">
-                        <InputSlot pl="$4">
-                          <InputIcon as={User} color="#6B7280" />
+                      <Input size="md" className="border-0">
+                        <InputSlot className="pl-4">
+                          <InputIcon as={User} className="text-typography-500" />
                         </InputSlot>
                         <InputField
                           placeholder={t('login.employeeIdPlaceholder')}
                           placeholderTextColor="#3F3F46"
-                          color="white"
+                          className="text-white"
                           value={employeeNumber}
                           onChangeText={(text: string) => {
                             setEmployeeNumber(text.toUpperCase());
@@ -250,34 +241,34 @@ export default function LoginScreen() {
                     </Box>
                   </VStack>
 
-                  <VStack space="sm" mt="$4">
-                    <Text size="sm" fontWeight="$bold" color="#6B7280" style={styles.inputLabel}>
+                  <VStack space="sm" className="mt-4">
+                    <Text size="sm" className="font-bold text-typography-500 tracking-[2px] ml-1">
                       {t('login.passwordLabel')}
                     </Text>
                     <Box style={styles.inputContainer}>
-                      <Input size="md">
-                        <InputSlot pl="$4">
-                          <InputIcon as={Lock} color="#6B7280" />
+                      <Input size="md" className="border-0">
+                        <InputSlot className="pl-4">
+                          <InputIcon as={Lock} className="text-typography-500" />
                         </InputSlot>
                         <InputField
                           type={showPassword ? 'text' : 'password'}
                           placeholder={t('login.passwordPlaceholder')}
                           placeholderTextColor="#3F3F46"
-                          color="white"
+                          className="text-white"
                           value={password}
                           onChangeText={text => {
                             setPassword(text);
                             if (loginMutation.isError) loginMutation.reset();
                           }}
                         />
-                        <InputSlot pr="$4" onPress={() => setShowPassword(!showPassword)}>
-                          <InputIcon as={showPassword ? Eye : EyeOff} color="#6B7280" />
+                        <InputSlot className="pr-4" onPress={() => setShowPassword(!showPassword)}>
+                          <InputIcon as={showPassword ? Eye : EyeOff} className="text-typography-500" />
                         </InputSlot>
                       </Input>
                     </Box>
                   </VStack>
 
-                  <Box mt="$12">
+                  <Box className="mt-12">
                     <Pressable onPress={handleLogin} disabled={loginMutation.isPending || isBioPending}>
                       {({ pressed }) => (
                         <LinearGradient
@@ -293,14 +284,14 @@ export default function LoginScreen() {
                           ]}
                         >
                           {loginMutation.isPending || isBioPending ? (
-                            <ButtonSpinner color="white" />
+                            <ButtonSpinner className="text-white" />
                           ) : (
-                            <Box flexDirection="row" alignItems="center">
-                              <Text color="white" fontWeight="$bold" style={styles.buttonText}>
+                            <Box className="flex-row items-center">
+                              <Text className="text-white font-bold tracking-[1.5px] text-[14px]">
                                 {t('login.submitButton')}
                               </Text>
-                              <Box ml="$2">
-                                <InputIcon as={LogIn} color="white" size="sm" />
+                              <Box className="ml-2">
+                                <Icon as={LogIn} className="text-white" size="sm" />
                               </Box>
                             </Box>
                           )}
@@ -310,7 +301,7 @@ export default function LoginScreen() {
                   </Box>
 
                   {isBiometricAvailable && isBiometricEnabled && (
-                    <Box mt="$4">
+                    <Box className="mt-4">
                       <Pressable onPress={handleBiometricLogin} disabled={loginMutation.isPending || isBioPending}>
                         {({ pressed }) => (
                           <Box
@@ -320,7 +311,7 @@ export default function LoginScreen() {
                             ]}
                           >
                             <Fingerprint size={20} color="#E6392D" />
-                            <Text color="white" fontWeight="$medium" ml="$2" style={styles.biometricText}>
+                            <Text className="text-white font-medium ml-2 text-[14px] tracking-[1px]">
                               {t('biometric.loginButton')}
                               {biometricType !== 'Biometric' && ` (${biometricType})`}
                             </Text>
@@ -331,9 +322,9 @@ export default function LoginScreen() {
                   )}
 
                   {loginMutation.isError && (
-                    <FormControlError mt="$4">
-                      <FormControlErrorIcon as={CircleAlert} />
-                      <FormControlErrorText color="#E6392D">{t('login.errorMessage')}</FormControlErrorText>
+                    <FormControlError className="mt-4">
+                      <FormControlErrorIcon as={CircleAlert} className="text-error-600" />
+                      <FormControlErrorText className="text-error-600">{t('login.errorMessage')}</FormControlErrorText>
                     </FormControlError>
                   )}
                 </FormControl>
@@ -362,7 +353,7 @@ const styles = StyleSheet.create({
   headingStrong: {
     textShadowColor: 'rgba(230, 57, 45, 0.7)',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 15,
+    textShadowRadius: 8,
   },
   subtitle: {
     letterSpacing: 2,

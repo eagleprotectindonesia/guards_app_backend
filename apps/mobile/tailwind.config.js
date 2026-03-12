@@ -173,6 +173,10 @@ module.exports = {
           info: 'rgb(var(--color-indicator-info)/<alpha-value>)',
           error: 'rgb(var(--color-indicator-error)/<alpha-value>)',
         },
+        brand: {
+          500: '#E6392D',
+          600: '#E6392D',
+        },
       },
       fontFamily: {
         heading: undefined,

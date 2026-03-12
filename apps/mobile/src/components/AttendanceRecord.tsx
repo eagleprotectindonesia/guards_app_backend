@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { useCustomToast } from '../hooks/useCustomToast';
-import { Box, Button, ButtonText, Heading, Text, VStack, ButtonSpinner } from '@gluestack-ui/themed';
+import { Box } from '@/components/ui/box';
+import { Button, ButtonText, ButtonSpinner } from '@/components/ui/button';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { VStack } from '@/components/ui/vstack';
 import * as Location from 'expo-location';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -90,22 +94,17 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   if (hasAttendance) {
     return (
       <Box
-        bg="$backgroundDark900"
-        borderColor={isLateAttendance ? '$amber500' : '$green500'}
-        p="$5"
-        rounded="$2xl"
-        borderWidth={1}
-        mb="$4"
-        sx={{
-          _web: {
-            boxShadow: isLateAttendance ? '0 0 15px rgba(245, 158, 11, 0.15)' : '0 0 15px rgba(16, 185, 129, 0.15)',
-          },
-        }}
+        className={`bg-background-900 ${
+          isLateAttendance ? 'border-warning-500' : 'border-success-500'
+        } p-5 rounded-2xl border mb-4 shadow-xl`}
       >
-        <Heading size="md" mb="$1" color={isLateAttendance ? '$amber500' : '$green500'}>
+        <Heading
+          size="md"
+          className={`mb-1 ${isLateAttendance ? 'text-warning-500' : 'text-success-500'}`}
+        >
           {isLateAttendance ? t('attendance.lateTitle') : t('attendance.recordedTitle')}
         </Heading>
-        <Text color="$textDark300" size="sm">
+        <Text className="text-typography-300" size="sm">
           {isLateAttendance
             ? t('attendance.recordedLateAt', { date: format(new Date(shift.attendance!.recordedAt), 'PPpp') })
             : t('attendance.recordedAt', { date: format(new Date(shift.attendance!.recordedAt), 'PPpp') })}
@@ -116,33 +115,25 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
 
   return (
     <Box
-      bg="$backgroundDark900"
-      borderColor={isLateTime ? '$red500' : 'rgba(255,255,255,0.1)'}
-      p="$5"
-      rounded="$2xl"
-      borderWidth={1}
-      mb="$4"
-      sx={{
-        _web: {
-          boxShadow: isLateTime ? '0 0 20px rgba(239, 68, 68, 0.15)' : '0 10px 30px -10px rgba(0,0,0,0.5)',
-        },
-      }}
+      className={`bg-background-900 ${
+        isLateTime ? 'border-error-500' : 'border-white/10'
+      } p-5 rounded-2xl border mb-4 shadow-xl`}
     >
       <VStack space="md">
-        <Heading size="md" color="$white" fontWeight="$bold">
+        <Heading size="md" className="text-white font-bold">
           {isLateTime ? t('attendance.notRecordedTitle') : t('attendance.requiredTitle')}
         </Heading>
 
         {isLateTime ? (
-          <Text color="$red400" fontWeight="$bold" size="md">
+          <Text className="text-error-400 font-bold" size="md">
             {t('attendance.lateMessage')}
           </Text>
         ) : (
-          <Text color="$textDark400">{t('attendance.requiredMessage')}</Text>
+          <Text className="text-typography-400">{t('attendance.requiredMessage')}</Text>
         )}
 
         {status ? (
-          <Text size="sm" color="$blue400" fontWeight="$medium">
+          <Text size="sm" className="text-info-400 font-medium">
             {status}
           </Text>
         ) : null}
@@ -150,18 +141,13 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
         {/* Custom Button Container to allow Gradient */}
         <Button
           size="lg"
-          variant="solid"
           action={isLateTime ? 'negative' : 'primary'}
           onPress={handleRecordAttendance}
           isDisabled={attendanceMutation.isPending}
-          p="$0" // Remove padding to let gradient fill
-          overflow="hidden"
-          rounded="$xl"
-          sx={{
-            _web: {
-              background: 'transparent',
-              boxShadow: isLateTime ? '0 8px 25px rgba(220, 38, 38, 0.4)' : '0 8px 25px rgba(37, 99, 235, 0.4)',
-            },
+          className="p-0 overflow-hidden rounded-xl shadow-lg"
+          style={{
+            // @ts-ignore
+            boxShadow: isLateTime ? '0 8px 25px rgba(220, 38, 38, 0.4)' : '0 8px 25px rgba(37, 99, 235, 0.4)',
           }}
         >
           <LinearGradient
@@ -176,8 +162,8 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
               flexDirection: 'row',
             }}
           >
-            {attendanceMutation.isPending ? <ButtonSpinner mr="$2" color="$white" /> : null}
-            <ButtonText color="$white" fontWeight="$bold" textTransform="uppercase" letterSpacing={1}>
+            {attendanceMutation.isPending ? <ButtonSpinner className="mr-2 text-white" /> : null}
+            <ButtonText className="text-white font-bold uppercase tracking-[1px]">
               {isLateTime
                 ? t('attendance.submitLateButton', { defaultValue: 'Record Late Attendance' })
                 : t('attendance.submitButton')}

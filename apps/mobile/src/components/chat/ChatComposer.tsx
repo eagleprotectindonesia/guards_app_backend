@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Image, TouchableOpacity, TextInput, ScrollView, StyleSheet } from 'react-native';
-import { HStack, Spinner, Box } from '@gluestack-ui/themed';
+import { HStack } from '@/components/ui/hstack';
+import { Spinner } from '@/components/ui/spinner';
+import { Box } from '@/components/ui/box';
 import { Paperclip, X, Video as VideoIcon, Camera, Send, MapPin } from 'lucide-react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -43,7 +45,7 @@ export function ChatComposer({
             {selectedAttachments.map((asset, index) => (
               <View key={index} style={styles.previewItem}>
                 {asset.type === 'video' ? (
-                  <Box style={styles.previewMedia} bgColor="$gray800" justifyContent="center" alignItems="center">
+                  <Box style={styles.previewMedia} className="bg-background-800 justify-center items-center">
                     <VideoIcon size={24} color="#6B7280" />
                   </Box>
                 ) : (
@@ -60,15 +62,15 @@ export function ChatComposer({
 
       <View style={styles.inputContainerWrapper}>
         <BlurView intensity={60} tint="dark" style={styles.inputBlurContainer}>
-          <HStack space="xs" alignItems="center">
+          <HStack className="items-center">
             <TouchableOpacity onPress={onPickAttachments} disabled={isUploading} style={styles.attachButton}>
-              <Paperclip size={22} color="#94A3B8" />
+              <Paperclip size={18} color="#94A3B8" />
             </TouchableOpacity>
             <TouchableOpacity onPress={onTakePhoto} disabled={isUploading} style={styles.attachButton}>
-              <Camera size={22} color="#94A3B8" />
+              <Camera size={18} color="#94A3B8" />
             </TouchableOpacity>
             <TouchableOpacity onPress={onShareLocation} disabled={isUploading} style={styles.attachButton}>
-              <MapPin size={22} color="#94A3B8" />
+              <MapPin size={18} color="#94A3B8" />
             </TouchableOpacity>
             <TextInput
               style={styles.input}
@@ -85,7 +87,7 @@ export function ChatComposer({
                 colors={['#EF4444', '#991B1B']}
                 style={[styles.sendButton, sendDisabled && styles.sendButtonDisabled]}
               >
-                {isUploading ? <Spinner color="white" size="small" /> : <Send size={18} color="white" />}
+                {isUploading ? <Spinner className="text-white" size="small" /> : <Send size={18} color="white" />}
               </LinearGradient>
             </TouchableOpacity>
           </HStack>

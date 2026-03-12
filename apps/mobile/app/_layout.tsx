@@ -50,7 +50,7 @@ function AppContent() {
 
 export default function RootLayout() {
   return (
-    <GluestackUIProvider mode="dark">
+    <GluestackUIProvider>
       <Providers>
         <AuthProvider>
           <AppContent />

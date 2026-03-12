@@ -1,6 +1,9 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { VStack, Heading, Text, HStack } from '@gluestack-ui/themed';
+import { VStack } from '@/components/ui/vstack';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { HStack } from '@/components/ui/hstack';
 import { BlurView } from 'expo-blur';
 
 type ChatHeaderProps = {
@@ -12,18 +15,18 @@ type ChatHeaderProps = {
 export function ChatHeader({ topInset, title, statusText }: ChatHeaderProps) {
   return (
     <BlurView intensity={40} tint="dark" style={{ paddingTop: topInset }}>
-      <HStack px="$4" py="$3" alignItems="center" justifyContent="space-between">
-        <HStack space="md" alignItems="center">
+      <HStack className="px-4 py-3 items-center justify-between">
+        <HStack space="md" className="items-center">
           <View style={styles.headerLogo}>
             <Text style={styles.headerLogoText}>E</Text>
           </View>
           <VStack>
-            <Heading size="md" color="white">
+            <Heading size="md" className="text-white">
               {title}
             </Heading>
-            <HStack space="xs" alignItems="center">
+            <HStack space="xs" className="items-center">
               <View style={styles.statusDot} />
-              <Text size="xs" color="$emerald500" bold>
+              <Text size="xs" className="text-emerald-500 font-bold">
                 {statusText}
               </Text>
             </HStack>

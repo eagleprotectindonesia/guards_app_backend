@@ -4,17 +4,14 @@ import {
   AlertDialogBackdrop,
   AlertDialogContent,
   AlertDialogHeader,
-  AlertDialogCloseButton,
   AlertDialogFooter,
   AlertDialogBody,
-  Heading,
-  Text,
-  Button,
-  ButtonText,
-  Icon,
-  CloseIcon,
-  HStack,
-} from '@gluestack-ui/themed';
+} from '@/components/ui/alert-dialog';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { Button, ButtonText } from '@/components/ui/button';
+import { Icon, CloseIcon } from '@/components/ui/icon';
+import { HStack } from '@/components/ui/hstack';
 import { AlertTriangle, CheckCircle2, Info } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
 
@@ -100,40 +97,25 @@ export const AlertProvider = ({ children }: { children: React.ReactNode }) => {
       <AlertDialog
         isOpen={isOpen}
         onClose={options.cancelable === false ? () => {} : handleClose}
-        initialFocusRef={initialFocusRef}
+        finalFocusRef={initialFocusRef}
       >
         <AlertDialogBackdrop />
-        <AlertDialogContent
-          bg="$backgroundDark900"
-          borderColor="$borderDark700"
-          borderWidth={1}
-          rounded="$2xl"
-          sx={{
-            _web: {
-              boxShadow: '0 0 20px rgba(0,0,0,0.5)',
-            },
-          }}
-        >
-          <AlertDialogHeader borderBottomWidth={0} justifyContent="space-between">
-            <HStack space="md" alignItems="center">
+        <AlertDialogContent className="bg-background-950 border-outline-800 rounded-2xl">
+          <AlertDialogHeader className="border-b-0 justify-between">
+            <HStack space="md" className="items-center">
               {options.icon && getIcon()}
-              <Heading size="md" color="$white">
+              <Heading size="md" className="text-typography-0">
                 {title}
               </Heading>
             </HStack>
-            {!options.cancelable && options.cancelable !== undefined ? null : (
-              <AlertDialogCloseButton onPress={handleClose}>
-                <Icon as={CloseIcon} color="$textDark400" />
-              </AlertDialogCloseButton>
-            )}
           </AlertDialogHeader>
-          <AlertDialogBody mt="$2" mb="$4">
-            <Text size="sm" color="$textDark300">
+          <AlertDialogBody className="mt-2 mb-4">
+            <Text size="sm" className="text-typography-400">
               {message}
             </Text>
           </AlertDialogBody>
-          <AlertDialogFooter borderTopWidth={0}>
-            <HStack space="md" flexWrap="wrap" justifyContent="flex-end">
+          <AlertDialogFooter className="border-t-0">
+            <HStack space="md" className="flex-wrap justify-end">
               {buttons.map((btn, index) => {
                 const isDestructive = btn.style === 'destructive';
                 const isCancel = btn.style === 'cancel';
@@ -148,9 +130,9 @@ export const AlertProvider = ({ children }: { children: React.ReactNode }) => {
                         setIsOpen(false);
                         if (btn.onPress) btn.onPress();
                       }}
-                      borderColor="$borderDark700"
+                      className="border-outline-700"
                     >
-                      <ButtonText color="$textDark300">{btn.text}</ButtonText>
+                      <ButtonText className="text-typography-400">{btn.text}</ButtonText>
                     </Button>
                   );
                 }
@@ -164,14 +146,9 @@ export const AlertProvider = ({ children }: { children: React.ReactNode }) => {
                       setIsOpen(false);
                       if (btn.onPress) btn.onPress();
                     }}
-                    bg={isDestructive ? '$red600' : '$blue600'}
-                    sx={{
-                      ':active': {
-                        bg: isDestructive ? '$red700' : '$blue700',
-                      },
-                    }}
+                    className={isDestructive ? 'bg-error-600' : 'bg-brand-600'}
                   >
-                    <ButtonText color="$white">{btn.text}</ButtonText>
+                    <ButtonText className="text-typography-0">{btn.text}</ButtonText>
                   </Button>
                 );
               })}

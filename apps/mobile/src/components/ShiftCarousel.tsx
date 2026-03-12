@@ -1,6 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { ScrollView, Dimensions, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
-import { Box, VStack, Text, HStack } from '@gluestack-ui/themed';
+import { Box } from '@/components/ui/box';
+import { VStack } from '@/components/ui/vstack';
+import { Text } from '@/components/ui/text';
+import { HStack } from '@/components/ui/hstack';
 import { format } from 'date-fns';
 import { id, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
@@ -37,66 +40,33 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
     return (
       <Box
         key={shift.id}
-        w={CARD_WIDTH}
-        mr="$4"
-        rounded="$3xl"
-        overflow="hidden"
-        bg="$backgroundDark900"
-        borderColor="$borderDark800"
-        borderWidth={1}
-        position="relative"
+        className="rounded-[32px] overflow-hidden bg-background-900 border border-outline-800 relative"
+        style={{ width: CARD_WIDTH, marginRight: 16 }}
       >
         {/* Red Glow Effect */}
         <Box
-          position="absolute"
-          top={0}
-          right={0}
-          w={128}
-          h={128}
-          bg="$red500"
-          opacity={0.03}
-          rounded="$full"
-          sx={{
-            '@base': {
-              _transform: [{ translateX: 30 }, { translateY: -30 }],
-            },
-          }}
+          className="absolute -top-7.5 -right-7.5 w-32 h-32 bg-brand-500 opacity-[0.03] rounded-full"
+          style={{ transform: [{ translateX: 30 }, { translateY: -30 }] }}
         />
 
         {/* Left Border Gradient Effect (Mocked with Box) */}
-        <Box position="absolute" left={0} top={0} bottom={0} w={2} bg="$red600" opacity={0.5} />
+        <Box className="absolute left-0 top-0 bottom-0 w-[2px] bg-brand-600 opacity-50" />
 
-        <Box p="$6">
+        <Box className="p-6">
           {/* Header */}
-          <HStack justifyContent="space-between" alignItems="center" mb="$6">
-            <HStack space="md" alignItems="center">
-              <Box
-                w="$8"
-                h="$8"
-                rounded="$xl"
-                bg="$backgroundDark800"
-                alignItems="center"
-                justifyContent="center"
-                borderColor="$borderDark700"
-                borderWidth={1}
-              >
+          <HStack className="justify-between items-center mb-6">
+            <HStack space="md" className="items-center">
+              <Box className="w-8 h-8 rounded-xl bg-background-800 items-center justify-center border border-outline-700">
                 <CalendarCheck size={16} color="#D92323" />
               </Box>
               <VStack>
-                <Text color="$white" fontWeight="$medium" size="sm">
+                <Text size="sm" className="text-white font-medium">
                   {t('shift.currentTitle')}
                 </Text>
               </VStack>
             </HStack>
-            <Box
-              bg="rgba(217, 35, 35, 0.15)"
-              borderColor="rgba(217, 35, 35, 0.3)"
-              borderWidth={1}
-              px="$3"
-              py="$1.5"
-              rounded="$full"
-            >
-              <Text color="$red500" size="sm" fontWeight="$extrabold" textTransform="uppercase" letterSpacing={2}>
+            <Box className="bg-brand-500/15 border border-brand-500/30 px-3 py-1.5 rounded-full">
+              <Text size="sm" className="text-brand-500 font-extrabold uppercase tracking-[2px]">
                 {t('shift.activeStatus')}
               </Text>
             </Box>
@@ -104,64 +74,43 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
 
           {/* Details */}
           <VStack space="md">
-            <HStack space="md" alignItems="center">
-              <Box flex={1}>
-                <Text
-                  color="$textDark500"
-                  size="xs"
-                  textTransform="uppercase"
-                  letterSpacing={1.5}
-                  mb="$1.5"
-                  fontWeight="$semibold"
-                >
+            <HStack space="md" className="items-center">
+              <Box className="flex-1">
+                <Text size="xs" className="text-typography-500 uppercase tracking-[1.5px] mb-1.5 font-semibold">
                   {t('shift.station')}
                 </Text>
-                <HStack space="xs" alignItems="center">
+                <HStack space="xs" className="items-center">
                   <MapPin size={14} color="#D92323" />
-                  <Text color="$textDark200" size="md" fontWeight="$medium">
+                  <Text size="md" className="text-typography-200 font-medium">
                     {shift.site?.name || t('shift.defaultLocation')}
                   </Text>
                 </HStack>
               </Box>
-              <Box flex={1} alignItems="flex-end">
-                <Text
-                  color="$textDark500"
-                  size="xs"
-                  textTransform="uppercase"
-                  letterSpacing={1.5}
-                  mb="$1.5"
-                  fontWeight="$semibold"
-                >
+              <Box className="flex-1 items-flex-end">
+                <Text size="xs" className="text-typography-500 uppercase tracking-[1.5px] mb-1.5 font-semibold">
                   {t('shift.timeframe')}
                 </Text>
-                <Text color="$white" size="md" fontWeight="$medium" letterSpacing={0.5}>
+                <Text size="md" className="text-white font-medium tracking-[0.5px]">
                   {format(new Date(shift.startsAt), 'HH:mm', { locale: dateLocale })} —{' '}
                   {format(new Date(shift.endsAt), 'HH:mm', { locale: dateLocale })}
                 </Text>
               </Box>
             </HStack>
 
-            <Box h={1} w="$full" bg="$white" opacity={0.1} />
+            <Box className="h-[1px] w-full bg-white opacity-10" />
 
-            <HStack justifyContent="space-between" alignItems="center">
-              <HStack space="sm" alignItems="center">
-                <Box w={8} h={8} position="relative" alignItems="center" justifyContent="center">
-                  <Box position="absolute" w={8} h={8} rounded="$full" bg="$green400" opacity={0.75} />
-                  <Box w={8} h={8} rounded="$full" bg="$green500" />
+            <HStack className="justify-between items-center">
+              <HStack space="sm" className="items-center">
+                <Box className="w-2 h-2 relative items-center justify-center">
+                  <Box className="absolute w-2 h-2 rounded-full bg-success-400 opacity-75" />
+                  <Box className="w-2 h-2 rounded-full bg-success-500" />
                 </Box>
-                <Text color="$textDark400" size="sm" fontWeight="$medium">
+                <Text size="sm" className="text-typography-400 font-medium">
                   {shift.shiftType?.name || 'Main Rotation'}
                 </Text>
               </HStack>
-              <Box
-                bg="rgba(255, 255, 255, 0.05)"
-                borderColor="rgba(255, 255, 255, 0.05)"
-                borderWidth={1}
-                px="$3"
-                py="$1"
-                rounded="$md"
-              >
-                <Text color="$textDark300" size="sm" fontWeight="$bold" textTransform="uppercase">
+              <Box className="bg-white/5 border border-white/5 px-3 py-1 rounded-md">
+                <Text size="sm" className="text-typography-300 font-bold uppercase">
                   {format(new Date(shift.startsAt), 'dd MMM', { locale: dateLocale })}
                 </Text>
               </Box>
@@ -176,32 +125,17 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
     return (
       <Box
         key={shift.id}
-        w={CARD_WIDTH}
-        ml="$4"
-        rounded="$3xl"
-        overflow="hidden"
-        bg="rgba(0,0,0,0.2)"
-        borderColor="rgba(255,255,255,0.05)"
-        borderWidth={1}
-        opacity={0.7}
+        className="rounded-[32px] overflow-hidden bg-black/20 border border-white/5 opacity-70"
+        style={{ width: CARD_WIDTH, marginLeft: 16 }}
       >
-        <Box p="$6">
-          <HStack justifyContent="space-between" alignItems="center" mb="$6">
-            <HStack space="md" alignItems="center">
-              <Box
-                w="$10"
-                h="$10"
-                rounded="$xl"
-                bg="rgba(255,255,255,0.05)"
-                alignItems="center"
-                justifyContent="center"
-                borderColor="rgba(255,255,255,0.05)"
-                borderWidth={1}
-              >
+        <Box className="p-6">
+          <HStack className="justify-between items-center mb-6">
+            <HStack space="md" className="items-center">
+              <Box className="w-10 h-10 rounded-xl bg-white/5 items-center justify-center border border-white/5">
                 <CalendarClock size={20} color="#737373" />
               </Box>
               <VStack>
-                <Text color="$textDark300" fontWeight="$semibold" size="md">
+                <Text size="md" className="text-typography-300 font-semibold">
                   {t('shift.upcomingTitle')}
                 </Text>
               </VStack>
@@ -221,42 +155,42 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
           </HStack>
 
           <VStack space="md">
-            <HStack space="md" alignItems="center">
-              <Box flex={1}>
-                <Text color="$textDark600" size="xs" textTransform="uppercase" letterSpacing={1.5} mb="$1">
+            <HStack space="md" className="items-center">
+              <Box className="flex-1">
+                <Text size="xs" className="text-typography-600 uppercase tracking-[1.5px] mb-1">
                   {t('shift.station')}
                 </Text>
-                <HStack space="xs" alignItems="center">
+                <HStack space="xs" className="items-center">
                   <MapPin size={14} color="#525252" />
-                  <Text color="$textDark500" size="md" fontWeight="$medium">
+                  <Text size="md" className="text-typography-500 font-medium">
                     {shift.site?.name || t('shift.defaultLocation')}
                   </Text>
                 </HStack>
               </Box>
-              <Box flex={1} alignItems="flex-end">
-                <Text color="$textDark600" size="xs" textTransform="uppercase" letterSpacing={1.5} mb="$1">
+              <Box className="flex-1 items-flex-end">
+                <Text size="xs" className="text-typography-600 uppercase tracking-[1.5px] mb-1">
                   {t('shift.timeframe')}
                 </Text>
-                <Text color="$textDark300" size="md" fontWeight="$medium" letterSpacing={0.5}>
+                <Text size="md" className="text-typography-300 font-medium tracking-[0.5px]">
                   {format(new Date(shift.startsAt), 'HH:mm', { locale: dateLocale })} —{' '}
                   {format(new Date(shift.endsAt), 'HH:mm', { locale: dateLocale })}
                 </Text>
               </Box>
             </HStack>
 
-            <Box h={1} w="$full" bg="rgba(255,255,255,0.05)" />
+            <Box className="h-[1px] w-full bg-white/5" />
 
-            <HStack justifyContent="space-between" alignItems="center">
-              <HStack space="sm" alignItems="center">
-                <Box w={8} h={8} position="relative" alignItems="center" justifyContent="center">
-                  <Box position="absolute" w={6} h={6} rounded="$full" bg="$blueGray600" opacity={0.5} />
+            <HStack className="justify-between items-center">
+              <HStack space="sm" className="items-center">
+                <Box className="w-2 h-2 relative items-center justify-center">
+                  <Box className="absolute w-1.5 h-1.5 rounded-full bg-slate-600 opacity-50" />
                 </Box>
-                <Text color="$textDark400" size="sm" fontWeight="$medium">
+                <Text size="sm" className="text-typography-400 font-medium">
                   {shift.shiftType?.name || 'Main Rotation'}
                 </Text>
               </HStack>
 
-              <Text color="$textDark500" size="sm" fontWeight="$bold" textTransform="uppercase">
+              <Text size="sm" className="text-typography-500 font-bold uppercase">
                 {format(new Date(shift.startsAt), 'dd MMM yyyy', { locale: dateLocale })}
               </Text>
             </HStack>
@@ -290,18 +224,14 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
       </ScrollView>
 
       {totalShifts > 1 && (
-        <HStack space="xs" justifyContent="center" mt="$4">
+        <HStack space="xs" className="justify-center mt-4">
           {Array.from({ length: totalShifts }).map((_, i) => (
             <Box
               key={i}
-              w={6}
-              h={6}
-              rounded="$full"
-              bg={i === activeIndex ? '$red500' : 'rgba(255,255,255,0.1)'}
-              sx={{
-                _web: {
-                  boxShadow: i === activeIndex ? '0 0 8px rgba(217, 35, 35, 0.4)' : 'none',
-                },
+              className={`w-1.5 h-1.5 rounded-full ${i === activeIndex ? 'bg-brand-500' : 'bg-white/10'}`}
+              style={{
+                // @ts-ignore
+                boxShadow: i === activeIndex ? '0 0 8px rgba(217, 35, 35, 0.4)' : 'none',
               }}
             />
           ))}

@@ -6,23 +6,15 @@ import {
   ModalHeader,
   ModalCloseButton,
   ModalBody,
-  Heading,
-  Icon,
-  CloseIcon,
-  Button,
-  ButtonText,
-  VStack,
-  FormControl,
-  FormControlLabel,
-  FormControlLabelText,
-  Input,
-  InputField,
-  InputSlot,
-  InputIcon,
-  ButtonSpinner,
-  Text,
-  Box,
-} from '@gluestack-ui/themed';
+} from '@/components/ui/modal';
+import { Heading } from '@/components/ui/heading';
+import { Icon, CloseIcon } from '@/components/ui/icon';
+import { Button, ButtonText, ButtonSpinner } from '@/components/ui/button';
+import { VStack } from '@/components/ui/vstack';
+import { FormControl, FormControlLabel, FormControlLabelText } from '@/components/ui/form-control';
+import { Input, InputField, InputSlot, InputIcon } from '@/components/ui/input';
+import { Text } from '@/components/ui/text';
+import { Box } from '@/components/ui/box';
 import { Eye, EyeOff, Lock, Check, ShieldCheck } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
 import { Platform } from 'react-native';
@@ -65,36 +57,25 @@ export default function PasswordConfirmationModal({ isOpen, onClose, onConfirm }
 
   return (
     <Modal isOpen={isOpen} onClose={onClose}>
-      <ModalBackdrop bg="$backgroundDark950" opacity={0.8} />
+      <ModalBackdrop className="bg-background-950 opacity-80" />
       <ModalContent
-        bg="transparent"
-        p="$0"
-        w="$full"
-        maxWidth={Platform.OS === 'web' ? 440 : '$full'}
-        m="$4"
-        rounded="$2xl"
-        sx={{
-          _web: {
-            boxShadow: `0 0 20px rgba(236, 91, 19, 0.2)`,
-            backdropFilter: 'blur(12px)',
-          },
+        className="bg-transparent p-0 w-full m-4 rounded-2xl"
+        style={{
+          maxWidth: Platform.OS === 'web' ? 440 : undefined,
+          // @ts-ignore
+          boxShadow: `0 0 20px rgba(236, 91, 19, 0.2)`,
         }}
       >
         {/* Neon Border Effect */}
         <Box
-          position="absolute"
-          top={-2}
-          bottom={-2}
-          left={-2}
-          right={-2}
-          rounded="$2xl"
-          opacity={0.5}
-          sx={{
-            _web: {
-              background: `linear-gradient(45deg, ${PRIMARY_COLOR}, ${PRIMARY_DARK}, ${PRIMARY_COLOR})`,
-              filter: 'blur(4px)',
-              zIndex: -1,
-            },
+          className="absolute -top-[2px] -bottom-[2px] -left-[2px] -right-[2px] rounded-2xl opacity-50"
+          style={{
+            // @ts-ignore
+            zIndex: -1,
+            // @ts-ignore
+            background: `linear-gradient(45deg, ${PRIMARY_COLOR}, ${PRIMARY_DARK}, ${PRIMARY_COLOR})`,
+            // @ts-ignore
+            filter: 'blur(4px)',
           }}
         />
 
@@ -111,75 +92,61 @@ export default function PasswordConfirmationModal({ isOpen, onClose, onConfirm }
           }}
         >
           {/* Header Section */}
-          <ModalHeader borderBottomWidth={0} p="$0" mb="$6" justifyContent="space-between" alignItems="flex-start">
+          <ModalHeader className="border-b-0 p-0 mb-6 justify-between items-start">
             <VStack>
-              <Heading size="lg" color="$white" fontWeight="$bold">
+              <Heading size="lg" className="text-white font-bold">
                 {t('passwordConfirmation.title')}
               </Heading>
-              <Text size="sm" color="$textDark400" mt="$1">
+              <Text size="sm" className="text-typography-400 mt-1">
                 {t('passwordConfirmation.description')}
               </Text>
             </VStack>
-            <ModalCloseButton onPress={onClose} p="$1">
-              <Icon as={CloseIcon} color="$textDark400" size="sm" />
+            <ModalCloseButton onPress={onClose} className="p-1">
+              <Icon as={CloseIcon} className="text-typography-400" size="sm" />
             </ModalCloseButton>
           </ModalHeader>
 
-          <ModalBody p="$0" mb="$6">
+          <ModalBody className="p-0 mb-6">
             <VStack space="lg">
               <FormControl isInvalid={!!error}>
-                <FormControlLabel mb="$1">
+                <FormControlLabel className="mb-1">
                   <FormControlLabelText
-                    color="$textDark400"
+                    className="text-typography-400 uppercase font-semibold tracking-[1px]"
                     size="xs"
-                    textTransform="uppercase"
-                    fontWeight="$semibold"
-                    letterSpacing={1}
                   >
                     {t('passwordConfirmation.passwordLabel')}
                   </FormControlLabelText>
                 </FormControlLabel>
-                <Box position="relative">
+                <Box className="relative">
                   <Input
                     variant="outline"
                     size="xl"
-                    isDisabled={false}
                     isInvalid={!!error}
-                    isReadOnly={false}
-                    borderColor="rgba(255,255,255,0.1)"
-                    bg="rgba(0,0,0,0.4)"
-                    h={54}
-                    rounded="$lg"
-                    borderWidth={1}
-                    pl="$10"
-                    $focus-borderColor={PRIMARY_COLOR}
-                    $focus-borderWidth={1}
+                    className="border-white/10 bg-black/40 h-[54px] rounded-lg border pl-10"
                   >
-                    <Box position="absolute" left={12} top={15} zIndex={1}>
-                      <Icon as={Lock} color="$textDark500" size="md" />
+                    <Box className="absolute left-3 top-[15px] z-10">
+                      <Icon as={Lock} className="text-typography-500" size="md" />
                     </Box>
                     <InputField
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChangeText={setPassword}
                       placeholder={t('passwordConfirmation.passwordPlaceholder')}
-                      color="$white"
+                      className="text-white pl-0 text-md"
                       placeholderTextColor="rgba(255,255,255,0.2)"
-                      fontSize="$md"
-                      pl="$0"
                       onSubmitEditing={handleConfirm}
                       returnKeyType="done"
                     />
-                    <InputSlot pr="$3" onPress={() => setShowPassword(!showPassword)}>
-                      <InputIcon as={showPassword ? Eye : EyeOff} color="$textDark400" />
+                    <InputSlot className="pr-3" onPress={() => setShowPassword(!showPassword)}>
+                      <InputIcon as={showPassword ? Eye : EyeOff} className="text-typography-400" />
                     </InputSlot>
                   </Input>
                 </Box>
-                {error && (
-                  <Text size="xs" color="$red400" mt="$1">
+                {error ? (
+                  <Text size="xs" className="text-error-400 mt-1">
                     {error}
                   </Text>
-                )}
+                ) : null}
               </FormControl>
             </VStack>
           </ModalBody>
@@ -190,24 +157,20 @@ export default function PasswordConfirmationModal({ isOpen, onClose, onConfirm }
               action="primary"
               onPress={handleConfirm}
               isDisabled={isPending}
-              bg={PRIMARY_COLOR}
               size="xl"
-              h={56}
-              rounded="$lg"
-              $active-bg={PRIMARY_DARK}
-              $active-transform={[{ scale: 0.98 }]}
-              sx={{
-                _web: {
-                  boxShadow: `0 4px 14px 0 rgba(236, 91, 19, 0.39)`,
-                },
+              className="h-14 rounded-lg"
+              style={{
+                backgroundColor: PRIMARY_COLOR,
+                // @ts-ignore
+                boxShadow: `0 4px 14px 0 rgba(236, 91, 19, 0.39)`,
               }}
             >
               {isPending ? (
-                <ButtonSpinner mr="$2" color="$white" />
+                <ButtonSpinner className="mr-2 text-white" />
               ) : (
-                <Icon as={Check} color="$white" mr="$2" size="sm" />
+                <Icon as={Check} className="text-white mr-2" size="sm" />
               )}
-              <ButtonText color="$white" fontWeight="$bold" fontSize="$md">
+              <ButtonText className="text-white font-bold" size="md">
                 {t('common.confirm')}
               </ButtonText>
             </Button>
@@ -217,23 +180,19 @@ export default function PasswordConfirmationModal({ isOpen, onClose, onConfirm }
               action="secondary"
               onPress={onClose}
               isDisabled={isPending}
-              borderColor="rgba(255,255,255,0.1)"
-              bg="transparent"
               size="xl"
-              h={50}
-              rounded="$lg"
-              $hover-bg="rgba(255,255,255,0.05)"
+              className="h-[50px] rounded-lg border-white/10 bg-transparent"
             >
-              <ButtonText color="rgba(255,255,255,0.7)" fontWeight="$medium" fontSize="$md">
+              <ButtonText className="text-white/70 font-medium" size="md">
                 {t('common.cancel')}
               </ButtonText>
             </Button>
           </VStack>
 
           {/* Footer Note */}
-          <Box mt="$6" pt="$4" borderTopWidth={1} borderTopColor="rgba(255,255,255,0.05)" alignItems="center">
-            <Text size="xs" color="rgba(255,255,255,0.3)" display="flex" alignItems="center">
-              <Icon as={ShieldCheck} color="rgba(255,255,255,0.3)" size="xs" mr="$1" />
+          <Box className="mt-6 pt-4 border-t border-white/5 items-center">
+            <Text size="xs" className="text-white/30 flex-row items-center">
+              <Icon as={ShieldCheck} className="text-white/30 mr-1" size="xs" />
               Safe & Secure
             </Text>
           </Box>

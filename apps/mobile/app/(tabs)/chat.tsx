@@ -2,7 +2,9 @@ import React, { useCallback, useRef, useState } from 'react';
 import { FlatList, Platform, StyleSheet, View, ViewToken } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import ImageView from 'react-native-image-viewing';
-import { Text, Spinner, Center } from '@gluestack-ui/themed';
+import { Text } from '@/components/ui/text';
+import { Spinner } from '@/components/ui/spinner';
+import { Center } from '@/components/ui/center';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -223,7 +225,7 @@ export default function ChatScreen() {
 
   if (isLoading && messages.length === 0) {
     return (
-      <Center flex={1}>
+      <Center className="flex-1">
         <Spinner size="large" />
       </Center>
     );

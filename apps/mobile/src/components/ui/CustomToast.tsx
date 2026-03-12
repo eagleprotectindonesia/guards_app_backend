@@ -1,5 +1,8 @@
 import React from 'react';
-import { Toast, ToastTitle, ToastDescription, VStack, HStack, Icon } from '@gluestack-ui/themed';
+import { Toast, ToastTitle, ToastDescription } from '@/components/ui/toast';
+import { VStack } from '@/components/ui/vstack';
+import { HStack } from '@/components/ui/hstack';
+import { Icon } from '@/components/ui/icon';
 import { CheckCircle2, AlertTriangle, Info, X } from 'lucide-react-native';
 import { TouchableOpacity } from 'react-native';
 
@@ -15,72 +18,53 @@ export const CustomToast = ({ id, status = 'info', title, description, onClose }
   const getIcon = () => {
     switch (status) {
       case 'success':
-        return <Icon as={CheckCircle2} size="md" color="$green500" mt="$1" />;
+        return <Icon as={CheckCircle2} className="text-success-500 mt-1" />;
       case 'error':
-        return <Icon as={AlertTriangle} size="md" color="$red500" mt="$1" />;
+        return <Icon as={AlertTriangle} className="text-error-500 mt-1" />;
       case 'warning':
-        return <Icon as={AlertTriangle} size="md" color="$amber500" mt="$1" />;
+        return <Icon as={AlertTriangle} className="text-warning-500 mt-1" />;
       case 'info':
       default:
-        return <Icon as={Info} size="md" color="$blue500" mt="$1" />;
+        return <Icon as={Info} className="text-info-500 mt-1" />;
     }
   };
 
-  const getBorderColor = () => {
+  const getBorderClass = () => {
     switch (status) {
       case 'success':
-        return '$green500';
+        return 'border-success-500';
       case 'error':
-        return '$red500';
+        return 'border-error-500';
       case 'warning':
-        return '$amber500';
+        return 'border-warning-500';
       case 'info':
       default:
-        return '$blue500';
+        return 'border-info-500';
     }
-  };
-
-  const getBgColor = () => {
-    // Using a dark background with slight tint based on status
-    return '$backgroundDark900';
   };
 
   return (
     <Toast
       nativeID={`toast-${id}`}
-      action={status}
+      action={status === 'error' ? 'error' : status === 'warning' ? 'warning' : status === 'success' ? 'success' : 'info'}
       variant="outline"
-      bg={getBgColor()}
-      borderColor={getBorderColor()}
-      borderWidth={1}
-      rounded="$xl"
-      p="$4"
-      minWidth="$80"
-      maxWidth="$96"
-      alignSelf="center"
-      mt="$12"
-      mx="$4"
-      sx={{
-        _web: {
-          boxShadow: '0 10px 30px -10px rgba(0,0,0,0.5)',
-        },
-      }}
+      className={`${getBorderClass()} border bg-background-950 rounded-xl p-4 min-w-[320px] max-w-[384px] self-center mt-12 mx-4 shadow-xl`}
     >
-      <HStack space="md" alignItems="flex-start" flex={1}>
+      <HStack space="md" className="items-start flex-1">
         {getIcon()}
-        <VStack space="xs" flex={1}>
-          <ToastTitle color="$textLight50" fontWeight="$bold">
+        <VStack space="xs" className="flex-1">
+          <ToastTitle className="text-typography-50 font-bold">
             {title}
           </ToastTitle>
           {description && (
-            <ToastDescription color="$textLight200" size="sm">
+            <ToastDescription size="sm" className="text-typography-200">
               {description}
             </ToastDescription>
           )}
         </VStack>
         {onClose && (
           <TouchableOpacity onPress={onClose}>
-            <Icon as={X} size="sm" color="$textLight400" />
+            <Icon as={X} size="sm" className="text-typography-400" />
           </TouchableOpacity>
         )}
       </HStack>
