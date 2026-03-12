@@ -7,7 +7,7 @@ import { getRedisConnection } from './redis';
 export function createQueue<T = any, R = any, N extends string = string>(
   name: string,
   options?: Omit<QueueOptions, 'connection'>
-): Queue<T, R, N> {
+) {
   const connection = getRedisConnection();
   return new Queue<T, R, N>(name, {
     ...options,
@@ -22,7 +22,7 @@ export function createWorker<T = any, R = any, N extends string = string>(
   name: string,
   processor: Processor<T, R, N>,
   options?: Omit<WorkerOptions, 'connection'>
-): Worker<T, R, N> {
+) {
   const connection = getRedisConnection();
   const worker = new Worker<T, R, N>(name, processor, {
     ...options,

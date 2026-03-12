@@ -12,7 +12,10 @@
   "dependencies": {
     "@prisma/adapter-pg": "^7.4.0",
     "@prisma/client": "^7.4.0",
+    "@repo/shared": "workspace:*",
+    "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
+    "ioredis": "5.9.3",
     "pg": "^8.18.0"
   },
   "devDependencies": {

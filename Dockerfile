@@ -5,8 +5,8 @@ ENV PATH=$PNPM_HOME:$PATH
 WORKDIR /app
 RUN apk add --no-cache libc6-compat && \
     corepack enable && \
-    corepack prepare pnpm@10.17.1 --activate && \
-    npm install -g turbo@latest
+    corepack prepare pnpm@10.32.1 --activate && \
+    pnpm add -g turbo@latest
 
 # 1. Prune the monorepo for each service
 FROM base AS pruner
@@ -117,11 +117,13 @@ ENV NODE_ENV=production \
 RUN apk add --no-cache libc6-compat
 
 # Install migration dependencies
-RUN npm install --production --no-save prisma tsx dotenv
+RUN corepack enable && \
+    corepack prepare pnpm@10.32.1 --activate && \
+    pnpm add --prod prisma tsx dotenv
 
 # Copy migration files
 COPY packages/database/prisma ./prisma
 COPY packages/database/prisma.config.ts ./prisma.config.ts
 COPY packages/database/package.json ./package.json
 
-CMD ["npx", "prisma", "migrate", "deploy"]
+CMD ["pnpm", "exec", "prisma", "migrate", "deploy"]

@@ -1,4 +1,5 @@
 import { OpenAPIRegistry, OpenApiGeneratorV3, extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
+import type { OpenAPIObject } from 'openapi3-ts/oas30';
 import { z } from 'zod';
 
 extendZodWithOpenApi(z);
@@ -208,7 +209,7 @@ registry.registerPath({
   },
 });
 
-export function getOpenApiSpec() {
+export function getOpenApiSpec(): OpenAPIObject {
   const generator = new OpenApiGeneratorV3(registry.definitions);
 
   return generator.generateDocument({
