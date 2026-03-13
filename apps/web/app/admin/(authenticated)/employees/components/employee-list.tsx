@@ -189,7 +189,7 @@ export default function EmployeeList({
                   No.
                 </th>
                 <SortableHeader
-                  label="Employee No"
+                  label="Employee ID"
                   field="employeeNumber"
                   currentSortBy={sortBy}
                   currentSortOrder={sortOrder}

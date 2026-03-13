@@ -4,7 +4,7 @@ import AttendanceTabs from './components/attendance-tabs';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
-import { getAllEmployees } from '@/lib/data-access/employees';
+import { getActiveEmployeesSummary } from '@/lib/data-access/employees';
 import { getPaginatedAttendance } from '@/lib/data-access/attendance';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
@@ -54,7 +54,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
       skip,
       take: perPage,
     }),
-    getAllEmployees({ orderBy: { fullName: 'asc' }, includeDeleted: true }),
+    getActiveEmployeesSummary(),
   ]);
 
   const serializedAttendances: SerializedAttendanceWithRelationsDto[] = attendances.map(att => ({
@@ -80,6 +80,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
       ? {
           id: att.employee.id,
           fullName: att.employee.fullName,
+          employeeNumber: att.employee.employeeNumber,
         }
       : null,
   }));
@@ -87,6 +88,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
   const serializedEmployees: AttendanceEmployeeSummary[] = employees.map(emp => ({
     id: emp.id,
     fullName: emp.fullName,
+    employeeNumber: emp.employeeNumber,
   }));
 
   const initialFilters = {

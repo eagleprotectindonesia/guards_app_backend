@@ -9,6 +9,7 @@ export type AttendanceMetadataDto = {
 export type AttendanceEmployeeSummary = {
   id: string;
   fullName: string;
+  employeeNumber: string | null;
 };
 
 export type AttendanceWithRelationsDto = {
