@@ -1,13 +1,6 @@
 import React, { useState } from 'react';
 import { useCustomToast } from '../hooks/useCustomToast';
-import {
-  Modal,
-  ModalBackdrop,
-  ModalContent,
-  ModalHeader,
-  ModalCloseButton,
-  ModalBody,
-} from '@/components/ui/modal';
+import { Modal, ModalBackdrop, ModalContent, ModalHeader, ModalCloseButton, ModalBody } from '@/components/ui/modal';
 import { Heading } from '@/components/ui/heading';
 import { Icon, CloseIcon } from '@/components/ui/icon';
 import { Button, ButtonText, ButtonSpinner } from '@/components/ui/button';
@@ -30,6 +23,12 @@ type PasswordChangeModalProps = {
   isForce?: boolean;
 };
 
+type PasswordChangeErrorData = {
+  code?: 'UNAUTHORIZED' | 'VALIDATION_ERROR' | 'INVALID_CURRENT_PASSWORD' | 'PASSWORD_REUSED' | 'INTERNAL_ERROR';
+  message?: string;
+  errors?: Record<string, string[]>;
+};
+
 export default function PasswordChangeModal({ isOpen, onClose, isForce }: PasswordChangeModalProps) {
   const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState('');
@@ -41,6 +40,22 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
   const [validationErrors, setValidationErrors] = useState<{ field: string; message: string }[]>([]);
   const toast = useCustomToast();
   const queryClient = useQueryClient();
+
+  const getTranslatedErrorMessage = (code?: PasswordChangeErrorData['code']) => {
+    console.log(code);
+
+    switch (code) {
+      case 'INVALID_CURRENT_PASSWORD':
+        return t('passwordChange.currentPasswordInvalid');
+      case 'PASSWORD_REUSED':
+        return t('passwordChange.recentPasswordReuse');
+      case 'VALIDATION_ERROR':
+      case 'INTERNAL_ERROR':
+      case 'UNAUTHORIZED':
+      default:
+        return t('passwordChange.failMessage');
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -57,16 +72,32 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
       onClose();
     },
     onError: (error: any) => {
-      const data = error.response?.data;
-      if (data?.errors) {
-        setValidationErrors(
-          data.errors.map((e: any) => ({
-            field: e.path?.[0] || 'unknown',
-            message: e.message,
-          }))
-        );
-      } else {
-        toast.error('Error', data?.message || t('passwordChange.failMessage'));
+      const data = error.response?.data as PasswordChangeErrorData | undefined;
+      console.log(data);
+
+      const translatedMessage = getTranslatedErrorMessage(data?.code);
+      const fieldErrors = data?.errors
+        ? Object.entries(data.errors)
+            .filter(([field, messages]) => field !== '_form' && Array.isArray(messages) && messages.length > 0)
+            .flatMap(([field]) => {
+              const message =
+                field === 'currentPassword'
+                  ? t('passwordChange.currentPasswordInvalid')
+                  : field === 'newPassword'
+                    ? t('passwordChange.recentPasswordReuse')
+                    : translatedMessage;
+
+              return [{ field, message }];
+            })
+        : [];
+      const formErrorMessage = data?.errors?._form?.[0];
+
+      if (fieldErrors.length > 0) {
+        setValidationErrors(fieldErrors);
+      }
+
+      if (fieldErrors.length === 0) {
+        toast.error(t('common.errorTitle', 'Error'), translatedMessage);
       }
     },
   });

@@ -8,11 +8,32 @@ const changePasswordSchema = z.object({
   newPassword: z.string().min(8, 'Kata sandi baru harus minimal 8 karakter'),
 });
 
+type PasswordChangeErrorResponse = {
+  success: false;
+  code: 'UNAUTHORIZED' | 'VALIDATION_ERROR' | 'INVALID_CURRENT_PASSWORD' | 'PASSWORD_REUSED' | 'INTERNAL_ERROR';
+  message: string;
+  errors?: Record<string, string[]>;
+};
+
+function errorResponse(
+  status: number,
+  payload: PasswordChangeErrorResponse
+) {
+  return NextResponse.json(payload, { status });
+}
+
 export async function POST(req: NextRequest) {
   const employee = await getAuthenticatedEmployee();
 
   if (!employee) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    return errorResponse(401, {
+      success: false,
+      code: 'UNAUTHORIZED',
+      message: 'Unauthorized',
+      errors: {
+        _form: ['Unauthorized'],
+      },
+    });
   }
 
   try {
@@ -27,36 +48,50 @@ export async function POST(req: NextRequest) {
       mustChangePassword: false,
     });
 
-    return NextResponse.json({ message: 'Kata sandi berhasil diperbarui!' });
+    return NextResponse.json({ success: true, message: 'Kata sandi berhasil diperbarui!' });
   } catch (error) {
     if (error instanceof EmployeePasswordPolicyError) {
-      const message =
-        error.field === 'currentPassword'
-          ? 'Kata sandi saat ini tidak valid'
-          : 'Kata sandi baru tidak boleh sama dengan 3 kata sandi terakhir';
+      const isCurrentPasswordError = error.field === 'currentPassword';
+      const message = isCurrentPasswordError
+        ? 'Kata sandi saat ini tidak valid'
+        : 'Kata sandi baru tidak boleh sama dengan 3 kata sandi terakhir';
 
-      return NextResponse.json(
-        {
-          message,
-          errors: [{ field: error.field, message }],
+      return errorResponse(400, {
+        success: false,
+        code: isCurrentPasswordError ? 'INVALID_CURRENT_PASSWORD' : 'PASSWORD_REUSED',
+        message,
+        errors: {
+          [isCurrentPasswordError ? 'currentPassword' : 'newPassword']: [message],
         },
-        { status: 400 }
-      );
+      });
     }
 
     if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          message: 'Gagal memvalidasi input',
-          errors: error.issues.map(issue => ({
-            field: issue.path[0] as string,
-            message: issue.message,
-          })),
-        },
-        { status: 400 }
-      );
+      const errors = error.issues.reduce<Record<string, string[]>>((acc, issue) => {
+        const field = String(issue.path[0] ?? '_form');
+        if (!acc[field]) {
+          acc[field] = [];
+        }
+        acc[field].push(issue.message);
+        return acc;
+      }, {});
+
+      return errorResponse(400, {
+        success: false,
+        code: 'VALIDATION_ERROR',
+        message: 'Gagal memvalidasi input',
+        errors,
+      });
     }
+
     console.error('Error changing employee password:', error);
-    return NextResponse.json({ message: 'Terjadi kesalahan internal' }, { status: 500 });
+    return errorResponse(500, {
+      success: false,
+      code: 'INTERNAL_ERROR',
+      message: 'Terjadi kesalahan internal',
+      errors: {
+        _form: ['Terjadi kesalahan internal'],
+      },
+    });
   }
 }

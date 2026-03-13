@@ -93,6 +93,7 @@
     "successMessage": "Kata sandi berhasil diperbarui!",
     "failMessage": "Gagal memperbarui kata sandi",
     "currentPasswordRequired": "Kata sandi saat ini wajib diisi",
+    "currentPasswordInvalid": "Kata sandi saat ini tidak valid",
     "newPasswordMinLength": "Kata sandi baru harus minimal 8 karakter",
     "title": "Ubah Kata Sandi",
     "description": "Pastikan akun Anda tetap aman dengan kata sandi yang kuat.",

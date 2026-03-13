@@ -93,6 +93,7 @@
     "successMessage": "Password updated successfully!",
     "failMessage": "Failed to update password",
     "currentPasswordRequired": "Current password is required",
+    "currentPasswordInvalid": "Current password is incorrect",
     "newPasswordMinLength": "New password must be at least 8 characters",
     "title": "Change Password",
     "description": "Ensure your account stays secure with a strong password.",
