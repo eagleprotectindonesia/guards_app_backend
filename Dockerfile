@@ -32,12 +32,6 @@ COPY --from=pruner /app/out-worker/json/ .
 RUN --mount=type=cache,target=/pnpm/store \
     pnpm install --frozen-lockfile --ignore-scripts
 
-# 4b. Worker prod dependencies
-FROM deps-base AS worker-prod-deps
-COPY --from=pruner /app/out-worker/json/ .
-RUN --mount=type=cache,target=/pnpm/store \
-    pnpm install --frozen-lockfile --prod --ignore-scripts
-
 # 5. Build Web
 FROM web-deps AS web-builder
 COPY --from=pruner /app/out-web/full/ .
@@ -98,8 +92,7 @@ RUN apk add --no-cache libc6-compat && \
 
 # Copy only necessary production dependencies
 COPY --from=worker-builder /app/apps/worker/dist/worker.js ./worker.js
-COPY --from=worker-prod-deps /app/node_modules ./node_modules
-COPY --from=worker-builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=worker-builder /app/node_modules ./node_modules
 
 USER workeruser
 
