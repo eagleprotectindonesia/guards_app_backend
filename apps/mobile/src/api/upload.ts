@@ -1,4 +1,5 @@
 import { client } from './client';
+import { File } from 'expo-file-system';
 
 export interface PresignedUrlResponse {
   uploadUrl: string;
@@ -80,25 +81,29 @@ export async function uploadToS3(
   // 1. Get presigned URL
   const { uploadUrl, publicUrl, key } = await getPresignedUrl(fileName, contentType, size, folderOrOptions);
 
-  // 2. Convert URI to Blob
-  const blob = await new Promise<Blob>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.onload = function () {
-      resolve(xhr.response);
-    };
-    xhr.onerror = function (e) {
-      console.error('Blob conversion failed:', e);
-      reject(new TypeError('Network request failed'));
-    };
-    xhr.responseType = 'blob';
-    xhr.open('GET', uri, true);
-    xhr.send(null);
-  });
+  if (!uri?.trim()) {
+    throw new Error('Upload file URI is required');
+  }
+
+  // 2. Use Expo's native file abstraction instead of fetching the local URI through XHR.
+  const file = new File(uri);
+
+  if (!file.exists) {
+    console.error('Local upload file does not exist:', uri);
+    throw new Error('Selected attachment is no longer available');
+  }
+
+  const bytes = await file.bytes();
+  const byteLength = bytes.byteLength;
+
+  if (byteLength === 0) {
+    throw new Error('Selected attachment is empty');
+  }
 
   // 3. Upload the file directly to S3 (Frontend to S3)
   const response = await fetch(uploadUrl, {
     method: 'PUT',
-    body: blob,
+    body: bytes,
     headers: {
       'Content-Type': contentType,
     },
