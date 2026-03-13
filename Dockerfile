@@ -63,7 +63,8 @@ COPY turbo.json turbo.json
 ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
     NODE_ENV=production
 
-RUN turbo run build --filter=worker
+RUN pnpm --filter @repo/database prisma:generate && \
+    turbo run build --filter=worker
 
 # 7. Web Runner (production image)
 FROM base AS app-runner
@@ -99,7 +100,6 @@ RUN apk add --no-cache libc6-compat && \
 COPY --from=worker-builder /app/apps/worker/dist/worker.js ./worker.js
 COPY --from=worker-prod-deps /app/node_modules ./node_modules
 COPY --from=worker-builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=worker-builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
 USER workeruser
 
