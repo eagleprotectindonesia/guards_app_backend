@@ -13,7 +13,7 @@ import * as Location from 'expo-location';
 import { useSocket } from '../../src/hooks/useSocket';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { useCustomToast } from '../../src/hooks/useCustomToast';
-import { uploadToS3 } from '../../src/api/upload';
+import { reserveChatDraft, uploadToS3 } from '../../src/api/upload';
 import { isVideoFile } from '../../src/utils/file';
 import { ChatListItem, ChatListItemData } from '../../src/components/chat/ChatListItem';
 import { ChatHeader } from '../../src/components/chat/ChatHeader';
@@ -148,9 +148,16 @@ export default function ChatScreen() {
     setIsUploading(true);
     try {
       let attachmentKeys: string[] = [];
+      let messageId: string | undefined;
 
       if (selectedAttachments.length > 0) {
-        const messageId = Date.now().toString() + '_' + Math.random().toString(36).substring(7);
+        if (!employeeId) {
+          throw new Error('Employee ID is required to reserve a chat draft');
+        }
+
+        const draft = await reserveChatDraft(employeeId);
+        messageId = draft.messageId;
+
         const uploadPromises = selectedAttachments.map(async asset => {
           const fileName = asset.fileName || `file_${Date.now()}.${asset.uri.split('.').pop()}`;
           const mimeType = asset.mimeType || (asset.type === 'video' ? 'video/mp4' : 'image/jpeg');
@@ -169,6 +176,7 @@ export default function ChatScreen() {
 
       socket.emit('send_message', {
         content: inputText.trim(),
+        messageId,
         attachments: attachmentKeys,
       });
 

@@ -35,13 +35,18 @@ The backend logic is modularized into specialized registrars under `apps/web/lib
 -   **Employees:** Each employee joins a private room: `employee:${employeeId}`.
 
 #### Core Events
--   `send_message`: Handles incoming messages, saves them to the DB, and broadcasts them to the appropriate rooms.
+-   `send_message`: Handles incoming messages. For text-only messages it creates a new DB row directly; for attachment messages it finalizes a previously reserved draft message and broadcasts it to the appropriate rooms.
 -   `mark_read`: Updates the `readAt` timestamp in the database and notifies the sender.
 -   `typing`: Broadcasts typing status. Includes a 5-second auto-TTL on the client to clear stale "typing..." states.
 -   `conversation_locked` (Admin only): A Redis-based lock mechanism (`chat_lock:${employeeId}`) that prevents multiple admins from responding to the same employee at the same time. Locks are acquired/refreshed on typing and sending.
 
 #### Data Persistence (`apps/web/lib/data-access/chat.ts`)
-Messages are stored in the `ChatMessage` table. Attachments are stored as S3 keys. On retrieval, the system dynamically generates **presigned URLs** via `enrichMessageWithUrls` to ensure secure access.
+Messages are stored in the `ChatMessage` table. Attachment messages reserve a draft row first, then finalize that same row after S3 upload completes. Attachments are stored as S3 keys. On retrieval, the system dynamically generates **presigned URLs** via `enrichMessageWithUrls` to ensure secure access.
+
+`ChatMessage` rows now have a lifecycle status:
+-   `draft`: Reserved for attachment upload, hidden from normal chat/history/unread/export queries.
+-   `sent`: Finalized and visible in normal chat flows.
+-   `expired`: Abandoned draft that aged out and remains hidden.
 
 ### 2.2 Authentication (`apps/web/lib/socket-auth.ts`)
 Socket connections are authenticated using JWT tokens. 
@@ -72,6 +77,7 @@ A mobile-optimized web interface for guards.
 -   **Infinite Scrolling:** Uses **TanStack Query** (`useInfiniteQuery`) for efficient message pagination.
 -   **Intersection Observer:** Implements "Mark as Read" logic by detecting when an admin's message enters the viewport.
 -   **Media Handling:** Supports image optimization before upload and a built-in image viewer.
+-   **Attachment Draft Flow:** Reserves a server-generated draft `messageId` before uploading any attachment, then sends that `messageId` back through `send_message` to finalize the draft.
 
 ### 3.4 Mobile App (`apps/mobile/app/(tabs)/chat.tsx`)
 A native React Native implementation for guards.
@@ -80,19 +86,24 @@ A native React Native implementation for guards.
 -   **Video Playback:** Uses `expo-video` for native video attachment playback.
 -   **Keyboard Management:** Employs `react-native-keyboard-controller` for a smooth chat input experience.
 -   **Persistence:** Syncs with the backend via WebSockets and refetches on app foregrounding to ensure no messages are missed.
+-   **Attachment Draft Flow:** Matches web behavior by reserving a server draft before attachment upload instead of generating client-owned message IDs.
 
 ---
 
 ## 4. Message Lifecycle
 
 1.  **Compose:** User (Admin or Guard) creates a message with text and up to 4 attachments.
-2.  **Upload:** Attachments are uploaded directly to S3; the server receives only the S3 keys.
-3.  **Emit:** The client emits `send_message` via Socket.io.
-4.  **Save:** The server saves the message to PostgreSQL.
-5.  **Broadcast:** 
+2.  **Reserve Draft (attachments only):** The client calls `POST /api/shared/chat/[employeeId]/draft`, and the server creates a hidden `ChatMessage` row with `status = draft`, returning the canonical `messageId`.
+3.  **Upload:** Attachments are uploaded directly to S3 under a path that includes the reserved `messageId`; the server receives only the S3 keys.
+4.  **Emit:** The client emits `send_message` via Socket.io. Attachment-backed sends include the reserved `messageId`.
+5.  **Finalize / Save:** 
+    *   **Text-only:** The server creates a new `ChatMessage` row directly with `status = sent`.
+    *   **With attachments:** The server finalizes the reserved draft row, populates content/attachments, stamps `sentAt`, and flips the status to `sent`.
+6.  **Broadcast:** 
     *   If **Guard sends**: Broadcast to `admin` room and the guard's own `employee:${id}` room (for multi-device sync).
     *   If **Admin sends**: Broadcast to `employee:${targetId}` room and the `admin` room.
-6.  **Read Receipt:** When the recipient views the message, a `mark_read` event is emitted, updating the DB and notifying the sender via `messages_read`.
+7.  **Read Receipt:** When the recipient views the message, a `mark_read` event is emitted, updating the DB and notifying the sender via `messages_read`.
+8.  **Draft Cleanup:** The maintenance worker expires stale draft rows hourly. Expired drafts remain hidden from normal chat history and unread/export queries.
 
 ---
 
@@ -102,8 +113,10 @@ A native React Native implementation for guards.
 | :--- | :--- |
 | **Max Attachments** | 4 files per message (Images/Videos). |
 | **Real-time** | Socket.io with Redis scaling. |
+| **Attachment Identity** | Canonical message IDs are server-reserved before upload; clients no longer own attachment message IDs. |
 | **Read Status** | Scoped `readAt` timestamp in DB, visual "Read" ticks in UI. |
 | **Typing Indicator** | Transient `typing` socket event with 5s auto-clear TTL. |
 | **Admin Concurrency** | Redis-based locking with UI enforcement (Phase 2 Overhaul). |
+| **Draft Cleanup** | Attachment drafts expire after TTL and are hidden from chat/history/export. |
 | **Typed Events** | End-to-end type safety via `@repo/types`. |
 | **Offline Support** | TanStack Query caching for message history. |

@@ -23,6 +23,28 @@ export interface UploadResponse {
   size: number;
 }
 
+export interface ChatDraftResponse {
+  messageId: string;
+  expiresAt: string;
+}
+
+function assertValidChatUploadOptions(options: UploadOptions) {
+  if (options.folder !== 'chat') return;
+
+  if (!options.conversationId?.trim()) {
+    throw new Error('Chat uploads require a conversationId');
+  }
+
+  if (!options.messageId?.trim()) {
+    throw new Error('Chat uploads require a messageId');
+  }
+}
+
+export async function reserveChatDraft(employeeId: string): Promise<ChatDraftResponse> {
+  const response = await client.post(`/api/shared/chat/${employeeId}/draft`);
+  return response.data as ChatDraftResponse;
+}
+
 /**
  * Gets a presigned URL for uploading a file to S3.
  */
@@ -33,6 +55,7 @@ export async function getPresignedUrl(
   folderOrOptions: string | UploadOptions = 'uploads'
 ): Promise<PresignedUrlResponse> {
   const options = typeof folderOrOptions === 'string' ? { folder: folderOrOptions } : folderOrOptions;
+  assertValidChatUploadOptions(options);
   const response = await client.post('/api/shared/upload-url', {
     fileName,
     contentType,
