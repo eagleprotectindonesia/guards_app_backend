@@ -42,8 +42,6 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
   const queryClient = useQueryClient();
 
   const getTranslatedErrorMessage = (code?: PasswordChangeErrorData['code']) => {
-    console.log(code);
-
     switch (code) {
       case 'INVALID_CURRENT_PASSWORD':
         return t('passwordChange.currentPasswordInvalid');
@@ -73,8 +71,6 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
     },
     onError: (error: any) => {
       const data = error.response?.data as PasswordChangeErrorData | undefined;
-      console.log(data);
-
       const translatedMessage = getTranslatedErrorMessage(data?.code);
       const fieldErrors = data?.errors
         ? Object.entries(data.errors)

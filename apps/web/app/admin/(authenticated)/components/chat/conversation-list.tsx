@@ -22,6 +22,7 @@ interface ConversationListProps {
   showExportButton?: boolean;
   onArchive?: (employeeId: string) => void;
   onUnarchive?: (employeeId: string) => void;
+  showDate?: boolean;
 }
 
 export function ConversationList({
@@ -39,6 +40,7 @@ export function ConversationList({
   showExportButton = true,
   onArchive,
   onUnarchive,
+  showDate = true,
 }: ConversationListProps) {
   const exportEmployees = useMemo(
     () => conversations.map(c => ({ id: c.employeeId, fullName: c.employeeName })),
@@ -135,14 +137,16 @@ export function ConversationList({
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-start mb-1">
-                  <p className="font-semibold text-foreground truncate">
+                <div className="flex justify-between items-start mb-1 gap-2">
+                  <p className="font-semibold text-foreground truncate flex-1 min-w-0">
                     {conv.employeeName}{' '}
                     <span className="text-xs font-normal text-muted-foreground">({conv.employeeNumber})</span>
                   </p>
-                  <span className="text-[10px] text-muted-foreground shrink-0 ml-2">
-                    {format(new Date(conv.lastMessage.createdAt), 'MMM d, HH:mm')}
-                  </span>
+                  {showDate && (
+                    <span className="text-[10px] text-muted-foreground shrink-0 mt-1">
+                      {format(new Date(conv.lastMessage.createdAt), 'MMM d, HH:mm')}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground truncate">
                   {typingEmployees[conv.employeeId] ? (

@@ -137,6 +137,7 @@ function FloatingChatWidgetContent() {
               className="w-1/3 border-r border-border shrink-0"
               itemClassName="p-3 gap-3"
               showExportButton={false}
+              showDate={false}
               onArchive={handleArchiveConversation}
               onUnarchive={handleUnarchiveConversation}
             />
