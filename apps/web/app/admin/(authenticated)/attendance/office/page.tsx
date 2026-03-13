@@ -74,6 +74,7 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
       ? {
           id: att.employee.id,
           fullName: att.employee.fullName,
+          employeeNumber: att.employee.employeeNumber,
         }
       : null,
   }));
@@ -81,6 +82,7 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
   const serializedEmployees: AttendanceEmployeeSummary[] = employees.map(emp => ({
     id: emp.id,
     fullName: emp.fullName,
+    employeeNumber: emp.employeeNumber,
   }));
 
   const initialFilters = {
