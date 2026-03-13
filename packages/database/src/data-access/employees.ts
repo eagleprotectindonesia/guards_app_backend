@@ -378,7 +378,10 @@ export async function setEmployeePassword({
 
     await tx.employee.update({
       where: { id: employeeId },
-      data: { hashedPassword },
+      data: {
+        hashedPassword,
+        ...(mustChangePassword === undefined ? {} : { mustChangePassword }),
+      },
     });
 
     await tx.employeePasswordHistory.create({
@@ -404,14 +407,6 @@ export async function setEmployeePassword({
     }
 
     return { hashedPassword };
-  }).then(async result => {
-    if (mustChangePassword === true) {
-      await redis.set(`employee:${employeeId}:must-change-password`, 'true');
-    } else if (mustChangePassword === false) {
-      await redis.del(`employee:${employeeId}:must-change-password`);
-    }
-
-    return result;
   });
 }
 
@@ -501,6 +496,7 @@ export async function syncEmployeesFromExternal(
             department: ext.department,
             phone: ext.phone,
             hashedPassword: hashedPassword,
+            mustChangePassword: true,
             role,
             office: ext.office_id ? { connect: { id: ext.office_id } } : undefined,
             status: true,
@@ -531,13 +527,11 @@ export async function syncEmployeesFromExternal(
               role: newEmployee.role,
               officeId: newEmployee.officeId,
               status: newEmployee.status,
+              mustChangePassword: newEmployee.mustChangePassword,
             },
           },
         });
       });
-
-      // Set force password reset flag in Redis
-      await redis.set(`employee:${ext.id}:must-change-password`, 'true');
 
       addedCount++;
     } else {

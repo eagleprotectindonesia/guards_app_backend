@@ -3,19 +3,11 @@ import {
   EmployeePasswordPolicyError,
 } from '../../../packages/database/src/data-access/employees';
 import { db as prisma } from '../../../packages/database/src/client';
-import { redis } from '../../../packages/database/src/redis';
 import { hashPassword, verifyPassword } from '@repo/shared';
 
 jest.mock('../../../packages/database/src/client', () => ({
   db: {
     $transaction: jest.fn(),
-  },
-}));
-
-jest.mock('../../../packages/database/src/redis', () => ({
-  redis: {
-    set: jest.fn(),
-    del: jest.fn(),
   },
 }));
 
@@ -78,7 +70,6 @@ describe('employee password policy', () => {
     ).rejects.toThrow(EmployeePasswordPolicyError);
 
     expect(tx.employee.update).not.toHaveBeenCalled();
-    expect(redis.del).not.toHaveBeenCalled();
   });
 
   test('allows a fresh password, trims history, and clears the force-change flag', async () => {
@@ -102,7 +93,7 @@ describe('employee password policy', () => {
 
     expect(tx.employee.update).toHaveBeenCalledWith({
       where: { id: 'emp-1' },
-      data: { hashedPassword: 'new-hash' },
+      data: { hashedPassword: 'new-hash', mustChangePassword: false },
     });
     expect(tx.employeePasswordHistory.create).toHaveBeenCalledWith({
       data: {
@@ -113,7 +104,6 @@ describe('employee password policy', () => {
     expect(tx.employeePasswordHistory.deleteMany).toHaveBeenCalledWith({
       where: { id: { in: ['old-1'] } },
     });
-    expect(redis.del).toHaveBeenCalledWith('employee:emp-1:must-change-password');
   });
 
   test('admin reset records changelog and sets the force-change flag', async () => {
@@ -139,6 +129,9 @@ describe('employee password policy', () => {
         details: { field: 'password', status: 'changed' },
       },
     });
-    expect(redis.set).toHaveBeenCalledWith('employee:emp-1:must-change-password', 'true');
+    expect(tx.employee.update).toHaveBeenCalledWith({
+      where: { id: 'emp-1' },
+      data: { hashedPassword: 'new-hash', mustChangePassword: true },
+    });
   });
 });

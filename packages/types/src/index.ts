@@ -43,6 +43,7 @@ export interface Employee {
   employeeNumber?: string | null;
   role: EmployeeRole;
   status?: boolean | null;
+  mustChangePassword?: boolean;
   jobTitle?: string | null;
   department?: string | null;
   officeId?: string | null;

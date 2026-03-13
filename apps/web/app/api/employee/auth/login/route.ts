@@ -96,12 +96,17 @@ export async function POST(req: Request) {
       // Update cache for high-frequency polling
       await redis.set(`employee:${employee.id}:token_version`, updatedEmployee.tokenVersion.toString(), 'EX', 3600);
 
-      // If user is logging in with default password, set the force reset flag
-      if (password === DEFAULT_PASSWORD) {
-        await redis.set(`employee:${employee.id}:must-change-password`, 'true');
-      }
     } catch (error) {
       console.error('Failed to publish session revocation event:', error);
+    }
+
+    const mustChangePassword = employee.mustChangePassword || password === DEFAULT_PASSWORD;
+
+    if (mustChangePassword !== employee.mustChangePassword) {
+      await prisma.employee.update({
+        where: { id: employee.id },
+        data: { mustChangePassword: mustChangePassword },
+      });
     }
 
     // Generate JWT token with token version and client type
@@ -130,7 +135,7 @@ export async function POST(req: Request) {
         employee: {
           id: employee.id,
           name: employee.fullName,
-          mustChangePassword: password === DEFAULT_PASSWORD,
+          mustChangePassword,
         },
       },
       { status: 200 }
