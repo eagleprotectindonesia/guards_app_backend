@@ -107,16 +107,14 @@ describe('employee password policy', () => {
   });
 
   test('admin reset records changelog and sets the force-change flag', async () => {
-    tx.employeePasswordHistory.findMany
-      .mockResolvedValueOnce([{ hashedPassword: 'hist-1' }])
-      .mockResolvedValueOnce([]);
-    (verifyPassword as jest.Mock).mockResolvedValue(false);
+    tx.employeePasswordHistory.findMany.mockResolvedValueOnce([]);
 
     await setEmployeePassword({
       employeeId: 'emp-1',
       newPassword: 'Reset1234',
       actor: { type: 'admin', adminId: 'admin-1' },
       mustChangePassword: true,
+      enforceHistoryPolicy: false,
     });
 
     expect(tx.changelog.create).toHaveBeenCalledWith({
@@ -133,5 +131,45 @@ describe('employee password policy', () => {
       where: { id: 'emp-1' },
       data: { hashedPassword: 'new-hash', mustChangePassword: true },
     });
+    expect(tx.employeePasswordHistory.create).toHaveBeenCalledWith({
+      data: {
+        employeeId: 'emp-1',
+        hashedPassword: 'new-hash',
+      },
+    });
+    expect(verifyPassword).not.toHaveBeenCalledWith('Reset1234', 'hist-1');
+  });
+
+  test('admin reset allows reusing the current password when history enforcement is disabled', async () => {
+    tx.employeePasswordHistory.findMany.mockResolvedValueOnce([]);
+    (verifyPassword as jest.Mock).mockResolvedValueOnce(true);
+
+    await setEmployeePassword({
+      employeeId: 'emp-1',
+      newPassword: 'Current123',
+      actor: { type: 'admin', adminId: 'admin-1' },
+      mustChangePassword: true,
+      enforceHistoryPolicy: false,
+    });
+
+    expect(tx.employee.update).toHaveBeenCalledWith({
+      where: { id: 'emp-1' },
+      data: { hashedPassword: 'new-hash', mustChangePassword: true },
+    });
+  });
+
+  test('admin reset allows reusing a recent password history entry when history enforcement is disabled', async () => {
+    tx.employeePasswordHistory.findMany.mockResolvedValueOnce([]);
+    (verifyPassword as jest.Mock).mockResolvedValue(false);
+
+    await setEmployeePassword({
+      employeeId: 'emp-1',
+      newPassword: 'OldPassword123',
+      actor: { type: 'admin', adminId: 'admin-1' },
+      mustChangePassword: true,
+      enforceHistoryPolicy: false,
+    });
+
+    expect(tx.employee.update).toHaveBeenCalled();
   });
 });

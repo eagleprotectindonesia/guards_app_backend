@@ -117,6 +117,7 @@ export async function updateEmployeePassword(
       newPassword: validatedFields.data.password,
       actor: { type: 'admin', adminId: adminId! },
       mustChangePassword: true,
+      enforceHistoryPolicy: false,
     });
   } catch (error) {
     if (error instanceof EmployeePasswordPolicyError) {

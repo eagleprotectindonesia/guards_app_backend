@@ -306,6 +306,7 @@ type SetEmployeePasswordParams = {
   actor: EmployeePasswordActor;
   requireCurrentPassword?: string;
   mustChangePassword?: boolean;
+  enforceHistoryPolicy?: boolean;
 };
 
 export class EmployeePasswordPolicyError extends Error {
@@ -339,6 +340,7 @@ export async function setEmployeePassword({
   actor,
   requireCurrentPassword,
   mustChangePassword,
+  enforceHistoryPolicy = true,
 }: SetEmployeePasswordParams) {
   return prisma.$transaction(async tx => {
     const employee = await tx.employee.findUnique({
@@ -354,23 +356,25 @@ export async function setEmployeePassword({
       throw new EmployeePasswordPolicyError('Invalid current password', 'currentPassword');
     }
 
-    const passwordHistory = await tx.employeePasswordHistory.findMany({
-      where: { employeeId },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: EMPLOYEE_PASSWORD_HISTORY_LIMIT,
-      select: { hashedPassword: true },
-    });
+    if (enforceHistoryPolicy) {
+      const passwordHistory = await tx.employeePasswordHistory.findMany({
+        where: { employeeId },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: EMPLOYEE_PASSWORD_HISTORY_LIMIT,
+        select: { hashedPassword: true },
+      });
 
-    const candidateHashes = [
-      { hashedPassword: employee.hashedPassword },
-      ...passwordHistory,
-    ];
+      const candidateHashes = [
+        { hashedPassword: employee.hashedPassword },
+        ...passwordHistory,
+      ];
 
-    for (const historyEntry of candidateHashes) {
-      if (await verifyPassword(newPassword, historyEntry.hashedPassword)) {
-        throw new EmployeePasswordPolicyError(
-          'New password cannot match any of your last 3 passwords'
-        );
+      for (const historyEntry of candidateHashes) {
+        if (await verifyPassword(newPassword, historyEntry.hashedPassword)) {
+          throw new EmployeePasswordPolicyError(
+            'New password cannot match any of your last 3 passwords'
+          );
+        }
       }
     }
 
