@@ -44,7 +44,7 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const response = await client.post('/api/employee/my/profile/change-password', {
+      const response = await client.post('/api/employee/my/change-password', {
         currentPassword,
         newPassword,
       });

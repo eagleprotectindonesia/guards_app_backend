@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { updateEmployee } from '@/lib/data-access/employees';
-import { redis } from '@/lib/redis';
+import { EmployeePasswordPolicyError, setEmployeePassword } from '@/lib/data-access/employees';
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Kata sandi saat ini wajib diisi'),
@@ -21,34 +19,31 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validated = changePasswordSchema.parse(body);
 
-    if (!employee.hashedPassword) {
-      return NextResponse.json(
-        { message: 'Tidak ada kata sandi yang disetel untuk karyawan ini' },
-        { status: 400 }
-      );
-    }
+    await setEmployeePassword({
+      employeeId: employee.id,
+      newPassword: validated.newPassword,
+      actor: { type: 'employee' },
+      requireCurrentPassword: validated.currentPassword,
+      mustChangePassword: false,
+    });
 
-    const passwordMatch = await bcrypt.compare(validated.currentPassword, employee.hashedPassword);
+    return NextResponse.json({ message: 'Kata sandi berhasil diperbarui!' });
+  } catch (error) {
+    if (error instanceof EmployeePasswordPolicyError) {
+      const message =
+        error.field === 'currentPassword'
+          ? 'Kata sandi saat ini tidak valid'
+          : 'Kata sandi baru tidak boleh sama dengan 3 kata sandi terakhir';
 
-    if (!passwordMatch) {
       return NextResponse.json(
-        { 
-          message: 'Kata sandi saat ini tidak valid',
-          errors: [{ field: 'currentPassword', message: 'Kata sandi saat ini tidak valid' }]
+        {
+          message,
+          errors: [{ field: error.field, message }],
         },
         { status: 400 }
       );
     }
 
-    const hashedNewPassword = await bcrypt.hash(validated.newPassword, 10);
-
-    await updateEmployee(employee.id, { hashedPassword: hashedNewPassword });
-
-    // Clear Redis flag for password change requirement
-    await redis.del(`employee:${employee.id}:must-change-password`);
-
-    return NextResponse.json({ message: 'Kata sandi berhasil diperbarui!' });
-  } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {

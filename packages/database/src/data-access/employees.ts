@@ -2,11 +2,12 @@ import { db as prisma, EmployeeSummary } from '../client';
 import { redis } from '../redis';
 import { EmployeeRole, Prisma } from '@prisma/client';
 import { deleteFutureShiftsByEmployee, cancelInProgressShiftsForDeactivatedEmployee } from './shifts';
-import { hashPassword, DEFAULT_PASSWORD } from '@repo/shared';
+import { hashPassword, verifyPassword, DEFAULT_PASSWORD } from '@repo/shared';
 import { fetchExternalEmployees, ExternalEmployee } from '../external-employee-api';
 import { syncOfficesFromExternalEmployees } from './offices';
 
 const LAST_EMPLOYEE_SYNC_KEY = 'employee:sync:last_timestamp';
+const EMPLOYEE_PASSWORD_HISTORY_LIMIT = 3;
 
 export async function getLastEmployeeSyncTimestamp(): Promise<string | null> {
   return redis.get(LAST_EMPLOYEE_SYNC_KEY);
@@ -294,6 +295,126 @@ export async function updateEmployee(id: string, data: Prisma.EmployeeUpdateInpu
   });
 }
 
+type EmployeePasswordActor =
+  | { type: 'employee' }
+  | { type: 'admin'; adminId: string }
+  | { type: 'system' };
+
+type SetEmployeePasswordParams = {
+  employeeId: string;
+  newPassword: string;
+  actor: EmployeePasswordActor;
+  requireCurrentPassword?: string;
+  mustChangePassword?: boolean;
+};
+
+export class EmployeePasswordPolicyError extends Error {
+  field: string;
+
+  constructor(message: string, field = 'newPassword') {
+    super(message);
+    this.name = 'EmployeePasswordPolicyError';
+    this.field = field;
+  }
+}
+
+async function trimEmployeePasswordHistory(tx: Prisma.TransactionClient, employeeId: string) {
+  const histories = await tx.employeePasswordHistory.findMany({
+    where: { employeeId },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    skip: EMPLOYEE_PASSWORD_HISTORY_LIMIT,
+    select: { id: true },
+  });
+
+  if (histories.length === 0) return;
+
+  await tx.employeePasswordHistory.deleteMany({
+    where: { id: { in: histories.map(history => history.id) } },
+  });
+}
+
+export async function setEmployeePassword({
+  employeeId,
+  newPassword,
+  actor,
+  requireCurrentPassword,
+  mustChangePassword,
+}: SetEmployeePasswordParams) {
+  return prisma.$transaction(async tx => {
+    const employee = await tx.employee.findUnique({
+      where: { id: employeeId },
+      select: { id: true, hashedPassword: true },
+    });
+
+    if (!employee) {
+      throw new Error('Employee not found');
+    }
+
+    if (requireCurrentPassword && !(await verifyPassword(requireCurrentPassword, employee.hashedPassword))) {
+      throw new EmployeePasswordPolicyError('Invalid current password', 'currentPassword');
+    }
+
+    const passwordHistory = await tx.employeePasswordHistory.findMany({
+      where: { employeeId },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: EMPLOYEE_PASSWORD_HISTORY_LIMIT,
+      select: { hashedPassword: true },
+    });
+
+    const candidateHashes = [
+      { hashedPassword: employee.hashedPassword },
+      ...passwordHistory,
+    ];
+
+    for (const historyEntry of candidateHashes) {
+      if (await verifyPassword(newPassword, historyEntry.hashedPassword)) {
+        throw new EmployeePasswordPolicyError(
+          'New password cannot match any of your last 3 passwords'
+        );
+      }
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+
+    await tx.employee.update({
+      where: { id: employeeId },
+      data: { hashedPassword },
+    });
+
+    await tx.employeePasswordHistory.create({
+      data: {
+        employeeId,
+        hashedPassword,
+      },
+    });
+
+    await trimEmployeePasswordHistory(tx, employeeId);
+
+    if (actor.type === 'admin') {
+      await tx.changelog.create({
+        data: {
+          action: 'UPDATE',
+          entityType: 'Employee',
+          entityId: employeeId,
+          actor: 'admin',
+          actorId: actor.adminId,
+          details: { field: 'password', status: 'changed' },
+        },
+      });
+    }
+
+    return { hashedPassword };
+  }).then(async result => {
+    if (mustChangePassword === true) {
+      await redis.set(`employee:${employeeId}:must-change-password`, 'true');
+    } else if (mustChangePassword === false) {
+      await redis.del(`employee:${employeeId}:must-change-password`);
+    }
+
+    return result;
+  });
+}
+
 export async function deleteEmployee(id: string) {
   return prisma.employee.update({
     where: { id },
@@ -310,6 +431,15 @@ export async function updateEmployeePasswordWithChangelog(id: string, password: 
       where: { id },
       data: { hashedPassword: password },
     });
+
+    await tx.employeePasswordHistory.create({
+      data: {
+        employeeId: id,
+        hashedPassword: password,
+      },
+    });
+
+    await trimEmployeePasswordHistory(tx, id);
 
     await tx.changelog.create({
       data: {
@@ -374,6 +504,13 @@ export async function syncEmployeesFromExternal(
             role,
             office: ext.office_id ? { connect: { id: ext.office_id } } : undefined,
             status: true,
+          },
+        });
+
+        await tx.employeePasswordHistory.create({
+          data: {
+            employeeId: newEmployee.id,
+            hashedPassword,
           },
         });
 

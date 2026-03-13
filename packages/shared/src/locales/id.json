@@ -103,6 +103,7 @@
     "newPasswordPlaceholder": "Masukkan kata sandi baru",
     "confirmPasswordLabel": "Konfirmasi Kata Sandi Baru",
     "passwordsDoNotMatch": "Kata sandi tidak cocok",
+    "recentPasswordReuse": "Kata sandi baru tidak boleh sama dengan 3 kata sandi terakhir",
     "submitButton": "Perbarui Kata Sandi"
   },
   "passwordConfirmation": {

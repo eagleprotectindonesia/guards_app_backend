@@ -181,12 +181,25 @@ model Employee {
   chatConversationStates AdminChatConversationState[]
   refreshTokens   RefreshToken[]
   fcmTokens       FcmToken[]
+  passwordHistories EmployeePasswordHistory[]
 
   @@index([status])
   @@index([deletedAt])
   @@index([employeeNumber])
   @@index([officeId])
   @@map("employees")
+}
+
+model EmployeePasswordHistory {
+  id             String   @id @default(uuid())
+  employeeId     String   @map("employee_id")
+  hashedPassword String   @map("hashed_password")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, createdAt])
+  @@map("employee_password_histories")
 }
 
 model Site {

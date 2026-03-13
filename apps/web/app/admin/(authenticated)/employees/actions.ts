@@ -3,7 +3,8 @@
 import {
   updateEmployee as updateEmployeeDb,
   getAllEmployees,
-  updateEmployeePasswordWithChangelog,
+  EmployeePasswordPolicyError,
+  setEmployeePassword,
   getEmployeeSearchWhere,
 } from '@/lib/data-access/employees';
 import {
@@ -109,11 +110,23 @@ export async function updateEmployeePassword(
   }
 
   try {
-    const hashedPassword = await hashPassword(validatedFields.data.password);
     const adminId = await getAdminIdFromToken();
 
-    await updateEmployeePasswordWithChangelog(id, hashedPassword, adminId!);
+    await setEmployeePassword({
+      employeeId: id,
+      newPassword: validatedFields.data.password,
+      actor: { type: 'admin', adminId: adminId! },
+      mustChangePassword: true,
+    });
   } catch (error) {
+    if (error instanceof EmployeePasswordPolicyError) {
+      return {
+        errors: { password: [error.message] },
+        message: error.message,
+        success: false,
+      };
+    }
+
     console.error('Database Error:', error);
     return {
       message: 'Database Error: Failed to update password.',

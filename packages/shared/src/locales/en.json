@@ -103,6 +103,7 @@
     "newPasswordPlaceholder": "Enter new password",
     "confirmPasswordLabel": "Confirm New Password",
     "passwordsDoNotMatch": "Passwords do not match",
+    "recentPasswordReuse": "New password cannot match any of your last 3 passwords",
     "submitButton": "Update Password"
   },
   "passwordConfirmation": {
