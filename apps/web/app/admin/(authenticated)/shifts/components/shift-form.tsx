@@ -48,6 +48,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
   const employeeOptions = employees.map(employee => ({
     value: employee.id,
     label: employee.fullName,
+    employeeNumber: employee.employeeNumber ?? '',
   }));
   const shiftTypeOptions = shiftTypes.map(st => ({
     value: st.id,
@@ -117,6 +118,23 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
             placeholder="Unassigned"
             isClearable={!isReadOnly}
             isDisabled={isReadOnly}
+            filterOption={(option, inputValue) => {
+              const search = inputValue.toLowerCase();
+              return (
+                option.data.label.toLowerCase().includes(search) ||
+                option.data.employeeNumber.toLowerCase().includes(search)
+              );
+            }}
+            formatOptionLabel={(option, { context }) =>
+              context === 'value' ? (
+                <span>{option.label}</span>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span>{option.label}</span>
+                  {option.employeeNumber && <span className="text-muted-foreground">({option.employeeNumber})</span>}
+                </div>
+              )
+            }
           />
           <input type="hidden" name="employeeId" value={selectedemployeeId} />
         </div>
