@@ -98,13 +98,13 @@ export default function AccountScreen() {
   };
 
   return (
-    <Box className="flex-1 bg-[#121212] overflow-hidden">
+    <Box className="flex-1 bg-black overflow-hidden">
       {/* Background Ambient Glow */}
-      <Box className="absolute top-0 right-0 w-64 h-64 opacity-20">
-        <LinearGradient colors={['rgba(37, 99, 235, 0.3)', 'transparent']} style={{ flex: 1, borderRadius: 128 }} />
-      </Box>
-      <Box className="absolute bottom-0 left-0 w-64 h-64 opacity-20">
-        <LinearGradient colors={['rgba(239, 68, 68, 0.3)', 'transparent']} style={{ flex: 1, borderRadius: 128 }} />
+      <Box className="absolute top-[-50] right-[-50] w-[300] h-[300] opacity-30">
+        <LinearGradient
+          colors={['rgba(255, 59, 48, 0.15)', 'transparent']}
+          style={{ flex: 1, borderRadius: 150 }}
+        />
       </Box>
 
       <ScrollView
@@ -121,54 +121,52 @@ export default function AccountScreen() {
           </Box>
 
           {/* Header Section */}
-          <VStack space="lg" className="items-center mb-8 px-6">
-            <View style={{ width: 128, height: 128, marginBottom: 8, position: 'relative' }}>
+          <VStack space="md" className="items-center mb-8 px-6">
+            <View style={{ width: 140, height: 140, marginBottom: 12, position: 'relative' }}>
               <Box
-                className="w-full h-full rounded-full p-1 border border-brand-500/30 bg-background-800"
+                className="w-full h-full rounded-full p-1.5 border border-[#FF3B30]/30 bg-[#1A1A1A]"
                 style={{
-                  shadowColor: '#ef4444',
+                  shadowColor: '#FF3B30',
                   shadowOffset: { width: 0, height: 0 },
-                  shadowOpacity: 0.4,
-                  shadowRadius: 20,
+                  shadowOpacity: 0.3,
+                  shadowRadius: 25,
                 }}
               >
-                <Box className="w-full h-full rounded-full overflow-hidden border-2 border-brand-600">
+                <Box className="w-full h-full rounded-full overflow-hidden border-[3px] border-[#FF3B30]">
                   <Image
                     source={{ uri: DEFAULT_AVATAR }}
                     style={{ width: '100%', height: '100%' }}
                     resizeMode="cover"
                   />
                   <LinearGradient
-                    colors={['rgba(255,255,255,0.1)', 'transparent']}
+                    colors={['rgba(255,255,255,0.05)', 'transparent']}
                     style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
                   />
                 </Box>
               </Box>
-              <Box className="absolute bottom-2 right-2 w-6 h-6 bg-[#181818] rounded-full items-center justify-center border border-outline-700">
+              <Box className="absolute bottom-3 right-3 w-7 h-7 bg-[#0A0A0A] rounded-full items-center justify-center border border-white/10">
                 <Box
-                  className="w-3 h-3 bg-emerald-500 rounded-full"
+                  className="w-3.5 h-3.5 bg-[#34C759] rounded-full"
                   style={{
-                    shadowColor: '#10b981',
+                    shadowColor: '#34C759',
                     shadowOffset: { width: 0, height: 0 },
-                    shadowOpacity: 0.8,
-                    shadowRadius: 8,
+                    shadowOpacity: 0.6,
+                    shadowRadius: 10,
                   }}
                 />
               </Box>
             </View>
 
-            <VStack className="items-center">
-              <HStack space="xs">
-                <Heading size="2xl" className="text-white font-bold">
-                  {employee?.fullName}
-                </Heading>
-              </HStack>
-              <Text className="text-typography-500 font-semibold tracking-[0.5px]" size="sm">
+            <VStack className="items-center" space="xs">
+              <Heading size="3xl" className="text-white font-bold tracking-tight">
+                {employee?.fullName}
+              </Heading>
+              <Text className="text-[#A0A0A0] font-medium tracking-wider" size="sm">
                 ID: {employee?.employeeNumber}
               </Text>
 
-              <Box className="mt-4 px-4 py-1.5 rounded-full bg-white/5 border border-white/5">
-                <Text size="2xs" className="font-bold uppercase tracking-[1.2px] text-typography-400">
+              <Box className="mt-4 px-5 py-2 rounded-full bg-[#1A1110] border border-[#FF3B30]/10">
+                <Text size="2xs" className="font-bold uppercase tracking-[1.5px] text-[#FF3B30]/80">
                   {employee?.department || 'Security Unit'} • {employee?.jobTitle || 'Officer'}
                 </Text>
               </Box>
@@ -176,40 +174,40 @@ export default function AccountScreen() {
           </VStack>
 
           {/* Account Settings */}
-          <VStack space="md" className="px-6 mb-8">
-            <Text size="2xs" className="font-bold text-typography-500 uppercase tracking-[1.2px] ml-2">
+          <VStack space="md" className="px-5 mb-8">
+            <Text size="2xs" className="font-bold text-[#666666] uppercase tracking-[2px] ml-4">
               {t('account.settings', 'Account Settings')}
             </Text>
 
-            <Box className="bg-[#1e1e1e]/40 border border-white/8 rounded-[32px] p-2">
-              <VStack space="sm">
+            <Box className="bg-[#121212] border border-white/5 rounded-3xl p-2">
+              <VStack space="xs">
                 {/* Change Password */}
                 <TouchableOpacity onPress={() => openPasswordChangeModal(false)} activeOpacity={0.7}>
-                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-white/3 border border-white/5">
+                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
                     <HStack space="md" className="items-center">
-                      <Box className="w-10 h-10 rounded-xl bg-blue-500/10 items-center justify-center border border-blue-500/20">
-                        <Key size={20} color="#3b82f6" />
+                      <Box className="w-10 h-10 rounded-xl bg-[#007AFF]/10 items-center justify-center border border-[#007AFF]/20">
+                        <Key size={20} color="#007AFF" />
                       </Box>
-                      <Text size="sm" className="font-semibold text-typography-200">
+                      <Text size="sm" className="font-semibold text-white">
                         {t('dashboard.changePassword')}
                       </Text>
                     </HStack>
-                    <ChevronRight size={16} color="#4b5563" />
+                    <ChevronRight size={18} color="#666666" />
                   </Box>
                 </TouchableOpacity>
 
                 {/* Biometrics */}
                 {isBiometricAvailable && (
-                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-white/3 border border-white/5">
+                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
                     <HStack space="md" className="items-center">
-                      <Box className="w-10 h-10 rounded-xl bg-purple-500/10 items-center justify-center border border-purple-500/20">
-                        <Fingerprint size={20} color="#a855f7" />
+                      <Box className="w-10 h-10 rounded-xl bg-[#AF52DE]/10 items-center justify-center border border-[#AF52DE]/20">
+                        <Fingerprint size={20} color="#AF52DE" />
                       </Box>
                       <VStack>
-                        <Text size="sm" className="font-semibold text-typography-200">
+                        <Text size="sm" className="font-semibold text-white">
                           {t('biometric.settingsTitle')}
                         </Text>
-                        <Text className="text-typography-500 font-bold uppercase tracking-[1px]" size="2xs">
+                        <Text className="text-[#666666] font-bold uppercase tracking-[1.5px]" size="2xs">
                           {biometricType}
                         </Text>
                       </VStack>
@@ -217,8 +215,8 @@ export default function AccountScreen() {
                     <Switch
                       value={isBiometricEnabled}
                       onValueChange={handleToggleBiometric}
-                      trackColor={{ false: '#374151', true: '#ef4444' }}
-                      thumbColor={isBiometricEnabled ? '#ffffff' : '#9ca3af'}
+                      trackColor={{ false: '#2C2C2E', true: '#FF3B30' }}
+                      thumbColor="#FFFFFF"
                     />
                   </Box>
                 )}
@@ -227,8 +225,8 @@ export default function AccountScreen() {
           </VStack>
 
           {/* Logout Section */}
-          <Box className="px-6">
-            <Box className="bg-[#1e1e1e]/40 border border-white/8 rounded-[32px] p-3">
+          <Box className="px-5">
+            <Box className="bg-[#121212] border border-white/5 rounded-3xl p-2">
               <TouchableOpacity
                 onPress={() =>
                   showAlert(
@@ -243,31 +241,20 @@ export default function AccountScreen() {
                 }
                 activeOpacity={0.7}
               >
-                <Box className="flex-row items-center p-4 rounded-2xl bg-white/3 border border-white/5">
+                <Box className="flex-row items-center p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
                   <HStack space="md" className="items-center">
-                    <Box className="w-10 h-10 rounded-xl bg-error-500/10 items-center justify-center border border-error-500/20">
-                      <LogOut size={20} color="#ef4444" />
+                    <Box className="w-10 h-10 rounded-xl bg-[#FF3B30]/10 items-center justify-center border border-[#FF3B30]/20">
+                      <LogOut size={20} color="#FF3B30" />
                     </Box>
-                    <Text size="sm" className="font-bold text-brand-500 tracking-[0.5px]">
+                    <Text size="sm" className="font-bold text-[#FF3B30] tracking-[1px] uppercase">
                       {t('dashboard.logout')}
                     </Text>
                   </HStack>
                 </Box>
               </TouchableOpacity>
             </Box>
-
-            {/* <Text
-              mt="$12"
-              textAlign="center"
-              size="2xs"
-              color="$textDark600"
-              textTransform="uppercase"
-              letterSpacing={1.2}
-              fontWeight="$medium"
-            >
-              Eagle Protect v2.4.0 (Build 892)
-            </Text> */}
           </Box>
+
         </VStack>
       </ScrollView>
 
