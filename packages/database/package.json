@@ -13,6 +13,7 @@
     "@prisma/adapter-pg": "^7.4.0",
     "@prisma/client": "^7.4.0",
     "@repo/shared": "workspace:*",
+    "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "ioredis": "5.9.3",
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
+    "@types/bcryptjs": "^2.4.6",
     "@types/pg": "^8.16.0",
     "prisma": "^7.4.0",
     "typescript": "^5"

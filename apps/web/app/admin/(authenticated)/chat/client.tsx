@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback, useMemo } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 import { ArchiveRestore, ArchiveX, MessageSquare, Send, User, Paperclip, Loader2, Lock } from 'lucide-react';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { AdminChatLaunchPayload, useAdminChat } from '@/hooks/use-admin-chat';
@@ -86,17 +86,16 @@ export function AdminChatClient() {
     handleFileChange,
     removeFile,
     handleInputChange,
-    fetchConversations,
     fetchNextPage,
+    fetchNextConversationPage,
+    hasNextConversationPage,
+    isFetchingNextConversationPage,
     handleArchiveConversation,
     handleUnarchiveConversation,
   } = useAdminChat(chatOptions);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    fetchConversations(activeView);
-  }, [activeView, fetchConversations]);
 
   const activeEmployee = conversations.find(c => c.employeeId === activeEmployeeId);
 
@@ -119,6 +118,9 @@ export function AdminChatClient() {
         className="w-1/3 border-r border-border shrink-0"
         onArchive={handleArchiveConversation}
         onUnarchive={handleUnarchiveConversation}
+        onLoadMore={fetchNextConversationPage}
+        hasMore={hasNextConversationPage}
+        isLoadingMore={isFetchingNextConversationPage}
       />
 
       {/* Main: Active Chat Area */}

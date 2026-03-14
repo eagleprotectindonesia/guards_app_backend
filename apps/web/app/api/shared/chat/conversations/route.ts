@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getConversationList } from '@/lib/data-access/chat';
+import { getConversationListPaginated } from '@/lib/data-access/chat';
 import { getCurrentAdmin } from '@/lib/admin-auth';
 
 export async function GET(request: Request) {
@@ -13,9 +13,19 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const view = searchParams.get('view');
     const normalizedView = view === 'archived' || view === 'unread' ? view : 'inbox';
+    const cursor = searchParams.get('cursor') ?? undefined;
+    const search = searchParams.get('search') ?? undefined;
+    const limit = Math.min(parseInt(searchParams.get('limit') ?? '10', 10), 50);
 
-    const conversations = await getConversationList(admin.id, normalizedView);
-    return NextResponse.json(conversations);
+    const result = await getConversationListPaginated({
+      adminId: admin.id,
+      view: normalizedView,
+      limit,
+      cursor,
+      search,
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Error fetching conversation list:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

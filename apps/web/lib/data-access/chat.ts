@@ -42,6 +42,38 @@ export async function enrichMessageWithUrls<T extends { attachments?: string[] }
   return message;
 }
 
+/**
+ * Upserts a ChatConversation row with the latest message data.
+ * Must be called after every `saveMessage` and `finalizeMessageDraft`.
+ */
+async function syncChatConversation(msg: {
+  employeeId: string;
+  content: string;
+  sender: ChatSenderType;
+  adminId?: string | null;
+  createdAt: Date;
+}) {
+  await prisma.chatConversation.upsert({
+    where: { employeeId: msg.employeeId },
+    create: {
+      employeeId: msg.employeeId,
+      lastMessageAt: msg.createdAt,
+      lastMessageContent: msg.content,
+      lastMessageSender: msg.sender,
+      lastMessageAdminId: msg.adminId ?? null,
+      unreadCount: msg.sender === 'employee' ? 1 : 0,
+    },
+    update: {
+      lastMessageAt: msg.createdAt,
+      lastMessageContent: msg.content,
+      lastMessageSender: msg.sender,
+      lastMessageAdminId: msg.adminId ?? null,
+      // Only increment unread for employee messages; admin messages don't bump it
+      ...(msg.sender === 'employee' ? { unreadCount: { increment: 1 } } : {}),
+    },
+  });
+}
+
 export async function saveMessage(data: {
   employeeId: string;
   adminId?: string;
@@ -58,6 +90,14 @@ export async function saveMessage(data: {
       sentAt: new Date(),
     },
     include: chatMessageInclude,
+  });
+
+  await syncChatConversation({
+    employeeId: message.employeeId,
+    content: message.content,
+    sender: message.sender,
+    adminId: message.adminId,
+    createdAt: message.createdAt,
   });
 
   return enrichMessageWithUrls(message);
@@ -144,6 +184,14 @@ export async function finalizeMessageDraft(data: {
     include: chatMessageInclude,
   });
 
+  await syncChatConversation({
+    employeeId: message.employeeId,
+    content: message.content,
+    sender: message.sender,
+    adminId: message.adminId,
+    createdAt: message.createdAt,
+  });
+
   return enrichMessageWithUrls(message);
 }
 
@@ -206,6 +254,120 @@ export async function getChatMessages(employeeId: string, limit = 50, cursorId?:
   return Promise.all(messages.map(enrichMessageWithUrls));
 }
 
+export interface ConversationPage {
+  conversations: ConversationItem[];
+  nextCursor: string | null;
+}
+
+export interface ConversationItem {
+  employeeId: string;
+  employeeName: string;
+  employeeNumber: string;
+  isArchived: boolean;
+  isMuted: boolean;
+  lastMessage: {
+    content: string;
+    sender: string;
+    createdAt: Date;
+    adminId?: string;
+  };
+  unreadCount: number;
+}
+
+export async function getConversationListPaginated(params: {
+  adminId: string;
+  view: ConversationView;
+  limit: number;
+  cursor?: string; // ISO string of lastMessageAt used as cursor
+  search?: string;
+}): Promise<ConversationPage> {
+  const { adminId, view, limit, cursor, search } = params;
+
+  // Build the where clause for view filtering via a subquery on state
+  const archivedEmployeeIds = await prisma.adminChatConversationState
+    .findMany({
+      where: { adminId, isArchived: true },
+      select: { employeeId: true },
+    })
+    .then(rows => rows.map(r => r.employeeId));
+
+  // Plain object type here \u2014 Prisma.ChatConversationWhereInput is equivalent after prisma generate
+  const viewWhere: Record<string, unknown> =
+    view === 'archived'
+      ? { employeeId: { in: archivedEmployeeIds } }
+      : view === 'unread'
+        ? { employeeId: { notIn: archivedEmployeeIds }, unreadCount: { gt: 0 } }
+        : { employeeId: { notIn: archivedEmployeeIds } }; // inbox
+
+  const rows = await prisma.chatConversation.findMany({
+    where: {
+      ...viewWhere,
+      ...(search
+        ? {
+            employee: {
+              OR: [
+                { fullName: { contains: search, mode: 'insensitive' } },
+                { employeeNumber: { contains: search, mode: 'insensitive' } },
+              ],
+            },
+          }
+        : {}),
+      ...(cursor ? { lastMessageAt: { lt: new Date(cursor) } } : {}),
+    },
+    orderBy: { lastMessageAt: 'desc' },
+    take: limit + 1, // fetch one extra to determine if there is a next page
+    include: {
+      employee: {
+        select: { fullName: true, employeeNumber: true },
+      },
+    },
+  });
+
+  const hasNextPage = rows.length > limit;
+  const page = hasNextPage ? rows.slice(0, limit) : rows;
+
+  // Build per-conversation archive/mute state map
+  const stateRows = await prisma.adminChatConversationState.findMany({
+    where: {
+      adminId,
+      employeeId: { in: page.map(r => r.employeeId) },
+    },
+  });
+  const stateMap = Object.fromEntries(stateRows.map(s => [s.employeeId, s]));
+
+  const conversations: ConversationItem[] = page.map(row => {
+    const state = stateMap[row.employeeId];
+    return {
+      employeeId: row.employeeId,
+      employeeName: row.employee.fullName,
+      employeeNumber: row.employee.employeeNumber ?? row.employeeId,
+      isArchived: state?.isArchived ?? false,
+      isMuted: state?.isMuted ?? false,
+      lastMessage: {
+        content: row.lastMessageContent,
+        sender: row.lastMessageSender,
+        createdAt: row.lastMessageAt,
+        adminId: row.lastMessageAdminId ?? undefined,
+      },
+      unreadCount: row.unreadCount,
+    };
+  });
+
+  const nextCursor = hasNextPage ? page[page.length - 1].lastMessageAt.toISOString() : null;
+
+  return { conversations, nextCursor };
+}
+
+/** Lightweight fetch of archived employee IDs for the given admin — used on mount. */
+export async function getArchivedConversationIds(adminId: string): Promise<string[]> {
+  const rows = await prisma.adminChatConversationState.findMany({
+    where: { adminId, isArchived: true },
+    select: { employeeId: true },
+  });
+  return rows.map(r => r.employeeId);
+}
+
+/** @deprecated Use getConversationListPaginated */
 export async function getConversationList(adminId: string, view: ConversationView = 'inbox') {
   const conversations = await prisma.chatMessage.findMany({
     where: sentMessageWhere(),
@@ -417,7 +579,7 @@ export async function markAsReadForEmployee(employeeId: string, messageIds: stri
 }
 
 export async function markAsReadForAdmin(employeeId: string, messageIds: string[]) {
-  return prisma.chatMessage.updateMany({
+  const result = await prisma.chatMessage.updateMany({
     where: {
       id: { in: messageIds },
       employeeId,
@@ -429,6 +591,16 @@ export async function markAsReadForAdmin(employeeId: string, messageIds: string[
       readAt: new Date(),
     },
   });
+
+  // Zero out the conversation unread count when messages are marked read
+  if (result.count > 0) {
+    await prisma.chatConversation.updateMany({
+      where: { employeeId },
+      data: { unreadCount: 0 },
+    });
+  }
+
+  return result;
 }
 
 // --- Backward Compatibility Aliases ---

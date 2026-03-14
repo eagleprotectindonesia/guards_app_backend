@@ -55,6 +55,9 @@ function FloatingChatWidgetContent() {
     handleInputChange,
     fetchConversations,
     fetchNextPage,
+    fetchNextConversationPage,
+    hasNextConversationPage,
+    isFetchingNextConversationPage,
     handleArchiveConversation,
     handleUnarchiveConversation,
     openConversationFromLaunch,
@@ -140,6 +143,9 @@ function FloatingChatWidgetContent() {
               showDate={false}
               onArchive={handleArchiveConversation}
               onUnarchive={handleUnarchiveConversation}
+              onLoadMore={fetchNextConversationPage}
+              hasMore={hasNextConversationPage}
+              isLoadingMore={isFetchingNextConversationPage}
             />
 
             {/* Main: Active Chat Area */}

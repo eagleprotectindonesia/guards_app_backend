@@ -23,15 +23,6 @@ interface UseAdminChatOptions {
 
 type ConversationView = 'inbox' | 'unread' | 'archived';
 
-const reorderConversation = (items: Conversation[], employeeId: string) => {
-  const index = items.findIndex(item => item.employeeId === employeeId);
-  if (index <= 0) return items;
-
-  const updated = [...items];
-  const [moved] = updated.splice(index, 1);
-  updated.unshift(moved);
-  return updated;
-};
 
 const buildDraftConversation = (payload: AdminChatLaunchPayload): Conversation => ({
   employeeId: payload.employeeId,
@@ -51,12 +42,12 @@ const buildDraftConversation = (payload: AdminChatLaunchPayload): Conversation =
 export function useAdminChat(options: UseAdminChatOptions = {}) {
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
-  const [persistedConversations, setPersistedConversations] = useState<Conversation[]>([]);
   const [draftConversation, setDraftConversation] = useState<Conversation | null>(null);
   const [pendingArchivedLaunch, setPendingArchivedLaunch] = useState<AdminChatLaunchPayload | null>(null);
   const [activeEmployeeId, setActiveEmployeeId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [activeView, setActiveView] = useState<ConversationView>('inbox');
   const [adminUnreadCount, setAdminUnreadCount] = useState(0);
   const [archivedEmployeeIds, setArchivedEmployeeIds] = useState<string[]>([]);
@@ -78,6 +69,101 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     options.initialDraft?.employeeId === options.initialEmployeeId ? options.initialDraft : null
   );
   const hasBootstrappedInitialSelectionRef = useRef(false);
+
+  // Debounce search term 300ms before including it in the query key
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  // ─── Conversation list (infinite query) ─────────────────────────────────────
+  type ConversationPageResponse = { conversations: Conversation[]; nextCursor: string | null };
+  const conversationQueryKey = ['admin', 'chat', 'conversations', activeView, debouncedSearch] as const;
+
+  const {
+    data: conversationData,
+    fetchNextPage: fetchNextConversationPage,
+    hasNextPage: hasNextConversationPage,
+    isFetchingNextPage: isFetchingNextConversationPage,
+    isLoading: isConversationsLoading,
+  } = useInfiniteQuery({
+    queryKey: conversationQueryKey,
+    queryFn: async ({ pageParam }) => {
+      const url = new URL('/api/shared/chat/conversations', window.location.origin);
+      url.searchParams.set('view', activeView);
+      url.searchParams.set('limit', '10');
+      if (pageParam) url.searchParams.set('cursor', pageParam);
+      if (debouncedSearch) url.searchParams.set('search', debouncedSearch);
+      const res = await fetch(url.toString(), { cache: 'no-store' });
+      if (!res.ok) throw new Error('Failed to fetch conversations');
+      return res.json() as Promise<ConversationPageResponse>;
+    },
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
+    staleTime: 1000 * 30,
+  });
+
+  // Flat list of all loaded conversation pages, draft prepended if needed
+  const persistedConversations = useMemo<Conversation[]>(() => {
+    return conversationData?.pages.flatMap((p) => p.conversations) ?? [];
+  }, [conversationData]);
+
+  // Helper to invalidate and refetch conversations
+  const fetchConversations = useCallback(
+    (view?: ConversationView) => {
+      void queryClient.invalidateQueries({
+        queryKey: view
+          ? ['admin', 'chat', 'conversations', view]
+          : conversationQueryKey.slice(0, 3),
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queryClient, conversationQueryKey.join('|')]
+  );
+
+  // Helper to optimistically update a single conversation in the infinite cache
+  const updateConversationInCache = useCallback(
+    (employeeId: string, updater: (conv: Conversation) => Conversation) => {
+      queryClient.setQueryData<InfiniteData<ConversationPageResponse>>(conversationQueryKey, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            conversations: page.conversations.map((conv) =>
+              conv.employeeId === employeeId ? updater(conv) : conv
+            ),
+          })),
+        };
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queryClient, conversationQueryKey.join('|')]
+  );
+
+  // Helper to move a conversation to the top of the first page in cache
+  const reorderConversationInCache = useCallback(
+    (employeeId: string) => {
+      queryClient.setQueryData<InfiniteData<ConversationPageResponse>>(conversationQueryKey, (old) => {
+        if (!old) return old;
+        const allConvs = old.pages.flatMap((p) => p.conversations);
+        const idx = allConvs.findIndex((c) => c.employeeId === employeeId);
+        if (idx <= 0) return old; // already first or not found
+        const [moved] = allConvs.splice(idx, 1);
+        allConvs.unshift(moved);
+        // Redistribute back across pages preserving page sizes
+        const pageSizes = old.pages.map((p) => p.conversations.length);
+        let offset = 0;
+        const newPages = old.pages.map((page, i) => ({
+          ...page,
+          conversations: allConvs.slice(offset, (offset += pageSizes[i])),
+        }));
+        return { ...old, pages: newPages };
+      });
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [queryClient, conversationQueryKey.join('|')]
+  );
 
   const reserveChatDraft = useCallback(async (employeeId: string) => {
     const response = await fetch(`/api/shared/chat/${employeeId}/draft`, {
@@ -190,48 +276,17 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     try {
       const url = new URL('/api/shared/chat/conversations', window.location.origin);
       url.searchParams.set('view', 'archived');
+      url.searchParams.set('limit', '200'); // fetch enough IDs for launch validation
 
       const res = await fetch(url.toString());
       if (!res.ok) return;
 
-      const data = (await res.json()) as Conversation[];
-      setArchivedEmployeeIds(data.map(conversation => conversation.employeeId));
+      const data = (await res.json()) as { conversations: Conversation[]; nextCursor: string | null };
+      setArchivedEmployeeIds(data.conversations.map((c) => c.employeeId));
     } catch (err) {
       console.error('Failed to fetch archived conversations', err);
     }
   }, []);
-
-  const fetchConversationList = useCallback(async (view: ConversationView) => {
-    const url = new URL('/api/shared/chat/conversations', window.location.origin);
-    url.searchParams.set('view', view);
-
-    const res = await fetch(url.toString(), { cache: 'no-store' });
-    if (!res.ok) {
-      throw new Error(`Failed to fetch ${view} conversations`);
-    }
-
-    return (await res.json()) as Conversation[];
-  }, []);
-
-  const fetchConversations = useCallback(
-    async (view: ConversationView = activeView) => {
-      try {
-        const data = await fetchConversationList(view);
-        setPersistedConversations(data);
-
-        if (view === 'archived') {
-          setArchivedEmployeeIds(data.map(conversation => conversation.employeeId));
-        }
-
-        if (draftConversation && data.some(conversation => conversation.employeeId === draftConversation.employeeId)) {
-          setDraftConversation(null);
-        }
-      } catch (err) {
-        console.error('Failed to fetch conversations', err);
-      }
-    },
-    [activeEmployeeId, activeView, draftConversation, fetchConversationList]
-  );
 
   const handleSelectConversation = useCallback(
     async (employeeId: string | null, skipCallback = false, draft?: AdminChatLaunchPayload | null) => {
@@ -247,13 +302,9 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
         setDraftConversation(buildDraftConversation(draft));
       }
 
-      setPersistedConversations(prev =>
-        prev.map(conversation =>
-          conversation.employeeId === employeeId ? { ...conversation, unreadCount: 0 } : conversation
-        )
-      );
+      updateConversationInCache(employeeId, (conv) => ({ ...conv, unreadCount: 0 }));
     },
-    [activeEmployeeId, options]
+    [options, updateConversationInCache]
   );
 
   const handleViewChange = useCallback(
@@ -262,7 +313,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       setActiveView(view);
       handleSelectConversation(null);
     },
-    [activeEmployeeId, activeView, handleSelectConversation]
+    [handleSelectConversation]
   );
 
   const archiveConversation = useCallback(
@@ -286,44 +337,21 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
         if (activeEmployeeId === employeeId) {
           setActiveView('archived');
-          setPersistedConversations(prev => {
-            const targetConversation = prev.find(conversation => conversation.employeeId === employeeId);
-            if (!targetConversation) return prev;
-
-            return [
-              {
-                ...targetConversation,
-                isArchived: true,
-                isMuted: true,
-              },
-            ];
-          });
-          await fetchConversations('archived');
-        } else {
-          setPersistedConversations(prev => prev.filter(conversation => conversation.employeeId !== employeeId));
         }
+        // Invalidate both views so stale conversations disappear
+        fetchConversations('inbox');
+        fetchConversations('archived');
       } else if (activeEmployeeId === employeeId) {
         setArchivedEmployeeIds(prev => prev.filter(id => id !== employeeId));
         setActiveView('inbox');
-        setPersistedConversations(prev => {
-          const targetConversation = prev.find(conversation => conversation.employeeId === employeeId);
-          if (!targetConversation) return prev;
-
-          return [
-            {
-              ...targetConversation,
-              isArchived: false,
-              isMuted: false,
-            },
-          ];
-        });
-        await fetchConversations('inbox');
+        fetchConversations('inbox');
+        fetchConversations('archived');
       } else if (activeView === 'archived') {
-        setPersistedConversations(prev => prev.filter(conversation => conversation.employeeId !== employeeId));
         setArchivedEmployeeIds(prev => prev.filter(id => id !== employeeId));
+        fetchConversations('archived');
       } else {
         setArchivedEmployeeIds(prev => prev.filter(id => id !== employeeId));
-        await fetchConversations(activeView);
+        fetchConversations(activeView);
       }
 
       await fetchAdminUnreadCount();
@@ -422,25 +450,24 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
     if (draftConversation?.employeeId === message.employeeId) {
       setDraftConversation(null);
-      fetchConversations(activeView);
+      fetchConversations();
       return;
     }
 
-    setPersistedConversations(prev => {
-      const index = prev.findIndex(conversation => conversation.employeeId === message.employeeId);
-      if (index === -1) {
-        fetchConversations(activeView);
-        return prev;
-      }
+    // Check if the employee is in the currently loaded pages
+    const isKnown = persistedConversations.some((c) => c.employeeId === message.employeeId);
+    if (!isKnown) {
+      // New conversation — invalidate to bring it in
+      fetchConversations();
+      return;
+    }
 
-      const updated = [...prev];
-      const conversation = updated[index];
+    // Optimistically update + reorder in cache
+    updateConversationInCache(message.employeeId, (conv) => {
       const isCurrentlyViewing = activeEmployeeId === message.employeeId;
-      const unreadCount =
-        isCurrentlyViewing || message.sender === 'admin' ? conversation.unreadCount : conversation.unreadCount + 1;
-
-      updated[index] = {
-        ...conversation,
+      const unreadCount = isCurrentlyViewing || message.sender === 'admin' ? conv.unreadCount : conv.unreadCount + 1;
+      return {
+        ...conv,
         lastMessage: {
           content: message.content,
           sender: message.sender,
@@ -448,21 +475,15 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
         },
         unreadCount,
       };
-
-      if (conversation.isArchived) {
-        return updated;
-      }
-
-      return reorderConversation(updated, message.employeeId);
     });
+
+    if (!persistedConversations.find((c) => c.employeeId === message.employeeId)?.isArchived) {
+      reorderConversationInCache(message.employeeId);
+    }
   });
 
   useSocketEvent('messages_read', data => {
-    setPersistedConversations(prev =>
-      prev.map(conversation =>
-        conversation.employeeId === data.employeeId ? { ...conversation, unreadCount: 0 } : conversation
-      )
-    );
+    updateConversationInCache(data.employeeId, (conv) => ({ ...conv, unreadCount: 0 }));
     fetchAdminUnreadCount();
 
     if (activeEmployeeId === data.employeeId && data.messageIds) {
@@ -562,28 +583,33 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
       }
 
       try {
-        const archivedConversations = await fetchConversationList('archived');
+        // Use the paginated API to check archived status — just grab a large batch of IDs
+        const url = new URL('/api/shared/chat/conversations', window.location.origin);
+        url.searchParams.set('view', 'archived');
+        url.searchParams.set('limit', '200');
+        const res = await fetch(url.toString());
         if (cancelled) return;
 
-        const isArchived = archivedConversations.some(conversation => conversation.employeeId === initialEmployeeId);
+        const archivedData = res.ok
+          ? ((await res.json()) as { conversations: Conversation[]; nextCursor: string | null })
+          : { conversations: [], nextCursor: null };
+
+        const archivedEmployees = archivedData.conversations.map((c) => c.employeeId);
+        const isArchived = archivedEmployees.includes(initialEmployeeId);
         const targetView: ConversationView = isArchived ? 'archived' : 'inbox';
 
-        setArchivedEmployeeIds(archivedConversations.map(conversation => conversation.employeeId));
+        if (cancelled) return;
+        setArchivedEmployeeIds(archivedEmployees);
         setActiveView(targetView);
 
-        const initialConversations =
-          targetView === 'archived' ? archivedConversations : await fetchConversationList(targetView);
-
-        if (cancelled) return;
-
-        setPersistedConversations(initialConversations);
-        const canRestore = initialConversations.some(conversation => conversation.employeeId === initialEmployeeId);
+        const canRestore = isArchived
+          ? archivedData.conversations.some((c) => c.employeeId === initialEmployeeId)
+          : true; // inbox will be fetched by useInfiniteQuery automatically
         setCanRestoreInitialSelection(canRestore);
       } catch (error) {
         console.error('Failed to restore initial conversation view', error);
         if (cancelled) return;
         setActiveView('inbox');
-        setPersistedConversations([]);
         setCanRestoreInitialSelection(false);
       } finally {
         if (!cancelled) {
@@ -598,7 +624,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     return () => {
       cancelled = true;
     };
-  }, [fetchConversationList]);
+  }, []);
 
   useEffect(() => {
     if (
@@ -612,12 +638,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
     handleSelectConversation(initialEmployeeIdRef.current, true, initialDraftRef.current);
     setCanRestoreInitialSelection(false);
-  }, [
-    activeEmployeeId,
-    canRestoreInitialSelection,
-    handleSelectConversation,
-    isInitialSelectionReady,
-  ]);
+  }, [activeEmployeeId, canRestoreInitialSelection, handleSelectConversation, isInitialSelectionReady]);
 
   useEffect(() => {
     fetchAdminUnreadCount();
@@ -733,13 +754,8 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     }
   };
 
-  const filteredConversations = conversations.filter(conversation => {
-    const term = searchTerm.toLowerCase();
-    return (
-      conversation.employeeName.toLowerCase().includes(term) ||
-      conversation.employeeNumber?.toLowerCase().includes(term)
-    );
-  });
+  // Search is now handled server-side via debouncedSearch; filteredConversations is the same as conversations
+  const filteredConversations = conversations;
 
   return {
     conversations,
@@ -753,6 +769,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     inputText,
     searchTerm,
     isLoading: isMessagesLoading,
+    isConversationsLoading,
     isFetchingNextPage,
     hasNextPage,
     isUploading,
@@ -764,6 +781,9 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     isConnected,
     socket,
     fetchNextPage,
+    fetchNextConversationPage,
+    hasNextConversationPage,
+    isFetchingNextConversationPage,
     setSearchTerm,
     setActiveView,
     handleViewChange,

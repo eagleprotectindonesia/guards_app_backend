@@ -394,6 +394,39 @@ async function main() {
         },
       ],
     });
+
+    // Sync ChatConversation table from the messages we just seeded
+    console.log('Syncing chat_conversations from seeded messages...');
+    for (const empId of [employee1.id, employee2.id]) {
+      const lastMsg = await prisma.chatMessage.findFirst({
+        where: { employeeId: empId, status: 'sent' },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (!lastMsg) continue;
+
+      const unread = await prisma.chatMessage.count({
+        where: { employeeId: empId, sender: 'employee', readAt: null, status: 'sent' },
+      });
+
+      await prisma.chatConversation.upsert({
+        where: { employeeId: empId },
+        create: {
+          employeeId: empId,
+          lastMessageAt: lastMsg.createdAt,
+          lastMessageContent: lastMsg.content,
+          lastMessageSender: lastMsg.sender,
+          lastMessageAdminId: lastMsg.adminId ?? null,
+          unreadCount: unread,
+        },
+        update: {
+          lastMessageAt: lastMsg.createdAt,
+          lastMessageContent: lastMsg.content,
+          lastMessageSender: lastMsg.sender,
+          lastMessageAdminId: lastMsg.adminId ?? null,
+          unreadCount: unread,
+        },
+      });
+    }
   }
 
   console.log('\n--- SEED COMPLETE ---');

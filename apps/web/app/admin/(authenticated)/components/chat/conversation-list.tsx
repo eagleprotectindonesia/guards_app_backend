@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { ArchiveRestore, ArchiveX, Search, User, X } from 'lucide-react';
+import { ArchiveRestore, ArchiveX, Loader2, Search, User, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Conversation } from '@/types/chat';
@@ -23,6 +23,10 @@ interface ConversationListProps {
   onArchive?: (employeeId: string) => void;
   onUnarchive?: (employeeId: string) => void;
   showDate?: boolean;
+  // Pagination (load-more)
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 export function ConversationList({
@@ -41,6 +45,9 @@ export function ConversationList({
   onArchive,
   onUnarchive,
   showDate = true,
+  onLoadMore,
+  hasMore = false,
+  isLoadingMore = false,
 }: ConversationListProps) {
   const exportEmployees = useMemo(
     () => conversations.map(c => ({ id: c.employeeId, fullName: c.employeeName })),
@@ -111,99 +118,121 @@ export function ConversationList({
             {searchTerm ? 'No employees found' : 'No conversations yet'}
           </div>
         ) : (
-          conversations.map(conv => (
-            <div
-              key={conv.employeeId}
-              role="button"
-              tabIndex={0}
-              onClick={() => onSelect(conv.employeeId)}
-              onKeyDown={event => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  onSelect(conv.employeeId);
-                }
-              }}
-              className={cn(
-                'w-full text-left p-4 border-b border-border/50 hover:bg-muted/50 transition-all flex items-center gap-4 relative',
-                activeEmployeeId === conv.employeeId &&
-                  'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500',
-                itemClassName
-              )}
-            >
-              <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center shrink-0 relative">
-                <User className="text-muted-foreground" size={24} />
-                {typingEmployees[conv.employeeId] && (
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-card rounded-full animate-pulse" />
+          <>
+            {conversations.map(conv => (
+              <div
+                key={conv.employeeId}
+                role="button"
+                tabIndex={0}
+                onClick={() => onSelect(conv.employeeId)}
+                onKeyDown={event => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    onSelect(conv.employeeId);
+                  }
+                }}
+                className={cn(
+                  'w-full text-left p-4 border-b border-border/50 hover:bg-muted/50 transition-all flex items-center gap-4 relative',
+                  activeEmployeeId === conv.employeeId &&
+                    'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500',
+                  itemClassName
+                )}
+              >
+                <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center shrink-0 relative">
+                  <User className="text-muted-foreground" size={24} />
+                  {typingEmployees[conv.employeeId] && (
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 bg-green-500 border-2 border-card rounded-full animate-pulse" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start mb-1 gap-2">
+                    <p className="font-semibold text-foreground truncate flex-1 min-w-0">
+                      {conv.employeeName}{' '}
+                      <span className="text-xs font-normal text-muted-foreground">({conv.employeeNumber})</span>
+                    </p>
+                    {showDate && (
+                      <span className="text-[10px] text-muted-foreground shrink-0 mt-1">
+                        {format(new Date(conv.lastMessage.createdAt), 'MMM d, HH:mm')}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {typingEmployees[conv.employeeId] ? (
+                      <span className="text-green-600 dark:text-green-400 font-medium italic">typing...</span>
+                    ) : conv.isDraft ? (
+                      <span className="italic">No messages yet</span>
+                    ) : (
+                      <>
+                        {conv.lastMessage.sender === 'admin' ? (
+                          <span className="font-medium text-blue-600 dark:text-blue-400">
+                            {conv.lastMessage.sender === 'admin' && conv.lastMessage.adminName === undefined
+                              ? 'You'
+                              : currentAdminId && conv.lastMessage.adminId === currentAdminId
+                                ? 'You'
+                                : conv.lastMessage.adminName || 'Admin'}
+                            :{' '}
+                          </span>
+                        ) : null}
+                        {conv.lastMessage.content}
+                      </>
+                    )}
+                  </p>
+                </div>
+                {conv.unreadCount > 0 && (
+                  <div className="min-w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold px-1.5 ml-2">
+                    {conv.unreadCount}
+                  </div>
+                )}
+                {conv.isDraft ? null : conv.isArchived ? (
+                  <button
+                    type="button"
+                    aria-label="Unarchive conversation"
+                    title="Unarchive conversation"
+                    onClick={event => {
+                      event.stopPropagation();
+                      onUnarchive?.(conv.employeeId);
+                    }}
+                    className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ArchiveRestore size={16} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    aria-label="Archive conversation"
+                    title="Archive conversation"
+                    onClick={event => {
+                      event.stopPropagation();
+                      onArchive?.(conv.employeeId);
+                    }}
+                    className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ArchiveX size={16} />
+                  </button>
                 )}
               </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex justify-between items-start mb-1 gap-2">
-                  <p className="font-semibold text-foreground truncate flex-1 min-w-0">
-                    {conv.employeeName}{' '}
-                    <span className="text-xs font-normal text-muted-foreground">({conv.employeeNumber})</span>
-                  </p>
-                  {showDate && (
-                    <span className="text-[10px] text-muted-foreground shrink-0 mt-1">
-                      {format(new Date(conv.lastMessage.createdAt), 'MMM d, HH:mm')}
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground truncate">
-                  {typingEmployees[conv.employeeId] ? (
-                    <span className="text-green-600 dark:text-green-400 font-medium italic">typing...</span>
-                  ) : conv.isDraft ? (
-                    <span className="italic">No messages yet</span>
-                  ) : (
+            ))}
+
+            {/* Load more button */}
+            {hasMore && (
+              <div className="p-3 flex justify-center border-t border-border/50">
+                <button
+                  onClick={onLoadMore}
+                  disabled={isLoadingMore}
+                  className="flex items-center gap-2 px-4 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/50 hover:bg-muted rounded-full transition-all disabled:opacity-50"
+                >
+                  {isLoadingMore ? (
                     <>
-                      {conv.lastMessage.sender === 'admin' ? (
-                        <span className="font-medium text-blue-600 dark:text-blue-400">
-                          {conv.lastMessage.sender === 'admin' && conv.lastMessage.adminName === undefined
-                            ? 'You'
-                            : currentAdminId && conv.lastMessage.adminId === currentAdminId
-                              ? 'You'
-                              : conv.lastMessage.adminName || 'Admin'}
-                          :{' '}
-                        </span>
-                      ) : null}
-                      {conv.lastMessage.content}
+                      <Loader2 size={12} className="animate-spin" />
+                      Loading...
                     </>
+                  ) : (
+                    'Load more'
                   )}
-                </p>
+                </button>
               </div>
-              {conv.unreadCount > 0 && (
-                <div className="min-w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold px-1.5 ml-2">
-                  {conv.unreadCount}
-                </div>
-              )}
-              {conv.isDraft ? null : conv.isArchived ? (
-                <button
-                  type="button"
-                  aria-label="Unarchive conversation"
-                  title="Unarchive conversation"
-                  onClick={event => {
-                    event.stopPropagation();
-                    onUnarchive?.(conv.employeeId);
-                  }}
-                  className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ArchiveRestore size={16} />
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  aria-label="Archive conversation"
-                  title="Archive conversation"
-                  onClick={event => {
-                    event.stopPropagation();
-                    onArchive?.(conv.employeeId);
-                  }}
-                  className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  <ArchiveX size={16} />
-                </button>
-              )}
-            </div>
-          ))
+            )}
+          </>
         )}
       </div>
     </div>

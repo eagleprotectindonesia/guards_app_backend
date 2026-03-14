@@ -122,6 +122,21 @@ model ChatMessage {
   @@map("chat_messages")
 }
 
+model ChatConversation {
+  employeeId         String         @id @map("employee_id")
+  lastMessageAt      DateTime       @map("last_message_at")
+  lastMessageContent String         @map("last_message_content") @db.Text
+  lastMessageSender  ChatSenderType @map("last_message_sender")
+  lastMessageAdminId String?        @map("last_message_admin_id")
+  unreadCount        Int            @default(0) @map("unread_count")
+  updatedAt          DateTime       @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+
+  @@index([lastMessageAt(sort: Desc)])
+  @@map("chat_conversations")
+}
+
 model AdminChatConversationState {
   id         String   @id @default(uuid())
   adminId    String   @map("admin_id")
@@ -180,6 +195,7 @@ model Employee {
   officeAttendances OfficeAttendance[]
   chatMessages    ChatMessage[]
   chatConversationStates AdminChatConversationState[]
+  chatConversation ChatConversation?
   refreshTokens   RefreshToken[]
   fcmTokens       FcmToken[]
   passwordHistories EmployeePasswordHistory[]
