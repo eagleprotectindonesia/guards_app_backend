@@ -86,7 +86,6 @@ export default function PasswordChangeModal({ isOpen, onClose, isForce }: Passwo
               return [{ field, message }];
             })
         : [];
-      const formErrorMessage = data?.errors?._form?.[0];
 
       if (fieldErrors.length > 0) {
         setValidationErrors(fieldErrors);

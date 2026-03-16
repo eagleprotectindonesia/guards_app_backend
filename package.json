@@ -8,7 +8,7 @@
     "dev": "node --env-file=.env ./node_modules/turbo/bin/turbo run dev --filter=web --filter=worker",
     "dev:https": "node --env-file=.env ./node_modules/turbo/bin/turbo run dev:https --filter=web --filter=worker",
     "dev:mobile": "node --env-file=.env ./node_modules/turbo/bin/turbo run dev",
-    "lint": "turbo lint",
+    "lint": "turbo run lint type-check",
     "test": "jest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",

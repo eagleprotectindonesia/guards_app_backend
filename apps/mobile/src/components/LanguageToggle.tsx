@@ -1,6 +1,5 @@
 import React from 'react';
 import { Button, ButtonIcon } from '@/components/ui/button';
-import { Icon } from '@/components/ui/icon';
 import { useTranslation } from 'react-i18next';
 import { Languages } from 'lucide-react-native';
 

@@ -1,6 +1,6 @@
-import { db as prisma } from "../client";
+import { db as prisma } from '../client';
 import { Prisma, AttendanceStatus, AlertReason } from '@prisma/client';
-import { autoResolveAlert } from "./alerts";
+import { autoResolveAlert } from './alerts';
 
 export async function getAttendanceByShiftId(shiftId: string) {
   return prisma.attendance.findUnique({
@@ -25,7 +25,6 @@ export async function recordAttendance(params: {
   // Backward compatibility
   guardId?: string;
   status: AttendanceStatus;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any;
   updateShiftStatus?: boolean;
 }) {

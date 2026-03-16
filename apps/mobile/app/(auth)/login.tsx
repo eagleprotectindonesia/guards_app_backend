@@ -12,10 +12,6 @@ import {
   LayoutAnimation,
   UIManager,
 } from 'react-native';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 import { useAlert } from '../../src/contexts/AlertContext';
 import { useCustomToast } from '../../src/hooks/useCustomToast';
 import { VStack } from '@/components/ui/vstack';
@@ -48,6 +44,10 @@ import {
   getBiometricTypeLabel,
 } from '../../src/utils/biometric';
 import { Fingerprint } from 'lucide-react-native';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 const { width, height } = Dimensions.get('window');
 
@@ -220,7 +220,6 @@ export default function LoginScreen() {
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}
           showsVerticalScrollIndicator={false}
         >
-
           {/* Logo & Header */}
           {!isKeyboardVisible && (
             <VStack space="lg" className="items-center mb-12">

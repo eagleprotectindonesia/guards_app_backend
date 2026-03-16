@@ -1,5 +1,5 @@
 import { db as prisma } from "../client";
-import { ShiftStatus, AlertResolution, Prisma, AlertReason } from '@prisma/client';
+import { ShiftStatus, AlertResolution, AlertReason } from '@prisma/client';
 
 export async function getAlertById(id: string) {
   return prisma.alert.findUnique({

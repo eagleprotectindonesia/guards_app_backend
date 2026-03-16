@@ -1,6 +1,6 @@
-import { db as prisma } from "../client";
+import { db as prisma } from '../client';
 import { Prisma, CheckInStatus, AlertReason } from '@prisma/client';
-import { autoResolveAlert } from "./alerts";
+import { autoResolveAlert } from './alerts';
 
 export async function getCheckinsByShiftId(shiftId: string) {
   return prisma.checkin.findMany({
@@ -16,7 +16,6 @@ export async function recordCheckin(params: {
   guardId?: string;
   status: CheckInStatus;
   source?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any;
   now: Date;
   shiftUpdateData: {

@@ -1,4 +1,4 @@
-import { db as prisma } from "../client";
+import { db as prisma } from '../client';
 import { Prisma, AttendanceStatus } from '@prisma/client';
 
 export async function getOfficeAttendanceById(id: string) {
@@ -27,7 +27,6 @@ export async function recordOfficeAttendance(params: {
   employeeId: string;
   status: AttendanceStatus;
   picture?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any;
 }) {
   const { officeId, employeeId, status, picture, metadata } = params;

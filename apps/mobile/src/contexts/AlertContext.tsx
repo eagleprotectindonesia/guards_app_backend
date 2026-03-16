@@ -10,7 +10,6 @@ import {
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { Button, ButtonText } from '@/components/ui/button';
-import { Icon, CloseIcon } from '@/components/ui/icon';
 import { HStack } from '@/components/ui/hstack';
 import { AlertTriangle, CheckCircle2, Info } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
