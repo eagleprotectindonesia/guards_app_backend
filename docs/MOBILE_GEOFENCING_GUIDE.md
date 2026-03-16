@@ -1,5 +1,8 @@
 # Mobile Geofencing & Location Monitoring Documentation
 
+## Current Status
+Background geofencing is currently disabled in the mobile app build. The app still requests foreground location access for other features such as attendance and chat location sharing, but background location permissions and background geofencing startup are not currently enabled.
+
 ## Overview
 This document describes the implementation of the Background Geofencing and Location Services Monitoring system for the EP Guard Scheduling mobile application. This system ensures that guards remain at their assigned sites and maintain active location services throughout their shifts.
 

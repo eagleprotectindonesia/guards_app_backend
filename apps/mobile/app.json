@@ -6,7 +6,6 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icons/android-launchericon-512-512.png",
-    "newArchEnabled": true,
     "platforms": ["ios", "android"],
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -21,10 +20,8 @@
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "The app needs access to your photo library to let you attach photos and videos to chat messages.",
         "NSCameraUsageDescription": "The app needs access to your camera to let you take photos and videos to attach to chat messages.",
-        "NSLocationWhenInUseUsageDescription": "We need your location to track attendance and monitor site geofencing during your shift.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need your location to track attendance and monitor site geofencing during your shift, even when the app is in the background.",
-        "NSLocationAlwaysUsageDescription": "We need your location to track attendance and monitor site geofencing during your shift, even when the app is closed.",
-        "UIBackgroundModes": ["location", "fetch", "remote-notification"]
+        "NSLocationWhenInUseUsageDescription": "We need your location to support attendance and location sharing features.",
+        "UIBackgroundModes": ["fetch", "remote-notification"]
       }
     },
     "android": {
@@ -40,8 +37,6 @@
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "FOREGROUND_SERVICE",
-        "FOREGROUND_SERVICE_LOCATION",
-        "ACCESS_BACKGROUND_LOCATION",
         "POST_NOTIFICATIONS",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
@@ -53,8 +48,8 @@
       [
         "expo-location",
         {
-          "isAndroidBackgroundLocationEnabled": true,
-          "isAndroidForegroundServiceEnabled": true
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
         }
       ],
       "expo-secure-store",

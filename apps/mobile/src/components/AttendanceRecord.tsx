@@ -12,7 +12,6 @@ import { client } from '../api/client';
 import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
 import * as Haptics from 'expo-haptics';
-import { startGeofencing } from '../utils/geofence';
 import { LinearGradient } from 'expo-linear-gradient';
 import { queryKeys } from '../api/queryKeys';
 
@@ -37,7 +36,6 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
     },
     onSuccess: async () => {
       setStatus(t('attendance.success'));
-      await startGeofencing(shift);
       queryClient.invalidateQueries({ queryKey: queryKeys.shifts.active });
       if (onAttendanceRecorded) onAttendanceRecorded();
     },

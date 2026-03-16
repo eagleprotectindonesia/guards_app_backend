@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { ScrollView, RefreshControl, Image } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
@@ -16,7 +16,6 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShiftWithRelations } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
-import { startGeofencing, stopGeofencing, isGeofencingActive } from '../../src/utils/geofence';
 import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useProfile } from '../../src/hooks/useProfile';
@@ -49,26 +48,6 @@ export default function HomeScreen() {
 
   const activeShift = shiftData?.activeShift;
   const nextShifts = shiftData?.nextShifts || [];
-
-  // Re-sync geofencing lifecycle
-  useEffect(() => {
-    const syncGeofence = async () => {
-      const isRunning = await isGeofencingActive();
-
-      if (activeShift?.attendance) {
-        if (!isRunning) {
-          await startGeofencing(activeShift);
-        }
-      } else {
-        // No active shift or no attendance yet - ensure geofencing is OFF
-        if (isRunning) {
-          console.log('[Geofence] No active shift with attendance, stopping...');
-          await stopGeofencing();
-        }
-      }
-    };
-    syncGeofence();
-  }, [activeShift]);
 
   const defaultAvatar =
     'https://lh3.googleusercontent.com/aida-public/AB6AXuDzcxM7B2Plj0M6rLwD5-jwCeXCJ-VxTGp8XT8dffCo7Cjv4BQ3_fM-MkOicyMU8jJxMw9Q81kjfqVm_zD_yfF92pmxUsZDY_fB7by9N3_LAOMNfdJlNjEUudjhqq7Cm5LUPTk9aKNVSgT9A4rsOYqHKU5vKRmjMZknp_AFtbKxzLh1PX2V_AKy5bez2tThvg_swnSuuvc4uRhd_JO8vfyGxuCUlrrS_Gt_LXaPHMHfgxPWTz6nvJqDPVw3QneYlTqVGg46xTuvrQDq';
