@@ -6,10 +6,26 @@ import { storage, STORAGE_KEYS } from '../utils/storage';
 let socket: Socket | null = null;
 let appStateSubscription: NativeEventSubscription | null = null;
 
+const shouldKeepSocketConnected = (appState: AppStateStatus) => appState === 'active';
+
+const connectSocketIfEligible = () => {
+  if (socket && !socket.connected && shouldKeepSocketConnected(AppState.currentState)) {
+    console.log('[Socket] Connecting socket for active app state');
+    socket.connect();
+  }
+};
+
+const disconnectSocketForBackground = () => {
+  if (socket?.connected) {
+    console.log('[Socket] Disconnecting socket for background app state');
+    socket.disconnect();
+  }
+};
+
 export const getSocket = async () => {
   // If socket exists, return it even if it's currently disconnected
-  // (socket.io handles reconnection automatically)
   if (socket) {
+    connectSocketIfEligible();
     return socket;
   }
 
@@ -24,6 +40,7 @@ export const getSocket = async () => {
       token,
     },
     transports: ['websocket'],
+    autoConnect: false,
     reconnection: true,
     reconnectionAttempts: Infinity,
     reconnectionDelay: 1000,
@@ -38,7 +55,7 @@ export const getSocket = async () => {
   socket.on('disconnect', reason => {
     console.log('Socket disconnected:', reason);
     // If reason is 'io server disconnect', we might need to manually reconnect
-    if (reason === 'io server disconnect') {
+    if (reason === 'io server disconnect' && shouldKeepSocketConnected(AppState.currentState)) {
       socket?.connect();
     }
   });
@@ -60,16 +77,17 @@ export const getSocket = async () => {
     let previousState: AppStateStatus = AppState.currentState;
 
     appStateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
-      // Only reconnect when coming from a true background state, not from 'inactive'.
-      // FCM briefly wakes the app via 'inactive', which must NOT trigger a reconnect.
       if (previousState === 'background' && nextAppState === 'active') {
-        if (socket && !socket.connected) {
-          socket.connect();
-        }
+        connectSocketIfEligible();
+      } else if (previousState === 'active' && nextAppState === 'background') {
+        disconnectSocketForBackground();
       }
+
       previousState = nextAppState;
     });
   }
+
+  connectSocketIfEligible();
 
   return socket;
 };

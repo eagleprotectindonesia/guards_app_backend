@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useAlert } from '../contexts/AlertContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { queryKeys } from '../api/queryKeys';
 import { incrementTelemetryCounter } from '../utils/telemetry';
+import { AppState, AppStateStatus } from 'react-native';
 
 export default function SessionMonitor() {
   const { t } = useTranslation();
@@ -15,6 +16,7 @@ export default function SessionMonitor() {
   const queryClient = useQueryClient();
   const { logout, isAuthenticated } = useAuth();
   const { showAlert } = useAlert();
+  const isResumeValidationInFlightRef = useRef(false);
 
   // Keep legacy polling as a secondary safety measure, but increase interval
   // IMPORTANT: Only run when authenticated to avoid triggering 401s during login
@@ -52,6 +54,33 @@ export default function SessionMonitor() {
     [logout, router, t, showAlert]
   );
 
+  const refreshShiftQueries = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.shifts.active });
+    queryClient.invalidateQueries({ queryKey: queryKeys.shifts.list });
+  }, [queryClient]);
+
+  const validateSessionOnForeground = useCallback(async () => {
+    if (!isAuthenticated || isResumeValidationInFlightRef.current) {
+      return;
+    }
+
+    isResumeValidationInFlightRef.current = true;
+
+    try {
+      await client.get('/api/employee/auth/check');
+      refreshShiftQueries();
+    } catch (error: any) {
+      if (error?.response?.status === 401) {
+        await handleLogout('logged_in_elsewhere');
+      } else {
+        console.error('[SessionMonitor] Foreground auth validation failed', error);
+        refreshShiftQueries();
+      }
+    } finally {
+      isResumeValidationInFlightRef.current = false;
+    }
+  }, [handleLogout, isAuthenticated, refreshShiftQueries]);
+
   useEffect(() => {
     if (!isAuthenticated) {
       return;
@@ -78,9 +107,7 @@ export default function SessionMonitor() {
       };
 
       const onShiftUpdated = () => {
-        // Invalidate queries to refresh dashboard/shift data
-        queryClient.invalidateQueries({ queryKey: queryKeys.shifts.active });
-        queryClient.invalidateQueries({ queryKey: queryKeys.shifts.list });
+        refreshShiftQueries();
       };
 
       socket.on('auth:force_logout', onForceLogout);
@@ -100,7 +127,27 @@ export default function SessionMonitor() {
       isMounted = false;
       cleanupSocketListeners?.();
     };
-  }, [handleLogout, queryClient, isAuthenticated]);
+  }, [handleLogout, queryClient, isAuthenticated, refreshShiftQueries]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    let previousAppState: AppStateStatus = AppState.currentState;
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      const isRealForeground = previousAppState === 'background' && nextAppState === 'active';
+      previousAppState = nextAppState;
+
+      if (isRealForeground) {
+        void validateSessionOnForeground();
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [isAuthenticated, validateSessionOnForeground]);
 
   return null;
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { AppState, AppStateStatus, ViewToken } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query';
 import { format, isSameDay, isToday, isYesterday } from 'date-fns';
 import { client } from '../api/client';
@@ -43,7 +43,7 @@ export function useChatMessages({
   t: (key: string) => string;
 }) {
   const queryClient = useQueryClient();
-  const isFocusedRef = useRef(false);
+  const isFocused = useIsFocused();
   const lastForegroundSyncAtRef = useRef(0);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useInfiniteQuery({
@@ -97,15 +97,6 @@ export function useChatMessages({
       return format(dateObject, 'MMM d, yyyy');
     },
     [t]
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      isFocusedRef.current = true;
-      return () => {
-        isFocusedRef.current = false;
-      };
-    }, [])
   );
 
   // Reconcile messages after a background period by fetching only those
@@ -173,11 +164,14 @@ export function useChatMessages({
   }, [employeeId, queryClient, reconcileSince]);
 
   useEffect(() => {
-    if (messages.length > 0 && socket && employeeId && isFocusedRef.current) {
+    if (messages.length > 0 && socket && employeeId && isFocused) {
       const unreadIds = messages.filter(m => m.sender === 'admin' && !m.readAt).map(m => m.id);
-      emitMarkRead(socket, employeeId, unreadIds);
+      if (unreadIds.length > 0) {
+        queryClient.setQueryData(queryKeys.chat.unread, 0);
+        emitMarkRead(socket, employeeId, unreadIds);
+      }
     }
-  }, [messages, employeeId, socket]);
+  }, [messages, employeeId, isFocused, queryClient, socket]);
 
   useSocketEvent(socket, 'new_message', message => {
     if (!employeeId) return;
@@ -195,7 +189,8 @@ export function useChatMessages({
       };
     });
 
-    if (isFocusedRef.current && message.sender === 'admin') {
+    if (isFocused && message.sender === 'admin') {
+      queryClient.setQueryData(queryKeys.chat.unread, 0);
       emitMarkRead(socket, employeeId, [message.id]);
     }
 

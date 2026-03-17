@@ -70,6 +70,13 @@ For chat pushes, it does **not** display a local notification anymore. Backgroun
   - `getInitialNotification(...)` handles cold-start taps when the app was killed
   - routing uses `data.type === 'chat'` and navigates to `/(tabs)/chat`
 
+#### Socket lifecycle (`apps/mobile/src/api/socket.ts` and `apps/mobile/src/components/SessionMonitor.tsx`)
+
+- **Foreground-only socket:** the employee mobile socket is connected only while the app is in the real `active` state.
+- **Background disconnect:** when the app enters `background`, the socket is intentionally disconnected so background chat delivery continues to use FCM instead of websocket presence.
+- **Inactive wake suppression:** transient `inactive` wakeups caused by Android push delivery do not reconnect the socket.
+- **Foreground recovery:** when the app returns from `background` to `active`, the app reconnects the socket, immediately revalidates `/api/employee/auth/check`, and invalidates shift queries so missed background socket events are recovered via API state.
+
 ### 5. Backend Flow (`apps/web/lib/fcm.ts` and `apps/web/lib/socket/chat.ts`)
 
 1. An admin sends a chat message through Socket.IO.
@@ -105,6 +112,7 @@ This hybrid shape ensures:
 - **Killed-state reliability:** visible notification content is sent from the backend so the OS can display chat pushes even when JS does not wake reliably.
 - **Android channels:** chat notifications use the `chat_messages_v2` channel.
 - **Channel mutability caveat:** on Android, once a channel has been created on-device, the OS owns that channel's alert behavior. If the user or OEM firmware downgrades it to silent, minimized, or badge-only, recreating the same channel ID from app code will not restore heads-up/system alerts. In that case you must inspect the device's channel settings or ship a new channel ID.
+- **Employee Redis stream caveat:** `session_revoked` and `shift_updated` employee events are consumed only by the live socket polling loop on the server. They are not durable replay for a disconnected mobile client because the current stream reader starts from `$` on each connection. The mobile app therefore treats those events as foreground-only realtime hints and relies on foreground API revalidation after background periods.
 
 ## Deployment Requirements
 
