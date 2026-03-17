@@ -1,4 +1,4 @@
-const profile = process.env.APP_VARIANT || process.env.EAS_BUILD_PROFILE || 'production';
+const profile = process.env.EAS_BUILD_PROFILE || process.env.APP_VARIANT || 'production';
 
 const packageSuffixes = {
   development: '.dev',

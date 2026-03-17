@@ -70,7 +70,33 @@ Notes:
 - These scripts use `assembleDebug`, so they do not require a release keystore.
 - `APP_VARIANT` controls app name, package suffix, and which `google-services*.json` file is used.
 - Because `/android` is gitignored, `expo prebuild --clean` is safe and expected here.
+- Treat `/ios` the same way: if you generate it locally, regenerate it for the target variant instead of relying on stale native files.
 - `expo run:android` and local Gradle builds require a locally installed Android SDK, as described in Expo's local development guide: https://docs.expo.dev/guides/local-app-development/
+
+## iOS variant workflow
+
+Expo config is the source of truth for iOS bundle identifiers, app name, APNs environment, and Firebase plist selection.
+
+- `EAS_BUILD_PROFILE` takes precedence over `APP_VARIANT`
+- if an `ios/` folder exists, EAS will prefer the native Xcode project and ignore `ios.bundleIdentifier` from Expo config
+- because `/ios` is generated, the safe workflow is to remove it and prebuild it again for the variant you want
+
+Production example:
+
+```bash
+cd apps/mobile
+pnpm run native:clean
+pnpm run ios:prebuild:production
+eas build --profile production --platform ios
+```
+
+For a local native iOS run:
+
+```bash
+cd apps/mobile
+pnpm run native:clean
+pnpm run ios:production
+```
 
 ### Local EAS build
 

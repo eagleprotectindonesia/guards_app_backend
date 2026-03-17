@@ -83,7 +83,9 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
           roleName = admin.roleRef?.name || null;
           permissions = admin.roleRef?.permissions.map(p => p.code) || [];
 
-          await redis.set(versionCacheKey, currentVersion.toString(), 'EX', SESSION_CACHE_TTL);
+          if (versionCacheKey) {
+            await redis.set(versionCacheKey, currentVersion.toString(), 'EX', SESSION_CACHE_TTL);
+          }
           await redis.set(permsCacheKey, JSON.stringify({ roleName, permissions }), 'EX', SESSION_CACHE_TTL);
         }
       } else {
