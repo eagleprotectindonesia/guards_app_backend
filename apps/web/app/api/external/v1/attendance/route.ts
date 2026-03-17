@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
       let safeEmployee = null;
       if (employee) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { hashedPassword, tokenVersion, deletedAt, ...empRest } = employee;
+        const { hashedPassword, deletedAt, ...empRest } = employee;
         safeEmployee = empRest;
       }
 

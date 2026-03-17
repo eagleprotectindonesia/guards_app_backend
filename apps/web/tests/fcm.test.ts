@@ -63,6 +63,18 @@ describe('sendChatPushNotification', () => {
       employeeId: 'emp-1',
       messageId: 'msg-1',
     });
+    expect(mockFindMany).toHaveBeenCalledWith({
+      where: {
+        employeeSession: {
+          employeeId: 'emp-1',
+          revokedAt: null,
+          expiresAt: {
+            gt: expect.any(Date),
+          },
+        },
+      },
+      select: { token: true },
+    });
   });
 
   test('returns success counts when multicast send succeeds', async () => {

@@ -1,6 +1,7 @@
 import {
   getMessaging,
   getToken,
+  deleteToken,
   requestPermission,
   onTokenRefresh,
   AuthorizationStatus,
@@ -99,6 +100,27 @@ export async function registerFcmToken(permissionState?: NotificationPermissionS
       tokenRegisteredWithBackend: false,
     });
     return null;
+  }
+}
+
+export async function deregisterFcmToken() {
+  try {
+    const messaging = await ensureRemoteMessagesRegistered();
+    const token = await getToken(messaging);
+
+    if (!token) {
+      return false;
+    }
+
+    await client.delete('/api/employee/fcm-token', {
+      data: { token },
+    });
+
+    await deleteToken(messaging);
+    return true;
+  } catch (error) {
+    console.error('[FCM] Error deregistering FCM token:', error);
+    return false;
   }
 }
 

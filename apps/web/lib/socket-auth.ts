@@ -1,6 +1,5 @@
 import jwt from 'jsonwebtoken';
 import cookie from 'cookie';
-import { db as prisma } from '@/lib/prisma';
 import { verifySession } from './auth/session';
 import { AUTH_COOKIES } from './auth/constants';
 import { SocketData } from '@repo/types';
@@ -42,20 +41,16 @@ export async function authenticateSocket(handshake: HandshakeLike): Promise<Sock
       // Decode token to get clientType
       const decoded = jwt.decode(employeeToken) as {
         employeeId?: string;
-        tokenVersion?: number;
+        sessionId?: string;
         clientType?: 'mobile' | 'pwa';
       };
 
       const { isValid, userId } = await verifySession(employeeToken, 'employee');
-      if (isValid && userId) {
-        const employee = await prisma.employee.findUnique({
-          where: { id: userId },
-          select: { tokenVersion: true },
-        });
+      if (isValid && userId && decoded?.sessionId) {
         return {
           type: 'employee' as const,
           id: userId,
-          tokenVersion: employee?.tokenVersion || 0,
+          sessionId: decoded.sessionId,
           clientType: decoded?.clientType || 'pwa', // Default to pwa if not specified
         };
       }

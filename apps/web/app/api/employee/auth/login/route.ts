@@ -6,8 +6,8 @@ import { redis } from '@/lib/redis';
 import { prisma } from '@repo/database';
 import { z } from 'zod';
 import { DEFAULT_PASSWORD } from '@repo/shared';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
+import { getEmployeeSessionExpiry, type EmployeeClientType } from '@/lib/auth/employee-sessions';
 
 const employeeLoginSchema = z.object({
   employeeNumber: z.string().min(1, 'Nomor Karyawan wajib diisi'),
@@ -19,7 +19,7 @@ function isMobileUserAgent(userAgent: string | null): boolean {
   return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
 }
 
-function getClientType(headersList: Headers): 'mobile' | 'pwa' {
+function getClientType(headersList: Headers): EmployeeClientType {
   // Check for custom header from mobile app
   const clientType = headersList.get('x-client-type');
   if (clientType === 'mobile') return 'mobile';
@@ -69,15 +69,32 @@ export async function POST(req: Request) {
     // Detect client type
     const headersList = await headers();
     const clientType = getClientType(headersList);
+    const deviceInfo = headersList.get('user-agent');
+    const expiresAt = getEmployeeSessionExpiry();
 
-    // Increment token version to invalidate other sessions
-    const updatedEmployee = await prisma.employee.update({
-      where: { id: employee.id },
-      data: { tokenVersion: { increment: 1 } },
+    const session = await prisma.$transaction(async tx => {
+      await tx.employeeSession.updateMany({
+        where: {
+          employeeId: employee.id,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        data: {
+          revokedAt: new Date(),
+        },
+      });
+
+      return tx.employeeSession.create({
+        data: {
+          employeeId: employee.id,
+          clientType,
+          deviceInfo,
+          expiresAt,
+        },
+      });
     });
 
     // Notify other active sessions to logout via Redis Stream
-    // Only sessions from DIFFERENT client types will be logged out
     try {
       await redis.xadd(
         `employee:stream:${employee.id}`,
@@ -87,15 +104,11 @@ export async function POST(req: Request) {
         '*',
         'type',
         'session_revoked',
-        'newTokenVersion',
-        updatedEmployee.tokenVersion.toString(),
-        'clientType',
-        clientType
+        'reason',
+        'logged_in_elsewhere',
+        'sessionId',
+        session.id
       );
-
-      // Update cache for high-frequency polling
-      await redis.set(`employee:${employee.id}:token_version`, updatedEmployee.tokenVersion.toString(), 'EX', 3600);
-
     } catch (error) {
       console.error('Failed to publish session revocation event:', error);
     }
@@ -109,11 +122,11 @@ export async function POST(req: Request) {
       });
     }
 
-    // Generate JWT token with token version and client type
+    // Generate JWT token with session identity and client type
     const token = jwt.sign(
       {
         employeeId: employee.id,
-        tokenVersion: updatedEmployee.tokenVersion,
+        sessionId: session.id,
         clientType,
       },
       JWT_SECRET,
@@ -121,7 +134,7 @@ export async function POST(req: Request) {
     );
 
     // Set HTTP-only cookie
-    (await cookies()).set('employee_token', token, {
+    (await cookies()).set(AUTH_COOKIES.EMPLOYEE, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 24, // 1 day

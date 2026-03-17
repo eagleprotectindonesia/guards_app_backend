@@ -180,7 +180,6 @@ model Employee {
   phone           String?      
   hashedPassword  String       @map("password")
   mustChangePassword Boolean   @default(true) @map("must_change_password")
-  tokenVersion    Int          @default(0) @map("token_version")
   role            EmployeeRole?
   status          Boolean?     @default(true)
   note            String?      @db.Text
@@ -197,7 +196,7 @@ model Employee {
   chatConversationStates AdminChatConversationState[]
   chatConversation ChatConversation?
   refreshTokens   RefreshToken[]
-  fcmTokens       FcmToken[]
+  sessions        EmployeeSession[]
   passwordHistories EmployeePasswordHistory[]
 
   @@index([status])
@@ -205,6 +204,26 @@ model Employee {
   @@index([employeeNumber])
   @@index([officeId])
   @@map("employees")
+}
+
+model EmployeeSession {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  clientType String   @map("client_type")
+  deviceInfo String?  @map("device_info")
+  expiresAt  DateTime @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  lastSeenAt DateTime? @map("last_seen_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  fcmTokens FcmToken[]
+
+  @@index([employeeId])
+  @@index([revokedAt])
+  @@index([expiresAt])
+  @@map("employee_sessions")
 }
 
 model EmployeePasswordHistory {
@@ -487,15 +506,15 @@ model RefreshToken {
 }
 
 model FcmToken {
-  id         String   @id @default(uuid())
-  employeeId String   @map("employee_id")
-  token      String   @unique
-  deviceInfo String?  @map("device_info")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id                String   @id @default(uuid())
+  employeeSessionId String   @map("employee_session_id")
+  token             String   @unique
+  deviceInfo        String?  @map("device_info")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
 
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeSession EmployeeSession @relation(fields: [employeeSessionId], references: [id], onDelete: Cascade)
 
-  @@index([employeeId])
+  @@index([employeeSessionId])
   @@map("fcm_tokens")
 }

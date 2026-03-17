@@ -41,7 +41,15 @@ export async function sendChatPushNotification(params: {
 
   try {
     const tokens = await prisma.fcmToken.findMany({
-      where: { employeeId },
+      where: {
+        employeeSession: {
+          employeeId,
+          revokedAt: null,
+          expiresAt: {
+            gt: new Date(),
+          },
+        },
+      },
       select: { token: true },
     });
 

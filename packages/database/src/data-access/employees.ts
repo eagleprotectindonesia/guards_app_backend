@@ -109,7 +109,7 @@ export async function getPaginatedEmployees(params: {
 
 /**
  * Upsert an employee from external API data.
- * Does NOT overwrite hashedPassword, tokenVersion, or phone if they already exist,
+ * Does NOT overwrite hashedPassword or phone if they already exist,
  * unless specifically intended (phone comes from external too).
  */
 export async function upsertEmployeeFromExternal(data: {
@@ -193,7 +193,6 @@ export async function deactivateEmployeesNotIn(
       },
       select: {
         id: true,
-        tokenVersion: true,
         employeeNumber: true,
         fullName: true,
         personnelId: true,
@@ -209,12 +208,21 @@ export async function deactivateEmployeesNotIn(
 
     const idsToDeactivate = toDeactivate.map(e => e.id);
 
-    // 2. Bulk update status and increment tokenVersion
+    // 2. Bulk update status
     await tx.employee.updateMany({
       where: { id: { in: idsToDeactivate } },
       data: {
         status: false,
-        tokenVersion: { increment: 1 },
+      },
+    });
+
+    await tx.employeeSession.updateMany({
+      where: {
+        employeeId: { in: idsToDeactivate },
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
       },
     });
 
@@ -264,21 +272,17 @@ export async function deactivateEmployeesNotIn(
 
       // 3e. Notify employee session revocation via Redis stream
       try {
-        const newTokenVersion = (employee.tokenVersion + 1).toString();
-        await Promise.all([
-          redis.xadd(
-            `employee:stream:${employee.id}`,
-            'MAXLEN',
-            '~',
-            100,
-            '*',
-            'type',
-            'session_revoked',
-            'newTokenVersion',
-            newTokenVersion
-          ),
-          redis.set(`employee:${employee.id}:token_version`, newTokenVersion, 'EX', 3600),
-        ]);
+        await redis.xadd(
+          `employee:stream:${employee.id}`,
+          'MAXLEN',
+          '~',
+          100,
+          '*',
+          'type',
+          'session_revoked',
+          'reason',
+          'account_deactivated'
+        );
       } catch (err) {
         console.error(`Failed to notify session revocation for ${employee.id}:`, err);
       }

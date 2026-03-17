@@ -52,7 +52,7 @@ export interface SocketData {
   auth: {
     id: string;
     type: 'admin' | 'employee';
-    tokenVersion?: number;
+    sessionId?: string;
     clientType?: string;
   };
 }

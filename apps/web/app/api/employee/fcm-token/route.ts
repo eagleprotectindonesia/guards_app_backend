@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db as prisma } from '@/lib/prisma';
-import { getAuthenticatedEmployee } from '@/lib/employee-auth';
+import { getAuthenticatedEmployeeSession } from '@/lib/employee-auth';
 
 export async function POST(req: NextRequest) {
   try {
-    const employee = await getAuthenticatedEmployee();
+    const session = await getAuthenticatedEmployeeSession();
 
-    if (!employee) {
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const employeeId = employee.id;
 
     const body = await req.json();
     const { token, deviceInfo } = body;
@@ -19,20 +17,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing token' }, { status: 400 });
     }
 
-    // Upsert the token by token string itself
-    // If multiple devices, each has a unique token but same employeeId
     const fcmToken = await prisma.fcmToken.upsert({
       where: {
         token: token,
       },
       update: {
-        employeeId,
+        employeeSessionId: session.sessionId,
         deviceInfo: deviceInfo || null,
         updatedAt: new Date(),
       },
       create: {
         token,
-        employeeId,
+        employeeSessionId: session.sessionId,
         deviceInfo: deviceInfo || null,
       },
     });
@@ -40,6 +36,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, id: fcmToken.id });
   } catch (error) {
     console.error('Error in /api/employee/fcm-token:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getAuthenticatedEmployeeSession();
+
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const { token } = body;
+
+    if (!token) {
+      return NextResponse.json({ error: 'Missing token' }, { status: 400 });
+    }
+
+    const result = await prisma.fcmToken.deleteMany({
+      where: {
+        employeeSessionId: session.sessionId,
+        token,
+      },
+    });
+
+    return NextResponse.json({ success: true, deleted: result.count > 0 });
+  } catch (error) {
+    console.error('Error deleting /api/employee/fcm-token:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -9,6 +9,7 @@ import { Employee } from '@repo/types';
 import { useTranslation } from 'react-i18next';
 import { queryKeys } from '../api/queryKeys';
 import { clearDebugChatCache } from '../utils/debug';
+import { deregisterFcmToken } from '../lib/fcm';
 
 type AuthValidationState = 'unknown' | 'validated' | 'failed';
 
@@ -49,6 +50,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // but for now we just handle the cleanup
     disconnectSocket();
     await stopGeofencing();
+
+    try {
+      await deregisterFcmToken();
+    } catch (error) {
+      console.warn('[AuthContext] Failed to deregister FCM token during logout', error);
+    }
+
+    try {
+      await client.post('/api/employee/auth/logout');
+    } catch (error) {
+      console.warn('[AuthContext] Failed to revoke employee session during logout', error);
+    }
 
     // We don't want to clear biometric settings on logout usually
     // but we should clear the login token and related in-memory caches

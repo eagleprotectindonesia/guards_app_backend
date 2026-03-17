@@ -8,7 +8,7 @@ export type UserRole = 'admin' | 'employee';
 export interface SessionPayload {
   userId: string;
   role: UserRole;
-  tokenVersion?: number;
+  sessionId?: string;
 }
 
 export interface SessionResult {
@@ -26,22 +26,28 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { adminId?: string; employeeId?: string; guardId?: string; tokenVersion?: number };
+    const decoded = jwt.verify(token, JWT_SECRET) as {
+      adminId?: string;
+      employeeId?: string;
+      guardId?: string;
+      tokenVersion?: number;
+      sessionId?: string;
+    };
     const userId = type === 'admin' ? decoded.adminId : (decoded.employeeId || decoded.guardId);
-    const tokenVersion = decoded.tokenVersion;
+    const sessionId = decoded.sessionId;
 
     if (!userId) {
       return { isValid: false, userId: null, role: null, roleName: null, permissions: [] };
     }
 
-    const versionCacheKey = type === 'admin' ? `admin:token_version:${userId}` : `${type}:${userId}:token_version`;
+    const versionCacheKey = type === 'admin' ? `admin:token_version:${userId}` : null;
     const permsCacheKey = `admin:permissions:${userId}`;
 
     let currentVersion: number | null = null;
     let roleName: string | null = null;
     let permissions: string[] = [];
 
-    const cachedVersion = await redis.get(versionCacheKey);
+    const cachedVersion = versionCacheKey ? await redis.get(versionCacheKey) : null;
     const cachedPerms = type === 'admin' ? await redis.get(permsCacheKey) : null;
 
     if (cachedVersion !== null) {
@@ -58,7 +64,7 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
     }
 
     // Fallback to DB if version or permissions (for admin) are missing
-    if (currentVersion === null || (type === 'admin' && !roleName)) {
+    if ((type === 'admin' && currentVersion === null) || (type === 'admin' && !roleName) || type === 'employee') {
       if (type === 'admin') {
         // Use any to bypass Prisma type sync issues during development
         const admin = await prisma.admin.findUnique({
@@ -81,21 +87,53 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
           await redis.set(permsCacheKey, JSON.stringify({ roleName, permissions }), 'EX', SESSION_CACHE_TTL);
         }
       } else {
+        if (!sessionId) {
+          return { isValid: false, userId: null, role: null, roleName: null, permissions: [] };
+        }
+
         const employee = await prisma.employee.findUnique({
           where: { id: userId },
-          select: { tokenVersion: true, status: true, deletedAt: true },
+          select: {
+            status: true,
+            deletedAt: true,
+            sessions: {
+              where: { id: sessionId },
+              select: {
+                id: true,
+                revokedAt: true,
+                expiresAt: true,
+              },
+              take: 1,
+            },
+          },
         });
-        if (employee && employee.status !== false && employee.deletedAt === null) {
-          currentVersion = employee.tokenVersion;
-          await redis.set(versionCacheKey, currentVersion.toString(), 'EX', SESSION_CACHE_TTL);
+
+        const session = employee?.sessions[0];
+        if (
+          employee &&
+          employee.status !== false &&
+          employee.deletedAt === null &&
+          session &&
+          session.revokedAt === null &&
+          session.expiresAt > new Date()
+        ) {
+          return {
+            isValid: true,
+            userId,
+            role: type,
+            roleName,
+            permissions,
+          };
         }
+
+        return { isValid: false, userId: null, role: null, roleName: null, permissions: [] };
       }
     }
 
     // Version check
-    const versionMatch = (type === 'admin' && tokenVersion === undefined) || tokenVersion === currentVersion;
+    const versionMatch = type === 'admin' && (decoded.tokenVersion === undefined || decoded.tokenVersion === currentVersion);
 
-    if (currentVersion !== null && versionMatch) {
+    if (type === 'admin' && currentVersion !== null && versionMatch) {
       return {
         isValid: true,
         userId,

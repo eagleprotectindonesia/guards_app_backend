@@ -1,5 +1,6 @@
 import { redis } from '../redis';
 import { UnifiedServer, UnifiedSocket } from '../socket';
+import { isEmployeeSessionActive } from '../auth/employee-sessions';
 
 /**
  * Handlers for Employee users (Guards).
@@ -28,13 +29,17 @@ export async function registerEmployeeHandlers(io: UnifiedServer, socket: Unifie
             const data: Record<string, string> = {};
             for (let i = 0; i < fields.length; i += 2) data[fields[i]] = fields[i + 1];
 
-            if (data.type === 'session_revoked' && parseInt(data.newTokenVersion, 10) > (auth.tokenVersion || 0)) {
-              const newClientType = data.clientType || 'unknown';
-              const currentClientType = auth.clientType || 'unknown';
-              
-              // Only force logout if the new login is from a DIFFERENT client type
-              if (newClientType !== currentClientType) {
-                socket.emit('auth:force_logout', { reason: 'logged_in_elsewhere' });
+            if (data.type === 'session_revoked') {
+              if (!auth.sessionId) {
+                socket.emit('auth:force_logout', { reason: data.reason || 'session_revoked' });
+                socket.disconnect(true);
+                active = false;
+                continue;
+              }
+
+              const stillActive = await isEmployeeSessionActive(auth.sessionId);
+              if (!stillActive) {
+                socket.emit('auth:force_logout', { reason: data.reason || 'session_revoked' });
                 socket.disconnect(true);
                 active = false;
               }

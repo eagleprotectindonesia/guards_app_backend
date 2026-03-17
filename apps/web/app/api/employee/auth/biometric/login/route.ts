@@ -4,8 +4,9 @@ import jwt from 'jsonwebtoken';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
+import { getEmployeeSessionExpiry } from '@/lib/auth/employee-sessions';
+import { redis } from '@/lib/redis';
 
 const loginSchema = z.object({
   biometricToken: z.string().min(1),
@@ -43,16 +44,52 @@ export async function POST(req: Request) {
 
     const employee = storedToken.employee;
 
-    // Optional: Increment token version? 
-    // If we increment token version, we might invalidate other sessions.
-    // Biometric login is just another session. Maybe we don't need to increment.
-    // But we need the current token version for the JWT.
+    const expiresAt = getEmployeeSessionExpiry();
+    const session = await prisma.$transaction(async tx => {
+      await tx.employeeSession.updateMany({
+        where: {
+          employeeId: employee.id,
+          revokedAt: null,
+          expiresAt: { gt: new Date() },
+        },
+        data: {
+          revokedAt: new Date(),
+        },
+      });
+
+      return tx.employeeSession.create({
+        data: {
+          employeeId: employee.id,
+          clientType: 'mobile',
+          deviceInfo: 'Biometric Login',
+          expiresAt,
+        },
+      });
+    });
+
+    try {
+      await redis.xadd(
+        `employee:stream:${employee.id}`,
+        'MAXLEN',
+        '~',
+        100,
+        '*',
+        'type',
+        'session_revoked',
+        'reason',
+        'logged_in_elsewhere',
+        'sessionId',
+        session.id
+      );
+    } catch (error) {
+      console.error('Failed to publish biometric session revocation event:', error);
+    }
 
     // Generate JWT
     const token = jwt.sign(
       { 
         employeeId: employee.id, 
-        tokenVersion: employee.tokenVersion,
+        sessionId: session.id,
         clientType: 'mobile' 
       }, 
       JWT_SECRET, 
@@ -60,7 +97,7 @@ export async function POST(req: Request) {
     );
     
     // Set cookie if needed (for hybrid apps), but primarily return JSON for mobile
-    (await cookies()).set('employee_token', token, {
+    (await cookies()).set(AUTH_COOKIES.EMPLOYEE, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 24,
