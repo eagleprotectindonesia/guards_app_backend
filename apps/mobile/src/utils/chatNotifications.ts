@@ -38,6 +38,24 @@ export function ensureChatNotificationChannel() {
   return channelPromise;
 }
 
+export async function logChatNotificationChannelState() {
+  try {
+    const channel = await notifee.getChannel(CHAT_NOTIFICATION_CHANNEL_ID);
+    const blocked = await notifee.isChannelBlocked(CHAT_NOTIFICATION_CHANNEL_ID);
+
+    console.log('[Push] Android notification channel state', {
+      channelId: CHAT_NOTIFICATION_CHANNEL_ID,
+      blocked,
+      channel,
+    });
+  } catch (error) {
+    console.error('[Push] Failed to inspect Android notification channel state', {
+      channelId: CHAT_NOTIFICATION_CHANNEL_ID,
+      error,
+    });
+  }
+}
+
 export async function clearDisplayedChatNotifications() {
   try {
     await notifee.cancelAllNotifications();

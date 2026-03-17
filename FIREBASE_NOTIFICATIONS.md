@@ -51,7 +51,7 @@ The mobile entrypoint imports the notification bootstrap module before Expo Rout
 #### Shared notification module (`apps/mobile/src/utils/chatNotifications.ts`)
 
 This module is responsible for:
-- creating the Android `default` notification channel with high importance
+- creating the Android `chat_messages_v2` notification channel with high importance
 - registering the Firebase background handler at module scope
 - logging background deliveries for debugging
 
@@ -103,7 +103,8 @@ This hybrid shape ensures:
 - **Socket reconnect suppression:** the app already guards against spurious reconnects caused by background wakeups when a push arrives.
 - **Foreground suppression:** a user already on the chat screen should not receive a duplicate toast.
 - **Killed-state reliability:** visible notification content is sent from the backend so the OS can display chat pushes even when JS does not wake reliably.
-- **Android channels:** chat notifications use the `default` channel.
+- **Android channels:** chat notifications use the `chat_messages_v2` channel.
+- **Channel mutability caveat:** on Android, once a channel has been created on-device, the OS owns that channel's alert behavior. If the user or OEM firmware downgrades it to silent, minimized, or badge-only, recreating the same channel ID from app code will not restore heads-up/system alerts. In that case you must inspect the device's channel settings or ship a new channel ID.
 
 ## Deployment Requirements
 

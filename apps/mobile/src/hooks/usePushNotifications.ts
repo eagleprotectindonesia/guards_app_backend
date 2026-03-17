@@ -8,7 +8,11 @@ import { registerFcmToken, requestUserPermission, setupTokenRefreshListener } fr
 import { useCustomToast } from './useCustomToast';
 import { usePathname, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { clearDisplayedChatNotifications, ensureChatNotificationChannel } from '../utils/chatNotifications';
+import {
+  clearDisplayedChatNotifications,
+  ensureChatNotificationChannel,
+  logChatNotificationChannelState,
+} from '../utils/chatNotifications';
 
 export function usePushNotifications() {
   const { user } = useAuth();
@@ -79,6 +83,7 @@ export function usePushNotifications() {
       if (!enabled) return;
 
       await ensureChatNotificationChannel();
+      await logChatNotificationChannelState();
       const token = await registerFcmToken(permissionState);
       if (token) {
         unsubscribeRefresh = setupTokenRefreshListener();
