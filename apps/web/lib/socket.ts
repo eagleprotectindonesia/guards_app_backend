@@ -54,7 +54,13 @@ export function initSocket(server: HttpServer | HttpsServer) {
   // 4. Connection Handler
   io.on('connection', (socket: UnifiedSocket) => {
     const auth = socket.data.auth!;
-    console.log(`Socket connected: ${auth.type} ${auth.id}`);
+    console.log('[SocketServer] Connected', {
+      type: auth.type,
+      id: auth.id,
+      clientType: auth.clientType ?? null,
+      sessionId: auth.sessionId ?? null,
+      socketId: socket.id,
+    });
 
     // Register Handlers
     if (auth.type === 'admin') {
@@ -66,7 +72,13 @@ export function initSocket(server: HttpServer | HttpsServer) {
     registerChatHandlers(io, socket);
 
     socket.on('disconnect', () => {
-      console.log(`Socket disconnected: ${auth.type} ${auth.id}`);
+      console.log('[SocketServer] Disconnected', {
+        type: auth.type,
+        id: auth.id,
+        clientType: auth.clientType ?? null,
+        sessionId: auth.sessionId ?? null,
+        socketId: socket.id,
+      });
     });
   });
 

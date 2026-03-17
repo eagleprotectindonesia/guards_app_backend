@@ -10,14 +10,12 @@ const shouldKeepSocketConnected = (appState: AppStateStatus) => appState === 'ac
 
 const connectSocketIfEligible = () => {
   if (socket && !socket.connected && shouldKeepSocketConnected(AppState.currentState)) {
-    console.log('[Socket] Connecting socket for active app state');
     socket.connect();
   }
 };
 
 const disconnectSocketForBackground = () => {
   if (socket?.connected) {
-    console.log('[Socket] Disconnecting socket for background app state');
     socket.disconnect();
   }
 };
@@ -25,7 +23,6 @@ const disconnectSocketForBackground = () => {
 export const getSocket = async () => {
   // If socket exists, return it even if it's currently disconnected
   if (socket) {
-    connectSocketIfEligible();
     return socket;
   }
 
@@ -41,35 +38,24 @@ export const getSocket = async () => {
     },
     transports: ['websocket'],
     autoConnect: false,
-    reconnection: true,
-    reconnectionAttempts: Infinity,
-    reconnectionDelay: 1000,
-    reconnectionDelayMax: 5000,
+    reconnection: false,
     timeout: 20000,
   });
 
   socket.on('connect', () => {
-    console.log('Socket connected');
+    console.log('[Socket] Connected', { socketId: socket?.id ?? null });
   });
 
   socket.on('disconnect', reason => {
-    console.log('Socket disconnected:', reason);
+    console.log('[Socket] Disconnected', { reason, socketId: socket?.id ?? null });
     // If reason is 'io server disconnect', we might need to manually reconnect
     if (reason === 'io server disconnect' && shouldKeepSocketConnected(AppState.currentState)) {
       socket?.connect();
     }
   });
 
-  socket.on('reconnect_attempt', attempt => {
-    console.log(`Socket reconnection attempt: ${attempt}`);
-  });
-
-  socket.on('reconnect', attempt => {
-    console.log(`Socket reconnected after ${attempt} attempts`);
-  });
-
   socket.on('connect_error', err => {
-    console.error('Socket connection error:', err);
+    console.error('[Socket] Connection error', { message: err.message });
   });
 
   // Setup AppState listener to handle app background/foreground transitions
@@ -79,15 +65,13 @@ export const getSocket = async () => {
     appStateSubscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       if (previousState === 'background' && nextAppState === 'active') {
         connectSocketIfEligible();
-      } else if (previousState === 'active' && nextAppState === 'background') {
+      } else if (nextAppState === 'background') {
         disconnectSocketForBackground();
       }
 
       previousState = nextAppState;
     });
   }
-
-  connectSocketIfEligible();
 
   return socket;
 };
