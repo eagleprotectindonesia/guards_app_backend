@@ -1,5 +1,6 @@
 import { firebaseAdmin } from './firebase-admin';
 import { db as prisma } from '@/lib/prisma';
+import { getUnreadCount } from './data-access/chat';
 
 const CHAT_NOTIFICATION_CHANNEL_ID = 'chat_messages_v2';
 
@@ -72,6 +73,10 @@ export async function sendChatPushNotification(params: {
     const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
     const title = `Message from ${senderName}`;
     const body = preview || 'You have a new message';
+    const unreadBadgeCount = await getUnreadCount({
+      employeeId,
+      isAdmin: false,
+    });
     const androidNotification = {
       title,
       body,
@@ -95,6 +100,7 @@ export async function sendChatPushNotification(params: {
               title,
               body,
             },
+            badge: unreadBadgeCount,
             sound: 'default',
             'content-available': 1,
           },
@@ -115,6 +121,7 @@ export async function sendChatPushNotification(params: {
       messageId,
       tokenCount: tokenStrings.length,
       androidNotification,
+      unreadBadgeCount,
     });
 
     const response = await firebaseAdmin.messaging().sendEachForMulticast(message);

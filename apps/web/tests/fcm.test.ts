@@ -1,6 +1,7 @@
 const mockFindMany = jest.fn();
 const mockDeleteMany = jest.fn();
 const mockSendEachForMulticast = jest.fn();
+const mockGetUnreadCount = jest.fn();
 
 jest.mock('@/lib/prisma', () => ({
   db: {
@@ -20,6 +21,10 @@ jest.mock('@/lib/firebase-admin', () => ({
   },
 }));
 
+jest.mock('@/lib/data-access/chat', () => ({
+  getUnreadCount: (...args: unknown[]) => mockGetUnreadCount(...args),
+}));
+
 import { sendChatPushNotification } from '@/lib/fcm';
 
 describe('sendChatPushNotification', () => {
@@ -29,6 +34,7 @@ describe('sendChatPushNotification', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetUnreadCount.mockResolvedValue(3);
     infoSpy = jest.spyOn(console, 'info').mockImplementation(() => undefined);
     warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
     errorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -113,6 +119,13 @@ describe('sendChatPushNotification', () => {
             body: 'Hello there',
             channelId: 'chat_messages_v2',
             sound: 'default',
+          }),
+        }),
+        apns: expect.objectContaining({
+          payload: expect.objectContaining({
+            aps: expect.objectContaining({
+              badge: 3,
+            }),
           }),
         }),
         tokens: ['token-1', 'token-2'],
