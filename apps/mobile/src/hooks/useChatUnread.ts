@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { getSocket } from '../api/socket';
 import { client } from '../api/client';
-import { useAudioPlayer } from 'expo-audio';
+import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
 import { queryKeys } from '../api/queryKeys';
 import { ChatMessage, ServerToClientEvents } from '@repo/types';
 import { incrementTelemetryCounter } from '../utils/telemetry';
@@ -11,6 +11,32 @@ import { incrementTelemetryCounter } from '../utils/telemetry';
 export function useChatUnread() {
   const queryClient = useQueryClient();
   const player = useAudioPlayer(require('../../assets/audios/chat.wav'));
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const configureAudio = async () => {
+      try {
+        await setAudioModeAsync({
+          allowsRecording: false,
+          interruptionMode: 'mixWithOthers',
+          playsInSilentMode: false,
+          shouldPlayInBackground: false,
+          shouldRouteThroughEarpiece: false,
+        });
+      } catch (error) {
+        if (isMounted) {
+          console.error('[ChatUnread] Failed to configure audio mode', error);
+        }
+      }
+    };
+
+    configureAudio();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const { data: unreadCount = 0 } = useQuery({
     queryKey: queryKeys.chat.unread,
@@ -31,8 +57,12 @@ export function useChatUnread() {
 
         // Play sound
         if (player) {
-          player.seekTo(0);
-          player.play();
+          try {
+            player.seekTo(0);
+            player.play();
+          } catch (error) {
+            console.error('[ChatUnread] Failed to play chat notification sound', error);
+          }
         }
       }
     };

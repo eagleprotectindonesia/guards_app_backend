@@ -4,6 +4,8 @@ import {
   requestPermission,
   onTokenRefresh,
   AuthorizationStatus,
+  isDeviceRegisteredForRemoteMessages,
+  registerDeviceForRemoteMessages,
 } from '@react-native-firebase/messaging';
 import notifee from '@notifee/react-native';
 import { Platform } from 'react-native';
@@ -14,6 +16,17 @@ export type NotificationPermissionState = {
   denied: boolean;
   blocked: boolean;
 };
+
+async function ensureRemoteMessagesRegistered() {
+  const messaging = getMessaging();
+
+  if (Platform.OS !== 'ios' || isDeviceRegisteredForRemoteMessages(messaging)) {
+    return messaging;
+  }
+
+  await registerDeviceForRemoteMessages(messaging);
+  return messaging;
+}
 
 /**
  * Request permission for push notifications (Android 13+ / iOS).
@@ -60,7 +73,7 @@ export async function registerFcmToken(permissionState?: NotificationPermissionS
       return null;
     }
 
-    const messaging = getMessaging();
+    const messaging = await ensureRemoteMessagesRegistered();
     const token = await getToken(messaging);
     const deviceInfo = `${Platform.OS} ${Platform.Version}`;
     console.log('[Push] Registering FCM token', {
@@ -79,8 +92,10 @@ export async function registerFcmToken(permissionState?: NotificationPermissionS
 
     return token;
   } catch (error) {
+    const messaging = getMessaging();
     console.error('[FCM] Error registering FCM token:', {
       error,
+      deviceRegisteredForRemoteMessages: isDeviceRegisteredForRemoteMessages(messaging),
       tokenRegisteredWithBackend: false,
     });
     return null;

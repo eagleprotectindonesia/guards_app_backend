@@ -6,6 +6,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icons/android-launchericon-512-512.png",
+    "userInterfaceStyle": "automatic",
     "platforms": ["ios", "android"],
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -13,11 +14,13 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
+      "googleServicesFile": "./GoogleService-Info.plist",
       "supportsTablet": true,
       "bundleIdentifier": "com.eagleprotect.employee",
       "icon": "./assets/icons/180.png",
       "userInterfaceStyle": "light",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "The app needs access to your photo library to let you attach photos and videos to chat messages.",
         "NSCameraUsageDescription": "The app needs access to your camera to let you take photos and videos to attach to chat messages.",
         "NSLocationWhenInUseUsageDescription": "We need your location to support attendance and location sharing features.",
@@ -44,6 +47,23 @@
       ]
     },
     "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "extraPods": [
+              {
+                "name": "GoogleUtilities",
+                "modular_headers": true
+              },
+              {
+                "name": "FirebaseCoreInternal",
+                "modular_headers": true
+              }
+            ]
+          }
+        }
+      ],
       "@react-native-firebase/app",
       [
         "expo-location",
@@ -53,7 +73,13 @@
         }
       ],
       "expo-secure-store",
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ],
       "expo-localization",
       "expo-router",
       "expo-video"
