@@ -1,9 +1,9 @@
-import { db as prisma, EmployeeSummary } from '../client';
-import { redis } from '../redis';
+import { db as prisma, EmployeeSummary } from '../prisma/client';
+import { redis } from '../redis/client';
 import { EmployeeRole, Prisma } from '@prisma/client';
 import { deleteFutureShiftsByEmployee, cancelInProgressShiftsForDeactivatedEmployee } from './shifts';
 import { hashPassword, verifyPassword, DEFAULT_PASSWORD } from '@repo/shared';
-import { fetchExternalEmployees, ExternalEmployee } from '../external-employee-api';
+import { fetchExternalEmployees, ExternalEmployee } from '../integrations/external-employee-api';
 import { syncOfficesFromExternalEmployees } from './offices';
 
 const LAST_EMPLOYEE_SYNC_KEY = 'employee:sync:last_timestamp';

@@ -1,11 +1,11 @@
 import {
   setEmployeePassword,
   EmployeePasswordPolicyError,
-} from '../../../packages/database/src/data-access/employees';
-import { db as prisma } from '../../../packages/database/src/client';
+} from '@repo/database';
+import { db as prisma } from '@repo/database';
 import { hashPassword, verifyPassword } from '@repo/shared';
 
-jest.mock('../../../packages/database/src/client', () => ({
+jest.mock('@repo/database', () => ({
   db: {
     $transaction: jest.fn(),
   },

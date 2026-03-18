@@ -1,4 +1,4 @@
-import { db as prisma } from "../client";
+import { db as prisma } from '../prisma/client';
 import { Prisma } from '@prisma/client';
 
 export async function getAllSites(includeDeleted = false) {

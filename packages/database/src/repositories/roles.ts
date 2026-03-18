@@ -1,5 +1,5 @@
-import { db as prisma } from '../client';
-import { redis } from '../redis';
+import { db as prisma } from '../prisma/client';
+import { redis } from '../redis/client';
 
 export async function getAllRoles() {
   return prisma.role.findMany({

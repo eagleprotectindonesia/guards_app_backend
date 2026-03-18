@@ -1,6 +1,6 @@
-import { db as prisma } from '../client';
+import { db as prisma } from '../prisma/client';
 import { Prisma } from '@prisma/client';
-import { ExternalEmployee } from '../external-employee-api';
+import { ExternalEmployee } from '../integrations/external-employee-api';
 
 export async function getAllOffices(includeDeleted = false) {
   return prisma.office.findMany({

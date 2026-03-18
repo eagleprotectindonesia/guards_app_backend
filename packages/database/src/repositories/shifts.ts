@@ -1,6 +1,6 @@
-import { db as prisma } from '../client';
+import { db as prisma } from '../prisma/client';
 import { Prisma } from '@prisma/client';
-import { redis } from '../redis';
+import { redis } from '../redis/client';
 
 export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
   return prisma.shift.findUnique({

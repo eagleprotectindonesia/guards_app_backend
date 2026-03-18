@@ -1,33 +1,31 @@
 // ============================================================================
-// Persistence Layer (Prisma)
+// @repo/database - Shared Backend Package
 // ============================================================================
-export { PrismaClient, Prisma, createPrismaClient } from './client';
-export { db, db as prisma } from './client';
-export type { ExtendedPrismaClient, EmployeeWithRelations, EmployeeSummary } from './client';
+// This package provides shared server-side backend functionality:
+// - Prisma client (persistence layer)
+// - Redis client (caching/session layer)
+// - External integrations (outbound service clients)
+// - Repositories (domain-oriented query/mutation helpers)
+// ============================================================================
 
 // ============================================================================
-// Infrastructure Layer (Redis)
+// Prisma Layer - Database client and types
+// ============================================================================
+export { PrismaClient, Prisma, createPrismaClient } from './prisma';
+export { db, db as prisma } from './prisma';
+export type { ExtendedPrismaClient, EmployeeWithRelations, EmployeeSummary } from './prisma';
+
+// ============================================================================
+// Redis Layer - Cache and session storage
 // ============================================================================
 export { redis } from './redis';
 
 // ============================================================================
-// External Integration Layer
+// Integrations Layer - External service clients
 // ============================================================================
-export * from './external-employee-api';
+export * from './integrations';
 
 // ============================================================================
-// Data Access Layer (Domain-specific queries)
+// Repositories Layer - Domain-oriented query and mutation helpers
 // ============================================================================
-export * from './data-access/admins';
-export * from './data-access/alerts';
-export * from './data-access/attendance';
-export * from './data-access/attendance-with-checkins';
-export * from './data-access/checkins';
-export * from './data-access/employees';
-export * from './data-access/settings';
-export * from './data-access/shift-types';
-export * from './data-access/shifts';
-export * from './data-access/sites';
-export * from './data-access/roles';
-export * from './data-access/offices';
-export * from './data-access/office-attendance';
+export * from './repositories';

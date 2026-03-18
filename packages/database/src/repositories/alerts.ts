@@ -1,4 +1,4 @@
-import { db as prisma } from "../client";
+import { db as prisma } from "../prisma/client";
 import { ShiftStatus, AlertResolution, AlertReason } from '@prisma/client';
 
 export async function getAlertById(id: string) {

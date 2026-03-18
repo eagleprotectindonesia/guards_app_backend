@@ -1,5 +1,5 @@
-import { db as prisma } from "../client";
-import { redis } from "../redis";
+import { db as prisma } from "../prisma/client";
+import { redis } from "../redis/client";
 
 const SETTINGS_CACHE_PREFIX = 'system_setting:';
 const CACHE_TTL = 3600; // 1 hour

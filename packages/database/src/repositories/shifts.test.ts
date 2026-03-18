@@ -1,5 +1,5 @@
 import { markOverdueScheduledShiftsAsMissed } from './shifts';
-import { db as prisma } from '../client';
+import { db as prisma } from '../prisma/client';
 
 jest.mock('../client', () => ({
   db: {

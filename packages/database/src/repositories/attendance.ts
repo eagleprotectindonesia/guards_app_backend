@@ -1,4 +1,4 @@
-import { db as prisma } from '../client';
+import { db as prisma } from '../prisma/client';
 import { Prisma, AttendanceStatus, AlertReason } from '@prisma/client';
 import { autoResolveAlert } from './alerts';
 

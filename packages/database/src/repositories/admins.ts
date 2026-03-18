@@ -1,5 +1,5 @@
-import { db as prisma } from '../client';
-import { redis } from '../redis';
+import { db as prisma } from '../prisma/client';
+import { redis } from '../redis/client';
 import { Prisma } from '@prisma/client';
 
 export async function getAllAdmins(orderBy: Prisma.AdminOrderByWithRelationInput = { createdAt: 'desc' }) {
