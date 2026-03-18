@@ -1,7 +1,7 @@
 import { getAuthenticatedEmployee } from '../lib/employee-auth';
 import { cookies, headers } from 'next/headers';
 import { verifySession } from '../lib/auth/session';
-import { getEmployeeById } from '@/lib/data-access/employees';
+import { getEmployeeById } from '@repo/database';
 
 // Mock next/headers
 jest.mock('next/headers', () => ({

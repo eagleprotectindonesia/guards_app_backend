@@ -1,5 +1,5 @@
 import { GET } from '../app/api/external/v1/shifts/route';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@repo/database';
 import { NextRequest } from 'next/server';
 
 // Mock prisma

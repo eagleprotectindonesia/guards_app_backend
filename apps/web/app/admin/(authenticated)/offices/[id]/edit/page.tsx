@@ -1,7 +1,7 @@
 import { serialize } from '@/lib/utils';
 import OfficeForm from '../../components/office-form';
 import { notFound } from 'next/navigation';
-import { getOfficeById } from '@/lib/data-access/offices';
+import { getOfficeById } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 

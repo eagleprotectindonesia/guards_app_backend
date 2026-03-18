@@ -1,4 +1,4 @@
-import { db as prisma } from '@/lib/prisma';
+import { db as prisma } from '@repo/database';
 import { ChatMessageStatus, ChatSenderType, Prisma } from '@prisma/client';
 import { getCachedPresignedDownloadUrl } from '@/lib/s3';
 

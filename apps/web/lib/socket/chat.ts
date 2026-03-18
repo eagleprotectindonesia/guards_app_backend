@@ -1,4 +1,4 @@
-import { redis } from '../redis';
+import { redis } from '@repo/database';
 import { finalizeMessageDraft, saveMessage, markAsReadForEmployee, markAsReadForAdmin } from '../data-access/chat';
 import { UnifiedServer, UnifiedSocket } from '../socket';
 import { ChatMessage } from '@repo/types';

@@ -1,6 +1,6 @@
 import { updateSettings } from '../app/admin/(authenticated)/settings/actions';
 import { checkSuperAdmin } from '@/lib/admin-auth';
-import { updateSystemSettingWithChangelog } from '@/lib/data-access/settings';
+import { updateSystemSettingWithChangelog } from '@repo/database';
 
 // Mock dependencies
 jest.mock('@/lib/admin-auth', () => ({

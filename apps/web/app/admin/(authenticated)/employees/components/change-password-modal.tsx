@@ -4,7 +4,7 @@ import { useActionState, useEffect } from 'react';
 import Modal from '../../components/modal';
 import { updateEmployeePassword } from '../actions';
 import { ActionState } from '@/types/actions';
-import { UpdateEmployeePasswordInput } from '@/lib/validations';
+import { UpdateEmployeePasswordInput } from '@repo/validations';
 import { PasswordInput } from '@/components/ui/password-input';
 import toast from 'react-hot-toast';
 

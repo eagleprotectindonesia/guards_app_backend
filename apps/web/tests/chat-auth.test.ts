@@ -1,5 +1,5 @@
 import { markAsReadForEmployee, markAsReadForAdmin } from '@/lib/data-access/chat';
-import { db as prisma } from '@/lib/prisma';
+import { db as prisma } from '@repo/database';
 
 jest.mock('@/lib/prisma', () => ({
   db: {

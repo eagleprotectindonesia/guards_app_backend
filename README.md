@@ -9,7 +9,7 @@
   - Management of Guards, Sites, and Shift Types.
   - **Real-time Monitoring**: Server-Sent Events (SSE) based dashboard for live alerts and active shift tracking.
   - Alert resolution and management (Resolve/Forgive workflows).
-- **Guard Interface (`apps/web/app/guard` & `apps/mobile`)**:
+- **Employee Interface (`apps/web/app/employee` & `apps/mobile`)**:
   - Mobile-optimized web interface and native Expo app.
   - Secure login and shift viewing.
   - **Strict Check-in System**: Validates check-ins based on time windows and geolocation.
@@ -66,18 +66,25 @@ Ensure you have the following installed:
     ```
 
 4.  **Run the Application**:
-    Start the development environment. This command runs the Next.js app, the background worker, and the mobile dev server concurrently.
+    Start the development environment. This command runs the Next.js app and the background worker concurrently.
 
     ```bash
     pnpm dev
     ```
 
     - **Admin Dashboard**: [http://localhost:3000/admin/dashboard](http://localhost:3000/admin/dashboard)
-    - **Guard Web Interface**: [http://localhost:3000/guard](http://localhost:3000/guard)
+    - **Employee Web Interface**: [http://localhost:3000/employee](http://localhost:3000/employee)
+
+    To also run the mobile app dev server, use:
+
+    ```bash
+    pnpm dev:mobile
+    ```
 
 ## Key Commands
 
-- `pnpm dev`: Starts all applications in development mode.
+- `pnpm dev`: Starts web and worker in development mode.
+- `pnpm dev:mobile`: Starts the mobile app dev server.
 - `pnpm build`: Builds all applications for production.
 - `pnpm lint`: Runs ESLint and type checking across the entire monorepo.
 - `pnpm test`: Executes the test suite.
@@ -97,8 +104,8 @@ The project is structured as a monorepo under the `apps/` and `packages/` direct
 
 ### Applications (`apps/`)
 
-- **`web/`**: The main Next.js 16 application containing the Admin dashboard and Guard web interface.
-- **`mobile/`**: The Expo/React Native mobile application for guards.
+- **`web/`**: The main Next.js 16 application containing the Admin dashboard and Employee web interface.
+- **`mobile/`**: The Expo/React Native mobile application for employees/guards in the field.
 - **`worker/`**: A dedicated Node.js background process for real-time shift monitoring and alert generation.
 
 ### Shared Packages (`packages/`)
@@ -107,7 +114,8 @@ The project is structured as a monorepo under the `apps/` and `packages/` direct
 - **`shared/`**: Shared TypeScript utilities, constants, and business logic (e.g., scheduling windows).
 - **`types/`**: Centralized TypeScript type definitions used across the monorepo.
 - **`validations/`**: Shared Zod schemas for form and API validation.
-- **`ui/`**: Shared UI component library.
+- **`eslint-config/`**: Shared ESLint configuration.
+- **`tsconfig/`**: Shared TypeScript configuration.
 
 ## Documentation
 

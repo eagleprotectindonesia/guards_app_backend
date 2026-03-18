@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { recordHeartbeat } from '@repo/database';
-import { redis } from '@/lib/redis';
+import { redis } from '@repo/database';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: shiftId } = await params;

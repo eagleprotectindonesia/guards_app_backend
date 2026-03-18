@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server';
-import { checkInSchema } from '@/lib/validations';
+import { checkInSchema } from '@repo/validations';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { ZodError } from 'zod';
 import { calculateCheckInWindow } from '@/lib/scheduling';
 import { calculateDistance } from '@/lib/utils';
-import { getSystemSetting } from '@/lib/data-access/settings';
-import { recordCheckin, recordBulkCheckins } from '@/lib/data-access/checkins';
-import { getShiftById } from '@/lib/data-access/shifts';
-import { redis } from '@/lib/redis';
+import { getSystemSetting } from '@repo/database';
+import { recordCheckin, recordBulkCheckins } from '@repo/database';
+import { getShiftById } from '@repo/database';
+import { redis } from '@repo/database';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: shiftId } = await params;

@@ -4,7 +4,7 @@ import { Role, Permission } from '@prisma/client';
 import { Serialized } from '@/lib/utils';
 import { createRole, updateRole } from '../actions';
 import { ActionState } from '@/types/actions';
-import { CreateRoleInput } from '@/lib/validations';
+import { CreateRoleInput } from '@repo/validations';
 import { useActionState, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';

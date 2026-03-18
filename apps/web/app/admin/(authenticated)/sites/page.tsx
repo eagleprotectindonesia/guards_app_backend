@@ -2,7 +2,7 @@ import { serialize, getPaginationParams } from '@/lib/utils';
 import SiteList from './components/site-list';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { getPaginatedSites } from '@/lib/data-access/sites';
+import { getPaginatedSites } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 

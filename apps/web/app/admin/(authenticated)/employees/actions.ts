@@ -6,13 +6,13 @@ import {
   EmployeePasswordPolicyError,
   setEmployeePassword,
   getEmployeeSearchWhere,
-} from '@/lib/data-access/employees';
+} from '@repo/database';
 import {
   updateEmployeeSchema,
   UpdateEmployeeInput,
   updateEmployeePasswordSchema,
   UpdateEmployeePasswordInput,
-} from '@/lib/validations';
+} from '@repo/validations';
 import { hashPassword, serialize, Serialized } from '@/lib/utils';
 import { revalidatePath } from 'next/cache';
 import { EmployeeWithRelations } from '@repo/database';

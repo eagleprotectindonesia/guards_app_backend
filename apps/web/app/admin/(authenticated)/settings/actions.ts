@@ -1,8 +1,8 @@
 'use server';
 
 import { checkSuperAdmin } from '@/lib/admin-auth';
-import { updateSystemSettingWithChangelog } from '@/lib/data-access/settings';
-import { UpdateSettingsInput } from '@/lib/validations';
+import { updateSystemSettingWithChangelog } from '@repo/database';
+import { UpdateSettingsInput } from '@repo/validations';
 import { ActionState } from '@/types/actions';
 import { revalidatePath } from 'next/cache';
 

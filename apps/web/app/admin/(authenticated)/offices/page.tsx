@@ -1,7 +1,7 @@
 import { serialize, getPaginationParams, Serialized } from '@/lib/utils';
 import OfficeList from './components/office-list';
 import { Suspense } from 'react';
-import { getPaginatedOffices } from '@/lib/data-access/offices';
+import { getPaginatedOffices } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { Office } from '@prisma/client';

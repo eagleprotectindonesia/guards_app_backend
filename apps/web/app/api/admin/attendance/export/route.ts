@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay, format } from 'date-fns';
-import { getAttendanceExportBatch } from '@/lib/data-access/attendance';
+import { getAttendanceExportBatch } from '@repo/database';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;

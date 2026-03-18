@@ -6,7 +6,7 @@ import {
   SHIFT_TRACKED_FIELDS,
   SHIFT_TYPE_TRACKED_FIELDS,
   SITE_TRACKED_FIELDS,
-} from '@/lib/prisma';
+} from '@repo/database';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay, format } from 'date-fns';
 

@@ -1,5 +1,5 @@
-import { getAdminById } from '@/lib/data-access/admins';
-import { getAllRoles } from '@/lib/data-access/roles';
+import { getAdminById } from '@repo/database';
+import { getAllRoles } from '@repo/database';
 import AdminForm from '../../components/admin-form';
 import { notFound } from 'next/navigation';
 import { requirePermission } from '@/lib/admin-auth';

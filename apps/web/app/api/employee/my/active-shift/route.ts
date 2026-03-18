@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { calculateCheckInWindow } from '@/lib/scheduling';
-import { getEmployeeActiveAndUpcomingShifts } from '@/lib/data-access/shifts';
+import { getEmployeeActiveAndUpcomingShifts } from '@repo/database';
 
 export async function GET() {
   const employee = await getAuthenticatedEmployee();

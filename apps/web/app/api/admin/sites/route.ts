@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllSites } from '@/lib/data-access/sites';
+import { getAllSites } from '@repo/database';
 
 export async function GET() {
   // Note: Auth check (Admin only) is handled by proxy.ts

@@ -1,7 +1,7 @@
 import { POST } from '../app/api/employee/shifts/[id]/heartbeat/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { recordHeartbeat } from '@repo/database';
-import { redis } from '@/lib/redis';
+import { redis } from '@repo/database';
 
 // Mock the dependencies
 jest.mock('@/lib/employee-auth', () => ({

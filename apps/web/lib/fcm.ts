@@ -1,5 +1,5 @@
 import { firebaseAdmin } from './firebase-admin';
-import { db as prisma } from '@/lib/prisma';
+import { db as prisma } from '@repo/database';
 import { getUnreadCount } from './data-access/chat';
 
 const CHAT_NOTIFICATION_CHANNEL_ID = 'chat_messages_v2';

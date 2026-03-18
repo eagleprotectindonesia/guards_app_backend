@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyEmployeeSession } from '@/lib/employee-auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@repo/database';
 
 export async function GET() {
   const isValid = await verifyEmployeeSession();

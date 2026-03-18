@@ -1,16 +1,65 @@
 {
   "$schema": "https://turbo.build/schema.json",
   "tasks": {
-    "build": {
-      "dependsOn": ["^build", "^prisma:generate", "prisma:generate"],
+    "web#build": {
+      "dependsOn": [
+        "@repo/database#prisma:generate",
+        "@repo/shared#type-check",
+        "@repo/types#type-check",
+        "@repo/validations#type-check"
+      ],
       "env": ["DATABASE_URL", "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"],
-      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+      "outputs": [".next/**", "!.next/cache/**"]
     },
-    "lint": {
-      "dependsOn": ["^build", "type-check"]
+    "worker#build": {
+      "dependsOn": [
+        "@repo/database#prisma:generate",
+        "@repo/shared#type-check",
+        "@repo/types#type-check",
+        "@repo/validations#type-check"
+      ],
+      "env": ["DATABASE_URL"],
+      "outputs": ["dist/**"]
     },
-    "type-check": {
-      "dependsOn": ["^build", "^prisma:generate", "prisma:generate"]
+    "@repo/database#lint": {
+      "dependsOn": ["@repo/database#type-check"]
+    },
+    "@repo/shared#lint": {
+      "dependsOn": ["@repo/shared#type-check"]
+    },
+    "mobile#lint": {
+      "dependsOn": ["mobile#type-check"]
+    },
+    "web#lint": {
+      "dependsOn": ["web#type-check"]
+    },
+    "worker#lint": {
+      "dependsOn": ["worker#type-check"]
+    },
+    "@repo/database#type-check": {
+      "dependsOn": ["@repo/database#prisma:generate", "@repo/shared#type-check"]
+    },
+    "@repo/shared#type-check": {},
+    "@repo/types#type-check": {},
+    "@repo/validations#type-check": {},
+    "mobile#type-check": {
+      "dependsOn": ["@repo/shared#type-check", "@repo/types#type-check", "@repo/validations#type-check"]
+    },
+    "web#type-check": {
+      "dependsOn": [
+        "@repo/database#prisma:generate",
+        "@repo/shared#type-check",
+        "@repo/types#type-check",
+        "@repo/validations#type-check"
+      ]
+    },
+    "worker#type-check": {
+      "dependsOn": [
+        "@repo/database#prisma:generate",
+        "@repo/shared#type-check",
+        "@repo/types#type-check",
+        "@repo/validations#type-check"
+      ]
     },
     "dev": {
       "cache": false,
@@ -21,16 +70,15 @@
       "persistent": true
     },
     "test": {
-      "dependsOn": ["build"],
+      "dependsOn": ["web#build", "worker#build"],
       "outputs": ["coverage/**"]
     },
-    "prisma:generate": {
-      "dependsOn": ["^prisma:generate"],
+    "@repo/database#prisma:generate": {
       "env": ["DATABASE_URL"],
       "cache": false
     },
-    "db:push": {
-      "dependsOn": ["^prisma:generate"],
+    "@repo/database#db:push": {
+      "dependsOn": ["@repo/database#prisma:generate"],
       "env": ["DATABASE_URL"],
       "cache": false
     }

@@ -3,7 +3,7 @@
 import { SerializedAdminWithRoleDto, SerializedRoleDto } from '@/types/admins';
 import { createAdmin, updateAdmin, disableAdmin2FA } from '../actions';
 import { ActionState } from '@/types/actions';
-import { CreateAdminInput } from '@/lib/validations';
+import { CreateAdminInput } from '@repo/validations';
 import { useActionState, useEffect, useTransition } from 'react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';

@@ -3,7 +3,7 @@
 import { SerializedShiftTypeWithAdminInfoDto } from '@/types/shift-types';
 import { createShiftType, updateShiftType } from '../actions';
 import { ActionState } from '@/types/actions';
-import { CreateShiftTypeInput } from '@/lib/validations';
+import { CreateShiftTypeInput } from '@repo/validations';
 import { useActionState, useEffect, useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';

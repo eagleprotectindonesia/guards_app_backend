@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
-import { redis } from '@/lib/redis';
-import { db as prisma } from '@/lib/prisma';
+import { redis } from '@repo/database';
+import { db as prisma } from '@repo/database';
 import { JWT_SECRET, SESSION_CACHE_TTL } from './constants';
 
 export type UserRole = 'admin' | 'employee';

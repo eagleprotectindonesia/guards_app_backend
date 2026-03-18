@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@repo/database';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
 import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
 import { getEmployeeSessionExpiry } from '@/lib/auth/employee-sessions';
-import { redis } from '@/lib/redis';
+import { redis } from '@repo/database';
 
 const loginSchema = z.object({
   biometricToken: z.string().min(1),

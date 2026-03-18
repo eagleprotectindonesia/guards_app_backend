@@ -3,8 +3,8 @@ import CheckinList from './components/checkin-list';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
-import { getActiveEmployeesSummary } from '@/lib/data-access/employees';
-import { getPaginatedCheckins } from '@/lib/data-access/checkins';
+import { getActiveEmployeesSummary } from '@repo/database';
+import { getPaginatedCheckins } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 

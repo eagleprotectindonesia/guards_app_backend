@@ -3,7 +3,7 @@
 import { Serialized } from '@/lib/utils';
 import { createShift, updateShift } from '../actions';
 import { ActionState } from '@/types/actions';
-import { CreateShiftInput } from '@/lib/validations';
+import { CreateShiftInput } from '@repo/validations';
 import { useActionState, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Shift, Site, ShiftType } from '@prisma/client';

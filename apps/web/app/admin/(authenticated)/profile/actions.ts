@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import { getAdminById, updateAdminWithChangelog } from '@/lib/data-access/admins';
+import { getAdminById, updateAdminWithChangelog } from '@repo/database';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 

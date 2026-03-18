@@ -1,9 +1,9 @@
 'use server';
 
-import { UpdateOfficeInput, updateOfficeSchema } from '@/lib/validations';
+import { UpdateOfficeInput, updateOfficeSchema } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
-import { updateOfficeWithChangelog, getAllOffices } from '@/lib/data-access/offices';
+import { updateOfficeWithChangelog, getAllOffices } from '@repo/database';
 import { ActionState } from '@/types/actions';
 import { Office } from '@prisma/client';
 import { serialize, Serialized } from '@/lib/utils';

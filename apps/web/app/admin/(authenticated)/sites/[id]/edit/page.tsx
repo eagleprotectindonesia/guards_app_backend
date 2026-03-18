@@ -1,10 +1,10 @@
 import { serialize } from '@/lib/utils';
 import SiteForm from '../../components/site-form';
 import { notFound } from 'next/navigation';
-import { getSiteById } from '@/lib/data-access/sites';
+import { getSiteById } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { getSystemSetting } from '@/lib/data-access/settings';
+import { getSystemSetting } from '@repo/database';
 
 export const dynamic = 'force-dynamic';
 

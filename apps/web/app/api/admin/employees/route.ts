@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAllEmployees } from '@/lib/data-access/employees';
+import { getAllEmployees } from '@repo/database';
 
 export async function GET() {
   // Note: Auth check (Admin only) is handled by proxy.ts

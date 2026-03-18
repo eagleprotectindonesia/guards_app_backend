@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers';
 import jwt from 'jsonwebtoken';
-import { getAdminById, updateAdminWithChangelog } from '@/lib/data-access/admins';
+import { getAdminById, updateAdminWithChangelog } from '@repo/database';
 import { generate2FASecret, generateQRCode, verify2FAToken } from '@/lib/auth/2fa';
 import { revalidatePath } from 'next/cache';
 

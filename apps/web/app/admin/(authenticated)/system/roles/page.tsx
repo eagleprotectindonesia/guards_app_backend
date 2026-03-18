@@ -1,4 +1,4 @@
-import { getAllRoles } from '@/lib/data-access/roles';
+import { getAllRoles } from '@repo/database';
 import { serialize } from '@/lib/utils';
 import RoleList from './components/role-list';
 import Link from 'next/link';

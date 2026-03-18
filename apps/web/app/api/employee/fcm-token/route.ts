@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db as prisma } from '@/lib/prisma';
+import { db as prisma } from '@repo/database';
 import { getAuthenticatedEmployeeSession } from '@/lib/employee-auth';
 
 export async function POST(req: NextRequest) {

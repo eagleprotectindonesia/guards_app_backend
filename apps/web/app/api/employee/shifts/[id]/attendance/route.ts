@@ -2,10 +2,10 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { z } from 'zod'; // Import z for Zod validation
 import { calculateDistance } from '@/lib/utils';
-import { getSystemSetting } from '@/lib/data-access/settings';
-import { recordAttendance } from '@/lib/data-access/attendance';
-import { getShiftById } from '@/lib/data-access/shifts';
-import { redis } from '@/lib/redis';
+import { getSystemSetting } from '@repo/database';
+import { recordAttendance } from '@repo/database';
+import { getShiftById } from '@repo/database';
+import { redis } from '@repo/database';
 
 // Define a schema for the incoming request body
 const attendanceSchema = z.object({

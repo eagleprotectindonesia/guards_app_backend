@@ -2,7 +2,7 @@ import { getPaginationParams } from '@/lib/utils';
 import ShiftTypeList from './components/shift-type-list';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { getPaginatedShiftTypes } from '@/lib/data-access/shift-types';
+import { getPaginatedShiftTypes } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedShiftTypeWithAdminInfoDto } from '@/types/shift-types';

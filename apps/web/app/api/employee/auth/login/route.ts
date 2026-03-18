@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies, headers } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { redis } from '@/lib/redis';
+import { redis } from '@repo/database';
 import { prisma } from '@repo/database';
 import { z } from 'zod';
 import { DEFAULT_PASSWORD } from '@repo/shared';

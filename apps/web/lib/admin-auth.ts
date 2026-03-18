@@ -34,8 +34,8 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 
   if (!isValid || !userId) return null;
 
-  const { prisma } = await import('./prisma');
-  const admin = await prisma.admin.findUnique({
+  const { db } = await import('@repo/database');
+  const admin = await db.admin.findUnique({
     where: { id: userId },
     select: { name: true, email: true, profileImage: true },
   });
@@ -72,7 +72,7 @@ export async function requirePermission(permission: PermissionCode | PermissionC
   const uniqueResources = [...new Set(permissionCodes.map(code => code.split(':')[0]))];
 
   // Auto-create all CRUD permissions for the involved resources
-  const { prisma } = await import('./prisma');
+  const { db } = await import('@repo/database');
   const { ACTIONS } = await import('./auth/permissions');
 
   try {
@@ -84,7 +84,7 @@ export async function requirePermission(permission: PermissionCode | PermissionC
         await Promise.all(
           ACTIONS.map(async (action) => {
             const code = `${resource}:${action}`;
-            await prisma.permission.upsert({
+            await db.permission.upsert({
               where: { code },
               update: {}, // No update needed if it exists
               create: {

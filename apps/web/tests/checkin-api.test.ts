@@ -1,8 +1,8 @@
 import { POST } from '../app/api/employee/shifts/[id]/checkin/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { getShiftById } from '@/lib/data-access/shifts';
-import { recordCheckin, recordBulkCheckins } from '@/lib/data-access/checkins';
-import { getSystemSetting } from '@/lib/data-access/settings';
+import { getShiftById } from '@repo/database';
+import { recordCheckin, recordBulkCheckins } from '@repo/database';
+import { getSystemSetting } from '@repo/database';
 
 // Mock the dependencies
 jest.mock('@/lib/employee-auth', () => ({

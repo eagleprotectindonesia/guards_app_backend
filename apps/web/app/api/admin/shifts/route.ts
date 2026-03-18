@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@repo/database';
 
 export async function GET(req: Request) {
   // Note: Auth check (Admin only) is handled by proxy.ts

@@ -3,7 +3,7 @@
 import { Serialized } from '@/lib/utils';
 import { updateOffice } from '../actions';
 import { ActionState } from '@/types/actions';
-import { UpdateOfficeInput } from '@/lib/validations';
+import { UpdateOfficeInput } from '@repo/validations';
 import { useActionState, useEffect, useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { APIProvider, Map, Marker, useMapsLibrary, MapMouseEvent, useMap } from '@vis.gl/react-google-maps';

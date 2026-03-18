@@ -1,4 +1,4 @@
-import { redis } from '../redis';
+import { redis } from '@repo/database';
 import { UnifiedServer, UnifiedSocket } from '../socket';
 import { isEmployeeSessionActive } from '../auth/employee-sessions';
 

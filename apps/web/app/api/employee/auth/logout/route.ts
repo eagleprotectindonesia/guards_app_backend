@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { AUTH_COOKIES } from '@/lib/auth/constants';
 import { getAuthenticatedEmployeeSession } from '@/lib/employee-auth';
 import { revokeEmployeeSessionById } from '@/lib/auth/employee-sessions';
-import { redis } from '@/lib/redis';
+import { redis } from '@repo/database';
 
 export async function POST() {
   try {

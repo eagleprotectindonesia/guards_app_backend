@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { createOfficeAttendanceSchema } from '@/lib/validations';
+import { createOfficeAttendanceSchema } from '@repo/validations';
 import { calculateDistance } from '@/lib/utils';
-import { getSystemSetting } from '@/lib/data-access/settings';
-import { getOfficeById } from '@/lib/data-access/offices';
-import { recordOfficeAttendance } from '@/lib/data-access/office-attendance';
+import { getSystemSetting } from '@repo/database';
+import { getOfficeById } from '@repo/database';
+import { recordOfficeAttendance } from '@repo/database';
 import { ZodError } from 'zod';
 
 export async function POST(req: Request) {

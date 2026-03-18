@@ -1,4 +1,4 @@
-import { getAllSites } from '@/lib/data-access/sites';
+import { getAllSites } from '@repo/database';
 import { serialize } from '@/lib/utils';
 import AdminDashboard from './dashboard-client';
 

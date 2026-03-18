@@ -3,7 +3,7 @@
 import { useActionState, useEffect } from 'react';
 import { updateSettings } from '../actions';
 import { ActionState } from '@/types/actions';
-import { UpdateSettingsInput } from '@/lib/validations';
+import { UpdateSettingsInput } from '@repo/validations';
 import toast from 'react-hot-toast';
 import { SystemSetting } from '@prisma/client';
 import { Serialized } from '@/lib/utils';

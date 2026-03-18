@@ -5,8 +5,8 @@ import {
   updateShiftTypeWithChangelog,
   deleteShiftTypeWithChangelog,
   updateFutureShifts,
-} from '@/lib/data-access/shift-types';
-import { createShiftTypeSchema, CreateShiftTypeInput, UpdateShiftTypeInput } from '@/lib/validations';
+} from '@repo/database';
+import { createShiftTypeSchema, CreateShiftTypeInput, UpdateShiftTypeInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { ActionState } from '@/types/actions';

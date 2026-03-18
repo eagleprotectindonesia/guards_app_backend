@@ -6,9 +6,9 @@ import {
   findAdminByEmail,
   getAdminById,
   updateAdminWithChangelog,
-} from '@/lib/data-access/admins';
+} from '@repo/database';
 import { checkSuperAdmin } from '@/lib/admin-auth';
-import { createAdminSchema, updateAdminSchema, CreateAdminInput, UpdateAdminInput } from '@/lib/validations';
+import { createAdminSchema, updateAdminSchema, CreateAdminInput, UpdateAdminInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import bcrypt from 'bcryptjs';
 import { ActionState } from '@/types/actions';

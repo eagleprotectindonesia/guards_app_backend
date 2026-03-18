@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { redis } from '@/lib/redis';
-import { findAdminByEmail } from '@/lib/data-access/admins';
+import { redis } from '@repo/database';
+import { findAdminByEmail } from '@repo/database';
 import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
 
 export async function POST(req: Request) {

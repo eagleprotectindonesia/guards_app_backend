@@ -1,4 +1,4 @@
-import { db as prisma } from '@/lib/prisma';
+import { db as prisma } from '@repo/database';
 import { isValidPermissionCode, PermissionCode } from './permissions';
 
 export interface UserSession {

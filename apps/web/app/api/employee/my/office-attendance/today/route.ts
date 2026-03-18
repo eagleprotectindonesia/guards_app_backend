@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { getTodayOfficeAttendance } from '@/lib/data-access/office-attendance';
+import { getTodayOfficeAttendance } from '@repo/database';
 
 export async function GET() {
   const employee = await getAuthenticatedEmployee();

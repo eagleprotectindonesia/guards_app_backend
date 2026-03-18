@@ -1,6 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import jwt from 'jsonwebtoken';
-import { getEmployeeById } from '@/lib/data-access/employees';
+import { getEmployeeById } from '@repo/database';
 import { verifySession } from './auth/session';
 import { AUTH_COOKIES } from './auth/constants';
 

@@ -4,7 +4,7 @@ import {
   createRole as dbCreateRole,
   updateRole as dbUpdateRole,
   deleteRole as dbDeleteRole,
-} from '@/lib/data-access/roles';
+} from '@repo/database';
 import { checkSuperAdmin } from '@/lib/admin-auth';
 import { revalidatePath } from 'next/cache';
 import { ActionState } from '@/types/actions';
@@ -13,7 +13,7 @@ import {
   updateRoleSchema,
   CreateRoleInput,
   UpdateRoleInput,
-} from '@/lib/validations';
+} from '@repo/validations';
 
 export async function createRole(
   prevState: ActionState<CreateRoleInput>,

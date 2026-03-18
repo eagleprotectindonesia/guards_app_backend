@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { EmployeePasswordPolicyError, setEmployeePassword } from '@/lib/data-access/employees';
+import { EmployeePasswordPolicyError, setEmployeePassword } from '@repo/database';
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Kata sandi saat ini wajib diisi'),

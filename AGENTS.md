@@ -2,15 +2,18 @@
 
 ## Project Structure & Module Organization
 This repository is a TurboRepo monorepo.
-- `apps/web`: Next.js app (admin + guard interfaces, API routes, tests under `apps/web/tests`).
+- `apps/web`: Next.js app (admin + employee interfaces, API routes, tests under `apps/web/tests`).
+- `apps/mobile`: Expo/React Native mobile app for guards.
 - `apps/worker`: background worker for scheduling, alerts, and queue processing.
 - `packages/database`: Prisma schema, DB client, and seed scripts.
 - `packages/shared`, `packages/types`, `packages/validations`: shared logic, types, and Zod schemas.
+- `packages/eslint-config`, `packages/tsconfig`: shared linting and TypeScript configuration.
 - `tests/e2e`: Playwright end-to-end suites (`attendance/`, `chat/`, `realtime/`) with shared fixtures/helpers.
 
 ## Build, Test, and Development Commands
 Run from repository root unless noted.
 - `pnpm dev`: starts web + worker in development.
+- `pnpm dev:mobile`: starts mobile app in development mode.
 - `pnpm dev:https`: runs HTTPS dev flow for web and worker.
 - `pnpm build`: builds all workspaces through Turbo.
 - `pnpm lint`: runs workspace lint and type-check tasks.

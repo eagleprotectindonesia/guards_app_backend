@@ -1,6 +1,6 @@
 import { POST } from '../app/api/employee/alerts/report/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@repo/database';
 
 // Mock dependencies
 jest.mock('@/lib/employee-auth', () => ({

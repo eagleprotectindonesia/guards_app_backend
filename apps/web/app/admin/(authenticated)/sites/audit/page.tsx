@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@repo/database';
 import { getPaginationParams } from '@/lib/utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
 import SiteChangelogFilterModal from '../../changelogs/components/site-changelog-filter-modal';
@@ -6,7 +6,7 @@ import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
-import { getAllSites } from '@/lib/data-access/sites';
+import { getAllSites } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';

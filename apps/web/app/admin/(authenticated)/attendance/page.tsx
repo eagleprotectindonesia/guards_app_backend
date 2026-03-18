@@ -4,8 +4,8 @@ import AttendanceTabs from './components/attendance-tabs';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
-import { getActiveEmployeesSummary } from '@/lib/data-access/employees';
-import { getPaginatedAttendance } from '@/lib/data-access/attendance';
+import { getActiveEmployeesSummary } from '@repo/database';
+import { getPaginatedAttendance } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import {

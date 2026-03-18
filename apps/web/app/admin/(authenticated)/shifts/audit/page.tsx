@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@repo/database';
 import { serialize, getPaginationParams } from '@/lib/utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
 import ShiftChangelogFilterModal from '../../changelogs/components/shift-changelog-filter-modal';

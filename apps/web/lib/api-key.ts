@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { prisma } from './prisma';
+import { prisma } from '@repo/database';
 
 /**
  * Generates a new random API key with a prefix.

@@ -1,5 +1,5 @@
-import { prisma } from '../prisma';
-import { redis } from '../redis';
+import { db as prisma } from '@repo/database';
+import { redis } from '@repo/database';
 import { Shift, Site } from '@repo/types';
 import { UnifiedServer, UnifiedSocket } from '../socket';
 

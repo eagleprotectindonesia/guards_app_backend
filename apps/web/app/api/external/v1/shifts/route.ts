@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@repo/database';
 import { Prisma, ShiftStatus } from '@prisma/client';
 import { parseISO, startOfDay, endOfDay, isValid } from 'date-fns';
 

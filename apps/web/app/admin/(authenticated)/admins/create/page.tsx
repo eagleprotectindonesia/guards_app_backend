@@ -1,4 +1,4 @@
-import { getAllRoles } from '@/lib/data-access/roles';
+import { getAllRoles } from '@repo/database';
 import AdminForm from '../components/admin-form';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';

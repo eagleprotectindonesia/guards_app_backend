@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { reportAlertSchema } from '@/lib/validations';
+import { reportAlertSchema } from '@repo/validations';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { ZodError } from 'zod';
-import { prisma } from '@/lib/prisma';
-import { redis } from '@/lib/redis';
+import { prisma } from '@repo/database';
+import { redis } from '@repo/database';
 
 export async function POST(req: Request) {
   const employee = await getAuthenticatedEmployee();

@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import jwt from 'jsonwebtoken';
-import { getAdminById } from '@/lib/data-access/admins';
+import { getAdminById } from '@repo/database';
 import ProfileClient from './profile-client';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';

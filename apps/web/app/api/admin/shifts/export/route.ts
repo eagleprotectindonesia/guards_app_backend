@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma, Shift, Site, ShiftType } from '@prisma/client';
 import { EmployeeWithRelations } from '@repo/database';
 import { startOfDay, endOfDay, format } from 'date-fns';
-import { getExportShiftsBatch } from '@/lib/data-access/shifts';
+import { getExportShiftsBatch } from '@repo/database';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;

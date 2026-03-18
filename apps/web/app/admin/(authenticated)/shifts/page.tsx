@@ -1,12 +1,12 @@
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@repo/database';
 import { getPaginationParams } from '@/lib/utils';
 import ShiftList from './components/shift-list';
 import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { getActiveSites } from '@/lib/data-access/sites';
-import { getActiveEmployeesSummary } from '@/lib/data-access/employees';
-import { getPaginatedShifts } from '@/lib/data-access/shifts';
+import { getActiveSites } from '@repo/database';
+import { getActiveEmployeesSummary } from '@repo/database';
+import { getPaginatedShifts } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import type { SerializedShiftWithRelationsDto } from '@/types/shifts';

@@ -1,6 +1,6 @@
 import { updateEmployeePassword } from '../app/admin/(authenticated)/employees/actions';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
-import { setEmployeePassword } from '@/lib/data-access/employees';
+import { setEmployeePassword } from '@repo/database';
 
 jest.mock('@/lib/admin-auth', () => ({
   getAdminIdFromToken: jest.fn(),

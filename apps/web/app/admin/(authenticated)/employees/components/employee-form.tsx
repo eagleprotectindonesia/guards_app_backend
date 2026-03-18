@@ -3,7 +3,7 @@
 import { Serialized } from '@/lib/utils';
 import { updateEmployee } from '../actions';
 import { ActionState } from '@/types/actions';
-import { updateEmployeeSchema, UpdateEmployeeInput } from '@/lib/validations';
+import { updateEmployeeSchema, UpdateEmployeeInput } from '@repo/validations';
 import { startTransition, useActionState, useEffect, useRef } from 'react';
 import { useForm, Controller, Resolver, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';

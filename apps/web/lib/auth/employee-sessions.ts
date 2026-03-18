@@ -1,4 +1,4 @@
-import { db as prisma } from '@/lib/prisma';
+import { db as prisma } from '@repo/database';
 
 export type EmployeeClientType = 'mobile' | 'pwa';
 

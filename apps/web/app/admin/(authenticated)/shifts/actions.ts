@@ -1,21 +1,21 @@
 'use server';
 
-import { prisma } from '@/lib/prisma';
-import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@/lib/validations';
+import { prisma } from '@repo/database';
+import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { parse, addDays, isBefore } from 'date-fns';
 import { Prisma, ShiftStatus } from '@prisma/client';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
-import { getActiveSites } from '@/lib/data-access/sites';
-import { getActiveEmployeesSummary } from '@/lib/data-access/employees';
+import { getActiveSites } from '@repo/database';
+import { getActiveEmployeesSummary } from '@repo/database';
 import {
   checkOverlappingShift,
   createShiftWithChangelog,
   updateShiftWithChangelog,
   deleteShiftWithChangelog,
   bulkCreateShiftsWithChangelog,
-} from '@/lib/data-access/shifts';
-import { getShiftTypeDurationInMins } from '@/lib/data-access/shift-types';
+} from '@repo/database';
+import { getShiftTypeDurationInMins } from '@repo/database';
 import { ActionState } from '@/types/actions';
 
 export async function createShift(

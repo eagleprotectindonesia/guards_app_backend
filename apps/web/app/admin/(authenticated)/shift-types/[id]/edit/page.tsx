@@ -1,6 +1,6 @@
 import ShiftTypeForm from '../../components/shift-type-form';
 import { notFound } from 'next/navigation';
-import { getShiftTypeById } from '@/lib/data-access/shift-types';
+import { getShiftTypeById } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedShiftTypeWithAdminInfoDto } from '@/types/shift-types';

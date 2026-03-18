@@ -1,6 +1,6 @@
 'use server';
 
-import { createSiteSchema, CreateSiteInput, UpdateSiteInput } from '@/lib/validations';
+import { createSiteSchema, CreateSiteInput, UpdateSiteInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import {
@@ -9,7 +9,7 @@ import {
   deleteSiteWithChangelog,
   checkSiteRelations,
   getAllSites,
-} from '@/lib/data-access/sites';
+} from '@repo/database';
 import { ActionState } from '@/types/actions';
 import { Site } from '@prisma/client';
 import { serialize, Serialized } from '@/lib/utils';

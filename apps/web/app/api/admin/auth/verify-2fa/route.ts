@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
-import { redis } from '@/lib/redis';
-import { getAdminById } from '@/lib/data-access/admins';
+import { redis } from '@repo/database';
+import { getAdminById } from '@repo/database';
 import { verify2FAToken } from '@/lib/auth/2fa';
 import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
 

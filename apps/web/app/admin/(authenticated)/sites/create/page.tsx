@@ -1,7 +1,7 @@
 import SiteForm from '../components/site-form';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { getSystemSetting } from '@/lib/data-access/settings';
+import { getSystemSetting } from '@repo/database';
 
 export const dynamic = 'force-dynamic';
 
