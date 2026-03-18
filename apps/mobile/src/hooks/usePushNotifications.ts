@@ -11,7 +11,6 @@ import { useTranslation } from 'react-i18next';
 import {
   clearDisplayedChatNotifications,
   ensureChatNotificationChannel,
-  logChatNotificationChannelState,
 } from '../utils/chatNotifications';
 
 export function usePushNotifications() {
@@ -83,7 +82,6 @@ export function usePushNotifications() {
       if (!enabled) return;
 
       await ensureChatNotificationChannel();
-      await logChatNotificationChannelState();
       const token = await registerFcmToken(permissionState);
       if (token) {
         unsubscribeRefresh = setupTokenRefreshListener();
@@ -103,7 +101,6 @@ export function usePushNotifications() {
     const messaging = getMessaging();
 
     void getInitialNotification(messaging).then(initialNotification => {
-      console.log('[Push] Initial Firebase notification', initialNotification);
       if (initialNotification?.data?.type === 'chat' && !isChatRoute) {
         router.push('/(tabs)/chat');
       }
@@ -113,13 +110,6 @@ export function usePushNotifications() {
       console.log('[Push] Foreground FCM message received', remoteMessage);
       const data = remoteMessage.data ?? {};
 
-      if (data.type !== 'chat' || isChatRoute) {
-        console.log('[Push] Foreground message suppressed', {
-          isChatRoute,
-          type: data.type,
-        });
-        return;
-      }
 
       const senderName = typeof data.senderName === 'string' && data.senderName.trim() ? data.senderName : 'Eagle Protect';
       const messagePreview = typeof data.messagePreview === 'string' ? data.messagePreview.trim() : '';

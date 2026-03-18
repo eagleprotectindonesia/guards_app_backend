@@ -26,7 +26,6 @@ let channelPromise: Promise<string> | null = null;
 
 export function ensureChatNotificationChannel() {
   if (!channelPromise) {
-    console.log('[Push] Creating Android notification channel', { channelId: CHAT_NOTIFICATION_CHANNEL_ID });
     channelPromise = notifee.createChannel({
       id: CHAT_NOTIFICATION_CHANNEL_ID,
       name: 'Messages',
@@ -38,30 +37,13 @@ export function ensureChatNotificationChannel() {
   return channelPromise;
 }
 
-export async function logChatNotificationChannelState() {
-  try {
-    const channel = await notifee.getChannel(CHAT_NOTIFICATION_CHANNEL_ID);
-    const blocked = await notifee.isChannelBlocked(CHAT_NOTIFICATION_CHANNEL_ID);
 
-    console.log('[Push] Android notification channel state', {
-      channelId: CHAT_NOTIFICATION_CHANNEL_ID,
-      blocked,
-      channel,
-    });
-  } catch (error) {
-    console.error('[Push] Failed to inspect Android notification channel state', {
-      channelId: CHAT_NOTIFICATION_CHANNEL_ID,
-      error,
-    });
-  }
-}
 
 export async function clearDisplayedChatNotifications() {
   try {
     await notifee.cancelAllNotifications();
     await notifee.setBadgeCount(0);
 
-    console.log('[Push] Cleared app notifications and badge for chat open');
   } catch (error) {
     console.error('[Push] Failed to clear app notifications for chat open', error);
   }

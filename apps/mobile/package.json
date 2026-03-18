@@ -36,7 +36,8 @@
     "update:preview": "eas update --branch preview",
     "update:preview:android": "eas update --branch preview --platform android",
     "update:production": "eas update --branch production",
-    "update:production:android": "eas update --branch production --platform android"
+    "update:production:android": "eas update --branch production --platform android",
+    "update:production:ios": "eas update --branch production --platform ios"
   },
   "dependencies": {
     "@expo/html-elements": "^0.12.5",
