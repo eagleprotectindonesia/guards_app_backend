@@ -60,6 +60,10 @@ ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
 RUN pnpm --filter @repo/database prisma:generate && \
     turbo run build --filter=worker
 
+# 6b. Deploy Worker
+FROM worker-builder AS worker-deployer
+RUN pnpm --filter worker --prod deploy --legacy /out/worker-deploy
+
 # 7. Web Runner (production image)
 FROM base AS app-runner
 WORKDIR /app
@@ -90,16 +94,16 @@ RUN apk add --no-cache libc6-compat && \
     addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 workeruser
 
-# Copy only necessary production dependencies
-COPY --from=worker-builder /app/apps/worker/dist/worker.js ./worker.js
-COPY --from=worker-builder /app/node_modules ./node_modules
+# Copy deployed worker package as a self-contained pnpm runtime unit
+COPY --from=worker-deployer /out/worker-deploy ./
+COPY --from=worker-builder /app/node_modules/.pnpm/@prisma+client@7.4.2_prisma@7.4.2_@types+react@19.2.7_react-dom@19.2.3_react@19.2.3__re_7229e76a40716f999503a50dd2f656d0/node_modules/.prisma ./node_modules/.pnpm/@prisma+client@7.4.2_prisma@7.4.2_@types+react@19.2.7_react-dom@19.2.3_react@19.2.3__re_7229e76a40716f999503a50dd2f656d0/node_modules/.prisma
 
 USER workeruser
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD pgrep -f "node.*worker.js" || exit 1
+    CMD pgrep -f "node.*dist/worker.js" || exit 1
 
-CMD ["node", "worker.js"]
+CMD ["node", "dist/worker.js"]
 
 # 9. Migration Runner (lightweight)
 FROM node:24-alpine AS migration-runner
