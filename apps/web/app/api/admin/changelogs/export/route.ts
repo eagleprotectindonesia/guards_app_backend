@@ -120,6 +120,12 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const totalCount = await prisma.changelog.count({ where });
+
+  if (totalCount === 0) {
+    return NextResponse.json({ message: 'No changelog data found for export.' }, { status: 404 });
+  }
+
   const trackedFields = getTrackedFields(entityType);
 
   const BATCH_SIZE = 1000;
