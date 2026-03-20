@@ -2,13 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
 import { getChatExportBatch, enrichMessageWithUrls } from '@/lib/data-access/chat';
-import { getCurrentAdmin } from '@/lib/admin-auth';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export async function GET(request: NextRequest) {
-  const admin = await getCurrentAdmin();
-  if (!admin) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const admin = await requirePermission(PERMISSIONS.CHAT.VIEW);
 
   const searchParams = request.nextUrl.searchParams;
   const startDateStr = searchParams.get('startDate');

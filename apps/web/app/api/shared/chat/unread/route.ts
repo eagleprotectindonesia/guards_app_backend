@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getUnreadCount } from '@/lib/data-access/chat';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { getCurrentAdmin } from '@/lib/admin-auth';
+import { getCurrentAdmin, requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export async function GET(request: Request) {
   const admin = await getCurrentAdmin();
@@ -15,6 +16,10 @@ export async function GET(request: Request) {
   const requestedRole = searchParams.get('role');
 
   try {
+    if (admin) {
+      await requirePermission(PERMISSIONS.CHAT.VIEW);
+    }
+
     // If role is specified, prioritize that role if authenticated
     const isAdmin = requestedRole === 'admin' ? !!admin : requestedRole === 'employee' ? false : !!admin;
     const targetEmployeeId = requestedRole === 'employee' && employee ? employee.id : admin ? undefined : employee?.id;

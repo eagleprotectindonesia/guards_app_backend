@@ -65,11 +65,13 @@ export function initSocket(server: HttpServer | HttpsServer) {
     // Register Handlers
     if (auth.type === 'admin') {
       registerAdminHandlers(io, socket);
+      if (auth.permissions?.includes('chat:view')) {
+        registerChatHandlers(io, socket);
+      }
     } else {
       registerEmployeeHandlers(io, socket);
+      registerChatHandlers(io, socket);
     }
-
-    registerChatHandlers(io, socket);
 
     socket.on('disconnect', () => {
       console.log('[SocketServer] Disconnected', {

@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentAdmin } from '@/lib/admin-auth';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 import { setConversationArchiveState } from '@/lib/data-access/chat';
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ employeeId: string }> }) {
-  const admin = await getCurrentAdmin();
-
-  if (!admin) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const admin = await requirePermission(PERMISSIONS.CHAT.VIEW);
 
   try {
     const { employeeId } = await params;

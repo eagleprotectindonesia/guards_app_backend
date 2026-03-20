@@ -24,11 +24,12 @@ export async function authenticateSocket(handshake: HandshakeLike): Promise<Sock
 
   const tryAdminAuth = async () => {
     if (!adminToken) return null;
-    const { isValid, userId } = await verifySession(adminToken, 'admin');
+    const { isValid, userId, permissions } = await verifySession(adminToken, 'admin');
     if (isValid && userId) {
       return {
         type: 'admin' as const,
         id: userId,
+        permissions,
       };
     }
     return null;

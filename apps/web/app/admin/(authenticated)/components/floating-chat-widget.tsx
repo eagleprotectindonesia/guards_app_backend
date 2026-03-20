@@ -25,7 +25,8 @@ export default function FloatingChatWidget() {
 function FloatingChatWidgetContent() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const { userId } = useSession();
+  const { userId, hasPermission } = useSession();
+  const canCreateChat = hasPermission('chat:create');
 
   const {
     conversations,
@@ -205,7 +206,7 @@ function FloatingChatWidgetContent() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      disabled={previews.length >= 4 || isUploading || isOptimizing}
+                      disabled={previews.length >= 4 || isUploading || isOptimizing || !canCreateChat}
                       className="text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-50 shrink-0"
                     >
                       {isOptimizing ? <Loader2 size={20} className="animate-spin" /> : <Paperclip size={20} />}
@@ -214,14 +215,18 @@ function FloatingChatWidgetContent() {
                       type="text"
                       value={inputText}
                       onChange={e => handleInputChange(e.target.value)}
-                      disabled={isUploading || isOptimizing}
-                      placeholder="Type a message..."
+                      disabled={isUploading || isOptimizing || !canCreateChat}
+                      placeholder={canCreateChat ? 'Type a message...' : 'You do not have permission to send messages'}
                       className="flex-1 bg-muted rounded-full px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-muted-foreground/50"
                     />
                     <button
                       type="submit"
                       disabled={
-                        (!inputText.trim() && previews.length === 0) || !isConnected || isUploading || isOptimizing
+                        (!inputText.trim() && previews.length === 0) ||
+                        !isConnected ||
+                        isUploading ||
+                        isOptimizing ||
+                        !canCreateChat
                       }
                       className="bg-blue-600 dark:bg-blue-700 text-white p-2 rounded-full disabled:opacity-50 hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors shrink-0"
                     >

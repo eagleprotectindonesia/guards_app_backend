@@ -9,9 +9,14 @@ import { sendChatPushNotification } from '../fcm';
  */
 export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
   const auth = socket.data.auth!;
+  const hasChatView = auth.type === 'employee' || auth.permissions?.includes('chat:view') || false;
+  const hasChatCreate = auth.type === 'employee' || auth.permissions?.includes('chat:create') || false;
 
   socket.on('send_message', async data => {
     try {
+      if (auth.type === 'admin' && !hasChatCreate) {
+        return socket.emit('error', { message: 'Forbidden' });
+      }
       const targetId = data.employeeId || data.guardId;
       if (data.attachments && data.attachments.length > 4) {
         return socket.emit('error', { message: 'Max 4 attachments' });
@@ -89,6 +94,9 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
 
   socket.on('mark_read', async data => {
     try {
+      if (auth.type === 'admin' && !hasChatView) {
+        return socket.emit('error', { message: 'Forbidden' });
+      }
       const targetId = auth.type === 'admin' ? data.employeeId || data.guardId : auth.id;
       if (!targetId) return;
 
@@ -111,6 +119,9 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
 
   socket.on('typing', async data => {
     try {
+      if (auth.type === 'admin' && !hasChatCreate) {
+        return socket.emit('error', { message: 'Forbidden' });
+      }
       const targetId = data.employeeId || data.guardId;
       const payload = {
         employeeId: auth.type === 'employee' ? auth.id : targetId!,

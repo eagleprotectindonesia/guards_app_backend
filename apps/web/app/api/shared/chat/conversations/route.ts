@@ -1,13 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getConversationListPaginated } from '@/lib/data-access/chat';
-import { getCurrentAdmin } from '@/lib/admin-auth';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export async function GET(request: Request) {
-  const admin = await getCurrentAdmin();
-
-  if (!admin) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const admin = await requirePermission(PERMISSIONS.CHAT.VIEW);
 
   try {
     const { searchParams } = new URL(request.url);

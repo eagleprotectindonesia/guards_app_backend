@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getChatMessages, getMessagesSince, saveMessage } from '@/lib/data-access/chat';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { getCurrentAdmin } from '@/lib/admin-auth';
+import { getCurrentAdmin, requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ employeeId: string }> }) {
   const { employeeId } = await params;
@@ -12,6 +13,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   if (!admin && (!employee || employee.id !== employeeId)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (admin) {
+    await requirePermission(PERMISSIONS.CHAT.VIEW);
   }
 
   try {
@@ -49,6 +54,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // If employee is sending, it MUST be for themselves
   if (!admin && (!employee || employee.id !== employeeId)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (admin) {
+    await requirePermission(PERMISSIONS.CHAT.CREATE);
   }
 
   try {

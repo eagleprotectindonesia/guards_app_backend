@@ -16,7 +16,8 @@ export function AdminChatClient() {
   const employeeIdParam = searchParams.get('employeeId');
   const employeeNameParam = searchParams.get('employeeName');
   const employeeNumberParam = searchParams.get('employeeNumber');
-  const { userId } = useSession();
+  const { userId, hasPermission } = useSession();
+  const canCreateChat = hasPermission('chat:create');
   const currentQuery = searchParams.toString();
 
   const onSelectConversation = useCallback(
@@ -213,7 +214,7 @@ export function AdminChatClient() {
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={previews.length >= 4 || isUploading || isOptimizing || isLockedByOther}
+                    disabled={previews.length >= 4 || isUploading || isOptimizing || isLockedByOther || !canCreateChat}
                     className="mb-1 text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-50 shrink-0 p-1"
                   >
                     {isOptimizing ? <Loader2 size={22} className="animate-spin" /> : <Paperclip size={22} />}
@@ -233,21 +234,28 @@ export function AdminChatClient() {
                         handleSendMessage();
                       }
                     }}
-                    disabled={isUploading || isOptimizing || isLockedByOther}
-                    placeholder={isLockedByOther ? 'Conversation locked' : 'Type a message...'}
+                    disabled={isUploading || isOptimizing || isLockedByOther || !canCreateChat}
+                    placeholder={
+                      !canCreateChat
+                        ? 'You do not have permission to send messages'
+                        : isLockedByOther
+                          ? 'Conversation locked'
+                          : 'Type a message...'
+                    }
                     className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-foreground py-2 resize-none max-h-[120px] placeholder:text-muted-foreground/50"
                   />
                 </div>
 
                 <button
                   type="submit"
-                  disabled={
-                    (!inputText.trim() && previews.length === 0) ||
-                    !isConnected ||
-                    isUploading ||
-                    isOptimizing ||
-                    isLockedByOther
-                  }
+                    disabled={
+                      (!inputText.trim() && previews.length === 0) ||
+                      !isConnected ||
+                      isUploading ||
+                      isOptimizing ||
+                      isLockedByOther ||
+                      !canCreateChat
+                    }
                   className="bg-blue-600 text-white p-3 rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-all shadow-md shrink-0 mb-1"
                 >
                   {isUploading ? <Loader2 size={20} className="animate-spin" /> : <Send size={20} />}

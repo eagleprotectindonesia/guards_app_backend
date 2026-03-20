@@ -54,5 +54,6 @@ export interface SocketData {
     type: 'admin' | 'employee';
     sessionId?: string;
     clientType?: string;
+    permissions?: string[];
   };
 }
