@@ -1,6 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { redis } from '@repo/database';
-import { db as prisma } from '@repo/database';
+import { redis, db as prisma } from '@repo/database';
 import { JWT_SECRET, SESSION_CACHE_TTL } from './constants';
 
 export type UserRole = 'admin' | 'employee';
@@ -66,7 +65,6 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
     // Fallback to DB if version or permissions (for admin) are missing
     if ((type === 'admin' && currentVersion === null) || (type === 'admin' && !roleName) || type === 'employee') {
       if (type === 'admin') {
-        // Use any to bypass Prisma type sync issues during development
         const admin = await prisma.admin.findUnique({
           where: { id: userId },
           include: {
@@ -133,7 +131,8 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
     }
 
     // Version check
-    const versionMatch = type === 'admin' && (decoded.tokenVersion === undefined || decoded.tokenVersion === currentVersion);
+    const versionMatch =
+      type === 'admin' && (decoded.tokenVersion === undefined || decoded.tokenVersion === currentVersion);
 
     if (type === 'admin' && currentVersion !== null && versionMatch) {
       return {

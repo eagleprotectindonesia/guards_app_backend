@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import { resolveAlertSchema } from '@repo/validations';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { ZodError } from 'zod';
-import { prisma } from '@repo/database';
-import { redis } from '@repo/database';
+import { getShiftById, resolveAlertsByShiftAndReason, redis } from '@repo/database';
 
 export async function POST(req: Request) {
   const employee = await getAuthenticatedEmployee();
@@ -14,12 +13,9 @@ export async function POST(req: Request) {
   try {
     const json = await req.json();
     const body = resolveAlertSchema.parse(json);
-    const now = new Date();
 
     // 1. Fetch Shift to verify ownership
-    const shift = await prisma.shift.findUnique({
-      where: { id: body.shiftId },
-    });
+    const shift = await getShiftById(body.shiftId, { site: true });
 
     if (!shift) {
       return NextResponse.json({ error: 'Shift not found' }, { status: 404 });
@@ -30,43 +26,19 @@ export async function POST(req: Request) {
     }
 
     // 2. Resolve existing alerts of this type for this shift
-    const alertsToResolve = await prisma.alert.findMany({
-      where: {
-        shiftId: shift.id,
-        reason: body.reason,
-        resolvedAt: null,
-      },
+    const { resolvedAlerts, count } = await resolveAlertsByShiftAndReason({
+      shiftId: shift.id,
+      reason: body.reason,
+      resolutionNote: 'Resolved by system (Guard returned to geofence/restored location)',
     });
 
-    if (alertsToResolve.length === 0) {
+    if (count === 0) {
       return NextResponse.json({ message: 'No active alerts to resolve' });
     }
 
-    const updatedAlerts = await Promise.all(
-      alertsToResolve.map((alert) =>
-        prisma.alert.update({
-          where: { id: alert.id },
-          data: {
-            resolvedAt: now,
-            resolutionType: 'auto',
-            resolutionNote: 'Resolved by system (Guard returned to geofence/restored location)',
-          },
-          include: {
-            site: true,
-            shift: {
-              include: {
-                employee: true,
-                shiftType: true,
-              },
-            },
-          },
-        })
-      )
-    );
-
     // 3. Publish to Redis for real-time Socket.io updates (Best-effort)
     try {
-      for (const alert of updatedAlerts) {
+      for (const alert of resolvedAlerts) {
         const payload = {
           type: 'alert_updated',
           alert,
@@ -78,7 +50,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({
-      message: `${updatedAlerts.length} alert(s) resolved successfully`,
+      message: `${count} alert(s) resolved successfully`,
     });
   } catch (error: unknown) {
     console.error('Error resolving alert:', error);

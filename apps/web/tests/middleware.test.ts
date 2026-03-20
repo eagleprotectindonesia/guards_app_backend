@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { proxy } from '../proxy';
-import { validateApiKeyInDb } from '@/lib/api-key';
+import { validateApiKeyInDb } from '@repo/database';
 
 // Mock prisma to prevent open database handles
 jest.mock('@/lib/prisma', () => ({
@@ -13,7 +13,7 @@ jest.mock('@/lib/prisma', () => ({
 }));
 
 // Mock validateApiKeyInDb
-jest.mock('@/lib/api-key', () => ({
+jest.mock('@repo/database', () => ({
   validateApiKeyInDb: jest.fn(),
 }));
 

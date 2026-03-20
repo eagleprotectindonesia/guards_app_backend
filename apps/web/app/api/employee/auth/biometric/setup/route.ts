@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { prisma } from '@repo/database';
+import { getEmployeeForAuth, createEmployeeRefreshToken } from '@repo/database';
 import { z } from 'zod';
 
 const setupSchema = z.object({
@@ -15,11 +15,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { employeeId, password, deviceInfo } = setupSchema.parse(body);
 
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
-    });
+    const employee = await getEmployeeForAuth(employeeId);
 
-    if (!employee || !employee.hashedPassword) {
+    if (!employee || !employee.hashedPassword || employee.deletedAt !== null || employee.status !== true) {
       return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 });
     }
 
@@ -30,7 +28,7 @@ export async function POST(req: Request) {
 
     // Generate a secure random token
     const rawToken = crypto.randomBytes(40).toString('hex');
-    
+
     // Hash the token for storage (SHA-256 is sufficient for high-entropy tokens)
     const hashedToken = crypto.createHash('sha256').update(rawToken).digest('hex');
 
@@ -39,13 +37,11 @@ export async function POST(req: Request) {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 365);
 
-    await prisma.refreshToken.create({
-      data: {
-        token: hashedToken,
-        employeeId: employee.id,
-        deviceInfo: deviceInfo || 'Current Device',
-        expiresAt,
-      },
+    await createEmployeeRefreshToken({
+      employeeId: employee.id,
+      token: hashedToken,
+      deviceInfo: deviceInfo || 'Current Device',
+      expiresAt,
     });
 
     return NextResponse.json({

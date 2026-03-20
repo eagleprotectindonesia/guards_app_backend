@@ -1,5 +1,4 @@
-import { db as prisma } from '@repo/database';
-import { redis } from '@repo/database';
+import { getOpenAlertsForDashboard, getActiveShiftsForDashboard, getUpcomingShiftsForDashboard, redis } from '@repo/database';
 import { Shift, Site } from '@repo/types';
 import { UnifiedServer, UnifiedSocket } from '../socket';
 
@@ -21,11 +20,7 @@ export function registerAdminHandlers(io: UnifiedServer, socket: UnifiedSocket) 
       const { siteId } = data;
 
       // Fetch Alerts
-      const alerts = await prisma.alert.findMany({
-        where: { resolvedAt: null, ...(siteId ? { siteId } : {}) },
-        orderBy: { createdAt: 'desc' },
-        include: { site: true, shift: { include: { employee: true, shiftType: true } } },
-      });
+      const alerts = await getOpenAlertsForDashboard(siteId);
 
       // Fetch Warnings from Redis
       const warningPattern = siteId ? `alert:warning:${siteId}:*` : `alert:warning:*`;
@@ -44,15 +39,7 @@ export function registerAdminHandlers(io: UnifiedServer, socket: UnifiedSocket) 
       // Global Stats
       if (!siteId) {
         const now = new Date();
-        const activeShifts = await prisma.shift.findMany({
-          where: {
-            status: { in: ['scheduled', 'in_progress'] },
-            startsAt: { lte: now },
-            endsAt: { gte: now },
-            employeeId: { not: null },
-          },
-          include: { shiftType: true, employee: true, site: true, attendance: true },
-        });
+        const activeShifts = await getActiveShiftsForDashboard(now);
 
         // Group by site to match SSE format
         const activeSitesMap = new Map<string, { site: Site; shifts: Shift[] }>();
@@ -63,12 +50,7 @@ export function registerAdminHandlers(io: UnifiedServer, socket: UnifiedSocket) 
           activeSitesMap.get(shift.siteId)?.shifts.push(shift);
         }
 
-        const upcoming = await prisma.shift.findMany({
-          where: { status: 'scheduled', startsAt: { gt: now, lte: new Date(now.getTime() + 24 * 3600000) } },
-          include: { shiftType: true, employee: true, site: true },
-          orderBy: { startsAt: 'asc' },
-          take: 50,
-        });
+        const upcoming = await getUpcomingShiftsForDashboard(now, 50);
         socket.emit('active_shifts', Array.from(activeSitesMap.values()));
         socket.emit('upcoming_shifts', upcoming);
       }

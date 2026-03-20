@@ -3,7 +3,7 @@
 import { prisma } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { generateApiKey, hashApiKey } from '@/lib/api-key';
+import { generateApiKey, hashApiKey } from '@repo/database';
 import { revalidatePath } from 'next/cache';
 
 export async function createApiKey(name: string) {

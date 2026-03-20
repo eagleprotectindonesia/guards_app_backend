@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server';
 import { cookies, headers } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { redis } from '@repo/database';
-import { prisma } from '@repo/database';
+import { redis, prisma, getEmployeeSessionExpiry } from '@repo/database';
 import { z } from 'zod';
 import { DEFAULT_PASSWORD } from '@repo/shared';
 import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
-import { getEmployeeSessionExpiry, type EmployeeClientType } from '@/lib/auth/employee-sessions';
+
+type EmployeeClientType = 'mobile' | 'pwa';
 
 const employeeLoginSchema = z.object({
   employeeNumber: z.string().min(1, 'Nomor Karyawan wajib diisi'),

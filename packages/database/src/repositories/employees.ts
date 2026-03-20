@@ -78,6 +78,41 @@ export async function getEmployeeById(id: string) {
   });
 }
 
+/**
+ * Gets an employee by ID for authentication purposes.
+ * Includes hashedPassword and other auth-related fields.
+ */
+export async function getEmployeeForAuth(id: string) {
+  return prisma.employee.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      hashedPassword: true,
+      status: true,
+      deletedAt: true,
+    },
+  });
+}
+
+/**
+ * Creates a refresh token for an employee.
+ */
+export async function createEmployeeRefreshToken(params: {
+  employeeId: string;
+  token: string;
+  deviceInfo: string;
+  expiresAt: Date;
+}) {
+  return prisma.refreshToken.create({
+    data: {
+      token: params.token,
+      employeeId: params.employeeId,
+      deviceInfo: params.deviceInfo,
+      expiresAt: params.expiresAt,
+    },
+  });
+}
+
 export async function findEmployeeByEmployeeNumber(employeeNumber: string) {
   return prisma.employee.findFirst({
     where: { employeeNumber, deletedAt: null },

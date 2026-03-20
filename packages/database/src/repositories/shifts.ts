@@ -788,3 +788,42 @@ export async function cancelInProgressShiftsForDeactivatedEmployee(employeeId: s
     resolvedAlertsCount: resolvedAlertsResult.count,
   };
 }
+
+/**
+ * Gets active shifts for the admin dashboard.
+ * Returns shifts grouped by site with their associated data.
+ */
+export async function getActiveShiftsForDashboard(now: Date) {
+  const LOOKAHEAD_MS = 10 * 60 * 1000; // 10 minutes
+  const lookaheadDate = new Date(now.getTime() + LOOKAHEAD_MS);
+
+  return prisma.shift.findMany({
+    where: {
+      deletedAt: null,
+      employeeId: { not: null },
+      OR: [
+        {
+          status: 'scheduled',
+          startsAt: { lte: lookaheadDate },
+          endsAt: { gt: now },
+        },
+        {
+          status: 'in_progress',
+        },
+      ],
+    },
+    include: {
+      shiftType: true,
+      employee: { include: { office: { select: { name: true } } } },
+      site: true,
+      attendance: true,
+    },
+  });
+}
+
+/**
+ * Gets upcoming shifts for the admin dashboard (next 24 hours).
+ */
+export async function getUpcomingShiftsForDashboard(now: Date, take = 50) {
+  return getUpcomingShifts(now, take);
+}

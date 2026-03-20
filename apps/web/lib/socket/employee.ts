@@ -1,6 +1,5 @@
-import { redis } from '@repo/database';
+import { redis, isEmployeeSessionActive } from '@repo/database';
 import { UnifiedServer, UnifiedSocket } from '../socket';
-import { isEmployeeSessionActive } from '../auth/employee-sessions';
 
 /**
  * Handlers for Employee users (Guards).

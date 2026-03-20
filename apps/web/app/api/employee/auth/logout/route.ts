@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { AUTH_COOKIES } from '@/lib/auth/constants';
 import { getAuthenticatedEmployeeSession } from '@/lib/employee-auth';
-import { revokeEmployeeSessionById } from '@/lib/auth/employee-sessions';
+import { revokeEmployeeSessionById } from '@repo/database';
 import { redis } from '@repo/database';
 
 export async function POST() {

@@ -1,5 +1,5 @@
 import { firebaseAdmin } from './firebase-admin';
-import { db as prisma } from '@repo/database';
+import { getEmployeeFcmTokens, removeStaleFcmTokens } from '@repo/database';
 import { getUnreadCount } from './data-access/chat';
 
 const CHAT_NOTIFICATION_CHANNEL_ID = 'chat_messages_v2';
@@ -41,20 +41,9 @@ export async function sendChatPushNotification(params: {
   }
 
   try {
-    const tokens = await prisma.fcmToken.findMany({
-      where: {
-        employeeSession: {
-          employeeId,
-          revokedAt: null,
-          expiresAt: {
-            gt: new Date(),
-          },
-        },
-      },
-      select: { token: true },
-    });
+    const tokensResult = await getEmployeeFcmTokens(employeeId);
 
-    if (tokens.length === 0) {
+    if (tokensResult.length === 0) {
       console.info('[FCM] Chat push skipped: no registered tokens', {
         employeeId,
         messageId,
@@ -69,7 +58,7 @@ export async function sendChatPushNotification(params: {
       };
     }
 
-    const tokenStrings = tokens.map(t => t.token);
+    const tokenStrings = tokensResult.map(t => t.token);
     const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
     const title = `Message from ${senderName}`;
     const body = preview || 'You have a new message';
@@ -156,9 +145,7 @@ export async function sendChatPushNotification(params: {
 
       if (failedTokens.length > 0) {
         staleTokenCount = failedTokens.length;
-        await prisma.fcmToken.deleteMany({
-          where: { token: { in: failedTokens } },
-        });
+        await removeStaleFcmTokens(failedTokens);
         console.warn('[FCM] Removed stale FCM tokens after failed chat push', {
           employeeId,
           messageId,

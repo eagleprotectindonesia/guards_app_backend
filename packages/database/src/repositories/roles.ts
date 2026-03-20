@@ -121,3 +121,23 @@ export async function deleteRole(id: string) {
     });
   });
 }
+
+/**
+ * Ensures a permission exists in the database.
+ * Auto-creates the permission with parsed resource and action from the code.
+ * This is used for developer convenience during development.
+ */
+export async function ensurePermissionExists(code: string) {
+  const [resource, action] = code.split(':');
+
+  return prisma.permission.upsert({
+    where: { code },
+    update: {},
+    create: {
+      code,
+      resource,
+      action,
+      description: `Auto-generated permission for ${action} ${resource}`,
+    },
+  });
+}

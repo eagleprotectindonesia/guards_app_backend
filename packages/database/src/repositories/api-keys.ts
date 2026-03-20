@@ -1,33 +1,29 @@
 import crypto from 'crypto';
-import { prisma } from '@repo/database';
+import { db as prisma } from '../prisma/client';
 
 /**
  * Generates a new random API key with a prefix.
  */
 export function generateApiKey(): string {
-  // Use a secure random string generator
   const randomPart = crypto.randomBytes(24).toString('hex');
   return `ep_${randomPart}`;
 }
 
 /**
  * Hashes an API key using SHA-256.
- * We use SHA-256 for API keys as they are high-entropy already.
  */
 export function hashApiKey(key: string): string {
   return crypto.createHash('sha256').update(key).digest('hex');
 }
 
 /**
- * Validates a raw API key against a hashed one.
+ * Validates a raw API key against a hashed one using timing-safe comparison.
  */
 export function validateApiKey(rawKey: string, hashedKey: string): boolean {
   if (!rawKey || !hashedKey) return false;
 
   const rawHash = hashApiKey(rawKey);
 
-  // Use timing-safe comparison to prevent timing attacks
-  // Although for API keys this is less critical than passwords, it's good practice.
   try {
     return crypto.timingSafeEqual(Buffer.from(rawHash, 'hex'), Buffer.from(hashedKey, 'hex'));
   } catch {
@@ -37,7 +33,8 @@ export function validateApiKey(rawKey: string, hashedKey: string): boolean {
 
 /**
  * Validates a raw API key against the database.
- * If valid, updates lastUsedAt.
+ * If valid, updates lastUsedAt in the background.
+ * Returns the API key entry if valid, null otherwise.
  */
 export async function validateApiKeyInDb(rawKey: string) {
   if (!rawKey || !rawKey.startsWith('ep_')) {

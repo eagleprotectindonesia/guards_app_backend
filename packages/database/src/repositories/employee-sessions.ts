@@ -1,13 +1,19 @@
-import { db as prisma } from '@repo/database';
+import { db as prisma } from '../prisma/client';
 
 export type EmployeeClientType = 'mobile' | 'pwa';
 
 const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Calculates the session expiry date (24 hours from now by default).
+ */
 export function getEmployeeSessionExpiry(now = new Date()) {
   return new Date(now.getTime() + SESSION_TTL_MS);
 }
 
+/**
+ * Creates a new employee session.
+ */
 export async function createEmployeeSession(params: {
   employeeId: string;
   clientType: EmployeeClientType;
@@ -26,26 +32,14 @@ export async function createEmployeeSession(params: {
   });
 }
 
-export async function revokeEmployeeSessions(employeeId: string, sessionIdsToKeep: string[] = []) {
-  const now = new Date();
-
-  return prisma.employeeSession.updateMany({
-    where: {
-      employeeId,
-      revokedAt: null,
-      expiresAt: { gt: now },
-      ...(sessionIdsToKeep.length > 0 ? { id: { notIn: sessionIdsToKeep } } : {}),
-    },
-    data: {
-      revokedAt: now,
-    },
-  });
-}
-
+/**
+ * Revokes a specific employee session by ID.
+ * Used for logout.
+ */
 export async function revokeEmployeeSessionById(sessionId: string) {
   const now = new Date();
 
-  return prisma.employeeSession.updateMany({
+  await prisma.employeeSession.updateMany({
     where: {
       id: sessionId,
       revokedAt: null,
@@ -56,6 +50,9 @@ export async function revokeEmployeeSessionById(sessionId: string) {
   });
 }
 
+/**
+ * Checks if a specific employee session is still active.
+ */
 export async function isEmployeeSessionActive(sessionId: string) {
   const session = await prisma.employeeSession.findUnique({
     where: { id: sessionId },

@@ -1,5 +1,5 @@
 import { db as prisma } from "../prisma/client";
-import { ShiftStatus, AlertResolution, AlertReason } from '@prisma/client';
+import { ShiftStatus, AlertResolution, AlertReason, AlertSeverity } from '@prisma/client';
 
 export async function getAlertById(id: string) {
   return prisma.alert.findUnique({
@@ -168,4 +168,132 @@ export async function autoResolveAlert(params: {
       },
     },
   });
+}
+
+/**
+ * Gets open alerts for the admin dashboard.
+ * Optionally filtered by siteId.
+ */
+export async function getOpenAlertsForDashboard(siteId?: string) {
+  return prisma.alert.findMany({
+    where: {
+      resolvedAt: null,
+      ...(siteId ? { siteId } : {}),
+    },
+    orderBy: { createdAt: 'desc' },
+    include: {
+      site: true,
+      shift: {
+        include: {
+          employee: true,
+          shiftType: true,
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Checks if an open alert already exists for a given shift and reason.
+ */
+export async function findOpenAlertByShiftAndReason(shiftId: string, reason: AlertReason) {
+  return prisma.alert.findFirst({
+    where: {
+      shiftId,
+      reason,
+      resolvedAt: null,
+    },
+    include: {
+      site: true,
+      shift: {
+        include: {
+          employee: true,
+          shiftType: true,
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Creates a new alert.
+ */
+export async function createAlert(data: {
+  shiftId: string;
+  siteId: string;
+  reason: AlertReason;
+  severity?: AlertSeverity;
+  windowStart?: Date;
+}) {
+  const now = new Date();
+
+  return prisma.alert.create({
+    data: {
+      shiftId: data.shiftId,
+      siteId: data.siteId,
+      reason: data.reason,
+      severity: data.severity ?? 'critical',
+      windowStart: data.windowStart ?? now,
+      createdAt: now,
+    },
+    include: {
+      site: true,
+      shift: {
+        include: {
+          employee: true,
+          shiftType: true,
+        },
+      },
+    },
+  });
+}
+
+/**
+ * Resolves open alerts for a given shift and reason.
+ */
+export async function resolveAlertsByShiftAndReason(params: {
+  shiftId: string;
+  reason: AlertReason;
+  resolutionNote: string;
+}) {
+  const { shiftId, reason, resolutionNote } = params;
+  const now = new Date();
+
+  // Find alerts to resolve
+  const alertsToResolve = await prisma.alert.findMany({
+    where: {
+      shiftId,
+      reason,
+      resolvedAt: null,
+    },
+  });
+
+  if (alertsToResolve.length === 0) {
+    return { resolvedAlerts: [], count: 0 };
+  }
+
+  // Resolve all alerts
+  const updatedAlerts = await Promise.all(
+    alertsToResolve.map((alert) =>
+      prisma.alert.update({
+        where: { id: alert.id },
+        data: {
+          resolvedAt: now,
+          resolutionType: 'auto',
+          resolutionNote,
+        },
+        include: {
+          site: true,
+          shift: {
+            include: {
+              employee: true,
+              shiftType: true,
+            },
+          },
+        },
+      })
+    )
+  );
+
+  return { resolvedAlerts: updatedAlerts, count: updatedAlerts.length };
 }

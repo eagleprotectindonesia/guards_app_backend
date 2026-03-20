@@ -37,6 +37,17 @@ export async function getAllSystemSettings() {
   });
 }
 
+/**
+ * Gets system settings by name.
+ * Useful for fetching a subset of settings.
+ */
+export async function getSystemSettingsByName(names: string[]) {
+  return prisma.systemSetting.findMany({
+    where: { name: { in: names } },
+    orderBy: { name: 'asc' },
+  });
+}
+
 export async function updateSystemSettingWithChangelog(
   name: string,
   value: string,

@@ -1,4 +1,4 @@
-import { db as prisma } from '@repo/database';
+import { ensurePermissionExists } from '@repo/database';
 import { isValidPermissionCode, PermissionCode } from './permissions';
 
 export interface UserSession {
@@ -43,17 +43,8 @@ export async function hasPermission(user: UserSession | null, permissionCode: Pe
  * Resource and Action are parsed from the code.
  */
 async function ensurePermissionInDb(code: PermissionCode) {
-  const [resource, action] = code.split(':');
-
-  // Only upsert if it doesn't already exist to minimize DB load
-  await prisma.permission.upsert({
-    where: { code },
-    update: {},
-    create: {
-      code,
-      resource,
-      action,
-      description: `Auto-generated permission for ${action} ${resource}`,
-    },
-  });
+  // Use the repository function which handles the upsert logic
+  await ensurePermissionExists(code).catch(err =>
+    console.error(`[RBAC] Failed to ensure permission ${code} exists:`, err)
+  );
 }

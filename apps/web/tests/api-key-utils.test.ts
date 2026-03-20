@@ -1,4 +1,4 @@
-import { generateApiKey, hashApiKey, validateApiKey } from '@/lib/api-key';
+import { generateApiKey, hashApiKey, validateApiKey } from '@repo/database';
 
 // Mock prisma to prevent open database handles during utility tests
 jest.mock('@/lib/prisma', () => ({

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyEmployeeSession } from '@/lib/employee-auth';
-import { prisma } from '@repo/database';
+import { getSystemSettingsByName } from '@repo/database';
 
 export async function GET() {
   const isValid = await verifyEmployeeSession();
@@ -9,13 +9,11 @@ export async function GET() {
     return NextResponse.json({ authenticated: false }, { status: 401 });
   }
 
-  const settings = await prisma.systemSetting.findMany({
-    where: {
-      name: {
-        in: ['GEOFENCE_GRACE_MINUTES', 'LOCATION_DISABLED_GRACE_MINUTES', 'ENABLE_LOCATION_MONITORING']
-      }
-    }
-  });
+  const settings = await getSystemSettingsByName([
+    'GEOFENCE_GRACE_MINUTES',
+    'LOCATION_DISABLED_GRACE_MINUTES',
+    'ENABLE_LOCATION_MONITORING'
+  ]);
 
   const settingsMap = settings.reduce((acc, setting) => {
     acc[setting.name] = setting.value;

@@ -1,7 +1,7 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { verifySession } from '@/lib/auth/session';
 import { AUTH_COOKIES } from '@/lib/auth/constants';
-import { validateApiKeyInDb } from '@/lib/api-key';
+import { validateApiKeyInDb } from '@repo/database';
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

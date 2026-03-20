@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import { reportAlertSchema } from '@repo/validations';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { ZodError } from 'zod';
-import { prisma } from '@repo/database';
-import { redis } from '@repo/database';
+import { getShiftById, findOpenAlertByShiftAndReason, createAlert, redis } from '@repo/database';
 
 export async function POST(req: Request) {
   const employee = await getAuthenticatedEmployee();
@@ -17,10 +16,7 @@ export async function POST(req: Request) {
     const now = new Date();
 
     // 1. Fetch Shift to verify ownership and get siteId
-    const shift = await prisma.shift.findUnique({
-      where: { id: body.shiftId },
-      include: { site: true },
-    });
+    const shift = await getShiftById(body.shiftId, { site: true });
 
     if (!shift) {
       return NextResponse.json({ error: 'Shift not found' }, { status: 404 });
@@ -31,22 +27,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Check for existing active (unresolved) alert for this shift and reason (Idempotency)
-    const existingAlert = await prisma.alert.findFirst({
-      where: {
-        shiftId: shift.id,
-        reason: body.reason,
-        resolvedAt: null,
-      },
-      include: {
-        site: true,
-        shift: {
-          include: {
-            employee: true,
-            shiftType: true,
-          },
-        },
-      },
-    });
+    const existingAlert = await findOpenAlertByShiftAndReason(shift.id, body.reason);
 
     if (existingAlert) {
       return NextResponse.json({
@@ -56,27 +37,15 @@ export async function POST(req: Request) {
     }
 
     // 3. Create the Alert
-    const alert = await prisma.alert.create({
-      data: {
-        shiftId: shift.id,
-        siteId: shift.siteId,
-        reason: body.reason,
-        severity: 'critical',
-        windowStart: now, // For reported alerts, windowStart is the time of report
-        createdAt: now,
-      },
-      include: {
-        site: true,
-        shift: {
-          include: {
-            employee: true,
-            shiftType: true,
-          },
-        },
-      },
+    const alert = await createAlert({
+      shiftId: shift.id,
+      siteId: shift.siteId,
+      reason: body.reason,
+      severity: 'critical',
+      windowStart: now,
     });
 
-    // 3. Publish to Redis for real-time Socket.io updates (Best-effort)
+    // 4. Publish to Redis for real-time Socket.io updates (Best-effort)
     try {
       const payload = {
         type: 'alert_created',
