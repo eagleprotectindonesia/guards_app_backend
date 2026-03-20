@@ -58,7 +58,8 @@ interface AlertContextType {
   connectionStatus: string;
   lastAlertEvent: SSEAlertData | null;
   isMuted: boolean;
-  isInitialized: boolean;
+  isAlertsInitialized: boolean;
+  isDashboardInitialized: boolean;
   setIsMuted: (muted: boolean) => void;
   acknowledgeAlert: (alertId: string) => void;
 }
@@ -73,7 +74,9 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   const [activeSites, setActiveSites] = useState<ActiveSiteData[]>([]);
   const [upcomingShifts, setUpcomingShifts] = useState<UpcomingShift[]>([]);
   const [lastAlertEvent, setLastAlertEvent] = useState<SSEAlertData | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [hasReceivedAlertsBackfill, setHasReceivedAlertsBackfill] = useState(false);
+  const [hasReceivedActiveShifts, setHasReceivedActiveShifts] = useState(false);
+  const [hasReceivedUpcomingShifts, setHasReceivedUpcomingShifts] = useState(false);
 
   // Refactored Mute State: Initialize directly from local storage
   const [isMuted, setIsMuted] = useState<boolean>(() => {
@@ -97,7 +100,7 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   const connectionStatus = !canViewAlerts ? 'Disabled' : isConnected ? 'Connected' : 'Reconnecting...';
 
   useEffect(() => {
-    if (!canViewAlerts || !socket) return;
+    if (!socket) return;
 
     if (isConnected) {
       // Request initial data upon connection
@@ -105,18 +108,19 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     }
 
     const handleBackfill = (data: { alerts: AlertWithRelations[] }) => {
+      if (!canViewAlerts) return;
       setAlerts(data.alerts.filter(alert => !alert.resolvedAt));
-      setIsInitialized(true);
+      setHasReceivedAlertsBackfill(true);
     };
 
     const handleActiveShifts = (data: ActiveSiteData[]) => {
       setActiveSites(data);
-      setIsInitialized(true);
+      setHasReceivedActiveShifts(true);
     };
 
     const handleUpcomingShifts = (data: UpcomingShift[]) => {
       setUpcomingShifts(data);
-      setIsInitialized(true);
+      setHasReceivedUpcomingShifts(true);
     };
 
     const handleAlert = (data: SSEAlertData) => {
@@ -166,6 +170,9 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     };
   }, [canViewAlerts, socket, isConnected]);
 
+  const isAlertsInitialized = !canViewAlerts || hasReceivedAlertsBackfill;
+  const isDashboardInitialized = hasReceivedActiveShifts && hasReceivedUpcomingShifts;
+
   const acknowledgeAlert = (alertId: string) => {
     setAlerts(prev =>
       prev.map(a => {
@@ -187,7 +194,8 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
         connectionStatus,
         lastAlertEvent,
         isMuted,
-        isInitialized,
+        isAlertsInitialized,
+        isDashboardInitialized,
         setIsMuted,
         acknowledgeAlert,
       }}

@@ -21,11 +21,11 @@ export default function AdminDashboard({ initialSites }: { initialSites: SiteWit
     activeSites: allActiveSites,
     upcomingShifts: allUpcomingShifts,
     connectionStatus,
-    isInitialized,
+    isDashboardInitialized,
     acknowledgeAlert,
   } = useAlerts();
 
-  if (!isInitialized) {
+  if (!isDashboardInitialized) {
     return (
       <div className="h-full flex flex-col items-center justify-center p-8 text-center">
         <div className="w-12 h-12 border-4 border-red-500 border-t-transparent rounded-full animate-spin mb-4" />

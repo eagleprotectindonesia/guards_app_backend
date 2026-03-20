@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 export default function AlertNotifications() {
-  const { isMuted, setIsMuted, alerts, isInitialized } = useAlerts();
+  const { isMuted, setIsMuted, alerts, isAlertsInitialized } = useAlerts();
   const pathname = usePathname();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -18,7 +18,7 @@ export default function AlertNotifications() {
     alert => !alert.acknowledgedAt && !alert.resolvedAt && alert.status !== 'need_attention'
   );
   const hasActiveAlerts = activeAlerts.length > 0;
-  const shouldPlaySound = isInitialized && hasActiveAlerts && !isMuted;
+  const shouldPlaySound = isAlertsInitialized && hasActiveAlerts && !isMuted;
 
   // Audio Logic
   useEffect(() => {
