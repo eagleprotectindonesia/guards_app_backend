@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { EmployeeWithRelations } from '@repo/database';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import ChangePasswordModal from './change-password-modal';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';

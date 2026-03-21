@@ -213,8 +213,6 @@ export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 export type UpdateEmployeePasswordInput = z.infer<typeof updateEmployeePasswordSchema>;
 
 // Deprecated
-export type UpdateGuardInput = UpdateEmployeeInput;
-export type UpdateGuardPasswordInput = UpdateEmployeePasswordInput;
 
 export type CreateShiftTypeInput = z.infer<typeof createShiftTypeSchema>;
 export type UpdateShiftTypeInput = CreateShiftTypeInput; // Same for now

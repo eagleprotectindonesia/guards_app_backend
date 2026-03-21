@@ -1,5 +1,5 @@
 import { getRoleById, getAllPermissions } from '@repo/database';
-import { serialize } from '@/lib/utils';
+import { serialize } from '@/lib/server-utils';
 import RoleForm from '../../components/role-form';
 import { ChevronLeft } from 'lucide-react';
 import Link from 'next/link';

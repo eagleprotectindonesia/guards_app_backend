@@ -37,7 +37,7 @@
       "dependsOn": ["worker#type-check"]
     },
     "@repo/database#type-check": {
-      "dependsOn": ["@repo/database#prisma:generate", "@repo/shared#type-check"]
+      "dependsOn": ["@repo/database#prisma:generate"]
     },
     "@repo/shared#type-check": {},
     "@repo/types#type-check": {},

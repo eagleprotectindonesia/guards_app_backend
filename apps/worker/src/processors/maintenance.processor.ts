@@ -1,5 +1,5 @@
 import { Job } from 'bullmq';
-import { DATA_CLEAN_JOB_NAME } from '@repo/shared';
+import { DATA_CLEAN_JOB_NAME } from '@repo/database';
 import { db as prisma } from '@repo/database';
 import { ChatMessageStatus } from '@prisma/client';
 

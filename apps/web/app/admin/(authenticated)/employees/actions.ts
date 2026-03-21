@@ -13,12 +13,14 @@ import {
   updateEmployeePasswordSchema,
   UpdateEmployeePasswordInput,
 } from '@repo/validations';
-import { hashPassword, serialize, Serialized } from '@/lib/utils';
+import { serialize } from '@/lib/server-utils';
+import type { Serialized } from '@/lib/server-utils';
+import { hashPassword } from '@repo/database';
 import { revalidatePath } from 'next/cache';
 import { EmployeeWithRelations } from '@repo/database';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { ActionState } from '@/types/actions';
-import { EMPLOYEE_SYNC_JOB_NAME } from '@repo/shared';
+import { EMPLOYEE_SYNC_JOB_NAME } from '@repo/database';
 import { employeeSyncQueue } from '@/lib/queues';
 
 revalidatePath('/admin/employees');

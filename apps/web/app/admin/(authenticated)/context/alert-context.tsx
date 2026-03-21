@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert, Shift, ShiftType, Site, Attendance } from '@prisma/client';
 import { EmployeeWithRelations } from '@repo/database';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { useSession } from './session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { useSocket } from '@/components/socket-provider';

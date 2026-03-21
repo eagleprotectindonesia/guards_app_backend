@@ -1,4 +1,4 @@
-import { serialize, getPaginationParams } from '@/lib/utils';
+import { serialize, getPaginationParams } from '@/lib/server-utils';
 import CheckinList from './components/checkin-list';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';

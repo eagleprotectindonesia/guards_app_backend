@@ -369,9 +369,6 @@ importers:
       '@vis.gl/react-google-maps':
         specifier: ^1.7.1
         version: 1.7.1(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      bcryptjs:
-        specifier: ^3.0.3
-        version: 3.0.3
       bullmq:
         specifier: ^5.66.4
         version: 5.70.4
@@ -484,9 +481,6 @@ importers:
         specifier: ^4.1.13
         version: 4.3.6
     devDependencies:
-      '@repo/eslint-config':
-        specifier: workspace:*
-        version: link:../../packages/eslint-config
       '@repo/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
@@ -602,9 +596,6 @@ importers:
       '@prisma/client':
         specifier: ^7.4.0
         version: 7.4.2(prisma@7.4.2(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3)
-      '@repo/shared':
-        specifier: workspace:*
-        version: link:../shared
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -643,57 +634,18 @@ importers:
         specifier: ^5
         version: 5.9.3
 
-  packages/eslint-config:
-    dependencies:
-      '@next/eslint-plugin-next':
-        specifier: 15.1.1
-        version: 15.1.1
-      '@typescript-eslint/eslint-plugin':
-        specifier: ^8.20.0
-        version: 8.57.0(@typescript-eslint/parser@8.57.0(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3))(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
-      '@typescript-eslint/parser':
-        specifier: ^8.20.0
-        version: 8.57.0(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
-      eslint-config-prettier:
-        specifier: ^9.1.0
-        version: 9.1.2(eslint@9.39.4(jiti@2.6.1))
-      eslint-plugin-react:
-        specifier: ^7.37.2
-        version: 7.37.5(eslint@9.39.4(jiti@2.6.1))
-      eslint-plugin-react-hooks:
-        specifier: ^5.1.0
-        version: 5.2.0(eslint@9.39.4(jiti@2.6.1))
-
   packages/shared:
     dependencies:
-      '@prisma/client':
-        specifier: ^7.4.0
-        version: 7.4.2(prisma@7.4.2(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3)
-      bcryptjs:
-        specifier: ^3.0.3
-        version: 3.0.3
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      date-fns:
-        specifier: ^4.1.0
-        version: 4.1.0
-      date-fns-tz:
-        specifier: ^3.2.0
-        version: 3.2.0(date-fns@4.1.0)
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.5.0
-      zod:
-        specifier: ^4.1.13
-        version: 4.3.6
     devDependencies:
       '@repo/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
-      '@types/bcryptjs':
-        specifier: ^2.4.6
-        version: 2.4.6
       '@typescript-eslint/parser':
         specifier: ^8.57.0
         version: 8.57.0(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
@@ -3023,9 +2975,6 @@ packages:
 
   '@next/env@16.1.1':
     resolution: {integrity: sha512-3oxyM97Sr2PqiVyMyrZUtrtM3jqqFxOQJVuKclDsgj/L728iZt/GyslkN4NwarledZATCenbk4Offjk1hQmaAA==}
-
-  '@next/eslint-plugin-next@15.1.1':
-    resolution: {integrity: sha512-yACipsS2HI9ktcfz/1UsO0/sDbVjXWKDE/fzzMLnYES+K4KJyqHChyBQeaxiK7/NDnxrdk7Ow2i9LRm3ZTAWow==}
 
   '@next/eslint-plugin-next@16.1.1':
     resolution: {integrity: sha512-Ovb/6TuLKbE1UiPcg0p39Ke3puyTCIKN9hGbNItmpQsp+WX3qrjO3WaMVSi6JHr9X1NrmthqIguVHodMJbh/dw==}
@@ -6522,12 +6471,6 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
-
-  eslint-config-prettier@9.1.2:
-    resolution: {integrity: sha512-iI1f+D2ViGn+uvv5HuHVUamg8ll4tN+JRHGc6IJi4TP9Kl976C57fzPXgseXNs8v0iA8aSJpHsTWjDb9QJamGQ==}
-    hasBin: true
-    peerDependencies:
-      eslint: '>=7.0.0'
 
   eslint-config-turbo@2.8.16:
     resolution: {integrity: sha512-7JY6vlgFZWUH1YlLpxQjgia3bjcIpWxYahDQ/XfXSU5etv2KyEPY/O6jK/8Tg+Z2xjZm8ZQFgqK15K5MLIQAFA==}
@@ -14296,10 +14239,6 @@ snapshots:
 
   '@next/env@16.1.1': {}
 
-  '@next/eslint-plugin-next@15.1.1':
-    dependencies:
-      fast-glob: 3.3.1
-
   '@next/eslint-plugin-next@16.1.1':
     dependencies:
       fast-glob: 3.3.1
@@ -19157,10 +19096,6 @@ snapshots:
       - eslint-plugin-import-x
       - supports-color
 
-  eslint-config-prettier@9.1.2(eslint@9.39.4(jiti@2.6.1)):
-    dependencies:
-      eslint: 9.39.4(jiti@2.6.1)
-
   eslint-config-turbo@2.8.16(eslint@9.39.4(jiti@2.6.1))(turbo@2.8.16):
     dependencies:
       eslint: 9.39.4(jiti@2.6.1)
@@ -19318,10 +19253,6 @@ snapshots:
   eslint-plugin-react-hooks@5.2.0(eslint@9.39.4(jiti@1.21.7)):
     dependencies:
       eslint: 9.39.4(jiti@1.21.7)
-
-  eslint-plugin-react-hooks@5.2.0(eslint@9.39.4(jiti@2.6.1)):
-    dependencies:
-      eslint: 9.39.4(jiti@2.6.1)
 
   eslint-plugin-react-hooks@7.0.1(eslint@9.39.4(jiti@2.6.1)):
     dependencies:

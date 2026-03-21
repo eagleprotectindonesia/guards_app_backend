@@ -1,4 +1,4 @@
-import { serialize } from '@/lib/utils';
+import { serialize } from '@/lib/server-utils';
 import SiteForm from '../../components/site-form';
 import { notFound } from 'next/navigation';
 import { getSiteById } from '@repo/database';

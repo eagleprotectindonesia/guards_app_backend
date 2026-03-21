@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { z } from 'zod'; // Import z for Zod validation
-import { calculateDistance } from '@/lib/utils';
+import { calculateDistance } from '@/lib/server-utils';
 import { getSystemSetting } from '@repo/database';
 import { recordAttendance } from '@repo/database';
 import { getShiftById } from '@repo/database';

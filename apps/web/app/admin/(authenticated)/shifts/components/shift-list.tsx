@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { deleteShift, cancelShift } from '../actions';
 import ShiftFilterModal from './shift-filter-modal';
 import BulkCreateModal from './bulk-create-modal';

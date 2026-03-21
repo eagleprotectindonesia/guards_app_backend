@@ -1,4 +1,4 @@
-import { getPaginationParams } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/server-utils';
 import AttendanceList from './components/attendance-list';
 import AttendanceTabs from './components/attendance-tabs';
 import { Suspense } from 'react';

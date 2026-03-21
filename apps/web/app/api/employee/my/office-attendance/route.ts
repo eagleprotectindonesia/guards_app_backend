@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { createOfficeAttendanceSchema } from '@repo/validations';
-import { calculateDistance } from '@/lib/utils';
+import { calculateDistance } from '@/lib/server-utils';
 import { getSystemSetting } from '@repo/database';
 import { getOfficeById } from '@repo/database';
 import { recordOfficeAttendance } from '@repo/database';

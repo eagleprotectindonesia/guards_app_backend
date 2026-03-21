@@ -1,7 +1,7 @@
 'use client';
 
 import { Role, Permission } from '@prisma/client';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { createRole, updateRole } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateRoleInput } from '@repo/validations';

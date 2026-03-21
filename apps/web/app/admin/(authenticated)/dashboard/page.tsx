@@ -1,5 +1,5 @@
 import { getAllSites } from '@repo/database';
-import { serialize } from '@/lib/utils';
+import { serialize } from '@/lib/server-utils';
 import AdminDashboard from './dashboard-client';
 
 export const dynamic = 'force-dynamic';

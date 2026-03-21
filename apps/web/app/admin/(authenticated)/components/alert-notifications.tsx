@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { useAlerts } from '../context/alert-context';
 import { Volume2, VolumeX, Bell, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { cn } from '@repo/shared';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';

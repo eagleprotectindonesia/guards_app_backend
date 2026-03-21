@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
 import { getEmployeeForAuth, createEmployeeRefreshToken } from '@repo/database';
 import { z } from 'zod';
+import { verifyPassword } from '@repo/database';
 
 const setupSchema = z.object({
   employeeId: z.string().min(1),
@@ -21,7 +21,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 });
     }
 
-    const isValid = await bcrypt.compare(password, employee.hashedPassword);
+    const isValid = await verifyPassword(password, employee.hashedPassword);
     if (!isValid) {
       return NextResponse.json({ message: 'Invalid credentials' }, { status: 401 });
     }

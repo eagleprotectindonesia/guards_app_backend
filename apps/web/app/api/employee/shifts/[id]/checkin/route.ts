@@ -3,7 +3,7 @@ import { checkInSchema } from '@repo/validations';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { ZodError } from 'zod';
 import { calculateCheckInWindow } from '@/lib/scheduling';
-import { calculateDistance } from '@/lib/utils';
+import { calculateDistance } from '@/lib/server-utils';
 import { getSystemSetting } from '@repo/database';
 import { recordCheckin, recordBulkCheckins } from '@repo/database';
 import { getShiftById } from '@repo/database';

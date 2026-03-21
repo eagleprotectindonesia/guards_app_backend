@@ -6,7 +6,7 @@ import { ActionState } from '@/types/actions';
 import { UpdateSettingsInput } from '@repo/validations';
 import toast from 'react-hot-toast';
 import { SystemSetting } from '@prisma/client';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 
 type Props = {
   settings: Serialized<SystemSetting>[];

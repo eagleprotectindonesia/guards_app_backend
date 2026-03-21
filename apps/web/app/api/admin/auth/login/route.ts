@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { redis } from '@repo/database';
 import { findAdminByEmail } from '@repo/database';
 import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
+import { verifyPassword } from '@repo/database';
 
 export async function POST(req: Request) {
   try {
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     }
 
     // Compare passwords
-    const passwordMatch = await bcrypt.compare(password, admin.hashedPassword);
+    const passwordMatch = await verifyPassword(password, admin.hashedPassword);
 
     if (!passwordMatch) {
       return new NextResponse(JSON.stringify({ error: 'Invalid credentials' }), {

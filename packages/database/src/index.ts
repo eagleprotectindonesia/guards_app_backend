@@ -21,6 +21,12 @@ export type { ExtendedPrismaClient, EmployeeWithRelations, EmployeeSummary } fro
 export { redis } from './redis';
 
 // ============================================================================
+// Server Helpers - Passwords and queue constants
+// ============================================================================
+export * from './password';
+export * from './queues';
+
+// ============================================================================
 // Integrations Layer - External service clients
 // ============================================================================
 export * from './integrations';

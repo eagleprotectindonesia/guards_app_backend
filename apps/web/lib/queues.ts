@@ -1,6 +1,6 @@
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
-import { EMPLOYEE_SYNC_QUEUE_NAME } from '@repo/shared';
+import { EMPLOYEE_SYNC_QUEUE_NAME } from '@repo/database';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+import { cn } from '@repo/shared';
 
 interface TimePickerProps {
   value: string | null;

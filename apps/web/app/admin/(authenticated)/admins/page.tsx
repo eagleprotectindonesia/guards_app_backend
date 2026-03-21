@@ -1,5 +1,5 @@
 import { getPaginatedAdmins } from '@repo/database';
-import { getPaginationParams } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/server-utils';
 import AdminList from './components/admin-list';
 import { Suspense } from 'react';
 import { requirePermission } from '@/lib/admin-auth';

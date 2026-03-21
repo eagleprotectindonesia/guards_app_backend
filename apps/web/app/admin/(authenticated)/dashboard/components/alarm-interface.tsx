@@ -1,6 +1,6 @@
 'use client';
 
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { Alert, Shift, ShiftType, Site } from '@prisma/client';
 import { EmployeeWithRelations } from '@repo/database';
 

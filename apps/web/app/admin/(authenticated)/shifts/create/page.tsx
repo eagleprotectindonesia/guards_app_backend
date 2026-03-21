@@ -1,5 +1,5 @@
 import { prisma } from '@repo/database';
-import { serialize } from '@/lib/utils';
+import { serialize } from '@/lib/server-utils';
 import ShiftForm from '../components/shift-form';
 import { getActiveSites } from '@repo/database';
 import { getActiveEmployeesSummary } from '@repo/database';

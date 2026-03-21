@@ -1,7 +1,7 @@
 import { requirePermission } from '@/lib/admin-auth';
 import { getAllSystemSettings } from '@repo/database';
 import SettingsForm from './components/settings-form';
-import { serialize } from '@/lib/utils';
+import { serialize } from '@/lib/server-utils';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export const dynamic = 'force-dynamic';

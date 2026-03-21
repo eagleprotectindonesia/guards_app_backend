@@ -13,7 +13,7 @@ import {
   EMPLOYEE_STATUS_CHECK_JOB_NAME,
   EMPLOYEE_SYNC_QUEUE_NAME,
   EMPLOYEE_SYNC_JOB_NAME,
-} from '@repo/shared';
+} from '@repo/database';
 
 import { createQueue, createWorker } from './infrastructure/bullmq';
 import { closeRedisConnections } from './infrastructure/redis';

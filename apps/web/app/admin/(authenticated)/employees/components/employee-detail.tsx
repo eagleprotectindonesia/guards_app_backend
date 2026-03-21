@@ -1,4 +1,4 @@
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { EmployeeWithRelations } from '@repo/database';
 
 type Props = {

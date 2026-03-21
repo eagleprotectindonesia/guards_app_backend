@@ -1,5 +1,5 @@
 import { prisma } from '@repo/database';
-import { getPaginationParams } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
 import ShiftTypeChangelogFilterModal from '../../changelogs/components/shift-type-changelog-filter-modal';
 import { Suspense } from 'react';
@@ -123,4 +123,3 @@ export default async function ShiftTypeAuditPage(props: PageProps) {
     </div>
   );
 }
-

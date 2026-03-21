@@ -10,8 +10,8 @@ import {
 import { checkSuperAdmin } from '@/lib/admin-auth';
 import { createAdminSchema, updateAdminSchema, CreateAdminInput, UpdateAdminInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
-import bcrypt from 'bcryptjs';
 import { ActionState } from '@/types/actions';
+import { hashPassword } from '@repo/database';
 
 export async function createAdmin(
   prevState: ActionState<CreateAdminInput>,
@@ -54,7 +54,7 @@ export async function createAdmin(
       };
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hashPassword(password);
 
     await createAdminWithChangelog(
       {
@@ -131,7 +131,7 @@ export async function updateAdmin(
       roleRef: { connect: { id: roleId } },
       note: note || null,
       ...(newPassword && {
-        hashedPassword: await bcrypt.hash(newPassword, 10),
+        hashedPassword: await hashPassword(newPassword),
         tokenVersion: { increment: 1 },
       }),
     };

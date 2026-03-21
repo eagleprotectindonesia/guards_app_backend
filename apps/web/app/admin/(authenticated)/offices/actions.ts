@@ -6,7 +6,8 @@ import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { updateOfficeWithChangelog, getAllOffices } from '@repo/database';
 import { ActionState } from '@/types/actions';
 import { Office } from '@prisma/client';
-import { serialize, Serialized } from '@/lib/utils';
+import { serialize } from '@/lib/server-utils';
+import type { Serialized } from '@/lib/server-utils';
 
 export async function getAllOfficesForExport(): Promise<
   Serialized<Office & { lastUpdatedBy?: { name: string } | null; createdBy?: { name: string } | null }>[]

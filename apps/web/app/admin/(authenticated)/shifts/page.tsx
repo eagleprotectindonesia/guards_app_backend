@@ -1,5 +1,5 @@
 import { prisma } from '@repo/database';
-import { getPaginationParams } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/server-utils';
 import ShiftList from './components/shift-list';
 import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
 import { Suspense } from 'react';

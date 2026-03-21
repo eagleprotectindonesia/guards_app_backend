@@ -1,9 +1,7 @@
-export * from '@repo/shared';
-
 export function isVideoFile(url: string): boolean {
   const videoExtensions = ['.mp4', '.mov', '.webm', '.ogg', '.m4v'];
   try {
-    const urlObj = new URL(url, 'http://localhost'); // Use dummy base for relative paths
+    const urlObj = new URL(url, 'http://localhost');
     const pathname = urlObj.pathname.toLowerCase();
     return videoExtensions.some(ext => pathname.endsWith(ext));
   } catch {

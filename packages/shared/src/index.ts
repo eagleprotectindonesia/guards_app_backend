@@ -1,13 +1,8 @@
 // ============================================================================
-// Domain Logic (Business rules specific to guard scheduling)
+// Domain Logic (Business rules safe to share across apps)
 // ============================================================================
 export * from './scheduling';
 export * from './geo';
-
-// ============================================================================
-// Infrastructure Constants (Queue names, job identifiers)
-// ============================================================================
-export * from './queues';
 
 // ============================================================================
 // Localization (i18n messages and types)

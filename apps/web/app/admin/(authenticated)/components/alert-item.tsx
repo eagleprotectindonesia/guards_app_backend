@@ -2,7 +2,7 @@
 
 import { Alert, Shift, Site, ShiftType, Admin } from '@prisma/client';
 import { EmployeeWithRelations } from '@repo/database';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { Check, CheckCircle, Clock, Eye, User } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';

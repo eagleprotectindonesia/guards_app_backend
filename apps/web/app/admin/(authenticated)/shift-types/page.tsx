@@ -1,4 +1,4 @@
-import { getPaginationParams } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/server-utils';
 import ShiftTypeList from './components/shift-type-list';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';

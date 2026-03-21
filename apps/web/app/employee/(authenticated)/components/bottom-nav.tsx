@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, MessageSquare, User } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@repo/shared';
 import { useTranslation } from 'react-i18next';
 import { useUnreadCount } from '../hooks/use-chat-queries';
 import { useEffect, useRef, useCallback } from 'react';

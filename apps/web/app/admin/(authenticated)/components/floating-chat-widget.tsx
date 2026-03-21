@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquare, X, Send, User, Paperclip, Loader2, Maximize2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@repo/shared';
 import { usePathname, useRouter } from 'next/navigation';
 import { AdminChatLaunchPayload, useAdminChat } from '@/hooks/use-admin-chat';
 import { useSession } from '../context/session-context';

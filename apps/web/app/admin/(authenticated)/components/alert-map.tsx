@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap } from '@vis.gl/react-google-maps';
 import { Alert, Site, Shift } from '@prisma/client';
 import { EmployeeWithRelations } from '@repo/database';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { format } from 'date-fns';
 
 type SiteWithOptionalRelations = Serialized<Site>;

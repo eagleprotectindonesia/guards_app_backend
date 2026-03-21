@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@repo/shared';
 import { ADMIN_NAV_ITEMS, ADMIN_SECONDARY_NAV_ITEMS } from '@/lib/admin-navigation';
 import { useSession } from '../context/session-context';
 

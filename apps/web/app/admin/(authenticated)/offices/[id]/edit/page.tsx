@@ -1,4 +1,4 @@
-import { serialize } from '@/lib/utils';
+import { serialize } from '@/lib/server-utils';
 import OfficeForm from '../../components/office-form';
 import { notFound } from 'next/navigation';
 import { getOfficeById } from '@repo/database';

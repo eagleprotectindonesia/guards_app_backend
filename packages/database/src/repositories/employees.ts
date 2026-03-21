@@ -2,7 +2,7 @@ import { db as prisma, EmployeeSummary } from '../prisma/client';
 import { redis } from '../redis/client';
 import { EmployeeRole, Prisma } from '@prisma/client';
 import { deleteFutureShiftsByEmployee, cancelInProgressShiftsForDeactivatedEmployee } from './shifts';
-import { hashPassword, verifyPassword, DEFAULT_PASSWORD } from '@repo/shared';
+import { hashPassword, verifyPassword, DEFAULT_PASSWORD } from '../password';
 import { fetchExternalEmployees, ExternalEmployee } from '../integrations/external-employee-api';
 import { syncOfficesFromExternalEmployees } from './offices';
 

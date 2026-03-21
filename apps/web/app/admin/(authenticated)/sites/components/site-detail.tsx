@@ -1,6 +1,6 @@
 'use client';
 
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { APIProvider, Map, Marker } from '@vis.gl/react-google-maps';
 import { Site } from '@prisma/client';
 import { format } from 'date-fns';

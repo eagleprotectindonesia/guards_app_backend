@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { Clock, CheckCircle, AlertTriangle, Fingerprint, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from '@repo/shared';
 
 type ActiveShiftWithWindow = ShiftWithRelationsDto & {
   checkInWindow?: CheckInWindowResult;

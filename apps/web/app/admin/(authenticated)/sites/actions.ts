@@ -12,7 +12,8 @@ import {
 } from '@repo/database';
 import { ActionState } from '@/types/actions';
 import { Site } from '@prisma/client';
-import { serialize, Serialized } from '@/lib/utils';
+import { serialize } from '@/lib/server-utils';
+import type { Serialized } from '@/lib/server-utils';
 
 export async function getAllSitesForExport(): Promise<
   Serialized<Site & { lastUpdatedBy?: { name: string } | null; createdBy?: { name: string } | null }>[]

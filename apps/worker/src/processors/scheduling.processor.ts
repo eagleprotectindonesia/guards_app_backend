@@ -1,5 +1,6 @@
 import { Shift, ShiftType, Site, Attendance } from '@prisma/client';
-import { calculateCheckInWindow, CHECK_SHIFTS_JOB_NAME } from '@repo/shared';
+import { calculateCheckInWindow } from '@repo/shared';
+import { CHECK_SHIFTS_JOB_NAME } from '@repo/database';
 import { db as prisma, EmployeeWithRelations } from '@repo/database';
 import {
   getActiveShifts,
