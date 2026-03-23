@@ -1,4 +1,5 @@
 import * as React from 'react';
+import Link from 'next/link';
 import { ChevronLeftIcon, ChevronRightIcon, MoreHorizontalIcon } from 'lucide-react';
 
 import { cn } from '@repo/shared';
@@ -27,11 +28,11 @@ function PaginationItem({ ...props }: React.ComponentProps<'li'>) {
 type PaginationLinkProps = {
   isActive?: boolean;
 } & Pick<React.ComponentProps<typeof Button>, 'size'> &
-  React.ComponentProps<'a'>;
+  React.ComponentProps<typeof Link>;
 
 function PaginationLink({ className, isActive, size = 'icon', ...props }: PaginationLinkProps) {
   return (
-    <a
+    <Link
       aria-current={isActive ? 'page' : undefined}
       data-slot="pagination-link"
       data-active={isActive}
@@ -48,6 +49,30 @@ function PaginationLink({ className, isActive, size = 'icon', ...props }: Pagina
 }
 
 function PaginationPrevious({ className, ...props }: React.ComponentProps<typeof PaginationLink>) {
+  const isDisabled = props.href === '#' || props.href === undefined;
+
+  if (isDisabled) {
+    return (
+      <span
+        aria-disabled="true"
+        aria-label="Go to previous page"
+        data-slot="pagination-link"
+        data-active={false}
+        className={cn(
+          buttonVariants({
+            variant: 'ghost',
+            size: 'default',
+          }),
+          'gap-1 px-2.5 sm:pl-2.5 pointer-events-none opacity-50',
+          className
+        )}
+      >
+        <ChevronLeftIcon />
+        <span className="hidden sm:block">Previous</span>
+      </span>
+    );
+  }
+
   return (
     <PaginationLink
       aria-label="Go to previous page"
@@ -62,6 +87,30 @@ function PaginationPrevious({ className, ...props }: React.ComponentProps<typeof
 }
 
 function PaginationNext({ className, ...props }: React.ComponentProps<typeof PaginationLink>) {
+  const isDisabled = props.href === '#' || props.href === undefined;
+
+  if (isDisabled) {
+    return (
+      <span
+        aria-disabled="true"
+        aria-label="Go to next page"
+        data-slot="pagination-link"
+        data-active={false}
+        className={cn(
+          buttonVariants({
+            variant: 'ghost',
+            size: 'default',
+          }),
+          'gap-1 px-2.5 sm:pr-2.5 pointer-events-none opacity-50',
+          className
+        )}
+      >
+        <span className="hidden sm:block">Next</span>
+        <ChevronRightIcon />
+      </span>
+    );
+  }
+
   return (
     <PaginationLink
       aria-label="Go to next page"
