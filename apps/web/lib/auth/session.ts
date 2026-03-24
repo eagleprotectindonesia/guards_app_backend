@@ -16,12 +16,13 @@ export interface SessionResult {
   role: UserRole | null;
   roleName: string | null;
   permissions: string[];
+  employeeVisibilityScope: 'all' | 'on_site_only';
   user?: unknown;
 }
 
 export async function verifySession(token: string, type: UserRole): Promise<SessionResult> {
   if (!token) {
-    return { isValid: false, userId: null, role: null, roleName: null, permissions: [] };
+    return { isValid: false, userId: null, role: null, roleName: null, permissions: [], employeeVisibilityScope: 'all' };
   }
 
   try {
@@ -36,7 +37,7 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
     const sessionId = decoded.sessionId;
 
     if (!userId) {
-      return { isValid: false, userId: null, role: null, roleName: null, permissions: [] };
+      return { isValid: false, userId: null, role: null, roleName: null, permissions: [], employeeVisibilityScope: 'all' };
     }
 
     const versionCacheKey = type === 'admin' ? `admin:token_version:${userId}` : null;
@@ -45,6 +46,7 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
     let currentVersion: number | null = null;
     let roleName: string | null = null;
     let permissions: string[] = [];
+    let employeeVisibilityScope: 'all' | 'on_site_only' = 'all';
 
     const cachedVersion = versionCacheKey ? await redis.get(versionCacheKey) : null;
     const cachedPerms = type === 'admin' ? await redis.get(permsCacheKey) : null;
@@ -56,6 +58,7 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
           const parsed = JSON.parse(cachedPerms);
           roleName = parsed.roleName;
           permissions = parsed.permissions;
+          employeeVisibilityScope = parsed.employeeVisibilityScope || 'all';
         } catch (e) {
           console.warn('[Auth] Failed to parse cached permissions', e);
         }
@@ -80,15 +83,28 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
           currentVersion = admin.tokenVersion;
           roleName = admin.roleRef?.name || null;
           permissions = admin.roleRef?.permissions.map(p => p.code) || [];
+          employeeVisibilityScope = admin.roleRef?.employeeVisibilityScope || 'all';
 
           if (versionCacheKey) {
             await redis.set(versionCacheKey, currentVersion.toString(), 'EX', SESSION_CACHE_TTL);
           }
-          await redis.set(permsCacheKey, JSON.stringify({ roleName, permissions }), 'EX', SESSION_CACHE_TTL);
+          await redis.set(
+            permsCacheKey,
+            JSON.stringify({ roleName, permissions, employeeVisibilityScope }),
+            'EX',
+            SESSION_CACHE_TTL
+          );
         }
       } else {
         if (!sessionId) {
-          return { isValid: false, userId: null, role: null, roleName: null, permissions: [] };
+          return {
+            isValid: false,
+            userId: null,
+            role: null,
+            roleName: null,
+            permissions: [],
+            employeeVisibilityScope: 'all',
+          };
         }
 
         const employee = await prisma.employee.findUnique({
@@ -123,10 +139,11 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
             role: type,
             roleName,
             permissions,
+            employeeVisibilityScope,
           };
         }
 
-        return { isValid: false, userId: null, role: null, roleName: null, permissions: [] };
+        return { isValid: false, userId: null, role: null, roleName: null, permissions: [], employeeVisibilityScope: 'all' };
       }
     }
 
@@ -141,12 +158,13 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
         role: type,
         roleName,
         permissions,
+        employeeVisibilityScope,
       };
     }
 
-    return { isValid: false, userId: null, role: null, roleName: null, permissions: [] };
+    return { isValid: false, userId: null, role: null, roleName: null, permissions: [], employeeVisibilityScope: 'all' };
   } catch (error) {
     console.warn(`[Auth] Session verification failed for ${type}:`, error);
-    return { isValid: false, userId: null, role: null, roleName: null, permissions: [] };
+    return { isValid: false, userId: null, role: null, roleName: null, permissions: [], employeeVisibilityScope: 'all' };
   }
 }

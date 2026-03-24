@@ -2,28 +2,42 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { getAttendanceExportBatch } from '@repo/database';
+import { adminHasPermission, getAdminSession } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
+import { applyAttendanceVisibilityScope } from '@/lib/auth/admin-visibility';
 
 export async function GET(request: NextRequest) {
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (!adminHasPermission(session, PERMISSIONS.ATTENDANCE.VIEW)) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const searchParams = request.nextUrl.searchParams;
   const startDateStr = searchParams.get('startDate');
   const endDateStr = searchParams.get('endDate');
   const employeeId = searchParams.get('employeeId');
 
-  const where: Prisma.AttendanceWhereInput = {};
+  const baseWhere: Prisma.AttendanceWhereInput = {};
 
   if (employeeId) {
-    where.employeeId = employeeId;
+    baseWhere.employeeId = employeeId;
   }
 
   if (startDateStr || endDateStr) {
-    where.recordedAt = {};
+    baseWhere.recordedAt = {};
     if (startDateStr) {
-      where.recordedAt.gte = startOfDay(new Date(startDateStr));
+      baseWhere.recordedAt.gte = startOfDay(new Date(startDateStr));
     }
     if (endDateStr) {
-      where.recordedAt.lte = endOfDay(new Date(endDateStr));
+      baseWhere.recordedAt.lte = endOfDay(new Date(endDateStr));
     }
   }
+
+  const where = applyAttendanceVisibilityScope(baseWhere, session);
 
   const BATCH_SIZE = 1000;
 

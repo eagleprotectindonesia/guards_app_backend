@@ -16,7 +16,7 @@ export async function hasPermission(user: UserSession | null, permissionCode: Pe
   if (!user) return false;
 
   // 1. Super Admin Bypass
-  if (user.roleName === 'Super Admin') {
+  if (user.roleName === 'Super Admin' || user.roleName === 'superadmin') {
     return true;
   }
 

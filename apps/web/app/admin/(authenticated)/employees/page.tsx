@@ -9,6 +9,7 @@ import {
 } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { applyEmployeeVisibilityScope } from '@/lib/auth/admin-visibility';
 
 export const metadata: Metadata = {
   title: 'Employees Management',
@@ -21,7 +22,7 @@ type EmployeesPageProps = {
 };
 
 export default async function EmployeesPage(props: EmployeesPageProps) {
-  await requirePermission(PERMISSIONS.EMPLOYEES.VIEW);
+  const session = await requirePermission(PERMISSIONS.EMPLOYEES.VIEW);
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
   const query = searchParams.q as string | undefined;
@@ -38,7 +39,7 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
   const validSortFields = ['fullName', 'employeeNumber', 'department', 'jobTitle'];
   const sortField: string = validSortFields.includes(sortBy) ? sortBy : 'fullName';
 
-  const where = getEmployeeSearchWhere(query);
+  const where = applyEmployeeVisibilityScope(getEmployeeSearchWhere(query), session);
 
   const { employees, totalCount } = await getPaginatedEmployees({
     where,

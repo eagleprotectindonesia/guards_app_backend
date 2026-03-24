@@ -34,6 +34,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         userId: session.id,
         roleName: session.roleName,
         permissions: session.permissions,
+        employeeVisibilityScope: session.employeeVisibilityScope,
       }}
     >
       <SocketProvider role="admin">

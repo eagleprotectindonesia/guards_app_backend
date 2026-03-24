@@ -4,15 +4,17 @@ import AttendanceTabs from '../components/attendance-tabs';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
-import { getAllEmployees } from '@repo/database';
+import { getActiveEmployeesSummary } from '@repo/database';
 import { getPaginatedOfficeAttendance } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { canAccessOfficeAttendance } from '@/lib/auth/admin-visibility';
 import {
   AttendanceEmployeeSummary,
   OfficeAttendanceMetadataDto,
   SerializedOfficeAttendanceWithRelationsDto,
 } from '@/types/attendance';
+import { forbidden } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +23,10 @@ type AttendancePageProps = {
 };
 
 export default async function OfficeAttendancePage(props: AttendancePageProps) {
-  await requirePermission(PERMISSIONS.ATTENDANCE.VIEW);
+  const session = await requirePermission(PERMISSIONS.ATTENDANCE.VIEW);
+  if (!canAccessOfficeAttendance(session)) {
+    forbidden();
+  }
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
 
@@ -54,7 +59,7 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
       skip,
       take: perPage,
     }),
-    getAllEmployees({ orderBy: { fullName: 'asc' } }),
+    getActiveEmployeesSummary('office'),
   ]);
 
   const serializedAttendances: SerializedOfficeAttendanceWithRelationsDto[] = attendances.map(att => ({

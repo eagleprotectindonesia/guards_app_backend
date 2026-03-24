@@ -135,9 +135,12 @@ export const checkInSchema = z.object({
 });
 
 // --- Role ---
+export const EmployeeVisibilityScopeEnum = z.enum(['all', 'on_site_only']);
+
 export const createRoleSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
+  employeeVisibilityScope: EmployeeVisibilityScopeEnum.default('all'),
   permissionIds: z.array(z.string()).min(1, 'At least one permission is required'),
 });
 

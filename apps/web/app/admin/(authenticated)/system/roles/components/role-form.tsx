@@ -24,6 +24,7 @@ export default function RoleForm({ role, allPermissions }: Props) {
       const data: CreateRoleInput = {
         name: (formData.get('name') as string) || role?.name || 'Default Role',
         description: (formData.get('description') as string) || undefined,
+        employeeVisibilityScope: (formData.get('employeeVisibilityScope') as CreateRoleInput['employeeVisibilityScope']) || 'all',
         permissionIds: selectedPermissions,
       };
 
@@ -95,6 +96,23 @@ export default function RoleForm({ role, allPermissions }: Props) {
               className="w-full h-11 px-4 bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               placeholder="e.g. Can manage employees and shifts but not system settings"
             />
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="employeeVisibilityScope"
+              className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
+            >
+              Employee Visibility
+            </label>
+            <select
+              id="employeeVisibilityScope"
+              name="employeeVisibilityScope"
+              defaultValue={role?.employeeVisibilityScope || 'all'}
+              className="w-full h-11 px-4 bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            >
+              <option value="all">All Employees</option>
+              <option value="on_site_only">On-site Employees Only</option>
+            </select>
           </div>
         </div>
       </div>

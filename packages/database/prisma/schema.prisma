@@ -16,6 +16,11 @@ enum EmployeeRole {
   office
 }
 
+enum EmployeeVisibilityScope {
+  all
+  on_site_only
+}
+
 model Permission {
   id          String   @id @default(uuid())
   action      String // e.g., "view", "create", "edit", "delete"
@@ -30,14 +35,15 @@ model Permission {
 }
 
 model Role {
-  id          String       @id @default(uuid())
-  name        String       @unique
-  description String?
-  permissions Permission[] @relation("RolePermissions")
-  admins      Admin[]
-  isSystem    Boolean      @default(false) @map("is_system")
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @updatedAt @map("updated_at")
+  id                      String                  @id @default(uuid())
+  name                    String                  @unique
+  description             String?
+  employeeVisibilityScope EmployeeVisibilityScope @default(all) @map("employee_visibility_scope")
+  permissions             Permission[]            @relation("RolePermissions")
+  admins                   Admin[]
+  isSystem                Boolean                 @default(false) @map("is_system")
+  createdAt               DateTime                @default(now()) @map("created_at")
+  updatedAt               DateTime                @updatedAt @map("updated_at")
 
   @@map("roles")
 }

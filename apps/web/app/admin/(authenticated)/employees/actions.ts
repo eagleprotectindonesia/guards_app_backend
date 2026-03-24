@@ -19,9 +19,12 @@ import { hashPassword } from '@repo/database';
 import { revalidatePath } from 'next/cache';
 import { EmployeeWithRelations } from '@repo/database';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
+import { requirePermission } from '@/lib/admin-auth';
 import { ActionState } from '@/types/actions';
 import { EMPLOYEE_SYNC_JOB_NAME } from '@repo/database';
 import { employeeSyncQueue } from '@/lib/queues';
+import { PERMISSIONS } from '@/lib/auth/permissions';
+import { applyEmployeeVisibilityScope } from '@/lib/auth/admin-visibility';
 
 revalidatePath('/admin/employees');
 
@@ -75,10 +78,11 @@ export async function getAllEmployeesForExport(params: {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }): Promise<Serialized<EmployeeWithRelations>[]> {
+  const session = await requirePermission(PERMISSIONS.EMPLOYEES.VIEW);
   const { query, sortBy, sortOrder } = params;
 
   // Build where clause to match the main employees page
-  const where = getEmployeeSearchWhere(query);
+  const where = applyEmployeeVisibilityScope(getEmployeeSearchWhere(query), session);
 
   // Handle sorting parameters
   const validSortFields = ['fullName', 'employeeNumber', 'department', 'jobTitle'];
