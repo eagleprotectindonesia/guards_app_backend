@@ -1,21 +1,32 @@
 import {
+  DEFAULT_ROLE_POLICY,
   applyAttendanceVisibilityScope,
   applyEmployeeVisibilityScope,
   canAccessOfficeAttendance,
   getEmployeeRoleFilter,
+  normalizeRolePolicy,
 } from '@/lib/auth/admin-visibility';
 
 describe('admin visibility policy', () => {
-  test('returns on-site role filter for restricted scope', () => {
-    expect(getEmployeeRoleFilter('on_site_only')).toBe('on_site');
-    expect(getEmployeeRoleFilter('all')).toBeUndefined();
+  test('falls back to default policy when missing', () => {
+    expect(normalizeRolePolicy(null)).toEqual(DEFAULT_ROLE_POLICY);
+  });
+
+  test('returns on-site role filter for restricted policy', () => {
+    expect(getEmployeeRoleFilter({ employees: { scope: 'on_site_only' }, attendance: { scope: 'shift_only' } })).toBe(
+      'on_site'
+    );
+    expect(getEmployeeRoleFilter(DEFAULT_ROLE_POLICY)).toBeUndefined();
   });
 
   test('applies employee scope filter for restricted admins', () => {
     expect(
       applyEmployeeVisibilityScope(
         { fullName: { contains: 'John', mode: 'insensitive' } },
-        { isSuperAdmin: false, employeeVisibilityScope: 'on_site_only' }
+        {
+          isSuperAdmin: false,
+          rolePolicy: { employees: { scope: 'on_site_only' }, attendance: { scope: 'shift_only' } },
+        }
       )
     ).toEqual({
       AND: [{ fullName: { contains: 'John', mode: 'insensitive' } }, { role: 'on_site' }],
@@ -26,7 +37,10 @@ describe('admin visibility policy', () => {
     expect(
       applyAttendanceVisibilityScope(
         { employeeId: 'emp-1' },
-        { isSuperAdmin: false, employeeVisibilityScope: 'on_site_only' }
+        {
+          isSuperAdmin: false,
+          rolePolicy: { employees: { scope: 'on_site_only' }, attendance: { scope: 'shift_only' } },
+        }
       )
     ).toEqual({
       AND: [
@@ -43,8 +57,18 @@ describe('admin visibility policy', () => {
   });
 
   test('allows office attendance only for full-scope admins', () => {
-    expect(canAccessOfficeAttendance({ isSuperAdmin: false, employeeVisibilityScope: 'all' })).toBe(true);
-    expect(canAccessOfficeAttendance({ isSuperAdmin: false, employeeVisibilityScope: 'on_site_only' })).toBe(false);
-    expect(canAccessOfficeAttendance({ isSuperAdmin: true, employeeVisibilityScope: 'on_site_only' })).toBe(true);
+    expect(canAccessOfficeAttendance({ isSuperAdmin: false, rolePolicy: DEFAULT_ROLE_POLICY })).toBe(true);
+    expect(
+      canAccessOfficeAttendance({
+        isSuperAdmin: false,
+        rolePolicy: { employees: { scope: 'on_site_only' }, attendance: { scope: 'shift_only' } },
+      })
+    ).toBe(false);
+    expect(
+      canAccessOfficeAttendance({
+        isSuperAdmin: true,
+        rolePolicy: { employees: { scope: 'on_site_only' }, attendance: { scope: 'shift_only' } },
+      })
+    ).toBe(true);
   });
 });

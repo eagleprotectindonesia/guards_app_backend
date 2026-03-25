@@ -56,6 +56,10 @@ async function main() {
     where: { name: 'Super Admin' },
     update: {
       isSystem: true,
+      policy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+      },
       permissions: {
         set: allPermissions.map((p: any) => ({ id: p.id })),
       },
@@ -64,6 +68,10 @@ async function main() {
       name: 'Super Admin',
       isSystem: true,
       description: 'Full access to all system features. Bypasses all permission checks.',
+      policy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+      },
       permissions: {
         connect: allPermissions.map((p: any) => ({ id: p.id })),
       },
@@ -98,6 +106,10 @@ async function main() {
     where: { name: 'Admin' },
     update: {
       isSystem: true,
+      policy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+      },
       permissions: {
         set: adminPermissions.map((p: any) => ({ id: p.id })),
       },
@@ -106,6 +118,10 @@ async function main() {
       name: 'Admin',
       isSystem: true,
       description: 'Standard administrative access.',
+      policy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+      },
       permissions: {
         connect: adminPermissions.map((p: any) => ({ id: p.id })),
       },

@@ -1,14 +1,29 @@
 import { EmployeeRole, Prisma } from '@prisma/client';
-
-export type EmployeeVisibilityScope = 'all' | 'on_site_only';
+import { RolePolicy, rolePolicySchema } from '@repo/validations';
 
 type SessionVisibility = {
   isSuperAdmin: boolean;
-  employeeVisibilityScope: EmployeeVisibilityScope;
+  rolePolicy: RolePolicy;
 };
 
-export function getEmployeeRoleFilter(scope: EmployeeVisibilityScope): EmployeeRole | undefined {
-  if (scope === 'on_site_only') {
+export const DEFAULT_ROLE_POLICY: RolePolicy = {
+  employees: { scope: 'all' },
+  attendance: { scope: 'all' },
+};
+
+export function normalizeRolePolicy(
+  policy: unknown
+): RolePolicy {
+  const parsedPolicy = rolePolicySchema.safeParse(policy);
+  if (parsedPolicy.success) {
+    return parsedPolicy.data;
+  }
+
+  return DEFAULT_ROLE_POLICY;
+}
+
+export function getEmployeeRoleFilter(policy: RolePolicy): EmployeeRole | undefined {
+  if (policy.employees.scope === 'on_site_only') {
     return 'on_site';
   }
 
@@ -16,7 +31,7 @@ export function getEmployeeRoleFilter(scope: EmployeeVisibilityScope): EmployeeR
 }
 
 export function canAccessOfficeAttendance(session: SessionVisibility) {
-  return session.isSuperAdmin || session.employeeVisibilityScope === 'all';
+  return session.isSuperAdmin || session.rolePolicy.attendance.scope === 'all';
 }
 
 export function applyEmployeeVisibilityScope(
@@ -27,7 +42,7 @@ export function applyEmployeeVisibilityScope(
     return where;
   }
 
-  const role = getEmployeeRoleFilter(session.employeeVisibilityScope);
+  const role = getEmployeeRoleFilter(session.rolePolicy);
   if (!role) {
     return where;
   }
@@ -45,8 +60,7 @@ export function applyAttendanceVisibilityScope(
     return where;
   }
 
-  const role = getEmployeeRoleFilter(session.employeeVisibilityScope);
-  if (!role) {
+  if (session.rolePolicy.attendance.scope === 'all') {
     return where;
   }
 
@@ -56,7 +70,7 @@ export function applyAttendanceVisibilityScope(
       {
         employee: {
           is: {
-            role,
+            role: 'on_site',
           },
         },
       },

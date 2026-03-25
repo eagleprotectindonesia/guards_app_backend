@@ -49,6 +49,10 @@ async function main() {
       name: 'superadmin',
       description: 'Full system access',
       isSystem: true,
+      policy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+      },
       permissions: {
         connect: createdPermissions.map(p => ({ id: p.id })),
       },
@@ -62,6 +66,10 @@ async function main() {
       name: 'admin',
       description: 'Standard administrative access',
       isSystem: true,
+      policy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+      },
       permissions: {
         connect: createdPermissions.filter(p => !p.code.startsWith('roles:')).map(p => ({ id: p.id })),
       },

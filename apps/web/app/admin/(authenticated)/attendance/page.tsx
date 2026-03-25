@@ -49,7 +49,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
   }
 
   const where = applyAttendanceVisibilityScope(baseWhere, session);
-  const employeeRoleFilter = getEmployeeRoleFilter(session.employeeVisibilityScope);
+  const employeeRoleFilter = getEmployeeRoleFilter(session.rolePolicy);
 
   const [{ attendances, totalCount }, employees] = await Promise.all([
     getPaginatedAttendance({

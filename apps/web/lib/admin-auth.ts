@@ -3,7 +3,7 @@ import { verifySession } from './auth/session';
 import { AUTH_COOKIES } from './auth/constants';
 import { PermissionCode } from './auth/permissions';
 import { forbidden } from 'next/navigation';
-import { EmployeeVisibilityScope } from '@prisma/client';
+import { RolePolicy } from '@repo/validations';
 
 function isSuperAdminRole(roleName: string | null) {
   return roleName === 'Super Admin' || roleName === 'superadmin';
@@ -26,7 +26,7 @@ export interface AdminSession {
   profileImage: string | null;
   roleName: string | null;
   permissions: string[];
-  employeeVisibilityScope: EmployeeVisibilityScope;
+  rolePolicy: RolePolicy;
   isSuperAdmin: boolean;
 }
 
@@ -36,7 +36,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 
   if (!token) return null;
 
-  const { isValid, userId, roleName, permissions, employeeVisibilityScope } = await verifySession(token, 'admin');
+  const { isValid, userId, roleName, permissions, rolePolicy } = await verifySession(token, 'admin');
 
   if (!isValid || !userId) return null;
 
@@ -55,7 +55,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
     profileImage: admin.profileImage,
     roleName,
     permissions,
-    employeeVisibilityScope,
+    rolePolicy,
     isSuperAdmin: isSuperAdminRole(roleName),
   };
 }

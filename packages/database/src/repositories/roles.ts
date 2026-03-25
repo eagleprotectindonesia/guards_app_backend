@@ -1,6 +1,6 @@
 import { db as prisma } from '../prisma/client';
 import { redis } from '../redis/client';
-import { EmployeeVisibilityScope } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 
 export async function getAllRoles() {
   return prisma.role.findMany({
@@ -28,14 +28,14 @@ export async function getAllPermissions() {
 export async function createRole(data: {
   name: string;
   description?: string;
-  employeeVisibilityScope: EmployeeVisibilityScope;
+  policy: Prisma.InputJsonValue;
   permissionIds: string[];
 }) {
   return prisma.role.create({
     data: {
       name: data.name,
       description: data.description,
-      employeeVisibilityScope: data.employeeVisibilityScope,
+      policy: data.policy,
       permissions: {
         connect: data.permissionIds.map(id => ({ id })),
       },
@@ -51,7 +51,7 @@ export async function updateRole(
   data: {
     name: string;
     description?: string | null;
-    employeeVisibilityScope: EmployeeVisibilityScope;
+    policy: Prisma.InputJsonValue;
     permissionIds: string[];
   }
 ) {
@@ -61,7 +61,7 @@ export async function updateRole(
       data: {
         name: data.name,
         description: data.description,
-        employeeVisibilityScope: data.employeeVisibilityScope,
+        policy: data.policy,
         permissions: {
           set: data.permissionIds.map(id => ({ id })),
         },

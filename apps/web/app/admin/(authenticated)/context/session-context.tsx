@@ -2,12 +2,14 @@
 
 import React, { createContext, useContext, useMemo } from 'react';
 import { PermissionCode, isValidPermissionCode } from '@/lib/auth/permissions';
+import { RolePolicy } from '@repo/validations';
+import { canAccessOfficeAttendance } from '@/lib/auth/admin-visibility';
 
 interface SessionContextType {
   userId: string | null;
   roleName: string | null;
   permissions: string[];
-  employeeVisibilityScope: 'all' | 'on_site_only';
+  rolePolicy: RolePolicy;
   hasPermission: (permission: PermissionCode) => boolean;
   isSuperAdmin: boolean;
   canAccessOfficeAttendance: boolean;
@@ -24,11 +26,14 @@ export function SessionProvider({
     userId: string | null;
     roleName: string | null;
     permissions: string[];
-    employeeVisibilityScope: 'all' | 'on_site_only';
+    rolePolicy: RolePolicy;
   };
 }) {
   const isSuperAdmin = session.roleName === 'Super Admin' || session.roleName === 'superadmin';
-  const canAccessOfficeAttendance = isSuperAdmin || session.employeeVisibilityScope === 'all';
+  const canAccessOfficeAttendanceValue = canAccessOfficeAttendance({
+    isSuperAdmin,
+    rolePolicy: session.rolePolicy,
+  });
 
   const hasPermission = useMemo(() => {
     return (permission: PermissionCode) => {
@@ -42,9 +47,9 @@ export function SessionProvider({
       ...session,
       hasPermission,
       isSuperAdmin,
-      canAccessOfficeAttendance,
+      canAccessOfficeAttendance: canAccessOfficeAttendanceValue,
     }),
-    [session, hasPermission, isSuperAdmin, canAccessOfficeAttendance]
+    [session, hasPermission, isSuperAdmin, canAccessOfficeAttendanceValue]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

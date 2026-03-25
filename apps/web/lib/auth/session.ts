@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { redis, db as prisma } from '@repo/database';
 import { JWT_SECRET, SESSION_CACHE_TTL } from './constants';
+import { RolePolicy } from '@repo/validations';
+import { normalizeRolePolicy } from './admin-visibility';
 
 export type UserRole = 'admin' | 'employee';
 
@@ -16,13 +18,13 @@ export interface SessionResult {
   role: UserRole | null;
   roleName: string | null;
   permissions: string[];
-  employeeVisibilityScope: 'all' | 'on_site_only';
+  rolePolicy: RolePolicy;
   user?: unknown;
 }
 
 export async function verifySession(token: string, type: UserRole): Promise<SessionResult> {
   if (!token) {
-    return { isValid: false, userId: null, role: null, roleName: null, permissions: [], employeeVisibilityScope: 'all' };
+    return { isValid: false, userId: null, role: null, roleName: null, permissions: [], rolePolicy: normalizeRolePolicy(null) };
   }
 
   try {
@@ -37,7 +39,7 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
     const sessionId = decoded.sessionId;
 
     if (!userId) {
-      return { isValid: false, userId: null, role: null, roleName: null, permissions: [], employeeVisibilityScope: 'all' };
+      return { isValid: false, userId: null, role: null, roleName: null, permissions: [], rolePolicy: normalizeRolePolicy(null) };
     }
 
     const versionCacheKey = type === 'admin' ? `admin:token_version:${userId}` : null;
@@ -46,7 +48,7 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
     let currentVersion: number | null = null;
     let roleName: string | null = null;
     let permissions: string[] = [];
-    let employeeVisibilityScope: 'all' | 'on_site_only' = 'all';
+    let rolePolicy = normalizeRolePolicy(null);
 
     const cachedVersion = versionCacheKey ? await redis.get(versionCacheKey) : null;
     const cachedPerms = type === 'admin' ? await redis.get(permsCacheKey) : null;
@@ -58,7 +60,7 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
           const parsed = JSON.parse(cachedPerms);
           roleName = parsed.roleName;
           permissions = parsed.permissions;
-          employeeVisibilityScope = parsed.employeeVisibilityScope || 'all';
+          rolePolicy = normalizeRolePolicy(parsed.rolePolicy);
         } catch (e) {
           console.warn('[Auth] Failed to parse cached permissions', e);
         }
@@ -83,14 +85,14 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
           currentVersion = admin.tokenVersion;
           roleName = admin.roleRef?.name || null;
           permissions = admin.roleRef?.permissions.map(p => p.code) || [];
-          employeeVisibilityScope = admin.roleRef?.employeeVisibilityScope || 'all';
+          rolePolicy = normalizeRolePolicy(admin.roleRef?.policy);
 
           if (versionCacheKey) {
             await redis.set(versionCacheKey, currentVersion.toString(), 'EX', SESSION_CACHE_TTL);
           }
           await redis.set(
             permsCacheKey,
-            JSON.stringify({ roleName, permissions, employeeVisibilityScope }),
+            JSON.stringify({ roleName, permissions, rolePolicy }),
             'EX',
             SESSION_CACHE_TTL
           );
@@ -103,7 +105,7 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
             role: null,
             roleName: null,
             permissions: [],
-            employeeVisibilityScope: 'all',
+            rolePolicy: normalizeRolePolicy(null),
           };
         }
 
@@ -139,11 +141,11 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
             role: type,
             roleName,
             permissions,
-            employeeVisibilityScope,
+            rolePolicy,
           };
         }
 
-        return { isValid: false, userId: null, role: null, roleName: null, permissions: [], employeeVisibilityScope: 'all' };
+        return { isValid: false, userId: null, role: null, roleName: null, permissions: [], rolePolicy: normalizeRolePolicy(null) };
       }
     }
 
@@ -158,13 +160,13 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
         role: type,
         roleName,
         permissions,
-        employeeVisibilityScope,
+        rolePolicy,
       };
     }
 
-    return { isValid: false, userId: null, role: null, roleName: null, permissions: [], employeeVisibilityScope: 'all' };
+    return { isValid: false, userId: null, role: null, roleName: null, permissions: [], rolePolicy: normalizeRolePolicy(null) };
   } catch (error) {
     console.warn(`[Auth] Session verification failed for ${type}:`, error);
-    return { isValid: false, userId: null, role: null, roleName: null, permissions: [], employeeVisibilityScope: 'all' };
+    return { isValid: false, userId: null, role: null, roleName: null, permissions: [], rolePolicy: normalizeRolePolicy(null) };
   }
 }

@@ -135,12 +135,22 @@ export const checkInSchema = z.object({
 });
 
 // --- Role ---
-export const EmployeeVisibilityScopeEnum = z.enum(['all', 'on_site_only']);
+export const EmployeeAccessScopeEnum = z.enum(['all', 'on_site_only']);
+export const AttendanceAccessScopeEnum = z.enum(['all', 'shift_only']);
+
+export const rolePolicySchema = z.object({
+  employees: z.object({
+    scope: EmployeeAccessScopeEnum,
+  }),
+  attendance: z.object({
+    scope: AttendanceAccessScopeEnum,
+  }),
+});
 
 export const createRoleSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional(),
-  employeeVisibilityScope: EmployeeVisibilityScopeEnum.default('all'),
+  policy: rolePolicySchema,
   permissionIds: z.array(z.string()).min(1, 'At least one permission is required'),
 });
 
@@ -224,6 +234,9 @@ export type UpdateShiftInput = CreateShiftInput; // Same for now
 export type CheckInInput = z.infer<typeof checkInSchema>;
 export type CreateRoleInput = z.infer<typeof createRoleSchema>;
 export type UpdateRoleInput = z.infer<typeof updateRoleSchema>;
+export type RolePolicy = z.infer<typeof rolePolicySchema>;
+export type EmployeeAccessScope = z.infer<typeof EmployeeAccessScopeEnum>;
+export type AttendanceAccessScope = z.infer<typeof AttendanceAccessScopeEnum>;
 export type CreateDepartmentInput = z.infer<typeof createDepartmentSchema>;
 export type UpdateDepartmentInput = CreateDepartmentInput;
 export type CreateDesignationInput = z.infer<typeof createDesignationSchema>;
