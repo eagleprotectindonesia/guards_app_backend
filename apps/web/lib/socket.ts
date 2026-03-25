@@ -73,15 +73,15 @@ export function initSocket(server: HttpServer | HttpsServer) {
       registerChatHandlers(io, socket);
     }
 
-    socket.on('disconnect', () => {
-      console.log('[SocketServer] Disconnected', {
-        type: auth.type,
-        id: auth.id,
-        clientType: auth.clientType ?? null,
-        sessionId: auth.sessionId ?? null,
-        socketId: socket.id,
-      });
-    });
+    // socket.on('disconnect', () => {
+    //   console.log('[SocketServer] Disconnected', {
+    //     type: auth.type,
+    //     id: auth.id,
+    //     clientType: auth.clientType ?? null,
+    //     sessionId: auth.sessionId ?? null,
+    //     socketId: socket.id,
+    //   });
+    // });
   });
 
   return io;

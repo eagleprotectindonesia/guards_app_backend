@@ -7,20 +7,21 @@ type ModalProps = {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  maxWidthClassName?: string;
 };
 
-export default function Modal({ isOpen, onClose, title, children }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, children, maxWidthClassName = 'max-w-lg' }: ModalProps) {
   // Close on escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
-    
+
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
       document.body.style.overflow = 'hidden'; // Prevent scrolling
     }
-    
+
     return () => {
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = 'unset';
@@ -30,15 +31,17 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 transition-opacity">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black p-4 transition-opacity">
       {/* Backdrop click to close */}
       <div className="absolute inset-0" onClick={onClose} />
-      
-      <div className="relative bg-card rounded-xl shadow-xl w-full max-w-lg overflow-y-auto animation-fade-in z-10 border border-border">
-        <div className="bg-muted/30 px-6 py-4 border-b border-border flex justify-between items-center">
+
+      <div
+        className={`relative bg-card rounded-xl shadow-xl w-full ${maxWidthClassName} max-h-[calc(100vh-2rem)] overflow-y-auto animate-in fade-in z-10 border border-border`}
+      >
+        <div className="bg-muted px-6 py-4 border-b border-border flex justify-between items-center">
           <h2 className="text-lg font-bold text-foreground">{title}</h2>
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="text-muted-foreground hover:text-foreground transition-colors p-1 hover:bg-muted rounded-full"
             type="button"
           >
