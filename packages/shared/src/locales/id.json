@@ -58,7 +58,17 @@
     "requiredMessage": "Harap rekam kehadiran Anda untuk memulai shift.",
     "submitButton": "Rekam Kehadiran",
     "submitLateButton": "Rekam Kehadiran Terlambat",
-    "alreadyRecorded": "Kehadiran sudah direkam untuk Shift ini."
+    "alreadyRecorded": "Kehadiran sudah direkam untuk Shift ini.",
+    "errors": {
+      "unauthorized": "Anda tidak memiliki izin untuk melakukan tindakan ini.",
+      "shiftNotFound": "Shift tidak ditemukan.",
+      "shiftNotAssigned": "Anda tidak ditugaskan pada shift ini.",
+      "attendanceAlreadyRecorded": "Kehadiran sudah direkam untuk shift ini.",
+      "shiftNotActive": "Shift ini belum aktif.",
+      "locationRequired": "Izin lokasi diperlukan untuk lokasi ini.",
+      "tooFarFromSite": "Anda berada terlalu jauh dari lokasi penugasan. Jarak saat ini: {{currentDistanceMeters}}m (Maksimal: {{maxDistanceMeters}}m). Silakan pindah ke lokasi yang ditentukan.",
+      "internalServerError": "Terjadi kesalahan pada server."
+    }
   },
   "checkin": {
     "success": "Check-in Berhasil!",
@@ -86,7 +96,18 @@
     "urgent": "Mendesak",
     "responseRequired": "Respon Diperlukan",
     "checkInNow": "Check-in Sekarang",
-    "lateStatus": "Anda terlambat untuk check-in ini"
+    "lateStatus": "Anda terlambat untuk check-in ini",
+    "errors": {
+      "unauthorized": "Anda tidak memiliki izin untuk melakukan tindakan ini.",
+      "shiftNotFound": "Shift tidak ditemukan.",
+      "shiftNotAssigned": "Anda tidak ditugaskan pada shift ini.",
+      "shiftNotActive": "Shift ini belum aktif.",
+      "locationRequired": "Izin lokasi diperlukan untuk lokasi ini.",
+      "tooFarFromSite": "Anda berada terlalu jauh dari lokasi penugasan. Jarak saat ini: {{currentDistanceMeters}}m (Maksimal: {{maxDistanceMeters}}m). Silakan pindah ke lokasi yang ditentukan.",
+      "checkinIntervalCompleted": "Anda sudah check-in untuk interval ini.",
+      "checkinTooEarly": "Terlalu awal untuk check-in.",
+      "internalServerError": "Terjadi kesalahan pada server."
+    }
   },
   "passwordChange": {
     "successTitle": "Sukses",

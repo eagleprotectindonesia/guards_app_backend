@@ -8,13 +8,14 @@ import { getSystemSetting } from '@repo/database';
 import { recordCheckin, recordBulkCheckins } from '@repo/database';
 import { getShiftById } from '@repo/database';
 import { redis } from '@repo/database';
+import { employeeShiftErrorResponse } from '../shared-errors';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: shiftId } = await params;
 
   const employee = await getAuthenticatedEmployee();
   if (!employee) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return employeeShiftErrorResponse({ status: 401, code: 'unauthorized', error: 'Unauthorized' });
   }
   const employeeId = employee.id;
 
@@ -27,16 +28,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const shift = await getShiftById(shiftId);
 
     if (!shift) {
-      return NextResponse.json({ error: 'Shift not found' }, { status: 404 });
+      return employeeShiftErrorResponse({ status: 404, code: 'shift_not_found', error: 'Shift not found' });
     }
 
     // 2. Validate Employee and Time
     if (shift.employeeId !== employeeId) {
-      return NextResponse.json({ error: 'Not assigned to this shift' }, { status: 403 });
+      return employeeShiftErrorResponse({ status: 403, code: 'shift_not_assigned', error: 'Not assigned to this shift' });
     }
 
     if (now < shift.startsAt) {
-      return NextResponse.json({ error: 'Shift is not active' }, { status: 400 });
+      return employeeShiftErrorResponse({ status: 400, code: 'shift_not_active', error: 'Shift is not active' });
     }
 
     // 2.5 Distance Check
@@ -47,7 +48,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const maxDistance = parseInt(maxDistanceStr, 10);
       if (!isNaN(maxDistance) && maxDistance > 0) {
         if (!body.location || typeof body.location.lat !== 'number' || typeof body.location.lng !== 'number') {
-          return NextResponse.json({ error: 'Location permission is required for this site.' }, { status: 400 });
+          return employeeShiftErrorResponse({
+            status: 400,
+            code: 'location_required',
+            error: 'Location permission is required for this site.',
+          });
         }
 
         if (shift.site.latitude != null && shift.site.longitude != null) {
@@ -59,14 +64,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           );
 
           if (distance > maxDistance) {
-            return NextResponse.json(
-              {
-                error: `Anda berada terlalu jauh dari lokasi penugasan. Jarak saat ini: ${Math.round(
-                  distance
-                )}m (Maksimal: ${maxDistance}m). Silakan pindah ke lokasi yang ditentukan.`,
+            return employeeShiftErrorResponse({
+              status: 400,
+              code: 'too_far_from_site',
+              error: `You are too far from the assigned site. Current distance: ${Math.round(
+                distance
+              )}m (Maximum: ${maxDistance}m). Please move to the required location.`,
+              details: {
+                currentDistanceMeters: Math.round(distance),
+                maxDistanceMeters: maxDistance,
               },
-              { status: 400 }
-            );
+            });
           }
         }
       }
@@ -83,11 +91,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     );
 
     if (windowResult.status === 'completed') {
-      return NextResponse.json({ error: 'Already checked in for this interval' }, { status: 400 });
+      return employeeShiftErrorResponse({
+        status: 400,
+        code: 'checkin_interval_completed',
+        error: 'Already checked in for this interval',
+      });
     }
 
     if (windowResult.status === 'early') {
-      return NextResponse.json({ error: 'Too early to check in' }, { status: 400 });
+      return employeeShiftErrorResponse({ status: 400, code: 'checkin_too_early', error: 'Too early to check in' });
     }
 
     const status: 'on_time' | 'late' = windowResult.status === 'late' ? 'late' : 'on_time';
@@ -191,6 +203,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (error instanceof ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return employeeShiftErrorResponse({
+      status: 500,
+      code: 'internal_server_error',
+      error: 'Internal Server Error',
+    });
   }
 }

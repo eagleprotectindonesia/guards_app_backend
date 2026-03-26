@@ -3,6 +3,7 @@ import { useEmployeeApi } from './use-employee-api';
 import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { CheckInWindowResult } from '@/lib/scheduling';
 import { OfficeAttendance } from '@repo/types';
+import type { EmployeeAttendanceCheckinErrorPayload } from '@repo/shared';
 
 export type ShiftWithCheckInWindow = ShiftWithRelationsDto & { checkInWindow?: CheckInWindowResult };
 
@@ -125,7 +126,7 @@ export function useCheckIn() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw data;
+        throw data as EmployeeAttendanceCheckinErrorPayload;
       }
       return data;
     },
@@ -151,7 +152,7 @@ export function useRecordAttendance() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || data.message || 'Gagal merekam kehadiran');
+        throw data as EmployeeAttendanceCheckinErrorPayload;
       }
       return data;
     },

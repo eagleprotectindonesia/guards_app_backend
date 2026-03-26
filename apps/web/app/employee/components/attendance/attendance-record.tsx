@@ -5,6 +5,10 @@ import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { useRecordAttendance } from '@/app/employee/(authenticated)/hooks/use-employee-queries'; // Adjust import path as necessary
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
+import {
+  getEmployeeAttendanceCheckinErrorPayload,
+  resolveEmployeeAttendanceCheckinErrorMessage,
+} from '@repo/shared';
 
 interface AttendanceRecordProps {
   shift: ShiftWithRelationsDto;
@@ -65,7 +69,17 @@ export function AttendanceRecord({ shift, onAttendanceRecorded, setStatus, curre
       setStatus('Attendance Recorded'); // Update local status
     } catch (error: unknown) {
       console.error('Error recording attendance:', error);
-      const errorMessage = error instanceof Error ? error.message : t('attendance.fail');
+      const errorData = getEmployeeAttendanceCheckinErrorPayload(error);
+      const errorMessage = resolveEmployeeAttendanceCheckinErrorMessage(
+        t,
+        {
+          code: errorData.code,
+          fallbackMessage: errorData.message || errorData.error || (error instanceof Error ? error.message : undefined),
+          details: errorData.details,
+        },
+        t('attendance.fail'),
+        'attendance'
+      );
       setMessage(errorMessage);
       setMessageType('error');
       setStatus(t('attendance.fail'));

@@ -8,6 +8,7 @@ export * from './geo';
 // Localization (i18n messages and types)
 // ============================================================================
 export * from './locales';
+export * from './employee-api-errors';
 
 // ============================================================================
 // General Utilities (Framework-agnostic helpers)

@@ -58,7 +58,17 @@
     "requiredMessage": "Please record your attendance to start the shift.",
     "submitButton": "Record Attendance",
     "submitLateButton": "Record Late Attendance",
-    "alreadyRecorded": "Attendance already recorded for this shift."
+    "alreadyRecorded": "Attendance already recorded for this shift.",
+    "errors": {
+      "unauthorized": "You are not authorized to perform this action.",
+      "shiftNotFound": "Shift not found.",
+      "shiftNotAssigned": "You are not assigned to this shift.",
+      "attendanceAlreadyRecorded": "Attendance has already been recorded for this shift.",
+      "shiftNotActive": "This shift is not active yet.",
+      "locationRequired": "Location permission is required for this site.",
+      "tooFarFromSite": "You are too far from the assigned site. Current distance: {{currentDistanceMeters}}m (Maximum: {{maxDistanceMeters}}m). Please move to the required location.",
+      "internalServerError": "Internal server error."
+    }
   },
   "checkin": {
     "success": "Check-in Successful!",
@@ -86,7 +96,18 @@
     "urgent": "Urgent",
     "responseRequired": "Response Required",
     "checkInNow": "Check-in Now",
-    "lateStatus": "You are late for this check-in"
+    "lateStatus": "You are late for this check-in",
+    "errors": {
+      "unauthorized": "You are not authorized to perform this action.",
+      "shiftNotFound": "Shift not found.",
+      "shiftNotAssigned": "You are not assigned to this shift.",
+      "shiftNotActive": "This shift is not active yet.",
+      "locationRequired": "Location permission is required for this site.",
+      "tooFarFromSite": "You are too far from the assigned site. Current distance: {{currentDistanceMeters}}m (Maximum: {{maxDistanceMeters}}m). Please move to the required location.",
+      "checkinIntervalCompleted": "You have already checked in for this interval.",
+      "checkinTooEarly": "It is too early to check in.",
+      "internalServerError": "Internal server error."
+    }
   },
   "passwordChange": {
     "successTitle": "Success",

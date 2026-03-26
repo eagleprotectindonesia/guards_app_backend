@@ -6,6 +6,7 @@ import { getSystemSetting } from '@repo/database';
 import { recordAttendance } from '@repo/database';
 import { getShiftById } from '@repo/database';
 import { redis } from '@repo/database';
+import { employeeShiftErrorResponse } from '../shared-errors';
 
 // Define a schema for the incoming request body
 const attendanceSchema = z.object({
@@ -21,7 +22,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const employee = await getAuthenticatedEmployee();
   if (!employee) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return employeeShiftErrorResponse({ status: 401, code: 'unauthorized', error: 'Unauthorized' });
   }
   const employeeId = employee.id;
 
@@ -33,16 +34,20 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const shift = await getShiftById(shiftId, { attendance: true, site: true });
 
     if (!shift) {
-      return NextResponse.json({ error: 'Shift not found' }, { status: 404 });
+      return employeeShiftErrorResponse({ status: 404, code: 'shift_not_found', error: 'Shift not found' });
     }
 
     // 2. Validate Employee and ensure attendance hasn't been recorded
     if (shift.employeeId !== employeeId) {
-      return NextResponse.json({ error: 'Not assigned to this shift' }, { status: 403 });
+      return employeeShiftErrorResponse({ status: 403, code: 'shift_not_assigned', error: 'Not assigned to this shift' });
     }
 
     if (shift.attendance) {
-      return NextResponse.json({ error: 'Attendance already recorded for this shift' }, { status: 400 });
+      return employeeShiftErrorResponse({
+        status: 400,
+        code: 'attendance_already_recorded',
+        error: 'Attendance already recorded for this shift',
+      });
     }
 
     // 2.5 Distance Check
@@ -58,7 +63,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           typeof parsedBody.location.lat !== 'number' ||
           typeof parsedBody.location.lng !== 'number'
         ) {
-          return NextResponse.json({ error: 'Location permission is required for this site.' }, { status: 400 });
+          return employeeShiftErrorResponse({
+            status: 400,
+            code: 'location_required',
+            error: 'Location permission is required for this site.',
+          });
         }
 
         if (shift.site.latitude != null && shift.site.longitude != null) {
@@ -70,14 +79,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           );
 
           if (distance > maxDistance) {
-            return NextResponse.json(
-              {
-                error: `Anda berada terlalu jauh dari lokasi penugasan. Jarak saat ini: ${Math.round(
-                  distance
-                )}m (Maksimal: ${maxDistance}m). Silakan pindah ke lokasi yang ditentukan.`,
+            return employeeShiftErrorResponse({
+              status: 400,
+              code: 'too_far_from_site',
+              error: `You are too far from the assigned site. Current distance: ${Math.round(
+                distance
+              )}m (Maximum: ${maxDistance}m). Please move to the required location.`,
+              details: {
+                currentDistanceMeters: Math.round(distance),
+                maxDistanceMeters: maxDistance,
               },
-              { status: 400 }
-            );
+            });
           }
         }
       }
@@ -126,6 +138,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return employeeShiftErrorResponse({
+      status: 500,
+      code: 'internal_server_error',
+      error: 'Internal Server Error',
+    });
   }
 }
