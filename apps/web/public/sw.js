@@ -1,6 +1,8 @@
-const CACHE_NAME = 'ep-pwa-v1';
-const STATIC_CACHE = 'ep-static-v1';
-const MEDIA_CACHE = 'chat-media-v1';
+const BUILD_ID = '{{BUILD_ID}}';
+const CACHE_VERSION = BUILD_ID === '{{BUILD_ID}}' ? 'dev' : BUILD_ID;
+const CACHE_NAME = `ep-pwa-${CACHE_VERSION}`;
+const STATIC_CACHE = `ep-static-${CACHE_VERSION}`;
+const MEDIA_CACHE = `chat-media-${CACHE_VERSION}`;
 const OFFLINE_URL = '/employee/offline.html';
 
 const ASSETS_TO_CACHE = [OFFLINE_URL, '/employee/icons/icon.svg', '/manifest.json'];
