@@ -85,7 +85,7 @@ export interface Attendance {
 
 export interface OfficeAttendance {
   id: string;
-  officeId: string;
+  officeId?: string | null;
   employeeId: string;
   recordedAt: string | Date;
   picture?: string | null;
@@ -93,6 +93,22 @@ export interface OfficeAttendance {
   metadata?: any;
   office?: Office | null;
   employee?: Employee | null;
+}
+
+export interface OfficeWorkScheduleDay {
+  id: string;
+  scheduleId: string;
+  weekday: number;
+  isWorkingDay: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+}
+
+export interface OfficeWorkSchedule {
+  id: string;
+  code: string;
+  name: string;
+  days?: OfficeWorkScheduleDay[];
 }
 
 // Deprecated: Use Attendance with employeeId

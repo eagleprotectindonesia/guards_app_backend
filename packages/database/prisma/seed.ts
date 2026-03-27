@@ -1,6 +1,8 @@
 import { prisma } from '../src';
 import bcrypt from 'bcryptjs';
 
+const DEFAULT_OFFICE_WORK_SCHEDULE_ID = '6e3be3df-698b-4d5c-aa42-2ddf01fb9d80';
+
 async function main() {
   console.log('Seeding database...');
 
@@ -280,7 +282,56 @@ async function main() {
     //   console.log('Created Overnight Shift:', overnightShift.id);
     // }
 
-    // 8. Create System Settings
+    // 8. Create Default Office Work Schedule
+    console.log('Creating default office work schedule...');
+    const defaultOfficeSchedule = await prisma.officeWorkSchedule.upsert({
+      where: { code: 'default-office-work-schedule' },
+      update: {
+        name: 'Default Office Schedule',
+      },
+      create: {
+        id: DEFAULT_OFFICE_WORK_SCHEDULE_ID,
+        code: 'default-office-work-schedule',
+        name: 'Default Office Schedule',
+      },
+    });
+
+    const defaultOfficeScheduleDays = [
+      { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
+      { weekday: 1, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+      { weekday: 2, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+      { weekday: 3, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+      { weekday: 4, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+      { weekday: 5, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+      { weekday: 6, isWorkingDay: false, startTime: null, endTime: null },
+    ] as const;
+
+    await Promise.all(
+      defaultOfficeScheduleDays.map(day =>
+        prisma.officeWorkScheduleDay.upsert({
+          where: {
+            scheduleId_weekday: {
+              scheduleId: defaultOfficeSchedule.id,
+              weekday: day.weekday,
+            },
+          },
+          update: {
+            isWorkingDay: day.isWorkingDay,
+            startTime: day.startTime,
+            endTime: day.endTime,
+          },
+          create: {
+            scheduleId: defaultOfficeSchedule.id,
+            weekday: day.weekday,
+            isWorkingDay: day.isWorkingDay,
+            startTime: day.startTime,
+            endTime: day.endTime,
+          },
+        })
+      )
+    );
+
+    // 9. Create System Settings
     console.log('Creating system settings...');
     const systemSettings = [
       { name: 'GEOFENCE_GRACE_MINUTES', value: '5', note: 'Grace period for returning to the geofence (minutes)' },
@@ -293,6 +344,11 @@ async function main() {
         name: 'ENABLE_LOCATION_MONITORING',
         value: '0',
         note: 'Feature toggle to enable/disable geofencing and location monitoring (1=ON, 0=OFF)',
+      },
+      {
+        name: 'DEFAULT_OFFICE_WORK_SCHEDULE_ID',
+        value: defaultOfficeSchedule.id,
+        note: 'Default office work schedule template used when an office employee has no assigned custom office schedule.',
       },
     ];
 
@@ -307,7 +363,7 @@ async function main() {
     );
   }
 
-  // 9. Seed Chat Messages
+  // 10. Seed Chat Messages
   const existingChatMessages = await prisma.chatMessage.count();
   if (existingChatMessages === 0) {
     console.log('Seeding chat messages...');

@@ -16,3 +16,4 @@ export * from './sites';
 export * from './roles';
 export * from './offices';
 export * from './office-attendance';
+export * from './office-work-schedules';

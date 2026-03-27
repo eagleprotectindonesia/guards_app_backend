@@ -49,6 +49,7 @@ export type OfficeAttendanceMetadataDto = {
     lat: number;
     lng: number;
   };
+  latenessMins?: number;
 };
 
 export type OfficeAttendanceWithRelationsDto = {
@@ -56,7 +57,7 @@ export type OfficeAttendanceWithRelationsDto = {
   recordedAt: Date;
   status: string;
   employeeId: string;
-  officeId: string;
+  officeId: string | null;
   metadata: OfficeAttendanceMetadataDto | null;
   office: {
     id: string;

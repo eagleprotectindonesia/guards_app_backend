@@ -1,5 +1,6 @@
 import { db as prisma } from '../prisma/client';
 import { Prisma, AttendanceStatus } from '@prisma/client';
+import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
 
 export async function getOfficeAttendanceById(id: string) {
   return prisma.officeAttendance.findUnique({
@@ -23,19 +24,20 @@ export async function getOfficeAttendanceById(id: string) {
 }
 
 export async function recordOfficeAttendance(params: {
-  officeId: string;
+  officeId?: string | null;
   employeeId: string;
   status: AttendanceStatus;
   picture?: string;
   metadata?: any;
+  recordedAt?: Date;
 }) {
-  const { officeId, employeeId, status, picture, metadata } = params;
+  const { officeId, employeeId, status, picture, metadata, recordedAt } = params;
 
   return prisma.officeAttendance.create({
     data: {
       officeId,
       employeeId,
-      recordedAt: new Date(),
+      recordedAt: recordedAt || new Date(),
       status,
       picture,
       metadata,
@@ -43,23 +45,36 @@ export async function recordOfficeAttendance(params: {
   });
 }
 
-export async function getTodayOfficeAttendance(employeeId: string) {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const endOfDay = new Date();
-  endOfDay.setHours(23, 59, 59, 999);
+export async function getTodayOfficeAttendance(employeeId: string, now = new Date(), timeZone = BUSINESS_TIMEZONE) {
+  const { start, end } = getBusinessDayRange(now, timeZone);
 
   return prisma.officeAttendance.findMany({
     where: {
       employeeId,
       recordedAt: {
-        gte: startOfDay,
-        lte: endOfDay,
+        gte: start,
+        lt: end,
       },
     },
     include: {
       office: true,
+    },
+    orderBy: {
+      recordedAt: 'desc',
+    },
+  });
+}
+
+export async function getLatestOfficeAttendanceForDay(employeeId: string, now = new Date(), timeZone = BUSINESS_TIMEZONE) {
+  const { start, end } = getBusinessDayRange(now, timeZone);
+
+  return prisma.officeAttendance.findFirst({
+    where: {
+      employeeId,
+      recordedAt: {
+        gte: start,
+        lt: end,
+      },
     },
     orderBy: {
       recordedAt: 'desc',

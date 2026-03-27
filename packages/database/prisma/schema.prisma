@@ -192,6 +192,7 @@ model Employee {
   attendances     Attendance[]
   officeId        String?      @map("office_id")
   office          Office?      @relation(fields: [officeId], references: [id])
+  officeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[]
   officeAttendances OfficeAttendance[]
   chatMessages    ChatMessage[]
   chatConversationStates AdminChatConversationState[]
@@ -449,6 +450,51 @@ model SystemSetting {
   @@map("system_settings")
 }
 
+model OfficeWorkSchedule {
+  id        String                 @id @default(uuid())
+  code      String                 @unique
+  name      String                 @unique
+  createdAt DateTime               @default(now()) @map("created_at")
+  updatedAt DateTime               @updatedAt @map("updated_at")
+  days      OfficeWorkScheduleDay[]
+  assignments EmployeeOfficeWorkScheduleAssignment[]
+
+  @@map("office_work_schedules")
+}
+
+model OfficeWorkScheduleDay {
+  id           String             @id @default(uuid())
+  scheduleId   String             @map("schedule_id")
+  weekday      Int
+  isWorkingDay Boolean            @default(false) @map("is_working_day")
+  startTime    String?            @map("start_time")
+  endTime      String?            @map("end_time")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+  schedule     OfficeWorkSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, weekday])
+  @@index([scheduleId])
+  @@map("office_work_schedule_days")
+}
+
+model EmployeeOfficeWorkScheduleAssignment {
+  id                 String           @id @default(uuid())
+  employeeId         String           @map("employee_id")
+  officeWorkScheduleId String         @map("office_work_schedule_id")
+  effectiveFrom      DateTime         @map("effective_from") @db.Timestamptz(6)
+  effectiveUntil     DateTime?        @map("effective_until") @db.Timestamptz(6)
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+  employee           Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  officeWorkSchedule OfficeWorkSchedule @relation(fields: [officeWorkScheduleId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId, effectiveFrom], map: "employee_office_schedule_assignments_employee_from_idx")
+  @@index([employeeId, effectiveUntil], map: "employee_office_schedule_assignments_employee_until_idx")
+  @@index([officeWorkScheduleId], map: "employee_office_schedule_assignments_schedule_idx")
+  @@map("employee_office_work_schedule_assignments")
+}
+
 enum AttendanceStatus {
   present
   absent
@@ -459,7 +505,7 @@ enum AttendanceStatus {
 
 model OfficeAttendance {
   id         String           @id @default(uuid())
-  officeId   String           @map("office_id")
+  officeId   String?          @map("office_id")
   employeeId String           @map("employee_id")
   recordedAt DateTime         @default(now()) @map("recorded_at") @db.Timestamptz(6)
   picture    String?
@@ -468,7 +514,7 @@ model OfficeAttendance {
   createdAt  DateTime         @default(now()) @map("created_at")
   updatedAt  DateTime         @updatedAt
 
-  office     Office    @relation(fields: [officeId], references: [id])
+  office     Office?   @relation(fields: [officeId], references: [id])
   employee   Employee  @relation(fields: [employeeId], references: [id])
 
   @@index([recordedAt])
