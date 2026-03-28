@@ -342,13 +342,65 @@ export async function listOfficeWorkScheduleAssignments(employeeId: string) {
   });
 }
 
+type AssignmentClient = Prisma.TransactionClient | typeof prisma;
+
+function isSameEffectiveDate(left: Date, right: Date) {
+  return left.getTime() === right.getTime();
+}
+
+export async function analyzeFutureOfficeWorkScheduleAssignment(params: {
+  employeeId: string;
+  officeWorkScheduleId: string;
+  effectiveFrom: Date;
+  referenceDate?: Date;
+}, client: AssignmentClient = prisma) {
+  const referenceDate = params.referenceDate ?? new Date();
+  const futureAssignments = await client.employeeOfficeWorkScheduleAssignment.findMany({
+    where: {
+      employeeId: params.employeeId,
+      effectiveFrom: { gt: referenceDate },
+    },
+    orderBy: {
+      effectiveFrom: 'asc',
+    },
+  });
+
+  const exactAssignment =
+    futureAssignments.find(assignment => isSameEffectiveDate(assignment.effectiveFrom, params.effectiveFrom)) ?? null;
+  const otherFutureAssignments = futureAssignments.filter(assignment => assignment.id !== exactAssignment?.id);
+
+  if (otherFutureAssignments.length > 0) {
+    return {
+      mode: 'conflict' as const,
+      reason: 'A future office work schedule assignment on a different effective date already exists',
+      exactAssignment,
+      otherFutureAssignments,
+    };
+  }
+
+  if (exactAssignment) {
+    return {
+      mode:
+        exactAssignment.officeWorkScheduleId === params.officeWorkScheduleId ? ('noop' as const) : ('replace' as const),
+      exactAssignment,
+      otherFutureAssignments,
+    };
+  }
+
+  return {
+    mode: 'create' as const,
+    exactAssignment: null,
+    otherFutureAssignments,
+  };
+}
+
 async function assertNoAssignmentOverlap(params: {
   employeeId: string;
   effectiveFrom: Date;
   effectiveUntil?: Date | null;
   excludeAssignmentId?: string;
-}) {
-  const overlapping = await prisma.employeeOfficeWorkScheduleAssignment.findFirst({
+}, client: AssignmentClient = prisma) {
+  const overlapping = await client.employeeOfficeWorkScheduleAssignment.findFirst({
     where: {
       employeeId: params.employeeId,
       ...(params.excludeAssignmentId ? { id: { not: params.excludeAssignmentId } } : {}),
@@ -360,6 +412,52 @@ async function assertNoAssignmentOverlap(params: {
   if (overlapping) {
     throw new Error('Office work schedule assignment overlaps an existing assignment');
   }
+}
+
+async function createFutureOfficeWorkScheduleAssignment(
+  client: AssignmentClient,
+  params: {
+    employeeId: string;
+    officeWorkScheduleId: string;
+    effectiveFrom: Date;
+  }
+) {
+  const { employeeId, officeWorkScheduleId, effectiveFrom } = params;
+
+  const currentOrPrevious = await client.employeeOfficeWorkScheduleAssignment.findFirst({
+    where: {
+      employeeId,
+      effectiveFrom: { lt: effectiveFrom },
+      OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: effectiveFrom } }],
+    },
+    orderBy: {
+      effectiveFrom: 'desc',
+    },
+  });
+
+  await assertNoAssignmentOverlap({
+    employeeId,
+    effectiveFrom,
+    effectiveUntil: null,
+    excludeAssignmentId: currentOrPrevious?.id,
+  }, client);
+
+  if (currentOrPrevious) {
+    await client.employeeOfficeWorkScheduleAssignment.update({
+      where: { id: currentOrPrevious.id },
+      data: {
+        effectiveUntil: effectiveFrom,
+      },
+    });
+  }
+
+  return client.employeeOfficeWorkScheduleAssignment.create({
+    data: {
+      employeeId,
+      officeWorkScheduleId,
+      effectiveFrom,
+    },
+  });
 }
 
 export async function createOfficeWorkScheduleAssignment(params: {
@@ -391,57 +489,66 @@ export async function scheduleFutureOfficeWorkScheduleAssignment(params: {
   officeWorkScheduleId: string;
   effectiveFrom: Date;
 }) {
-  const { employeeId, officeWorkScheduleId, effectiveFrom } = params;
+  const analysis = await analyzeFutureOfficeWorkScheduleAssignment(params);
 
-  const upcoming = await prisma.employeeOfficeWorkScheduleAssignment.findFirst({
-    where: {
-      employeeId,
-      effectiveFrom: { gte: effectiveFrom },
-    },
-    orderBy: {
-      effectiveFrom: 'asc',
-    },
-  });
-
-  if (upcoming) {
-    throw new Error('A future office work schedule assignment already exists on or after the requested effective date');
+  if (analysis.mode === 'conflict') {
+    throw new Error(analysis.reason);
   }
 
-  const currentOrPrevious = await prisma.employeeOfficeWorkScheduleAssignment.findFirst({
-    where: {
-      employeeId,
-      effectiveFrom: { lt: effectiveFrom },
-      OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: effectiveFrom } }],
-    },
-    orderBy: {
-      effectiveFrom: 'desc',
-    },
-  });
+  if (analysis.mode === 'noop') {
+    return analysis.exactAssignment;
+  }
 
-  await assertNoAssignmentOverlap({
-    employeeId,
-    effectiveFrom,
-    effectiveUntil: null,
-    excludeAssignmentId: currentOrPrevious?.id,
-  });
-
-  return prisma.$transaction(async tx => {
-    if (currentOrPrevious) {
-      await tx.employeeOfficeWorkScheduleAssignment.update({
-        where: { id: currentOrPrevious.id },
-        data: {
-          effectiveUntil: effectiveFrom,
-        },
-      });
-    }
-
-    return tx.employeeOfficeWorkScheduleAssignment.create({
+  if (analysis.mode === 'replace' && analysis.exactAssignment) {
+    return prisma.employeeOfficeWorkScheduleAssignment.update({
+      where: { id: analysis.exactAssignment.id },
       data: {
-        employeeId,
-        officeWorkScheduleId,
-        effectiveFrom,
+        officeWorkScheduleId: params.officeWorkScheduleId,
       },
     });
+  }
+
+  return prisma.$transaction(async tx => createFutureOfficeWorkScheduleAssignment(tx, params));
+}
+
+export async function bulkUpsertFutureOfficeWorkScheduleAssignments(
+  assignments: Array<{
+    employeeId: string;
+    officeWorkScheduleId: string;
+    effectiveFrom: Date;
+  }>
+) {
+  return prisma.$transaction(async tx => {
+    const results = [];
+
+    for (const assignment of assignments) {
+      const analysis = await analyzeFutureOfficeWorkScheduleAssignment(assignment, tx);
+
+      if (analysis.mode === 'conflict') {
+        throw new Error(analysis.reason);
+      }
+
+      if (analysis.mode === 'noop') {
+        results.push(analysis.exactAssignment);
+        continue;
+      }
+
+      if (analysis.mode === 'replace' && analysis.exactAssignment) {
+        const updated = await tx.employeeOfficeWorkScheduleAssignment.update({
+          where: { id: analysis.exactAssignment.id },
+          data: {
+            officeWorkScheduleId: assignment.officeWorkScheduleId,
+          },
+        });
+        results.push(updated);
+        continue;
+      }
+
+      const created = await createFutureOfficeWorkScheduleAssignment(tx, assignment);
+      results.push(created);
+    }
+
+    return results;
   });
 }
 

@@ -4,10 +4,11 @@ import { useState, useTransition } from 'react';
 import { EmployeeWithRelations } from '@repo/database';
 import type { Serialized } from '@/lib/server-utils';
 import ChangePasswordModal from './change-password-modal';
+import BulkScheduleUploadModal from './bulk-schedule-upload-modal';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { Key, Download, History, MessageSquare, RefreshCw, Pencil } from 'lucide-react';
+import { Key, Download, History, MessageSquare, RefreshCw, Pencil, Upload } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
 import Search from '../../components/search';
@@ -40,6 +41,7 @@ export default function EmployeeList({
   const searchParams = useSearchParams();
   const { hasPermission } = useSession();
   const [passwordModalData, setPasswordModalData] = useState<{ id: string; name: string } | null>(null);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const canEdit = hasPermission(PERMISSIONS.EMPLOYEES.EDIT);
@@ -167,6 +169,16 @@ export default function EmployeeList({
             <Download className="mr-2 h-4 w-4" />
             Export
           </button>
+
+          {canEdit && (
+            <button
+              onClick={() => setIsBulkUploadOpen(true)}
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted/50 transition-colors shadow-sm w-full md:w-auto"
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Schedule CSV
+            </button>
+          )}
 
           {canViewAudit && (
             <Link
@@ -310,6 +322,8 @@ export default function EmployeeList({
           employeeName={passwordModalData.name}
         />
       )}
+
+      <BulkScheduleUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} />
     </div>
   );
 }

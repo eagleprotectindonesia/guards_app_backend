@@ -249,6 +249,27 @@ Displayed:
 
 The UI does not ask for `effectiveUntil`; backend manages that automatically.
 
+### 4. Bulk CSV Assignment Import
+
+Location:
+- employee schedule management UI
+
+Purpose:
+- assign or update simple future office schedule changes for multiple employees in one import
+
+CSV headers:
+- `employee_number`
+- `schedule_name`
+- `effective_from`
+
+Import behavior:
+- all-or-nothing transaction
+- exact employee number and exact schedule name matching
+- same employee + same date + same schedule: no-op
+- same employee + same date + different schedule: replace that future assignment
+- same employee with additional future assignments on other dates: reject as ambiguous
+- same employee with multiple different `effective_from` rows in one file: reject as a multi-step timeline rewrite
+
 ## Permissions
 
 Frontend permission resource:

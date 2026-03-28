@@ -3,6 +3,8 @@
 import {
   updateEmployee as updateEmployeeDb,
   getAllEmployees,
+  getActiveEmployees,
+  getAllOfficeWorkSchedules,
   EmployeePasswordPolicyError,
   setEmployeePassword,
   getEmployeeSearchWhere,
@@ -27,7 +29,16 @@ import { EMPLOYEE_SYNC_JOB_NAME } from '@repo/database';
 import { employeeSyncQueue } from '@/lib/queues';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { applyEmployeeVisibilityScope } from '@/lib/auth/admin-visibility';
-import { scheduleFutureOfficeWorkScheduleAssignment } from '@repo/database';
+import {
+  bulkUpsertFutureOfficeWorkScheduleAssignments,
+  scheduleFutureOfficeWorkScheduleAssignment,
+} from '@repo/database';
+
+const BULK_OFFICE_SCHEDULE_HEADERS = ['employee_number', 'schedule_name', 'effective_from'] as const;
+
+function parseCsvLine(line: string) {
+  return line.split(',').map(value => value.trim().replace(/^"|"$/g, ''));
+}
 
 revalidatePath('/admin/employees');
 
@@ -209,4 +220,147 @@ export async function scheduleEmployeeOfficeWorkSchedule(
 
   revalidatePath(`/admin/employees/${employeeId}/edit`);
   return { success: true, message: 'Employee schedule change saved successfully.' };
+}
+
+export async function bulkScheduleEmployeeOfficeWorkSchedules(
+  formData: FormData
+): Promise<{ success: boolean; message?: string; errors?: string[] }> {
+  await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
+
+  const file = formData.get('file') as File | null;
+  if (!file) {
+    return { success: false, message: 'No file provided.' };
+  }
+
+  const text = await file.text();
+  const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+
+  if (lines.length < 2) {
+    return { success: false, message: 'CSV file is empty or missing data.' };
+  }
+
+  const headerColumns = parseCsvLine(lines[0]).map(value => value.toLowerCase());
+  if (
+    headerColumns.length < BULK_OFFICE_SCHEDULE_HEADERS.length ||
+    BULK_OFFICE_SCHEDULE_HEADERS.some((header, index) => headerColumns[index] !== header)
+  ) {
+    return {
+      success: false,
+      message: `Invalid CSV headers. Expected: ${BULK_OFFICE_SCHEDULE_HEADERS.join(', ')}`,
+    };
+  }
+
+  const [employees, schedules] = await Promise.all([getActiveEmployees(), getAllOfficeWorkSchedules()]);
+
+  const employeeMap = new Map(
+    employees
+      .filter(employee => employee.employeeNumber)
+      .map(employee => [employee.employeeNumber as string, employee])
+  );
+  const scheduleMap = new Map(schedules.map(schedule => [schedule.name, schedule]));
+
+  const errors: string[] = [];
+  const seenEmployeeDates = new Set<string>();
+  const seenEmployees = new Map<string, string>();
+  const assignments: Array<{
+    employeeId: string;
+    officeWorkScheduleId: string;
+    effectiveFrom: Date;
+  }> = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+
+    if (cols.length < BULK_OFFICE_SCHEDULE_HEADERS.length) {
+      errors.push(`Row ${i + 1}: Expected 3 columns (employee_number, schedule_name, effective_from).`);
+      continue;
+    }
+
+    const [employeeNumber, scheduleName, effectiveFromText] = cols;
+
+    if (!employeeNumber || !scheduleName || !effectiveFromText) {
+      errors.push(`Row ${i + 1}: employee_number, schedule_name, and effective_from are required.`);
+      continue;
+    }
+
+    const duplicateKey = `${employeeNumber}::${effectiveFromText}`;
+    if (seenEmployeeDates.has(duplicateKey)) {
+      errors.push(`Row ${i + 1}: Duplicate employee_number and effective_from combination in the uploaded CSV.`);
+      continue;
+    }
+    seenEmployeeDates.add(duplicateKey);
+
+    const priorEffectiveFrom = seenEmployees.get(employeeNumber);
+    if (priorEffectiveFrom && priorEffectiveFrom !== effectiveFromText) {
+      errors.push(`Row ${i + 1}: Multiple effective_from dates for employee_number '${employeeNumber}' are not allowed in one import.`);
+      continue;
+    }
+    seenEmployees.set(employeeNumber, effectiveFromText);
+
+    const employee = employeeMap.get(employeeNumber);
+    if (!employee) {
+      errors.push(`Row ${i + 1}: Employee '${employeeNumber}' not found or inactive.`);
+      continue;
+    }
+
+    if (employee.role !== 'office') {
+      errors.push(`Row ${i + 1}: Employee '${employeeNumber}' is not an office employee.`);
+      continue;
+    }
+
+    const schedule = scheduleMap.get(scheduleName);
+    if (!schedule) {
+      errors.push(`Row ${i + 1}: Office schedule '${scheduleName}' not found.`);
+      continue;
+    }
+
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(effectiveFromText)) {
+      errors.push(`Row ${i + 1}: Invalid effective_from '${effectiveFromText}'. Expected YYYY-MM-DD.`);
+      continue;
+    }
+
+    const effectiveFrom = new Date(`${effectiveFromText}T00:00:00+08:00`);
+    if (Number.isNaN(effectiveFrom.getTime())) {
+      errors.push(`Row ${i + 1}: Invalid effective_from '${effectiveFromText}'.`);
+      continue;
+    }
+
+    assignments.push({
+      employeeId: employee.id,
+      officeWorkScheduleId: schedule.id,
+      effectiveFrom,
+    });
+  }
+
+  if (errors.length > 0) {
+    return {
+      success: false,
+      message: 'Validation failed.',
+      errors,
+    };
+  }
+
+  if (assignments.length === 0) {
+    return { success: false, message: 'No valid office schedule assignments found to import.' };
+  }
+
+  try {
+    await bulkUpsertFutureOfficeWorkScheduleAssignments(assignments);
+  } catch (error) {
+    console.error('Bulk office schedule import error:', error);
+    return {
+      success: false,
+      message:
+        error instanceof Error
+          ? error.message
+          : 'Database Error: Failed to import office schedule assignments.',
+    };
+  }
+
+  revalidatePath('/admin/employees');
+  return {
+    success: true,
+    message: `Successfully imported ${assignments.length} office schedule assignment${assignments.length === 1 ? '' : 's'}.`,
+  };
 }

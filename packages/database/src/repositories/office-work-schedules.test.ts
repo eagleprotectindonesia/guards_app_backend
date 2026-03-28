@@ -1,4 +1,6 @@
 import {
+  analyzeFutureOfficeWorkScheduleAssignment,
+  bulkUpsertFutureOfficeWorkScheduleAssignments,
   resolveOfficeWorkScheduleContextForEmployee,
   scheduleFutureOfficeWorkScheduleAssignment,
 } from './office-work-schedules';
@@ -66,8 +68,8 @@ describe('office work schedules', () => {
       effectiveUntil: null,
     };
 
+    (prisma.employeeOfficeWorkScheduleAssignment.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock)
-      .mockResolvedValueOnce(null)
       .mockResolvedValueOnce(previousAssignment)
       .mockResolvedValueOnce(null);
 
@@ -104,5 +106,92 @@ describe('office work schedules', () => {
       id: 'assignment-future',
       officeWorkScheduleId: 'schedule-new',
     });
+  });
+
+  test('treats same-date same-schedule future assignment as a no-op', async () => {
+    const effectiveFrom = new Date('2026-03-30T00:00:00.000Z');
+    const existingAssignment = {
+      id: 'assignment-future',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-1',
+      effectiveFrom,
+      effectiveUntil: null,
+    };
+
+    (prisma.employeeOfficeWorkScheduleAssignment.findMany as jest.Mock).mockResolvedValue([existingAssignment]);
+
+    const result = await analyzeFutureOfficeWorkScheduleAssignment({
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-1',
+      effectiveFrom,
+      referenceDate: new Date('2026-03-01T00:00:00.000Z'),
+    });
+
+    expect(result.mode).toBe('noop');
+    expect(result.exactAssignment).toEqual(existingAssignment);
+  });
+
+  test('replaces same-date future assignment when schedule changes', async () => {
+    const effectiveFrom = new Date('2026-03-30T00:00:00.000Z');
+    const existingAssignment = {
+      id: 'assignment-future',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-old',
+      effectiveFrom,
+      effectiveUntil: null,
+    };
+
+    (prisma.employeeOfficeWorkScheduleAssignment.findMany as jest.Mock).mockResolvedValue([existingAssignment]);
+    (prisma.employeeOfficeWorkScheduleAssignment.update as jest.Mock).mockResolvedValue({
+      ...existingAssignment,
+      officeWorkScheduleId: 'schedule-new',
+    });
+
+    const result = await scheduleFutureOfficeWorkScheduleAssignment({
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-new',
+      effectiveFrom,
+    });
+
+    expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenCalledWith({
+      where: { id: 'assignment-future' },
+      data: { officeWorkScheduleId: 'schedule-new' },
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      id: 'assignment-future',
+      officeWorkScheduleId: 'schedule-new',
+    });
+  });
+
+  test('rejects same employee when another future assignment exists on a different date', async () => {
+    const assignments = [
+      {
+        id: 'assignment-a',
+        employeeId: 'employee-1',
+        officeWorkScheduleId: 'schedule-a',
+        effectiveFrom: new Date('2026-03-30T00:00:00.000Z'),
+        effectiveUntil: null,
+      },
+      {
+        id: 'assignment-b',
+        employeeId: 'employee-1',
+        officeWorkScheduleId: 'schedule-b',
+        effectiveFrom: new Date('2026-04-06T00:00:00.000Z'),
+        effectiveUntil: null,
+      },
+    ];
+
+    (prisma.employeeOfficeWorkScheduleAssignment.findMany as jest.Mock).mockResolvedValue(assignments);
+
+    await expect(
+      bulkUpsertFutureOfficeWorkScheduleAssignments([
+        {
+          employeeId: 'employee-1',
+          officeWorkScheduleId: 'schedule-new',
+          effectiveFrom: new Date('2026-03-30T00:00:00.000Z'),
+        },
+      ])
+    ).rejects.toThrow('A future office work schedule assignment on a different effective date already exists');
   });
 });
