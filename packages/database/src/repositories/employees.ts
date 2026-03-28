@@ -5,6 +5,7 @@ import { deleteFutureShiftsByEmployee, cancelInProgressShiftsForDeactivatedEmplo
 import { hashPassword, verifyPassword, DEFAULT_PASSWORD } from '../password';
 import { fetchExternalEmployees, ExternalEmployee } from '../integrations/external-employee-api';
 import { syncOfficesFromExternalEmployees } from './offices';
+import { getCurrentOfficeWorkScheduleAssignment, getDefaultOfficeWorkSchedule } from './office-work-schedules';
 
 const LAST_EMPLOYEE_SYNC_KEY = 'employee:sync:last_timestamp';
 const EMPLOYEE_PASSWORD_HISTORY_LIMIT = 3;
@@ -35,7 +36,7 @@ export async function getAllEmployees(
   } = {}
 ) {
   const { where = {}, orderBy = { createdAt: 'desc' }, includeDeleted = false } = params;
-  return prisma.employee.findMany({
+  const employees = await prisma.employee.findMany({
     where: {
       ...where,
       ...(includeDeleted ? {} : { deletedAt: null }),
@@ -43,6 +44,26 @@ export async function getAllEmployees(
     include: { office: { select: { name: true } } },
     orderBy,
   });
+
+  const defaultOfficeSchedule = await getDefaultOfficeWorkSchedule();
+
+  return Promise.all(
+    employees.map(async employee => {
+      if (employee.role !== 'office') {
+        return {
+          ...employee,
+          activeOfficeWorkScheduleName: null,
+        };
+      }
+
+      const assignment = await getCurrentOfficeWorkScheduleAssignment(employee.id);
+
+      return {
+        ...employee,
+        activeOfficeWorkScheduleName: assignment?.officeWorkSchedule.name ?? defaultOfficeSchedule.name,
+      };
+    })
+  );
 }
 
 export async function getActiveEmployees(role?: EmployeeRole) {
@@ -150,7 +171,26 @@ export async function getPaginatedEmployees(params: {
     prisma.employee.count({ where: finalWhere }),
   ]);
 
-  return { employees, totalCount };
+  const defaultOfficeSchedule = await getDefaultOfficeWorkSchedule();
+  const employeesWithSchedules = await Promise.all(
+    employees.map(async employee => {
+      if (employee.role !== 'office') {
+        return {
+          ...employee,
+          activeOfficeWorkScheduleName: null,
+        };
+      }
+
+      const assignment = await getCurrentOfficeWorkScheduleAssignment(employee.id);
+
+      return {
+        ...employee,
+        activeOfficeWorkScheduleName: assignment?.officeWorkSchedule.name ?? defaultOfficeSchedule.name,
+      };
+    })
+  );
+
+  return { employees: employeesWithSchedules, totalCount };
 }
 
 /**

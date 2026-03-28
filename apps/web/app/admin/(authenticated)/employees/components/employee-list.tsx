@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { EmployeeWithRelations } from '@repo/database';
+import { EmployeeWithRelationsAndSchedule } from '@repo/database';
 import type { Serialized } from '@/lib/server-utils';
 import ChangePasswordModal from './change-password-modal';
 import BulkScheduleUploadModal from './bulk-schedule-upload-modal';
@@ -19,7 +19,7 @@ import { format } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 
 type EmployeeListProps = {
-  employees: Serialized<EmployeeWithRelations>[];
+  employees: Serialized<EmployeeWithRelationsAndSchedule>[];
   page: number;
   perPage: number;
   totalCount: number;
@@ -101,7 +101,7 @@ export default function EmployeeList({
       ];
       const csvContent = [
         headers.join(','),
-        ...allEmployees.map((e: Serialized<EmployeeWithRelations>, index) =>
+        ...allEmployees.map((e: Serialized<EmployeeWithRelationsAndSchedule>, index) =>
           [
             `${index + 1}`,
             `"${e.employeeNumber || ''}"`,
@@ -252,7 +252,12 @@ export default function EmployeeList({
                       <div className="font-semibold text-foreground">{employee.department || '-'}</div>
                       <div className="text-xs text-muted-foreground">{employee.jobTitle || '-'}</div>
                     </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">{employee.office?.name || '-'}</td>
+                    <td className="py-4 px-6 text-sm">
+                      <div className="font-semibold text-foreground">{employee.office?.name || '-'}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {employee.activeOfficeWorkScheduleName || ''}
+                      </div>
+                    </td>
                     <td className="py-4 px-6 text-sm text-center">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${

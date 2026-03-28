@@ -21,7 +21,7 @@ import { serialize } from '@/lib/server-utils';
 import type { Serialized } from '@/lib/server-utils';
 import { hashPassword } from '@repo/database';
 import { revalidatePath } from 'next/cache';
-import { EmployeeWithRelations } from '@repo/database';
+import { EmployeeWithRelationsAndSchedule } from '@repo/database';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { requirePermission } from '@/lib/admin-auth';
 import { ActionState } from '@/types/actions';
@@ -91,7 +91,7 @@ export async function getAllEmployeesForExport(params: {
   query?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
-}): Promise<Serialized<EmployeeWithRelations>[]> {
+}): Promise<Serialized<EmployeeWithRelationsAndSchedule>[]> {
   const session = await requirePermission(PERMISSIONS.EMPLOYEES.VIEW);
   const { query, sortBy, sortOrder } = params;
 

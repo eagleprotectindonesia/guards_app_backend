@@ -49,3 +49,7 @@ export type EmployeeSummary = {
 export type EmployeeWithRelations = NonNullable<
   Prisma.Result<typeof db.employee, { include: { office: { select: { name: true } } } }, 'findUnique'>
 >;
+
+export type EmployeeWithRelationsAndSchedule = EmployeeWithRelations & {
+  activeOfficeWorkScheduleName: string | null;
+};

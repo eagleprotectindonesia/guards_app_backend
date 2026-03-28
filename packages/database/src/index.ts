@@ -13,7 +13,7 @@
 // ============================================================================
 export { PrismaClient, Prisma, createPrismaClient } from './prisma';
 export { db, db as prisma } from './prisma';
-export type { ExtendedPrismaClient, EmployeeWithRelations, EmployeeSummary } from './prisma';
+export type { ExtendedPrismaClient, EmployeeWithRelations, EmployeeWithRelationsAndSchedule, EmployeeSummary } from './prisma';
 
 // ============================================================================
 // Redis Layer - Cache and session storage
