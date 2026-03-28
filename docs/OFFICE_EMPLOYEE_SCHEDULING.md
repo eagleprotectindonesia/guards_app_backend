@@ -266,7 +266,7 @@ Location:
 
 Purpose:
 - view the employee’s assignment timeline
-- add future schedule timeline entries
+- add and manage future schedule timeline entries
 
 Displayed:
 - employee name
@@ -275,8 +275,22 @@ Displayed:
 - timeline entry form with:
   - template selection
   - `effectiveFrom`
+- row actions for upcoming assignments:
+  - edit
+  - delete
 
 The UI does not ask for `effectiveUntil`; backend manages that automatically, including when a new entry is inserted before an already scheduled future change.
+
+Editing and deleting rules:
+- upcoming assignments can be edited
+- upcoming assignments can be deleted
+- current assignments cannot be edited directly
+- past assignments cannot be edited or deleted
+
+Operational rule for HR:
+- if the employee is already on the schedule today and HR needs a change, create a new assignment starting tomorrow instead of editing the active row
+- deleting an upcoming row extends the previous custom row to the deleted row’s former `effectiveUntil` when a previous custom row exists
+- if there is no previous custom row, deleting the first upcoming row causes the employee to fall back to the default office schedule until the next custom row
 
 ### 4. Bulk CSV Assignment Import
 

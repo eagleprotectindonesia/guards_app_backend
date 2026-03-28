@@ -1,7 +1,11 @@
 'use client';
 
-import { useActionState, useEffect } from 'react';
-import { scheduleEmployeeOfficeWorkSchedule } from '../actions';
+import { Fragment, useActionState, useEffect, useState } from 'react';
+import {
+  deleteEmployeeOfficeWorkScheduleAssignment,
+  scheduleEmployeeOfficeWorkSchedule,
+  updateEmployeeOfficeWorkScheduleAssignment,
+} from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateEmployeeOfficeWorkScheduleAssignmentInput } from '@repo/validations';
 import toast from 'react-hot-toast';
@@ -10,6 +14,7 @@ import { useRouter } from 'next/navigation';
 
 type TimelineItem = {
   id: string;
+  scheduleId: string;
   scheduleName: string;
   effectiveFrom: string;
   effectiveUntil: string | null;
@@ -39,8 +44,36 @@ export default function EmployeeScheduleManager({
   scheduleOptions,
 }: Props) {
   const router = useRouter();
+  const [editingAssignmentId, setEditingAssignmentId] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState<ActionState<CreateEmployeeOfficeWorkScheduleAssignmentInput>, FormData>(
     scheduleEmployeeOfficeWorkSchedule.bind(null, employeeId),
+    { success: false }
+  );
+  const [editState, editFormAction, isEditPending] = useActionState<
+    ActionState<CreateEmployeeOfficeWorkScheduleAssignmentInput>,
+    FormData
+  >(
+    async (_prevState, formData) => {
+      const assignmentId = formData.get('assignmentId');
+
+      if (typeof assignmentId !== 'string' || !assignmentId) {
+        return { success: false, message: 'Assignment ID is required.' };
+      }
+
+      return updateEmployeeOfficeWorkScheduleAssignment(employeeId, assignmentId, { success: false }, formData);
+    },
+    { success: false }
+  );
+  const [deleteState, deleteFormAction, isDeletePending] = useActionState<{ success: boolean; message?: string }, FormData>(
+    async (_prevState, formData) => {
+      const assignmentId = formData.get('assignmentId');
+
+      if (typeof assignmentId !== 'string' || !assignmentId) {
+        return { success: false, message: 'Assignment ID is required.' };
+      }
+
+      return deleteEmployeeOfficeWorkScheduleAssignment(employeeId, assignmentId);
+    },
     { success: false }
   );
 
@@ -52,6 +85,26 @@ export default function EmployeeScheduleManager({
       toast.error(state.message);
     }
   }, [router, state]);
+
+  useEffect(() => {
+    if (editState.success) {
+      toast.success(editState.message || 'Employee schedule updated successfully.');
+      setEditingAssignmentId(null);
+      router.refresh();
+    } else if (editState.message && !editState.success) {
+      toast.error(editState.message);
+    }
+  }, [editState, router]);
+
+  useEffect(() => {
+    if (deleteState.success) {
+      toast.success(deleteState.message || 'Employee schedule deleted successfully.');
+      setEditingAssignmentId(null);
+      router.refresh();
+    } else if (deleteState.message && !deleteState.success) {
+      toast.error(deleteState.message);
+    }
+  }, [deleteState, router]);
 
   if (employeeRole !== 'office') {
     return (
@@ -70,6 +123,9 @@ export default function EmployeeScheduleManager({
         <h2 className="text-xl font-bold text-foreground">Office Schedule Timeline</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Add timeline entries with a template and effective date. End dates are managed automatically based on the next scheduled change.
+        </p>
+        <p className="text-sm text-muted-foreground mt-1">
+          Current assignments cannot be edited directly. If HR needs to change today&apos;s active schedule, create a new assignment starting tomorrow.
         </p>
       </div>
 
@@ -92,32 +148,126 @@ export default function EmployeeScheduleManager({
               <th className="py-3 px-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Effective From</th>
               <th className="py-3 px-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Effective Until</th>
               <th className="py-3 px-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+              <th className="py-3 px-4 text-xs font-bold text-muted-foreground uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             {timeline.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-6 px-4 text-sm text-muted-foreground text-center">
+                <td colSpan={5} className="py-6 px-4 text-sm text-muted-foreground text-center">
                   No custom schedule assignments. The employee currently follows the default office schedule.
                 </td>
               </tr>
             ) : (
-              timeline.map(item => (
-                <tr key={item.id}>
-                  <td className="py-3 px-4 text-sm font-medium text-foreground">{item.scheduleName}</td>
-                  <td className="py-3 px-4 text-sm text-muted-foreground">
-                    {format(new Date(item.effectiveFrom), 'yyyy/MM/dd')}
-                  </td>
-                  <td className="py-3 px-4 text-sm text-muted-foreground">
-                    {item.effectiveUntil ? format(new Date(item.effectiveUntil), 'yyyy/MM/dd') : 'Ongoing'}
-                  </td>
-                  <td className="py-3 px-4 text-sm">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {item.status}
-                    </span>
-                  </td>
-                </tr>
-              ))
+              timeline.map(item => {
+                const isUpcoming = item.status === 'Upcoming';
+                const isEditing = editingAssignmentId === item.id;
+
+                return (
+                  <Fragment key={item.id}>
+                    <tr key={item.id}>
+                      <td className="py-3 px-4 text-sm font-medium text-foreground">{item.scheduleName}</td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {format(new Date(item.effectiveFrom), 'yyyy/MM/dd')}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {item.effectiveUntil ? format(new Date(item.effectiveUntil), 'yyyy/MM/dd') : 'Ongoing'}
+                      </td>
+                      <td className="py-3 px-4 text-sm">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {isUpcoming ? (
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setEditingAssignmentId(isEditing ? null : item.id)}
+                              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/40"
+                            >
+                              {isEditing ? 'Cancel' : 'Edit'}
+                            </button>
+                            <form
+                              action={deleteFormAction}
+                              onSubmit={event => {
+                                if (
+                                  !window.confirm(
+                                    'Delete this future schedule entry? If there is a previous custom schedule, it will extend to cover this period.'
+                                  )
+                                ) {
+                                  event.preventDefault();
+                                }
+                              }}
+                            >
+                              <input type="hidden" name="assignmentId" value={item.id} />
+                              <button
+                                type="submit"
+                                disabled={isDeletePending}
+                                className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                              >
+                                Delete
+                              </button>
+                            </form>
+                          </div>
+                        ) : (
+                          'Add a new row from tomorrow to change the active schedule.'
+                        )}
+                      </td>
+                    </tr>
+                    {isEditing && (
+                      <tr key={`${item.id}-edit`} className="bg-muted/10">
+                        <td colSpan={5} className="px-4 py-4">
+                          <form action={editFormAction} className="grid grid-cols-1 gap-4 md:grid-cols-[1fr_220px_auto]">
+                            <input type="hidden" name="assignmentId" value={item.id} />
+                            <div>
+                              <label htmlFor={`edit-officeWorkScheduleId-${item.id}`} className="block font-medium text-foreground mb-1">
+                                Schedule Template
+                              </label>
+                              <select
+                                id={`edit-officeWorkScheduleId-${item.id}`}
+                                name="officeWorkScheduleId"
+                                defaultValue={item.scheduleId}
+                                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground"
+                              >
+                                {scheduleOptions.map(option => (
+                                  <option key={option.id} value={option.id}>
+                                    {option.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div>
+                              <label htmlFor={`edit-effectiveFrom-${item.id}`} className="block font-medium text-foreground mb-1">
+                                Effective From
+                              </label>
+                              <input
+                                type="date"
+                                id={`edit-effectiveFrom-${item.id}`}
+                                name="effectiveFrom"
+                                defaultValue={format(new Date(item.effectiveFrom), 'yyyy-MM-dd')}
+                                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground"
+                              />
+                            </div>
+                            <div className="flex items-end">
+                              <button
+                                type="submit"
+                                disabled={isEditPending}
+                                className="px-4 py-2.5 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
+                              >
+                                {isEditPending ? 'Saving...' : 'Save'}
+                              </button>
+                            </div>
+                          </form>
+                          {editState.message && !editState.success && (
+                            <div className="mt-3 text-sm text-red-600">{editState.message}</div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>

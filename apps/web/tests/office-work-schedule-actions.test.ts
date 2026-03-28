@@ -5,17 +5,21 @@ import {
   createOfficeWorkScheduleAction,
 } from '../app/admin/(authenticated)/office-work-schedules/actions';
 import {
+  deleteEmployeeOfficeWorkScheduleAssignment,
   scheduleEmployeeOfficeWorkSchedule,
   bulkScheduleEmployeeOfficeWorkSchedules,
+  updateEmployeeOfficeWorkScheduleAssignment,
 } from '../app/admin/(authenticated)/employees/actions';
 import { checkSuperAdmin, getAdminIdFromToken, requirePermission } from '@/lib/admin-auth';
 import {
   bulkUpsertFutureOfficeWorkScheduleAssignments,
   createOfficeWorkSchedule,
+  deleteFutureOfficeWorkScheduleAssignment,
   getActiveEmployees,
   getAllOfficeWorkSchedules,
   getDefaultOfficeWorkSchedule,
   scheduleFutureOfficeWorkScheduleAssignment,
+  updateFutureOfficeWorkScheduleAssignment,
   updateOfficeWorkSchedule,
 } from '@repo/database';
 
@@ -28,10 +32,12 @@ jest.mock('@/lib/admin-auth', () => ({
 jest.mock('@repo/database', () => ({
   createOfficeWorkSchedule: jest.fn(),
   bulkUpsertFutureOfficeWorkScheduleAssignments: jest.fn(),
+  deleteFutureOfficeWorkScheduleAssignment: jest.fn(),
   getDefaultOfficeWorkSchedule: jest.fn(),
   getActiveEmployees: jest.fn(),
   getAllOfficeWorkSchedules: jest.fn(),
   scheduleFutureOfficeWorkScheduleAssignment: jest.fn(),
+  updateFutureOfficeWorkScheduleAssignment: jest.fn(),
   updateOfficeWorkSchedule: jest.fn(),
   updateEmployee: jest.fn(),
   getAllEmployees: jest.fn(),
@@ -62,7 +68,7 @@ describe('office work schedule actions', () => {
   ];
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
     (checkSuperAdmin as jest.Mock).mockResolvedValue({ id: 'admin-1' });
     (requirePermission as jest.Mock).mockResolvedValue({ id: 'admin-1' });
     (getAdminIdFromToken as jest.Mock).mockResolvedValue('admin-1');
@@ -134,6 +140,39 @@ describe('office work schedule actions', () => {
       effectiveFrom: new Date('2026-04-05T16:00:00.000Z'),
       actor: { type: 'admin', id: 'admin-1' },
       source: 'single_update',
+    });
+  });
+
+  test('updates an employee office work schedule assignment', async () => {
+    const formData = new FormData();
+    formData.append('officeWorkScheduleId', '550e8400-e29b-41d4-a716-446655440000');
+    formData.append('effectiveFrom', '2026-04-06');
+
+    const result = await updateEmployeeOfficeWorkScheduleAssignment(
+      'employee-1',
+      'assignment-1',
+      { success: false },
+      formData
+    );
+
+    expect(result.success).toBe(true);
+    expect(updateFutureOfficeWorkScheduleAssignment).toHaveBeenCalledWith({
+      assignmentId: 'assignment-1',
+      officeWorkScheduleId: '550e8400-e29b-41d4-a716-446655440000',
+      effectiveFrom: new Date('2026-04-05T16:00:00.000Z'),
+      actor: { type: 'admin', id: 'admin-1' },
+      source: 'timeline_edit',
+    });
+  });
+
+  test('deletes an employee office work schedule assignment', async () => {
+    const result = await deleteEmployeeOfficeWorkScheduleAssignment('employee-1', 'assignment-1');
+
+    expect(result.success).toBe(true);
+    expect(deleteFutureOfficeWorkScheduleAssignment).toHaveBeenCalledWith({
+      assignmentId: 'assignment-1',
+      actor: { type: 'admin', id: 'admin-1' },
+      source: 'timeline_delete',
     });
   });
 

@@ -40,6 +40,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
 
       return {
         id: assignment.id,
+        scheduleId: assignment.officeWorkSchedule.id,
         scheduleName: assignment.officeWorkSchedule.name,
         effectiveFrom: assignment.effectiveFrom.toISOString(),
         effectiveUntil: assignment.effectiveUntil ? assignment.effectiveUntil.toISOString() : null,

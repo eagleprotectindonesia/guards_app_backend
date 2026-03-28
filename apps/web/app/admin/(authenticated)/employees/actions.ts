@@ -31,7 +31,9 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 import { applyEmployeeVisibilityScope } from '@/lib/auth/admin-visibility';
 import {
   bulkUpsertFutureOfficeWorkScheduleAssignments,
+  deleteFutureOfficeWorkScheduleAssignment,
   scheduleFutureOfficeWorkScheduleAssignment,
+  updateFutureOfficeWorkScheduleAssignment,
 } from '@repo/database';
 
 const BULK_OFFICE_SCHEDULE_HEADERS = ['employee_number', 'schedule_name', 'effective_from'] as const;
@@ -223,6 +225,82 @@ export async function scheduleEmployeeOfficeWorkSchedule(
 
   revalidatePath(`/admin/employees/${employeeId}/edit`);
   return { success: true, message: 'Employee schedule change saved successfully.' };
+}
+
+export async function updateEmployeeOfficeWorkScheduleAssignment(
+  employeeId: string,
+  assignmentId: string,
+  prevState: ActionState<CreateEmployeeOfficeWorkScheduleAssignmentInput>,
+  formData: FormData
+): Promise<ActionState<CreateEmployeeOfficeWorkScheduleAssignmentInput>> {
+  await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
+  const adminId = await getAdminIdFromToken();
+
+  const validatedFields = createEmployeeOfficeWorkScheduleAssignmentSchema.safeParse({
+    officeWorkScheduleId: formData.get('officeWorkScheduleId'),
+    effectiveFrom: formData.get('effectiveFrom'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Invalid input. Failed to update employee office schedule.',
+      success: false,
+    };
+  }
+
+  const effectiveFrom = new Date(`${validatedFields.data.effectiveFrom}T00:00:00+08:00`);
+  if (Number.isNaN(effectiveFrom.getTime())) {
+    return {
+      errors: { effectiveFrom: ['Effective date is invalid'] },
+      message: 'Invalid input. Failed to update employee office schedule.',
+      success: false,
+    };
+  }
+
+  try {
+    await updateFutureOfficeWorkScheduleAssignment({
+      assignmentId,
+      officeWorkScheduleId: validatedFields.data.officeWorkScheduleId,
+      effectiveFrom,
+      actor: adminId ? { type: 'admin', id: adminId } : { type: 'unknown' },
+      source: 'timeline_edit',
+    });
+  } catch (error) {
+    console.error('Database Error:', error);
+    return {
+      message: error instanceof Error ? error.message : 'Database Error: Failed to update employee office schedule.',
+      success: false,
+    };
+  }
+
+  revalidatePath(`/admin/employees/${employeeId}/edit`);
+  return { success: true, message: 'Employee schedule assignment updated successfully.' };
+}
+
+export async function deleteEmployeeOfficeWorkScheduleAssignment(
+  employeeId: string,
+  assignmentId: string
+): Promise<{ success: boolean; message?: string }> {
+  await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
+  const adminId = await getAdminIdFromToken();
+
+  try {
+    await deleteFutureOfficeWorkScheduleAssignment({
+      assignmentId,
+      actor: adminId ? { type: 'admin', id: adminId } : { type: 'unknown' },
+      source: 'timeline_delete',
+    });
+  } catch (error) {
+    console.error('Database Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Database Error: Failed to delete employee office schedule.',
+    };
+  }
+
+  revalidatePath(`/admin/employees/${employeeId}/edit`);
+  return { success: true, message: 'Employee schedule assignment deleted successfully.' };
 }
 
 export async function bulkScheduleEmployeeOfficeWorkSchedules(

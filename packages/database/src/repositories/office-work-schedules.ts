@@ -413,12 +413,16 @@ async function logOfficeScheduleAssignmentChange(
   params: {
     employeeId: string;
     previousSchedule?: { id: string; name: string } | null;
-    nextSchedule: { id: string; name: string };
+    nextSchedule?: { id: string; name: string } | null;
     effectiveFrom: Date;
     effectiveUntil?: Date | null;
-    action: 'CREATE' | 'UPDATE';
-    operationType: 'create_future_assignment' | 'replace_same_date_assignment';
-    source: 'single_update' | 'bulk_import';
+    action: 'CREATE' | 'UPDATE' | 'DELETE';
+    operationType:
+      | 'create_future_assignment'
+      | 'replace_same_date_assignment'
+      | 'update_future_assignment'
+      | 'delete_future_assignment';
+    source: 'single_update' | 'bulk_import' | 'timeline_edit' | 'timeline_delete';
     actor?: OfficeScheduleAuditActor;
   }
 ) {
@@ -449,8 +453,8 @@ async function logOfficeScheduleAssignmentChange(
         employeeNumber: employee.employeeNumber,
         previousScheduleId: params.previousSchedule?.id ?? null,
         previousScheduleName: params.previousSchedule?.name ?? null,
-        nextScheduleId: params.nextSchedule.id,
-        nextScheduleName: params.nextSchedule.name,
+        nextScheduleId: params.nextSchedule?.id ?? null,
+        nextScheduleName: params.nextSchedule?.name ?? null,
         effectiveFrom: params.effectiveFrom.toISOString(),
         effectiveUntil: params.effectiveUntil?.toISOString() ?? null,
         operationType: params.operationType,
@@ -458,11 +462,11 @@ async function logOfficeScheduleAssignmentChange(
         changes: {
           officeWorkScheduleName: {
             from: params.previousSchedule?.name ?? null,
-            to: params.nextSchedule.name,
+            to: params.nextSchedule?.name ?? null,
           },
           officeWorkScheduleId: {
             from: params.previousSchedule?.id ?? null,
-            to: params.nextSchedule.id,
+            to: params.nextSchedule?.id ?? null,
           },
         },
       },
@@ -524,16 +528,153 @@ export async function analyzeFutureOfficeWorkScheduleAssignment(params: {
   };
 }
 
+async function getOfficeWorkScheduleAssignmentById(
+  assignmentId: string,
+  client: AssignmentClient = prisma
+) {
+  return client.employeeOfficeWorkScheduleAssignment.findFirst({
+    where: { id: assignmentId },
+    include: {
+      officeWorkSchedule: {
+        select: { id: true, name: true },
+      },
+    },
+  });
+}
+
+async function getAdjacentOfficeWorkScheduleAssignments(
+  employeeId: string,
+  effectiveFrom: Date,
+  options?: {
+    excludeAssignmentId?: string;
+  },
+  client: AssignmentClient = prisma
+) {
+  const exclusion = options?.excludeAssignmentId ? { id: { not: options.excludeAssignmentId } } : {};
+
+  const previousAssignment = await client.employeeOfficeWorkScheduleAssignment.findFirst({
+    where: {
+      employeeId,
+      ...exclusion,
+      effectiveFrom: { lt: effectiveFrom },
+      OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: effectiveFrom } }],
+    },
+    orderBy: {
+      effectiveFrom: 'desc',
+    },
+  });
+
+  const nextAssignment = await client.employeeOfficeWorkScheduleAssignment.findFirst({
+    where: {
+      employeeId,
+      ...exclusion,
+      effectiveFrom: { gt: effectiveFrom },
+    },
+    orderBy: {
+      effectiveFrom: 'asc',
+    },
+  });
+
+  return { previousAssignment, nextAssignment };
+}
+
+async function getDeleteAdjacentOfficeWorkScheduleAssignments(
+  employeeId: string,
+  effectiveFrom: Date,
+  options?: {
+    excludeAssignmentId?: string;
+  },
+  client: AssignmentClient = prisma
+) {
+  const exclusion = options?.excludeAssignmentId ? { id: { not: options.excludeAssignmentId } } : {};
+
+  const previousAssignment = await client.employeeOfficeWorkScheduleAssignment.findFirst({
+    where: {
+      employeeId,
+      ...exclusion,
+      effectiveFrom: { lt: effectiveFrom },
+    },
+    orderBy: {
+      effectiveFrom: 'desc',
+    },
+  });
+
+  const nextAssignment = await client.employeeOfficeWorkScheduleAssignment.findFirst({
+    where: {
+      employeeId,
+      ...exclusion,
+      effectiveFrom: { gt: effectiveFrom },
+    },
+    orderBy: {
+      effectiveFrom: 'asc',
+    },
+  });
+
+  return { previousAssignment, nextAssignment };
+}
+
+async function getEditDetachAdjacentOfficeWorkScheduleAssignments(
+  employeeId: string,
+  effectiveFrom: Date,
+  options?: {
+    excludeAssignmentId?: string;
+  },
+  client: AssignmentClient = prisma
+) {
+  const exclusion = options?.excludeAssignmentId ? { id: { not: options.excludeAssignmentId } } : {};
+
+  const previousAssignment = await client.employeeOfficeWorkScheduleAssignment.findFirst({
+    where: {
+      employeeId,
+      ...exclusion,
+      effectiveFrom: { lt: effectiveFrom },
+    },
+    orderBy: {
+      effectiveFrom: 'desc',
+    },
+  });
+
+  const nextAssignment = await client.employeeOfficeWorkScheduleAssignment.findFirst({
+    where: {
+      employeeId,
+      ...exclusion,
+      effectiveFrom: { gt: effectiveFrom },
+    },
+    orderBy: {
+      effectiveFrom: 'asc',
+    },
+  });
+
+  return { previousAssignment, nextAssignment };
+}
+
+async function getExactOfficeWorkScheduleAssignmentForDate(
+  employeeId: string,
+  effectiveFrom: Date,
+  options?: {
+    excludeAssignmentId?: string;
+  },
+  client: AssignmentClient = prisma
+) {
+  return client.employeeOfficeWorkScheduleAssignment.findFirst({
+    where: {
+      employeeId,
+      effectiveFrom,
+      ...(options?.excludeAssignmentId ? { id: { not: options.excludeAssignmentId } } : {}),
+    },
+  });
+}
+
 async function assertNoAssignmentOverlap(params: {
   employeeId: string;
   effectiveFrom: Date;
   effectiveUntil?: Date | null;
-  excludeAssignmentId?: string;
+  excludeAssignmentIds?: string[];
 }, client: AssignmentClient = prisma) {
   const overlapping = await client.employeeOfficeWorkScheduleAssignment.findFirst({
     where: {
       employeeId: params.employeeId,
-      ...(params.excludeAssignmentId ? { id: { not: params.excludeAssignmentId } } : {}),
+      ...(params.excludeAssignmentIds?.length ? { id: { notIn: params.excludeAssignmentIds } } : {}),
       effectiveFrom: { lt: params.effectiveUntil ?? new Date('9999-12-31T00:00:00.000Z') },
       OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: params.effectiveFrom } }],
     },
@@ -585,7 +726,7 @@ async function createFutureOfficeWorkScheduleAssignment(
     employeeId,
     effectiveFrom,
     effectiveUntil: nextAssignment?.effectiveFrom ?? null,
-    excludeAssignmentId: currentOrPrevious?.id,
+    excludeAssignmentIds: currentOrPrevious?.id ? [currentOrPrevious.id] : [],
   }, client);
 
   if (currentOrPrevious) {
@@ -804,6 +945,184 @@ export async function bulkUpsertFutureOfficeWorkScheduleAssignments(
     }
 
     return results;
+  });
+}
+
+export async function updateFutureOfficeWorkScheduleAssignment(params: {
+  assignmentId: string;
+  officeWorkScheduleId: string;
+  effectiveFrom: Date;
+  actor?: OfficeScheduleAuditActor;
+  source?: 'timeline_edit';
+}) {
+  const referenceDate = new Date();
+
+  return prisma.$transaction(async tx => {
+    const assignment = await getOfficeWorkScheduleAssignmentById(params.assignmentId, tx);
+
+    if (!assignment) {
+      throw new Error('Office work schedule assignment not found');
+    }
+
+    if (assignment.effectiveFrom <= referenceDate) {
+      throw new Error('Only upcoming office schedule assignments can be edited');
+    }
+
+    if (
+      assignment.officeWorkScheduleId === params.officeWorkScheduleId &&
+      isSameEffectiveDate(assignment.effectiveFrom, params.effectiveFrom)
+    ) {
+      return assignment;
+    }
+
+    const conflictingAssignment = await getExactOfficeWorkScheduleAssignmentForDate(
+      assignment.employeeId,
+      params.effectiveFrom,
+      { excludeAssignmentId: assignment.id },
+      tx
+    );
+
+    if (conflictingAssignment) {
+      throw new Error('Another office schedule assignment already starts on that effective date');
+    }
+
+    const currentNeighbors = await getEditDetachAdjacentOfficeWorkScheduleAssignments(
+      assignment.employeeId,
+      assignment.effectiveFrom,
+      { excludeAssignmentId: assignment.id },
+      tx
+    );
+
+    if (currentNeighbors.previousAssignment) {
+      await tx.employeeOfficeWorkScheduleAssignment.update({
+        where: { id: currentNeighbors.previousAssignment.id },
+        data: {
+          effectiveUntil: assignment.effectiveUntil,
+        },
+      });
+    }
+
+    const newNeighbors = await getAdjacentOfficeWorkScheduleAssignments(
+      assignment.employeeId,
+      params.effectiveFrom,
+      { excludeAssignmentId: assignment.id },
+      tx
+    );
+
+    if (newNeighbors.previousAssignment && params.effectiveFrom < newNeighbors.previousAssignment.effectiveFrom) {
+      throw new Error('Effective date cannot be earlier than the previous assignment start date');
+    }
+
+    await assertNoAssignmentOverlap(
+      {
+        employeeId: assignment.employeeId,
+        effectiveFrom: params.effectiveFrom,
+        effectiveUntil: newNeighbors.nextAssignment?.effectiveFrom ?? null,
+        excludeAssignmentIds: [assignment.id, newNeighbors.previousAssignment?.id].filter(Boolean) as string[],
+      },
+      tx
+    );
+
+    if (newNeighbors.previousAssignment) {
+      await tx.employeeOfficeWorkScheduleAssignment.update({
+        where: { id: newNeighbors.previousAssignment.id },
+        data: {
+          effectiveUntil: params.effectiveFrom,
+        },
+      });
+    }
+
+    const updatedAssignment = await tx.employeeOfficeWorkScheduleAssignment.update({
+      where: { id: assignment.id },
+      data: {
+        officeWorkScheduleId: params.officeWorkScheduleId,
+        effectiveFrom: params.effectiveFrom,
+        effectiveUntil: newNeighbors.nextAssignment?.effectiveFrom ?? null,
+      },
+    });
+
+    const previousSchedule = assignment.officeWorkSchedule;
+    const nextSchedule = await tx.officeWorkSchedule.findUnique({
+      where: { id: params.officeWorkScheduleId },
+      select: { id: true, name: true },
+    });
+
+    if (!nextSchedule) {
+      throw new Error('Office work schedule not found');
+    }
+
+    await logOfficeScheduleAssignmentChange(tx, {
+      employeeId: assignment.employeeId,
+      previousSchedule,
+      nextSchedule,
+      effectiveFrom: updatedAssignment.effectiveFrom,
+      effectiveUntil: updatedAssignment.effectiveUntil,
+      action: 'UPDATE',
+      operationType: 'update_future_assignment',
+      source: params.source ?? 'timeline_edit',
+      actor: params.actor,
+    });
+
+    return updatedAssignment;
+  });
+}
+
+export async function deleteFutureOfficeWorkScheduleAssignment(params: {
+  assignmentId: string;
+  actor?: OfficeScheduleAuditActor;
+  source?: 'timeline_delete';
+}) {
+  const referenceDate = new Date();
+
+  return prisma.$transaction(async tx => {
+    const assignment = await getOfficeWorkScheduleAssignmentById(params.assignmentId, tx);
+
+    if (!assignment) {
+      throw new Error('Office work schedule assignment not found');
+    }
+
+    if (assignment.effectiveFrom <= referenceDate) {
+      throw new Error('Only upcoming office schedule assignments can be deleted');
+    }
+
+    const neighbors = await getDeleteAdjacentOfficeWorkScheduleAssignments(
+      assignment.employeeId,
+      assignment.effectiveFrom,
+      { excludeAssignmentId: assignment.id },
+      tx
+    );
+
+    if (neighbors.previousAssignment) {
+      await tx.employeeOfficeWorkScheduleAssignment.update({
+        where: { id: neighbors.previousAssignment.id },
+        data: {
+          effectiveUntil: assignment.effectiveUntil,
+        },
+      });
+    }
+
+    await tx.employeeOfficeWorkScheduleAssignment.delete({
+      where: { id: assignment.id },
+    });
+
+    await logOfficeScheduleAssignmentChange(tx, {
+      employeeId: assignment.employeeId,
+      previousSchedule: assignment.officeWorkSchedule,
+      nextSchedule: neighbors.previousAssignment
+        ? await tx.officeWorkSchedule.findUnique({
+            where: { id: neighbors.previousAssignment.officeWorkScheduleId },
+            select: { id: true, name: true },
+          })
+        : null,
+      effectiveFrom: assignment.effectiveFrom,
+      effectiveUntil: assignment.effectiveUntil,
+      action: 'DELETE',
+      operationType: 'delete_future_assignment',
+      source: params.source ?? 'timeline_delete',
+      actor: params.actor,
+    });
+
+    return assignment;
   });
 }
 
