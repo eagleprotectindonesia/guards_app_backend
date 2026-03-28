@@ -220,7 +220,10 @@ export default function EmployeeList({
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-left">
                   Department / Job Title
                 </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Office</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Office /<br />
+                  Work Schedule
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
                   Status
                 </th>
@@ -280,7 +283,7 @@ export default function EmployeeList({
                         >
                           <Key className="w-4 h-4" />
                         </button>
-                        {canEdit && (
+                        {canEdit && employee.role === 'office' && (
                           <Link
                             href={`/admin/employees/${employee.id}/edit`}
                             className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"

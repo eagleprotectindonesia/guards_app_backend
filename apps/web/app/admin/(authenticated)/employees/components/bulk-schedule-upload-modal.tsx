@@ -92,6 +92,9 @@ export default function BulkScheduleUploadModal({ isOpen, onClose }: BulkSchedul
             Import is all-or-nothing. Exact same-date schedule matches are ignored, same-date schedule changes are
             updated, and more complex future timeline conflicts must be fixed manually first.
           </p>
+          <p className="text-xs text-muted-foreground">
+            <strong>effective_from format:</strong> YYYY-MM-DD (e.g., 2026-04-01)
+          </p>
         </div>
 
         <div>
