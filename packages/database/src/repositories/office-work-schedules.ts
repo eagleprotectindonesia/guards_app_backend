@@ -344,8 +344,75 @@ export async function listOfficeWorkScheduleAssignments(employeeId: string) {
 
 type AssignmentClient = Prisma.TransactionClient | typeof prisma;
 
+type OfficeScheduleAuditActor =
+  | { type: 'admin'; id: string }
+  | { type: 'system'; id?: string | null }
+  | { type: 'unknown'; id?: string | null };
+
 function isSameEffectiveDate(left: Date, right: Date) {
   return left.getTime() === right.getTime();
+}
+
+async function logOfficeScheduleAssignmentChange(
+  client: AssignmentClient,
+  params: {
+    employeeId: string;
+    previousSchedule?: { id: string; name: string } | null;
+    nextSchedule: { id: string; name: string };
+    effectiveFrom: Date;
+    effectiveUntil?: Date | null;
+    action: 'CREATE' | 'UPDATE';
+    operationType: 'create_future_assignment' | 'replace_same_date_assignment';
+    source: 'single_update' | 'bulk_import';
+    actor?: OfficeScheduleAuditActor;
+  }
+) {
+  const employee = await client.employee.findUnique({
+    where: { id: params.employeeId },
+    select: {
+      id: true,
+      fullName: true,
+      employeeNumber: true,
+    },
+  });
+
+  if (!employee) {
+    throw new Error('Employee not found for office work schedule audit log');
+  }
+
+  await client.changelog.create({
+    data: {
+      action: params.action,
+      entityType: 'Employee',
+      entityId: employee.id,
+      actor: (params.actor?.type ?? 'unknown') as 'admin' | 'system' | 'unknown',
+      actorId: params.actor?.type === 'admin' ? params.actor.id : params.actor?.id ?? null,
+      details: {
+        name: 'Office Schedule Assignment',
+        changeCategory: 'officeWorkScheduleAssignment',
+        employeeName: employee.fullName,
+        employeeNumber: employee.employeeNumber,
+        previousScheduleId: params.previousSchedule?.id ?? null,
+        previousScheduleName: params.previousSchedule?.name ?? null,
+        nextScheduleId: params.nextSchedule.id,
+        nextScheduleName: params.nextSchedule.name,
+        effectiveFrom: params.effectiveFrom.toISOString(),
+        effectiveUntil: params.effectiveUntil?.toISOString() ?? null,
+        operationType: params.operationType,
+        source: params.source,
+        changes: {
+          officeWorkScheduleName: {
+            from: params.previousSchedule?.name ?? null,
+            to: params.nextSchedule.name,
+          },
+          officeWorkScheduleId: {
+            from: params.previousSchedule?.id ?? null,
+            to: params.nextSchedule.id,
+          },
+        },
+      },
+    },
+  });
 }
 
 export async function analyzeFutureOfficeWorkScheduleAssignment(params: {
@@ -488,6 +555,8 @@ export async function scheduleFutureOfficeWorkScheduleAssignment(params: {
   employeeId: string;
   officeWorkScheduleId: string;
   effectiveFrom: Date;
+  actor?: OfficeScheduleAuditActor;
+  source?: 'single_update' | 'bulk_import';
 }) {
   const analysis = await analyzeFutureOfficeWorkScheduleAssignment(params);
 
@@ -500,15 +569,67 @@ export async function scheduleFutureOfficeWorkScheduleAssignment(params: {
   }
 
   if (analysis.mode === 'replace' && analysis.exactAssignment) {
-    return prisma.employeeOfficeWorkScheduleAssignment.update({
+    const nextSchedule = await prisma.officeWorkSchedule.findUnique({
+      where: { id: params.officeWorkScheduleId },
+      select: { id: true, name: true },
+    });
+
+    if (!nextSchedule) {
+      throw new Error('Office work schedule not found');
+    }
+
+    const previousSchedule = await prisma.officeWorkSchedule.findUnique({
+      where: { id: analysis.exactAssignment.officeWorkScheduleId },
+      select: { id: true, name: true },
+    });
+
+    const updatedAssignment = await prisma.employeeOfficeWorkScheduleAssignment.update({
       where: { id: analysis.exactAssignment.id },
       data: {
         officeWorkScheduleId: params.officeWorkScheduleId,
       },
     });
+
+    await logOfficeScheduleAssignmentChange(prisma, {
+      employeeId: params.employeeId,
+      previousSchedule,
+      nextSchedule,
+      effectiveFrom: params.effectiveFrom,
+      effectiveUntil: updatedAssignment.effectiveUntil,
+      action: 'UPDATE',
+      operationType: 'replace_same_date_assignment',
+      source: params.source ?? 'single_update',
+      actor: params.actor,
+    });
+
+    return updatedAssignment;
   }
 
-  return prisma.$transaction(async tx => createFutureOfficeWorkScheduleAssignment(tx, params));
+  return prisma.$transaction(async tx => {
+    const createdAssignment = await createFutureOfficeWorkScheduleAssignment(tx, params);
+    const nextSchedule = await tx.officeWorkSchedule.findUnique({
+      where: { id: params.officeWorkScheduleId },
+      select: { id: true, name: true },
+    });
+
+    if (!nextSchedule) {
+      throw new Error('Office work schedule not found');
+    }
+
+    await logOfficeScheduleAssignmentChange(tx, {
+      employeeId: params.employeeId,
+      previousSchedule: null,
+      nextSchedule,
+      effectiveFrom: params.effectiveFrom,
+      effectiveUntil: createdAssignment.effectiveUntil,
+      action: 'CREATE',
+      operationType: 'create_future_assignment',
+      source: params.source ?? 'single_update',
+      actor: params.actor,
+    });
+
+    return createdAssignment;
+  });
 }
 
 export async function bulkUpsertFutureOfficeWorkScheduleAssignments(
@@ -516,7 +637,11 @@ export async function bulkUpsertFutureOfficeWorkScheduleAssignments(
     employeeId: string;
     officeWorkScheduleId: string;
     effectiveFrom: Date;
-  }>
+  }>,
+  options?: {
+    actor?: OfficeScheduleAuditActor;
+    source?: 'single_update' | 'bulk_import';
+  }
 ) {
   return prisma.$transaction(async tx => {
     const results = [];
@@ -534,17 +659,64 @@ export async function bulkUpsertFutureOfficeWorkScheduleAssignments(
       }
 
       if (analysis.mode === 'replace' && analysis.exactAssignment) {
+        const previousSchedule = await tx.officeWorkSchedule.findUnique({
+          where: { id: analysis.exactAssignment.officeWorkScheduleId },
+          select: { id: true, name: true },
+        });
+        const nextSchedule = await tx.officeWorkSchedule.findUnique({
+          where: { id: assignment.officeWorkScheduleId },
+          select: { id: true, name: true },
+        });
+
+        if (!nextSchedule) {
+          throw new Error('Office work schedule not found');
+        }
+
         const updated = await tx.employeeOfficeWorkScheduleAssignment.update({
           where: { id: analysis.exactAssignment.id },
           data: {
             officeWorkScheduleId: assignment.officeWorkScheduleId,
           },
         });
+
+        await logOfficeScheduleAssignmentChange(tx, {
+          employeeId: assignment.employeeId,
+          previousSchedule,
+          nextSchedule,
+          effectiveFrom: assignment.effectiveFrom,
+          effectiveUntil: updated.effectiveUntil,
+          action: 'UPDATE',
+          operationType: 'replace_same_date_assignment',
+          source: options?.source ?? 'bulk_import',
+          actor: options?.actor,
+        });
+
         results.push(updated);
         continue;
       }
 
       const created = await createFutureOfficeWorkScheduleAssignment(tx, assignment);
+      const nextSchedule = await tx.officeWorkSchedule.findUnique({
+        where: { id: assignment.officeWorkScheduleId },
+        select: { id: true, name: true },
+      });
+
+      if (!nextSchedule) {
+        throw new Error('Office work schedule not found');
+      }
+
+      await logOfficeScheduleAssignmentChange(tx, {
+        employeeId: assignment.employeeId,
+        previousSchedule: null,
+        nextSchedule,
+        effectiveFrom: assignment.effectiveFrom,
+        effectiveUntil: created.effectiveUntil,
+        action: 'CREATE',
+        operationType: 'create_future_assignment',
+        source: options?.source ?? 'bulk_import',
+        actor: options?.actor,
+      });
+
       results.push(created);
     }
 

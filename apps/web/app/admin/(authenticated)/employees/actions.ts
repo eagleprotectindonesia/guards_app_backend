@@ -181,6 +181,7 @@ export async function scheduleEmployeeOfficeWorkSchedule(
   formData: FormData
 ): Promise<ActionState<CreateEmployeeOfficeWorkScheduleAssignmentInput>> {
   await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
+  const adminId = await getAdminIdFromToken();
 
   const validatedFields = createEmployeeOfficeWorkScheduleAssignmentSchema.safeParse({
     officeWorkScheduleId: formData.get('officeWorkScheduleId'),
@@ -209,6 +210,8 @@ export async function scheduleEmployeeOfficeWorkSchedule(
       employeeId,
       officeWorkScheduleId: validatedFields.data.officeWorkScheduleId,
       effectiveFrom,
+      actor: adminId ? { type: 'admin', id: adminId } : { type: 'unknown' },
+      source: 'single_update',
     });
   } catch (error) {
     console.error('Database Error:', error);
@@ -226,6 +229,7 @@ export async function bulkScheduleEmployeeOfficeWorkSchedules(
   formData: FormData
 ): Promise<{ success: boolean; message?: string; errors?: string[] }> {
   await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
+  const adminId = await getAdminIdFromToken();
 
   const file = formData.get('file') as File | null;
   if (!file) {
@@ -346,7 +350,10 @@ export async function bulkScheduleEmployeeOfficeWorkSchedules(
   }
 
   try {
-    await bulkUpsertFutureOfficeWorkScheduleAssignments(assignments);
+    await bulkUpsertFutureOfficeWorkScheduleAssignments(assignments, {
+      actor: adminId ? { type: 'admin', id: adminId } : { type: 'unknown' },
+      source: 'bulk_import',
+    });
   } catch (error) {
     console.error('Bulk office schedule import error:', error);
     return {

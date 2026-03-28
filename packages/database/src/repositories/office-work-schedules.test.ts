@@ -11,6 +11,12 @@ jest.mock('../prisma/client', () => ({
     systemSetting: {
       findUnique: jest.fn(),
     },
+    employee: {
+      findUnique: jest.fn(),
+    },
+    changelog: {
+      create: jest.fn(),
+    },
     officeWorkSchedule: {
       findUnique: jest.fn(),
     },
@@ -27,6 +33,12 @@ jest.mock('../prisma/client', () => ({
 describe('office work schedules', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (prisma.employee.findUnique as jest.Mock).mockImplementation(async ({ where }: { where: { id: string } }) => ({
+      id: where.id,
+      fullName: where.id === 'employee-2' ? 'Employee Two' : 'Employee One',
+      employeeNumber: where.id === 'employee-2' ? 'EMP002' : 'EMP001',
+    }));
+    (prisma.changelog.create as jest.Mock).mockResolvedValue({});
   });
 
   test('resolves employee assignment for the requested date before default schedule', async () => {
@@ -84,6 +96,10 @@ describe('office work schedules', () => {
       effectiveFrom,
       effectiveUntil: null,
     });
+    (prisma.officeWorkSchedule.findUnique as jest.Mock).mockResolvedValue({
+      id: 'schedule-new',
+      name: 'Schedule New',
+    });
 
     const result = await scheduleFutureOfficeWorkScheduleAssignment({
       employeeId: 'employee-2',
@@ -106,6 +122,19 @@ describe('office work schedules', () => {
       id: 'assignment-future',
       officeWorkScheduleId: 'schedule-new',
     });
+    expect(prisma.changelog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: 'CREATE',
+        entityType: 'Employee',
+        entityId: 'employee-2',
+        details: expect.objectContaining({
+          name: 'Office Schedule Assignment',
+          nextScheduleName: 'Schedule New',
+          operationType: 'create_future_assignment',
+          source: 'single_update',
+        }),
+      }),
+    });
   });
 
   test('treats same-date same-schedule future assignment as a no-op', async () => {
@@ -119,6 +148,7 @@ describe('office work schedules', () => {
     };
 
     (prisma.employeeOfficeWorkScheduleAssignment.findMany as jest.Mock).mockResolvedValue([existingAssignment]);
+    (prisma.changelog.create as jest.Mock).mockClear();
 
     const result = await analyzeFutureOfficeWorkScheduleAssignment({
       employeeId: 'employee-1',
@@ -129,6 +159,7 @@ describe('office work schedules', () => {
 
     expect(result.mode).toBe('noop');
     expect(result.exactAssignment).toEqual(existingAssignment);
+    expect(prisma.changelog.create).not.toHaveBeenCalled();
   });
 
   test('replaces same-date future assignment when schedule changes', async () => {
@@ -146,6 +177,9 @@ describe('office work schedules', () => {
       ...existingAssignment,
       officeWorkScheduleId: 'schedule-new',
     });
+    (prisma.officeWorkSchedule.findUnique as jest.Mock)
+      .mockResolvedValueOnce({ id: 'schedule-new', name: 'Schedule New' })
+      .mockResolvedValueOnce({ id: 'schedule-old', name: 'Schedule Old' });
 
     const result = await scheduleFutureOfficeWorkScheduleAssignment({
       employeeId: 'employee-1',
@@ -161,6 +195,19 @@ describe('office work schedules', () => {
     expect(result).toMatchObject({
       id: 'assignment-future',
       officeWorkScheduleId: 'schedule-new',
+    });
+    expect(prisma.changelog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: 'UPDATE',
+        entityType: 'Employee',
+        entityId: 'employee-1',
+        details: expect.objectContaining({
+          previousScheduleName: 'Schedule Old',
+          nextScheduleName: 'Schedule New',
+          operationType: 'replace_same_date_assignment',
+          source: 'single_update',
+        }),
+      }),
     });
   });
 
@@ -193,5 +240,6 @@ describe('office work schedules', () => {
         },
       ])
     ).rejects.toThrow('A future office work schedule assignment on a different effective date already exists');
+    expect(prisma.changelog.create).not.toHaveBeenCalled();
   });
 });

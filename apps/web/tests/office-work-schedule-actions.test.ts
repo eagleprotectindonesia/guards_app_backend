@@ -8,7 +8,7 @@ import {
   scheduleEmployeeOfficeWorkSchedule,
   bulkScheduleEmployeeOfficeWorkSchedules,
 } from '../app/admin/(authenticated)/employees/actions';
-import { checkSuperAdmin, requirePermission } from '@/lib/admin-auth';
+import { checkSuperAdmin, getAdminIdFromToken, requirePermission } from '@/lib/admin-auth';
 import {
   bulkUpsertFutureOfficeWorkScheduleAssignments,
   createOfficeWorkSchedule,
@@ -65,6 +65,7 @@ describe('office work schedule actions', () => {
     jest.clearAllMocks();
     (checkSuperAdmin as jest.Mock).mockResolvedValue({ id: 'admin-1' });
     (requirePermission as jest.Mock).mockResolvedValue({ id: 'admin-1' });
+    (getAdminIdFromToken as jest.Mock).mockResolvedValue('admin-1');
   });
 
   test('updates the default office work schedule from structured weekday data', async () => {
@@ -114,6 +115,8 @@ describe('office work schedule actions', () => {
       employeeId: 'employee-1',
       officeWorkScheduleId: '550e8400-e29b-41d4-a716-446655440000',
       effectiveFrom: new Date('2026-03-29T16:00:00.000Z'),
+      actor: { type: 'admin', id: 'admin-1' },
+      source: 'single_update',
     });
   });
 
@@ -149,7 +152,10 @@ describe('office work schedule actions', () => {
         officeWorkScheduleId: 'schedule-1',
         effectiveFrom: new Date('2026-03-29T16:00:00.000Z'),
       },
-    ]);
+    ], {
+      actor: { type: 'admin', id: 'admin-1' },
+      source: 'bulk_import',
+    });
   });
 
   test('rejects bulk office work schedule csv with multiple future dates for one employee', async () => {
