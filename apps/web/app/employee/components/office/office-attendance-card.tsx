@@ -22,15 +22,16 @@ export function OfficeAttendanceCard({ office, onAttendanceRecorded }: OfficeAtt
   const { data, refetch: refetchAttendance } = useOfficeAttendance();
   const todayAttendances = data?.attendances;
   const scheduleContext = data?.scheduleContext;
-  const scheduleDisplay = getOfficeScheduleDisplayState(scheduleContext);
+  const attendanceState = data?.attendanceState;
+  const scheduleDisplay = getOfficeScheduleDisplayState(scheduleContext, attendanceState);
   
   const recordMutation = useRecordOfficeAttendance();
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
 
-  const lastAttendance = todayAttendances?.[0];
-  const isClockedIn = lastAttendance && lastAttendance.status !== 'clocked_out';
-  const hasClockedOut = lastAttendance && lastAttendance.status === 'clocked_out';
+  const latestAttendance = scheduleDisplay.latestAttendance ?? todayAttendances?.[0];
+  const isClockedIn = scheduleDisplay.isClockedIn;
+  const hasClockedOut = scheduleDisplay.isCompleted;
 
   const handleRecordAttendance = async (status: 'present' | 'clocked_out') => {
     setMessage('');
@@ -132,7 +133,7 @@ export function OfficeAttendanceCard({ office, onAttendanceRecorded }: OfficeAtt
               <CheckCircle2 className="w-6 h-6" />
               <div className="flex flex-col">
                 <span className="text-sm opacity-80">{t('officeAttendance.clockedIn', { defaultValue: 'Clocked In At' })}</span>
-                <span className="text-xl font-bold font-mono">{format(new Date(lastAttendance.recordedAt), 'HH:mm:ss')}</span>
+                <span className="text-xl font-bold font-mono">{latestAttendance ? format(new Date(latestAttendance.recordedAt), 'HH:mm:ss') : '--:--:--'}</span>
               </div>
             </div>
 
@@ -158,7 +159,21 @@ export function OfficeAttendanceCard({ office, onAttendanceRecorded }: OfficeAtt
               <CheckCircle2 className="w-6 h-6 text-neutral-500" />
               <div className="flex flex-col">
                 <span className="text-sm opacity-80">{t('officeAttendance.dayCompleted', { defaultValue: 'Day Completed' })}</span>
-                <span className="text-sm text-neutral-500">{t('officeAttendance.clockOutTime', { defaultValue: 'Clock Out:' })} {format(new Date(lastAttendance.recordedAt), 'HH:mm')}</span>
+                <span className="text-sm text-neutral-500">{t('officeAttendance.clockOutTime', { defaultValue: 'Clock Out:' })} {latestAttendance ? format(new Date(latestAttendance.recordedAt), 'HH:mm') : '--:--'}</span>
+              </div>
+            </div>
+          </div>
+        ) : scheduleDisplay.isMissed ? (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl text-amber-300 font-medium">
+              <Clock className="w-6 h-6" />
+              <div className="flex flex-col">
+                <span className="text-sm opacity-80">{t('officeAttendance.missedTitle', { defaultValue: 'Attendance Window Missed' })}</span>
+                <span className="text-sm text-amber-200">
+                  {t('officeAttendance.missedMessage', {
+                    defaultValue: 'The configured office attendance window has ended without a clock-in record.',
+                  })}
+                </span>
               </div>
             </div>
           </div>
@@ -166,7 +181,7 @@ export function OfficeAttendanceCard({ office, onAttendanceRecorded }: OfficeAtt
           <div className="space-y-4">
             <Button
               onClick={() => handleRecordAttendance('present')}
-              disabled={recordMutation.isPending || !scheduleDisplay.isWorkingDay}
+              disabled={recordMutation.isPending || !scheduleDisplay.canClockIn}
               className="w-full h-14 text-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold transition-all shadow-[0_0_20px_rgba(37,99,235,0.3)] disabled:opacity-50 disabled:shadow-none"
             >
               {recordMutation.isPending ? (
@@ -183,6 +198,13 @@ export function OfficeAttendanceCard({ office, onAttendanceRecorded }: OfficeAtt
                 {t('officeAttendance.cannotClockInNonWorkingDay', { defaultValue: 'You can only clock in on a working day.' })}
               </p>
             )}
+            {scheduleDisplay.isAfterEnd && !scheduleDisplay.canClockIn ? (
+              <p className="text-xs text-center text-amber-300">
+                {t('officeAttendance.missedMessage', {
+                  defaultValue: 'The configured office attendance window has ended without a clock-in record.',
+                })}
+              </p>
+            ) : null}
           </div>
         )}
 

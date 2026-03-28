@@ -2,13 +2,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEmployeeApi } from './use-employee-api';
 import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { CheckInWindowResult } from '@/lib/scheduling';
-import { OfficeAttendance } from '@repo/types';
+import type { OfficeAttendance, OfficeAttendanceState } from '@repo/types';
 import type { EmployeeAttendanceCheckinErrorPayload } from '@repo/shared';
 
 export type ShiftWithCheckInWindow = ShiftWithRelationsDto & { checkInWindow?: CheckInWindowResult };
 
 type OfficeAttendanceScheduleContext = {
   isWorkingDay: boolean;
+  isLate?: boolean;
+  isAfterEnd?: boolean;
   scheduledStartStr?: string | null;
   scheduledEndStr?: string | null;
   businessDateStr?: string | null;
@@ -186,7 +188,11 @@ export function useOfficeAttendance() {
       const res = await fetchWithAuth('/api/employee/my/office-attendance/today');
       if (!res.ok) throw new Error('Failed to fetch today office attendance');
       const data = await res.json();
-      return data as { attendances: OfficeAttendance[]; scheduleContext?: OfficeAttendanceScheduleContext };
+      return data as {
+        attendances: OfficeAttendance[];
+        attendanceState?: OfficeAttendanceState;
+        scheduleContext?: OfficeAttendanceScheduleContext;
+      };
     },
   });
 }

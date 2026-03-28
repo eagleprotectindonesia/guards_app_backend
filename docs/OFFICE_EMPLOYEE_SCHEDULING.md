@@ -199,6 +199,7 @@ Clock-in behavior:
 - before start time: allowed
 - after start but before end: allowed and marked late
 - after end time: rejected
+- after end time with no clock-in record for the active office schedule window: the employee-facing `/today` API reports a derived `missed` state
 - for overnight windows, the backend treats the window as spanning into the next calendar day
 
 Clock-out behavior:
@@ -213,6 +214,27 @@ Per employee, per business day:
 - duplicate `present` is rejected
 - duplicate `clocked_out` is rejected
 - once the day is completed, more records are rejected
+
+### Derived Employee App State
+
+The employee PWA and mobile office attendance cards do not persist a separate "missed" office attendance row.
+
+Instead, the backend derives the card state from:
+- the resolved office work schedule window
+- whether the current time is after the window end
+- whether any office attendance has been recorded in that active window
+
+Current derived states exposed by `/api/employee/my/office-attendance/today`:
+- `non_working_day`
+- `available`
+- `missed`
+- `clocked_in`
+- `completed`
+
+Meaning of `missed`:
+- the resolved day/window is a working window
+- the window end has passed
+- no `present` office attendance exists for that active window
 
 ### Late Metadata
 

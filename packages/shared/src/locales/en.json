@@ -213,6 +213,8 @@
     "clockIn": "Clock In",
     "clockOut": "Clock Out",
     "dayCompleted": "Day Completed",
+    "missedTitle": "Attendance Window Missed",
+    "missedMessage": "The configured office attendance window has ended without a clock-in record.",
     "clockOutTime": "Clock Out:",
     "clockOutSuccess": "Successfully clocked out",
     "cannotClockInNonWorkingDay": "You can only clock in on a working day.",

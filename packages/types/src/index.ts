@@ -95,6 +95,22 @@ export interface OfficeAttendance {
   employee?: Employee | null;
 }
 
+export type OfficeAttendanceWindowStatus =
+  | 'non_working_day'
+  | 'available'
+  | 'missed'
+  | 'clocked_in'
+  | 'completed';
+
+export interface OfficeAttendanceState {
+  status: OfficeAttendanceWindowStatus;
+  canClockIn: boolean;
+  canClockOut: boolean;
+  windowClosed: boolean;
+  messageCode?: string | null;
+  latestAttendance?: OfficeAttendance | null;
+}
+
 export interface OfficeWorkScheduleDay {
   id: string;
   scheduleId: string;

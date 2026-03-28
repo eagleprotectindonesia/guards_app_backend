@@ -1,11 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { OfficeAttendance } from '@repo/types';
+import type { OfficeAttendance, OfficeAttendanceState } from '@repo/types';
 import { client } from '../api/client';
 import { queryKeys } from '../api/queryKeys';
 import { useAuth } from '../contexts/AuthContext';
 
 export type MobileOfficeAttendanceScheduleContext = {
   isWorkingDay: boolean;
+  isLate?: boolean;
+  isAfterEnd?: boolean;
   scheduledStartStr?: string | null;
   scheduledEndStr?: string | null;
   businessDateStr?: string | null;
@@ -21,6 +23,7 @@ export type MobileOfficeAttendanceScheduleContext = {
 
 export type OfficeAttendanceTodayResponse = {
   attendances: OfficeAttendance[];
+  attendanceState?: OfficeAttendanceState;
   scheduleContext?: MobileOfficeAttendanceScheduleContext;
 };
 

@@ -1,12 +1,17 @@
 import { GET } from '../app/api/employee/my/office-attendance/today/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { getTodayOfficeAttendance, resolveOfficeWorkScheduleContextForEmployee } from '@repo/database';
+import {
+  getLatestOfficeAttendanceInRange,
+  getTodayOfficeAttendance,
+  resolveOfficeWorkScheduleContextForEmployee,
+} from '@repo/database';
 
 jest.mock('@/lib/employee-auth', () => ({
   getAuthenticatedEmployee: jest.fn(),
 }));
 
 jest.mock('@repo/database', () => ({
+  getLatestOfficeAttendanceInRange: jest.fn(),
   getTodayOfficeAttendance: jest.fn(),
   resolveOfficeWorkScheduleContextForEmployee: jest.fn(),
 }));
@@ -36,8 +41,13 @@ describe('GET /api/employee/my/office-attendance/today', () => {
       role: 'office',
     });
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
+      isLate: false,
+      isAfterEnd: false,
+      windowStart: new Date('2026-03-28T00:00:00.000Z'),
+      windowEnd: new Date('2026-03-28T09:00:00.000Z'),
       startMinutes: 8 * 60,
       endMinutes: 17 * 60,
       schedule: {
@@ -54,8 +64,16 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
+    expect(data.attendanceState).toMatchObject({
+      status: 'available',
+      canClockIn: true,
+      canClockOut: false,
+      windowClosed: false,
+    });
     expect(data.scheduleContext).toMatchObject({
       isWorkingDay: true,
+      isLate: false,
+      isAfterEnd: false,
       businessDateStr: '2026-03-28',
       scheduledStartStr: '08:00',
       scheduledEndStr: '17:00',
@@ -74,8 +92,11 @@ describe('GET /api/employee/my/office-attendance/today', () => {
       role: 'office',
     });
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: false,
+      isLate: false,
+      isAfterEnd: false,
       startMinutes: null,
       endMinutes: null,
       schedule: {
@@ -92,11 +113,102 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
+    expect(data.attendanceState).toMatchObject({
+      status: 'non_working_day',
+      canClockIn: false,
+      canClockOut: false,
+      windowClosed: false,
+    });
     expect(data.scheduleContext).toMatchObject({
       isWorkingDay: false,
       businessDateStr: '2026-03-29',
       scheduledStartStr: null,
       scheduledEndStr: null,
+    });
+  });
+
+  test('returns missed state when the office window already ended without attendance', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-3',
+      role: 'office',
+    });
+    (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isLate: true,
+      isAfterEnd: true,
+      windowStart: new Date('2026-03-30T00:00:00.000Z'),
+      windowEnd: new Date('2026-03-30T09:00:00.000Z'),
+      startMinutes: 8 * 60,
+      endMinutes: 17 * 60,
+      schedule: {
+        id: 'schedule-2',
+        code: 'finance-team-schedule',
+        name: 'Finance Team Schedule',
+      },
+      businessDay: {
+        dateKey: '2026-03-30',
+      },
+    });
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.attendanceState).toMatchObject({
+      status: 'missed',
+      canClockIn: false,
+      canClockOut: false,
+      windowClosed: true,
+      messageCode: 'office_hours_ended',
+      latestAttendance: null,
+    });
+  });
+
+  test('returns completed state when the latest attendance in the window is clocked out', async () => {
+    const latestAttendance = {
+      id: 'attendance-1',
+      employeeId: 'employee-4',
+      officeId: null,
+      status: 'clocked_out',
+      recordedAt: '2026-03-31T09:15:00.000Z',
+    };
+
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-4',
+      role: 'office',
+    });
+    (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([latestAttendance]);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(latestAttendance);
+    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isLate: true,
+      isAfterEnd: true,
+      windowStart: new Date('2026-03-31T00:00:00.000Z'),
+      windowEnd: new Date('2026-03-31T09:00:00.000Z'),
+      startMinutes: 8 * 60,
+      endMinutes: 17 * 60,
+      schedule: {
+        id: 'schedule-3',
+        code: 'default-office-work-schedule',
+        name: 'Default Office Schedule',
+      },
+      businessDay: {
+        dateKey: '2026-03-31',
+      },
+    });
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.attendanceState).toMatchObject({
+      status: 'completed',
+      canClockIn: false,
+      canClockOut: false,
+      windowClosed: true,
+      latestAttendance: latestAttendance,
     });
   });
 });

@@ -213,6 +213,8 @@
     "clockIn": "Clock In (Masuk)",
     "clockOut": "Clock Out (Keluar)",
     "dayCompleted": "Hari Selesai",
+    "missedTitle": "Jendela Kehadiran Terlewat",
+    "missedMessage": "Jendela kehadiran kantor yang dijadwalkan telah berakhir tanpa catatan clock-in.",
     "clockOutTime": "Clock Out:",
     "clockOutSuccess": "Berhasil keluar",
     "cannotClockInNonWorkingDay": "Anda hanya bisa clock in pada hari kerja.",

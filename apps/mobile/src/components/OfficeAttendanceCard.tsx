@@ -32,10 +32,11 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
 
   const attendances = data?.attendances ?? [];
   const scheduleContext = data?.scheduleContext;
-  const scheduleDisplay = getOfficeScheduleDisplayState(scheduleContext);
-  const lastAttendance = attendances[0];
-  const isClockedIn = Boolean(lastAttendance && lastAttendance.status !== 'clocked_out');
-  const hasClockedOut = Boolean(lastAttendance && lastAttendance.status === 'clocked_out');
+  const attendanceState = data?.attendanceState;
+  const scheduleDisplay = getOfficeScheduleDisplayState(scheduleContext, attendanceState);
+  const latestAttendance = scheduleDisplay.latestAttendance ?? attendances[0];
+  const isClockedIn = scheduleDisplay.isClockedIn;
+  const hasClockedOut = scheduleDisplay.isCompleted;
   const hasAssignedOffice = Boolean(office?.id);
 
   const requestLocation = async () => {
@@ -188,7 +189,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
                     {t('officeAttendance.clockedIn')}
                   </Text>
                   <Text size="xl" className="text-success-300 font-bold">
-                    {format(new Date(lastAttendance.recordedAt), 'HH:mm:ss')}
+                    {latestAttendance ? format(new Date(latestAttendance.recordedAt), 'HH:mm:ss') : '--:--:--'}
                   </Text>
                 </VStack>
               </HStack>
@@ -226,7 +227,21 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
                   {t('officeAttendance.dayCompleted')}
                 </Text>
                 <Text size="sm" className="text-typography-500">
-                  {t('officeAttendance.clockOutTime')} {format(new Date(lastAttendance.recordedAt), 'HH:mm')}
+                  {t('officeAttendance.clockOutTime')} {latestAttendance ? format(new Date(latestAttendance.recordedAt), 'HH:mm') : '--:--'}
+                </Text>
+              </VStack>
+            </HStack>
+          </Box>
+        ) : scheduleDisplay.isMissed ? (
+          <Box className="bg-warning-500/10 border border-warning-500/20 rounded-2xl p-4">
+            <HStack space="md" className="items-center">
+              <Clock3 size={22} color="#FBBF24" />
+              <VStack className="flex-1">
+                <Text size="sm" className="text-warning-300 font-semibold">
+                  {t('officeAttendance.missedTitle')}
+                </Text>
+                <Text size="sm" className="text-warning-100">
+                  {t('officeAttendance.missedMessage')}
                 </Text>
               </VStack>
             </HStack>
@@ -234,12 +249,12 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
         ) : (
           <VStack space="sm">
             <Pressable
-              onPress={scheduleDisplay.isWorkingDay ? () => handleRecordAttendance('present') : undefined}
-              disabled={!scheduleDisplay.isWorkingDay || recordMutation.isPending}
+              onPress={scheduleDisplay.canClockIn ? () => handleRecordAttendance('present') : undefined}
+              disabled={!scheduleDisplay.canClockIn || recordMutation.isPending}
             >
               {({ pressed }: { pressed: boolean }) => (
                 <LinearGradient
-                  colors={scheduleDisplay.isWorkingDay ? ['#2563EB', '#1D4ED8'] : ['#334155', '#1E293B']}
+                  colors={scheduleDisplay.canClockIn ? ['#2563EB', '#1D4ED8'] : ['#334155', '#1E293B']}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={{
@@ -262,6 +277,11 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
             {!scheduleDisplay.isWorkingDay ? (
               <Text size="sm" className="text-typography-500 text-center">
                 {t('officeAttendance.cannotClockInNonWorkingDay')}
+              </Text>
+            ) : null}
+            {scheduleDisplay.isAfterEnd && !scheduleDisplay.canClockIn ? (
+              <Text size="sm" className="text-warning-300 text-center">
+                {t('officeAttendance.missedMessage')}
               </Text>
             ) : null}
           </VStack>
