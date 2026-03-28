@@ -60,7 +60,13 @@ export default function EmployeeScheduleManager({
         return { success: false, message: 'Assignment ID is required.' };
       }
 
-      return updateEmployeeOfficeWorkScheduleAssignment(employeeId, assignmentId, { success: false }, formData);
+      const result = await updateEmployeeOfficeWorkScheduleAssignment(employeeId, assignmentId, { success: false }, formData);
+
+      if (result.success) {
+        setEditingAssignmentId(null);
+      }
+
+      return result;
     },
     { success: false }
   );
@@ -72,7 +78,13 @@ export default function EmployeeScheduleManager({
         return { success: false, message: 'Assignment ID is required.' };
       }
 
-      return deleteEmployeeOfficeWorkScheduleAssignment(employeeId, assignmentId);
+      const result = await deleteEmployeeOfficeWorkScheduleAssignment(employeeId, assignmentId);
+
+      if (result.success) {
+        setEditingAssignmentId(null);
+      }
+
+      return result;
     },
     { success: false }
   );
@@ -89,7 +101,6 @@ export default function EmployeeScheduleManager({
   useEffect(() => {
     if (editState.success) {
       toast.success(editState.message || 'Employee schedule updated successfully.');
-      setEditingAssignmentId(null);
       router.refresh();
     } else if (editState.message && !editState.success) {
       toast.error(editState.message);
@@ -99,7 +110,6 @@ export default function EmployeeScheduleManager({
   useEffect(() => {
     if (deleteState.success) {
       toast.success(deleteState.message || 'Employee schedule deleted successfully.');
-      setEditingAssignmentId(null);
       router.refresh();
     } else if (deleteState.message && !deleteState.success) {
       toast.error(deleteState.message);
