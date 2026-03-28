@@ -113,6 +113,54 @@ describe('POST /api/employee/my/office-attendance', () => {
     );
   });
 
+  test('records attendance for office employees without an assigned office', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-null-office',
+      role: 'office',
+      officeId: null,
+    });
+    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: false,
+      startMinutes: 8 * 60,
+      businessDay: {
+        minutesSinceMidnight: 8 * 60 + 5,
+      },
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (recordOfficeAttendance as jest.Mock).mockResolvedValue({
+      id: 'attendance-null-office',
+      employeeId: 'employee-null-office',
+      officeId: null,
+      status: 'present',
+    });
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        status: 'present',
+      }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(data.attendance).toMatchObject({
+      id: 'attendance-null-office',
+      officeId: null,
+    });
+    expect(recordOfficeAttendance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        officeId: null,
+        employeeId: 'employee-null-office',
+        status: 'present',
+      })
+    );
+    expect(getOfficeById).not.toHaveBeenCalled();
+  });
+
   test('records a late overnight clock-in using the schedule window start', async () => {
     const windowStart = new Date(Date.now() - 450 * 60_000);
     const windowEnd = new Date(windowStart.getTime() + 8 * 60 * 60_000);
@@ -238,6 +286,48 @@ describe('POST /api/employee/my/office-attendance', () => {
     expect(data).toMatchObject({
       code: 'too_far_from_office',
     });
+    expect(recordOfficeAttendance).not.toHaveBeenCalled();
+  });
+
+  test('uses the assigned employee office even if the client sends officeId null', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-6',
+      role: 'office',
+      officeId: 'office-1',
+    });
+    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: false,
+      startMinutes: 8 * 60,
+      businessDay: {
+        minutesSinceMidnight: 8 * 60 + 10,
+      },
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getOfficeById as jest.Mock).mockResolvedValue({
+      id: 'office-1',
+      latitude: null,
+      longitude: null,
+    });
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        officeId: null,
+        status: 'present',
+        location: { lat: 0, lng: 0 },
+      }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toMatchObject({
+      code: 'office_location_not_configured',
+    });
+    expect(getOfficeById).toHaveBeenCalledWith('office-1');
     expect(recordOfficeAttendance).not.toHaveBeenCalled();
   });
 });

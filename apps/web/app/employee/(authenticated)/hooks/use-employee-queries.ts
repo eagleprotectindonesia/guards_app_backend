@@ -7,6 +7,21 @@ import type { EmployeeAttendanceCheckinErrorPayload } from '@repo/shared';
 
 export type ShiftWithCheckInWindow = ShiftWithRelationsDto & { checkInWindow?: CheckInWindowResult };
 
+type OfficeAttendanceScheduleContext = {
+  isWorkingDay: boolean;
+  scheduledStartStr?: string | null;
+  scheduledEndStr?: string | null;
+  businessDateStr?: string | null;
+  schedule?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  businessDay?: {
+    dateKey?: string;
+  } | null;
+};
+
 const parseShiftDates = (shift: ShiftWithCheckInWindow) => {
   if (!shift) return null;
   return {
@@ -171,7 +186,7 @@ export function useOfficeAttendance() {
       const res = await fetchWithAuth('/api/employee/my/office-attendance/today');
       if (!res.ok) throw new Error('Failed to fetch today office attendance');
       const data = await res.json();
-      return data.attendances as OfficeAttendance[];
+      return data as { attendances: OfficeAttendance[]; scheduleContext?: OfficeAttendanceScheduleContext };
     },
   });
 }
@@ -182,11 +197,9 @@ export function useRecordOfficeAttendance() {
 
   return useMutation({
     mutationFn: async ({
-      officeId,
       location,
       status = 'present',
     }: {
-      officeId: string;
       location?: { lat: number; lng: number };
       status?: 'present' | 'clocked_out';
     }) => {
@@ -195,7 +208,7 @@ export function useRecordOfficeAttendance() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ officeId, location, status }),
+        body: JSON.stringify({ location, status }),
       });
 
       const data = await res.json();

@@ -238,7 +238,6 @@ export const updateOfficeSchema = z.object({
 
 // --- Office Attendance ---
 export const createOfficeAttendanceSchema = z.object({
-  officeId: z.string().uuid().optional(),
   employeeId: z.string().min(1).optional(),
   status: z.enum(['present', 'clocked_out']).default('present'),
   location: z

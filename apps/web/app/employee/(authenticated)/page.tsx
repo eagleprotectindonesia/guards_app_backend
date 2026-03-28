@@ -78,13 +78,7 @@ export default function EmployeePage() {
       {loading && <p>{t('common.loading')}</p>}
 
       {isOfficeEmployee ? (
-        employeeDetails?.office ? (
-          <OfficeAttendanceCard office={employeeDetails.office} />
-        ) : (
-          <div className="text-center p-8 border-2 border-dashed rounded bg-yellow-50 border-yellow-200">
-            <p className="text-yellow-700">Anda belum ditugaskan ke kantor mana pun. Silakan hubungi admin.</p>
-          </div>
-        )
+        <OfficeAttendanceCard office={employeeDetails?.office} />
       ) : (
         <>
           {!loading && !activeShift && (
