@@ -82,6 +82,21 @@ export async function getLatestOfficeAttendanceForDay(employeeId: string, now = 
   });
 }
 
+export async function getLatestOfficeAttendanceInRange(employeeId: string, start: Date, end: Date) {
+  return prisma.officeAttendance.findFirst({
+    where: {
+      employeeId,
+      recordedAt: {
+        gte: start,
+        lt: end,
+      },
+    },
+    orderBy: {
+      recordedAt: 'desc',
+    },
+  });
+}
+
 export async function getPaginatedOfficeAttendance(params: {
   where: Prisma.OfficeAttendanceWhereInput;
   orderBy: Prisma.OfficeAttendanceOrderByWithRelationInput;

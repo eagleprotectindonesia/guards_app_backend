@@ -1,7 +1,7 @@
 import { POST } from '../app/api/employee/my/office-attendance/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import {
-  getLatestOfficeAttendanceForDay,
+  getLatestOfficeAttendanceInRange,
   getOfficeById,
   getSystemSetting,
   recordOfficeAttendance,
@@ -13,7 +13,7 @@ jest.mock('@/lib/employee-auth', () => ({
 }));
 
 jest.mock('@repo/database', () => ({
-  getLatestOfficeAttendanceForDay: jest.fn(),
+  getLatestOfficeAttendanceInRange: jest.fn(),
   getOfficeById: jest.fn(),
   getSystemSetting: jest.fn(),
   recordOfficeAttendance: jest.fn(),
@@ -79,7 +79,7 @@ describe('POST /api/employee/my/office-attendance', () => {
         minutesSinceMidnight: 8 * 60 + 25,
       },
     });
-    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
     (recordOfficeAttendance as jest.Mock).mockResolvedValue({
       id: 'attendance-1',
       employeeId: 'employee-2',
@@ -113,6 +113,61 @@ describe('POST /api/employee/my/office-attendance', () => {
     );
   });
 
+  test('records a late overnight clock-in using the schedule window start', async () => {
+    const windowStart = new Date(Date.now() - 450 * 60_000);
+    const windowEnd = new Date(windowStart.getTime() + 8 * 60 * 60_000);
+
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-5',
+      role: 'office',
+      officeId: null,
+    });
+    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: true,
+      startMinutes: 18 * 60,
+      endMinutes: 2 * 60,
+      windowStart,
+      windowEnd,
+      businessDay: {
+        minutesSinceMidnight: 90,
+      },
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (recordOfficeAttendance as jest.Mock).mockResolvedValue({
+      id: 'attendance-overnight',
+      employeeId: 'employee-5',
+      officeId: null,
+      status: 'present',
+    });
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        status: 'present',
+        metadata: { source: 'mobile' },
+      }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(data.attendance).toMatchObject({ id: 'attendance-overnight' });
+    expect(recordOfficeAttendance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        officeId: null,
+        employeeId: 'employee-5',
+        status: 'present',
+        metadata: expect.objectContaining({
+          source: 'mobile',
+          latenessMins: 450,
+        }),
+      })
+    );
+  });
+
   test('rejects clock-out before a same-day clock-in exists', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-3',
@@ -128,7 +183,7 @@ describe('POST /api/employee/my/office-attendance', () => {
         minutesSinceMidnight: 9 * 60,
       },
     });
-    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
 
     const req = new Request('http://localhost/api/employee/my/office-attendance', {
       method: 'POST',
@@ -160,7 +215,7 @@ describe('POST /api/employee/my/office-attendance', () => {
         minutesSinceMidnight: 8 * 60 + 10,
       },
     });
-    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
     (getOfficeById as jest.Mock).mockResolvedValue({
       id: 'office-1',
       latitude: 0,

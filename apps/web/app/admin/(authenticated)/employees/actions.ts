@@ -265,7 +265,6 @@ export async function bulkScheduleEmployeeOfficeWorkSchedules(
 
   const errors: string[] = [];
   const seenEmployeeDates = new Set<string>();
-  const seenEmployees = new Map<string, string>();
   const assignments: Array<{
     employeeId: string;
     officeWorkScheduleId: string;
@@ -293,13 +292,6 @@ export async function bulkScheduleEmployeeOfficeWorkSchedules(
       continue;
     }
     seenEmployeeDates.add(duplicateKey);
-
-    const priorEffectiveFrom = seenEmployees.get(employeeNumber);
-    if (priorEffectiveFrom && priorEffectiveFrom !== effectiveFromText) {
-      errors.push(`Row ${i + 1}: Multiple effective_from dates for employee_number '${employeeNumber}' are not allowed in one import.`);
-      continue;
-    }
-    seenEmployees.set(employeeNumber, effectiveFromText);
 
     const employee = employeeMap.get(employeeNumber);
     if (!employee) {
@@ -348,6 +340,10 @@ export async function bulkScheduleEmployeeOfficeWorkSchedules(
   if (assignments.length === 0) {
     return { success: false, message: 'No valid office schedule assignments found to import.' };
   }
+
+  assignments.sort(
+    (left, right) => left.employeeId.localeCompare(right.employeeId) || left.effectiveFrom.getTime() - right.effectiveFrom.getTime()
+  );
 
   try {
     await bulkUpsertFutureOfficeWorkScheduleAssignments(assignments, {

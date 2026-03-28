@@ -69,7 +69,7 @@ export default function EmployeeScheduleManager({
       <div>
         <h2 className="text-xl font-bold text-foreground">Office Schedule Timeline</h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Future schedule changes only need a template and effective date. End date is managed automatically.
+          Add timeline entries with a template and effective date. End dates are managed automatically based on the next scheduled change.
         </p>
       </div>
 
@@ -125,9 +125,9 @@ export default function EmployeeScheduleManager({
 
       <form action={formAction} className="space-y-4 rounded-lg border border-border bg-muted/20 p-5">
         <div>
-          <h3 className="text-base font-semibold text-foreground">Schedule Future Change</h3>
+          <h3 className="text-base font-semibold text-foreground">Add Timeline Entry</h3>
           <p className="text-sm text-muted-foreground mt-1">
-            Choose an existing schedule template and the date when it should start.
+            Choose a schedule template and the date when it should start. If a later change already exists, this entry will end automatically when that later change begins.
           </p>
         </div>
 
@@ -184,7 +184,7 @@ export default function EmployeeScheduleManager({
             disabled={isPending}
             className="px-6 py-2.5 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
-            {isPending ? 'Saving...' : 'Queue Schedule Change'}
+            {isPending ? 'Saving...' : 'Save Timeline Entry'}
           </button>
         </div>
       </form>

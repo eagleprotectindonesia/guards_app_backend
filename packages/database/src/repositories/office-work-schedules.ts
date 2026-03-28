@@ -101,6 +101,16 @@ function addOneLocalDay(year: number, month: number, day: number) {
   };
 }
 
+function subtractOneLocalDay(year: number, month: number, day: number) {
+  const localDate = new Date(Date.UTC(year, month - 1, day));
+  localDate.setUTCDate(localDate.getUTCDate() - 1);
+  return {
+    year: localDate.getUTCFullYear(),
+    month: localDate.getUTCMonth() + 1,
+    day: localDate.getUTCDate(),
+  };
+}
+
 export function parseTimeToMinutes(time: string) {
   const match = time.match(/^(\d{2}):(\d{2})$/);
   if (!match) {
@@ -116,6 +126,51 @@ export function parseTimeToMinutes(time: string) {
   }
 
   return hour * 60 + minute;
+}
+
+function buildScheduleWindow(
+  dayRule: {
+    isWorkingDay: boolean;
+    startTime: string | null;
+    endTime: string | null;
+  },
+  dateParts: { year: number; month: number; day: number }
+) {
+  if (!dayRule.isWorkingDay || !dayRule.startTime || !dayRule.endTime) {
+    return null;
+  }
+
+  const startMinutes = parseTimeToMinutes(dayRule.startTime);
+  const endMinutes = parseTimeToMinutes(dayRule.endTime);
+
+  if (endMinutes === startMinutes) {
+    throw new Error('Office work schedule hours must not start and end at the same time');
+  }
+
+  const startAt = getUtcDateForBusinessLocal(
+    dateParts.year,
+    dateParts.month,
+    dateParts.day,
+    Math.floor(startMinutes / 60),
+    startMinutes % 60,
+    BUSINESS_TIMEZONE
+  );
+  const endBase = endMinutes > startMinutes ? dateParts : addOneLocalDay(dateParts.year, dateParts.month, dateParts.day);
+  const endAt = getUtcDateForBusinessLocal(
+    endBase.year,
+    endBase.month,
+    endBase.day,
+    Math.floor(endMinutes / 60),
+    endMinutes % 60,
+    BUSINESS_TIMEZONE
+  );
+
+  return {
+    startMinutes,
+    endMinutes,
+    startAt,
+    endAt,
+  };
 }
 
 export function getBusinessDayRange(date = new Date(), timeZone = BUSINESS_TIMEZONE) {
@@ -422,42 +477,50 @@ export async function analyzeFutureOfficeWorkScheduleAssignment(params: {
   referenceDate?: Date;
 }, client: AssignmentClient = prisma) {
   const referenceDate = params.referenceDate ?? new Date();
-  const futureAssignments = await client.employeeOfficeWorkScheduleAssignment.findMany({
+  void referenceDate;
+  const exactAssignment = await client.employeeOfficeWorkScheduleAssignment.findFirst({
     where: {
       employeeId: params.employeeId,
-      effectiveFrom: { gt: referenceDate },
-    },
-    orderBy: {
-      effectiveFrom: 'asc',
+      effectiveFrom: params.effectiveFrom,
     },
   });
-
-  const exactAssignment =
-    futureAssignments.find(assignment => isSameEffectiveDate(assignment.effectiveFrom, params.effectiveFrom)) ?? null;
-  const otherFutureAssignments = futureAssignments.filter(assignment => assignment.id !== exactAssignment?.id);
-
-  if (otherFutureAssignments.length > 0) {
-    return {
-      mode: 'conflict' as const,
-      reason: 'A future office work schedule assignment on a different effective date already exists',
-      exactAssignment,
-      otherFutureAssignments,
-    };
-  }
 
   if (exactAssignment) {
     return {
       mode:
         exactAssignment.officeWorkScheduleId === params.officeWorkScheduleId ? ('noop' as const) : ('replace' as const),
       exactAssignment,
-      otherFutureAssignments,
+      previousAssignment: null,
+      nextAssignment: null,
     };
   }
+
+  const previousAssignment = await client.employeeOfficeWorkScheduleAssignment.findFirst({
+    where: {
+      employeeId: params.employeeId,
+      effectiveFrom: { lt: params.effectiveFrom },
+      OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: params.effectiveFrom } }],
+    },
+    orderBy: {
+      effectiveFrom: 'desc',
+    },
+  });
+
+  const nextAssignment = await client.employeeOfficeWorkScheduleAssignment.findFirst({
+    where: {
+      employeeId: params.employeeId,
+      effectiveFrom: { gt: params.effectiveFrom },
+    },
+    orderBy: {
+      effectiveFrom: 'asc',
+    },
+  });
 
   return {
     mode: 'create' as const,
     exactAssignment: null,
-    otherFutureAssignments,
+    previousAssignment,
+    nextAssignment,
   };
 }
 
@@ -487,25 +550,41 @@ async function createFutureOfficeWorkScheduleAssignment(
     employeeId: string;
     officeWorkScheduleId: string;
     effectiveFrom: Date;
+    previousAssignment?: { id: string } | null;
+    nextAssignment?: { effectiveFrom: Date } | null;
   }
 ) {
   const { employeeId, officeWorkScheduleId, effectiveFrom } = params;
-
-  const currentOrPrevious = await client.employeeOfficeWorkScheduleAssignment.findFirst({
-    where: {
-      employeeId,
-      effectiveFrom: { lt: effectiveFrom },
-      OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: effectiveFrom } }],
-    },
-    orderBy: {
-      effectiveFrom: 'desc',
-    },
-  });
+  const currentOrPrevious =
+    params.previousAssignment !== undefined
+      ? params.previousAssignment
+      : await client.employeeOfficeWorkScheduleAssignment.findFirst({
+          where: {
+            employeeId,
+            effectiveFrom: { lt: effectiveFrom },
+            OR: [{ effectiveUntil: null }, { effectiveUntil: { gt: effectiveFrom } }],
+          },
+          orderBy: {
+            effectiveFrom: 'desc',
+          },
+        });
+  const nextAssignment =
+    params.nextAssignment !== undefined
+      ? params.nextAssignment
+      : await client.employeeOfficeWorkScheduleAssignment.findFirst({
+          where: {
+            employeeId,
+            effectiveFrom: { gt: effectiveFrom },
+          },
+          orderBy: {
+            effectiveFrom: 'asc',
+          },
+        });
 
   await assertNoAssignmentOverlap({
     employeeId,
     effectiveFrom,
-    effectiveUntil: null,
+    effectiveUntil: nextAssignment?.effectiveFrom ?? null,
     excludeAssignmentId: currentOrPrevious?.id,
   }, client);
 
@@ -523,6 +602,7 @@ async function createFutureOfficeWorkScheduleAssignment(
       employeeId,
       officeWorkScheduleId,
       effectiveFrom,
+      effectiveUntil: nextAssignment?.effectiveFrom ?? null,
     },
   });
 }
@@ -559,10 +639,6 @@ export async function scheduleFutureOfficeWorkScheduleAssignment(params: {
   source?: 'single_update' | 'bulk_import';
 }) {
   const analysis = await analyzeFutureOfficeWorkScheduleAssignment(params);
-
-  if (analysis.mode === 'conflict') {
-    throw new Error(analysis.reason);
-  }
 
   if (analysis.mode === 'noop') {
     return analysis.exactAssignment;
@@ -606,7 +682,11 @@ export async function scheduleFutureOfficeWorkScheduleAssignment(params: {
   }
 
   return prisma.$transaction(async tx => {
-    const createdAssignment = await createFutureOfficeWorkScheduleAssignment(tx, params);
+    const createdAssignment = await createFutureOfficeWorkScheduleAssignment(tx, {
+      ...params,
+      previousAssignment: analysis.previousAssignment,
+      nextAssignment: analysis.nextAssignment,
+    });
     const nextSchedule = await tx.officeWorkSchedule.findUnique({
       where: { id: params.officeWorkScheduleId },
       select: { id: true, name: true },
@@ -645,13 +725,12 @@ export async function bulkUpsertFutureOfficeWorkScheduleAssignments(
 ) {
   return prisma.$transaction(async tx => {
     const results = [];
+    const orderedAssignments = assignments
+      .slice()
+      .sort((left, right) => left.employeeId.localeCompare(right.employeeId) || left.effectiveFrom.getTime() - right.effectiveFrom.getTime());
 
-    for (const assignment of assignments) {
+    for (const assignment of orderedAssignments) {
       const analysis = await analyzeFutureOfficeWorkScheduleAssignment(assignment, tx);
-
-      if (analysis.mode === 'conflict') {
-        throw new Error(analysis.reason);
-      }
 
       if (analysis.mode === 'noop') {
         results.push(analysis.exactAssignment);
@@ -695,7 +774,11 @@ export async function bulkUpsertFutureOfficeWorkScheduleAssignments(
         continue;
       }
 
-      const created = await createFutureOfficeWorkScheduleAssignment(tx, assignment);
+      const created = await createFutureOfficeWorkScheduleAssignment(tx, {
+        ...assignment,
+        previousAssignment: analysis.previousAssignment,
+        nextAssignment: analysis.nextAssignment,
+      });
       const nextSchedule = await tx.officeWorkSchedule.findUnique({
         where: { id: assignment.officeWorkScheduleId },
         select: { id: true, name: true },
@@ -745,37 +828,40 @@ export async function resolveOfficeWorkScheduleForEmployee(employeeId: string, a
 
 export async function resolveOfficeWorkScheduleContextForEmployee(employeeId: string, at = new Date()) {
   const resolved = await resolveOfficeWorkScheduleForEmployee(employeeId, at);
+  const currentParts = getBusinessParts(at, BUSINESS_TIMEZONE);
   const businessDay = getBusinessDayRange(at, BUSINESS_TIMEZONE);
   const dayRule = resolved.schedule.days.find(day => day.weekday === businessDay.weekday) ?? null;
+  const previousDayRule = resolved.schedule.days.find(day => day.weekday === ((businessDay.weekday + 6) % 7)) ?? null;
 
   if (!dayRule) {
     throw new Error(`Office work schedule ${resolved.schedule.id} has no rule for weekday ${businessDay.weekday}`);
   }
 
-  let startMinutes: number | null = null;
-  let endMinutes: number | null = null;
+  const currentWindow = buildScheduleWindow(dayRule, currentParts);
+  const previousDayParts = subtractOneLocalDay(currentParts.year, currentParts.month, currentParts.day);
+  const previousWindow =
+    previousDayRule && previousDayRule.isWorkingDay && previousDayRule.startTime && previousDayRule.endTime
+      ? buildScheduleWindow(previousDayRule, previousDayParts)
+      : null;
 
-  if (dayRule.isWorkingDay) {
-    if (!dayRule.startTime || !dayRule.endTime) {
-      throw new Error(`Office work schedule ${resolved.schedule.id} is missing hours for weekday ${businessDay.weekday}`);
-    }
+  const previousWindowActive =
+    previousWindow != null &&
+    previousWindow.endMinutes < previousWindow.startMinutes &&
+    at.getTime() >= previousWindow.startAt.getTime() &&
+    at.getTime() <= previousWindow.endAt.getTime();
 
-    startMinutes = parseTimeToMinutes(dayRule.startTime);
-    endMinutes = parseTimeToMinutes(dayRule.endTime);
-
-    if (endMinutes <= startMinutes) {
-      throw new Error(`Office work schedule ${resolved.schedule.id} has invalid hours for weekday ${businessDay.weekday}`);
-    }
-  }
+  const activeWindow = previousWindowActive ? previousWindow : currentWindow;
 
   return {
     ...resolved,
     dayRule,
     businessDay,
-    startMinutes,
-    endMinutes,
-    isWorkingDay: dayRule.isWorkingDay,
-    isLate: startMinutes != null && businessDay.minutesSinceMidnight > startMinutes,
-    isAfterEnd: endMinutes != null && businessDay.minutesSinceMidnight > endMinutes,
+    startMinutes: activeWindow?.startMinutes ?? null,
+    endMinutes: activeWindow?.endMinutes ?? null,
+    windowStart: activeWindow?.startAt ?? null,
+    windowEnd: activeWindow?.endAt ?? null,
+    isWorkingDay: Boolean(currentWindow || previousWindowActive),
+    isLate: activeWindow != null && at.getTime() > activeWindow.startAt.getTime(),
+    isAfterEnd: activeWindow != null && at.getTime() > activeWindow.endAt.getTime(),
   };
 }

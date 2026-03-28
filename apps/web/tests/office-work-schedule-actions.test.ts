@@ -120,6 +120,23 @@ describe('office work schedule actions', () => {
     });
   });
 
+  test('schedules a future employee office work schedule change even when other future rows exist', async () => {
+    const formData = new FormData();
+    formData.append('officeWorkScheduleId', '550e8400-e29b-41d4-a716-446655440000');
+    formData.append('effectiveFrom', '2026-04-06');
+
+    const result = await scheduleEmployeeOfficeWorkSchedule('employee-1', { success: false }, formData);
+
+    expect(result.success).toBe(true);
+    expect(scheduleFutureOfficeWorkScheduleAssignment).toHaveBeenCalledWith({
+      employeeId: 'employee-1',
+      officeWorkScheduleId: '550e8400-e29b-41d4-a716-446655440000',
+      effectiveFrom: new Date('2026-04-05T16:00:00.000Z'),
+      actor: { type: 'admin', id: 'admin-1' },
+      source: 'single_update',
+    });
+  });
+
   test('imports bulk office work schedule assignments from csv', async () => {
     (getActiveEmployees as jest.Mock).mockResolvedValue([
       {
@@ -158,7 +175,7 @@ describe('office work schedule actions', () => {
     });
   });
 
-  test('rejects bulk office work schedule csv with multiple future dates for one employee', async () => {
+  test('imports bulk office work schedule assignments with multiple dates for one employee in ascending order', async () => {
     (getActiveEmployees as jest.Mock).mockResolvedValue([
       {
         id: 'employee-1',
@@ -189,11 +206,107 @@ describe('office work schedule actions', () => {
 
     const result = await bulkScheduleEmployeeOfficeWorkSchedules(formData);
 
+    expect(result.success).toBe(true);
+    expect(bulkUpsertFutureOfficeWorkScheduleAssignments).toHaveBeenCalledWith([
+      {
+        employeeId: 'employee-1',
+        officeWorkScheduleId: 'schedule-1',
+        effectiveFrom: new Date('2026-03-29T16:00:00.000Z'),
+      },
+      {
+        employeeId: 'employee-1',
+        officeWorkScheduleId: 'schedule-1',
+        effectiveFrom: new Date('2026-04-05T16:00:00.000Z'),
+      },
+    ], {
+      actor: { type: 'admin', id: 'admin-1' },
+      source: 'bulk_import',
+    });
+  });
+
+  test('imports bulk office work schedule assignments with out-of-order dates normalized before save', async () => {
+    (getActiveEmployees as jest.Mock).mockResolvedValue([
+      {
+        id: 'employee-1',
+        employeeNumber: 'EMP001',
+        role: 'office',
+      },
+    ]);
+    (getAllOfficeWorkSchedules as jest.Mock).mockResolvedValue([
+      {
+        id: 'schedule-1',
+        name: 'Finance Team',
+      },
+    ]);
+
+    const formData = new FormData();
+    formData.append(
+      'file',
+      new File(
+        [
+          'employee_number,schedule_name,effective_from\n',
+          'EMP001,Finance Team,2026-04-06\n',
+          'EMP001,Finance Team,2026-03-30\n',
+        ],
+        'office-schedules.csv',
+        { type: 'text/csv' }
+      )
+    );
+
+    const result = await bulkScheduleEmployeeOfficeWorkSchedules(formData);
+
+    expect(result.success).toBe(true);
+    expect(bulkUpsertFutureOfficeWorkScheduleAssignments).toHaveBeenCalledWith([
+      {
+        employeeId: 'employee-1',
+        officeWorkScheduleId: 'schedule-1',
+        effectiveFrom: new Date('2026-03-29T16:00:00.000Z'),
+      },
+      {
+        employeeId: 'employee-1',
+        officeWorkScheduleId: 'schedule-1',
+        effectiveFrom: new Date('2026-04-05T16:00:00.000Z'),
+      },
+    ], {
+      actor: { type: 'admin', id: 'admin-1' },
+      source: 'bulk_import',
+    });
+  });
+
+  test('rejects duplicate employee and effective date combinations in bulk csv', async () => {
+    (getActiveEmployees as jest.Mock).mockResolvedValue([
+      {
+        id: 'employee-1',
+        employeeNumber: 'EMP001',
+        role: 'office',
+      },
+    ]);
+    (getAllOfficeWorkSchedules as jest.Mock).mockResolvedValue([
+      {
+        id: 'schedule-1',
+        name: 'Finance Team',
+      },
+    ]);
+
+    const formData = new FormData();
+    formData.append(
+      'file',
+      new File(
+        [
+          'employee_number,schedule_name,effective_from\n',
+          'EMP001,Finance Team,2026-03-30\n',
+          'EMP001,Finance Team,2026-03-30\n',
+        ],
+        'office-schedules.csv',
+        { type: 'text/csv' }
+      )
+    );
+
+    const result = await bulkScheduleEmployeeOfficeWorkSchedules(formData);
+
     expect(result.success).toBe(false);
     expect(result.message).toBe('Validation failed.');
-    expect(result.errors).toContain(
-      "Row 3: Multiple effective_from dates for employee_number 'EMP001' are not allowed in one import."
-    );
+    expect(result.errors).toContain('Row 3: Duplicate employee_number and effective_from combination in the uploaded CSV.');
     expect(bulkUpsertFutureOfficeWorkScheduleAssignments).not.toHaveBeenCalled();
   });
 });

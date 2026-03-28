@@ -203,11 +203,11 @@ const officeWorkScheduleDaySchema = z
       });
     }
 
-    if (day.startTime && day.endTime && day.startTime >= day.endTime) {
+    if (day.startTime && day.endTime && day.startTime === day.endTime) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['endTime'],
-        message: 'End time must be after start time',
+        message: 'End time must be different from start time',
       });
     }
   });

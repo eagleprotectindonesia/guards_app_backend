@@ -19,6 +19,7 @@ Instead:
 An office work schedule is a reusable weekly template:
 - each weekday can be marked as working or non-working
 - working days define `startTime` and `endTime`
+- overnight windows are allowed, so `endTime` may be earlier than `startTime` when the shift continues into the next day
 
 At runtime, office attendance resolves the effective schedule for the employee on the attendance date:
 - if the employee has an active schedule assignment on that date, use that schedule
@@ -154,6 +155,32 @@ Result:
 
 `effective_until` is backend-managed in the normal schedule-change flow.
 
+### Multi-Step Future Timeline Behavior
+
+Employees can have multiple future schedule assignments.
+
+Timeline rules:
+- assignment windows for the same employee must not overlap
+- same employee + same `effective_from` + same schedule: no-op
+- same employee + same `effective_from` + different schedule: replace that row
+- new future assignment before another scheduled future row: insert it into the timeline
+
+When inserting a new future assignment:
+1. Find the immediate previous assignment whose active window reaches the new `effective_from`
+2. Find the immediate next assignment after the new `effective_from`
+3. Set the previous row’s `effective_until = new effective_from`
+4. Create the new row
+5. If a next row exists, set the new row’s `effective_until = next row effective_from`
+
+Example:
+- existing row A: `2026-04-14 -> ongoing`
+- admin inserts row B starting `2026-04-01`
+
+Result:
+- previous active row ends at `2026-04-01`
+- row B runs from `2026-04-01 -> 2026-04-14`
+- row A still starts at `2026-04-14`
+
 ## Office Attendance Rules
 
 Implemented in:
@@ -172,9 +199,11 @@ Clock-in behavior:
 - before start time: allowed
 - after start but before end: allowed and marked late
 - after end time: rejected
+- for overnight windows, the backend treats the window as spanning into the next calendar day
 
 Clock-out behavior:
 - only allowed after a same-day clock-in exists
+- for overnight windows, "same day" means the active schedule window, not just the calendar date
 
 ### Daily State Machine
 
@@ -237,17 +266,17 @@ Location:
 
 Purpose:
 - view the employee’s assignment timeline
-- queue a future schedule change
+- add future schedule timeline entries
 
 Displayed:
 - employee name
 - employee code
 - past/current/upcoming schedule assignments
-- schedule change form with:
+- timeline entry form with:
   - template selection
   - `effectiveFrom`
 
-The UI does not ask for `effectiveUntil`; backend manages that automatically.
+The UI does not ask for `effectiveUntil`; backend manages that automatically, including when a new entry is inserted before an already scheduled future change.
 
 ### 4. Bulk CSV Assignment Import
 
@@ -255,7 +284,7 @@ Location:
 - employee schedule management UI
 
 Purpose:
-- assign or update simple future office schedule changes for multiple employees in one import
+- assign or update future office schedule timelines for multiple employees in one import
 
 CSV headers:
 - `employee_number`
@@ -267,8 +296,9 @@ Import behavior:
 - exact employee number and exact schedule name matching
 - same employee + same date + same schedule: no-op
 - same employee + same date + different schedule: replace that future assignment
-- same employee with additional future assignments on other dates: reject as ambiguous
-- same employee with multiple different `effective_from` rows in one file: reject as a multi-step timeline rewrite
+- multiple future dates for the same employee are allowed
+- duplicate `employee_number + effective_from` rows in one file are rejected
+- rows are grouped by employee and sorted by `effective_from` before applying the timeline updates
 
 ## Permissions
 

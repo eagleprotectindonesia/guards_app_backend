@@ -5,7 +5,7 @@ import { calculateDistance } from '@/lib/server-utils';
 import { getSystemSetting } from '@repo/database';
 import { getOfficeById } from '@repo/database';
 import { recordOfficeAttendance } from '@repo/database';
-import { getLatestOfficeAttendanceForDay } from '@repo/database';
+import { getLatestOfficeAttendanceInRange } from '@repo/database';
 import { resolveOfficeWorkScheduleContextForEmployee } from '@repo/database';
 import { ZodError } from 'zod';
 
@@ -21,10 +21,11 @@ export async function POST(req: Request) {
   }
 
   try {
+    const now = new Date();
     const json = await req.json();
     const body = createOfficeAttendanceSchema.parse(json);
     const requestedStatus = body.status ?? 'present';
-    const scheduleContext = await resolveOfficeWorkScheduleContextForEmployee(employee.id);
+    const scheduleContext = await resolveOfficeWorkScheduleContextForEmployee(employee.id, now);
 
     if (!scheduleContext.isWorkingDay) {
       return NextResponse.json(
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (requestedStatus === 'present' && scheduleContext.isAfterEnd) {
+    if (requestedStatus === 'present' && scheduleContext.isAfterEnd && scheduleContext.windowStart && scheduleContext.windowEnd) {
       return NextResponse.json(
         {
           code: 'office_hours_ended',
@@ -46,7 +47,10 @@ export async function POST(req: Request) {
       );
     }
 
-    const latestAttendance = await getLatestOfficeAttendanceForDay(employee.id);
+    const latestAttendance =
+      scheduleContext.windowStart && scheduleContext.windowEnd
+        ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
+        : null;
 
     if (!latestAttendance && requestedStatus === 'clocked_out') {
       return NextResponse.json(
@@ -62,7 +66,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           code: 'office_attendance_already_clocked_in',
-          error: 'Clock-in has already been recorded for today.',
+          error: 'Clock-in has already been recorded for this schedule window.',
         },
         { status: 400 }
       );
@@ -72,7 +76,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           code: 'office_attendance_completed',
-          error: 'Office attendance has already been completed for today.',
+          error: 'Office attendance has already been completed for this schedule window.',
         },
         { status: 400 }
       );
@@ -136,12 +140,19 @@ export async function POST(req: Request) {
       }
     }
 
+    const latenessMins =
+      requestedStatus === 'present' && scheduleContext.isLate
+        ? scheduleContext.windowStart && Number.isFinite(scheduleContext.windowStart.getTime())
+          ? Math.floor((now.getTime() - scheduleContext.windowStart.getTime()) / 60_000)
+          : scheduleContext.startMinutes != null
+            ? scheduleContext.businessDay.minutesSinceMidnight - scheduleContext.startMinutes
+            : null
+        : null;
+
     const metadata = {
       ...(body.metadata || {}),
       ...(body.location ? { location: body.location } : {}),
-      ...(requestedStatus === 'present' && scheduleContext.isLate && scheduleContext.startMinutes != null
-        ? { latenessMins: scheduleContext.businessDay.minutesSinceMidnight - scheduleContext.startMinutes }
-        : {}),
+      ...(latenessMins != null ? { latenessMins } : {}),
     };
 
     const attendance = await recordOfficeAttendance({
