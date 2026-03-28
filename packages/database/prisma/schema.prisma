@@ -69,6 +69,10 @@ model Admin {
   createdOffices     Office[]    @relation("OfficeCreatedBy")
   createdShiftTypes  ShiftType[] @relation("ShiftTypeCreatedBy")
   createdShifts      Shift[]     @relation("ShiftCreatedBy")
+  createdOfficeWorkSchedules OfficeWorkSchedule[] @relation("OfficeWorkScheduleCreatedBy")
+  updatedOfficeWorkSchedules OfficeWorkSchedule[] @relation("OfficeWorkScheduleLastUpdatedBy")
+  createdEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentCreatedBy")
+  updatedEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentLastUpdatedBy")
   changelogs         Changelog[]
   sentMessages       ChatMessage[]
   chatConversationStates AdminChatConversationState[]
@@ -451,13 +455,17 @@ model SystemSetting {
 }
 
 model OfficeWorkSchedule {
-  id        String                 @id @default(uuid())
-  code      String                 @unique
-  name      String                 @unique
-  createdAt DateTime               @default(now()) @map("created_at")
-  updatedAt DateTime               @updatedAt @map("updated_at")
-  days      OfficeWorkScheduleDay[]
-  assignments EmployeeOfficeWorkScheduleAssignment[]
+  id              String                 @id @default(uuid())
+  code            String                 @unique
+  name            String                 @unique
+  createdById     String?                @map("created_by_id")
+  lastUpdatedById String?                @map("last_updated_by_id")
+  createdAt       DateTime               @default(now()) @map("created_at")
+  updatedAt       DateTime               @updatedAt @map("updated_at")
+  createdBy       Admin?                 @relation("OfficeWorkScheduleCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy   Admin?                 @relation("OfficeWorkScheduleLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  days            OfficeWorkScheduleDay[]
+  assignments     EmployeeOfficeWorkScheduleAssignment[]
 
   @@map("office_work_schedules")
 }
@@ -479,15 +487,19 @@ model OfficeWorkScheduleDay {
 }
 
 model EmployeeOfficeWorkScheduleAssignment {
-  id                 String           @id @default(uuid())
-  employeeId         String           @map("employee_id")
-  officeWorkScheduleId String         @map("office_work_schedule_id")
-  effectiveFrom      DateTime         @map("effective_from") @db.Timestamptz(6)
-  effectiveUntil     DateTime?        @map("effective_until") @db.Timestamptz(6)
-  createdAt          DateTime         @default(now()) @map("created_at")
-  updatedAt          DateTime         @updatedAt @map("updated_at")
-  employee           Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  officeWorkSchedule OfficeWorkSchedule @relation(fields: [officeWorkScheduleId], references: [id], onDelete: Cascade)
+  id                   String             @id @default(uuid())
+  employeeId           String             @map("employee_id")
+  officeWorkScheduleId String             @map("office_work_schedule_id")
+  createdById          String?            @map("created_by_id")
+  lastUpdatedById      String?            @map("last_updated_by_id")
+  effectiveFrom        DateTime           @map("effective_from") @db.Timestamptz(6)
+  effectiveUntil       DateTime?          @map("effective_until") @db.Timestamptz(6)
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  createdBy            Admin?             @relation("EmployeeOfficeWorkScheduleAssignmentCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy        Admin?             @relation("EmployeeOfficeWorkScheduleAssignmentLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  employee             Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  officeWorkSchedule   OfficeWorkSchedule @relation(fields: [officeWorkScheduleId], references: [id], onDelete: Cascade)
 
   @@index([employeeId, effectiveFrom], map: "employee_office_schedule_assignments_employee_from_idx")
   @@index([employeeId, effectiveUntil], map: "employee_office_schedule_assignments_employee_until_idx")

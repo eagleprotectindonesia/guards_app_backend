@@ -369,6 +369,12 @@ export async function createOfficeWorkSchedule(params: {
       data: {
         name: params.name,
         code: params.code,
+        ...(params.adminId
+          ? {
+              createdBy: { connect: { id: params.adminId } },
+              lastUpdatedBy: { connect: { id: params.adminId } },
+            }
+          : {}),
       },
     });
 
@@ -423,6 +429,11 @@ export async function updateOfficeWorkSchedule(params: {
       where: { id: params.id },
       data: {
         name: params.name,
+        ...(params.adminId
+          ? {
+              lastUpdatedBy: { connect: { id: params.adminId } },
+            }
+          : {}),
       },
     });
 
@@ -551,6 +562,14 @@ type OfficeScheduleAuditActor =
   | { type: 'system'; id?: string | null }
   | { type: 'unknown'; id?: string | null };
 
+function getAdminActorId(actor?: OfficeScheduleAuditActor) {
+  return actor?.type === 'admin' ? actor.id : undefined;
+}
+
+function getChangelogActorType(actor?: OfficeScheduleAuditActor): 'admin' | 'system' | 'unknown' {
+  return actor?.type ?? 'unknown';
+}
+
 function isSameEffectiveDate(left: Date, right: Date) {
   return left.getTime() === right.getTime();
 }
@@ -591,7 +610,7 @@ async function logOfficeScheduleAssignmentChange(
       action: params.action,
       entityType: 'Employee',
       entityId: employee.id,
-      actor: (params.actor?.type ?? 'unknown') as 'admin' | 'system' | 'unknown',
+      actor: getChangelogActorType(params.actor),
       actorId: params.actor?.type === 'admin' ? params.actor.id : params.actor?.id ?? null,
       details: {
         name: 'Office Schedule Assignment',
@@ -627,8 +646,6 @@ export async function analyzeFutureOfficeWorkScheduleAssignment(params: {
   effectiveFrom: Date;
   referenceDate?: Date;
 }, client: AssignmentClient = prisma) {
-  const referenceDate = params.referenceDate ?? new Date();
-  void referenceDate;
   const exactAssignment = await client.employeeOfficeWorkScheduleAssignment.findFirst({
     where: {
       employeeId: params.employeeId,
@@ -840,9 +857,10 @@ async function createFutureOfficeWorkScheduleAssignment(
     effectiveFrom: Date;
     previousAssignment?: { id: string } | null;
     nextAssignment?: { effectiveFrom: Date } | null;
+    adminId?: string;
   }
 ) {
-  const { employeeId, officeWorkScheduleId, effectiveFrom } = params;
+  const { employeeId, officeWorkScheduleId, effectiveFrom, adminId } = params;
   const currentOrPrevious =
     params.previousAssignment !== undefined
       ? params.previousAssignment
@@ -881,6 +899,11 @@ async function createFutureOfficeWorkScheduleAssignment(
       where: { id: currentOrPrevious.id },
       data: {
         effectiveUntil: effectiveFrom,
+        ...(adminId
+          ? {
+              lastUpdatedById: adminId,
+            }
+          : {}),
       },
     });
   }
@@ -891,6 +914,12 @@ async function createFutureOfficeWorkScheduleAssignment(
       officeWorkScheduleId,
       effectiveFrom,
       effectiveUntil: nextAssignment?.effectiveFrom ?? null,
+      ...(adminId
+        ? {
+            createdById: adminId,
+            lastUpdatedById: adminId,
+          }
+        : {}),
     },
   });
 }
@@ -900,8 +929,9 @@ export async function createOfficeWorkScheduleAssignment(params: {
   officeWorkScheduleId: string;
   effectiveFrom: Date;
   effectiveUntil?: Date | null;
+  adminId?: string;
 }) {
-  const { employeeId, officeWorkScheduleId, effectiveFrom, effectiveUntil = null } = params;
+  const { employeeId, officeWorkScheduleId, effectiveFrom, effectiveUntil = null, adminId } = params;
 
   if (effectiveUntil && effectiveUntil <= effectiveFrom) {
     throw new Error('effectiveUntil must be after effectiveFrom');
@@ -915,6 +945,12 @@ export async function createOfficeWorkScheduleAssignment(params: {
       officeWorkScheduleId,
       effectiveFrom,
       effectiveUntil,
+      ...(adminId
+        ? {
+            createdById: adminId,
+            lastUpdatedById: adminId,
+          }
+        : {}),
     },
   });
 }
@@ -926,6 +962,7 @@ export async function scheduleFutureOfficeWorkScheduleAssignment(params: {
   actor?: OfficeScheduleAuditActor;
   source?: 'single_update' | 'bulk_import';
 }) {
+  const adminId = getAdminActorId(params.actor);
   const analysis = await analyzeFutureOfficeWorkScheduleAssignment(params);
 
   if (analysis.mode === 'noop') {
@@ -951,6 +988,11 @@ export async function scheduleFutureOfficeWorkScheduleAssignment(params: {
       where: { id: analysis.exactAssignment.id },
       data: {
         officeWorkScheduleId: params.officeWorkScheduleId,
+        ...(adminId
+          ? {
+              lastUpdatedById: adminId,
+            }
+          : {}),
       },
     });
 
@@ -974,6 +1016,7 @@ export async function scheduleFutureOfficeWorkScheduleAssignment(params: {
       ...params,
       previousAssignment: analysis.previousAssignment,
       nextAssignment: analysis.nextAssignment,
+      adminId,
     });
     const nextSchedule = await tx.officeWorkSchedule.findUnique({
       where: { id: params.officeWorkScheduleId },
@@ -1012,6 +1055,7 @@ export async function bulkUpsertFutureOfficeWorkScheduleAssignments(
   }
 ) {
   return prisma.$transaction(async tx => {
+    const adminId = getAdminActorId(options?.actor);
     const results = [];
     const orderedAssignments = assignments
       .slice()
@@ -1043,6 +1087,11 @@ export async function bulkUpsertFutureOfficeWorkScheduleAssignments(
           where: { id: analysis.exactAssignment.id },
           data: {
             officeWorkScheduleId: assignment.officeWorkScheduleId,
+            ...(adminId
+              ? {
+                  lastUpdatedById: adminId,
+                }
+              : {}),
           },
         });
 
@@ -1066,6 +1115,7 @@ export async function bulkUpsertFutureOfficeWorkScheduleAssignments(
         ...assignment,
         previousAssignment: analysis.previousAssignment,
         nextAssignment: analysis.nextAssignment,
+        adminId,
       });
       const nextSchedule = await tx.officeWorkSchedule.findUnique({
         where: { id: assignment.officeWorkScheduleId },
@@ -1105,6 +1155,7 @@ export async function updateFutureOfficeWorkScheduleAssignment(params: {
   const referenceDate = new Date();
 
   return prisma.$transaction(async tx => {
+    const adminId = getAdminActorId(params.actor);
     const assignment = await getOfficeWorkScheduleAssignmentById(params.assignmentId, tx);
 
     if (!assignment) {
@@ -1145,6 +1196,11 @@ export async function updateFutureOfficeWorkScheduleAssignment(params: {
         where: { id: currentNeighbors.previousAssignment.id },
         data: {
           effectiveUntil: assignment.effectiveUntil,
+          ...(adminId
+            ? {
+                lastUpdatedById: adminId,
+              }
+            : {}),
         },
       });
     }
@@ -1175,6 +1231,11 @@ export async function updateFutureOfficeWorkScheduleAssignment(params: {
         where: { id: newNeighbors.previousAssignment.id },
         data: {
           effectiveUntil: params.effectiveFrom,
+          ...(adminId
+            ? {
+                lastUpdatedById: adminId,
+              }
+            : {}),
         },
       });
     }
@@ -1185,6 +1246,11 @@ export async function updateFutureOfficeWorkScheduleAssignment(params: {
         officeWorkScheduleId: params.officeWorkScheduleId,
         effectiveFrom: params.effectiveFrom,
         effectiveUntil: newNeighbors.nextAssignment?.effectiveFrom ?? null,
+        ...(adminId
+          ? {
+              lastUpdatedById: adminId,
+            }
+          : {}),
       },
     });
 
@@ -1222,6 +1288,7 @@ export async function deleteFutureOfficeWorkScheduleAssignment(params: {
   const referenceDate = new Date();
 
   return prisma.$transaction(async tx => {
+    const adminId = getAdminActorId(params.actor);
     const assignment = await getOfficeWorkScheduleAssignmentById(params.assignmentId, tx);
 
     if (!assignment) {
@@ -1244,6 +1311,11 @@ export async function deleteFutureOfficeWorkScheduleAssignment(params: {
         where: { id: neighbors.previousAssignment.id },
         data: {
           effectiveUntil: assignment.effectiveUntil,
+          ...(adminId
+            ? {
+                lastUpdatedById: adminId,
+              }
+            : {}),
         },
       });
     }

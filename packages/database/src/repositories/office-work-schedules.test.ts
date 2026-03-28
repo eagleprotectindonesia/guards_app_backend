@@ -1,6 +1,7 @@
 import {
   analyzeFutureOfficeWorkScheduleAssignment,
   bulkUpsertFutureOfficeWorkScheduleAssignments,
+  createOfficeWorkScheduleAssignment,
   createOfficeWorkSchedule,
   deleteFutureOfficeWorkScheduleAssignment,
   resolveOfficeWorkScheduleContextForEmployee,
@@ -85,6 +86,15 @@ describe('office work schedules', () => {
       ],
     });
 
+    expect(prisma.officeWorkSchedule.create).toHaveBeenCalledWith({
+      data: {
+        name: 'HQ Schedule',
+        code: 'hq-schedule-1',
+        createdBy: { connect: { id: 'admin-1' } },
+        lastUpdatedBy: { connect: { id: 'admin-1' } },
+      },
+    });
+
     expect(prisma.changelog.create).toHaveBeenCalledWith({
       data: {
         action: 'CREATE',
@@ -141,6 +151,14 @@ describe('office work schedules', () => {
         { weekday: 1, isWorkingDay: true, startTime: '10:00', endTime: '18:00' },
         { weekday: 0, isWorkingDay: true, startTime: '08:00', endTime: '12:00' },
       ],
+    });
+
+    expect(prisma.officeWorkSchedule.update).toHaveBeenCalledWith({
+      where: { id: 'schedule-1' },
+      data: {
+        name: 'HQ Schedule Revised',
+        lastUpdatedBy: { connect: { id: 'admin-1' } },
+      },
     });
 
     expect(prisma.changelog.create).toHaveBeenCalledWith({
@@ -268,11 +286,15 @@ describe('office work schedules', () => {
       employeeId: 'employee-2',
       officeWorkScheduleId: 'schedule-new',
       effectiveFrom,
+      actor: { type: 'admin', id: 'admin-1' },
     });
 
     expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenCalledWith({
       where: { id: 'assignment-current' },
-      data: { effectiveUntil: effectiveFrom },
+      data: {
+        effectiveUntil: effectiveFrom,
+        lastUpdatedById: 'admin-1',
+      },
     });
     expect(prisma.employeeOfficeWorkScheduleAssignment.create).toHaveBeenCalledWith({
       data: {
@@ -280,6 +302,8 @@ describe('office work schedules', () => {
         officeWorkScheduleId: 'schedule-new',
         effectiveFrom,
         effectiveUntil: null,
+        createdById: 'admin-1',
+        lastUpdatedById: 'admin-1',
       },
     });
     expect(result).toMatchObject({
@@ -351,11 +375,15 @@ describe('office work schedules', () => {
       employeeId: 'employee-1',
       officeWorkScheduleId: 'schedule-new',
       effectiveFrom,
+      actor: { type: 'admin', id: 'admin-1' },
     });
 
     expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenCalledWith({
       where: { id: 'assignment-future' },
-      data: { officeWorkScheduleId: 'schedule-new' },
+      data: {
+        officeWorkScheduleId: 'schedule-new',
+        lastUpdatedById: 'admin-1',
+      },
     });
     expect(prisma.$transaction).not.toHaveBeenCalled();
     expect(result).toMatchObject({
@@ -602,18 +630,81 @@ describe('office work schedules', () => {
         officeWorkScheduleId: 'schedule-early',
         effectiveFrom: earlierStart,
       },
-    ]);
+    ], {
+      actor: { type: 'admin', id: 'admin-1' },
+    });
 
     expect(prisma.employeeOfficeWorkScheduleAssignment.create).toHaveBeenCalledTimes(2);
     expect((prisma.employeeOfficeWorkScheduleAssignment.create as jest.Mock).mock.calls[0][0].data).toMatchObject({
       employeeId: 'employee-1',
       officeWorkScheduleId: 'schedule-early',
       effectiveFrom: earlierStart,
+      createdById: 'admin-1',
+      lastUpdatedById: 'admin-1',
     });
     expect((prisma.employeeOfficeWorkScheduleAssignment.create as jest.Mock).mock.calls[1][0].data).toMatchObject({
       employeeId: 'employee-1',
       officeWorkScheduleId: 'schedule-late',
       effectiveFrom: laterStart,
+      createdById: 'admin-1',
+      lastUpdatedById: 'admin-1',
+    });
+  });
+
+  test('creates a direct assignment with admin ownership metadata', async () => {
+    const effectiveFrom = new Date('2026-03-30T00:00:00.000Z');
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.employeeOfficeWorkScheduleAssignment.create as jest.Mock).mockResolvedValue({
+      id: 'assignment-direct',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-1',
+      effectiveFrom,
+      effectiveUntil: null,
+    });
+
+    await createOfficeWorkScheduleAssignment({
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-1',
+      effectiveFrom,
+      adminId: 'admin-1',
+    });
+
+    expect(prisma.employeeOfficeWorkScheduleAssignment.create).toHaveBeenCalledWith({
+      data: {
+        employeeId: 'employee-1',
+        officeWorkScheduleId: 'schedule-1',
+        effectiveFrom,
+        effectiveUntil: null,
+        createdById: 'admin-1',
+        lastUpdatedById: 'admin-1',
+      },
+    });
+  });
+
+  test('leaves assignment ownership metadata null for non-admin direct create', async () => {
+    const effectiveFrom = new Date('2026-03-30T00:00:00.000Z');
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.employeeOfficeWorkScheduleAssignment.create as jest.Mock).mockResolvedValue({
+      id: 'assignment-direct',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-1',
+      effectiveFrom,
+      effectiveUntil: null,
+    });
+
+    await createOfficeWorkScheduleAssignment({
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-1',
+      effectiveFrom,
+    });
+
+    expect(prisma.employeeOfficeWorkScheduleAssignment.create).toHaveBeenCalledWith({
+      data: {
+        employeeId: 'employee-1',
+        officeWorkScheduleId: 'schedule-1',
+        effectiveFrom,
+        effectiveUntil: null,
+      },
     });
   });
 
@@ -713,15 +804,22 @@ describe('office work schedules', () => {
       assignmentId: 'assignment-target',
       officeWorkScheduleId: 'schedule-new',
       effectiveFrom: updatedStart,
+      actor: { type: 'admin', id: 'admin-1' },
     });
 
     expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenNthCalledWith(1, {
       where: { id: 'assignment-prev' },
-      data: { effectiveUntil: nextStart },
+      data: {
+        effectiveUntil: nextStart,
+        lastUpdatedById: 'admin-1',
+      },
     });
     expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenNthCalledWith(2, {
       where: { id: 'assignment-prev' },
-      data: { effectiveUntil: updatedStart },
+      data: {
+        effectiveUntil: updatedStart,
+        lastUpdatedById: 'admin-1',
+      },
     });
     expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenNthCalledWith(3, {
       where: { id: 'assignment-target' },
@@ -729,6 +827,7 @@ describe('office work schedules', () => {
         officeWorkScheduleId: 'schedule-new',
         effectiveFrom: updatedStart,
         effectiveUntil: null,
+        lastUpdatedById: 'admin-1',
       },
     });
     expect(result.officeWorkScheduleId).toBe('schedule-new');
@@ -827,15 +926,22 @@ describe('office work schedules', () => {
       assignmentId: 'assignment-target',
       officeWorkScheduleId: 'schedule-old',
       effectiveFrom: earlierStart,
+      actor: { type: 'admin', id: 'admin-1' },
     });
 
     expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenNthCalledWith(1, {
       where: { id: 'assignment-prev' },
-      data: { effectiveUntil: nextStart },
+      data: {
+        effectiveUntil: nextStart,
+        lastUpdatedById: 'admin-1',
+      },
     });
     expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenNthCalledWith(2, {
       where: { id: 'assignment-prev' },
-      data: { effectiveUntil: earlierStart },
+      data: {
+        effectiveUntil: earlierStart,
+        lastUpdatedById: 'admin-1',
+      },
     });
     expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenNthCalledWith(3, {
       where: { id: 'assignment-target' },
@@ -843,6 +949,7 @@ describe('office work schedules', () => {
         officeWorkScheduleId: 'schedule-old',
         effectiveFrom: earlierStart,
         effectiveUntil: null,
+        lastUpdatedById: 'admin-1',
       },
     });
     expect(result.effectiveFrom).toEqual(earlierStart);
@@ -918,11 +1025,15 @@ describe('office work schedules', () => {
 
     await deleteFutureOfficeWorkScheduleAssignment({
       assignmentId: 'assignment-target',
+      actor: { type: 'admin', id: 'admin-1' },
     });
 
     expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenCalledWith({
       where: { id: 'assignment-prev' },
-      data: { effectiveUntil: targetAssignment.effectiveUntil },
+      data: {
+        effectiveUntil: targetAssignment.effectiveUntil,
+        lastUpdatedById: 'admin-1',
+      },
     });
     expect(prisma.employeeOfficeWorkScheduleAssignment.delete).toHaveBeenCalledWith({
       where: { id: 'assignment-target' },
