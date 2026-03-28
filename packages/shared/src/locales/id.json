@@ -204,13 +204,35 @@
   "officeAttendance": {
     "title": "Kehadiran Kantor",
     "notRecorded": "Anda belum melakukan presensi hari ini.",
-    "clockedIn": "Sudah Masuk ({{time}})",
+    "noOfficeAssigned": "Remote / Tidak Ada Kantor Terdaftar",
+    "workingDay": "Hari Kerja",
+    "nonWorkingDay": "Tidak ada jadwal aktif untuk hari ini. Hari ini ditandai sebagai hari libur.",
+    "dateLabel": "Tanggal",
+    "windowLabel": "Jadwal",
+    "clockedIn": "Sudah Clock In Pada",
     "clockIn": "Clock In (Masuk)",
     "clockOut": "Clock Out (Keluar)",
+    "dayCompleted": "Hari Selesai",
+    "clockOutTime": "Clock Out:",
     "clockOutSuccess": "Berhasil keluar",
+    "cannotClockInNonWorkingDay": "Anda hanya bisa clock in pada hari kerja.",
     "history": "Riwayat Hari Ini",
     "in": "Masuk",
-    "out": "Keluar"
+    "out": "Keluar",
+    "errors": {
+      "generic": "Gagal merekam kehadiran kantor.",
+      "unauthorized": "Anda tidak memiliki izin untuk melakukan tindakan ini.",
+      "locationRequired": "Izin lokasi diperlukan.",
+      "tooFarFromOffice": "Anda berada terlalu jauh dari kantor yang ditugaskan.",
+      "assignedOfficeNotFound": "Kantor yang ditugaskan tidak ditemukan.",
+      "officeLocationNotConfigured": "Lokasi kantor yang ditugaskan belum dikonfigurasi.",
+      "notWorkingDay": "Kehadiran kantor hanya tersedia pada hari kerja yang dikonfigurasi.",
+      "officeHoursEnded": "Clock-in tidak lagi diizinkan setelah jam kerja kantor berakhir.",
+      "clockInRequired": "Clock-in wajib dilakukan sebelum clock-out.",
+      "alreadyClockedIn": "Clock-in sudah tercatat untuk jendela jadwal ini.",
+      "attendanceCompleted": "Kehadiran kantor sudah selesai untuk jendela jadwal ini.",
+      "internalServerError": "Terjadi kesalahan pada server."
+    }
   },
   "notifications": {
     "permission_title": "Aktifkan Notifikasi",

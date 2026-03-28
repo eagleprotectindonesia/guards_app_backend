@@ -204,13 +204,35 @@
   "officeAttendance": {
     "title": "Office Attendance",
     "notRecorded": "You haven't recorded your attendance today.",
-    "clockedIn": "Clocked In ({{time}})",
+    "noOfficeAssigned": "Remote / No Office Assigned",
+    "workingDay": "Working Day",
+    "nonWorkingDay": "No active schedule for today. It is marked as a day off.",
+    "dateLabel": "Date",
+    "windowLabel": "Window",
+    "clockedIn": "Clocked In At",
     "clockIn": "Clock In",
     "clockOut": "Clock Out",
+    "dayCompleted": "Day Completed",
+    "clockOutTime": "Clock Out:",
     "clockOutSuccess": "Successfully clocked out",
+    "cannotClockInNonWorkingDay": "You can only clock in on a working day.",
     "history": "Today's History",
     "in": "In",
-    "out": "Out"
+    "out": "Out",
+    "errors": {
+      "generic": "Failed to record office attendance.",
+      "unauthorized": "You are not authorized to perform this action.",
+      "locationRequired": "Location permission is required.",
+      "tooFarFromOffice": "You are too far from the assigned office.",
+      "assignedOfficeNotFound": "The assigned office could not be found.",
+      "officeLocationNotConfigured": "The assigned office does not have a configured location.",
+      "notWorkingDay": "Office attendance is only available on configured working days.",
+      "officeHoursEnded": "Clock-in is no longer allowed after the configured office end time.",
+      "clockInRequired": "Clock-in is required before clock-out.",
+      "alreadyClockedIn": "Clock-in has already been recorded for this schedule window.",
+      "attendanceCompleted": "Office attendance has already been completed for this schedule window.",
+      "internalServerError": "Internal server error."
+    }
   },
   "notifications": {
     "permission_title": "Enable Notifications",
