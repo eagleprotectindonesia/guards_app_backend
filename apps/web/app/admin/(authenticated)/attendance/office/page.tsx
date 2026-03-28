@@ -5,7 +5,7 @@ import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
 import { getActiveEmployeesSummary } from '@repo/database';
-import { getPaginatedOfficeAttendance } from '@repo/database';
+import { listOfficeAttendance } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { canAccessOfficeAttendance } from '@/lib/auth/admin-visibility';
@@ -15,6 +15,10 @@ import {
   SerializedOfficeAttendanceWithRelationsDto,
 } from '@/types/attendance';
 import { forbidden } from 'next/navigation';
+import {
+  paginateOfficeAttendanceDisplayRows,
+  unifyOfficeAttendanceForAdminDisplay,
+} from './office-attendance-display';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +32,7 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
     forbidden();
   }
   const searchParams = await props.searchParams;
-  const { page, perPage, skip } = getPaginationParams(searchParams);
+  const { page, perPage } = getPaginationParams(searchParams);
 
   // Extract filters from searchParams
   const employeeId = typeof searchParams.employeeId === 'string' ? searchParams.employeeId : undefined;
@@ -52,12 +56,10 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
     }
   }
 
-  const [{ attendances, totalCount }, employees] = await Promise.all([
-    getPaginatedOfficeAttendance({
+  const [attendances, employees] = await Promise.all([
+    listOfficeAttendance({
       where,
-      orderBy: { recordedAt: 'desc' },
-      skip,
-      take: perPage,
+      orderBy: { recordedAt: 'asc' },
     }),
     getActiveEmployeesSummary('office'),
   ]);
@@ -84,6 +86,10 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
       : null,
   }));
 
+  const unifiedAttendances = unifyOfficeAttendanceForAdminDisplay(serializedAttendances);
+  const totalCount = unifiedAttendances.length;
+  const paginatedAttendances = paginateOfficeAttendanceDisplayRows(unifiedAttendances, page, perPage);
+
   const serializedEmployees: AttendanceEmployeeSummary[] = employees.map(emp => ({
     id: emp.id,
     fullName: emp.fullName,
@@ -101,7 +107,7 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
       <AttendanceTabs />
       <Suspense fallback={<div>Loading office attendances...</div>}>
         <OfficeAttendanceList
-          attendances={serializedAttendances}
+          attendances={paginatedAttendances}
           page={page}
           perPage={perPage}
           totalCount={totalCount}

@@ -124,6 +124,22 @@ export async function getPaginatedOfficeAttendance(params: {
   return { attendances, totalCount };
 }
 
+export async function listOfficeAttendance(params: {
+  where: Prisma.OfficeAttendanceWhereInput;
+  orderBy: Prisma.OfficeAttendanceOrderByWithRelationInput;
+}) {
+  const { where, orderBy } = params;
+
+  return prisma.officeAttendance.findMany({
+    where,
+    orderBy,
+    include: {
+      employee: true,
+      office: true,
+    },
+  });
+}
+
 export async function getOfficeAttendanceExportBatch(params: {
   where: Prisma.OfficeAttendanceWhereInput;
   take: number;

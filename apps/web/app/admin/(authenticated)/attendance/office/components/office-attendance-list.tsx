@@ -5,20 +5,17 @@ import { format } from 'date-fns';
 import {
   AttendanceEmployeeSummary,
   OfficeAttendanceMetadataDto,
-  SerializedOfficeAttendanceWithRelationsDto,
+  SerializedOfficeAttendanceDisplayDto,
 } from '@/types/attendance';
 import PaginationNav from '../../../components/pagination-nav';
 
-function hasValidLocation(metadata: OfficeAttendanceMetadataDto | null): metadata is OfficeAttendanceMetadataDto & { location: { lat: number; lng: number } } {
-  return (
-    !!metadata?.location &&
-    typeof metadata.location.lat === 'number' &&
-    typeof metadata.location.lng === 'number'
-  );
+function buildLocationSummary(metadata: OfficeAttendanceMetadataDto | null) {
+  if (!metadata?.location) return '-';
+  return `Lat: ${metadata.location.lat.toFixed(3)}, Lng: ${metadata.location.lng.toFixed(3)}`;
 }
 
 type OfficeAttendanceListProps = {
-  attendances: SerializedOfficeAttendanceWithRelationsDto[];
+  attendances: SerializedOfficeAttendanceDisplayDto[];
   page: number;
   perPage: number;
   totalCount: number;
@@ -37,7 +34,7 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Office Attendance</h1>
-          <p className="text-sm text-muted-foreground mt-1">View office clock-in and clock-out records.</p>
+          <p className="text-sm text-muted-foreground mt-1">View unified office attendance sessions.</p>
         </div>
       </div>
 
@@ -52,17 +49,17 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                 </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Office</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Date & Time
-                </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Type</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Business Date</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Clock In</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Clock Out</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Location</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {attendances.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
                     No office attendance records found.
                   </td>
                 </tr>
@@ -87,47 +84,42 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-foreground font-medium">
+                      {attendance.businessDate}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-foreground font-medium">
                       <div className="flex items-center gap-2">
                         <Clock className="w-3 h-3 text-muted-foreground/60" />
-                        {format(new Date(attendance.recordedAt), 'yyyy/MM/dd HH:mm')}
+                        {format(new Date(attendance.clockInAt), 'HH:mm')}
                       </div>
                     </td>
+                    <td className="py-4 px-6 text-sm text-foreground font-medium">
+                      {attendance.clockOutAt ? format(new Date(attendance.clockOutAt), 'HH:mm') : '-'}
+                    </td>
                     <td className="py-4 px-6 text-sm">
-                      {attendance.status === 'present' && (
+                      {attendance.displayStatus === 'clocked_in' && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                          Clock In
+                          Clocked In
                         </span>
                       )}
-                      {attendance.status === 'clocked_out' && (
+                      {attendance.displayStatus === 'completed' && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                          Clock Out
+                          Completed
                         </span>
                       )}
-                      {attendance.status === 'late' && (
+                      {attendance.displayStatus === 'late' && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
                           Late
                         </span>
                       )}
-                      {attendance.status === 'absent' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                          Absent
-                        </span>
-                      )}
-                      {attendance.status === 'pending_verification' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
-                          Pending
-                        </span>
-                      )}
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {hasValidLocation(attendance.metadata) ? (
-                        <div className="flex flex-col text-xs">
-                          <div>Lat: {attendance.metadata.location!.lat.toFixed(3)}</div>
-                          <div>Lng: {attendance.metadata.location!.lng.toFixed(3)}</div>
-                        </div>
-                      ) : (
-                        '-'
-                      )}
+                      <div className="flex flex-col text-xs gap-1">
+                        <div>In: {buildLocationSummary(attendance.clockInMetadata)}</div>
+                        <div>Out: {buildLocationSummary(attendance.clockOutMetadata)}</div>
+                        {attendance.latenessMins != null && attendance.latenessMins > 0 ? (
+                          <div>Late: {attendance.latenessMins} mins</div>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))

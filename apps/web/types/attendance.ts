@@ -72,3 +72,25 @@ export type SerializedOfficeAttendanceWithRelationsDto = Omit<
 > & {
   recordedAt: string;
 };
+
+export type OfficeAttendanceDisplayStatus = 'clocked_in' | 'completed' | 'late';
+
+export type OfficeAttendanceDisplayDto = {
+  id: string;
+  employeeId: string;
+  officeId: string | null;
+  businessDate: string;
+  clockInAt: string;
+  clockOutAt: string | null;
+  clockInMetadata: OfficeAttendanceMetadataDto | null;
+  clockOutMetadata: OfficeAttendanceMetadataDto | null;
+  latenessMins: number | null;
+  displayStatus: OfficeAttendanceDisplayStatus;
+  office: {
+    id: string;
+    name: string;
+  } | null;
+  employee: AttendanceEmployeeSummary | null;
+};
+
+export type SerializedOfficeAttendanceDisplayDto = OfficeAttendanceDisplayDto;
