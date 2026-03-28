@@ -181,7 +181,7 @@ export default function EmployeeScheduleManager({
                         {format(new Date(item.effectiveFrom), 'yyyy/MM/dd')}
                       </td>
                       <td className="py-3 px-4 text-sm text-muted-foreground">
-                        {item.effectiveUntil ? format(new Date(item.effectiveUntil), 'yyyy/MM/dd') : 'Ongoing'}
+                        {item.effectiveUntil ? format(new Date(item.effectiveUntil), 'yyyy/MM/dd') : '-'}
                       </td>
                       <td className="py-3 px-4 text-sm">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">

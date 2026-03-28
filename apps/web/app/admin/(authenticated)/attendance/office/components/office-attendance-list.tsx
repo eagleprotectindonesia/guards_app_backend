@@ -67,7 +67,7 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                 attendances.map(attendance => (
                   <tr key={attendance.id} className="hover:bg-muted/50 transition-colors group">
                     <td className="py-4 px-6 text-sm font-medium text-muted-foreground">
-                      {attendance.employee?.id || '-'}
+                      {attendance.employee?.employeeNumber || '-'}
                     </td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       <div className="flex items-center gap-3">

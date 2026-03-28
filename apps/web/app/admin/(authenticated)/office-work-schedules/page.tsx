@@ -15,12 +15,13 @@ export default async function OfficeWorkSchedulesPage() {
   const serializedSchedules = schedules.map(schedule => ({
     id: schedule.id,
     name: schedule.name,
-    code: schedule.code,
     assignmentCount: schedule._count.assignments,
     workingDaysSummary: schedule.days
       .filter(day => day.isWorkingDay)
       .map(day => WEEKDAY_SHORT[day.weekday])
       .join(', ') || 'No working days',
+    createdBy: schedule.createdBy,
+    lastUpdatedBy: schedule.lastUpdatedBy,
   }));
 
   return (

@@ -14,6 +14,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useTranslation } from 'react-i18next';
+import { useAlert } from '../contexts/AlertContext';
 import { useCustomToast } from '../hooks/useCustomToast';
 import { useOfficeAttendance, useRecordOfficeAttendance } from '../hooks/useOfficeAttendance';
 import { getOfficeScheduleDisplayState, resolveOfficeAttendanceErrorMessage } from './office-attendance-utils';
@@ -25,6 +26,7 @@ type Props = {
 
 export default function OfficeAttendanceCard({ office, enabled = true }: Props) {
   const { t } = useTranslation();
+  const { showAlert } = useAlert();
   const toast = useCustomToast();
   const [statusMessage, setStatusMessage] = useState('');
   const { data, refetch, isLoading, isRefetching } = useOfficeAttendance(enabled);
@@ -99,6 +101,27 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
       setStatusMessage(message);
       toast.error(t('officeAttendance.title'), message);
     }
+  };
+
+  const handleClockOutPress = () => {
+    showAlert(
+      t('officeAttendance.clockOutConfirmTitle'),
+      t('officeAttendance.clockOutConfirmMessage'),
+      [
+        {
+          text: t('common.cancel', 'Cancel'),
+          style: 'cancel',
+        },
+        {
+          text: t('officeAttendance.clockOutConfirmAction'),
+          style: 'destructive',
+          onPress: () => {
+            void handleRecordAttendance('clocked_out');
+          },
+        },
+      ],
+      { icon: 'warning' }
+    );
   };
 
   if (isLoading && !data) {
@@ -195,7 +218,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
               </HStack>
             </Box>
 
-            <Pressable onPress={() => handleRecordAttendance('clocked_out')} disabled={recordMutation.isPending}>
+            <Pressable onPress={handleClockOutPress} disabled={recordMutation.isPending}>
               {({ pressed }: { pressed: boolean }) => (
                 <LinearGradient
                   colors={['#DC2626', '#991B1B']}

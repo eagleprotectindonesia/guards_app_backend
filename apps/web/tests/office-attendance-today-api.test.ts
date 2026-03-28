@@ -211,4 +211,50 @@ describe('GET /api/employee/my/office-attendance/today', () => {
       latestAttendance: latestAttendance,
     });
   });
+
+  test('falls back to the latest today attendance before marking the day as missed', async () => {
+    const latestTodayAttendance = {
+      id: 'attendance-fallback',
+      employeeId: 'employee-5',
+      officeId: null,
+      status: 'clocked_out',
+      recordedAt: '2026-04-01T09:15:00.000Z',
+    };
+
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-5',
+      role: 'office',
+    });
+    (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([latestTodayAttendance]);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isLate: true,
+      isAfterEnd: true,
+      windowStart: new Date('2026-04-01T00:00:00.000Z'),
+      windowEnd: new Date('2026-04-01T09:00:00.000Z'),
+      startMinutes: 8 * 60,
+      endMinutes: 17 * 60,
+      schedule: {
+        id: 'schedule-4',
+        code: 'default-office-work-schedule',
+        name: 'Default Office Schedule',
+      },
+      businessDay: {
+        dateKey: '2026-04-01',
+      },
+    });
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.attendanceState).toMatchObject({
+      status: 'completed',
+      canClockIn: false,
+      canClockOut: false,
+      windowClosed: true,
+      latestAttendance: latestTodayAttendance,
+    });
+  });
 });

@@ -20,8 +20,10 @@ function formatMinutesAsTime(minutes: number | null | undefined) {
 function getOfficeAttendanceState(params: {
   scheduleContext: Awaited<ReturnType<typeof resolveOfficeWorkScheduleContextForEmployee>>;
   latestAttendance: OfficeAttendance | null;
+  latestTodayAttendance: OfficeAttendance | null;
 }): OfficeAttendanceState {
-  const { scheduleContext, latestAttendance } = params;
+  const { scheduleContext, latestAttendance, latestTodayAttendance } = params;
+  const effectiveLatestAttendance = latestAttendance ?? latestTodayAttendance;
 
   if (!scheduleContext.isWorkingDay) {
     return {
@@ -30,29 +32,29 @@ function getOfficeAttendanceState(params: {
       canClockOut: false,
       windowClosed: false,
       messageCode: 'not_working_day',
-      latestAttendance,
+      latestAttendance: effectiveLatestAttendance,
     };
   }
 
-  if (latestAttendance?.status === 'clocked_out') {
+  if (effectiveLatestAttendance?.status === 'clocked_out') {
     return {
       status: 'completed',
       canClockIn: false,
       canClockOut: false,
       windowClosed: true,
       messageCode: 'attendance_completed',
-      latestAttendance,
+      latestAttendance: effectiveLatestAttendance,
     };
   }
 
-  if (latestAttendance?.status === 'present') {
+  if (effectiveLatestAttendance?.status === 'present') {
     return {
       status: 'clocked_in',
       canClockIn: false,
       canClockOut: true,
       windowClosed: false,
       messageCode: scheduleContext.isLate ? 'already_clocked_in' : null,
-      latestAttendance,
+      latestAttendance: effectiveLatestAttendance,
     };
   }
 
@@ -63,7 +65,7 @@ function getOfficeAttendanceState(params: {
       canClockOut: false,
       windowClosed: true,
       messageCode: 'office_hours_ended',
-      latestAttendance,
+      latestAttendance: effectiveLatestAttendance,
     };
   }
 
@@ -73,7 +75,7 @@ function getOfficeAttendanceState(params: {
     canClockOut: false,
     windowClosed: false,
     messageCode: scheduleContext.isLate ? 'late_window_open' : null,
-    latestAttendance,
+    latestAttendance: effectiveLatestAttendance,
   };
 }
 
@@ -97,7 +99,11 @@ export async function GET() {
       scheduleContext.windowStart && scheduleContext.windowEnd
         ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
         : null;
-    const attendanceState = getOfficeAttendanceState({ scheduleContext, latestAttendance });
+    const attendanceState = getOfficeAttendanceState({
+      scheduleContext,
+      latestAttendance,
+      latestTodayAttendance: attendances[0] ?? null,
+    });
 
     return NextResponse.json({
       attendances,

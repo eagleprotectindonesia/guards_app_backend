@@ -206,6 +206,16 @@ export async function getAllOfficeWorkSchedules() {
       days: {
         orderBy: { weekday: 'asc' },
       },
+      createdBy: {
+        select: {
+          name: true,
+        },
+      },
+      lastUpdatedBy: {
+        select: {
+          name: true,
+        },
+      },
       _count: {
         select: {
           assignments: true,

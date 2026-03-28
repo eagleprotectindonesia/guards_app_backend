@@ -4,13 +4,15 @@ import Link from 'next/link';
 import { History } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { EditButton } from '../../components/action-buttons';
 
 type ScheduleListItem = {
   id: string;
   name: string;
-  code: string;
   assignmentCount: number;
   workingDaysSummary: string;
+  lastUpdatedBy?: { name: string } | null;
+  createdBy?: { name: string } | null;
 };
 
 type Props = {
@@ -20,6 +22,7 @@ type Props = {
 export default function ScheduleList({ schedules }: Props) {
   const { hasPermission } = useSession();
   const canCreate = hasPermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.CREATE);
+  const canEdit = hasPermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.EDIT);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
 
   return (
@@ -56,12 +59,17 @@ export default function ScheduleList({ schedules }: Props) {
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Code</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Working Days
                 </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Assignments
+                </th>
+                <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-blue-600 dark:text-blue-400">Created By</span>
+                    <span className="text-muted-foreground/60">Last Updated By</span>
+                  </div>
                 </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
                   Actions
@@ -77,18 +85,42 @@ export default function ScheduleList({ schedules }: Props) {
                 </tr>
               ) : (
                 schedules.map(schedule => (
-                  <tr key={schedule.id} className="hover:bg-muted/30 transition-colors">
+                  <tr key={schedule.id} className="hover:bg-muted/30 transition-colors group">
                     <td className="py-4 px-6 text-sm font-medium text-foreground">{schedule.name}</td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono">{schedule.code}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">{schedule.workingDaysSummary}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">{schedule.assignmentCount}</td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <div
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                            schedule.createdBy?.name
+                              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-900/30'
+                              : 'text-muted-foreground/50'
+                          }`}
+                          title="Created By"
+                        >
+                          {schedule.createdBy?.name || '-'}
+                        </div>
+                        <div
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                            schedule.lastUpdatedBy?.name
+                              ? 'bg-muted text-foreground border border-border'
+                              : 'text-muted-foreground/50'
+                          }`}
+                          title="Last Updated By"
+                        >
+                          {schedule.lastUpdatedBy?.name || '-'}
+                        </div>
+                      </div>
+                    </td>
                     <td className="py-4 px-6 text-right">
-                      <Link
-                        href={`/admin/office-work-schedules/${schedule.id}/edit`}
-                        className="inline-flex items-center justify-center h-9 px-4 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted/40"
-                      >
-                        Edit
-                      </Link>
+                      <div className="flex items-center justify-end gap-2 opacity-100">
+                        <EditButton
+                          href={`/admin/office-work-schedules/${schedule.id}/edit`}
+                          disabled={!canEdit}
+                          title={!canEdit ? 'Permission Denied' : 'Edit'}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))
