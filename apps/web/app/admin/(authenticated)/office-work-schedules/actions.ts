@@ -39,7 +39,7 @@ export async function createOfficeWorkScheduleAction(
   prevState: ActionState<UpdateOfficeWorkScheduleInput>,
   formData: FormData
 ): Promise<ActionState<UpdateOfficeWorkScheduleInput>> {
-  await requirePermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.CREATE);
+  const session = await requirePermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.CREATE);
 
   const validatedFields = updateOfficeWorkScheduleSchema.safeParse({
     name: formData.get('name'),
@@ -60,6 +60,7 @@ export async function createOfficeWorkScheduleAction(
       name: validatedFields.data.name,
       code,
       days: validatedFields.data.days,
+      adminId: session.id,
     });
   } catch (error) {
     console.error('Database Error:', error);
@@ -70,6 +71,7 @@ export async function createOfficeWorkScheduleAction(
   }
 
   revalidatePath('/admin/office-work-schedules');
+  revalidatePath('/admin/office-work-schedules/audit');
   return { success: true, message: 'Office schedule created successfully.' };
 }
 
@@ -78,7 +80,7 @@ export async function updateOfficeWorkScheduleAction(
   prevState: ActionState<UpdateOfficeWorkScheduleInput>,
   formData: FormData
 ): Promise<ActionState<UpdateOfficeWorkScheduleInput>> {
-  await requirePermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.EDIT);
+  const session = await requirePermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.EDIT);
 
   const validatedFields = updateOfficeWorkScheduleSchema.safeParse({
     name: formData.get('name'),
@@ -106,6 +108,7 @@ export async function updateOfficeWorkScheduleAction(
       id,
       name: validatedFields.data.name,
       days: validatedFields.data.days,
+      adminId: session.id,
     });
   } catch (error) {
     console.error('Database Error:', error);
@@ -116,6 +119,7 @@ export async function updateOfficeWorkScheduleAction(
   }
 
   revalidatePath('/admin/office-work-schedules');
+  revalidatePath('/admin/office-work-schedules/audit');
   revalidatePath(`/admin/office-work-schedules/${id}/edit`);
   return { success: true, message: 'Office schedule updated successfully.' };
 }

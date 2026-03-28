@@ -1,9 +1,11 @@
 import {
   analyzeFutureOfficeWorkScheduleAssignment,
   bulkUpsertFutureOfficeWorkScheduleAssignments,
+  createOfficeWorkSchedule,
   deleteFutureOfficeWorkScheduleAssignment,
   resolveOfficeWorkScheduleContextForEmployee,
   scheduleFutureOfficeWorkScheduleAssignment,
+  updateOfficeWorkSchedule,
   updateFutureOfficeWorkScheduleAssignment,
 } from './office-work-schedules';
 import { db as prisma } from '../prisma/client';
@@ -20,7 +22,13 @@ jest.mock('../prisma/client', () => ({
       create: jest.fn(),
     },
     officeWorkSchedule: {
+      create: jest.fn(),
       findUnique: jest.fn(),
+      findUniqueOrThrow: jest.fn(),
+      update: jest.fn(),
+    },
+    officeWorkScheduleDay: {
+      upsert: jest.fn(),
     },
     employeeOfficeWorkScheduleAssignment: {
       findFirst: jest.fn(),
@@ -40,12 +48,129 @@ describe('office work schedules', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    (prisma.officeWorkScheduleDay.upsert as jest.Mock).mockResolvedValue({});
     (prisma.employee.findUnique as jest.Mock).mockImplementation(async ({ where }: { where: { id: string } }) => ({
       id: where.id,
       fullName: where.id === 'employee-2' ? 'Employee Two' : 'Employee One',
       employeeNumber: where.id === 'employee-2' ? 'EMP002' : 'EMP001',
     }));
     (prisma.changelog.create as jest.Mock).mockResolvedValue({});
+  });
+
+  test('creates an office work schedule changelog entry for admin actions', async () => {
+    mockTransaction();
+
+    (prisma.officeWorkSchedule.create as jest.Mock).mockResolvedValue({
+      id: 'schedule-1',
+      name: 'HQ Schedule',
+      code: 'hq-schedule-1',
+    });
+    (prisma.officeWorkSchedule.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+      id: 'schedule-1',
+      name: 'HQ Schedule',
+      code: 'hq-schedule-1',
+      days: [
+        { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
+        { weekday: 1, isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
+      ],
+    });
+
+    await createOfficeWorkSchedule({
+      name: 'HQ Schedule',
+      code: 'hq-schedule-1',
+      adminId: 'admin-1',
+      days: [
+        { weekday: 1, isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
+        { weekday: 0, isWorkingDay: false, startTime: '08:00', endTime: '16:00' },
+      ],
+    });
+
+    expect(prisma.changelog.create).toHaveBeenCalledWith({
+      data: {
+        action: 'CREATE',
+        entityType: 'OfficeWorkSchedule',
+        entityId: 'schedule-1',
+        actor: 'admin',
+        actorId: 'admin-1',
+        details: {
+          name: 'HQ Schedule',
+          code: 'hq-schedule-1',
+          days: [
+            { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
+            { weekday: 1, isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
+          ],
+          changes: undefined,
+        },
+      },
+    });
+  });
+
+  test('updates an office work schedule changelog entry with tracked field changes', async () => {
+    mockTransaction();
+
+    (prisma.officeWorkSchedule.findUniqueOrThrow as jest.Mock)
+      .mockResolvedValueOnce({
+        id: 'schedule-1',
+        name: 'HQ Schedule',
+        code: 'hq-schedule-1',
+        days: [
+          { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 1, isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
+        ],
+      })
+      .mockResolvedValueOnce({
+        id: 'schedule-1',
+        name: 'HQ Schedule Revised',
+        code: 'hq-schedule-1',
+        days: [
+          { weekday: 0, isWorkingDay: true, startTime: '08:00', endTime: '12:00' },
+          { weekday: 1, isWorkingDay: true, startTime: '10:00', endTime: '18:00' },
+        ],
+      });
+    (prisma.officeWorkSchedule.update as jest.Mock).mockResolvedValue({
+      id: 'schedule-1',
+      name: 'HQ Schedule Revised',
+      code: 'hq-schedule-1',
+    });
+
+    await updateOfficeWorkSchedule({
+      id: 'schedule-1',
+      name: 'HQ Schedule Revised',
+      adminId: 'admin-1',
+      days: [
+        { weekday: 1, isWorkingDay: true, startTime: '10:00', endTime: '18:00' },
+        { weekday: 0, isWorkingDay: true, startTime: '08:00', endTime: '12:00' },
+      ],
+    });
+
+    expect(prisma.changelog.create).toHaveBeenCalledWith({
+      data: {
+        action: 'UPDATE',
+        entityType: 'OfficeWorkSchedule',
+        entityId: 'schedule-1',
+        actor: 'admin',
+        actorId: 'admin-1',
+        details: {
+          name: 'HQ Schedule Revised',
+          code: 'hq-schedule-1',
+          days: [
+            { weekday: 0, isWorkingDay: true, startTime: '08:00', endTime: '12:00' },
+            { weekday: 1, isWorkingDay: true, startTime: '10:00', endTime: '18:00' },
+          ],
+          changes: {
+            name: { from: 'HQ Schedule', to: 'HQ Schedule Revised' },
+            day_0: {
+              from: { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
+              to: { weekday: 0, isWorkingDay: true, startTime: '08:00', endTime: '12:00' },
+            },
+            day_1: {
+              from: { weekday: 1, isWorkingDay: true, startTime: '09:00', endTime: '17:00' },
+              to: { weekday: 1, isWorkingDay: true, startTime: '10:00', endTime: '18:00' },
+            },
+          },
+        },
+      },
+    });
   });
 
   test('resolves employee assignment for the requested date before default schedule', async () => {

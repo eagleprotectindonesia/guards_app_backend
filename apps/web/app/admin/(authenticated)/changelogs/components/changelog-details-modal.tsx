@@ -7,10 +7,54 @@ import { ArrowRight, Info, History } from 'lucide-react';
 type ChangelogDetailsModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  entityType?: string | null;
   details: Record<string, unknown> | { changes: Record<string, { from: string | null; to: string | null }> } | null;
 };
 
-export default function ChangelogDetailsModal({ isOpen, onClose, details }: ChangelogDetailsModalProps) {
+type OfficeWorkScheduleDay = {
+  weekday: number;
+  isWorkingDay: boolean;
+  startTime: string | null;
+  endTime: string | null;
+};
+
+function isOfficeWorkScheduleDay(value: unknown): value is OfficeWorkScheduleDay {
+  return !!value && typeof value === 'object' && 'weekday' in value && 'isWorkingDay' in value;
+}
+
+function formatOfficeWorkScheduleDay(day: OfficeWorkScheduleDay) {
+  const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return `${weekdayLabels[day.weekday] ?? `Day ${day.weekday}`}: ${
+    day.isWorkingDay ? `${day.startTime ?? '-'} - ${day.endTime ?? '-'}` : 'Off'
+  }`;
+}
+
+function officeWorkScheduleDayLabel(key: string) {
+  const weekday = Number(key.replace('day_', ''));
+  const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return weekdayLabels[weekday] ? `${weekdayLabels[weekday]} Schedule` : `Day ${weekday}`;
+}
+
+function renderOfficeWorkScheduleDays(value: unknown) {
+  if (!Array.isArray(value)) return null;
+  const days = value.filter(isOfficeWorkScheduleDay);
+  if (days.length === 0) return null;
+
+  return (
+    <div className="space-y-1">
+      {days
+        .slice()
+        .sort((left, right) => left.weekday - right.weekday)
+        .map(day => (
+          <div key={day.weekday} className="text-sm font-medium text-foreground">
+            {formatOfficeWorkScheduleDay(day)}
+          </div>
+        ))}
+    </div>
+  );
+}
+
+export default function ChangelogDetailsModal({ isOpen, onClose, entityType, details }: ChangelogDetailsModalProps) {
   if (!details) return null;
 
   const { changes, ...snapshot } = details as Record<string, unknown> & {
@@ -18,6 +62,19 @@ export default function ChangelogDetailsModal({ isOpen, onClose, details }: Chan
   };
 
   const formatValue = (key: string, value: unknown) => {
+    if (entityType === 'OfficeWorkSchedule') {
+      if (key === 'days') {
+        const renderedDays = renderOfficeWorkScheduleDays(value);
+        if (renderedDays) return renderedDays;
+      }
+
+      if (key.startsWith('day_')) {
+        if (isOfficeWorkScheduleDay(value)) {
+          return formatOfficeWorkScheduleDay(value);
+        }
+      }
+    }
+
     if (value === null || value === undefined)
       return <span className="text-muted-foreground italic text-xs">None</span>;
     if (typeof value === 'boolean') return value ? 'Yes' : 'No';
@@ -65,7 +122,10 @@ export default function ChangelogDetailsModal({ isOpen, onClose, details }: Chan
       effectiveFrom: 'Effective From',
       effectiveUntil: 'Effective Until',
       source: 'Source',
+      days: 'Working Days',
     };
+
+    if (key.startsWith('day_')) return officeWorkScheduleDayLabel(key);
 
     if (specialCases[key]) return specialCases[key];
 
@@ -122,7 +182,7 @@ export default function ChangelogDetailsModal({ isOpen, onClose, details }: Chan
                 <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-tighter">
                   {labelize(key)}
                 </span>
-                <span className="text-sm font-medium text-foreground truncate" title={String(value)}>
+                <span className="text-sm font-medium text-foreground" title={typeof value === 'string' ? value : undefined}>
                   {formatValue(key, value)}
                 </span>
               </div>

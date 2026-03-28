@@ -254,6 +254,105 @@ async function upsertOfficeWorkScheduleDays(
   );
 }
 
+function normalizeOfficeWorkScheduleDays(
+  days: Array<{
+    weekday: number;
+    isWorkingDay: boolean;
+    startTime?: string | null;
+    endTime?: string | null;
+  }>
+) {
+  return days
+    .map(day => ({
+      weekday: day.weekday,
+      isWorkingDay: day.isWorkingDay,
+      startTime: day.isWorkingDay ? day.startTime ?? null : null,
+      endTime: day.isWorkingDay ? day.endTime ?? null : null,
+    }))
+    .sort((left, right) => left.weekday - right.weekday);
+}
+
+function buildOfficeWorkScheduleDayChanges(
+  beforeDays: Array<{
+    weekday: number;
+    isWorkingDay: boolean;
+    startTime: string | null;
+    endTime: string | null;
+  }>,
+  afterDays: Array<{
+    weekday: number;
+    isWorkingDay: boolean;
+    startTime: string | null;
+    endTime: string | null;
+  }>
+) {
+  const changes: Record<string, { from: Prisma.InputJsonValue | null; to: Prisma.InputJsonValue | null }> = {};
+  const beforeByWeekday = new Map(beforeDays.map(day => [day.weekday, day]));
+  const afterByWeekday = new Map(afterDays.map(day => [day.weekday, day]));
+
+  for (const weekday of new Set([...beforeByWeekday.keys(), ...afterByWeekday.keys()])) {
+    const before = beforeByWeekday.get(weekday) ?? null;
+    const after = afterByWeekday.get(weekday) ?? null;
+
+    if (!before || !after) {
+      changes[`day_${weekday}`] = { from: before, to: after };
+      continue;
+    }
+
+    if (
+      before.isWorkingDay !== after.isWorkingDay ||
+      before.startTime !== after.startTime ||
+      before.endTime !== after.endTime
+    ) {
+      changes[`day_${weekday}`] = { from: before, to: after };
+    }
+  }
+
+  return changes;
+}
+
+async function logOfficeWorkScheduleChange(
+  tx: Prisma.TransactionClient,
+  params: {
+    action: 'CREATE' | 'UPDATE';
+    schedule: {
+      id: string;
+      name: string;
+      code: string;
+      days: Array<{
+        weekday: number;
+        isWorkingDay: boolean;
+        startTime: string | null;
+        endTime: string | null;
+      }>;
+    };
+    adminId?: string;
+    changes?: Record<string, { from: Prisma.InputJsonValue | null; to: Prisma.InputJsonValue | null }>;
+  }
+) {
+  if (!params.adminId) return;
+
+  const details: Prisma.InputJsonObject = {
+    name: params.schedule.name,
+    code: params.schedule.code,
+    days: params.schedule.days as Prisma.InputJsonValue,
+    ...(params.changes && Object.keys(params.changes).length > 0
+      ? { changes: params.changes as Prisma.InputJsonValue }
+      : {}),
+  };
+
+  await tx.changelog.create({
+    data: {
+      action: params.action,
+      entityType: 'OfficeWorkSchedule',
+      entityId: params.schedule.id,
+      actor: 'admin',
+      actorId: params.adminId,
+      details,
+    },
+  });
+}
+
 export async function createOfficeWorkSchedule(params: {
   name: string;
   code: string;
@@ -263,6 +362,7 @@ export async function createOfficeWorkSchedule(params: {
     startTime?: string | null;
     endTime?: string | null;
   }>;
+  adminId?: string;
 }) {
   return prisma.$transaction(async tx => {
     const schedule = await tx.officeWorkSchedule.create({
@@ -274,7 +374,7 @@ export async function createOfficeWorkSchedule(params: {
 
     await upsertOfficeWorkScheduleDays(tx, schedule.id, params.days);
 
-    return tx.officeWorkSchedule.findUniqueOrThrow({
+    const createdSchedule = await tx.officeWorkSchedule.findUniqueOrThrow({
       where: { id: schedule.id },
       include: {
         days: {
@@ -282,6 +382,19 @@ export async function createOfficeWorkSchedule(params: {
         },
       },
     });
+
+    await logOfficeWorkScheduleChange(tx, {
+      action: 'CREATE',
+      adminId: params.adminId,
+      schedule: {
+        id: createdSchedule.id,
+        name: createdSchedule.name,
+        code: createdSchedule.code,
+        days: normalizeOfficeWorkScheduleDays(createdSchedule.days),
+      },
+    });
+
+    return createdSchedule;
   });
 }
 
@@ -294,9 +407,19 @@ export async function updateOfficeWorkSchedule(params: {
     startTime?: string | null;
     endTime?: string | null;
   }>;
+  adminId?: string;
 }) {
   return prisma.$transaction(async tx => {
-    await tx.officeWorkSchedule.update({
+    const beforeSchedule = await tx.officeWorkSchedule.findUniqueOrThrow({
+      where: { id: params.id },
+      include: {
+        days: {
+          orderBy: { weekday: 'asc' },
+        },
+      },
+    });
+
+    const updatedHeader = await tx.officeWorkSchedule.update({
       where: { id: params.id },
       data: {
         name: params.name,
@@ -305,7 +428,7 @@ export async function updateOfficeWorkSchedule(params: {
 
     await upsertOfficeWorkScheduleDays(tx, params.id, params.days);
 
-    return tx.officeWorkSchedule.findUniqueOrThrow({
+    const updatedSchedule = await tx.officeWorkSchedule.findUniqueOrThrow({
       where: { id: params.id },
       include: {
         days: {
@@ -313,6 +436,30 @@ export async function updateOfficeWorkSchedule(params: {
         },
       },
     });
+
+    const normalizedBeforeDays = normalizeOfficeWorkScheduleDays(beforeSchedule.days);
+    const normalizedAfterDays = normalizeOfficeWorkScheduleDays(updatedSchedule.days);
+    const changes: Record<string, { from: Prisma.InputJsonValue | null; to: Prisma.InputJsonValue | null }> = {};
+
+    if (beforeSchedule.name !== updatedHeader.name) {
+      changes.name = { from: beforeSchedule.name, to: updatedHeader.name };
+    }
+
+    Object.assign(changes, buildOfficeWorkScheduleDayChanges(normalizedBeforeDays, normalizedAfterDays));
+
+    await logOfficeWorkScheduleChange(tx, {
+      action: 'UPDATE',
+      adminId: params.adminId,
+      schedule: {
+        id: updatedSchedule.id,
+        name: updatedSchedule.name,
+        code: updatedSchedule.code,
+        days: normalizedAfterDays,
+      },
+      changes,
+    });
+
+    return updatedSchedule;
   });
 }
 

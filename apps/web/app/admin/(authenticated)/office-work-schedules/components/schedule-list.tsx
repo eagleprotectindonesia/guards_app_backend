@@ -1,6 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { History } from 'lucide-react';
+import { useSession } from '../../context/session-context';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 type ScheduleListItem = {
   id: string;
@@ -15,19 +18,36 @@ type Props = {
 };
 
 export default function ScheduleList({ schedules }: Props) {
+  const { hasPermission } = useSession();
+  const canCreate = hasPermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.CREATE);
+  const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Office Schedules</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage reusable office working day templates.</p>
         </div>
-        <Link
-          href="/admin/office-work-schedules/create"
-          className="inline-flex items-center justify-center h-10 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-        >
-          Create Schedule
-        </Link>
+        <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
+          {canViewAudit && (
+            <Link
+              href="/admin/office-work-schedules/audit"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted transition-colors shadow-sm w-full md:w-auto"
+            >
+              <History className="mr-2 h-4 w-4" />
+              Audit Log
+            </Link>
+          )}
+          {canCreate && (
+            <Link
+              href="/admin/office-work-schedules/create"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm w-full md:w-auto"
+            >
+              Create Schedule
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
