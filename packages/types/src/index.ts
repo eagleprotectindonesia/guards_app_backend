@@ -111,6 +111,15 @@ export interface OfficeWorkSchedule {
   days?: OfficeWorkScheduleDay[];
 }
 
+export interface EmployeeOfficeWorkScheduleAssignment {
+  id: string;
+  employeeId: string;
+  officeWorkScheduleId: string;
+  effectiveFrom: string | Date;
+  effectiveUntil?: string | Date | null;
+  officeWorkSchedule?: OfficeWorkSchedule | null;
+}
+
 // Deprecated: Use Attendance with employeeId
 export interface GuardAttendance extends Attendance {
   guardId?: string | null;

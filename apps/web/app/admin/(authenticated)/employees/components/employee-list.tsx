@@ -7,7 +7,7 @@ import ChangePasswordModal from './change-password-modal';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { Key, Download, History, MessageSquare, RefreshCw } from 'lucide-react';
+import { Key, Download, History, MessageSquare, RefreshCw, Pencil } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
 import Search from '../../components/search';
@@ -263,6 +263,15 @@ export default function EmployeeList({
                         >
                           <Key className="w-4 h-4" />
                         </button>
+                        {canEdit && (
+                          <Link
+                            href={`/admin/employees/${employee.id}/edit`}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                            title="Edit Employee"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Link>
+                        )}
                         <button
                           type="button"
                           onClick={() =>

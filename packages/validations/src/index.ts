@@ -177,6 +177,55 @@ export const updateDesignationSchema = createDesignationSchema;
 // --- System Settings ---
 export const updateSettingsSchema = z.record(z.string(), z.string());
 
+const officeWorkScheduleDaySchema = z
+  .object({
+    weekday: z.number().int().min(0).max(6),
+    isWorkingDay: z.boolean(),
+    startTime: timeFormat.nullable().optional(),
+    endTime: timeFormat.nullable().optional(),
+  })
+  .superRefine((day, ctx) => {
+    if (!day.isWorkingDay) return;
+
+    if (!day.startTime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['startTime'],
+        message: 'Start time is required for working days',
+      });
+    }
+
+    if (!day.endTime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endTime'],
+        message: 'End time is required for working days',
+      });
+    }
+
+    if (day.startTime && day.endTime && day.startTime >= day.endTime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endTime'],
+        message: 'End time must be after start time',
+      });
+    }
+  });
+
+export const updateOfficeWorkScheduleSchema = z.object({
+  name: z.string().min(1, 'Schedule name is required'),
+  days: z.array(officeWorkScheduleDaySchema).length(7, 'Exactly 7 weekday rules are required'),
+});
+
+export const updateDefaultOfficeWorkScheduleSchema = z.object({
+  days: z.array(officeWorkScheduleDaySchema).length(7, 'Exactly 7 weekday rules are required'),
+});
+
+export const createEmployeeOfficeWorkScheduleAssignmentSchema = z.object({
+  officeWorkScheduleId: z.string().uuid('Schedule template is required'),
+  effectiveFrom: z.string().min(1, 'Effective date is required'),
+});
+
 // --- Office ---
 // Note: Offices are managed by the external employee sync. Admins may only edit
 // location/supplementary details not provided by the external system.
@@ -244,6 +293,11 @@ export type CreateDesignationInput = z.infer<typeof createDesignationSchema>;
 export type UpdateDesignationInput = CreateDesignationInput;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
 export type UpdateOfficeInput = z.infer<typeof updateOfficeSchema>;
+export type UpdateOfficeWorkScheduleInput = z.infer<typeof updateOfficeWorkScheduleSchema>;
+export type UpdateDefaultOfficeWorkScheduleInput = z.infer<typeof updateDefaultOfficeWorkScheduleSchema>;
+export type CreateEmployeeOfficeWorkScheduleAssignmentInput = z.infer<
+  typeof createEmployeeOfficeWorkScheduleAssignmentSchema
+>;
 
 export type ReportAlertInput = z.infer<typeof reportAlertSchema>;
 export type ResolveAlertInput = z.infer<typeof resolveAlertSchema>;

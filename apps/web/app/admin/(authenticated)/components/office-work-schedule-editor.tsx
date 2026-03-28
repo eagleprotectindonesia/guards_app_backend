@@ -1,0 +1,85 @@
+'use client';
+
+import { useState } from 'react';
+
+export type OfficeWorkScheduleDayFormValue = {
+  weekday: number;
+  isWorkingDay: boolean;
+  startTime: string | null;
+  endTime: string | null;
+};
+
+const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+type Props = {
+  inputName?: string;
+  initialDays: OfficeWorkScheduleDayFormValue[];
+  disabled?: boolean;
+};
+
+export default function OfficeWorkScheduleEditor({ inputName = 'days', initialDays, disabled = false }: Props) {
+  const [days, setDays] = useState<OfficeWorkScheduleDayFormValue[]>(() =>
+    [...initialDays].sort((a, b) => a.weekday - b.weekday)
+  );
+
+  const updateDay = (weekday: number, patch: Partial<OfficeWorkScheduleDayFormValue>) => {
+    setDays(current =>
+      current.map(day => {
+        if (day.weekday !== weekday) return day;
+
+        const next = { ...day, ...patch };
+        if (patch.isWorkingDay === false) {
+          next.startTime = null;
+          next.endTime = null;
+        }
+
+        return next;
+      })
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <input type="hidden" name={inputName} value={JSON.stringify(days)} />
+
+      {days.map(day => (
+        <div
+          key={day.weekday}
+          className="grid grid-cols-1 md:grid-cols-[180px_120px_1fr_1fr] gap-3 items-center rounded-lg border border-border p-4 bg-muted/20"
+        >
+          <div>
+            <div className="font-medium text-foreground">{WEEKDAY_LABELS[day.weekday]}</div>
+            <div className="text-xs text-muted-foreground">Weekday {day.weekday}</div>
+          </div>
+
+          <label className="inline-flex items-center gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              checked={day.isWorkingDay}
+              disabled={disabled}
+              onChange={event => updateDay(day.weekday, { isWorkingDay: event.target.checked })}
+              className="h-4 w-4 rounded border-border"
+            />
+            Working day
+          </label>
+
+          <input
+            type="time"
+            value={day.startTime || ''}
+            disabled={disabled || !day.isWorkingDay}
+            onChange={event => updateDay(day.weekday, { startTime: event.target.value || null })}
+            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground disabled:bg-muted disabled:text-muted-foreground"
+          />
+
+          <input
+            type="time"
+            value={day.endTime || ''}
+            disabled={disabled || !day.isWorkingDay}
+            onChange={event => updateDay(day.weekday, { endTime: event.target.value || null })}
+            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground disabled:bg-muted disabled:text-muted-foreground"
+          />
+        </div>
+      ))}
+    </div>
+  );
+}

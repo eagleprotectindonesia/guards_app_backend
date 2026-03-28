@@ -12,6 +12,8 @@ import {
   UpdateEmployeeInput,
   updateEmployeePasswordSchema,
   UpdateEmployeePasswordInput,
+  createEmployeeOfficeWorkScheduleAssignmentSchema,
+  CreateEmployeeOfficeWorkScheduleAssignmentInput,
 } from '@repo/validations';
 import { serialize } from '@/lib/server-utils';
 import type { Serialized } from '@/lib/server-utils';
@@ -25,6 +27,7 @@ import { EMPLOYEE_SYNC_JOB_NAME } from '@repo/database';
 import { employeeSyncQueue } from '@/lib/queues';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { applyEmployeeVisibilityScope } from '@/lib/auth/admin-visibility';
+import { scheduleFutureOfficeWorkScheduleAssignment } from '@repo/database';
 
 revalidatePath('/admin/employees');
 
@@ -159,4 +162,51 @@ export async function syncEmployeesAction() {
     console.error('Sync Action Error:', error);
     return { success: false, message: 'Failed to queue sync' };
   }
+}
+
+export async function scheduleEmployeeOfficeWorkSchedule(
+  employeeId: string,
+  prevState: ActionState<CreateEmployeeOfficeWorkScheduleAssignmentInput>,
+  formData: FormData
+): Promise<ActionState<CreateEmployeeOfficeWorkScheduleAssignmentInput>> {
+  await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
+
+  const validatedFields = createEmployeeOfficeWorkScheduleAssignmentSchema.safeParse({
+    officeWorkScheduleId: formData.get('officeWorkScheduleId'),
+    effectiveFrom: formData.get('effectiveFrom'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Invalid input. Failed to schedule employee office schedule.',
+      success: false,
+    };
+  }
+
+  const effectiveFrom = new Date(`${validatedFields.data.effectiveFrom}T00:00:00+08:00`);
+  if (Number.isNaN(effectiveFrom.getTime())) {
+    return {
+      errors: { effectiveFrom: ['Effective date is invalid'] },
+      message: 'Invalid input. Failed to schedule employee office schedule.',
+      success: false,
+    };
+  }
+
+  try {
+    await scheduleFutureOfficeWorkScheduleAssignment({
+      employeeId,
+      officeWorkScheduleId: validatedFields.data.officeWorkScheduleId,
+      effectiveFrom,
+    });
+  } catch (error) {
+    console.error('Database Error:', error);
+    return {
+      message: error instanceof Error ? error.message : 'Database Error: Failed to schedule employee office schedule.',
+      success: false,
+    };
+  }
+
+  revalidatePath(`/admin/employees/${employeeId}/edit`);
+  return { success: true, message: 'Employee schedule change saved successfully.' };
 }

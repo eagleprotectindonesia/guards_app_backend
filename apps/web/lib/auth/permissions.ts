@@ -7,6 +7,7 @@ export const RESOURCES = [
   'employees',
   'sites',
   'offices',
+  'office-work-schedules',
   'shifts',
   'shift-types',
   'attendance',
@@ -54,6 +55,12 @@ export const PERMISSIONS = {
     CREATE: 'offices:create',
     EDIT: 'offices:edit',
     DELETE: 'offices:delete',
+  },
+  OFFICE_WORK_SCHEDULES: {
+    VIEW: 'office-work-schedules:view',
+    CREATE: 'office-work-schedules:create',
+    EDIT: 'office-work-schedules:edit',
+    DELETE: 'office-work-schedules:delete',
   },
   SHIFTS: {
     VIEW: 'shifts:view',

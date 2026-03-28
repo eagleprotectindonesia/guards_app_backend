@@ -9,6 +9,7 @@ import {
   UserCog,
   Settings,
   Hotel,
+  Clock3,
   MessageSquare,
   type LucideIcon,
 } from 'lucide-react';
@@ -25,6 +26,12 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
   { name: 'Sites', href: '/admin/sites', icon: MapPin, requiredPermission: 'sites:view' },
   { name: 'Offices', href: '/admin/offices', icon: Hotel, requiredPermission: 'offices:view' },
+  {
+    name: 'Office Schedules',
+    href: '/admin/office-work-schedules',
+    icon: Clock3,
+    requiredPermission: 'office-work-schedules:view',
+  },
   { name: 'Chat', href: '/admin/chat', icon: MessageSquare, requiredPermission: 'chat:view' },
   { name: 'Employees', href: '/admin/employees', icon: Users, requiredPermission: 'employees:view' },
   { name: 'Shift Types', href: '/admin/shift-types', icon: Layers, requiredPermission: 'shift-types:view' },
@@ -45,6 +52,7 @@ export const ADMIN_LABEL_MAP: Record<string, string> = {
   employees: 'Employees',
   sites: 'Sites',
   offices: 'Offices',
+  'office-work-schedules': 'Office Schedules',
   'shift-types': 'Shift Types',
   shifts: 'Shifts',
   attendance: 'Attendance',

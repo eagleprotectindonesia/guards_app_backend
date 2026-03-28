@@ -1,4 +1,4 @@
-import { db as prisma } from '../prisma/client';
+import { db as prisma, Prisma } from '../prisma/client';
 
 export const BUSINESS_TIMEZONE = process.env.BUSINESS_TIMEZONE || 'Asia/Makassar';
 export const DEFAULT_OFFICE_WORK_SCHEDULE_ID_SETTING = 'DEFAULT_OFFICE_WORK_SCHEDULE_ID';
@@ -142,6 +142,122 @@ export async function getOfficeWorkScheduleById(id: string) {
         orderBy: { weekday: 'asc' },
       },
     },
+  });
+}
+
+export async function getAllOfficeWorkSchedules() {
+  return prisma.officeWorkSchedule.findMany({
+    include: {
+      days: {
+        orderBy: { weekday: 'asc' },
+      },
+      _count: {
+        select: {
+          assignments: true,
+        },
+      },
+    },
+    orderBy: {
+      name: 'asc',
+    },
+  });
+}
+
+async function upsertOfficeWorkScheduleDays(
+  tx: Prisma.TransactionClient,
+  scheduleId: string,
+  days: Array<{
+    weekday: number;
+    isWorkingDay: boolean;
+    startTime?: string | null;
+    endTime?: string | null;
+  }>
+) {
+  await Promise.all(
+    days.map(day =>
+      tx.officeWorkScheduleDay.upsert({
+        where: {
+          scheduleId_weekday: {
+            scheduleId,
+            weekday: day.weekday,
+          },
+        },
+        update: {
+          isWorkingDay: day.isWorkingDay,
+          startTime: day.isWorkingDay ? day.startTime ?? null : null,
+          endTime: day.isWorkingDay ? day.endTime ?? null : null,
+        },
+        create: {
+          scheduleId,
+          weekday: day.weekday,
+          isWorkingDay: day.isWorkingDay,
+          startTime: day.isWorkingDay ? day.startTime ?? null : null,
+          endTime: day.isWorkingDay ? day.endTime ?? null : null,
+        },
+      })
+    )
+  );
+}
+
+export async function createOfficeWorkSchedule(params: {
+  name: string;
+  code: string;
+  days: Array<{
+    weekday: number;
+    isWorkingDay: boolean;
+    startTime?: string | null;
+    endTime?: string | null;
+  }>;
+}) {
+  return prisma.$transaction(async tx => {
+    const schedule = await tx.officeWorkSchedule.create({
+      data: {
+        name: params.name,
+        code: params.code,
+      },
+    });
+
+    await upsertOfficeWorkScheduleDays(tx, schedule.id, params.days);
+
+    return tx.officeWorkSchedule.findUniqueOrThrow({
+      where: { id: schedule.id },
+      include: {
+        days: {
+          orderBy: { weekday: 'asc' },
+        },
+      },
+    });
+  });
+}
+
+export async function updateOfficeWorkSchedule(params: {
+  id: string;
+  name: string;
+  days: Array<{
+    weekday: number;
+    isWorkingDay: boolean;
+    startTime?: string | null;
+    endTime?: string | null;
+  }>;
+}) {
+  return prisma.$transaction(async tx => {
+    await tx.officeWorkSchedule.update({
+      where: { id: params.id },
+      data: {
+        name: params.name,
+      },
+    });
+
+    await upsertOfficeWorkScheduleDays(tx, params.id, params.days);
+
+    return tx.officeWorkSchedule.findUniqueOrThrow({
+      where: { id: params.id },
+      include: {
+        days: {
+          orderBy: { weekday: 'asc' },
+        },
+      },
+    });
   });
 }
 

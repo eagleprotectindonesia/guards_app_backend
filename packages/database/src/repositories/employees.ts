@@ -78,6 +78,17 @@ export async function getEmployeeById(id: string) {
   });
 }
 
+export async function getEmployeeByIdWithRelations(id: string) {
+  return prisma.employee.findUnique({
+    where: { id, deletedAt: null },
+    include: {
+      office: {
+        select: { name: true },
+      },
+    },
+  });
+}
+
 /**
  * Gets an employee by ID for authentication purposes.
  * Includes hashedPassword and other auth-related fields.

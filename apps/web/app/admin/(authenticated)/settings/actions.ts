@@ -1,8 +1,12 @@
 'use server';
 
 import { checkSuperAdmin } from '@/lib/admin-auth';
-import { updateSystemSettingWithChangelog } from '@repo/database';
-import { UpdateSettingsInput } from '@repo/validations';
+import {
+  getDefaultOfficeWorkSchedule,
+  updateOfficeWorkSchedule,
+  updateSystemSettingWithChangelog,
+} from '@repo/database';
+import { UpdateDefaultOfficeWorkScheduleInput, UpdateSettingsInput, updateDefaultOfficeWorkScheduleSchema } from '@repo/validations';
 import { ActionState } from '@/types/actions';
 import { revalidatePath } from 'next/cache';
 
@@ -65,4 +69,62 @@ export async function updateSettings(
       success: false,
     };
   }
+}
+
+export async function updateDefaultOfficeWorkSchedule(
+  prevState: ActionState<UpdateDefaultOfficeWorkScheduleInput>,
+  formData: FormData
+): Promise<ActionState<UpdateDefaultOfficeWorkScheduleInput>> {
+  const currentAdmin = await checkSuperAdmin();
+  if (!currentAdmin) {
+    return {
+      message: 'Unauthorized: Only Super Admins can manage settings.',
+      success: false,
+    };
+  }
+
+  const daysRaw = formData.get('days');
+  let parsedDays: unknown = [];
+
+  if (typeof daysRaw === 'string') {
+    try {
+      parsedDays = JSON.parse(daysRaw);
+    } catch {
+      parsedDays = [];
+    }
+  }
+
+  const validatedFields = updateDefaultOfficeWorkScheduleSchema.safeParse({
+    days: parsedDays,
+  });
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Invalid schedule data. Failed to update default office schedule.',
+      success: false,
+    };
+  }
+
+  try {
+    const defaultSchedule = await getDefaultOfficeWorkSchedule();
+
+    await updateOfficeWorkSchedule({
+      id: defaultSchedule.id,
+      name: defaultSchedule.name,
+      days: validatedFields.data.days,
+    });
+  } catch (error) {
+    console.error('Database Error:', error);
+    return {
+      message: 'Database Error: Failed to update default office schedule.',
+      success: false,
+    };
+  }
+
+  revalidatePath('/admin/settings');
+  return {
+    success: true,
+    message: 'Default office schedule updated successfully.',
+  };
 }
