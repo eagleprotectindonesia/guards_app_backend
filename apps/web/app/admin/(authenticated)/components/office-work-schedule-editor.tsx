@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { TimePicker } from '@/components/ui/time-picker';
 
 export type OfficeWorkScheduleDayFormValue = {
   weekday: number;
@@ -63,20 +64,20 @@ export default function OfficeWorkScheduleEditor({ inputName = 'days', initialDa
             Working day
           </label>
 
-          <input
-            type="time"
-            value={day.startTime || ''}
+          <TimePicker
+            value={day.startTime}
+            onChange={value => updateDay(day.weekday, { startTime: value || null })}
             disabled={disabled || !day.isWorkingDay}
-            onChange={event => updateDay(day.weekday, { startTime: event.target.value || null })}
-            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground disabled:bg-muted disabled:text-muted-foreground"
+            className="w-full"
+            use24h={true}
           />
 
-          <input
-            type="time"
-            value={day.endTime || ''}
+          <TimePicker
+            value={day.endTime}
+            onChange={value => updateDay(day.weekday, { endTime: value || null })}
             disabled={disabled || !day.isWorkingDay}
-            onChange={event => updateDay(day.weekday, { endTime: event.target.value || null })}
-            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground disabled:bg-muted disabled:text-muted-foreground"
+            className="w-full"
+            use24h={true}
           />
         </div>
       ))}

@@ -9,9 +9,10 @@ interface TimePickerProps {
   onChange: (value: string) => void;
   className?: string;
   use24h?: boolean;
+  disabled?: boolean;
 }
 
-export function TimePicker({ value, onChange, className, use24h = false }: TimePickerProps) {
+export function TimePicker({ value, onChange, className, use24h = false, disabled = false }: TimePickerProps) {
   // Calculate display values from 24-hour value
   const { hour, minute, period } = useMemo(() => {
     if (!value) {
@@ -85,7 +86,7 @@ export function TimePicker({ value, onChange, className, use24h = false }: TimeP
   return (
     <div className={cn('flex items-center gap-2', className)}>
       {/* Hour Select */}
-      <Select value={hour} onValueChange={val => handleTimeChange('hour', val)}>
+      <Select value={hour} onValueChange={val => handleTimeChange('hour', val)} disabled={disabled}>
         <SelectTrigger className="w-[70px]">
           <SelectValue placeholder="HH" />
         </SelectTrigger>
@@ -101,7 +102,7 @@ export function TimePicker({ value, onChange, className, use24h = false }: TimeP
       <span className="text-gray-500 font-medium">:</span>
 
       {/* Minute Select */}
-      <Select value={minute} onValueChange={val => handleTimeChange('minute', val)}>
+      <Select value={minute} onValueChange={val => handleTimeChange('minute', val)} disabled={disabled}>
         <SelectTrigger className="w-[70px]">
           <SelectValue placeholder="MM" />
         </SelectTrigger>
@@ -116,7 +117,7 @@ export function TimePicker({ value, onChange, className, use24h = false }: TimeP
 
       {/* AM/PM Select */}
       {!use24h && (
-        <Select value={period} onValueChange={val => handleTimeChange('period', val)}>
+        <Select value={period} onValueChange={val => handleTimeChange('period', val)} disabled={disabled}>
           <SelectTrigger className="w-[70px]">
             <SelectValue placeholder="AM/PM">{period}</SelectValue>
           </SelectTrigger>
