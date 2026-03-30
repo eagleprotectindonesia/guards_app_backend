@@ -323,17 +323,17 @@ Purpose:
 - assign or update future office schedule timelines for multiple employees in one import
 
 CSV headers:
-- `employee_number`
+- `employee_code`
 - `schedule_name`
 - `effective_from`
 
 Import behavior:
 - all-or-nothing transaction
-- exact employee number and exact schedule name matching
+- exact employee code and exact schedule name matching
 - same employee + same date + same schedule: no-op
 - same employee + same date + different schedule: replace that future assignment
 - multiple future dates for the same employee are allowed
-- duplicate `employee_number + effective_from` rows in one file are rejected
+- duplicate `employee_code + effective_from` rows in one file are rejected
 - rows are grouped by employee and sorted by `effective_from` before applying the timeline updates
 
 ## Permissions

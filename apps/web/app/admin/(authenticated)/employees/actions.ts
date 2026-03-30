@@ -37,7 +37,7 @@ import {
   updateFutureOfficeWorkScheduleAssignment,
 } from '@repo/database';
 
-const BULK_OFFICE_SCHEDULE_HEADERS = ['employee_number', 'schedule_name', 'effective_from'] as const;
+const BULK_OFFICE_SCHEDULE_HEADERS = ['employee_code', 'schedule_name', 'effective_from'] as const;
 
 function parseCsvLine(line: string) {
   return line.split(',').map(value => value.trim().replace(/^"|"$/g, ''));
@@ -393,32 +393,32 @@ export async function bulkScheduleEmployeeOfficeWorkSchedules(
     const cols = parseCsvLine(lines[i]);
 
     if (cols.length < BULK_OFFICE_SCHEDULE_HEADERS.length) {
-      errors.push(`Row ${i + 1}: Expected 3 columns (employee_number, schedule_name, effective_from).`);
+      errors.push(`Row ${i + 1}: Expected 3 columns (employee_code, schedule_name, effective_from).`);
       continue;
     }
 
-    const [employeeNumber, scheduleName, effectiveFromText] = cols;
+    const [employeeCode, scheduleName, effectiveFromText] = cols;
 
-    if (!employeeNumber || !scheduleName || !effectiveFromText) {
-      errors.push(`Row ${i + 1}: employee_number, schedule_name, and effective_from are required.`);
+    if (!employeeCode || !scheduleName || !effectiveFromText) {
+      errors.push(`Row ${i + 1}: employee_code, schedule_name, and effective_from are required.`);
       continue;
     }
 
-    const duplicateKey = `${employeeNumber}::${effectiveFromText}`;
+    const duplicateKey = `${employeeCode}::${effectiveFromText}`;
     if (seenEmployeeDates.has(duplicateKey)) {
-      errors.push(`Row ${i + 1}: Duplicate employee_number and effective_from combination in the uploaded CSV.`);
+      errors.push(`Row ${i + 1}: Duplicate employee_code and effective_from combination in the uploaded CSV.`);
       continue;
     }
     seenEmployeeDates.add(duplicateKey);
 
-    const employee = employeeMap.get(employeeNumber);
+    const employee = employeeMap.get(employeeCode);
     if (!employee) {
-      errors.push(`Row ${i + 1}: Employee '${employeeNumber}' not found or inactive.`);
+      errors.push(`Row ${i + 1}: Employee '${employeeCode}' not found or inactive.`);
       continue;
     }
 
     if (employee.role !== 'office') {
-      errors.push(`Row ${i + 1}: Employee '${employeeNumber}' is not an office employee.`);
+      errors.push(`Row ${i + 1}: Employee '${employeeCode}' is not an office employee.`);
       continue;
     }
 

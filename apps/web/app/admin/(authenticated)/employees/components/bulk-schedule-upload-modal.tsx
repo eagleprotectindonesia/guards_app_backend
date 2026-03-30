@@ -86,7 +86,7 @@ export default function BulkScheduleUploadModal({ isOpen, onClose }: BulkSchedul
             </button>
           </div>
           <code className="text-xs bg-muted p-2 rounded block border border-border text-foreground">
-            employee_number,schedule_name,effective_from
+            employee_code,schedule_name,effective_from
           </code>
           <p className="text-xs text-muted-foreground">
             Import is all-or-nothing. You can include multiple future rows for the same employee, and they will be

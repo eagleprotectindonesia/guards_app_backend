@@ -245,7 +245,7 @@ describe('office work schedule actions', () => {
     const formData = new FormData();
     formData.append(
       'file',
-      new File(['employee_number,schedule_name,effective_from\nEMP001,Finance Team,2026-03-30\n'], 'office-schedules.csv', {
+      new File(['employee_code,schedule_name,effective_from\nEMP001,Finance Team,2026-03-30\n'], 'office-schedules.csv', {
         type: 'text/csv',
       })
     );
@@ -285,7 +285,7 @@ describe('office work schedule actions', () => {
       'file',
       new File(
         [
-          'employee_number,schedule_name,effective_from\n',
+          'employee_code,schedule_name,effective_from\n',
           'EMP001,Finance Team,2026-03-30\n',
           'EMP001,Finance Team,2026-04-06\n',
         ],
@@ -334,7 +334,7 @@ describe('office work schedule actions', () => {
       'file',
       new File(
         [
-          'employee_number,schedule_name,effective_from\n',
+          'employee_code,schedule_name,effective_from\n',
           'EMP001,Finance Team,2026-04-06\n',
           'EMP001,Finance Team,2026-03-30\n',
         ],
@@ -383,7 +383,7 @@ describe('office work schedule actions', () => {
       'file',
       new File(
         [
-          'employee_number,schedule_name,effective_from\n',
+          'employee_code,schedule_name,effective_from\n',
           'EMP001,Finance Team,2026-03-30\n',
           'EMP001,Finance Team,2026-03-30\n',
         ],
@@ -396,7 +396,7 @@ describe('office work schedule actions', () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toBe('Validation failed.');
-    expect(result.errors).toContain('Row 3: Duplicate employee_number and effective_from combination in the uploaded CSV.');
+    expect(result.errors).toContain('Row 3: Duplicate employee_code and effective_from combination in the uploaded CSV.');
     expect(bulkUpsertFutureOfficeWorkScheduleAssignments).not.toHaveBeenCalled();
   });
 });
