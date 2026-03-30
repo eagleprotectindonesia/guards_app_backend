@@ -4,6 +4,7 @@ export const BUSINESS_TIMEZONE = process.env.BUSINESS_TIMEZONE || 'Asia/Makassar
 export const DEFAULT_OFFICE_WORK_SCHEDULE_ID_SETTING = 'DEFAULT_OFFICE_WORK_SCHEDULE_ID';
 export const DEFAULT_OFFICE_WORK_SCHEDULE_ID = '6e3be3df-698b-4d5c-aa42-2ddf01fb9d80';
 export const DEFAULT_OFFICE_WORK_SCHEDULE_CODE = 'default-office-work-schedule';
+export const OFFICE_PAID_BREAK_MINUTES = 60;
 
 const WEEKDAY_MAP: Record<string, number> = {
   Sun: 0,
@@ -1504,4 +1505,19 @@ export async function resolveOfficeWorkScheduleContextForEmployee(employeeId: st
     isLate: activeWindow != null && at.getTime() > activeWindow.startAt.getTime(),
     isAfterEnd: activeWindow != null && at.getTime() > activeWindow.endAt.getTime(),
   };
+}
+
+export async function getScheduledPaidMinutesForOfficeAttendance(employeeId: string, at = new Date()) {
+  const context = await resolveOfficeWorkScheduleContextForEmployee(employeeId, at);
+
+  if (!context.isWorkingDay || !context.windowStart || !context.windowEnd) {
+    return 0;
+  }
+
+  const scheduledMinutes = Math.max(
+    0,
+    Math.floor((context.windowEnd.getTime() - context.windowStart.getTime()) / (1000 * 60)) - OFFICE_PAID_BREAK_MINUTES
+  );
+
+  return scheduledMinutes;
 }

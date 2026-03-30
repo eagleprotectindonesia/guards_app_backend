@@ -1,4 +1,4 @@
-import { BUSINESS_TIMEZONE } from '@repo/database';
+import { BUSINESS_TIMEZONE, OFFICE_PAID_BREAK_MINUTES } from '@repo/database';
 import {
   OfficeAttendanceMetadataDto,
   SerializedOfficeAttendanceDisplayDto,
@@ -37,11 +37,35 @@ function getDisplayStatus(clockInMetadata: OfficeAttendanceMetadataDto | null, h
   return hasClockOut ? ('completed' as const) : ('clocked_in' as const);
 }
 
+function formatPaidHours(minutes: number | null) {
+  if (minutes == null) {
+    return null;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  return `${hours} hrs ${remainingMinutes} mins`;
+}
+
+function getActualPaidMinutes(clockInAt: string, clockOutAt: string | null) {
+  if (!clockOutAt) {
+    return null;
+  }
+
+  return Math.max(
+    0,
+    Math.floor((new Date(clockOutAt).getTime() - new Date(clockInAt).getTime()) / (1000 * 60)) - OFFICE_PAID_BREAK_MINUTES
+  );
+}
+
 function toUnifiedRow(
   clockIn: SerializedOfficeAttendanceWithRelationsDto,
-  clockOut: SerializedOfficeAttendanceWithRelationsDto | null
+  clockOut: SerializedOfficeAttendanceWithRelationsDto | null,
+  paidMinutes: number | null
 ): SerializedOfficeAttendanceDisplayDto {
   const clockInAt = new Date(clockIn.recordedAt);
+  const clockOutAt = clockOut?.recordedAt ?? null;
 
   return {
     id: clockIn.id,
@@ -49,7 +73,8 @@ function toUnifiedRow(
     officeId: clockIn.officeId,
     businessDate: formatBusinessDate(clockInAt, BUSINESS_TIMEZONE),
     clockInAt: clockIn.recordedAt,
-    clockOutAt: clockOut?.recordedAt ?? null,
+    clockOutAt,
+    paidHours: formatPaidHours(paidMinutes),
     clockInMetadata: clockIn.metadata,
     clockOutMetadata: clockOut?.metadata ?? null,
     latenessMins: clockIn.metadata?.latenessMins ?? null,
@@ -88,7 +113,7 @@ export function unifyOfficeAttendanceForAdminDisplay(
       continue;
     }
 
-    unifiedRows.push(toUnifiedRow(clockIn, attendance));
+    unifiedRows.push(toUnifiedRow(clockIn, attendance, getActualPaidMinutes(clockIn.recordedAt, attendance.recordedAt)));
 
     if (employeeOpenSessions.length > 0) {
       openSessionsByEmployee.set(employeeKey, employeeOpenSessions);
@@ -99,7 +124,59 @@ export function unifyOfficeAttendanceForAdminDisplay(
 
   for (const employeeOpenSessions of openSessionsByEmployee.values()) {
     for (const clockIn of employeeOpenSessions) {
-      unifiedRows.push(toUnifiedRow(clockIn, null));
+      unifiedRows.push(toUnifiedRow(clockIn, null, null));
+    }
+  }
+
+  return unifiedRows.sort((left, right) => new Date(right.clockInAt).getTime() - new Date(left.clockInAt).getTime());
+}
+
+export async function buildOfficeAttendanceDisplayRows(
+  attendances: SerializedOfficeAttendanceWithRelationsDto[],
+  getScheduledPaidMinutes: (employeeId: string, at: Date) => Promise<number>
+) {
+  const sorted = attendances
+    .slice()
+    .sort((left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime());
+
+  const openSessionsByEmployee = new Map<string, SerializedOfficeAttendanceWithRelationsDto[]>();
+  const unifiedRows: SerializedOfficeAttendanceDisplayDto[] = [];
+
+  for (const attendance of sorted) {
+    const employeeKey = attendance.employeeId ?? attendance.employee?.id ?? 'unknown';
+    const employeeOpenSessions = openSessionsByEmployee.get(employeeKey) ?? [];
+
+    if (attendance.status === 'present' || attendance.status === 'late') {
+      employeeOpenSessions.push(attendance);
+      openSessionsByEmployee.set(employeeKey, employeeOpenSessions);
+      continue;
+    }
+
+    if (attendance.status !== 'clocked_out') {
+      continue;
+    }
+
+    const clockIn = employeeOpenSessions.shift();
+    if (!clockIn) {
+      continue;
+    }
+
+    const actualPaidMinutes = getActualPaidMinutes(clockIn.recordedAt, attendance.recordedAt);
+    const scheduledPaidMinutes = await getScheduledPaidMinutes(clockIn.employeeId, new Date(clockIn.recordedAt));
+    const paidMinutes = actualPaidMinutes == null ? null : Math.min(actualPaidMinutes, scheduledPaidMinutes);
+
+    unifiedRows.push(toUnifiedRow(clockIn, attendance, paidMinutes));
+
+    if (employeeOpenSessions.length > 0) {
+      openSessionsByEmployee.set(employeeKey, employeeOpenSessions);
+    } else {
+      openSessionsByEmployee.delete(employeeKey);
+    }
+  }
+
+  for (const employeeOpenSessions of openSessionsByEmployee.values()) {
+    for (const clockIn of employeeOpenSessions) {
+      unifiedRows.push(toUnifiedRow(clockIn, null, null));
     }
   }
 

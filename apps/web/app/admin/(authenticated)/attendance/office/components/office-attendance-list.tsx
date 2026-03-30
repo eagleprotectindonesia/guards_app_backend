@@ -52,6 +52,7 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Business Date</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Clock In</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Clock Out</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Paid hours</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Location</th>
               </tr>
@@ -59,7 +60,7 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
             <tbody className="divide-y divide-border">
               {attendances.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
                     No office attendance records found.
                   </td>
                 </tr>
@@ -94,6 +95,9 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                     </td>
                     <td className="py-4 px-6 text-sm text-foreground font-medium">
                       {attendance.clockOutAt ? format(new Date(attendance.clockOutAt), 'HH:mm') : '-'}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-foreground font-medium">
+                      {attendance.paidHours ?? '-'}
                     </td>
                     <td className="py-4 px-6 text-sm">
                       {attendance.displayStatus === 'clocked_in' && (

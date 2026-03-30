@@ -59,7 +59,7 @@ export default function BulkScheduleUploadModal({ isOpen, onClose }: BulkSchedul
   };
 
   const handleDownloadExample = () => {
-    const csvContent = 'employee_number,schedule_name,effective_from\n';
+    const csvContent = 'employee_code,schedule_name,effective_from\n';
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -89,8 +89,13 @@ export default function BulkScheduleUploadModal({ isOpen, onClose }: BulkSchedul
             employee_number,schedule_name,effective_from
           </code>
           <p className="text-xs text-muted-foreground">
-            Import is all-or-nothing. Exact same-date schedule matches are ignored, same-date schedule changes are
-            updated, and more complex future timeline conflicts must be fixed manually first.
+            Import is all-or-nothing. You can include multiple future rows for the same employee, and they will be
+            normalized by effective date before save.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Timeline behavior matches singular scheduling: exact same-date schedule matches are ignored, same-date
+            schedule changes are replaced, and earlier or later future rows automatically adjust adjacent effective
+            ranges.
           </p>
           <p className="text-xs text-muted-foreground">
             <strong>effective_from format:</strong> YYYY-MM-DD (e.g., 2026-04-01)

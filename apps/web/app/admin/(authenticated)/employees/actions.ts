@@ -442,6 +442,6 @@ export async function bulkScheduleEmployeeOfficeWorkSchedules(
   revalidatePath('/admin/employees');
   return {
     success: true,
-    message: `Successfully imported ${assignments.length} office schedule assignment${assignments.length === 1 ? '' : 's'}.`,
+    message: `Successfully imported ${assignments.length} office schedule assignment${assignments.length === 1 ? '' : 's'} with future timelines normalized.`,
   };
 }

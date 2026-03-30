@@ -5,6 +5,7 @@ import {
   createOfficeWorkSchedule,
   deleteOfficeWorkSchedule,
   deleteFutureOfficeWorkScheduleAssignment,
+  getScheduledPaidMinutesForOfficeAttendance,
   resolveOfficeWorkScheduleContextForEmployee,
   scheduleFutureOfficeWorkScheduleAssignment,
   updateOfficeWorkSchedule,
@@ -252,6 +253,102 @@ describe('office work schedules', () => {
     expect(context.isAfterEnd).toBe(false);
     expect(context.windowStart?.toISOString()).toBe('2026-03-29T10:00:00.000Z');
     expect(context.windowEnd?.toISOString()).toBe('2026-03-29T18:00:00.000Z');
+  });
+
+  test('returns scheduled paid minutes from the default schedule fallback', async () => {
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.systemSetting.findUnique as jest.Mock).mockResolvedValue({ value: 'schedule-default' });
+    (prisma.officeWorkSchedule.findUnique as jest.Mock).mockResolvedValue({
+      id: 'schedule-default',
+      code: 'default',
+      name: 'Default Schedule',
+      days: [
+        { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
+        { weekday: 1, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+        { weekday: 2, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+        { weekday: 3, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+        { weekday: 4, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+        { weekday: 5, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+        { weekday: 6, isWorkingDay: false, startTime: null, endTime: null },
+      ],
+    });
+
+    await expect(getScheduledPaidMinutesForOfficeAttendance('employee-1', new Date('2026-03-30T01:00:00.000Z'))).resolves.toBe(
+      8 * 60
+    );
+  });
+
+  test('returns scheduled paid minutes from an employee-specific assigned schedule', async () => {
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock).mockResolvedValue({
+      id: 'assignment-1',
+      employeeId: 'employee-1',
+      officeWorkSchedule: {
+        id: 'schedule-custom',
+        code: 'custom',
+        name: 'Custom Schedule',
+        days: [
+          { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 1, isWorkingDay: true, startTime: '09:00', endTime: '18:00' },
+          { weekday: 2, isWorkingDay: true, startTime: '09:00', endTime: '18:00' },
+          { weekday: 3, isWorkingDay: true, startTime: '09:00', endTime: '18:00' },
+          { weekday: 4, isWorkingDay: true, startTime: '09:00', endTime: '18:00' },
+          { weekday: 5, isWorkingDay: true, startTime: '09:00', endTime: '18:00' },
+          { weekday: 6, isWorkingDay: false, startTime: null, endTime: null },
+        ],
+      },
+    });
+
+    await expect(getScheduledPaidMinutesForOfficeAttendance('employee-1', new Date('2026-03-30T01:30:00.000Z'))).resolves.toBe(
+      8 * 60
+    );
+  });
+
+  test('returns scheduled paid minutes for an overnight schedule window', async () => {
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock).mockResolvedValue({
+      id: 'assignment-overnight',
+      employeeId: 'employee-1',
+      officeWorkSchedule: {
+        id: 'schedule-overnight',
+        code: 'overnight',
+        name: 'Overnight Schedule',
+        days: [
+          { weekday: 0, isWorkingDay: true, startTime: '18:00', endTime: '02:00' },
+          { weekday: 1, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 2, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 3, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 4, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 5, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 6, isWorkingDay: false, startTime: null, endTime: null },
+        ],
+      },
+    });
+
+    await expect(getScheduledPaidMinutesForOfficeAttendance('employee-1', new Date('2026-03-29T17:30:00.000Z'))).resolves.toBe(
+      7 * 60
+    );
+  });
+
+  test('returns zero scheduled paid minutes on a non-working day', async () => {
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock).mockResolvedValue({
+      id: 'assignment-off',
+      employeeId: 'employee-1',
+      officeWorkSchedule: {
+        id: 'schedule-off',
+        code: 'off',
+        name: 'Off Schedule',
+        days: [
+          { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 1, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 2, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 3, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 4, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 5, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 6, isWorkingDay: false, startTime: null, endTime: null },
+        ],
+      },
+    });
+
+    await expect(getScheduledPaidMinutesForOfficeAttendance('employee-1', new Date('2026-03-30T01:30:00.000Z'))).resolves.toBe(0);
   });
 
   test('creates a future assignment and bounds the previous active assignment', async () => {
@@ -650,6 +747,95 @@ describe('office work schedules', () => {
       effectiveFrom: laterStart,
       createdById: 'admin-1',
       lastUpdatedById: 'admin-1',
+    });
+  });
+
+  test('bulk upsert treats same-date same-schedule rows as no-ops', async () => {
+    const effectiveFrom = new Date('2026-03-30T00:00:00.000Z');
+    const existingAssignment = {
+      id: 'assignment-existing',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-1',
+      effectiveFrom,
+      effectiveUntil: null,
+    };
+
+    mockTransaction();
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock).mockResolvedValue(existingAssignment);
+
+    const result = await bulkUpsertFutureOfficeWorkScheduleAssignments([
+      {
+        employeeId: 'employee-1',
+        officeWorkScheduleId: 'schedule-1',
+        effectiveFrom,
+      },
+    ], {
+      actor: { type: 'admin', id: 'admin-1' },
+      source: 'bulk_import',
+    });
+
+    expect(result).toEqual([existingAssignment]);
+    expect(prisma.employeeOfficeWorkScheduleAssignment.update).not.toHaveBeenCalled();
+    expect(prisma.employeeOfficeWorkScheduleAssignment.create).not.toHaveBeenCalled();
+    expect(prisma.changelog.create).not.toHaveBeenCalled();
+  });
+
+  test('bulk upsert replaces same-date rows when the schedule changes', async () => {
+    const effectiveFrom = new Date('2026-03-30T00:00:00.000Z');
+    const existingAssignment = {
+      id: 'assignment-existing',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-old',
+      effectiveFrom,
+      effectiveUntil: null,
+    };
+
+    mockTransaction();
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock).mockResolvedValue(existingAssignment);
+    (prisma.officeWorkSchedule.findUnique as jest.Mock)
+      .mockResolvedValueOnce({ id: 'schedule-old', name: 'Schedule Old' })
+      .mockResolvedValueOnce({ id: 'schedule-new', name: 'Schedule New' });
+    (prisma.employeeOfficeWorkScheduleAssignment.update as jest.Mock).mockResolvedValue({
+      ...existingAssignment,
+      officeWorkScheduleId: 'schedule-new',
+    });
+
+    const result = await bulkUpsertFutureOfficeWorkScheduleAssignments([
+      {
+        employeeId: 'employee-1',
+        officeWorkScheduleId: 'schedule-new',
+        effectiveFrom,
+      },
+    ], {
+      actor: { type: 'admin', id: 'admin-1' },
+      source: 'bulk_import',
+    });
+
+    expect(result).toEqual([
+      {
+        ...existingAssignment,
+        officeWorkScheduleId: 'schedule-new',
+      },
+    ]);
+    expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenCalledWith({
+      where: { id: 'assignment-existing' },
+      data: {
+        officeWorkScheduleId: 'schedule-new',
+        lastUpdatedById: 'admin-1',
+      },
+    });
+    expect(prisma.changelog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: 'UPDATE',
+        entityType: 'Employee',
+        entityId: 'employee-1',
+        details: expect.objectContaining({
+          previousScheduleName: 'Schedule Old',
+          nextScheduleName: 'Schedule New',
+          operationType: 'replace_same_date_assignment',
+          source: 'bulk_import',
+        }),
+      }),
     });
   });
 

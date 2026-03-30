@@ -82,6 +82,7 @@ export type OfficeAttendanceDisplayDto = {
   businessDate: string;
   clockInAt: string;
   clockOutAt: string | null;
+  paidHours: string | null;
   clockInMetadata: OfficeAttendanceMetadataDto | null;
   clockOutMetadata: OfficeAttendanceMetadataDto | null;
   latenessMins: number | null;
