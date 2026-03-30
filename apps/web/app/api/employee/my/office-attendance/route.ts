@@ -6,6 +6,7 @@ import { getSystemSetting } from '@repo/database';
 import { getOfficeById } from '@repo/database';
 import { recordOfficeAttendance } from '@repo/database';
 import { getLatestOfficeAttendanceInRange } from '@repo/database';
+import { getLatestOfficeAttendanceForDay } from '@repo/database';
 import { resolveOfficeWorkScheduleContextForEmployee } from '@repo/database';
 import { ZodError } from 'zod';
 
@@ -47,10 +48,19 @@ export async function POST(req: Request) {
       );
     }
 
-    const latestAttendance =
+    const latestAttendanceInWindow =
       scheduleContext.windowStart && scheduleContext.windowEnd
         ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
         : null;
+    const latestAttendanceForDay = await getLatestOfficeAttendanceForDay(employee.id, now);
+    const latestAttendance =
+      requestedStatus === 'clocked_out'
+        ? latestAttendanceInWindow?.status === 'present'
+          ? latestAttendanceInWindow
+          : latestAttendanceForDay?.status === 'present'
+            ? latestAttendanceForDay
+            : latestAttendanceInWindow ?? latestAttendanceForDay
+        : latestAttendanceInWindow;
 
     if (!latestAttendance && requestedStatus === 'clocked_out') {
       return NextResponse.json(
@@ -124,6 +134,7 @@ export async function POST(req: Request) {
         const maxDistance = parseInt(maxDistanceStr, 10);
         if (!isNaN(maxDistance) && maxDistance > 0) {
           const distance = calculateDistance(body.location.lat, body.location.lng, office.latitude, office.longitude);
+console.log(distance, maxDistance);
 
           if (distance > maxDistance) {
             return NextResponse.json(

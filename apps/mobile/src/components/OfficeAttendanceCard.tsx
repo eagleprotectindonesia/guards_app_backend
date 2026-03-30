@@ -15,8 +15,10 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useTranslation } from 'react-i18next';
 import { useAlert } from '../contexts/AlertContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useCustomToast } from '../hooks/useCustomToast';
 import { useOfficeAttendance, useRecordOfficeAttendance } from '../hooks/useOfficeAttendance';
+import { useProfile } from '../hooks/useProfile';
 import { getOfficeScheduleDisplayState, resolveOfficeAttendanceErrorMessage } from './office-attendance-utils';
 
 type Props = {
@@ -27,9 +29,11 @@ type Props = {
 export default function OfficeAttendanceCard({ office, enabled = true }: Props) {
   const { t } = useTranslation();
   const { showAlert } = useAlert();
+  const { user } = useAuth();
   const toast = useCustomToast();
   const [statusMessage, setStatusMessage] = useState('');
   const { data, refetch, isLoading, isRefetching } = useOfficeAttendance(enabled);
+  const { data: profileData } = useProfile();
   const recordMutation = useRecordOfficeAttendance();
 
   const attendances = data?.attendances ?? [];
@@ -37,9 +41,10 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
   const attendanceState = data?.attendanceState;
   const scheduleDisplay = getOfficeScheduleDisplayState(scheduleContext, attendanceState);
   const latestAttendance = scheduleDisplay.latestAttendance ?? attendances[0];
+  const resolvedOffice = office ?? profileData?.employee.office ?? user?.office ?? latestAttendance?.office ?? null;
   const isClockedIn = scheduleDisplay.isClockedIn;
   const hasClockedOut = scheduleDisplay.isCompleted;
-  const hasAssignedOffice = Boolean(office?.id);
+  const hasAssignedOffice = Boolean(resolvedOffice?.id);
 
   const requestLocation = async () => {
     const permission = await Location.requestForegroundPermissionsAsync();
@@ -152,7 +157,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
               <HStack space="sm" className="items-center">
                 <MapPin size={14} color="#94A3B8" />
                 <Text size="sm" className="text-typography-400">
-                  {office?.name || t('officeAttendance.noOfficeAssigned')}
+                  {resolvedOffice?.name || t('officeAttendance.noOfficeAssigned')}
                 </Text>
               </HStack>
             </VStack>

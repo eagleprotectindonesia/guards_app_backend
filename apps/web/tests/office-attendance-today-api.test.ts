@@ -2,6 +2,7 @@ import { GET } from '../app/api/employee/my/office-attendance/today/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import {
   getLatestOfficeAttendanceInRange,
+  getLatestOfficeAttendanceForDay,
   getTodayOfficeAttendance,
   resolveOfficeWorkScheduleContextForEmployee,
 } from '@repo/database';
@@ -12,6 +13,7 @@ jest.mock('@/lib/employee-auth', () => ({
 
 jest.mock('@repo/database', () => ({
   getLatestOfficeAttendanceInRange: jest.fn(),
+  getLatestOfficeAttendanceForDay: jest.fn(),
   getTodayOfficeAttendance: jest.fn(),
   resolveOfficeWorkScheduleContextForEmployee: jest.fn(),
 }));
@@ -42,6 +44,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isLate: false,
@@ -93,6 +96,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: false,
       isLate: false,
@@ -134,6 +138,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isLate: true,
@@ -181,6 +186,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([latestAttendance]);
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(latestAttendance);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(latestAttendance);
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isLate: true,
@@ -212,13 +218,13 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
   });
 
-  test('falls back to the latest today attendance before marking the day as missed', async () => {
+  test('falls back to a same-business-day present attendance and keeps clock-out available', async () => {
     const latestTodayAttendance = {
       id: 'attendance-fallback',
       employeeId: 'employee-5',
       officeId: null,
-      status: 'clocked_out',
-      recordedAt: '2026-04-01T09:15:00.000Z',
+      status: 'present',
+      recordedAt: '2026-04-01T08:15:00.000Z',
     };
 
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
@@ -227,6 +233,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([latestTodayAttendance]);
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(latestTodayAttendance);
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isLate: true,
@@ -242,6 +249,53 @@ describe('GET /api/employee/my/office-attendance/today', () => {
       },
       businessDay: {
         dateKey: '2026-04-01',
+      },
+    });
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.attendanceState).toMatchObject({
+      status: 'clocked_in',
+      canClockIn: false,
+      canClockOut: true,
+      windowClosed: false,
+      latestAttendance: latestTodayAttendance,
+    });
+  });
+
+  test('falls back to a same-business-day clocked out attendance and keeps the day completed', async () => {
+    const latestTodayAttendance = {
+      id: 'attendance-fallback-closed',
+      employeeId: 'employee-6',
+      officeId: null,
+      status: 'clocked_out',
+      recordedAt: '2026-04-02T09:15:00.000Z',
+    };
+
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-6',
+      role: 'office',
+    });
+    (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([latestTodayAttendance]);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(latestTodayAttendance);
+    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isLate: true,
+      isAfterEnd: true,
+      windowStart: new Date('2026-04-02T00:00:00.000Z'),
+      windowEnd: new Date('2026-04-02T09:00:00.000Z'),
+      startMinutes: 8 * 60,
+      endMinutes: 17 * 60,
+      schedule: {
+        id: 'schedule-5',
+        code: 'default-office-work-schedule',
+        name: 'Default Office Schedule',
+      },
+      businessDay: {
+        dateKey: '2026-04-02',
       },
     });
 

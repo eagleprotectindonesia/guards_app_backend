@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getEmployeeByIdWithRelations } from '@repo/database';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 
 export async function GET() {
@@ -8,16 +9,29 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const employee = await getEmployeeByIdWithRelations(employeeAuth.id);
+
+  if (!employee) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const safeEmployee = {
-    id: employeeAuth.id,
-    name: employeeAuth.fullName,
-    fullName: employeeAuth.fullName,
-    phone: employeeAuth.phone,
-    employeeNumber: employeeAuth.employeeNumber,
-    mustChangePassword: !!employeeAuth.mustChangePassword,
-    department: employeeAuth.department,
-    jobTitle: employeeAuth.jobTitle,
-    role: employeeAuth.role,
+    id: employee.id,
+    name: employee.fullName,
+    fullName: employee.fullName,
+    phone: employee.phone,
+    employeeNumber: employee.employeeNumber,
+    mustChangePassword: !!employee.mustChangePassword,
+    department: employee.department,
+    jobTitle: employee.jobTitle,
+    role: employee.role,
+    officeId: employee.officeId,
+    office: employee.office
+      ? {
+          id: employee.officeId,
+          name: employee.office.name,
+        }
+      : null,
   };
 
   return NextResponse.json({ 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import {
   getLatestOfficeAttendanceInRange,
+  getLatestOfficeAttendanceForDay,
   getTodayOfficeAttendance,
   resolveOfficeWorkScheduleContextForEmployee,
 } from '@repo/database';
@@ -91,14 +92,21 @@ export async function GET() {
 
   try {
     const now = new Date();
-    const [attendances, scheduleContext] = await Promise.all([
+    const [attendances, scheduleContext, latestAttendanceForDay] = await Promise.all([
       getTodayOfficeAttendance(employee.id),
       resolveOfficeWorkScheduleContextForEmployee(employee.id, now),
+      getLatestOfficeAttendanceForDay(employee.id, now),
     ]);
-    const latestAttendance =
+    const latestAttendanceInWindow =
       scheduleContext.windowStart && scheduleContext.windowEnd
         ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
         : null;
+    const latestAttendance =
+      latestAttendanceInWindow?.status === 'present'
+        ? latestAttendanceInWindow
+        : latestAttendanceForDay?.status === 'present'
+          ? latestAttendanceForDay
+          : latestAttendanceInWindow;
     const attendanceState = getOfficeAttendanceState({
       scheduleContext,
       latestAttendance,
