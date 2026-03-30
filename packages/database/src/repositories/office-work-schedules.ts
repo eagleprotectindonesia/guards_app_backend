@@ -324,7 +324,7 @@ function buildOfficeWorkScheduleDayChanges(
 async function logOfficeWorkScheduleChange(
   tx: Prisma.TransactionClient,
   params: {
-    action: 'CREATE' | 'UPDATE';
+    action: 'CREATE' | 'UPDATE' | 'DELETE';
     schedule: {
       id: string;
       name: string;
@@ -338,6 +338,7 @@ async function logOfficeWorkScheduleChange(
     };
     adminId?: string;
     changes?: Record<string, { from: Prisma.InputJsonValue | null; to: Prisma.InputJsonValue | null }>;
+    affectedFutureAssignmentCount?: number;
   }
 ) {
   if (!params.adminId) return;
@@ -346,6 +347,9 @@ async function logOfficeWorkScheduleChange(
     name: params.schedule.name,
     code: params.schedule.code,
     days: params.schedule.days as Prisma.InputJsonValue,
+    ...(typeof params.affectedFutureAssignmentCount === 'number'
+      ? { affectedFutureAssignmentCount: params.affectedFutureAssignmentCount }
+      : {}),
     ...(params.changes && Object.keys(params.changes).length > 0
       ? { changes: params.changes as Prisma.InputJsonValue }
       : {}),
@@ -481,6 +485,94 @@ export async function updateOfficeWorkSchedule(params: {
     });
 
     return updatedSchedule;
+  });
+}
+
+export async function deleteOfficeWorkSchedule(params: {
+  id: string;
+  actor?: OfficeScheduleAuditActor;
+}) {
+  return prisma.$transaction(async tx => {
+    const adminId = getAdminActorId(params.actor);
+    const schedule = await tx.officeWorkSchedule.findUniqueOrThrow({
+      where: { id: params.id },
+      include: {
+        days: {
+          orderBy: { weekday: 'asc' },
+        },
+      },
+    });
+
+    const defaultScheduleSetting = await tx.systemSetting.findUnique({
+      where: { name: DEFAULT_OFFICE_WORK_SCHEDULE_ID_SETTING },
+    });
+
+    const isDefaultSchedule =
+      defaultScheduleSetting?.value === params.id ||
+      (!defaultScheduleSetting?.value && schedule.code === DEFAULT_OFFICE_WORK_SCHEDULE_CODE);
+
+    if (isDefaultSchedule) {
+      throw new Error('Cannot delete the default office work schedule');
+    }
+
+    const assignments = await tx.employeeOfficeWorkScheduleAssignment.findMany({
+      where: { officeWorkScheduleId: params.id },
+      orderBy: [{ employeeId: 'asc' }, { effectiveFrom: 'asc' }],
+    });
+
+    const referenceDate = new Date();
+    const hasCurrentOrHistoricalAssignments = assignments.some(assignment => assignment.effectiveFrom <= referenceDate);
+
+    if (hasCurrentOrHistoricalAssignments) {
+      throw new Error(
+        'Cannot delete office schedule: it is referenced by current or historical employee assignments.'
+      );
+    }
+
+    for (const assignment of assignments) {
+      const neighbors = await getDeleteAdjacentOfficeWorkScheduleAssignments(
+        assignment.employeeId,
+        assignment.effectiveFrom,
+        { excludeAssignmentId: assignment.id },
+        tx
+      );
+
+      if (neighbors.previousAssignment) {
+        await tx.employeeOfficeWorkScheduleAssignment.update({
+          where: { id: neighbors.previousAssignment.id },
+          data: {
+            effectiveUntil: assignment.effectiveUntil,
+            ...(adminId
+              ? {
+                  lastUpdatedById: adminId,
+                }
+              : {}),
+          },
+        });
+      }
+
+      await tx.employeeOfficeWorkScheduleAssignment.delete({
+        where: { id: assignment.id },
+      });
+    }
+
+    await tx.officeWorkSchedule.delete({
+      where: { id: params.id },
+    });
+
+    await logOfficeWorkScheduleChange(tx, {
+      action: 'DELETE',
+      adminId,
+      affectedFutureAssignmentCount: assignments.length,
+      schedule: {
+        id: schedule.id,
+        name: schedule.name,
+        code: schedule.code,
+        days: normalizeOfficeWorkScheduleDays(schedule.days),
+      },
+    });
+
+    return schedule;
   });
 }
 

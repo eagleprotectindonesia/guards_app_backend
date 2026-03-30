@@ -3,6 +3,7 @@ import {
   bulkUpsertFutureOfficeWorkScheduleAssignments,
   createOfficeWorkScheduleAssignment,
   createOfficeWorkSchedule,
+  deleteOfficeWorkSchedule,
   deleteFutureOfficeWorkScheduleAssignment,
   resolveOfficeWorkScheduleContextForEmployee,
   scheduleFutureOfficeWorkScheduleAssignment,
@@ -24,6 +25,7 @@ jest.mock('../prisma/client', () => ({
     },
     officeWorkSchedule: {
       create: jest.fn(),
+      delete: jest.fn(),
       findUnique: jest.fn(),
       findUniqueOrThrow: jest.fn(),
       update: jest.fn(),
@@ -1191,5 +1193,285 @@ describe('office work schedules', () => {
     expect(prisma.employeeOfficeWorkScheduleAssignment.delete).toHaveBeenCalledWith({
       where: { id: 'assignment-first' },
     });
+  });
+
+  test('deletes an office schedule and re-links one future assignment timeline', async () => {
+    const schedule = {
+      id: 'schedule-delete',
+      name: 'Schedule Delete',
+      code: 'schedule-delete',
+      days: [{ weekday: 1, isWorkingDay: true, startTime: '09:00', endTime: '17:00' }],
+    };
+    const futureAssignment = {
+      id: 'assignment-target',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-delete',
+      effectiveFrom: new Date('2099-04-06T00:00:00.000Z'),
+      effectiveUntil: new Date('2099-04-13T00:00:00.000Z'),
+    };
+    const previousAssignment = {
+      id: 'assignment-prev',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-prev',
+      effectiveFrom: new Date('2099-03-30T00:00:00.000Z'),
+      effectiveUntil: futureAssignment.effectiveFrom,
+    };
+
+    mockTransaction();
+    (prisma.officeWorkSchedule.findUniqueOrThrow as jest.Mock).mockResolvedValue(schedule);
+    (prisma.systemSetting.findUnique as jest.Mock).mockResolvedValue({
+      name: 'DEFAULT_OFFICE_WORK_SCHEDULE_ID',
+      value: 'another-schedule',
+    });
+    (prisma.employeeOfficeWorkScheduleAssignment.findMany as jest.Mock).mockResolvedValue([futureAssignment]);
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock)
+      .mockResolvedValueOnce(previousAssignment)
+      .mockResolvedValueOnce(null);
+
+    await deleteOfficeWorkSchedule({
+      id: 'schedule-delete',
+      actor: { type: 'admin', id: 'admin-1' },
+    });
+
+    expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenCalledWith({
+      where: { id: 'assignment-prev' },
+      data: {
+        effectiveUntil: futureAssignment.effectiveUntil,
+        lastUpdatedById: 'admin-1',
+      },
+    });
+    expect(prisma.employeeOfficeWorkScheduleAssignment.delete).toHaveBeenCalledWith({
+      where: { id: 'assignment-target' },
+    });
+    expect(prisma.officeWorkSchedule.delete).toHaveBeenCalledWith({
+      where: { id: 'schedule-delete' },
+    });
+    expect(prisma.changelog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        action: 'DELETE',
+        entityType: 'OfficeWorkSchedule',
+        entityId: 'schedule-delete',
+        details: expect.objectContaining({
+          affectedFutureAssignmentCount: 1,
+        }),
+      }),
+    });
+  });
+
+  test('deletes an office schedule with multiple future assignments for one employee and preserves a contiguous timeline', async () => {
+    const schedule = {
+      id: 'schedule-delete',
+      name: 'Schedule Delete',
+      code: 'schedule-delete',
+      days: [{ weekday: 1, isWorkingDay: true, startTime: '09:00', endTime: '17:00' }],
+    };
+    const futureAssignmentOne = {
+      id: 'assignment-target-1',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-delete',
+      effectiveFrom: new Date('2099-04-06T00:00:00.000Z'),
+      effectiveUntil: new Date('2099-04-13T00:00:00.000Z'),
+    };
+    const futureAssignmentTwo = {
+      id: 'assignment-target-2',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-delete',
+      effectiveFrom: new Date('2099-04-13T00:00:00.000Z'),
+      effectiveUntil: new Date('2099-04-20T00:00:00.000Z'),
+    };
+    const previousAssignment = {
+      id: 'assignment-prev',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-prev',
+      effectiveFrom: new Date('2099-03-30T00:00:00.000Z'),
+      effectiveUntil: futureAssignmentOne.effectiveFrom,
+    };
+
+    mockTransaction();
+    (prisma.officeWorkSchedule.findUniqueOrThrow as jest.Mock).mockResolvedValue(schedule);
+    (prisma.systemSetting.findUnique as jest.Mock).mockResolvedValue({
+      name: 'DEFAULT_OFFICE_WORK_SCHEDULE_ID',
+      value: 'another-schedule',
+    });
+    (prisma.employeeOfficeWorkScheduleAssignment.findMany as jest.Mock).mockResolvedValue([
+      futureAssignmentOne,
+      futureAssignmentTwo,
+    ]);
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock)
+      .mockResolvedValueOnce(previousAssignment)
+      .mockResolvedValueOnce(futureAssignmentTwo)
+      .mockResolvedValueOnce(previousAssignment)
+      .mockResolvedValueOnce(null);
+
+    await deleteOfficeWorkSchedule({
+      id: 'schedule-delete',
+    });
+
+    expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenNthCalledWith(1, {
+      where: { id: 'assignment-prev' },
+      data: {
+        effectiveUntil: futureAssignmentOne.effectiveUntil,
+      },
+    });
+    expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenNthCalledWith(2, {
+      where: { id: 'assignment-prev' },
+      data: {
+        effectiveUntil: futureAssignmentTwo.effectiveUntil,
+      },
+    });
+    expect(prisma.employeeOfficeWorkScheduleAssignment.delete).toHaveBeenNthCalledWith(1, {
+      where: { id: 'assignment-target-1' },
+    });
+    expect(prisma.employeeOfficeWorkScheduleAssignment.delete).toHaveBeenNthCalledWith(2, {
+      where: { id: 'assignment-target-2' },
+    });
+  });
+
+  test('deletes an office schedule with future assignments for multiple employees independently', async () => {
+    const schedule = {
+      id: 'schedule-delete',
+      name: 'Schedule Delete',
+      code: 'schedule-delete',
+      days: [{ weekday: 1, isWorkingDay: true, startTime: '09:00', endTime: '17:00' }],
+    };
+    const employeeOneAssignment = {
+      id: 'assignment-employee-1',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-delete',
+      effectiveFrom: new Date('2099-04-06T00:00:00.000Z'),
+      effectiveUntil: null,
+    };
+    const employeeTwoAssignment = {
+      id: 'assignment-employee-2',
+      employeeId: 'employee-2',
+      officeWorkScheduleId: 'schedule-delete',
+      effectiveFrom: new Date('2099-04-13T00:00:00.000Z'),
+      effectiveUntil: new Date('2099-04-20T00:00:00.000Z'),
+    };
+    const previousAssignmentOne = {
+      id: 'assignment-prev-1',
+      employeeId: 'employee-1',
+      officeWorkScheduleId: 'schedule-prev-1',
+      effectiveFrom: new Date('2099-03-30T00:00:00.000Z'),
+      effectiveUntil: employeeOneAssignment.effectiveFrom,
+    };
+    const previousAssignmentTwo = {
+      id: 'assignment-prev-2',
+      employeeId: 'employee-2',
+      officeWorkScheduleId: 'schedule-prev-2',
+      effectiveFrom: new Date('2099-04-06T00:00:00.000Z'),
+      effectiveUntil: employeeTwoAssignment.effectiveFrom,
+    };
+
+    mockTransaction();
+    (prisma.officeWorkSchedule.findUniqueOrThrow as jest.Mock).mockResolvedValue(schedule);
+    (prisma.systemSetting.findUnique as jest.Mock).mockResolvedValue({
+      name: 'DEFAULT_OFFICE_WORK_SCHEDULE_ID',
+      value: 'another-schedule',
+    });
+    (prisma.employeeOfficeWorkScheduleAssignment.findMany as jest.Mock).mockResolvedValue([
+      employeeOneAssignment,
+      employeeTwoAssignment,
+    ]);
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock)
+      .mockResolvedValueOnce(previousAssignmentOne)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(previousAssignmentTwo)
+      .mockResolvedValueOnce(null);
+
+    await deleteOfficeWorkSchedule({
+      id: 'schedule-delete',
+    });
+
+    expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenNthCalledWith(1, {
+      where: { id: 'assignment-prev-1' },
+      data: {
+        effectiveUntil: employeeOneAssignment.effectiveUntil,
+      },
+    });
+    expect(prisma.employeeOfficeWorkScheduleAssignment.update).toHaveBeenNthCalledWith(2, {
+      where: { id: 'assignment-prev-2' },
+      data: {
+        effectiveUntil: employeeTwoAssignment.effectiveUntil,
+      },
+    });
+  });
+
+  test('rejects deleting the default office work schedule', async () => {
+    mockTransaction();
+    (prisma.officeWorkSchedule.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+      id: 'schedule-default',
+      name: 'Default Office Schedule',
+      code: 'default-office-work-schedule',
+      days: [],
+    });
+    (prisma.systemSetting.findUnique as jest.Mock).mockResolvedValue({
+      name: 'DEFAULT_OFFICE_WORK_SCHEDULE_ID',
+      value: 'schedule-default',
+    });
+
+    await expect(
+      deleteOfficeWorkSchedule({
+        id: 'schedule-default',
+      })
+    ).rejects.toThrow('Cannot delete the default office work schedule');
+  });
+
+  test('rejects deleting an office schedule with an active assignment reference', async () => {
+    mockTransaction();
+    (prisma.officeWorkSchedule.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+      id: 'schedule-delete',
+      name: 'Schedule Delete',
+      code: 'schedule-delete',
+      days: [],
+    });
+    (prisma.systemSetting.findUnique as jest.Mock).mockResolvedValue({
+      name: 'DEFAULT_OFFICE_WORK_SCHEDULE_ID',
+      value: 'another-schedule',
+    });
+    (prisma.employeeOfficeWorkScheduleAssignment.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'assignment-current',
+        employeeId: 'employee-1',
+        officeWorkScheduleId: 'schedule-delete',
+        effectiveFrom: new Date('2000-01-01T00:00:00.000Z'),
+        effectiveUntil: null,
+      },
+    ]);
+
+    await expect(
+      deleteOfficeWorkSchedule({
+        id: 'schedule-delete',
+      })
+    ).rejects.toThrow('Cannot delete office schedule: it is referenced by current or historical employee assignments.');
+  });
+
+  test('rejects deleting an office schedule with a historical assignment reference', async () => {
+    mockTransaction();
+    (prisma.officeWorkSchedule.findUniqueOrThrow as jest.Mock).mockResolvedValue({
+      id: 'schedule-delete',
+      name: 'Schedule Delete',
+      code: 'schedule-delete',
+      days: [],
+    });
+    (prisma.systemSetting.findUnique as jest.Mock).mockResolvedValue({
+      name: 'DEFAULT_OFFICE_WORK_SCHEDULE_ID',
+      value: 'another-schedule',
+    });
+    (prisma.employeeOfficeWorkScheduleAssignment.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'assignment-history',
+        employeeId: 'employee-1',
+        officeWorkScheduleId: 'schedule-delete',
+        effectiveFrom: new Date('2000-01-01T00:00:00.000Z'),
+        effectiveUntil: new Date('2000-02-01T00:00:00.000Z'),
+      },
+    ]);
+
+    await expect(
+      deleteOfficeWorkSchedule({
+        id: 'schedule-delete',
+      })
+    ).rejects.toThrow('Cannot delete office schedule: it is referenced by current or historical employee assignments.');
   });
 });

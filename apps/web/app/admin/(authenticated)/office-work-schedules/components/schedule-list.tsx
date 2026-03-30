@@ -1,10 +1,13 @@
 'use client';
 
+import { useTransition } from 'react';
 import Link from 'next/link';
 import { History } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { EditButton } from '../../components/action-buttons';
+import { EditButton, DeleteButton } from '../../components/action-buttons';
+import { deleteOfficeWorkScheduleAction } from '../actions';
+import toast from 'react-hot-toast';
 
 type ScheduleListItem = {
   id: string;
@@ -20,10 +23,38 @@ type Props = {
 };
 
 export default function ScheduleList({ schedules }: Props) {
+  const [isPending, startTransition] = useTransition();
   const { hasPermission } = useSession();
   const canCreate = hasPermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.CREATE);
   const canEdit = hasPermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.EDIT);
+  const canDelete = hasPermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+
+  const handleDelete = async (id: string, name: string, assignmentCount: number) => {
+    if (!canDelete) return;
+
+    const assignmentCopy =
+      assignmentCount === 1
+        ? 'This schedule currently has 1 associated employee assignment. Deletion only succeeds when all references are future assignments; those future assignments will be removed and adjacent schedule ranges will be re-linked automatically.'
+        : `This schedule currently has ${assignmentCount} associated employee assignments. Deletion only succeeds when all references are future assignments; those future assignments will be removed and adjacent schedule ranges will be re-linked automatically.`;
+
+    if (
+      !window.confirm(
+        `Delete office schedule "${name}"? This action cannot be undone. ${assignmentCopy}`
+      )
+    ) {
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await deleteOfficeWorkScheduleAction(id);
+      if (result.success) {
+        toast.success(result.message || 'Office schedule deleted successfully.');
+      } else {
+        toast.error(result.message || 'Failed to delete office schedule.');
+      }
+    });
+  };
 
   return (
     <div>
@@ -119,6 +150,11 @@ export default function ScheduleList({ schedules }: Props) {
                           href={`/admin/office-work-schedules/${schedule.id}/edit`}
                           disabled={!canEdit}
                           title={!canEdit ? 'Permission Denied' : 'Edit'}
+                        />
+                        <DeleteButton
+                          onClick={() => handleDelete(schedule.id, schedule.name, schedule.assignmentCount)}
+                          disabled={!canDelete || isPending}
+                          title={!canDelete ? 'Permission Denied' : 'Delete'}
                         />
                       </div>
                     </td>

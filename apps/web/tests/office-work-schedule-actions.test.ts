@@ -3,6 +3,7 @@ import {
 } from '../app/admin/(authenticated)/settings/actions';
 import {
   createOfficeWorkScheduleAction,
+  deleteOfficeWorkScheduleAction,
 } from '../app/admin/(authenticated)/office-work-schedules/actions';
 import {
   deleteEmployeeOfficeWorkScheduleAssignment,
@@ -14,6 +15,7 @@ import { checkSuperAdmin, getAdminIdFromToken, requirePermission } from '@/lib/a
 import {
   bulkUpsertFutureOfficeWorkScheduleAssignments,
   createOfficeWorkSchedule,
+  deleteOfficeWorkSchedule,
   deleteFutureOfficeWorkScheduleAssignment,
   getActiveEmployees,
   getAllOfficeWorkSchedules,
@@ -32,8 +34,10 @@ jest.mock('@/lib/admin-auth', () => ({
 jest.mock('@repo/database', () => ({
   createOfficeWorkSchedule: jest.fn(),
   bulkUpsertFutureOfficeWorkScheduleAssignments: jest.fn(),
+  deleteOfficeWorkSchedule: jest.fn(),
   deleteFutureOfficeWorkScheduleAssignment: jest.fn(),
   getDefaultOfficeWorkSchedule: jest.fn(),
+  getOfficeWorkScheduleById: jest.fn(),
   getActiveEmployees: jest.fn(),
   getAllOfficeWorkSchedules: jest.fn(),
   scheduleFutureOfficeWorkScheduleAssignment: jest.fn(),
@@ -107,6 +111,53 @@ describe('office work schedule actions', () => {
         days: fullWeekdays,
       })
     );
+  });
+
+  test('deletes an office work schedule', async () => {
+    const { getOfficeWorkScheduleById } = jest.requireMock('@repo/database');
+    (getOfficeWorkScheduleById as jest.Mock).mockResolvedValue({
+      id: 'schedule-1',
+      name: 'Finance Team',
+    });
+
+    const result = await deleteOfficeWorkScheduleAction('schedule-1');
+
+    expect(result.success).toBe(true);
+    expect(deleteOfficeWorkSchedule).toHaveBeenCalledWith({
+      id: 'schedule-1',
+      actor: { type: 'admin', id: 'admin-1' },
+    });
+  });
+
+  test('returns a friendly error when deleting a missing office work schedule', async () => {
+    const { getOfficeWorkScheduleById } = jest.requireMock('@repo/database');
+    (getOfficeWorkScheduleById as jest.Mock).mockResolvedValue(null);
+
+    const result = await deleteOfficeWorkScheduleAction('missing-schedule');
+
+    expect(result).toEqual({
+      success: false,
+      message: 'Office schedule not found.',
+    });
+    expect(deleteOfficeWorkSchedule).not.toHaveBeenCalled();
+  });
+
+  test('returns repository errors when deleting the default office work schedule', async () => {
+    const { getOfficeWorkScheduleById } = jest.requireMock('@repo/database');
+    (getOfficeWorkScheduleById as jest.Mock).mockResolvedValue({
+      id: 'default-schedule',
+      name: 'Default Office Schedule',
+    });
+    (deleteOfficeWorkSchedule as jest.Mock).mockRejectedValue(
+      new Error('Cannot delete the default office work schedule')
+    );
+
+    const result = await deleteOfficeWorkScheduleAction('default-schedule');
+
+    expect(result).toEqual({
+      success: false,
+      message: 'Cannot delete the default office work schedule',
+    });
   });
 
   test('schedules a future employee office work schedule change', async () => {

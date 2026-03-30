@@ -2,6 +2,7 @@
 
 import {
   createOfficeWorkSchedule,
+  deleteOfficeWorkSchedule,
   getOfficeWorkScheduleById,
   updateOfficeWorkSchedule,
 } from '@repo/database';
@@ -11,7 +12,7 @@ import {
 } from '@repo/validations';
 import { ActionState } from '@/types/actions';
 import { revalidatePath } from 'next/cache';
-import { requirePermission } from '@/lib/admin-auth';
+import { getAdminIdFromToken, requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 function slugifyScheduleCode(name: string) {
@@ -122,4 +123,36 @@ export async function updateOfficeWorkScheduleAction(
   revalidatePath('/admin/office-work-schedules/audit');
   revalidatePath(`/admin/office-work-schedules/${id}/edit`);
   return { success: true, message: 'Office schedule updated successfully.' };
+}
+
+export async function deleteOfficeWorkScheduleAction(
+  id: string
+): Promise<{ success: boolean; message?: string }> {
+  await requirePermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.DELETE);
+  const adminId = await getAdminIdFromToken();
+
+  try {
+    const existing = await getOfficeWorkScheduleById(id);
+    if (!existing) {
+      return {
+        success: false,
+        message: 'Office schedule not found.',
+      };
+    }
+
+    await deleteOfficeWorkSchedule({
+      id,
+      actor: adminId ? { type: 'admin', id: adminId } : { type: 'unknown' },
+    });
+  } catch (error) {
+    console.error('Database Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Database Error: Failed to delete office schedule.',
+    };
+  }
+
+  revalidatePath('/admin/office-work-schedules');
+  revalidatePath('/admin/office-work-schedules/audit');
+  return { success: true, message: 'Office schedule deleted successfully.' };
 }
