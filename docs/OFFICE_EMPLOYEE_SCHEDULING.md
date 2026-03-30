@@ -206,6 +206,16 @@ Clock-out behavior:
 - only allowed after a same-day clock-in exists
 - for overnight windows, "same day" means the active schedule window, not just the calendar date
 
+### Location Enforcement
+
+Office attendance location validation is based on `employee.fieldModeEnabled`:
+- `fieldModeEnabled = false`: clock in/out must be within the configured max distance of the assigned office
+- `fieldModeEnabled = true`: clock in/out can be recorded from anywhere
+
+Additional rules:
+- if `fieldModeEnabled = false` and the employee has no assigned office, location comparison is skipped
+- if `fieldModeEnabled = false` and the assigned office is missing or has no configured coordinates, attendance is rejected
+
 ### Daily State Machine
 
 Per employee, per business day:

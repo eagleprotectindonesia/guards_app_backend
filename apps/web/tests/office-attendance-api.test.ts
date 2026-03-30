@@ -48,6 +48,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       id: 'employee-1',
       role: 'office',
       officeId: null,
+      fieldModeEnabled: true,
     });
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: false,
@@ -73,6 +74,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       id: 'employee-2',
       role: 'office',
       officeId: null,
+      fieldModeEnabled: true,
     });
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
@@ -118,11 +120,12 @@ describe('POST /api/employee/my/office-attendance', () => {
     );
   });
 
-  test('records attendance for office employees without an assigned office', async () => {
+  test('records attendance for office employees without an assigned office when field mode is disabled', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-null-office',
       role: 'office',
       officeId: null,
+      fieldModeEnabled: false,
     });
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
@@ -175,6 +178,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       id: 'employee-5',
       role: 'office',
       officeId: null,
+      fieldModeEnabled: true,
     });
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
@@ -228,6 +232,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       id: 'employee-3',
       role: 'office',
       officeId: null,
+      fieldModeEnabled: true,
     });
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
@@ -269,6 +274,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       id: 'employee-3b',
       role: 'office',
       officeId: null,
+      fieldModeEnabled: true,
     });
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
@@ -312,6 +318,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       id: 'employee-3c',
       role: 'office',
       officeId: null,
+      fieldModeEnabled: true,
     });
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
@@ -352,6 +359,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       id: 'employee-4',
       role: 'office',
       officeId: 'office-1',
+      fieldModeEnabled: false,
     });
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
@@ -390,11 +398,12 @@ describe('POST /api/employee/my/office-attendance', () => {
     expect(recordOfficeAttendance).not.toHaveBeenCalled();
   });
 
-  test('uses the assigned employee office even if the client sends officeId null', async () => {
+  test('uses the assigned employee office when field mode is disabled even if the client sends officeId null', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-6',
       role: 'office',
       officeId: 'office-1',
+      fieldModeEnabled: false,
     });
     (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
@@ -431,5 +440,56 @@ describe('POST /api/employee/my/office-attendance', () => {
     });
     expect(getOfficeById).toHaveBeenCalledWith('office-1');
     expect(recordOfficeAttendance).not.toHaveBeenCalled();
+  });
+
+  test('allows attendance from anywhere when field mode is enabled even with an assigned office', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-7',
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: true,
+    });
+    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: false,
+      startMinutes: 8 * 60,
+      businessDay: {
+        minutesSinceMidnight: 8 * 60 + 10,
+      },
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (recordOfficeAttendance as jest.Mock).mockResolvedValue({
+      id: 'attendance-field-mode',
+      employeeId: 'employee-7',
+      officeId: null,
+      status: 'present',
+    });
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        status: 'present',
+      }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(data.attendance).toMatchObject({
+      id: 'attendance-field-mode',
+      officeId: null,
+    });
+    expect(getOfficeById).not.toHaveBeenCalled();
+    expect(getSystemSetting).not.toHaveBeenCalled();
+    expect(recordOfficeAttendance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        officeId: null,
+        employeeId: 'employee-7',
+        status: 'present',
+      })
+    );
   });
 });

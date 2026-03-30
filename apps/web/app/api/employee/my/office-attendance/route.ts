@@ -94,7 +94,7 @@ export async function POST(req: Request) {
     }
 
     let office = null;
-    if (employee.officeId) {
+    if (!employee.fieldModeEnabled && employee.officeId) {
       office = await getOfficeById(employee.officeId);
       if (!office) {
         return NextResponse.json(
