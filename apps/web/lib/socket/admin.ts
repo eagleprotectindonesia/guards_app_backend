@@ -1,4 +1,5 @@
-import { getOpenAlertsForDashboard, getActiveShiftsForDashboard, getUpcomingShiftsForDashboard, redis } from '@repo/database';
+import { getOpenAlertsForDashboard, getActiveShiftsForDashboard, getUpcomingShiftsForDashboard } from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { Shift, Site } from '@repo/types';
 import { UnifiedServer, UnifiedSocket } from '../socket';
 

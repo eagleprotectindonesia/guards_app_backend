@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
-import { redis, db as prisma } from '@repo/database';
+import { db as prisma } from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { JWT_SECRET, SESSION_CACHE_TTL } from './constants';
 import { RolePolicy } from '@repo/validations';
 import { normalizeRolePolicy } from './admin-visibility';

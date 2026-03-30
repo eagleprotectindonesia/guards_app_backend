@@ -3,6 +3,7 @@
 // ============================================================================
 export * from './scheduling';
 export * from './geo';
+export * from './office-config';
 
 // ============================================================================
 // Localization (i18n messages and types)

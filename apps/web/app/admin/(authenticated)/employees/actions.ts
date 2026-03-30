@@ -2,6 +2,7 @@
 
 import {
   updateEmployee as updateEmployeeDb,
+  updateEmployeeFieldMode as updateEmployeeFieldModeDb,
   getAllEmployees,
   getActiveEmployees,
   getAllOfficeWorkSchedules,
@@ -14,6 +15,8 @@ import {
   UpdateEmployeeInput,
   updateEmployeePasswordSchema,
   UpdateEmployeePasswordInput,
+  updateEmployeeFieldModeSchema,
+  UpdateEmployeeFieldModeInput,
   createEmployeeOfficeWorkScheduleAssignmentSchema,
   CreateEmployeeOfficeWorkScheduleAssignmentInput,
 } from '@repo/validations';
@@ -25,8 +28,6 @@ import { EmployeeWithRelationsAndSchedule } from '@repo/database';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { requirePermission } from '@/lib/admin-auth';
 import { ActionState } from '@/types/actions';
-import { EMPLOYEE_SYNC_JOB_NAME } from '@repo/database';
-import { employeeSyncQueue } from '@/lib/queues';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { applyEmployeeVisibilityScope } from '@/lib/auth/admin-visibility';
 import {
@@ -161,11 +162,50 @@ export async function updateEmployeePassword(
   return { success: true, message: 'Password updated successfully' };
 }
 
+export async function updateEmployeeFieldMode(
+  id: string,
+  prevState: ActionState<UpdateEmployeeFieldModeInput>,
+  formData: FormData
+): Promise<ActionState<UpdateEmployeeFieldModeInput>> {
+  await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
+
+  const validatedFields = updateEmployeeFieldModeSchema.safeParse({
+    fieldModeEnabled: formData.get('fieldModeEnabled') === 'true',
+  });
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Invalid input. Failed to update field mode.',
+      success: false,
+    };
+  }
+
+  try {
+    await updateEmployeeFieldModeDb(id, validatedFields.data.fieldModeEnabled);
+  } catch (error) {
+    console.error('Database Error:', error);
+    return {
+      message: error instanceof Error ? error.message : 'Database Error: Failed to update field mode.',
+      success: false,
+    };
+  }
+
+  revalidatePath(`/admin/employees/${id}/edit`);
+  revalidatePath('/admin/employees');
+  return { success: true, message: 'Field mode updated successfully.' };
+}
+
 export async function syncEmployeesAction() {
   const adminId = await getAdminIdFromToken();
   if (!adminId) return { success: false, message: 'Unauthorized' };
 
   try {
+    const [{ EMPLOYEE_SYNC_JOB_NAME }, { employeeSyncQueue }] = await Promise.all([
+      import('@repo/database'),
+      import('@/lib/queues'),
+    ]);
+
     await employeeSyncQueue.add(EMPLOYEE_SYNC_JOB_NAME, { triggeredBy: adminId });
     return {
       success: true,

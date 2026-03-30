@@ -2,6 +2,12 @@
 
 import { checkSuperAdmin } from '@/lib/admin-auth';
 import {
+  assertNoDuplicateOfficeJobTitles,
+  OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING,
+  OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING,
+  serializeOfficeJobTitleCategoryMap,
+} from '@repo/shared';
+import {
   getDefaultOfficeWorkSchedule,
   updateOfficeWorkSchedule,
   updateSystemSettingWithChangelog,
@@ -9,6 +15,19 @@ import {
 import { UpdateDefaultOfficeWorkScheduleInput, UpdateSettingsInput, updateDefaultOfficeWorkScheduleSchema } from '@repo/validations';
 import { ActionState } from '@/types/actions';
 import { revalidatePath } from 'next/cache';
+
+const OFFICE_JOB_TITLE_CATEGORY_MAP_NOTE =
+  'Maps external office employee job titles into the staff and management categories.';
+const OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_NOTE =
+  'Maximum allowed distance (in meters) between an office employee and office coordinates for future office attendance enforcement.';
+
+function parseTitleList(rawValue: FormDataEntryValue | null) {
+  if (typeof rawValue !== 'string') return [];
+  return rawValue
+    .split(/\r?\n/)
+    .map(value => value.trim())
+    .filter(Boolean);
+}
 
 export async function updateSettings(
   prevState: ActionState<UpdateSettingsInput>,
@@ -24,9 +43,16 @@ export async function updateSettings(
 
   // Parse fields like "value:NAME" and "note:NAME"
   const settingsMap: Record<string, { value?: string; note?: string }> = {};
+
+  const officeJobTitleCategoryMap = {
+    staff: parseTitleList(formData.get('officeJobTitles:staff')),
+    management: parseTitleList(formData.get('officeJobTitles:management')),
+  };
+  const officeAttendanceMaxDistance = formData.get('officeAttendanceMaxDistance');
   
   formData.forEach((val, key) => {
     if (typeof val !== 'string' || key.startsWith('$')) return;
+    if (key.startsWith('officeJobTitles:') || key === 'officeAttendanceMaxDistance') return;
     
     const [field, name] = key.split(':');
     if (!name) return;
@@ -49,6 +75,34 @@ export async function updateSettings(
       }
     }
   }
+
+  try {
+    assertNoDuplicateOfficeJobTitles(officeJobTitleCategoryMap);
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Job title categories contain duplicate titles.',
+    };
+  }
+
+  if (typeof officeAttendanceMaxDistance === 'string' && officeAttendanceMaxDistance.trim()) {
+    const val = parseInt(officeAttendanceMaxDistance, 10);
+    if (isNaN(val) || val <= 0) {
+      return {
+        success: false,
+        message: 'Office attendance max distance must be a positive number.',
+      };
+    }
+  }
+
+  settingsMap[OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING] = {
+    value: serializeOfficeJobTitleCategoryMap(officeJobTitleCategoryMap),
+    note: OFFICE_JOB_TITLE_CATEGORY_MAP_NOTE,
+  };
+  settingsMap[OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING] = {
+    value: typeof officeAttendanceMaxDistance === 'string' && officeAttendanceMaxDistance.trim() ? officeAttendanceMaxDistance.trim() : '10',
+    note: OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_NOTE,
+  };
 
   try {
     await Promise.all(

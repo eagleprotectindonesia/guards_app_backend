@@ -596,6 +596,9 @@ importers:
       '@prisma/client':
         specifier: ^7.4.0
         version: 7.4.2(prisma@7.4.2(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3))(typescript@5.9.3)
+      '@repo/shared':
+        specifier: workspace:*
+        version: link:../shared
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3

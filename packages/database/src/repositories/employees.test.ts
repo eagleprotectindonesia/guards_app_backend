@@ -23,6 +23,19 @@ jest.mock('../prisma/client', () => ({
 describe('employees repository', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (prisma.systemSetting.findUnique as jest.Mock).mockImplementation(({ where }: { where: { name: string } }) => {
+      if (where.name === 'DEFAULT_OFFICE_WORK_SCHEDULE_ID') {
+        return Promise.resolve({ value: 'default-schedule' });
+      }
+
+      if (where.name === 'OFFICE_JOB_TITLE_CATEGORY_MAP') {
+        return Promise.resolve({
+          value: '{"staff":["Analyst"],"management":["Branch Manager"]}',
+        });
+      }
+
+      return Promise.resolve(null);
+    });
   });
 
   test('returns active office work schedule from current assignment for office employees', async () => {
@@ -40,7 +53,6 @@ describe('employees repository', () => {
       ],
       1,
     ]);
-    (prisma.systemSetting.findUnique as jest.Mock).mockResolvedValue({ value: 'default-schedule' });
     (prisma.officeWorkSchedule.findUnique as jest.Mock).mockResolvedValue({
       id: 'default-schedule',
       code: 'default-office-work-schedule',
@@ -80,7 +92,6 @@ describe('employees repository', () => {
       ],
       1,
     ]);
-    (prisma.systemSetting.findUnique as jest.Mock).mockResolvedValue({ value: 'default-schedule' });
     (prisma.officeWorkSchedule.findUnique as jest.Mock).mockResolvedValue({
       id: 'default-schedule',
       code: 'default-office-work-schedule',
@@ -116,7 +127,6 @@ describe('employees repository', () => {
       ],
       1,
     ]);
-    (prisma.systemSetting.findUnique as jest.Mock).mockResolvedValue({ value: 'default-schedule' });
     (prisma.officeWorkSchedule.findUnique as jest.Mock).mockResolvedValue({
       id: 'default-schedule',
       code: 'default-office-work-schedule',
@@ -136,5 +146,45 @@ describe('employees repository', () => {
       activeOfficeWorkScheduleName: null,
     });
     expect(prisma.employeeOfficeWorkScheduleAssignment.findFirst).not.toHaveBeenCalled();
+  });
+
+  test('adds derived office category and forced field mode metadata', async () => {
+    (prisma.$transaction as jest.Mock).mockResolvedValue([
+      [
+        {
+          id: 'employee-1',
+          fullName: 'Office User',
+          employeeNumber: 'EMP001',
+          department: 'Finance',
+          jobTitle: 'Analyst',
+          role: 'office',
+          officeId: 'office-1',
+          fieldModeEnabled: true,
+          office: { name: 'HQ' },
+        },
+      ],
+      1,
+    ]);
+    (prisma.officeWorkSchedule.findUnique as jest.Mock).mockResolvedValue({
+      id: 'default-schedule',
+      code: 'default-office-work-schedule',
+      name: 'Default Office Schedule',
+      days: [],
+    });
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const result = await getPaginatedEmployees({
+      where: {},
+      orderBy: { fullName: 'asc' },
+      skip: 0,
+      take: 10,
+    });
+
+    expect(result.employees[0]).toMatchObject({
+      jobTitleCategory: 'staff',
+      fieldModeEnabled: false,
+      isFieldModeEditable: false,
+      fieldModeReasonCode: 'staff_with_office',
+    });
   });
 });

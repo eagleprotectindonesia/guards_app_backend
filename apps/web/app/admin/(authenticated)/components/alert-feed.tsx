@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Alert, Shift, Site, ShiftType, Admin } from '@prisma/client';
-import { EmployeeWithRelations } from '@repo/database';
+import type { EmployeeWithRelations } from '@repo/database';
 import type { Serialized } from '@/lib/server-utils';
 import AlertItem from './alert-item';
 import { Check } from 'lucide-react';

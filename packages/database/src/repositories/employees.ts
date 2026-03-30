@@ -6,6 +6,11 @@ import { hashPassword, verifyPassword, DEFAULT_PASSWORD } from '../password';
 import { fetchExternalEmployees, ExternalEmployee } from '../integrations/external-employee-api';
 import { syncOfficesFromExternalEmployees } from './offices';
 import { getCurrentOfficeWorkScheduleAssignment, getDefaultOfficeWorkSchedule } from './office-work-schedules';
+import {
+  getOfficeJobTitleCategoryMapSetting,
+  OfficeJobTitleCategoryMap,
+  resolveEmployeeFieldModeState,
+} from './employee-office-config';
 
 const LAST_EMPLOYEE_SYNC_KEY = 'employee:sync:last_timestamp';
 const EMPLOYEE_PASSWORD_HISTORY_LIMIT = 3;
@@ -28,6 +33,47 @@ export function getEmployeeSearchWhere(query?: string): Prisma.EmployeeWhereInpu
   };
 }
 
+async function attachDerivedOfficeMetadata<T extends { role?: EmployeeRole | null; officeId?: string | null; jobTitle?: string | null; fieldModeEnabled?: boolean | null }>(
+  employee: T,
+  categoryMap: OfficeJobTitleCategoryMap
+) {
+  return {
+    ...employee,
+    ...resolveEmployeeFieldModeState({
+      role: employee.role,
+      officeId: employee.officeId,
+      jobTitle: employee.jobTitle,
+      fieldModeEnabled: employee.fieldModeEnabled,
+      categoryMap,
+    }),
+  };
+}
+
+async function getActiveOfficeScheduleName(employeeId: string, role?: EmployeeRole | null, defaultScheduleName?: string) {
+  if (role !== 'office') {
+    return null;
+  }
+
+  const assignment = await getCurrentOfficeWorkScheduleAssignment(employeeId);
+  return assignment?.officeWorkSchedule.name ?? defaultScheduleName ?? null;
+}
+
+async function buildEmployeeWithSchedule<T extends { id: string; role?: EmployeeRole | null; officeId?: string | null; jobTitle?: string | null; fieldModeEnabled?: boolean | null }>(
+  employee: T,
+  categoryMap: OfficeJobTitleCategoryMap,
+  defaultScheduleName: string
+) {
+  const [derivedEmployee, activeOfficeWorkScheduleName] = await Promise.all([
+    attachDerivedOfficeMetadata(employee, categoryMap),
+    getActiveOfficeScheduleName(employee.id, employee.role, defaultScheduleName),
+  ]);
+
+  return {
+    ...derivedEmployee,
+    activeOfficeWorkScheduleName,
+  };
+}
+
 export async function getAllEmployees(
   params: {
     where?: Prisma.EmployeeWhereInput;
@@ -45,25 +91,12 @@ export async function getAllEmployees(
     orderBy,
   });
 
-  const defaultOfficeSchedule = await getDefaultOfficeWorkSchedule();
+  const [defaultOfficeSchedule, categoryMap] = await Promise.all([
+    getDefaultOfficeWorkSchedule(),
+    getOfficeJobTitleCategoryMapSetting(),
+  ]);
 
-  return Promise.all(
-    employees.map(async employee => {
-      if (employee.role !== 'office') {
-        return {
-          ...employee,
-          activeOfficeWorkScheduleName: null,
-        };
-      }
-
-      const assignment = await getCurrentOfficeWorkScheduleAssignment(employee.id);
-
-      return {
-        ...employee,
-        activeOfficeWorkScheduleName: assignment?.officeWorkSchedule.name ?? defaultOfficeSchedule.name,
-      };
-    })
-  );
+  return Promise.all(employees.map(employee => buildEmployeeWithSchedule(employee, categoryMap, defaultOfficeSchedule.name)));
 }
 
 export async function getActiveEmployees(role?: EmployeeRole) {
@@ -94,13 +127,18 @@ export async function getActiveEmployeesSummary(role?: EmployeeRole): Promise<Em
 }
 
 export async function getEmployeeById(id: string) {
-  return prisma.employee.findUnique({
+  const employee = await prisma.employee.findUnique({
     where: { id, deletedAt: null },
   });
+
+  if (!employee) return null;
+
+  const categoryMap = await getOfficeJobTitleCategoryMapSetting();
+  return attachDerivedOfficeMetadata(employee, categoryMap);
 }
 
 export async function getEmployeeByIdWithRelations(id: string) {
-  return prisma.employee.findUnique({
+  const employee = await prisma.employee.findUnique({
     where: { id, deletedAt: null },
     include: {
       office: {
@@ -108,6 +146,11 @@ export async function getEmployeeByIdWithRelations(id: string) {
       },
     },
   });
+
+  if (!employee) return null;
+
+  const categoryMap = await getOfficeJobTitleCategoryMapSetting();
+  return attachDerivedOfficeMetadata(employee, categoryMap);
 }
 
 /**
@@ -171,23 +214,12 @@ export async function getPaginatedEmployees(params: {
     prisma.employee.count({ where: finalWhere }),
   ]);
 
-  const defaultOfficeSchedule = await getDefaultOfficeWorkSchedule();
+  const [defaultOfficeSchedule, categoryMap] = await Promise.all([
+    getDefaultOfficeWorkSchedule(),
+    getOfficeJobTitleCategoryMapSetting(),
+  ]);
   const employeesWithSchedules = await Promise.all(
-    employees.map(async employee => {
-      if (employee.role !== 'office') {
-        return {
-          ...employee,
-          activeOfficeWorkScheduleName: null,
-        };
-      }
-
-      const assignment = await getCurrentOfficeWorkScheduleAssignment(employee.id);
-
-      return {
-        ...employee,
-        activeOfficeWorkScheduleName: assignment?.officeWorkSchedule.name ?? defaultOfficeSchedule.name,
-      };
-    })
+    employees.map(employee => buildEmployeeWithSchedule(employee, categoryMap, defaultOfficeSchedule.name))
   );
 
   return { employees: employeesWithSchedules, totalCount };
@@ -210,7 +242,17 @@ export async function upsertEmployeeFromExternal(data: {
   phone: string;
   officeId?: string | null;
   password?: string; // Hashed default password for new employees
+  categoryMap?: OfficeJobTitleCategoryMap;
 }) {
+  const categoryMap = data.categoryMap || (await getOfficeJobTitleCategoryMapSetting());
+  const fieldModeState = resolveEmployeeFieldModeState({
+    role: data.role,
+    officeId: data.officeId,
+    jobTitle: data.jobTitle,
+    fieldModeEnabled: false,
+    categoryMap,
+  });
+
   return prisma.employee.upsert({
     where: { id: data.id },
     create: {
@@ -225,6 +267,7 @@ export async function upsertEmployeeFromExternal(data: {
       hashedPassword: data.password || '', // Should be provided for new employees
       role: data.role,
       office: data.officeId ? { connect: { id: data.officeId } } : undefined,
+      fieldModeEnabled: fieldModeState.fieldModeEnabled,
       status: true,
     },
     update: {
@@ -237,6 +280,7 @@ export async function upsertEmployeeFromExternal(data: {
       phone: data.phone,
       role: data.role,
       office: data.officeId ? { connect: { id: data.officeId } } : { disconnect: true },
+      fieldModeEnabled: fieldModeState.fieldModeEnabled,
       status: true, // Reactivate if it was deactivated but returned to external list
       deletedAt: null, // Restore if soft-deleted
     },
@@ -254,7 +298,52 @@ export const EMPLOYEE_TRACKED_FIELDS = [
   'status',
   'phone',
   'officeId',
+  'fieldModeEnabled',
 ] as const;
+
+async function normalizeEmployeeFieldModeForUpdate(
+  existingEmployee: {
+    role?: EmployeeRole | null;
+    officeId?: string | null;
+    jobTitle?: string | null;
+    fieldModeEnabled?: boolean | null;
+  },
+  data: Prisma.EmployeeUpdateInput
+) {
+  const nextFieldModeValue =
+    data.fieldModeEnabled !== undefined
+      ? typeof data.fieldModeEnabled === 'boolean'
+        ? data.fieldModeEnabled
+        : Boolean((data.fieldModeEnabled as Prisma.BoolFieldUpdateOperationsInput).set)
+      : Boolean(existingEmployee.fieldModeEnabled);
+  const nextRole = (data.role as EmployeeRole | undefined) ?? existingEmployee.role ?? null;
+  const nextJobTitle =
+    data.jobTitle !== undefined
+      ? ((data.jobTitle as string | null | undefined) ?? null)
+      : (existingEmployee.jobTitle ?? null);
+  const nextOfficeId =
+    data.office !== undefined
+      ? 'connect' in (data.office as Prisma.OfficeUpdateOneWithoutEmployeesNestedInput)
+        ? ((data.office as Prisma.OfficeUpdateOneWithoutEmployeesNestedInput).connect?.id ?? null)
+        : 'disconnect' in (data.office as Prisma.OfficeUpdateOneWithoutEmployeesNestedInput)
+          ? null
+          : existingEmployee.officeId ?? null
+      : (existingEmployee.officeId ?? null);
+  const categoryMap = await getOfficeJobTitleCategoryMapSetting();
+  const state = resolveEmployeeFieldModeState({
+    role: nextRole,
+    officeId: nextOfficeId,
+    jobTitle: nextJobTitle,
+    fieldModeEnabled: nextFieldModeValue,
+    categoryMap,
+  });
+
+  if (data.fieldModeEnabled !== undefined && !state.isFieldModeEditable && nextFieldModeValue !== state.fieldModeEnabled) {
+    throw new Error('Field mode cannot be changed for this employee.');
+  }
+
+  return state.fieldModeEnabled;
+}
 
 /**
  * Deactivates employees not present in the provided list of IDs.
@@ -379,10 +468,33 @@ export async function deactivateEmployeesNotIn(
 }
 
 export async function updateEmployee(id: string, data: Prisma.EmployeeUpdateInput) {
+  const existingEmployee = await prisma.employee.findUnique({
+    where: { id },
+    select: {
+      role: true,
+      officeId: true,
+      jobTitle: true,
+      fieldModeEnabled: true,
+    },
+  });
+
+  if (!existingEmployee) {
+    throw new Error('Employee not found');
+  }
+
+  const fieldModeEnabled = await normalizeEmployeeFieldModeForUpdate(existingEmployee, data);
+
   return prisma.employee.update({
     where: { id },
-    data,
+    data: {
+      ...data,
+      fieldModeEnabled,
+    },
   });
+}
+
+export async function updateEmployeeFieldMode(id: string, fieldModeEnabled: boolean) {
+  return updateEmployee(id, { fieldModeEnabled });
 }
 
 type EmployeePasswordActor =
@@ -557,6 +669,7 @@ export async function syncEmployeesFromExternal(
 
   // 2. Sync offices first (single source of truth for both)
   await syncOfficesFromExternalEmployees(externalEmployees);
+  const categoryMap = await getOfficeJobTitleCategoryMapSetting();
 
   const externalIds = externalEmployees.map(e => e.id);
 
@@ -577,6 +690,13 @@ export async function syncEmployeesFromExternal(
     if (!existing) {
       // New employee: use default password
       const hashedPassword = await hashPassword(DEFAULT_PASSWORD);
+      const fieldModeState = resolveEmployeeFieldModeState({
+        role,
+        officeId: ext.office_id,
+        jobTitle: ext.job_title,
+        fieldModeEnabled: false,
+        categoryMap,
+      });
 
       await prisma.$transaction(async tx => {
         const newEmployee = await tx.employee.create({
@@ -593,6 +713,7 @@ export async function syncEmployeesFromExternal(
             mustChangePassword: true,
             role,
             office: ext.office_id ? { connect: { id: ext.office_id } } : undefined,
+            fieldModeEnabled: fieldModeState.fieldModeEnabled,
             status: true,
           },
         });
@@ -620,6 +741,7 @@ export async function syncEmployeesFromExternal(
               phone: newEmployee.phone,
               role: newEmployee.role,
               officeId: newEmployee.officeId,
+              fieldModeEnabled: newEmployee.fieldModeEnabled,
               status: newEmployee.status,
               mustChangePassword: newEmployee.mustChangePassword,
             },
@@ -671,6 +793,22 @@ export async function syncEmployeesFromExternal(
         changes.status = { from: false, to: true };
       }
 
+      const normalizedFieldModeState = resolveEmployeeFieldModeState({
+        role: (updateData.role as EmployeeRole | undefined) ?? existing.role,
+        officeId: Object.prototype.hasOwnProperty.call(changes, 'officeId') ? ext.office_id : existing.officeId,
+        jobTitle: (updateData.jobTitle as string | undefined) ?? existing.jobTitle,
+        fieldModeEnabled: existing.fieldModeEnabled,
+        categoryMap,
+      });
+
+      if (existing.fieldModeEnabled !== normalizedFieldModeState.fieldModeEnabled) {
+        updateData.fieldModeEnabled = normalizedFieldModeState.fieldModeEnabled;
+        changes.fieldModeEnabled = {
+          from: existing.fieldModeEnabled,
+          to: normalizedFieldModeState.fieldModeEnabled,
+        };
+      }
+
       if (Object.keys(updateData).length > 0) {
         await prisma.$transaction(async tx => {
           const updatedEmployee = await tx.employee.update({
@@ -693,6 +831,7 @@ export async function syncEmployeesFromExternal(
                 department: updatedEmployee.department,
                 role: updatedEmployee.role,
                 officeId: updatedEmployee.officeId,
+                fieldModeEnabled: updatedEmployee.fieldModeEnabled,
                 status: updatedEmployee.status,
                 changes,
               },

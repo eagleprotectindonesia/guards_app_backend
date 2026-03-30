@@ -7,7 +7,7 @@ import { CreateShiftInput } from '@repo/validations';
 import { useActionState, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Shift, Site, ShiftType } from '@prisma/client';
-import { EmployeeSummary } from '@repo/database';
+import type { EmployeeSummary } from '@repo/database';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Select from '../../components/select';

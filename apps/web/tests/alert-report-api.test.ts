@@ -2,7 +2,7 @@ import { POST } from '../app/api/employee/alerts/report/route';
 import { POST as resolvePOST } from '../app/api/employee/alerts/resolve/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { prisma } from '@repo/database';
-import { redis } from '@repo/database';
+import { redis } from '@repo/database/redis';
 
 // Mock dependencies
 jest.mock('@/lib/employee-auth', () => ({
@@ -148,4 +148,3 @@ describe('Alert API', () => {
     });
   });
 });
-

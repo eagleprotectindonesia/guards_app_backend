@@ -6,7 +6,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { parseISO } from 'date-fns';
 import Select from '../../components/select'; // Import the custom Select component
-import { EmployeeSummary } from '@repo/database';
+import type { EmployeeSummary } from '@repo/database';
 
 type Props = {
   isOpen: boolean;

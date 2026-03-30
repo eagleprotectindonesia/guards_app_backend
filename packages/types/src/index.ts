@@ -10,6 +10,7 @@ export type ShiftStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' |
 export type CheckInStatus = 'on_time' | 'late' | 'invalid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification' | 'clocked_out';
 export type EmployeeRole = 'on_site' | 'office';
+export type OfficeJobTitleCategory = 'staff' | 'management';
 
 export interface Department {
   id: string;
@@ -47,6 +48,15 @@ export interface Employee {
   jobTitle?: string | null;
   department?: string | null;
   officeId?: string | null;
+  fieldModeEnabled?: boolean;
+  jobTitleCategory?: OfficeJobTitleCategory | null;
+  isFieldModeEditable?: boolean;
+  fieldModeReasonCode?:
+    | 'non_office'
+    | 'missing_office'
+    | 'staff_with_office'
+    | 'management_with_office'
+    | 'uncategorized_with_office';
   office?: Office | null;
   joinDate?: string | Date | null;
   leftDate?: string | Date | null;

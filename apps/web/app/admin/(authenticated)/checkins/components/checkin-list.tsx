@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Checkin, Shift, Site } from '@prisma/client';
-import { EmployeeSummary } from '@repo/database';
+import type { EmployeeSummary } from '@repo/database';
 import type { Serialized } from '@/lib/server-utils';
 import PaginationNav from '../../components/pagination-nav';
 import { MapPin, Clock, Filter } from 'lucide-react'; // Added Globe icon

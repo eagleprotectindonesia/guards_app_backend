@@ -1,8 +1,8 @@
 import type { Serialized } from '@/lib/server-utils';
-import { EmployeeWithRelations } from '@repo/database';
+import { EmployeeWithDerivedOfficeMetadata, EmployeeWithRelations } from '@repo/database';
 
 type Props = {
-  employee: Serialized<EmployeeWithRelations>;
+  employee: Serialized<EmployeeWithRelations & Partial<EmployeeWithDerivedOfficeMetadata>>;
 };
 
 export default function EmployeeDetail({ employee }: Props) {
@@ -69,6 +69,20 @@ export default function EmployeeDetail({ employee }: Props) {
           <label className="block font-medium text-foreground mb-1">Role</label>
           <div className="w-full h-10 px-3 rounded-lg border border-border bg-muted/50 text-foreground flex items-center capitalize">
             {employee.role?.replace('_', ' ') || '-'}
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-medium text-foreground mb-1">Job Title Category</label>
+          <div className="w-full h-10 px-3 rounded-lg border border-border bg-muted/50 text-foreground flex items-center capitalize">
+            {employee.jobTitleCategory || 'Uncategorized'}
+          </div>
+        </div>
+
+        <div>
+          <label className="block font-medium text-foreground mb-1">Field Mode</label>
+          <div className="w-full h-10 px-3 rounded-lg border border-border bg-muted/50 text-foreground flex items-center">
+            {employee.fieldModeEnabled ? 'Enabled' : 'Disabled'}
           </div>
         </div>
 

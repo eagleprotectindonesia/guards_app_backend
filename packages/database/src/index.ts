@@ -13,12 +13,14 @@
 // ============================================================================
 export { PrismaClient, Prisma, createPrismaClient } from './prisma';
 export { db, db as prisma } from './prisma';
-export type { ExtendedPrismaClient, EmployeeWithRelations, EmployeeWithRelationsAndSchedule, EmployeeSummary } from './prisma';
-
-// ============================================================================
-// Redis Layer - Cache and session storage
-// ============================================================================
-export { redis } from './redis';
+export type {
+  ExtendedPrismaClient,
+  EmployeeWithDerivedOfficeMetadata,
+  EmployeeWithRelations,
+  EmployeeWithRelationsAndDerived,
+  EmployeeWithRelationsAndSchedule,
+  EmployeeSummary,
+} from './prisma';
 
 // ============================================================================
 // Server Helpers - Passwords and queue constants

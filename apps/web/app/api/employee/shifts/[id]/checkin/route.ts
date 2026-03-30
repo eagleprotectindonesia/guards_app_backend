@@ -7,7 +7,7 @@ import { calculateDistance } from '@/lib/server-utils';
 import { getSystemSetting } from '@repo/database';
 import { recordCheckin, recordBulkCheckins } from '@repo/database';
 import { getShiftById } from '@repo/database';
-import { redis } from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { employeeShiftErrorResponse } from '../shared-errors';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {

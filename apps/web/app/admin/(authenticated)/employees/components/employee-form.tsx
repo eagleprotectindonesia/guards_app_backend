@@ -8,7 +8,7 @@ import { startTransition, useActionState, useEffect, useRef } from 'react';
 import { useForm, Controller, Resolver, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
-import { EmployeeWithRelations } from '@repo/database';
+import type { EmployeeWithRelations } from '@repo/database';
 import { useRouter } from 'next/navigation';
 import PhoneInput from '@/components/ui/phone-input';
 import { E164Number } from 'libphonenumber-js';

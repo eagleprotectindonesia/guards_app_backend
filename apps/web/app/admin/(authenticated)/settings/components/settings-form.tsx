@@ -10,6 +10,11 @@ import type { Serialized } from '@/lib/server-utils';
 import OfficeWorkScheduleEditor, {
   OfficeWorkScheduleDayFormValue,
 } from '../../components/office-work-schedule-editor';
+import {
+  OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING,
+  OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING,
+  parseOfficeJobTitleCategoryMap,
+} from '@repo/shared';
 
 type SerializedOfficeWorkSchedule = {
   id: string;
@@ -25,6 +30,17 @@ type Props = {
 };
 
 export default function SettingsForm({ settings, defaultOfficeSchedule, isSuperAdmin }: Props) {
+  const officeJobTitleMapSetting = settings.find(setting => setting.name === OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING);
+  const officeAttendanceDistanceSetting = settings.find(
+    setting => setting.name === OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING
+  );
+  const officeJobTitleMap = parseOfficeJobTitleCategoryMap(officeJobTitleMapSetting?.value);
+  const generalSettings = settings.filter(
+    setting =>
+      setting.name !== OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING &&
+      setting.name !== OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING
+  );
+
   const [state, formAction, isPending] = useActionState<ActionState<UpdateSettingsInput>, FormData>(
     updateSettings,
     { success: false }
@@ -93,11 +109,86 @@ export default function SettingsForm({ settings, defaultOfficeSchedule, isSuperA
       </form>
 
       <form action={formAction} className="space-y-6">
+        <div className="rounded-lg border border-border bg-muted/20 p-5">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold text-foreground">Office Job Title Categorization</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Map external office employee job titles into staff or management, and define the office attendance
+              distance setting for future use.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="officeJobTitles:staff" className="block font-medium text-foreground mb-1">
+                Staff Titles
+              </label>
+              <textarea
+                name="officeJobTitles:staff"
+                id="officeJobTitles:staff"
+                defaultValue={officeJobTitleMap.staff.join('\n')}
+                readOnly={!isSuperAdmin}
+                rows={8}
+                className={`w-full px-3 py-2 rounded-lg border outline-none transition-all text-sm resize-y ${
+                  isSuperAdmin
+                    ? 'border-border bg-card text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20'
+                    : 'border-transparent bg-transparent text-muted-foreground'
+                }`}
+                placeholder="One external job title per line"
+              />
+              <p className="text-xs text-muted-foreground mt-2">Exact-match titles, one per line.</p>
+            </div>
+
+            <div>
+              <label htmlFor="officeJobTitles:management" className="block font-medium text-foreground mb-1">
+                Management Titles
+              </label>
+              <textarea
+                name="officeJobTitles:management"
+                id="officeJobTitles:management"
+                defaultValue={officeJobTitleMap.management.join('\n')}
+                readOnly={!isSuperAdmin}
+                rows={8}
+                className={`w-full px-3 py-2 rounded-lg border outline-none transition-all text-sm resize-y ${
+                  isSuperAdmin
+                    ? 'border-border bg-card text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20'
+                    : 'border-transparent bg-transparent text-muted-foreground'
+                }`}
+                placeholder="One external job title per line"
+              />
+              <p className="text-xs text-muted-foreground mt-2">Duplicates across categories are rejected.</p>
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <label htmlFor="officeAttendanceMaxDistance" className="block font-medium text-foreground mb-1">
+              Office Attendance Max Distance (meters)
+            </label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              name="officeAttendanceMaxDistance"
+              id="officeAttendanceMaxDistance"
+              defaultValue={officeAttendanceDistanceSetting?.value || '10'}
+              readOnly={!isSuperAdmin}
+              className={`w-full md:w-72 h-10 px-3 rounded-lg border outline-none transition-all ${
+                isSuperAdmin
+                  ? 'border-border bg-card text-foreground focus:border-primary focus:ring-2 focus:ring-primary/20'
+                  : 'border-transparent bg-transparent text-muted-foreground font-medium'
+              }`}
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              This is stored now for the later office-attendance enforcement phase.
+            </p>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 gap-6">
-          {settings.length === 0 ? (
+          {generalSettings.length === 0 ? (
             <p className="text-sm text-muted-foreground py-4 italic">No system settings found in database.</p>
           ) : (
-            settings.map((setting) => (
+            generalSettings.map((setting) => (
               <div key={setting.name} className="flex flex-col gap-4 p-4 rounded-lg bg-muted/30 border border-border">
                 <div className="flex flex-col md:flex-row md:items-start gap-4">
                   <div className="flex-1">

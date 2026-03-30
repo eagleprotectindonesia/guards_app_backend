@@ -1,4 +1,4 @@
-import { redis } from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { UnifiedServer } from '../socket';
 
 /**

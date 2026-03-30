@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { prisma, getEmployeeSessionExpiry, redis } from '@repo/database';
+import { prisma, getEmployeeSessionExpiry } from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
 import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';

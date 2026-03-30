@@ -195,6 +195,7 @@ model Employee {
   shifts          Shift[]
   attendances     Attendance[]
   officeId        String?      @map("office_id")
+  fieldModeEnabled Boolean     @default(false) @map("field_mode_enabled")
   office          Office?      @relation(fields: [officeId], references: [id])
   officeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[]
   officeAttendances OfficeAttendance[]

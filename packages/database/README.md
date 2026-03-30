@@ -81,7 +81,7 @@ const result = await db.$transaction(async (tx) => {
 
 ```typescript
 // Import Redis
-import { redis } from '@repo/database';
+import { redis } from '@repo/database/redis';
 
 // Use for caching
 await redis.set(`employee:${id}`, JSON.stringify(data), 'EX', 3600);
@@ -136,7 +136,8 @@ The package supports layered imports for clarity:
 
 ```typescript
 // Full package exports (most common)
-import { getEmployeeById, db, redis } from '@repo/database';
+import { getEmployeeById, db } from '@repo/database';
+import { redis } from '@repo/database/redis';
 
 // Layer-specific imports (when you need only one layer)
 import { db } from '@repo/database/prisma';

@@ -5,7 +5,7 @@ import { calculateDistance } from '@/lib/server-utils';
 import { getSystemSetting } from '@repo/database';
 import { recordAttendance } from '@repo/database';
 import { getShiftById } from '@repo/database';
-import { redis } from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { employeeShiftErrorResponse } from '../shared-errors';
 
 // Define a schema for the incoming request body

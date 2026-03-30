@@ -2,7 +2,7 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { Server as HttpsServer } from 'https';
 import { createAdapter } from '@socket.io/redis-adapter';
-import { redis } from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { authenticateSocket } from './socket-auth';
 import { registerChatHandlers } from './socket/chat';
 import { registerAdminHandlers } from './socket/admin';

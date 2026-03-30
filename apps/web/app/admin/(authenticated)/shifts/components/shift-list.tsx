@@ -17,7 +17,7 @@ import { Upload, ArrowUpDown, ArrowUp, ArrowDown, History } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { ShiftWithRelationsDto } from '@/types/shifts';
-import { EmployeeSummary } from '@repo/database';
+import type { EmployeeSummary } from '@repo/database';
 
 type ShiftListProps = {
   shifts: Serialized<ShiftWithRelationsDto>[];

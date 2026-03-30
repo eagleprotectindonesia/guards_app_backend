@@ -1,7 +1,7 @@
 'use client';
 
 import { Alert, Shift, Site, ShiftType, Admin } from '@prisma/client';
-import { EmployeeWithRelations } from '@repo/database';
+import type { EmployeeWithRelations } from '@repo/database';
 import type { Serialized } from '@/lib/server-utils';
 import { Check, CheckCircle, Clock, Eye, User } from 'lucide-react';
 import { format } from 'date-fns';

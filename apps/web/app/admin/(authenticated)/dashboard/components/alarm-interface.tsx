@@ -2,7 +2,7 @@
 
 import type { Serialized } from '@/lib/server-utils';
 import { Alert, Shift, ShiftType, Site } from '@prisma/client';
-import { EmployeeWithRelations } from '@repo/database';
+import type { EmployeeWithRelations } from '@repo/database';
 
 type SiteWithOptionalRelations = Serialized<Site>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;

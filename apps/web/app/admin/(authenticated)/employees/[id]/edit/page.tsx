@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import EmployeeScheduleManager from '../../components/employee-schedule-manager';
+import EmployeeFieldModeCard from '../../components/employee-field-mode-card';
 import {
   getAllOfficeWorkSchedules,
   getEmployeeByIdWithRelations,
@@ -50,6 +51,17 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
 
   return (
     <div className="max-w-6xl mx-auto py-8 space-y-8">
+      <EmployeeFieldModeCard
+        employeeId={employee.id}
+        employeeName={employee.fullName}
+        role={employee.role ?? null}
+        officeName={employee.office?.name ?? null}
+        jobTitle={employee.jobTitle ?? null}
+        jobTitleCategory={employee.jobTitleCategory}
+        fieldModeEnabled={employee.fieldModeEnabled}
+        isFieldModeEditable={employee.isFieldModeEditable}
+        fieldModeReasonCode={employee.fieldModeReasonCode}
+      />
       <EmployeeScheduleManager
         employeeId={employee.id}
         employeeName={employee.fullName}

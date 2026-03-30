@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
-import { redis } from '@repo/database';
 import { findAdminByEmail } from '@repo/database';
 import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
 import { verifyPassword } from '@repo/database';
+import { redis } from '@repo/database/redis';
 
 export async function POST(req: Request) {
   try {

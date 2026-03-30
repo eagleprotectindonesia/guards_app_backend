@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { EmployeeWithRelationsAndSchedule } from '@repo/database';
+import type { EmployeeWithRelationsAndSchedule } from '@repo/database';
 import type { Serialized } from '@/lib/server-utils';
 import ChangePasswordModal from './change-password-modal';
 import BulkScheduleUploadModal from './bulk-schedule-upload-modal';

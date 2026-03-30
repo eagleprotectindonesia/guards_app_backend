@@ -8,6 +8,7 @@ export * from './chat';
 export * from './checkins';
 export * from './employees';
 export * from './employee-sessions';
+export * from './employee-office-config';
 export * from './fcm-tokens';
 export * from './settings';
 export * from './shift-types';

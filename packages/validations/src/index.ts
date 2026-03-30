@@ -75,6 +75,7 @@ export const updateEmployeeSchema = z.object({
   jobTitle: z.string().optional(),
   department: z.string().optional(),
   role: EmployeeRoleEnum.optional(),
+  fieldModeEnabled: z.boolean().optional(),
   status: z.boolean().optional(),
   note: z.string().optional(),
   password: z.string().min(6, 'Password must be at least 6 characters long').optional(), // Optional for updates
@@ -92,6 +93,10 @@ export const updateEmployeePasswordSchema = z
     message: "Passwords don't match",
     path: ['confirmPassword'],
   });
+
+export const updateEmployeeFieldModeSchema = z.object({
+  fieldModeEnabled: z.boolean(),
+});
 
 // Deprecated: Use updateEmployeePasswordSchema
 export const updateGuardPasswordSchema = updateEmployeePasswordSchema;
@@ -273,6 +278,7 @@ export type CreateAdminInput = z.infer<typeof createAdminSchema>;
 export type UpdateAdminInput = z.infer<typeof updateAdminSchema>;
 export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 export type UpdateEmployeePasswordInput = z.infer<typeof updateEmployeePasswordSchema>;
+export type UpdateEmployeeFieldModeInput = z.infer<typeof updateEmployeeFieldModeSchema>;
 
 // Deprecated
 
