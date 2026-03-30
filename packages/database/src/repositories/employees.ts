@@ -8,12 +8,24 @@ import { syncOfficesFromExternalEmployees } from './offices';
 import { getCurrentOfficeWorkScheduleAssignment, getDefaultOfficeWorkSchedule } from './office-work-schedules';
 import {
   getOfficeJobTitleCategoryMapSetting,
+  normalizeOfficeJobTitleValue,
   OfficeJobTitleCategoryMap,
+  OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING,
   resolveEmployeeFieldModeState,
+  serializeOfficeJobTitleCategoryMap,
 } from './employee-office-config';
+import { updateSystemSettingWithChangelog } from './settings';
 
 const LAST_EMPLOYEE_SYNC_KEY = 'employee:sync:last_timestamp';
 const EMPLOYEE_PASSWORD_HISTORY_LIMIT = 3;
+type ChangelogSyncActor = { type: 'admin' | 'system' | 'unknown'; id?: string };
+
+function getChangelogActorData(actor: ChangelogSyncActor) {
+  return {
+    actor: actor.type,
+    actorId: actor.type === 'admin' ? actor.id ?? null : null,
+  };
+}
 
 export async function getLastEmployeeSyncTimestamp(): Promise<string | null> {
   return redis.get(LAST_EMPLOYEE_SYNC_KEY);
@@ -356,8 +368,10 @@ async function normalizeEmployeeFieldModeForUpdate(
  */
 export async function deactivateEmployeesNotIn(
   activeIds: string[],
-  actor: { type: 'admin' | 'system' | 'unknown'; id?: string } = { type: 'system' }
+  actor: ChangelogSyncActor = { type: 'system' }
 ) {
+  const changelogActor = getChangelogActorData(actor);
+
   return prisma.$transaction(async tx => {
     // 1. Find employees to deactivate
     const toDeactivate = await tx.employee.findMany({
@@ -431,8 +445,8 @@ export async function deactivateEmployeesNotIn(
           action: 'UPDATE',
           entityType: 'Employee',
           entityId: employee.id,
-          actor: actor.type as any,
-          actorId: actor.id,
+          actor: changelogActor.actor,
+          actorId: changelogActor.actorId,
           details: {
             employeeNumber: employee.employeeNumber,
             fullName: employee.fullName,
@@ -660,9 +674,11 @@ export async function updateEmployeePasswordWithChangelog(id: string, password: 
  * Returns counts of added, updated, and deactivated employees.
  */
 export async function syncEmployeesFromExternal(
-  actor: { type: 'admin' | 'system' | 'unknown'; id?: string } = { type: 'system' },
+  actor: ChangelogSyncActor = { type: 'system' },
   employees?: ExternalEmployee[]
 ) {
+  const changelogActor = getChangelogActorData(actor);
+
   // 1. Fetch from external API if not provided
   const externalEmployees = employees || (await fetchExternalEmployees());
   console.log(`[SyncEmployees] Processing ${externalEmployees.length} employees from external source`);
@@ -670,6 +686,34 @@ export async function syncEmployeesFromExternal(
   // 2. Sync offices first (single source of truth for both)
   await syncOfficesFromExternalEmployees(externalEmployees);
   const categoryMap = await getOfficeJobTitleCategoryMapSetting();
+  const normalizedKnownTitles = new Set(
+    [...categoryMap.staff, ...categoryMap.management].map(title => normalizeOfficeJobTitleValue(title)).filter(Boolean)
+  );
+  const autoSeedStaffTitles: string[] = [];
+
+  for (const ext of externalEmployees) {
+    const isSecurityDepartment = ext.department?.toLowerCase().includes('security') ?? false;
+    const role: EmployeeRole = isSecurityDepartment && !ext.office_id ? 'on_site' : 'office';
+
+    if (role !== 'office') continue;
+
+    const normalizedTitle = normalizeOfficeJobTitleValue(ext.job_title);
+    if (!normalizedTitle || normalizedKnownTitles.has(normalizedTitle)) continue;
+
+    normalizedKnownTitles.add(normalizedTitle);
+    autoSeedStaffTitles.push(ext.job_title!.trim().replace(/\s+/g, ' '));
+  }
+
+  if (autoSeedStaffTitles.length > 0) {
+    categoryMap.staff = [...categoryMap.staff, ...autoSeedStaffTitles];
+
+    await updateSystemSettingWithChangelog(
+      OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING,
+      serializeOfficeJobTitleCategoryMap(categoryMap),
+      actor,
+      'Auto-seeded uncategorized office job titles into staff during employee external sync.'
+    );
+  }
 
   const externalIds = externalEmployees.map(e => e.id);
 
@@ -730,7 +774,8 @@ export async function syncEmployeesFromExternal(
             action: 'CREATE',
             entityType: 'Employee',
             entityId: newEmployee.id,
-            actor: actor.type,
+            actor: changelogActor.actor,
+            actorId: changelogActor.actorId,
             details: {
               employeeNumber: newEmployee.employeeNumber,
               fullName: newEmployee.fullName,
@@ -821,7 +866,8 @@ export async function syncEmployeesFromExternal(
               action: 'UPDATE',
               entityType: 'Employee',
               entityId: updatedEmployee.id,
-              actor: actor.type,
+              actor: changelogActor.actor,
+              actorId: changelogActor.actorId,
               details: {
                 employeeNumber: updatedEmployee.employeeNumber,
                 fullName: updatedEmployee.fullName,

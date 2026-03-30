@@ -8,7 +8,6 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const nextConfig: NextConfig = {
   /* config options here */
-  serverExternalPackages: ['ioredis'],
   experimental: {
     authInterrupts: true,
   },

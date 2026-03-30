@@ -4,6 +4,7 @@ import {
   getLatestOfficeAttendanceInRange,
   getLatestOfficeAttendanceForDay,
   getOfficeById,
+  OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING,
   getSystemSetting,
   recordOfficeAttendance,
   resolveOfficeWorkScheduleContextForEmployee,
@@ -17,6 +18,7 @@ jest.mock('@repo/database', () => ({
   getLatestOfficeAttendanceInRange: jest.fn(),
   getLatestOfficeAttendanceForDay: jest.fn(),
   getOfficeById: jest.fn(),
+  OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING: 'OFFICE_ATTENDANCE_MAX_DISTANCE_METERS',
   getSystemSetting: jest.fn(),
   recordOfficeAttendance: jest.fn(),
   resolveOfficeWorkScheduleContextForEmployee: jest.fn(),
@@ -384,6 +386,7 @@ describe('POST /api/employee/my/office-attendance', () => {
     expect(data).toMatchObject({
       code: 'too_far_from_office',
     });
+    expect(getSystemSetting).toHaveBeenCalledWith(OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING);
     expect(recordOfficeAttendance).not.toHaveBeenCalled();
   });
 

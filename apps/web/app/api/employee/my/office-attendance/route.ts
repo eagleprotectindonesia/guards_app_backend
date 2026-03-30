@@ -7,6 +7,7 @@ import { getOfficeById } from '@repo/database';
 import { recordOfficeAttendance } from '@repo/database';
 import { getLatestOfficeAttendanceInRange } from '@repo/database';
 import { getLatestOfficeAttendanceForDay } from '@repo/database';
+import { OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING } from '@repo/database';
 import { resolveOfficeWorkScheduleContextForEmployee } from '@repo/database';
 import { ZodError } from 'zod';
 
@@ -127,14 +128,13 @@ export async function POST(req: Request) {
         );
       }
 
-      const setting = await getSystemSetting('MAX_CHECKIN_DISTANCE_METERS');
-      const maxDistanceStr = setting?.value || process.env.MAX_CHECKIN_DISTANCE_METERS;
+      const setting = await getSystemSetting(OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING);
+      const maxDistanceStr = setting?.value || process.env.OFFICE_ATTENDANCE_MAX_DISTANCE_METERS;
 
       if (maxDistanceStr) {
         const maxDistance = parseInt(maxDistanceStr, 10);
         if (!isNaN(maxDistance) && maxDistance > 0) {
           const distance = calculateDistance(body.location.lat, body.location.lng, office.latitude, office.longitude);
-console.log(distance, maxDistance);
 
           if (distance > maxDistance) {
             return NextResponse.json(

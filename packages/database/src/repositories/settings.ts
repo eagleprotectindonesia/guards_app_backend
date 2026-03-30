@@ -51,9 +51,17 @@ export async function getSystemSettingsByName(names: string[]) {
 export async function updateSystemSettingWithChangelog(
   name: string,
   value: string,
-  adminId: string,
+  actor: string | { type: 'admin' | 'system' | 'unknown'; id?: string },
   note?: string
 ) {
+  const changelogActor =
+    typeof actor === 'string'
+      ? { actor: 'admin' as const, actorId: actor }
+      : {
+          actor: actor.type,
+          actorId: actor.type === 'admin' ? actor.id ?? null : null,
+        };
+
   return prisma.$transaction(async tx => {
     const oldSetting = await tx.systemSetting.findUnique({
       where: { name },
@@ -73,8 +81,8 @@ export async function updateSystemSettingWithChangelog(
         action: 'UPDATE',
         entityType: 'SystemSetting',
         entityId: name,
-        actor: 'admin',
-        actorId: adminId,
+        actor: changelogActor.actor,
+        actorId: changelogActor.actorId,
         details: {
           name,
           oldValue: oldSetting?.value,

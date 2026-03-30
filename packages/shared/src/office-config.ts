@@ -28,6 +28,11 @@ function normalizeTitle(value: string) {
   return value.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+export function normalizeOfficeJobTitleValue(value?: string | null) {
+  if (!value?.trim()) return '';
+  return normalizeTitle(value);
+}
+
 export function normalizeOfficeJobTitleList(values: string[]) {
   const seen = new Set<string>();
   const result: string[] = [];
