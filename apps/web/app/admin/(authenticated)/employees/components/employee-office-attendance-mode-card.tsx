@@ -1,6 +1,7 @@
 'use client';
 
 import { useActionState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { ActionState } from '@/types/actions';
 import { UpdateEmployeeOfficeAttendanceModeInput } from '@repo/validations';
@@ -20,6 +21,7 @@ export default function EmployeeOfficeAttendanceModeCard({
   role,
   officeAttendanceMode,
 }: Props) {
+  const router = useRouter();
   const [state, formAction, isPending] = useActionState<ActionState<UpdateEmployeeOfficeAttendanceModeInput>, FormData>(
     updateEmployeeOfficeAttendanceMode.bind(null, employeeId),
     { success: false }
@@ -28,10 +30,11 @@ export default function EmployeeOfficeAttendanceModeCard({
   useEffect(() => {
     if (state.success) {
       toast.success(state.message || 'Office attendance mode updated successfully.');
+      router.refresh();
     } else if (state.message && !state.success) {
       toast.error(state.message);
     }
-  }, [state]);
+  }, [state, router]);
 
   if (role !== 'office') {
     return null;
@@ -70,6 +73,7 @@ export default function EmployeeOfficeAttendanceModeCard({
             <select
               id="officeAttendanceMode"
               name="officeAttendanceMode"
+              key={currentMode}
               defaultValue={currentMode}
               disabled={isPending}
               className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground"

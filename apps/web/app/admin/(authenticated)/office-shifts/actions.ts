@@ -2,7 +2,7 @@
 
 import { prisma } from '@repo/database';
 import { revalidatePath } from 'next/cache';
-import { addDays, isBefore, parse, eachDayOfInterval, format } from 'date-fns';
+import { addDays, isBefore, parse } from 'date-fns';
 import { ShiftStatus } from '@prisma/client';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import {
@@ -13,6 +13,7 @@ import {
   getShiftTypeDurationInMins,
   updateOfficeShiftWithChangelog,
   getOfficeEmployeesByCodes,
+  deleteOfficeShiftsByEmployeeAndDates,
 } from '@repo/database';
 import { ActionState } from '@/types/actions';
 import { createOfficeShiftSchema, CreateOfficeShiftInput, UpdateOfficeShiftInput } from '@repo/validations';
@@ -365,8 +366,13 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
   });
   const shiftTypeMap = new Map(officeShiftTypes.map(item => [item.name.toLowerCase(), item]));
 
-  // Validate shift types
+  // Validate shift types (skip validation for explicit "off" day-off markers)
   for (const row of parsedRows) {
+    // Allow "off" as a special case-insensitive day-off marker
+    if (row.shiftTypeName.toLowerCase() === 'off') {
+      continue;
+    }
+    
     const shiftType = shiftTypeMap.get(row.shiftTypeName.toLowerCase());
     if (!shiftType) {
       errors.push(`Office Shift Type '${row.shiftTypeName}' not found.`);
@@ -394,25 +400,7 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
     rowsByEmployee.get(key)!.push(row);
   }
 
-  // First pass: calculate GLOBAL date range across all employees
-  let overallMinDate: string | null = null;
-  let overallMaxDate: string | null = null;
-  for (const rows of rowsByEmployee.values()) {
-    for (const row of rows) {
-      if (!overallMinDate || row.date < overallMinDate) overallMinDate = row.date;
-      if (!overallMaxDate || row.date > overallMaxDate) overallMaxDate = row.date;
-    }
-  }
-
-  // Generate all dates in the GLOBAL range
-  const globalAllDates = overallMinDate && overallMaxDate
-    ? eachDayOfInterval({
-        start: new Date(overallMinDate),
-        end: new Date(overallMaxDate),
-      }).map(d => format(d, 'yyyy-MM-dd'))
-    : [];
-
-  // Build preview data for each employee
+  // Build preview data for each employee (only showing rows from CSV, no auto day-off injection)
   const employeesPreview: EmployeePreviewData[] = [];
   let totalShiftsToCreate = 0;
 
@@ -426,18 +414,26 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
     const firstDate = rows[0].date;
     const lastDate = rows[rows.length - 1].date;
 
-    // Create a map of date -> shift row for this employee
-    const shiftMap = new Map<string, ParsedCSVRow>();
-    rows.forEach(row => shiftMap.set(row.date, row));
-
-    // Generate shifts with day off markers using GLOBAL date range
+    // Generate shifts from CSV rows only
     const shifts: ShiftPreviewData[] = [];
-    for (const date of globalAllDates) {
-      const row = shiftMap.get(date);
-      if (row) {
+    for (const row of rows) {
+      const isDayOff = row.shiftTypeName.toLowerCase() === 'off';
+      
+      if (isDayOff) {
+        // Explicit day off marker from CSV
+        shifts.push({
+          date: row.date,
+          shiftTypeName: 'OFF',
+          startTime: '—',
+          endTime: '—',
+          note: row.note || null,
+          isDayOff: true,
+        });
+      } else {
+        // Normal shift
         const shiftType = shiftTypeMap.get(row.shiftTypeName.toLowerCase())!;
         shifts.push({
-          date,
+          date: row.date,
           shiftTypeName: row.shiftTypeName,
           startTime: shiftType.startTime,
           endTime: shiftType.endTime,
@@ -445,15 +441,6 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
           isDayOff: false,
         });
         totalShiftsToCreate++;
-      } else {
-        shifts.push({
-          date,
-          shiftTypeName: '—',
-          startTime: '—',
-          endTime: '—',
-          note: null,
-          isDayOff: true,
-        });
       }
     }
 
@@ -470,6 +457,14 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
 
   // Sort employees by employee code
   employeesPreview.sort((a, b) => a.employeeCode.localeCompare(b.employeeCode));
+
+  // Calculate global date range from all employees
+  let overallMinDate: string | null = null;
+  let overallMaxDate: string | null = null;
+  for (const emp of employeesPreview) {
+    if (!overallMinDate || emp.firstDate < overallMinDate) overallMinDate = emp.firstDate;
+    if (!overallMaxDate || emp.lastDate > overallMaxDate) overallMaxDate = emp.lastDate;
+  }
 
   return {
     success: true,
@@ -541,6 +536,7 @@ export async function bulkCreateOfficeShifts(
 
   const errors: string[] = [];
   const officeShiftsToCreate: Parameters<typeof bulkCreateOfficeShiftsWithChangelog>[0] = [];
+  const dayOffByEmployee = new Map<string, string[]>(); // employeeId -> array of dates
 
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCsvLine(lines[i]);
@@ -558,6 +554,15 @@ export async function bulkCreateOfficeShifts(
     const employee = employeeMap.get(employeeCode.toLowerCase());
     if (!employee) {
       errors.push(`Row ${i + 1}: Employee '${employeeCode}' not found or is not shift-based office staff.`);
+      continue;
+    }
+
+    // Handle "off" rows - collect dates for deletion
+    if (shiftTypeName.toLowerCase() === 'off') {
+      if (!dayOffByEmployee.has(employee.id)) {
+        dayOffByEmployee.set(employee.id, []);
+      }
+      dayOffByEmployee.get(employee.id)!.push(dateStr);
       continue;
     }
 
@@ -623,19 +628,45 @@ export async function bulkCreateOfficeShifts(
     return { success: false, message: 'Validation failed for one or more rows.', errors };
   }
 
-  if (officeShiftsToCreate.length === 0) {
-    return { success: false, message: 'No valid office shifts found to create.' };
+  // Check if there's nothing to do (no shifts to create and no day-offs to process)
+  if (officeShiftsToCreate.length === 0 && dayOffByEmployee.size === 0) {
+    return { success: false, message: 'No valid office shifts or day-off markers found to process.' };
   }
 
   try {
-    await bulkCreateOfficeShiftsWithChangelog(officeShiftsToCreate, adminId!);
+    // First: Delete existing shifts on "off" dates
+    let totalDeleted = 0;
+    if (dayOffByEmployee.size > 0) {
+      for (const [employeeId, dates] of dayOffByEmployee.entries()) {
+        const deleted = await deleteOfficeShiftsByEmployeeAndDates(employeeId, dates, adminId!, prisma);
+        totalDeleted += deleted;
+      }
+    }
+
+    // Second: Create new shifts
+    if (officeShiftsToCreate.length > 0) {
+      await bulkCreateOfficeShiftsWithChangelog(officeShiftsToCreate, adminId!);
+    }
+
     revalidateOfficeShiftPaths();
-    return { success: true, message: `Successfully created ${officeShiftsToCreate.length} office shifts.` };
+    
+    const messages = [];
+    if (totalDeleted > 0) {
+      messages.push(`Deleted ${totalDeleted} existing shift(s) for day-off markers`);
+    }
+    if (officeShiftsToCreate.length > 0) {
+      messages.push(`Created ${officeShiftsToCreate.length} new shift(s)`);
+    }
+    
+    return { 
+      success: true, 
+      message: messages.join('; ') || 'No changes made.' 
+    };
   } catch (error) {
     console.error('Database Error:', error);
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Database Error: Failed to create office shifts.',
+      message: error instanceof Error ? error.message : 'Database Error: Failed to process office shifts.',
     };
   }
 }

@@ -433,3 +433,66 @@ export async function deleteFutureOfficeShiftsByEmployee(employeeId: string, tx:
 
   return shiftIds.length;
 }
+
+export async function deleteOfficeShiftsByEmployeeAndDates(
+  employeeId: string,
+  dates: string[],
+  adminId: string,
+  tx: TxLike
+) {
+  const dateObjects = dates.map(d => new Date(`${d}T00:00:00Z`));
+  
+  const shiftsToDelete = await tx.officeShift.findMany({
+    where: {
+      employeeId,
+      deletedAt: null,
+      date: {
+        in: dateObjects,
+      },
+    },
+    include: {
+      officeShiftType: true,
+      employee: true,
+    },
+  });
+
+  if (shiftsToDelete.length === 0) return 0;
+
+  const shiftIds = shiftsToDelete.map(shift => shift.id);
+  const now = new Date();
+
+  await tx.officeShift.updateMany({
+    where: {
+      id: {
+        in: shiftIds,
+      },
+    },
+    data: {
+      deletedAt: now,
+      status: 'cancelled',
+      lastUpdatedById: adminId,
+    },
+  });
+
+  // Create changelog entries for each deleted shift
+  await tx.changelog.createMany({
+    data: shiftsToDelete.map(shift => ({
+      action: 'DELETE',
+      entityType: 'OfficeShift',
+      entityId: shift.id,
+      actor: 'admin' as const,
+      actorId: adminId,
+      details: {
+        officeShiftTypeName: shift.officeShiftType.name,
+        employeeName: shift.employee.fullName,
+        date: shift.date,
+        startsAt: shift.startsAt,
+        endsAt: shift.endsAt,
+        reason: 'BULK_IMPORT_DAY_OFF',
+        deletedAt: now,
+      },
+    })),
+  });
+
+  return shiftIds.length;
+}
