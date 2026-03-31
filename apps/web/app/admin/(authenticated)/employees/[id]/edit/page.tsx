@@ -3,6 +3,7 @@ import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import EmployeeScheduleManager from '../../components/employee-schedule-manager';
 import EmployeeFieldModeCard from '../../components/employee-field-mode-card';
+import EmployeeOfficeAttendanceModeCard from '../../components/employee-office-attendance-mode-card';
 import {
   getAllOfficeWorkSchedules,
   getEmployeeByIdWithRelations,
@@ -62,14 +63,35 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
         isFieldModeEditable={employee.isFieldModeEditable}
         fieldModeReasonCode={employee.fieldModeReasonCode}
       />
-      <EmployeeScheduleManager
+      <EmployeeOfficeAttendanceModeCard
         employeeId={employee.id}
         employeeName={employee.fullName}
-        employeeCode={employee.employeeNumber}
-        employeeRole={employee.role}
-        timeline={timeline}
-        scheduleOptions={scheduleOptions}
+        role={employee.role ?? null}
+        officeAttendanceMode={employee.officeAttendanceMode}
       />
+      {employee.officeAttendanceMode === 'fixed_schedule' ? (
+        <EmployeeScheduleManager
+          employeeId={employee.id}
+          employeeName={employee.fullName}
+          employeeCode={employee.employeeNumber}
+          employeeRole={employee.role}
+          timeline={timeline}
+          scheduleOptions={scheduleOptions}
+        />
+      ) : employee.role === 'office' ? (
+        <div className="bg-card rounded-xl shadow-sm border border-border p-6">
+          <h2 className="text-xl font-bold text-foreground">Office Shift Scheduling</h2>
+          <p className="text-sm text-muted-foreground mt-2">
+            This employee is in shift-based office mode. Manage assignments from the dedicated office shifts page.
+          </p>
+          <a
+            href={`/admin/office-shifts?employeeId=${employee.id}`}
+            className="inline-flex items-center mt-4 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+          >
+            Open Office Shifts
+          </a>
+        </div>
+      ) : null}
     </div>
   );
 }

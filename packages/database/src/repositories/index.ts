@@ -18,5 +18,6 @@ export * from './roles';
 export * from './offices';
 export * from './office-attendance';
 export * from './office-attendance-context';
+export * from './office-shift-types';
 export * from './office-shifts';
 export * from './office-work-schedules';

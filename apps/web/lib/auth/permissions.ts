@@ -8,6 +8,8 @@ export const RESOURCES = [
   'sites',
   'offices',
   'office-work-schedules',
+  'office-shifts',
+  'office-shift-types',
   'shifts',
   'shift-types',
   'attendance',
@@ -61,6 +63,18 @@ export const PERMISSIONS = {
     CREATE: 'office-work-schedules:create',
     EDIT: 'office-work-schedules:edit',
     DELETE: 'office-work-schedules:delete',
+  },
+  OFFICE_SHIFTS: {
+    VIEW: 'office-shifts:view',
+    CREATE: 'office-shifts:create',
+    EDIT: 'office-shifts:edit',
+    DELETE: 'office-shifts:delete',
+  },
+  OFFICE_SHIFT_TYPES: {
+    VIEW: 'office-shift-types:view',
+    CREATE: 'office-shift-types:create',
+    EDIT: 'office-shift-types:edit',
+    DELETE: 'office-shift-types:delete',
   },
   SHIFTS: {
     VIEW: 'shifts:view',

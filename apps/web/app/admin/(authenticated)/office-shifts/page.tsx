@@ -1,0 +1,126 @@
+import { prisma } from '@repo/database';
+import { getPaginationParams } from '@/lib/server-utils';
+import OfficeShiftList from './components/office-shift-list';
+import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
+import { Suspense } from 'react';
+import type { Metadata } from 'next';
+import { getPaginatedOfficeShifts } from '@repo/database';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
+import type { SerializedOfficeShiftWithRelationsDto } from '@/types/office-shifts';
+import type { EmployeeSummary } from '@repo/database';
+
+export const metadata: Metadata = {
+  title: 'Office Shifts Management',
+};
+
+export const dynamic = 'force-dynamic';
+
+export default async function OfficeShiftsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  await requirePermission(PERMISSIONS.OFFICE_SHIFTS.VIEW);
+  const resolvedSearchParams = await searchParams;
+  const { page, perPage, skip } = getPaginationParams(resolvedSearchParams);
+
+  const startDate =
+    typeof resolvedSearchParams.startDate === 'string'
+      ? resolvedSearchParams.startDate
+      : format(new Date(), 'yyyy-MM-dd');
+  const endDate = typeof resolvedSearchParams.endDate === 'string' ? resolvedSearchParams.endDate : undefined;
+  const employeeId = typeof resolvedSearchParams.employeeId === 'string' ? resolvedSearchParams.employeeId : undefined;
+  const sort =
+    typeof resolvedSearchParams.sort === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sort)
+      ? resolvedSearchParams.sort
+      : 'desc';
+
+  const parsedStartDate = startDate ? startOfDay(parseISO(startDate)) : undefined;
+  const parsedEndDate = endDate ? endOfDay(parseISO(endDate)) : undefined;
+
+  const { officeShifts, totalCount } = await getPaginatedOfficeShifts({
+    where: {
+      startsAt: {
+        gte: parsedStartDate,
+        lte: parsedEndDate,
+      },
+      employeeId: employeeId || undefined,
+    },
+    orderBy: { startsAt: sort as 'asc' | 'desc' },
+    skip,
+    take: perPage,
+  });
+
+  const employees = await prisma.employee.findMany({
+    where: {
+      status: true,
+      deletedAt: null,
+      role: 'office',
+      officeAttendanceMode: 'shift_based',
+    },
+    orderBy: { fullName: 'asc' },
+    select: { id: true, fullName: true, employeeNumber: true },
+  });
+
+  const officeShiftDtos: SerializedOfficeShiftWithRelationsDto[] = officeShifts.map(officeShift => ({
+    id: officeShift.id,
+    officeShiftTypeId: officeShift.officeShiftTypeId,
+    employeeId: officeShift.employeeId,
+    date: officeShift.date.toISOString(),
+    startsAt: officeShift.startsAt.toISOString(),
+    endsAt: officeShift.endsAt.toISOString(),
+    status: officeShift.status,
+    graceMinutes: officeShift.graceMinutes,
+    note: officeShift.note,
+    createdAt: officeShift.createdAt.toISOString(),
+    updatedAt: officeShift.updatedAt.toISOString(),
+    officeShiftType: {
+      id: officeShift.officeShiftType.id,
+      name: officeShift.officeShiftType.name,
+      startTime: officeShift.officeShiftType.startTime,
+      endTime: officeShift.officeShiftType.endTime,
+    },
+    employee: {
+      id: officeShift.employee.id,
+      fullName: officeShift.employee.fullName,
+      employeeNumber: officeShift.employee.employeeNumber,
+    },
+    officeAttendances: officeShift.officeAttendances.map(attendance => ({
+      id: attendance.id,
+      officeId: attendance.officeId,
+      officeShiftId: attendance.officeShiftId,
+      employeeId: attendance.employeeId,
+      recordedAt: attendance.recordedAt.toISOString(),
+      picture: attendance.picture,
+      status: attendance.status,
+      metadata: attendance.metadata,
+    })),
+    createdBy: officeShift.createdBy,
+    lastUpdatedBy: officeShift.lastUpdatedBy,
+  }));
+
+  const employeeOptions: EmployeeSummary[] = employees.map(employee => ({
+    id: employee.id,
+    fullName: employee.fullName,
+    employeeNumber: employee.employeeNumber,
+  }));
+
+  return (
+    <div className="max-w-7xl mx-auto">
+      <Suspense fallback={<div>Loading office shifts...</div>}>
+        <OfficeShiftList
+          officeShifts={officeShiftDtos}
+          employees={employeeOptions}
+          startDate={startDate}
+          endDate={endDate}
+          employeeId={employeeId}
+          sort={sort}
+          page={page}
+          perPage={perPage}
+          totalCount={totalCount}
+        />
+      </Suspense>
+    </div>
+  );
+}

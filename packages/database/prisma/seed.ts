@@ -37,6 +37,34 @@ async function main() {
       code: 'office-work-schedules:delete',
       description: 'Can delete office work schedules',
     },
+    { action: 'view', resource: 'office-shifts', code: 'office-shifts:view', description: 'Can view office shifts' },
+    { action: 'create', resource: 'office-shifts', code: 'office-shifts:create', description: 'Can create office shifts' },
+    { action: 'edit', resource: 'office-shifts', code: 'office-shifts:edit', description: 'Can edit office shifts' },
+    { action: 'delete', resource: 'office-shifts', code: 'office-shifts:delete', description: 'Can delete office shifts' },
+    {
+      action: 'view',
+      resource: 'office-shift-types',
+      code: 'office-shift-types:view',
+      description: 'Can view office shift types',
+    },
+    {
+      action: 'create',
+      resource: 'office-shift-types',
+      code: 'office-shift-types:create',
+      description: 'Can create office shift types',
+    },
+    {
+      action: 'edit',
+      resource: 'office-shift-types',
+      code: 'office-shift-types:edit',
+      description: 'Can edit office shift types',
+    },
+    {
+      action: 'delete',
+      resource: 'office-shift-types',
+      code: 'office-shift-types:delete',
+      description: 'Can delete office shift types',
+    },
     { action: 'view', resource: 'sites', code: 'sites:view', description: 'Can view sites' },
     { action: 'create', resource: 'sites', code: 'sites:create', description: 'Can create sites' },
     { action: 'edit', resource: 'sites', code: 'sites:edit', description: 'Can edit sites' },
@@ -70,7 +98,11 @@ async function main() {
   console.log('Creating roles...');
   const superadminRole = await prisma.role.upsert({
     where: { name: 'superadmin' },
-    update: {},
+    update: {
+      permissions: {
+        connect: createdPermissions.map(p => ({ id: p.id })),
+      },
+    },
     create: {
       name: 'superadmin',
       description: 'Full system access',
@@ -87,7 +119,11 @@ async function main() {
 
   await prisma.role.upsert({
     where: { name: 'admin' },
-    update: {},
+    update: {
+      permissions: {
+        connect: createdPermissions.filter(p => !p.code.startsWith('roles:')).map(p => ({ id: p.id })),
+      },
+    },
     create: {
       name: 'admin',
       description: 'Standard administrative access',

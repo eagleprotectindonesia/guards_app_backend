@@ -85,6 +85,13 @@ export interface ShiftType {
   endTime: string;
 }
 
+export interface OfficeShiftType {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+}
+
 export interface Attendance {
   id: string;
   shiftId: string;
@@ -106,6 +113,20 @@ export interface OfficeAttendance {
   metadata?: any;
   office?: Office | null;
   employee?: Employee | null;
+}
+
+export interface OfficeShift {
+  id: string;
+  officeShiftTypeId: string;
+  employeeId: string;
+  date: string | Date;
+  startsAt: string | Date;
+  endsAt: string | Date;
+  status: ShiftStatus;
+  graceMinutes: number;
+  note?: string | null;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 export type OfficeAttendanceWindowStatus =

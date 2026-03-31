@@ -100,6 +100,10 @@ export const updateEmployeeFieldModeSchema = z.object({
   fieldModeEnabled: z.boolean(),
 });
 
+export const updateEmployeeOfficeAttendanceModeSchema = z.object({
+  officeAttendanceMode: OfficeAttendanceModeEnum,
+});
+
 // Deprecated: Use updateEmployeePasswordSchema
 export const updateGuardPasswordSchema = updateEmployeePasswordSchema;
 
@@ -111,6 +115,8 @@ export const createShiftTypeSchema = z.object({
   startTime: timeFormat,
   endTime: timeFormat,
 });
+
+export const createOfficeShiftTypeSchema = createShiftTypeSchema;
 
 // --- Shift ---
 export const createShiftSchema = z
@@ -129,6 +135,14 @@ export const createShiftSchema = z
     message: 'Employee ID or Guard ID is required',
     path: ['employeeId'],
   });
+
+export const createOfficeShiftSchema = z.object({
+  officeShiftTypeId: z.string().uuid(),
+  employeeId: z.string().min(1),
+  date: z.string().min(1),
+  graceMinutes: z.number().int().min(1).default(15),
+  note: z.string().optional(),
+});
 
 // --- Checkin ---
 export const checkInSchema = z.object({
@@ -281,13 +295,18 @@ export type UpdateAdminInput = z.infer<typeof updateAdminSchema>;
 export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 export type UpdateEmployeePasswordInput = z.infer<typeof updateEmployeePasswordSchema>;
 export type UpdateEmployeeFieldModeInput = z.infer<typeof updateEmployeeFieldModeSchema>;
+export type UpdateEmployeeOfficeAttendanceModeInput = z.infer<typeof updateEmployeeOfficeAttendanceModeSchema>;
 
 // Deprecated
 
 export type CreateShiftTypeInput = z.infer<typeof createShiftTypeSchema>;
 export type UpdateShiftTypeInput = CreateShiftTypeInput; // Same for now
+export type CreateOfficeShiftTypeInput = z.infer<typeof createOfficeShiftTypeSchema>;
+export type UpdateOfficeShiftTypeInput = CreateOfficeShiftTypeInput;
 export type CreateShiftInput = z.infer<typeof createShiftSchema>;
 export type UpdateShiftInput = CreateShiftInput; // Same for now
+export type CreateOfficeShiftInput = z.infer<typeof createOfficeShiftSchema>;
+export type UpdateOfficeShiftInput = CreateOfficeShiftInput;
 export type CheckInInput = z.infer<typeof checkInSchema>;
 export type CreateRoleInput = z.infer<typeof createRoleSchema>;
 export type UpdateRoleInput = z.infer<typeof updateRoleSchema>;
