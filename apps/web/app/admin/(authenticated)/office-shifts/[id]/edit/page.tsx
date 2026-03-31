@@ -28,7 +28,6 @@ export default async function EditOfficeShiftPage({ params }: { params: Promise<
         startsAt: officeShift.startsAt.toISOString(),
         endsAt: officeShift.endsAt.toISOString(),
         status: officeShift.status,
-        graceMinutes: officeShift.graceMinutes,
         note: officeShift.note,
       }}
       officeShiftTypes={officeShiftTypes}

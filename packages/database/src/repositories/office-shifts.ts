@@ -206,7 +206,6 @@ export async function createOfficeShiftWithChangelog(data: Prisma.OfficeShiftCre
           date: created.date,
           startsAt: created.startsAt,
           endsAt: created.endsAt,
-          graceMinutes: created.graceMinutes,
           status: created.status,
           note: created.note,
           officeShiftTypeId: created.officeShiftTypeId,
@@ -250,7 +249,7 @@ export async function updateOfficeShiftWithChangelog(
     });
 
     const changes: Record<string, { from: Prisma.InputJsonValue; to: Prisma.InputJsonValue }> = {};
-    const fieldsToTrack = ['officeShiftTypeId', 'employeeId', 'date', 'startsAt', 'endsAt', 'graceMinutes', 'status', 'note'] as const;
+    const fieldsToTrack = ['officeShiftTypeId', 'employeeId', 'date', 'startsAt', 'endsAt', 'status', 'note'] as const;
     for (const field of fieldsToTrack) {
       const oldValue = before[field];
       const newValue = updated[field];
@@ -289,7 +288,6 @@ export async function updateOfficeShiftWithChangelog(
           date: updated.date,
           startsAt: updated.startsAt,
           endsAt: updated.endsAt,
-          graceMinutes: updated.graceMinutes,
           status: updated.status,
           note: updated.note,
           officeShiftTypeId: updated.officeShiftTypeId,
@@ -339,7 +337,6 @@ export async function deleteOfficeShiftWithChangelog(id: string, adminId: string
           date: officeShift.date,
           startsAt: officeShift.startsAt,
           endsAt: officeShift.endsAt,
-          graceMinutes: officeShift.graceMinutes,
           note: officeShift.note,
           deletedAt: new Date(),
         },
@@ -378,7 +375,6 @@ export async function bulkCreateOfficeShiftsWithChangelog(
           date: shift.date,
           startsAt: shift.startsAt,
           endsAt: shift.endsAt,
-          graceMinutes: shift.graceMinutes,
           status: shift.status,
           note: shift.note,
           officeShiftTypeId: shift.officeShiftTypeId,

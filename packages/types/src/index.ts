@@ -123,7 +123,6 @@ export interface OfficeShift {
   startsAt: string | Date;
   endsAt: string | Date;
   status: ShiftStatus;
-  graceMinutes: number;
   note?: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;

@@ -140,7 +140,6 @@ export const createOfficeShiftSchema = z.object({
   officeShiftTypeId: z.string().uuid(),
   employeeId: z.string().min(1),
   date: z.string().min(1),
-  graceMinutes: z.number().int().min(1).default(15),
   note: z.string().optional(),
 });
 

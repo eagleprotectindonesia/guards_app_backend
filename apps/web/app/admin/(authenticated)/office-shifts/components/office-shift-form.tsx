@@ -21,7 +21,6 @@ type Props = {
     startsAt: string;
     endsAt: string;
     status: string;
-    graceMinutes: number;
     note?: string | null;
   };
   officeShiftTypes: {
@@ -136,22 +135,6 @@ export default function OfficeShiftForm({ officeShift, officeShiftTypes, employe
             wrapperClassName="w-full"
           />
           {state.errors?.date && <p className="text-red-500 text-xs mt-1">{state.errors.date[0]}</p>}
-        </div>
-
-        <div>
-          <label htmlFor="graceMinutes" className="block font-medium text-foreground mb-1">
-            Grace Period (min)
-          </label>
-          <input
-            type="number"
-            name="graceMinutes"
-            id="graceMinutes"
-            defaultValue={officeShift?.graceMinutes || 15}
-            min={1}
-            disabled={isReadOnly}
-            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground"
-          />
-          {state.errors?.graceMinutes && <p className="text-red-500 text-xs mt-1">{state.errors.graceMinutes[0]}</p>}
         </div>
 
         <div>

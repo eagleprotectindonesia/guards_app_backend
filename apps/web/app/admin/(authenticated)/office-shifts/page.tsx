@@ -59,7 +59,6 @@ export default async function OfficeShiftsPage({
     startsAt: officeShift.startsAt.toISOString(),
     endsAt: officeShift.endsAt.toISOString(),
     status: officeShift.status,
-    graceMinutes: officeShift.graceMinutes,
     note: officeShift.note,
     createdAt: officeShift.createdAt.toISOString(),
     updatedAt: officeShift.updatedAt.toISOString(),

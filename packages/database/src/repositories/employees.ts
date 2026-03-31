@@ -165,6 +165,36 @@ export async function getActiveEmployeesSummary(
   });
 }
 
+export async function getOfficeEmployeesByCodes(
+  employeeCodes: string[]
+): Promise<
+  Array<{
+    id: string;
+    fullName: string;
+    employeeNumber: string;
+  }>
+> {
+  const employees = await prisma.employee.findMany({
+    where: {
+      employeeNumber: {
+        in: employeeCodes.map(code => code.toUpperCase()),
+      },
+      status: true,
+      deletedAt: null,
+      role: 'office',
+      officeAttendanceMode: 'shift_based',
+    },
+    select: {
+      id: true,
+      fullName: true,
+      employeeNumber: true,
+    },
+  });
+
+  // Filter out employees with null employeeNumber (shouldn't happen but type safety)
+  return employees.filter((emp): emp is typeof emp & { employeeNumber: string } => emp.employeeNumber !== null);
+}
+
 export async function getEmployeeById(id: string) {
   const employee = await prisma.employee.findUnique({
     where: { id, deletedAt: null },

@@ -79,7 +79,6 @@ Key fields:
 - `starts_at`
 - `ends_at`
 - `status`
-- `grace_minutes`
 - `note`
 
 Rules:
@@ -183,7 +182,6 @@ Supported headers:
 - `employee_code`
 - `shift_type_name`
 - `date`
-- `grace_minutes`
 - `note`
 
 Validation rules:

@@ -483,7 +483,6 @@ model OfficeShift {
   startsAt          DateTime    @map("starts_at")
   endsAt            DateTime    @map("ends_at")
   status            ShiftStatus @default(scheduled)
-  graceMinutes      Int         @default(15) @map("grace_minutes")
   createdById       String?     @map("created_by_id")
   lastUpdatedById   String?     @map("last_updated_by_id")
   createdAt         DateTime    @default(now()) @map("created_at")

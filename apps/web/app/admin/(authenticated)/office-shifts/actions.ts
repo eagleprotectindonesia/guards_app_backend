@@ -2,7 +2,7 @@
 
 import { prisma } from '@repo/database';
 import { revalidatePath } from 'next/cache';
-import { addDays, isBefore, parse } from 'date-fns';
+import { addDays, isBefore, parse, eachDayOfInterval, format } from 'date-fns';
 import { ShiftStatus } from '@prisma/client';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import {
@@ -12,15 +12,54 @@ import {
   deleteOfficeShiftWithChangelog,
   getShiftTypeDurationInMins,
   updateOfficeShiftWithChangelog,
+  getOfficeEmployeesByCodes,
 } from '@repo/database';
 import { ActionState } from '@/types/actions';
-import {
-  createOfficeShiftSchema,
-  CreateOfficeShiftInput,
-  UpdateOfficeShiftInput,
-} from '@repo/validations';
+import { createOfficeShiftSchema, CreateOfficeShiftInput, UpdateOfficeShiftInput } from '@repo/validations';
 
-const BULK_OFFICE_SHIFT_HEADERS = ['employee_code', 'shift_type_name', 'date', 'grace_minutes', 'note'] as const;
+const BULK_OFFICE_SHIFT_HEADERS = ['employee_code', 'shift_type_name', 'date', 'note'] as const;
+
+interface ParsedCSVRow {
+  employeeCode: string;
+  shiftTypeName: string;
+  date: string;
+  note?: string;
+}
+
+interface ShiftPreviewData {
+  date: string;
+  shiftTypeName: string;
+  startTime: string;
+  endTime: string;
+  note?: string | null;
+  isDayOff: boolean;
+  error?: string;
+}
+
+interface EmployeePreviewData {
+  employeeCode: string;
+  employeeName: string;
+  employeeId: string;
+  firstDate: string;
+  lastDate: string;
+  totalShifts: number;
+  shifts: ShiftPreviewData[];
+}
+
+interface OfficeShiftPreviewResult {
+  success: boolean;
+  message?: string;
+  errors?: string[];
+  preview?: {
+    employees: EmployeePreviewData[];
+    totalShiftsToCreate: number;
+    totalEmployees: number;
+    dateRange: {
+      start: string;
+      end: string;
+    };
+  };
+}
 
 function parseCsvLine(line: string) {
   return line.split(',').map(value => value.trim().replace(/^"|"$/g, ''));
@@ -40,7 +79,6 @@ export async function createOfficeShift(
     officeShiftTypeId: formData.get('officeShiftTypeId'),
     employeeId: formData.get('employeeId'),
     date: formData.get('date'),
-    graceMinutes: Number(formData.get('graceMinutes')),
     note: formData.get('note') as string | null,
   });
 
@@ -52,7 +90,7 @@ export async function createOfficeShift(
     };
   }
 
-  const { officeShiftTypeId, employeeId, date, graceMinutes, note } = validatedFields.data;
+  const { officeShiftTypeId, employeeId, date, note } = validatedFields.data;
 
   try {
     const [officeShiftType, employee] = await Promise.all([
@@ -99,7 +137,6 @@ export async function createOfficeShift(
         date: dateObj,
         startsAt: startDateTime,
         endsAt: endDateTime,
-        graceMinutes,
         note,
         status: 'scheduled',
       },
@@ -127,7 +164,6 @@ export async function updateOfficeShift(
     officeShiftTypeId: formData.get('officeShiftTypeId'),
     employeeId: formData.get('employeeId'),
     date: formData.get('date'),
-    graceMinutes: Number(formData.get('graceMinutes')),
     note: formData.get('note') as string | null,
   });
 
@@ -139,7 +175,7 @@ export async function updateOfficeShift(
     };
   }
 
-  const { officeShiftTypeId, employeeId, date, graceMinutes, note } = validatedFields.data;
+  const { officeShiftTypeId, employeeId, date, note } = validatedFields.data;
 
   try {
     const [officeShiftType, employee] = await Promise.all([
@@ -184,7 +220,6 @@ export async function updateOfficeShift(
         date: dateObj,
         startsAt: startDateTime,
         endsAt: endDateTime,
-        graceMinutes,
         note,
       },
       adminId!
@@ -248,6 +283,208 @@ export async function cancelOfficeShift(id: string, cancelNote?: string) {
   }
 }
 
+export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promise<OfficeShiftPreviewResult> {
+  const file = formData.get('file') as File;
+  if (!file) {
+    return { success: false, message: 'No file provided.' };
+  }
+
+  const text = await file.text();
+  const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+
+  if (lines.length < 2) {
+    return { success: false, message: 'CSV file is empty or missing data.' };
+  }
+
+  const header = parseCsvLine(lines[0]).map(value => value.toLowerCase());
+  if (
+    header.length < BULK_OFFICE_SHIFT_HEADERS.length ||
+    !BULK_OFFICE_SHIFT_HEADERS.every((value, index) => header[index] === value)
+  ) {
+    return {
+      success: false,
+      message: `Invalid CSV header. Expected: ${BULK_OFFICE_SHIFT_HEADERS.join(', ')}`,
+    };
+  }
+
+  // Parse all CSV rows first
+  const parsedRows: ParsedCSVRow[] = [];
+  const errors: string[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    if (cols.length < BULK_OFFICE_SHIFT_HEADERS.length) {
+      errors.push(`Row ${i + 1}: Missing required columns.`);
+      continue;
+    }
+
+    const [employeeCode, shiftTypeName, dateStr, note = ''] = cols;
+    if (!employeeCode || !shiftTypeName || !dateStr) {
+      errors.push(`Row ${i + 1}: employee_code, shift_type_name, and date are required.`);
+      continue;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      errors.push(`Row ${i + 1}: date must be in YYYY-MM-DD format.`);
+      continue;
+    }
+
+    parsedRows.push({ employeeCode, shiftTypeName, date: dateStr, note });
+  }
+
+  if (errors.length > 0) {
+    return { success: false, message: 'Validation failed for one or more rows.', errors };
+  }
+
+  if (parsedRows.length === 0) {
+    return { success: false, message: 'No valid office shifts found to create.' };
+  }
+
+  // Get unique employee codes and fetch employee data
+  const uniqueEmployeeCodes = Array.from(new Set(parsedRows.map(row => row.employeeCode)));
+  const employees = await getOfficeEmployeesByCodes(uniqueEmployeeCodes);
+  const employeeMap = new Map(employees.map(emp => [emp.employeeNumber.toLowerCase(), emp]));
+
+  console.log(uniqueEmployeeCodes);
+  // Validate employees exist
+  for (const row of parsedRows) {
+    const employee = employeeMap.get(row.employeeCode.toLowerCase());
+    if (!employee) {
+      errors.push(`Employee '${row.employeeCode}' not found or is not shift-based office staff.`);
+    }
+  }
+
+  if (errors.length > 0) {
+    return { success: false, message: 'Validation failed for one or more rows.', errors };
+  }
+
+  // Get shift types
+  const officeShiftTypes = await prisma.officeShiftType.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true, startTime: true, endTime: true },
+  });
+  const shiftTypeMap = new Map(officeShiftTypes.map(item => [item.name.toLowerCase(), item]));
+
+  // Validate shift types
+  for (const row of parsedRows) {
+    const shiftType = shiftTypeMap.get(row.shiftTypeName.toLowerCase());
+    if (!shiftType) {
+      errors.push(`Office Shift Type '${row.shiftTypeName}' not found.`);
+      continue;
+    }
+
+    const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
+    if (durationInMins <= 0) {
+      errors.push(`Office Shift Type '${row.shiftTypeName}' has an invalid duration.`);
+    }
+  }
+
+  if (errors.length > 0) {
+    return { success: false, message: 'Validation failed for one or more rows.', errors };
+  }
+
+  // Group rows by employee
+  const rowsByEmployee = new Map<string, ParsedCSVRow[]>();
+  for (const row of parsedRows) {
+    const employee = employeeMap.get(row.employeeCode.toLowerCase())!;
+    const key = employee.id;
+    if (!rowsByEmployee.has(key)) {
+      rowsByEmployee.set(key, []);
+    }
+    rowsByEmployee.get(key)!.push(row);
+  }
+
+  // First pass: calculate GLOBAL date range across all employees
+  let overallMinDate: string | null = null;
+  let overallMaxDate: string | null = null;
+  for (const rows of rowsByEmployee.values()) {
+    for (const row of rows) {
+      if (!overallMinDate || row.date < overallMinDate) overallMinDate = row.date;
+      if (!overallMaxDate || row.date > overallMaxDate) overallMaxDate = row.date;
+    }
+  }
+
+  // Generate all dates in the GLOBAL range
+  const globalAllDates = overallMinDate && overallMaxDate
+    ? eachDayOfInterval({
+        start: new Date(overallMinDate),
+        end: new Date(overallMaxDate),
+      }).map(d => format(d, 'yyyy-MM-dd'))
+    : [];
+
+  // Build preview data for each employee
+  const employeesPreview: EmployeePreviewData[] = [];
+  let totalShiftsToCreate = 0;
+
+  for (const [_employeeId, rows] of rowsByEmployee.entries()) {
+    const employee = employeeMap.get(rows[0].employeeCode.toLowerCase())!;
+
+    // Sort rows by date
+    rows.sort((a, b) => a.date.localeCompare(b.date));
+
+    // Get this employee's specific date range for display
+    const firstDate = rows[0].date;
+    const lastDate = rows[rows.length - 1].date;
+
+    // Create a map of date -> shift row for this employee
+    const shiftMap = new Map<string, ParsedCSVRow>();
+    rows.forEach(row => shiftMap.set(row.date, row));
+
+    // Generate shifts with day off markers using GLOBAL date range
+    const shifts: ShiftPreviewData[] = [];
+    for (const date of globalAllDates) {
+      const row = shiftMap.get(date);
+      if (row) {
+        const shiftType = shiftTypeMap.get(row.shiftTypeName.toLowerCase())!;
+        shifts.push({
+          date,
+          shiftTypeName: row.shiftTypeName,
+          startTime: shiftType.startTime,
+          endTime: shiftType.endTime,
+          note: row.note || null,
+          isDayOff: false,
+        });
+        totalShiftsToCreate++;
+      } else {
+        shifts.push({
+          date,
+          shiftTypeName: '—',
+          startTime: '—',
+          endTime: '—',
+          note: null,
+          isDayOff: true,
+        });
+      }
+    }
+
+    employeesPreview.push({
+      employeeCode: employee.employeeNumber!,
+      employeeName: employee.fullName,
+      employeeId: employee.id,
+      firstDate,
+      lastDate,
+      totalShifts: shifts.filter(s => !s.isDayOff).length,
+      shifts,
+    });
+  }
+
+  // Sort employees by employee code
+  employeesPreview.sort((a, b) => a.employeeCode.localeCompare(b.employeeCode));
+
+  return {
+    success: true,
+    preview: {
+      employees: employeesPreview,
+      totalShiftsToCreate,
+      totalEmployees: employeesPreview.length,
+      dateRange: {
+        start: overallMinDate!,
+        end: overallMaxDate!,
+      },
+    },
+  };
+}
+
 export async function bulkCreateOfficeShifts(
   formData: FormData
 ): Promise<{ success: boolean; message?: string; errors?: string[] }> {
@@ -265,7 +502,10 @@ export async function bulkCreateOfficeShifts(
   }
 
   const header = parseCsvLine(lines[0]).map(value => value.toLowerCase());
-  if (header.length < BULK_OFFICE_SHIFT_HEADERS.length || !BULK_OFFICE_SHIFT_HEADERS.every((value, index) => header[index] === value)) {
+  if (
+    header.length < BULK_OFFICE_SHIFT_HEADERS.length ||
+    !BULK_OFFICE_SHIFT_HEADERS.every((value, index) => header[index] === value)
+  ) {
     return {
       success: false,
       message: `Invalid CSV header. Expected: ${BULK_OFFICE_SHIFT_HEADERS.join(', ')}`,
@@ -273,7 +513,10 @@ export async function bulkCreateOfficeShifts(
   }
 
   const [officeShiftTypes, employees] = await Promise.all([
-    prisma.officeShiftType.findMany({ where: { deletedAt: null }, select: { id: true, name: true, startTime: true, endTime: true } }),
+    prisma.officeShiftType.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, startTime: true, endTime: true },
+    }),
     prisma.employee.findMany({
       where: {
         status: true,
@@ -306,9 +549,9 @@ export async function bulkCreateOfficeShifts(
       continue;
     }
 
-    const [employeeCode, shiftTypeName, dateStr, graceStr, note = ''] = cols;
-    if (!employeeCode || !shiftTypeName || !dateStr || !graceStr) {
-      errors.push(`Row ${i + 1}: employee_code, shift_type_name, date, and grace_minutes are required.`);
+    const [employeeCode, shiftTypeName, dateStr, note = ''] = cols;
+    if (!employeeCode || !shiftTypeName || !dateStr) {
+      errors.push(`Row ${i + 1}: employee_code, shift_type_name, and date are required.`);
       continue;
     }
 
@@ -321,12 +564,6 @@ export async function bulkCreateOfficeShifts(
     const officeShiftType = officeShiftTypeMap.get(shiftTypeName.toLowerCase());
     if (!officeShiftType) {
       errors.push(`Row ${i + 1}: Office Shift Type '${shiftTypeName}' not found.`);
-      continue;
-    }
-
-    const graceMinutes = Number(graceStr);
-    if (!Number.isInteger(graceMinutes) || graceMinutes < 1) {
-      errors.push(`Row ${i + 1}: grace_minutes must be a positive integer.`);
       continue;
     }
 
@@ -353,10 +590,8 @@ export async function bulkCreateOfficeShifts(
       continue;
     }
 
-    const overlapInBatch = officeShiftsToCreate.find(shift =>
-      shift.employeeId === employee.id &&
-      shift.startsAt < endDateTime &&
-      shift.endsAt > startDateTime
+    const overlapInBatch = officeShiftsToCreate.find(
+      shift => shift.employeeId === employee.id && shift.startsAt < endDateTime && shift.endsAt > startDateTime
     );
     if (overlapInBatch) {
       errors.push(`Row ${i + 1}: Conflicts with another office shift in this upload for employee '${employeeCode}'.`);
@@ -379,7 +614,6 @@ export async function bulkCreateOfficeShifts(
       date: dateObj,
       startsAt: startDateTime,
       endsAt: endDateTime,
-      graceMinutes,
       note: note || null,
       status: 'scheduled',
     });
