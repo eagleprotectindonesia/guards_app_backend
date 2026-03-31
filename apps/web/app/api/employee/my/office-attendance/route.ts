@@ -137,12 +137,15 @@ export async function POST(req: Request) {
           const distance = calculateDistance(body.location.lat, body.location.lng, office.latitude, office.longitude);
 
           if (distance > maxDistance) {
+            const currentDistanceMeters = Math.round(distance);
             return NextResponse.json(
               {
                 code: 'too_far_from_office',
-                error: `Anda berada terlalu jauh dari kantor. Jarak saat ini: ${Math.round(
-                  distance
-                )}m (Maksimal: ${maxDistance}m).`,
+                error: `Anda berada terlalu jauh dari kantor. Jarak saat ini: ${currentDistanceMeters}m (Maksimal: ${maxDistance}m).`,
+                details: {
+                  currentDistanceMeters,
+                  maxDistanceMeters: maxDistance,
+                },
               },
               { status: 400 }
             );

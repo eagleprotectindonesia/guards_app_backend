@@ -100,6 +100,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
       const message = resolveOfficeAttendanceErrorMessage(t, {
         code: errorData.code,
         fallbackMessage: errorData.error || errorData.message || (error instanceof Error ? error.message : undefined),
+        details: errorData.details,
       });
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);

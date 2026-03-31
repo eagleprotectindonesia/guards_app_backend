@@ -21,6 +21,7 @@ type OfficeScheduleContextLike = {
 type OfficeAttendanceErrorInput = {
   code?: string;
   fallbackMessage?: string;
+  details?: Record<string, unknown>;
 };
 
 function formatMinutesAsTime(minutes: number | null | undefined) {
@@ -76,10 +77,10 @@ const OFFICE_ATTENDANCE_ERROR_KEY_MAP: Record<string, string> = {
 
 export function resolveOfficeAttendanceErrorMessage(
   t: TranslationFunction,
-  { code, fallbackMessage }: OfficeAttendanceErrorInput
+  { code, fallbackMessage, details }: OfficeAttendanceErrorInput
 ) {
   if (code && code in OFFICE_ATTENDANCE_ERROR_KEY_MAP) {
-    return t(OFFICE_ATTENDANCE_ERROR_KEY_MAP[code]);
+    return t(OFFICE_ATTENDANCE_ERROR_KEY_MAP[code], details);
   }
 
   return fallbackMessage || t('officeAttendance.errors.generic');

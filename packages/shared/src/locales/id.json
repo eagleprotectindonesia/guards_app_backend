@@ -228,7 +228,7 @@
       "generic": "Gagal merekam kehadiran kantor.",
       "unauthorized": "Anda tidak memiliki izin untuk melakukan tindakan ini.",
       "locationRequired": "Izin lokasi diperlukan.",
-      "tooFarFromOffice": "Anda berada terlalu jauh dari kantor yang ditugaskan.",
+      "tooFarFromOffice": "Anda berada terlalu jauh dari kantor yang ditugaskan. Jarak saat ini: {{currentDistanceMeters}}m (Maksimal: {{maxDistanceMeters}}m). Silakan pindah ke lokasi yang ditentukan.",
       "assignedOfficeNotFound": "Kantor yang ditugaskan tidak ditemukan.",
       "officeLocationNotConfigured": "Lokasi kantor yang ditugaskan belum dikonfigurasi.",
       "notWorkingDay": "Kehadiran kantor hanya tersedia pada hari kerja yang dikonfigurasi.",

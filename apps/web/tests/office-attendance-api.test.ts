@@ -393,7 +393,11 @@ describe('POST /api/employee/my/office-attendance', () => {
     expect(response.status).toBe(400);
     expect(data).toMatchObject({
       code: 'too_far_from_office',
+      details: {
+        maxDistanceMeters: 100,
+      },
     });
+    expect(typeof data.details.currentDistanceMeters).toBe('number');
     expect(getSystemSetting).toHaveBeenCalledWith(OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING);
     expect(recordOfficeAttendance).not.toHaveBeenCalled();
   });

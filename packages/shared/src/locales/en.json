@@ -228,7 +228,7 @@
       "generic": "Failed to record office attendance.",
       "unauthorized": "You are not authorized to perform this action.",
       "locationRequired": "Location permission is required.",
-      "tooFarFromOffice": "You are too far from the assigned office.",
+      "tooFarFromOffice": "You are too far from the assigned office. Current distance: {{currentDistanceMeters}}m (Maximum: {{maxDistanceMeters}}m). Please move to the required location.",
       "assignedOfficeNotFound": "The assigned office could not be found.",
       "officeLocationNotConfigured": "The assigned office does not have a configured location.",
       "notWorkingDay": "Office attendance is only available on configured working days.",
