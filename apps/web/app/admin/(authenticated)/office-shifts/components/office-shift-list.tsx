@@ -5,12 +5,13 @@ import type { Serialized } from '@/lib/server-utils';
 import { cancelOfficeShift, deleteOfficeShift } from '../actions';
 import PaginationNav from '../../components/pagination-nav';
 import OfficeBulkCreateModal from './office-bulk-create-modal';
+import OfficeShiftFilterModal from './office-shift-filter-modal';
 import { EditButton, DeleteButton } from '../../components/action-buttons';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Upload } from 'lucide-react';
+import { Upload, History } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { OfficeShiftWithRelationsDto } from '@/types/office-shifts';
@@ -42,6 +43,8 @@ export default function OfficeShiftList({
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission, isSuperAdmin } = useSession();
+
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
   const [selectedOfficeShiftId, setSelectedOfficeShiftId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -49,6 +52,7 @@ export default function OfficeShiftList({
   const canCreate = hasPermission(PERMISSIONS.OFFICE_SHIFTS.CREATE);
   const canEdit = hasPermission(PERMISSIONS.OFFICE_SHIFTS.EDIT);
   const canDelete = hasPermission(PERMISSIONS.OFFICE_SHIFTS.DELETE);
+  const canViewAudit = hasPermission(PERMISSIONS.OFFICE_SHIFTS.VIEW) && hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
 
   const handleDeleteClick = (id: string) => setSelectedOfficeShiftId(id);
 
@@ -71,44 +75,36 @@ export default function OfficeShiftList({
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-        return 'bg-blue-100 text-blue-800';
-      case 'in_progress':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'completed':
-        return 'bg-green-100 text-green-800';
-      case 'missed':
-        return 'bg-red-100 text-red-800';
-      case 'cancelled':
-        return 'bg-slate-100 text-slate-800';
-      default:
-        return 'bg-muted text-muted-foreground';
+  const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (filters.startDate) {
+      params.set('startDate', format(filters.startDate, 'yyyy-MM-dd'));
+    } else {
+      params.set('startDate', '');
     }
+
+    if (filters.endDate) {
+      params.set('endDate', format(filters.endDate, 'yyyy-MM-dd'));
+    } else {
+      params.delete('endDate');
+    }
+
+    if (filters.employeeId) {
+      params.set('employeeId', filters.employeeId);
+    } else {
+      params.delete('employeeId');
+    }
+
+    if (sort) {
+      params.set('sort', sort);
+    }
+
+    params.set('page', '1');
+    router.push(`/admin/office-shifts?${params.toString()}`);
   };
 
   const activeFiltersCount = [startDate, endDate, employeeId].filter(Boolean).length;
-
-  const handleApplyFilter = (formData: FormData) => {
-    const params = new URLSearchParams(searchParams.toString());
-    const nextStartDate = String(formData.get('startDate') || '');
-    const nextEndDate = String(formData.get('endDate') || '');
-    const nextEmployeeId = String(formData.get('employeeId') || '');
-
-    if (nextStartDate) params.set('startDate', nextStartDate);
-    else params.delete('startDate');
-
-    if (nextEndDate) params.set('endDate', nextEndDate);
-    else params.delete('endDate');
-
-    if (nextEmployeeId) params.set('employeeId', nextEmployeeId);
-    else params.delete('employeeId');
-
-    params.set('page', '1');
-    if (sort) params.set('sort', sort);
-    router.push(`/admin/office-shifts?${params.toString()}`);
-  };
 
   return (
     <div>
@@ -118,6 +114,29 @@ export default function OfficeShiftList({
           <p className="text-sm text-muted-foreground mt-1">Manage office employee shift-based schedules.</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setIsFilterOpen(true)}
+            className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
+              activeFiltersCount > 0
+                ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400'
+                : ''
+            }`}
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
+              />
+            </svg>
+            Filters
+            {activeFiltersCount > 0 && (
+              <span className="ml-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full text-xs">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
           {canCreate && (
             <button
               onClick={() => setIsBulkCreateOpen(true)}
@@ -127,10 +146,19 @@ export default function OfficeShiftList({
               Upload CSV
             </button>
           )}
+          {canViewAudit && (
+            <Link
+              href="/admin/office-shifts/audit"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
+            >
+              <History className="mr-2 h-4 w-4" />
+              Audit Log
+            </Link>
+          )}
           {canCreate && (
             <Link
               href="/admin/office-shifts/create"
-              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm shadow-red-500/30"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
             >
               <span className="mr-2 text-lg leading-none">+</span>
               Schedule Office Shift
@@ -139,69 +167,7 @@ export default function OfficeShiftList({
         </div>
       </div>
 
-      <form
-        action={handleApplyFilter}
-        className="mb-6 grid grid-cols-1 md:grid-cols-[180px_180px_minmax(240px,1fr)_auto_auto] gap-3 items-end"
-      >
-        <div>
-          <label htmlFor="office-shifts-start-date" className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-            Start Date
-          </label>
-          <input
-            id="office-shifts-start-date"
-            name="startDate"
-            type="date"
-            defaultValue={startDate || ''}
-            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground"
-          />
-        </div>
-        <div>
-          <label htmlFor="office-shifts-end-date" className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-            End Date
-          </label>
-          <input
-            id="office-shifts-end-date"
-            name="endDate"
-            type="date"
-            defaultValue={endDate || ''}
-            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground"
-          />
-        </div>
-        <div>
-          <label htmlFor="office-shifts-employee-id" className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
-            Employee
-          </label>
-          <select
-            id="office-shifts-employee-id"
-            name="employeeId"
-            defaultValue={employeeId || ''}
-            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground"
-          >
-            <option value="">All shift-based office employees</option>
-            {employees.map(employee => (
-              <option key={employee.id} value={employee.id}>
-                {employee.fullName}
-                {employee.employeeNumber ? ` (${employee.employeeNumber})` : ''}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button
-          type="submit"
-          className="h-10 px-4 rounded-lg border border-border bg-card text-foreground text-sm font-semibold hover:bg-muted transition-colors"
-        >
-          Apply Filters
-        </button>
-        <button
-          type="button"
-          onClick={() => router.push('/admin/office-shifts')}
-          className="h-10 px-4 rounded-lg border border-border bg-card text-foreground text-sm font-semibold hover:bg-muted transition-colors"
-        >
-          Reset
-          {activeFiltersCount > 0 ? ` (${activeFiltersCount})` : ''}
-        </button>
-      </form>
-
+      {/* Table Section */}
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
@@ -210,8 +176,13 @@ export default function OfficeShiftList({
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift Type</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Date / Time</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
+                <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-blue-600 dark:text-blue-400">Created By</span>
+                    <span className="text-muted-foreground/60">Last Updated By</span>
+                  </div>
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Actions</th>
               </tr>
             </thead>
@@ -224,7 +195,7 @@ export default function OfficeShiftList({
                 </tr>
               ) : (
                 officeShifts.map(officeShift => (
-                  <tr key={officeShift.id} className="hover:bg-muted/30 transition-colors">
+                  <tr key={officeShift.id} className="hover:bg-muted/30 transition-colors group">
                     <td className="py-4 px-6 text-sm font-medium text-foreground">{officeShift.officeShiftType.name}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">{officeShift.employee.fullName}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
@@ -233,16 +204,37 @@ export default function OfficeShiftList({
                         {format(new Date(officeShift.startsAt), 'HH:mm')} - {format(new Date(officeShift.endsAt), 'HH:mm')}
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-sm">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(officeShift.status)}`}>
-                        {officeShift.status.replace('_', ' ').toUpperCase()}
-                      </span>
+                    <td className="py-4 px-6 text-sm text-muted-foreground">
+                      <div className="max-w-[200px] whitespace-normal wrap-break-words text-xs">
+                        {officeShift.note || '-'}
+                      </div>
                     </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground max-w-[220px] whitespace-normal break-words">
-                      {officeShift.note || '-'}
+                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">
+                      <div className="flex flex-col items-center gap-1">
+                        <div
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                            officeShift.createdBy?.name
+                              ? 'bg-blue-50 text-blue-700 border border-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800'
+                              : 'text-muted-foreground/40'
+                          }`}
+                          title="Created By"
+                        >
+                          {officeShift.createdBy?.name || '-'}
+                        </div>
+                        <div
+                          className={`px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap ${
+                            officeShift.lastUpdatedBy?.name
+                              ? 'bg-muted text-muted-foreground border border-border'
+                              : 'text-muted-foreground/40'
+                          }`}
+                          title="Last Updated By"
+                        >
+                          {officeShift.lastUpdatedBy?.name || '-'}
+                        </div>
+                      </div>
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end gap-2 opacity-100">
                         <EditButton
                           href={`/admin/office-shifts/${officeShift.id}/edit`}
                           disabled={!canEdit}
@@ -250,8 +242,18 @@ export default function OfficeShiftList({
                         />
                         <DeleteButton
                           onClick={() => handleDeleteClick(officeShift.id)}
-                          disabled={!canDelete || isPending || (!isSuperAdmin && officeShift.status !== 'in_progress' && officeShift.status !== 'scheduled')}
-                          title={!canDelete ? 'Permission Denied' : officeShift.status === 'in_progress' ? 'Cancel' : 'Delete'}
+                          disabled={
+                            isPending ||
+                            !canDelete ||
+                            (!isSuperAdmin && officeShift.status !== 'in_progress' && officeShift.status !== 'scheduled')
+                          }
+                          title={
+                            !canDelete
+                              ? 'Permission Denied'
+                              : !isSuperAdmin && officeShift.status !== 'in_progress' && officeShift.status !== 'scheduled'
+                                ? 'Only in-progress or scheduled shifts can be cancelled'
+                                : 'Actions'
+                          }
                         />
                       </div>
                     </td>
@@ -264,6 +266,21 @@ export default function OfficeShiftList({
       </div>
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
+
+      {/* Dialogs */}
+      {isFilterOpen && (
+        <OfficeShiftFilterModal
+          isOpen={isFilterOpen}
+          onClose={() => setIsFilterOpen(false)}
+          onApply={handleApplyFilter}
+          initialFilters={{
+            startDate,
+            endDate,
+            employeeId,
+          }}
+          employees={employees}
+        />
+      )}
 
       <OfficeBulkCreateModal isOpen={isBulkCreateOpen} onClose={() => setIsBulkCreateOpen(false)} />
 
