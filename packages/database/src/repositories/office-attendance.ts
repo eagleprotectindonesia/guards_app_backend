@@ -19,23 +19,30 @@ export async function getOfficeAttendanceById(id: string) {
           address: true,
         },
       },
+      officeShift: {
+        include: {
+          officeShiftType: true,
+        },
+      },
     },
   });
 }
 
 export async function recordOfficeAttendance(params: {
   officeId?: string | null;
+  officeShiftId?: string | null;
   employeeId: string;
   status: AttendanceStatus;
   picture?: string;
   metadata?: any;
   recordedAt?: Date;
 }) {
-  const { officeId, employeeId, status, picture, metadata, recordedAt } = params;
+  const { officeId, officeShiftId, employeeId, status, picture, metadata, recordedAt } = params;
 
   return prisma.officeAttendance.create({
     data: {
       officeId,
+      officeShiftId,
       employeeId,
       recordedAt: recordedAt || new Date(),
       status,
@@ -58,6 +65,7 @@ export async function getTodayOfficeAttendance(employeeId: string, now = new Dat
     },
     include: {
       office: true,
+      officeShift: true,
     },
     orderBy: {
       recordedAt: 'desc',
@@ -115,6 +123,7 @@ export async function getPaginatedOfficeAttendance(params: {
         include: {
           employee: true,
           office: true,
+          officeShift: true,
         },
       }),
       tx.officeAttendance.count({ where }),
@@ -136,6 +145,7 @@ export async function listOfficeAttendance(params: {
     include: {
       employee: true,
       office: true,
+      officeShift: true,
     },
   });
 }
@@ -153,6 +163,7 @@ export async function getOfficeAttendanceExportBatch(params: {
     include: {
       office: true,
       employee: true,
+      officeShift: true,
     },
     ...(cursor && { skip: 1, cursor: { id: cursor } }),
   });

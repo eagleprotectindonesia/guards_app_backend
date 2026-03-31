@@ -4,7 +4,7 @@ import {
   getLatestOfficeAttendanceInRange,
   getLatestOfficeAttendanceForDay,
   getTodayOfficeAttendance,
-  resolveOfficeWorkScheduleContextForEmployee,
+  resolveOfficeAttendanceContextForEmployee,
 } from '@repo/database';
 import type { OfficeAttendance, OfficeAttendanceState } from '@repo/types';
 
@@ -19,7 +19,7 @@ function formatMinutesAsTime(minutes: number | null | undefined) {
 }
 
 function getOfficeAttendanceState(params: {
-  scheduleContext: Awaited<ReturnType<typeof resolveOfficeWorkScheduleContextForEmployee>>;
+  scheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>;
   latestAttendance: OfficeAttendance | null;
   latestTodayAttendance: OfficeAttendance | null;
 }): OfficeAttendanceState {
@@ -94,7 +94,7 @@ export async function GET() {
     const now = new Date();
     const [attendances, scheduleContext, latestAttendanceForDay] = await Promise.all([
       getTodayOfficeAttendance(employee.id),
-      resolveOfficeWorkScheduleContextForEmployee(employee.id, now),
+      resolveOfficeAttendanceContextForEmployee(employee.id, now),
       getLatestOfficeAttendanceForDay(employee.id, now),
     ]);
     const latestAttendanceInWindow =

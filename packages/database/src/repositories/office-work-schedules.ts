@@ -1448,6 +1448,52 @@ export async function deleteFutureOfficeWorkScheduleAssignment(params: {
   });
 }
 
+export async function deleteUpcomingOfficeWorkScheduleAssignmentsByEmployee(
+  employeeId: string,
+  tx: Prisma.TransactionClient = prisma
+) {
+  const now = new Date();
+  const upcomingAssignments = await tx.employeeOfficeWorkScheduleAssignment.findMany({
+    where: {
+      employeeId,
+      effectiveFrom: {
+        gt: now,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (upcomingAssignments.length === 0) {
+    return 0;
+  }
+
+  await tx.employeeOfficeWorkScheduleAssignment.deleteMany({
+    where: {
+      id: {
+        in: upcomingAssignments.map(assignment => assignment.id),
+      },
+    },
+  });
+
+  await tx.changelog.create({
+    data: {
+      action: 'BULK_DELETE',
+      entityType: 'EmployeeOfficeWorkScheduleAssignment',
+      entityId: `employee:${employeeId}`,
+      actor: 'system',
+      details: {
+        reason: 'OFFICE_ATTENDANCE_MODE_CHANGE',
+        count: upcomingAssignments.length,
+        assignmentIds: upcomingAssignments.map(assignment => assignment.id),
+      },
+    },
+  });
+
+  return upcomingAssignments.length;
+}
+
 export async function resolveOfficeWorkScheduleForEmployee(employeeId: string, at = new Date()) {
   const assignment = await getOfficeWorkScheduleAssignmentForDate(employeeId, at);
 
@@ -1507,7 +1553,7 @@ export async function resolveOfficeWorkScheduleContextForEmployee(employeeId: st
   };
 }
 
-export async function getScheduledPaidMinutesForOfficeAttendance(employeeId: string, at = new Date()) {
+export async function getScheduledPaidMinutesForFixedOfficeScheduleAttendance(employeeId: string, at = new Date()) {
   const context = await resolveOfficeWorkScheduleContextForEmployee(employeeId, at);
 
   if (!context.isWorkingDay || !context.windowStart || !context.windowEnd) {

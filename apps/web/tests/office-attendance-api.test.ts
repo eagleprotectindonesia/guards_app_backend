@@ -7,7 +7,7 @@ import {
   OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING,
   getSystemSetting,
   recordOfficeAttendance,
-  resolveOfficeWorkScheduleContextForEmployee,
+  resolveOfficeAttendanceContextForEmployee,
 } from '@repo/database';
 
 jest.mock('@/lib/employee-auth', () => ({
@@ -21,7 +21,7 @@ jest.mock('@repo/database', () => ({
   OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING: 'OFFICE_ATTENDANCE_MAX_DISTANCE_METERS',
   getSystemSetting: jest.fn(),
   recordOfficeAttendance: jest.fn(),
-  resolveOfficeWorkScheduleContextForEmployee: jest.fn(),
+  resolveOfficeAttendanceContextForEmployee: jest.fn(),
 }));
 
 jest.mock('next/server', () => {
@@ -50,7 +50,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       officeId: null,
       fieldModeEnabled: true,
     });
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: false,
     });
 
@@ -76,7 +76,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       officeId: null,
       fieldModeEnabled: true,
     });
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isAfterEnd: false,
       isLate: true,
@@ -127,7 +127,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       officeId: null,
       fieldModeEnabled: false,
     });
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isAfterEnd: false,
       isLate: false,
@@ -180,7 +180,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       officeId: null,
       fieldModeEnabled: true,
     });
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isAfterEnd: false,
       isLate: true,
@@ -234,7 +234,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       officeId: null,
       fieldModeEnabled: true,
     });
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isAfterEnd: false,
       isLate: false,
@@ -276,7 +276,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       officeId: null,
       fieldModeEnabled: true,
     });
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isAfterEnd: true,
       isLate: true,
@@ -320,7 +320,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       officeId: null,
       fieldModeEnabled: true,
     });
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isAfterEnd: true,
       isLate: true,
@@ -361,7 +361,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       officeId: 'office-1',
       fieldModeEnabled: false,
     });
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isAfterEnd: false,
       isLate: false,
@@ -409,7 +409,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       officeId: 'office-1',
       fieldModeEnabled: false,
     });
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isAfterEnd: false,
       isLate: false,
@@ -453,7 +453,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       officeId: 'office-1',
       fieldModeEnabled: true,
     });
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isAfterEnd: false,
       isLate: false,

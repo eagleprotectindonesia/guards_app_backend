@@ -8,7 +8,7 @@ import { recordOfficeAttendance } from '@repo/database';
 import { getLatestOfficeAttendanceInRange } from '@repo/database';
 import { getLatestOfficeAttendanceForDay } from '@repo/database';
 import { OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING } from '@repo/database';
-import { resolveOfficeWorkScheduleContextForEmployee } from '@repo/database';
+import { resolveOfficeAttendanceContextForEmployee } from '@repo/database';
 import { ZodError } from 'zod';
 
 export async function POST(req: Request) {
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     const json = await req.json();
     const body = createOfficeAttendanceSchema.parse(json);
     const requestedStatus = body.status ?? 'present';
-    const scheduleContext = await resolveOfficeWorkScheduleContextForEmployee(employee.id, now);
+    const scheduleContext = await resolveOfficeAttendanceContextForEmployee(employee.id, now);
 
     if (!scheduleContext.isWorkingDay) {
       return NextResponse.json(
@@ -171,6 +171,7 @@ export async function POST(req: Request) {
 
     const attendance = await recordOfficeAttendance({
       officeId: office?.id ?? null,
+      officeShiftId: scheduleContext.shift?.id ?? null,
       employeeId: employee.id,
       status: requestedStatus,
       metadata,

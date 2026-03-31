@@ -16,6 +16,11 @@ enum EmployeeRole {
   office
 }
 
+enum OfficeAttendanceMode {
+  shift_based
+  fixed_schedule
+}
+
 model Permission {
   id          String   @id @default(uuid())
   action      String // e.g., "view", "create", "edit", "delete"
@@ -69,6 +74,10 @@ model Admin {
   createdOffices     Office[]    @relation("OfficeCreatedBy")
   createdShiftTypes  ShiftType[] @relation("ShiftTypeCreatedBy")
   createdShifts      Shift[]     @relation("ShiftCreatedBy")
+  createdOfficeShiftTypes OfficeShiftType[] @relation("OfficeShiftTypeCreatedBy")
+  updatedOfficeShiftTypes OfficeShiftType[] @relation("OfficeShiftTypeLastUpdatedBy")
+  createdOfficeShifts OfficeShift[] @relation("OfficeShiftCreatedBy")
+  updatedOfficeShifts OfficeShift[] @relation("OfficeShiftLastUpdatedBy")
   createdOfficeWorkSchedules OfficeWorkSchedule[] @relation("OfficeWorkScheduleCreatedBy")
   updatedOfficeWorkSchedules OfficeWorkSchedule[] @relation("OfficeWorkScheduleLastUpdatedBy")
   createdEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentCreatedBy")
@@ -195,8 +204,10 @@ model Employee {
   shifts          Shift[]
   attendances     Attendance[]
   officeId        String?      @map("office_id")
+  officeAttendanceMode OfficeAttendanceMode? @map("office_attendance_mode")
   fieldModeEnabled Boolean     @default(false) @map("field_mode_enabled")
   office          Office?      @relation(fields: [officeId], references: [id])
+  officeShifts    OfficeShift[]
   officeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[]
   officeAttendances OfficeAttendance[]
   chatMessages    ChatMessage[]
@@ -310,6 +321,24 @@ model ShiftType {
 
   @@index([deletedAt])
   @@map("shift_types")
+}
+
+model OfficeShiftType {
+  id              String    @id @default(uuid())
+  name            String    @unique
+  startTime       String    @map("start_time")
+  endTime         String    @map("end_time")
+  lastUpdatedById String?   @map("last_updated_by_id")
+  createdById     String?   @map("created_by_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+  officeShifts    OfficeShift[]
+  lastUpdatedBy   Admin?    @relation("OfficeShiftTypeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  createdBy       Admin?    @relation("OfficeShiftTypeCreatedBy", fields: [createdById], references: [id])
+
+  @@index([deletedAt])
+  @@map("office_shift_types")
 }
 
 model Shift {
@@ -447,6 +476,36 @@ model Attendance {
   @@map("attendance")
 }
 
+model OfficeShift {
+  id              String          @id @default(uuid())
+  officeShiftTypeId String        @map("office_shift_type_id")
+  employeeId      String          @map("employee_id")
+  date            DateTime        @db.Date
+  startsAt        DateTime        @map("starts_at")
+  endsAt          DateTime        @map("ends_at")
+  status          ShiftStatus     @default(scheduled)
+  graceMinutes    Int             @default(15) @map("grace_minutes")
+  createdById     String?         @map("created_by_id")
+  lastUpdatedById String?         @map("last_updated_by_id")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt
+  deletedAt       DateTime?       @map("deleted_at")
+  note            String?         @db.Text
+
+  employee        Employee        @relation(fields: [employeeId], references: [id])
+  officeShiftType OfficeShiftType @relation(fields: [officeShiftTypeId], references: [id])
+  createdBy       Admin?          @relation("OfficeShiftCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy   Admin?          @relation("OfficeShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  officeAttendances OfficeAttendance[]
+
+  @@index([employeeId, startsAt])
+  @@index([startsAt, endsAt])
+  @@index([employeeId, status, startsAt])
+  @@index([employeeId, status, endsAt])
+  @@index([deletedAt])
+  @@map("office_shifts")
+}
+
 model SystemSetting {
   name  String @id
   value String
@@ -519,6 +578,7 @@ enum AttendanceStatus {
 model OfficeAttendance {
   id         String           @id @default(uuid())
   officeId   String?          @map("office_id")
+  officeShiftId String?       @map("office_shift_id")
   employeeId String           @map("employee_id")
   recordedAt DateTime         @default(now()) @map("recorded_at") @db.Timestamptz(6)
   picture    String?
@@ -527,12 +587,14 @@ model OfficeAttendance {
   createdAt  DateTime         @default(now()) @map("created_at")
   updatedAt  DateTime         @updatedAt
 
-  office     Office?   @relation(fields: [officeId], references: [id])
-  employee   Employee  @relation(fields: [employeeId], references: [id])
+  office     Office?      @relation(fields: [officeId], references: [id])
+  officeShift OfficeShift? @relation(fields: [officeShiftId], references: [id])
+  employee   Employee     @relation(fields: [employeeId], references: [id])
 
   @@index([recordedAt])
   @@index([employeeId])
   @@index([officeId])
+  @@index([officeShiftId])
   @@map("office_attendance")
 }
 

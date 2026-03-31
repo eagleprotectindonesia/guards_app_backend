@@ -5,7 +5,7 @@ import {
   createOfficeWorkSchedule,
   deleteOfficeWorkSchedule,
   deleteFutureOfficeWorkScheduleAssignment,
-  getScheduledPaidMinutesForOfficeAttendance,
+  getScheduledPaidMinutesForFixedOfficeScheduleAttendance,
   resolveOfficeWorkScheduleContextForEmployee,
   scheduleFutureOfficeWorkScheduleAssignment,
   updateOfficeWorkSchedule,
@@ -273,7 +273,7 @@ describe('office work schedules', () => {
       ],
     });
 
-    await expect(getScheduledPaidMinutesForOfficeAttendance('employee-1', new Date('2026-03-30T01:00:00.000Z'))).resolves.toBe(
+    await expect(getScheduledPaidMinutesForFixedOfficeScheduleAttendance('employee-1', new Date('2026-03-30T01:00:00.000Z'))).resolves.toBe(
       8 * 60
     );
   });
@@ -298,7 +298,7 @@ describe('office work schedules', () => {
       },
     });
 
-    await expect(getScheduledPaidMinutesForOfficeAttendance('employee-1', new Date('2026-03-30T01:30:00.000Z'))).resolves.toBe(
+    await expect(getScheduledPaidMinutesForFixedOfficeScheduleAttendance('employee-1', new Date('2026-03-30T01:30:00.000Z'))).resolves.toBe(
       8 * 60
     );
   });
@@ -323,7 +323,7 @@ describe('office work schedules', () => {
       },
     });
 
-    await expect(getScheduledPaidMinutesForOfficeAttendance('employee-1', new Date('2026-03-29T17:30:00.000Z'))).resolves.toBe(
+    await expect(getScheduledPaidMinutesForFixedOfficeScheduleAttendance('employee-1', new Date('2026-03-29T17:30:00.000Z'))).resolves.toBe(
       7 * 60
     );
   });
@@ -348,7 +348,7 @@ describe('office work schedules', () => {
       },
     });
 
-    await expect(getScheduledPaidMinutesForOfficeAttendance('employee-1', new Date('2026-03-30T01:30:00.000Z'))).resolves.toBe(0);
+    await expect(getScheduledPaidMinutesForFixedOfficeScheduleAttendance('employee-1', new Date('2026-03-30T01:30:00.000Z'))).resolves.toBe(0);
   });
 
   test('creates a future assignment and bounds the previous active assignment', async () => {

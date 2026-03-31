@@ -10,6 +10,7 @@ export type ShiftStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' |
 export type CheckInStatus = 'on_time' | 'late' | 'invalid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification' | 'clocked_out';
 export type EmployeeRole = 'on_site' | 'office';
+export type OfficeAttendanceMode = 'shift_based' | 'fixed_schedule';
 export type OfficeJobTitleCategory = 'staff' | 'management';
 
 export interface Department {
@@ -43,6 +44,7 @@ export interface Employee {
   personnelId: string;
   employeeNumber?: string | null;
   role: EmployeeRole;
+  officeAttendanceMode?: OfficeAttendanceMode | null;
   status?: boolean | null;
   mustChangePassword?: boolean;
   jobTitle?: string | null;
@@ -96,6 +98,7 @@ export interface Attendance {
 export interface OfficeAttendance {
   id: string;
   officeId?: string | null;
+  officeShiftId?: string | null;
   employeeId: string;
   recordedAt: string | Date;
   picture?: string | null;

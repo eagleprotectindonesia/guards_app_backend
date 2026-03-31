@@ -4,7 +4,7 @@ import {
   getLatestOfficeAttendanceInRange,
   getLatestOfficeAttendanceForDay,
   getTodayOfficeAttendance,
-  resolveOfficeWorkScheduleContextForEmployee,
+  resolveOfficeAttendanceContextForEmployee,
 } from '@repo/database';
 
 jest.mock('@/lib/employee-auth', () => ({
@@ -15,7 +15,7 @@ jest.mock('@repo/database', () => ({
   getLatestOfficeAttendanceInRange: jest.fn(),
   getLatestOfficeAttendanceForDay: jest.fn(),
   getTodayOfficeAttendance: jest.fn(),
-  resolveOfficeWorkScheduleContextForEmployee: jest.fn(),
+  resolveOfficeAttendanceContextForEmployee: jest.fn(),
 }));
 
 jest.mock('next/server', () => {
@@ -45,7 +45,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
     (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isLate: false,
       isAfterEnd: false,
@@ -97,7 +97,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
     (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: false,
       isLate: false,
       isAfterEnd: false,
@@ -139,7 +139,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
     (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isLate: true,
       isAfterEnd: true,
@@ -187,7 +187,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([latestAttendance]);
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(latestAttendance);
     (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(latestAttendance);
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isLate: true,
       isAfterEnd: true,
@@ -234,7 +234,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([latestTodayAttendance]);
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
     (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(latestTodayAttendance);
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isLate: true,
       isAfterEnd: true,
@@ -281,7 +281,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([latestTodayAttendance]);
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
     (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(latestTodayAttendance);
-    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
       isWorkingDay: true,
       isLate: true,
       isAfterEnd: true,

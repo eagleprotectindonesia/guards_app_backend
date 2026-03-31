@@ -1,11 +1,16 @@
 import { db as prisma, EmployeeSummary } from '../prisma/client';
 import { redis } from '../redis/client';
-import { EmployeeRole, Prisma } from '@prisma/client';
+import { EmployeeRole, OfficeAttendanceMode, Prisma } from '@prisma/client';
 import { deleteFutureShiftsByEmployee, cancelInProgressShiftsForDeactivatedEmployee } from './shifts';
 import { hashPassword, verifyPassword, DEFAULT_PASSWORD } from '../password';
 import { fetchExternalEmployees, ExternalEmployee } from '../integrations/external-employee-api';
 import { syncOfficesFromExternalEmployees } from './offices';
-import { getCurrentOfficeWorkScheduleAssignment, getDefaultOfficeWorkSchedule } from './office-work-schedules';
+import {
+  deleteUpcomingOfficeWorkScheduleAssignmentsByEmployee,
+  getCurrentOfficeWorkScheduleAssignment,
+  getDefaultOfficeWorkSchedule,
+} from './office-work-schedules';
+import { deleteFutureOfficeShiftsByEmployee } from './office-shifts';
 import {
   getOfficeJobTitleCategoryMapSetting,
   normalizeOfficeJobTitleValue,
@@ -45,7 +50,13 @@ export function getEmployeeSearchWhere(query?: string): Prisma.EmployeeWhereInpu
   };
 }
 
-async function attachDerivedOfficeMetadata<T extends { role?: EmployeeRole | null; officeId?: string | null; jobTitle?: string | null; fieldModeEnabled?: boolean | null }>(
+async function attachDerivedOfficeMetadata<T extends {
+  role?: EmployeeRole | null;
+  officeId?: string | null;
+  jobTitle?: string | null;
+  fieldModeEnabled?: boolean | null;
+  officeAttendanceMode?: OfficeAttendanceMode | null;
+}>(
   employee: T,
   categoryMap: OfficeJobTitleCategoryMap
 ) {
@@ -61,8 +72,13 @@ async function attachDerivedOfficeMetadata<T extends { role?: EmployeeRole | nul
   };
 }
 
-async function getActiveOfficeScheduleName(employeeId: string, role?: EmployeeRole | null, defaultScheduleName?: string) {
-  if (role !== 'office') {
+async function getActiveOfficeScheduleName(
+  employeeId: string,
+  role?: EmployeeRole | null,
+  officeAttendanceMode?: OfficeAttendanceMode | null,
+  defaultScheduleName?: string
+) {
+  if (role !== 'office' || officeAttendanceMode !== 'fixed_schedule') {
     return null;
   }
 
@@ -70,14 +86,21 @@ async function getActiveOfficeScheduleName(employeeId: string, role?: EmployeeRo
   return assignment?.officeWorkSchedule.name ?? defaultScheduleName ?? null;
 }
 
-async function buildEmployeeWithSchedule<T extends { id: string; role?: EmployeeRole | null; officeId?: string | null; jobTitle?: string | null; fieldModeEnabled?: boolean | null }>(
+async function buildEmployeeWithSchedule<T extends {
+  id: string;
+  role?: EmployeeRole | null;
+  officeId?: string | null;
+  jobTitle?: string | null;
+  fieldModeEnabled?: boolean | null;
+  officeAttendanceMode?: OfficeAttendanceMode | null;
+}>(
   employee: T,
   categoryMap: OfficeJobTitleCategoryMap,
   defaultScheduleName: string
 ) {
   const [derivedEmployee, activeOfficeWorkScheduleName] = await Promise.all([
     attachDerivedOfficeMetadata(employee, categoryMap),
-    getActiveOfficeScheduleName(employee.id, employee.role, defaultScheduleName),
+    getActiveOfficeScheduleName(employee.id, employee.role, employee.officeAttendanceMode, defaultScheduleName),
   ]);
 
   return {
@@ -278,6 +301,7 @@ export async function upsertEmployeeFromExternal(data: {
       phone: data.phone,
       hashedPassword: data.password || '', // Should be provided for new employees
       role: data.role,
+      officeAttendanceMode: data.role === 'office' ? 'shift_based' : null,
       office: data.officeId ? { connect: { id: data.officeId } } : undefined,
       fieldModeEnabled: fieldModeState.fieldModeEnabled,
       status: true,
@@ -291,6 +315,7 @@ export async function upsertEmployeeFromExternal(data: {
       department: data.department,
       phone: data.phone,
       role: data.role,
+      officeAttendanceMode: data.role === 'office' ? 'shift_based' : null,
       office: data.officeId ? { connect: { id: data.officeId } } : { disconnect: true },
       fieldModeEnabled: fieldModeState.fieldModeEnabled,
       status: true, // Reactivate if it was deactivated but returned to external list
@@ -307,6 +332,7 @@ export const EMPLOYEE_TRACKED_FIELDS = [
   'jobTitle',
   'department',
   'role',
+  'officeAttendanceMode',
   'status',
   'phone',
   'officeId',
@@ -355,6 +381,26 @@ async function normalizeEmployeeFieldModeForUpdate(
   }
 
   return state.fieldModeEnabled;
+}
+
+function normalizeOfficeAttendanceModeForUpdate(
+  existingEmployee: {
+    role?: EmployeeRole | null;
+    officeAttendanceMode?: OfficeAttendanceMode | null;
+  },
+  data: Prisma.EmployeeUpdateInput
+) {
+  const nextRole = (data.role as EmployeeRole | undefined) ?? existingEmployee.role ?? null;
+
+  if (nextRole !== 'office') {
+    return null;
+  }
+
+  if (data.officeAttendanceMode === undefined) {
+    return existingEmployee.officeAttendanceMode ?? 'shift_based';
+  }
+
+  return (data.officeAttendanceMode as OfficeAttendanceMode | null | undefined) ?? 'shift_based';
 }
 
 /**
@@ -486,6 +532,7 @@ export async function updateEmployee(id: string, data: Prisma.EmployeeUpdateInpu
     where: { id },
     select: {
       role: true,
+      officeAttendanceMode: true,
       officeId: true,
       jobTitle: true,
       fieldModeEnabled: true,
@@ -497,13 +544,31 @@ export async function updateEmployee(id: string, data: Prisma.EmployeeUpdateInpu
   }
 
   const fieldModeEnabled = await normalizeEmployeeFieldModeForUpdate(existingEmployee, data);
+  const officeAttendanceMode = normalizeOfficeAttendanceModeForUpdate(existingEmployee, data);
+  const previousMode = existingEmployee.role === 'office' ? existingEmployee.officeAttendanceMode ?? 'shift_based' : null;
 
-  return prisma.employee.update({
-    where: { id },
-    data: {
-      ...data,
-      fieldModeEnabled,
-    },
+  return prisma.$transaction(async tx => {
+    const updatedEmployee = await tx.employee.update({
+      where: { id },
+      data: {
+        ...data,
+        officeAttendanceMode,
+        fieldModeEnabled,
+      },
+    });
+
+    const nextRole = updatedEmployee.role;
+    const nextMode = nextRole === 'office' ? updatedEmployee.officeAttendanceMode ?? 'shift_based' : null;
+
+    if (nextRole === 'office' && nextMode !== previousMode) {
+      if (nextMode === 'shift_based') {
+        await deleteUpcomingOfficeWorkScheduleAssignmentsByEmployee(id, tx);
+      } else if (nextMode === 'fixed_schedule') {
+        await deleteFutureOfficeShiftsByEmployee(id, tx);
+      }
+    }
+
+    return updatedEmployee;
   });
 }
 
@@ -756,6 +821,7 @@ export async function syncEmployeesFromExternal(
             hashedPassword: hashedPassword,
             mustChangePassword: true,
             role,
+            officeAttendanceMode: role === 'office' ? 'shift_based' : null,
             office: ext.office_id ? { connect: { id: ext.office_id } } : undefined,
             fieldModeEnabled: fieldModeState.fieldModeEnabled,
             status: true,
@@ -785,6 +851,7 @@ export async function syncEmployeesFromExternal(
               department: newEmployee.department,
               phone: newEmployee.phone,
               role: newEmployee.role,
+              officeAttendanceMode: newEmployee.officeAttendanceMode,
               officeId: newEmployee.officeId,
               fieldModeEnabled: newEmployee.fieldModeEnabled,
               status: newEmployee.status,
@@ -823,6 +890,15 @@ export async function syncEmployeesFromExternal(
       if (existing.role !== role) {
         updateData.role = role;
         changes.role = { from: existing.role, to: role };
+      }
+
+      const nextOfficeAttendanceMode = role === 'office' ? existing.officeAttendanceMode ?? 'shift_based' : null;
+      if (existing.officeAttendanceMode !== nextOfficeAttendanceMode) {
+        updateData.officeAttendanceMode = nextOfficeAttendanceMode;
+        changes.officeAttendanceMode = {
+          from: existing.officeAttendanceMode,
+          to: nextOfficeAttendanceMode,
+        };
       }
 
       // Special handling for office
@@ -876,6 +952,7 @@ export async function syncEmployeesFromExternal(
                 jobTitle: updatedEmployee.jobTitle,
                 department: updatedEmployee.department,
                 role: updatedEmployee.role,
+                officeAttendanceMode: updatedEmployee.officeAttendanceMode,
                 officeId: updatedEmployee.officeId,
                 fieldModeEnabled: updatedEmployee.fieldModeEnabled,
                 status: updatedEmployee.status,
