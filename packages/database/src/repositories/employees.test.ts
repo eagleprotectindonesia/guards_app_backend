@@ -1,4 +1,4 @@
-import { getPaginatedEmployees, syncEmployeesFromExternal } from './employees';
+import { getActiveEmployeesSummary, getPaginatedEmployees, syncEmployeesFromExternal } from './employees';
 import { db as prisma } from '../prisma/client';
 import { redis } from '../redis/client';
 import { updateSystemSettingWithChangelog } from './settings';
@@ -225,6 +225,66 @@ describe('employees repository', () => {
       fieldModeEnabled: false,
       isFieldModeEditable: false,
       fieldModeReasonCode: 'staff_with_office',
+    });
+  });
+
+  test('filters active employee summary by office attendance mode for office employees', async () => {
+    (prisma.employee.findMany as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'employee-1',
+        fullName: 'Shift Based Office User',
+        employeeNumber: 'EMP001',
+      },
+    ]);
+
+    const result = await getActiveEmployeesSummary('office', 'shift_based');
+
+    expect(prisma.employee.findMany).toHaveBeenCalledWith({
+      where: {
+        status: true,
+        deletedAt: null,
+        role: 'office',
+        officeAttendanceMode: 'shift_based',
+      },
+      orderBy: { fullName: 'asc' },
+      select: {
+        id: true,
+        fullName: true,
+        employeeNumber: true,
+      },
+    });
+    expect(result).toEqual([
+      {
+        id: 'employee-1',
+        fullName: 'Shift Based Office User',
+        employeeNumber: 'EMP001',
+      },
+    ]);
+  });
+
+  test('ignores office attendance mode filter for non-office employee summaries', async () => {
+    (prisma.employee.findMany as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'employee-2',
+        fullName: 'Guard User',
+        employeeNumber: 'EMP002',
+      },
+    ]);
+
+    await getActiveEmployeesSummary('on_site', 'shift_based');
+
+    expect(prisma.employee.findMany).toHaveBeenCalledWith({
+      where: {
+        status: true,
+        deletedAt: null,
+        role: 'on_site',
+      },
+      orderBy: { fullName: 'asc' },
+      select: {
+        id: true,
+        fullName: true,
+        employeeNumber: true,
+      },
     });
   });
 

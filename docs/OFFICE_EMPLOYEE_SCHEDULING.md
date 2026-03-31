@@ -8,13 +8,25 @@ It covers:
 - how office attendance resolves the active schedule
 - how admin UI manages default schedules, templates, and employee schedule assignments
 
+Related documentation:
+- [`docs/OFFICE_SHIFT_SCHEDULING.md`](/home/tian/Documents/Work/guards_app_backend/docs/OFFICE_SHIFT_SCHEDULING.md) for `shift_based` office employees
+
 ## Overview
 
-Office employees do not record attendance against shifts.
+This document focuses on `fixed_schedule` office employees.
+
+Office employees can now use two scheduling modes:
+- `fixed_schedule`
+- `shift_based`
+
+For `shift_based` office employees, see:
+- [`docs/OFFICE_SHIFT_SCHEDULING.md`](/home/tian/Documents/Work/guards_app_backend/docs/OFFICE_SHIFT_SCHEDULING.md)
+
+Historically, office employees did not record attendance against shifts.
 
 Instead:
 - `on_site` employees use shift-based attendance
-- `office` employees use daily attendance rules based on an office work schedule
+- `office` employees in `fixed_schedule` mode use daily attendance rules based on an office work schedule
 
 An office work schedule is a reusable weekly template:
 - each weekday can be marked as working or non-working

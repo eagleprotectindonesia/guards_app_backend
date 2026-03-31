@@ -1,10 +1,9 @@
-import { prisma } from '@repo/database';
 import { getPaginationParams } from '@/lib/server-utils';
 import OfficeShiftList from './components/office-shift-list';
 import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { getPaginatedOfficeShifts } from '@repo/database';
+import { getActiveEmployeesSummary, getPaginatedOfficeShifts } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import type { SerializedOfficeShiftWithRelationsDto } from '@/types/office-shifts';
@@ -52,17 +51,6 @@ export default async function OfficeShiftsPage({
     take: perPage,
   });
 
-  const employees = await prisma.employee.findMany({
-    where: {
-      status: true,
-      deletedAt: null,
-      role: 'office',
-      officeAttendanceMode: 'shift_based',
-    },
-    orderBy: { fullName: 'asc' },
-    select: { id: true, fullName: true, employeeNumber: true },
-  });
-
   const officeShiftDtos: SerializedOfficeShiftWithRelationsDto[] = officeShifts.map(officeShift => ({
     id: officeShift.id,
     officeShiftTypeId: officeShift.officeShiftTypeId,
@@ -100,11 +88,7 @@ export default async function OfficeShiftsPage({
     lastUpdatedBy: officeShift.lastUpdatedBy,
   }));
 
-  const employeeOptions: EmployeeSummary[] = employees.map(employee => ({
-    id: employee.id,
-    fullName: employee.fullName,
-    employeeNumber: employee.employeeNumber,
-  }));
+  const employeeOptions: EmployeeSummary[] = await getActiveEmployeesSummary('office', 'shift_based');
 
   return (
     <div className="max-w-7xl mx-auto">

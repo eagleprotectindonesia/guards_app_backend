@@ -49,42 +49,42 @@ model Role {
 }
 
 model Admin {
-  id                 String      @id @default(uuid())
-  name               String
-  email              String      @unique
-  profileImage       String?     @map("profile_image")
-  hashedPassword     String      @map("hashed_password")
-  twoFactorSecret    String?     @map("two_factor_secret")
-  twoFactorEnabled   Boolean     @default(false) @map("two_factor_enabled")
-  role               AdminRole   @default(admin) // Deprecated: use roleId
-  roleId             String?     @map("role_id")
-  roleRef            Role?       @relation(fields: [roleId], references: [id])
-  tokenVersion       Int         @default(0) @map("token_version")
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-  deletedAt          DateTime?   @map("deleted_at")
-  note               String?     @db.Text
-  acknowledgedAlerts Alert[]     @relation("AcknowledgedBy")
-  resolvedAlerts     Alert[]     @relation("ResolvedBy")
-  updatedSites       Site[]      @relation("SiteLastUpdatedBy")
-  updatedOffices     Office[]    @relation("OfficeLastUpdatedBy")
-  updatedShiftTypes  ShiftType[] @relation("ShiftTypeLastUpdatedBy")
-  updatedShifts      Shift[]     @relation("ShiftLastUpdatedBy")
-  createdSites       Site[]      @relation("SiteCreatedBy")
-  createdOffices     Office[]    @relation("OfficeCreatedBy")
-  createdShiftTypes  ShiftType[] @relation("ShiftTypeCreatedBy")
-  createdShifts      Shift[]     @relation("ShiftCreatedBy")
-  createdOfficeShiftTypes OfficeShiftType[] @relation("OfficeShiftTypeCreatedBy")
-  updatedOfficeShiftTypes OfficeShiftType[] @relation("OfficeShiftTypeLastUpdatedBy")
-  createdOfficeShifts OfficeShift[] @relation("OfficeShiftCreatedBy")
-  updatedOfficeShifts OfficeShift[] @relation("OfficeShiftLastUpdatedBy")
-  createdOfficeWorkSchedules OfficeWorkSchedule[] @relation("OfficeWorkScheduleCreatedBy")
-  updatedOfficeWorkSchedules OfficeWorkSchedule[] @relation("OfficeWorkScheduleLastUpdatedBy")
+  id                                           String                                 @id @default(uuid())
+  name                                         String
+  email                                        String                                 @unique
+  profileImage                                 String?                                @map("profile_image")
+  hashedPassword                               String                                 @map("hashed_password")
+  twoFactorSecret                              String?                                @map("two_factor_secret")
+  twoFactorEnabled                             Boolean                                @default(false) @map("two_factor_enabled")
+  role                                         AdminRole                              @default(admin) // Deprecated: use roleId
+  roleId                                       String?                                @map("role_id")
+  roleRef                                      Role?                                  @relation(fields: [roleId], references: [id])
+  tokenVersion                                 Int                                    @default(0) @map("token_version")
+  createdAt                                    DateTime                               @default(now())
+  updatedAt                                    DateTime                               @updatedAt
+  deletedAt                                    DateTime?                              @map("deleted_at")
+  note                                         String?                                @db.Text
+  acknowledgedAlerts                           Alert[]                                @relation("AcknowledgedBy")
+  resolvedAlerts                               Alert[]                                @relation("ResolvedBy")
+  updatedSites                                 Site[]                                 @relation("SiteLastUpdatedBy")
+  updatedOffices                               Office[]                               @relation("OfficeLastUpdatedBy")
+  updatedShiftTypes                            ShiftType[]                            @relation("ShiftTypeLastUpdatedBy")
+  updatedShifts                                Shift[]                                @relation("ShiftLastUpdatedBy")
+  createdSites                                 Site[]                                 @relation("SiteCreatedBy")
+  createdOffices                               Office[]                               @relation("OfficeCreatedBy")
+  createdShiftTypes                            ShiftType[]                            @relation("ShiftTypeCreatedBy")
+  createdShifts                                Shift[]                                @relation("ShiftCreatedBy")
+  createdOfficeShiftTypes                      OfficeShiftType[]                      @relation("OfficeShiftTypeCreatedBy")
+  updatedOfficeShiftTypes                      OfficeShiftType[]                      @relation("OfficeShiftTypeLastUpdatedBy")
+  createdOfficeShifts                          OfficeShift[]                          @relation("OfficeShiftCreatedBy")
+  updatedOfficeShifts                          OfficeShift[]                          @relation("OfficeShiftLastUpdatedBy")
+  createdOfficeWorkSchedules                   OfficeWorkSchedule[]                   @relation("OfficeWorkScheduleCreatedBy")
+  updatedOfficeWorkSchedules                   OfficeWorkSchedule[]                   @relation("OfficeWorkScheduleLastUpdatedBy")
   createdEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentCreatedBy")
   updatedEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentLastUpdatedBy")
-  changelogs         Changelog[]
-  sentMessages       ChatMessage[]
-  chatConversationStates AdminChatConversationState[]
+  changelogs                                   Changelog[]
+  sentMessages                                 ChatMessage[]
+  chatConversationStates                       AdminChatConversationState[]
 
   @@index([deletedAt])
   @@map("admins")
@@ -115,19 +115,19 @@ model Changelog {
 }
 
 model ChatMessage {
-  id          String         @id @default(uuid())
-  employeeId  String         @map("employee_id")
-  adminId     String?        @map("admin_id") // If sent by admin
-  sender      ChatSenderType
-  status      ChatMessageStatus @default(sent)
-  content     String         @db.Text
-  attachments String[]
-  latitude    Float?
-  longitude   Float?
-  createdAt   DateTime       @default(now()) @map("created_at")
-  sentAt      DateTime?      @map("sent_at")
-  draftExpiresAt DateTime?   @map("draft_expires_at")
-  readAt      DateTime?      @map("read_at")
+  id             String            @id @default(uuid())
+  employeeId     String            @map("employee_id")
+  adminId        String?           @map("admin_id") // If sent by admin
+  sender         ChatSenderType
+  status         ChatMessageStatus @default(sent)
+  content        String            @db.Text
+  attachments    String[]
+  latitude       Float?
+  longitude      Float?
+  createdAt      DateTime          @default(now()) @map("created_at")
+  sentAt         DateTime?         @map("sent_at")
+  draftExpiresAt DateTime?         @map("draft_expires_at")
+  readAt         DateTime?         @map("read_at")
 
   employee Employee @relation(fields: [employeeId], references: [id])
   admin    Admin?   @relation(fields: [adminId], references: [id])
@@ -152,15 +152,15 @@ model ChatConversation {
 }
 
 model AdminChatConversationState {
-  id         String   @id @default(uuid())
-  adminId    String   @map("admin_id")
-  employeeId String   @map("employee_id")
-  isArchived Boolean  @default(false) @map("is_archived")
-  isMuted    Boolean  @default(false) @map("is_muted")
+  id         String    @id @default(uuid())
+  adminId    String    @map("admin_id")
+  employeeId String    @map("employee_id")
+  isArchived Boolean   @default(false) @map("is_archived")
+  isMuted    Boolean   @default(false) @map("is_muted")
   archivedAt DateTime? @map("archived_at")
   mutedAt    DateTime? @map("muted_at")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
   admin    Admin    @relation(fields: [adminId], references: [id])
   employee Employee @relation(fields: [employeeId], references: [id])
@@ -182,40 +182,39 @@ enum ChatMessageStatus {
   expired
 }
 
-
 model Employee {
-  id              String       @id
-  employeeNumber  String?      @map("employee_number")
-  personnelId     String?      @map("personnel_id")
-  nickname        String?
-  fullName        String       @map("full_name")
-  jobTitle        String?      @map("job_title")
-  department      String?
-  phone           String?      
-  hashedPassword  String       @map("password")
-  mustChangePassword Boolean   @default(true) @map("must_change_password")
-  role            EmployeeRole?
-  status          Boolean?     @default(true)
-  note            String?      @db.Text
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  deletedAt       DateTime?    @map("deleted_at")
-  checkins        Checkin[]
-  shifts          Shift[]
-  attendances     Attendance[]
-  officeId        String?      @map("office_id")
-  officeAttendanceMode OfficeAttendanceMode? @map("office_attendance_mode")
-  fieldModeEnabled Boolean     @default(false) @map("field_mode_enabled")
-  office          Office?      @relation(fields: [officeId], references: [id])
-  officeShifts    OfficeShift[]
+  id                            String                                 @id
+  employeeNumber                String?                                @map("employee_number")
+  personnelId                   String?                                @map("personnel_id")
+  nickname                      String?
+  fullName                      String                                 @map("full_name")
+  jobTitle                      String?                                @map("job_title")
+  department                    String?
+  phone                         String?
+  hashedPassword                String                                 @map("password")
+  mustChangePassword            Boolean                                @default(true) @map("must_change_password")
+  role                          EmployeeRole?
+  status                        Boolean?                               @default(true)
+  note                          String?                                @db.Text
+  createdAt                     DateTime                               @default(now())
+  updatedAt                     DateTime                               @updatedAt
+  deletedAt                     DateTime?                              @map("deleted_at")
+  checkins                      Checkin[]
+  shifts                        Shift[]
+  attendances                   Attendance[]
+  officeId                      String?                                @map("office_id")
+  officeAttendanceMode          OfficeAttendanceMode?                  @map("office_attendance_mode")
+  fieldModeEnabled              Boolean                                @default(false) @map("field_mode_enabled")
+  office                        Office?                                @relation(fields: [officeId], references: [id])
+  officeShifts                  OfficeShift[]
   officeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[]
-  officeAttendances OfficeAttendance[]
-  chatMessages    ChatMessage[]
-  chatConversationStates AdminChatConversationState[]
-  chatConversation ChatConversation?
-  refreshTokens   RefreshToken[]
-  sessions        EmployeeSession[]
-  passwordHistories EmployeePasswordHistory[]
+  officeAttendances             OfficeAttendance[]
+  chatMessages                  ChatMessage[]
+  chatConversationStates        AdminChatConversationState[]
+  chatConversation              ChatConversation?
+  refreshTokens                 RefreshToken[]
+  sessions                      EmployeeSession[]
+  passwordHistories             EmployeePasswordHistory[]
 
   @@index([status])
   @@index([deletedAt])
@@ -225,17 +224,17 @@ model Employee {
 }
 
 model EmployeeSession {
-  id         String   @id @default(uuid())
-  employeeId String   @map("employee_id")
-  clientType String   @map("client_type")
-  deviceInfo String?  @map("device_info")
-  expiresAt  DateTime @map("expires_at")
+  id         String    @id @default(uuid())
+  employeeId String    @map("employee_id")
+  clientType String    @map("client_type")
+  deviceInfo String?   @map("device_info")
+  expiresAt  DateTime  @map("expires_at")
   revokedAt  DateTime? @map("revoked_at")
   lastSeenAt DateTime? @map("last_seen_at")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee  Employee   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   fcmTokens FcmToken[]
 
   @@index([employeeId])
@@ -283,22 +282,22 @@ model Site {
 }
 
 model Office {
-  id              String    @id @default(uuid())
-  name            String
-  address         String?
-  latitude        Float?
-  longitude       Float?
-  status          Boolean?  @default(true)
-  lastUpdatedById String?   @map("last_updated_by_id")
-  createdById     String?   @map("created_by_id")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime? @map("deleted_at")
-  note            String?   @db.Text
+  id                String             @id @default(uuid())
+  name              String
+  address           String?
+  latitude          Float?
+  longitude         Float?
+  status            Boolean?           @default(true)
+  lastUpdatedById   String?            @map("last_updated_by_id")
+  createdById       String?            @map("created_by_id")
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  deletedAt         DateTime?          @map("deleted_at")
+  note              String?            @db.Text
   officeAttendances OfficeAttendance[]
-  employees       Employee[]
-  lastUpdatedBy   Admin?    @relation("OfficeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  createdBy       Admin?    @relation("OfficeCreatedBy", fields: [createdById], references: [id])
+  employees         Employee[]
+  lastUpdatedBy     Admin?             @relation("OfficeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  createdBy         Admin?             @relation("OfficeCreatedBy", fields: [createdById], references: [id])
 
   @@index([status])
   @@index([deletedAt])
@@ -324,18 +323,18 @@ model ShiftType {
 }
 
 model OfficeShiftType {
-  id              String    @id @default(uuid())
-  name            String    @unique
-  startTime       String    @map("start_time")
-  endTime         String    @map("end_time")
-  lastUpdatedById String?   @map("last_updated_by_id")
-  createdById     String?   @map("created_by_id")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  deletedAt       DateTime? @map("deleted_at")
+  id              String        @id @default(uuid())
+  name            String        @unique
+  startTime       String        @map("start_time")
+  endTime         String        @map("end_time")
+  lastUpdatedById String?       @map("last_updated_by_id")
+  createdById     String?       @map("created_by_id")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  deletedAt       DateTime?     @map("deleted_at")
   officeShifts    OfficeShift[]
-  lastUpdatedBy   Admin?    @relation("OfficeShiftTypeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  createdBy       Admin?    @relation("OfficeShiftTypeCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy   Admin?        @relation("OfficeShiftTypeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  createdBy       Admin?        @relation("OfficeShiftTypeCreatedBy", fields: [createdById], references: [id])
 
   @@index([deletedAt])
   @@map("office_shift_types")
@@ -356,21 +355,21 @@ model Shift {
   lastHeartbeatAt             DateTime?      @map("last_heartbeat_at") @db.Timestamptz(6)
   lastDeviceHeartbeatAt       DateTime?      @map("last_device_heartbeat_at") @db.Timestamptz(6)
 
-  missedCount                 Int            @default(0) @map("missed_count")
-  createdById                 String?        @map("created_by_id")
-  lastUpdatedById             String?        @map("last_updated_by_id")
-  createdAt                   DateTime       @default(now()) @map("created_at")
-  updatedAt                   DateTime       @updatedAt
-  deletedAt                   DateTime?      @map("deleted_at")
-  note                        String?        @db.Text
-  alerts                      Alert[]
-  checkins                    Checkin[]
-  employee                    Employee?      @relation(fields: [employeeId], references: [id])
-  shiftType                   ShiftType      @relation(fields: [shiftTypeId], references: [id])
-  site                        Site           @relation(fields: [siteId], references: [id])
-  createdBy                   Admin?         @relation("ShiftCreatedBy", fields: [createdById], references: [id])
-  lastUpdatedBy               Admin?         @relation("ShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  attendance                  Attendance?
+  missedCount     Int         @default(0) @map("missed_count")
+  createdById     String?     @map("created_by_id")
+  lastUpdatedById String?     @map("last_updated_by_id")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt
+  deletedAt       DateTime?   @map("deleted_at")
+  note            String?     @db.Text
+  alerts          Alert[]
+  checkins        Checkin[]
+  employee        Employee?   @relation(fields: [employeeId], references: [id])
+  shiftType       ShiftType   @relation(fields: [shiftTypeId], references: [id])
+  site            Site        @relation(fields: [siteId], references: [id])
+  createdBy       Admin?      @relation("ShiftCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy   Admin?      @relation("ShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  attendance      Attendance?
 
   @@index([siteId])
   @@index([employeeId, startsAt])
@@ -477,25 +476,25 @@ model Attendance {
 }
 
 model OfficeShift {
-  id              String          @id @default(uuid())
-  officeShiftTypeId String        @map("office_shift_type_id")
-  employeeId      String          @map("employee_id")
-  date            DateTime        @db.Date
-  startsAt        DateTime        @map("starts_at")
-  endsAt          DateTime        @map("ends_at")
-  status          ShiftStatus     @default(scheduled)
-  graceMinutes    Int             @default(15) @map("grace_minutes")
-  createdById     String?         @map("created_by_id")
-  lastUpdatedById String?         @map("last_updated_by_id")
-  createdAt       DateTime        @default(now()) @map("created_at")
-  updatedAt       DateTime        @updatedAt
-  deletedAt       DateTime?       @map("deleted_at")
-  note            String?         @db.Text
+  id                String      @id @default(uuid())
+  officeShiftTypeId String      @map("office_shift_type_id")
+  employeeId        String      @map("employee_id")
+  date              DateTime    @db.Date
+  startsAt          DateTime    @map("starts_at")
+  endsAt            DateTime    @map("ends_at")
+  status            ShiftStatus @default(scheduled)
+  graceMinutes      Int         @default(15) @map("grace_minutes")
+  createdById       String?     @map("created_by_id")
+  lastUpdatedById   String?     @map("last_updated_by_id")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt
+  deletedAt         DateTime?   @map("deleted_at")
+  note              String?     @db.Text
 
-  employee        Employee        @relation(fields: [employeeId], references: [id])
-  officeShiftType OfficeShiftType @relation(fields: [officeShiftTypeId], references: [id])
-  createdBy       Admin?          @relation("OfficeShiftCreatedBy", fields: [createdById], references: [id])
-  lastUpdatedBy   Admin?          @relation("OfficeShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  employee          Employee           @relation(fields: [employeeId], references: [id])
+  officeShiftType   OfficeShiftType    @relation(fields: [officeShiftTypeId], references: [id])
+  createdBy         Admin?             @relation("OfficeShiftCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy     Admin?             @relation("OfficeShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
   officeAttendances OfficeAttendance[]
 
   @@index([employeeId, startsAt])
@@ -507,7 +506,7 @@ model OfficeShift {
 }
 
 model SystemSetting {
-  name  String @id
+  name  String  @id
   value String
   note  String?
 
@@ -515,15 +514,15 @@ model SystemSetting {
 }
 
 model OfficeWorkSchedule {
-  id              String                 @id @default(uuid())
-  code            String                 @unique
-  name            String                 @unique
-  createdById     String?                @map("created_by_id")
-  lastUpdatedById String?                @map("last_updated_by_id")
-  createdAt       DateTime               @default(now()) @map("created_at")
-  updatedAt       DateTime               @updatedAt @map("updated_at")
-  createdBy       Admin?                 @relation("OfficeWorkScheduleCreatedBy", fields: [createdById], references: [id])
-  lastUpdatedBy   Admin?                 @relation("OfficeWorkScheduleLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  id              String                                 @id @default(uuid())
+  code            String                                 @unique
+  name            String                                 @unique
+  createdById     String?                                @map("created_by_id")
+  lastUpdatedById String?                                @map("last_updated_by_id")
+  createdAt       DateTime                               @default(now()) @map("created_at")
+  updatedAt       DateTime                               @updatedAt @map("updated_at")
+  createdBy       Admin?                                 @relation("OfficeWorkScheduleCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy   Admin?                                 @relation("OfficeWorkScheduleLastUpdatedBy", fields: [lastUpdatedById], references: [id])
   days            OfficeWorkScheduleDay[]
   assignments     EmployeeOfficeWorkScheduleAssignment[]
 
@@ -576,20 +575,20 @@ enum AttendanceStatus {
 }
 
 model OfficeAttendance {
-  id         String           @id @default(uuid())
-  officeId   String?          @map("office_id")
-  officeShiftId String?       @map("office_shift_id")
-  employeeId String           @map("employee_id")
-  recordedAt DateTime         @default(now()) @map("recorded_at") @db.Timestamptz(6)
-  picture    String?
-  status     AttendanceStatus
-  metadata   Json?
-  createdAt  DateTime         @default(now()) @map("created_at")
-  updatedAt  DateTime         @updatedAt
+  id            String           @id @default(uuid())
+  officeId      String?          @map("office_id")
+  officeShiftId String?          @map("office_shift_id")
+  employeeId    String           @map("employee_id")
+  recordedAt    DateTime         @default(now()) @map("recorded_at") @db.Timestamptz(6)
+  picture       String?
+  status        AttendanceStatus
+  metadata      Json?
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt
 
-  office     Office?      @relation(fields: [officeId], references: [id])
+  office      Office?      @relation(fields: [officeId], references: [id])
   officeShift OfficeShift? @relation(fields: [officeShiftId], references: [id])
-  employee   Employee     @relation(fields: [employeeId], references: [id])
+  employee    Employee     @relation(fields: [employeeId], references: [id])
 
   @@index([recordedAt])
   @@index([employeeId])
@@ -599,28 +598,28 @@ model OfficeAttendance {
 }
 
 model ApiKey {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   name       String
-  key        String   @unique // Hashed key
-  status     Boolean  @default(true)
+  key        String    @unique // Hashed key
+  status     Boolean   @default(true)
   lastUsedAt DateTime? @map("last_used_at")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
 
   @@map("api_keys")
 }
 
 model RefreshToken {
-  id          String   @id @default(uuid())
-  token       String   @unique // Hashed token
-  employeeId  String   @map("employee_id")
-  deviceInfo  String?  @map("device_info")
-  expiresAt   DateTime @map("expires_at")
-  createdAt   DateTime @default(now()) @map("created_at")
-  revokedAt   DateTime? @map("revoked_at")
-  replacedByToken String? @map("replaced_by_token")
+  id              String    @id @default(uuid())
+  token           String    @unique // Hashed token
+  employeeId      String    @map("employee_id")
+  deviceInfo      String?   @map("device_info")
+  expiresAt       DateTime  @map("expires_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  revokedAt       DateTime? @map("revoked_at")
+  replacedByToken String?   @map("replaced_by_token")
 
-  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
   @@index([employeeId])
   @@index([token])

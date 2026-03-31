@@ -145,12 +145,16 @@ export async function getActiveEmployees(role?: EmployeeRole) {
   });
 }
 
-export async function getActiveEmployeesSummary(role?: EmployeeRole): Promise<EmployeeSummary[]> {
+export async function getActiveEmployeesSummary(
+  role?: EmployeeRole,
+  officeAttendanceMode?: OfficeAttendanceMode
+): Promise<EmployeeSummary[]> {
   return prisma.employee.findMany({
     where: {
       status: true,
       deletedAt: null,
       ...(role && { role }),
+      ...(role === 'office' && officeAttendanceMode ? { officeAttendanceMode } : {}),
     },
     orderBy: { fullName: 'asc' },
     select: {
