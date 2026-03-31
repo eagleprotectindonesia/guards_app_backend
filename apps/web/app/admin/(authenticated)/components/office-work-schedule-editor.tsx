@@ -11,6 +11,10 @@ export type OfficeWorkScheduleDayFormValue = {
 };
 
 const WEEKDAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DISPLAY_WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+const sortDaysForDisplay = (items: OfficeWorkScheduleDayFormValue[]) =>
+  [...items].sort((a, b) => DISPLAY_WEEKDAY_ORDER.indexOf(a.weekday) - DISPLAY_WEEKDAY_ORDER.indexOf(b.weekday));
 
 type Props = {
   inputName?: string;
@@ -19,9 +23,7 @@ type Props = {
 };
 
 export default function OfficeWorkScheduleEditor({ inputName = 'days', initialDays, disabled = false }: Props) {
-  const [days, setDays] = useState<OfficeWorkScheduleDayFormValue[]>(() =>
-    [...initialDays].sort((a, b) => a.weekday - b.weekday)
-  );
+  const [days, setDays] = useState<OfficeWorkScheduleDayFormValue[]>(() => sortDaysForDisplay(initialDays));
 
   const updateDay = (weekday: number, patch: Partial<OfficeWorkScheduleDayFormValue>) => {
     setDays(current =>
@@ -39,9 +41,43 @@ export default function OfficeWorkScheduleEditor({ inputName = 'days', initialDa
     );
   };
 
+  const copyMondayToAllDays = () => {
+    setDays(current => {
+      const monday = current.find(day => day.weekday === 1);
+
+      if (!monday) {
+        return current;
+      }
+
+      return current.map(day => {
+        if (day.weekday === 1) {
+          return day;
+        }
+
+        return {
+          ...day,
+          isWorkingDay: monday.isWorkingDay,
+          startTime: monday.isWorkingDay ? monday.startTime : null,
+          endTime: monday.isWorkingDay ? monday.endTime : null,
+        };
+      });
+    });
+  };
+
   return (
     <div className="space-y-4">
       <input type="hidden" name={inputName} value={JSON.stringify(days)} />
+
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={copyMondayToAllDays}
+          disabled={disabled}
+          className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Copy Monday to all days
+        </button>
+      </div>
 
       {days.map(day => (
         <div
