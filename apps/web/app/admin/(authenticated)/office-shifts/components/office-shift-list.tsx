@@ -67,7 +67,11 @@ export default function OfficeShiftList({
           : await deleteOfficeShift(officeShift.id);
 
       if (result.success) {
-        toast.success(officeShift.status === 'in_progress' ? 'Office shift cancelled successfully!' : 'Office shift deleted successfully!');
+        toast.success(
+          officeShift.status === 'in_progress'
+            ? 'Office shift cancelled successfully!'
+            : 'Office shift deleted successfully!'
+        );
         setSelectedOfficeShiftId(null);
       } else {
         toast.error(result.message || 'Failed to update office shift.');
@@ -111,7 +115,9 @@ export default function OfficeShiftList({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Office Shifts</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage date-specific working overrides for office employees.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage date-specific working overrides for office employees.
+          </p>
         </div>
         <div className="flex gap-2">
           <button
@@ -173,9 +179,13 @@ export default function OfficeShiftList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift Type</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Shift Type
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Date / Time</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Date / Time
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
                   <div className="flex flex-col gap-0.5">
@@ -183,7 +193,9 @@ export default function OfficeShiftList({
                     <span className="text-muted-foreground/60">Last Updated By</span>
                   </div>
                 </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Actions</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -196,12 +208,17 @@ export default function OfficeShiftList({
               ) : (
                 officeShifts.map(officeShift => (
                   <tr key={officeShift.id} className="hover:bg-muted/30 transition-colors group">
-                    <td className="py-4 px-6 text-sm font-medium text-foreground">{officeShift.officeShiftType.name}</td>
+                    <td className="py-4 px-6 text-sm font-medium text-foreground">
+                      {officeShift.officeShiftType.name}
+                    </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">{officeShift.employee.fullName}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
-                      <div className="font-medium text-foreground">{format(new Date(officeShift.startsAt), 'yyyy/MM/dd')}</div>
+                      <div className="font-medium text-foreground">
+                        {format(new Date(officeShift.startsAt), 'yyyy/MM/dd')}
+                      </div>
                       <div className="text-xs text-muted-foreground/80">
-                        {format(new Date(officeShift.startsAt), 'HH:mm')} - {format(new Date(officeShift.endsAt), 'HH:mm')}
+                        {format(new Date(officeShift.startsAt), 'HH:mm')} -{' '}
+                        {format(new Date(officeShift.endsAt), 'HH:mm')}
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
@@ -245,12 +262,16 @@ export default function OfficeShiftList({
                           disabled={
                             isPending ||
                             !canDelete ||
-                            (!isSuperAdmin && officeShift.status !== 'in_progress' && officeShift.status !== 'scheduled')
+                            (!isSuperAdmin &&
+                              officeShift.status !== 'in_progress' &&
+                              officeShift.status !== 'scheduled')
                           }
                           title={
                             !canDelete
                               ? 'Permission Denied'
-                              : !isSuperAdmin && officeShift.status !== 'in_progress' && officeShift.status !== 'scheduled'
+                              : !isSuperAdmin &&
+                                  officeShift.status !== 'in_progress' &&
+                                  officeShift.status !== 'scheduled'
                                 ? 'Only in-progress or scheduled shifts can be cancelled'
                                 : 'Actions'
                           }

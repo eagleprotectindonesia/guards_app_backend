@@ -249,3 +249,46 @@ export async function deleteEmployeeOfficeDayOverridesByEmployeeAndDates(
 
   return existing.length;
 }
+
+export type EmployeeDayOffWithEmployee = {
+  id: string;
+  employeeId: string;
+  date: Date;
+  overrideType: 'off' | 'shift_override';
+  note: string | null;
+  employee: {
+    id: string;
+    fullName: string;
+    employeeNumber: string | null;
+  };
+};
+
+export async function getEmployeeDayOffsForDateRange(
+  startDate: Date,
+  endDate: Date,
+  employeeId?: string,
+  tx: TxLike = prisma
+): Promise<EmployeeDayOffWithEmployee[]> {
+  return (tx as any).employeeOfficeDayOverride.findMany({
+    where: {
+      employeeId: employeeId || undefined,
+      overrideType: 'off',
+      date: {
+        gte: startDate,
+        lte: endDate,
+      },
+    },
+    include: {
+      employee: {
+        select: {
+          id: true,
+          fullName: true,
+          employeeNumber: true,
+        },
+      },
+    },
+    orderBy: {
+      date: 'asc',
+    },
+  });
+}

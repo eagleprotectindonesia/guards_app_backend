@@ -1,5 +1,6 @@
 import { getPaginationParams } from '@/lib/server-utils';
 import OfficeShiftList from './components/office-shift-list';
+import OfficeShiftsTabs from './components/office-shifts-tabs';
 import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
@@ -91,6 +92,8 @@ export default async function OfficeShiftsPage({
 
   return (
     <div className="max-w-7xl mx-auto">
+      <OfficeShiftsTabs />
+
       <Suspense fallback={<div>Loading office shifts...</div>}>
         <OfficeShiftList
           officeShifts={officeShiftDtos}
