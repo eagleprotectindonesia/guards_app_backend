@@ -218,169 +218,184 @@ export async function checkOverlappingOfficeShift(params: {
   });
 }
 
-export async function createOfficeShiftWithChangelog(data: Prisma.OfficeShiftCreateInput, adminId: string) {
-  return prisma.$transaction(async tx => {
-    const created = await tx.officeShift.create({
-      data: {
-        ...data,
-        createdBy: { connect: { id: adminId } },
-        lastUpdatedBy: { connect: { id: adminId } },
-      },
-      include: {
-        officeShiftType: true,
-        employee: { include: { office: { select: { name: true } } } },
-      },
-    });
+export async function createOfficeShiftWithChangelog(
+  data: Prisma.OfficeShiftCreateInput,
+  adminId: string,
+  tx?: Prisma.TransactionClient
+) {
+  const client: TxLike = tx ?? prisma;
 
-    await tx.changelog.create({
-      data: {
-        action: 'CREATE',
-        entityType: 'OfficeShift',
-        entityId: created.id,
-        actor: 'admin',
-        actorId: adminId,
-        details: {
-          officeShiftTypeName: created.officeShiftType.name,
-          employeeName: created.employee.fullName,
-          date: created.date,
-          startsAt: created.startsAt,
-          endsAt: created.endsAt,
-          status: created.status,
-          note: created.note,
-          officeShiftTypeId: created.officeShiftTypeId,
-          employeeId: created.employeeId,
-        },
-      },
-    });
-
-    return created;
+  const created = await client.officeShift.create({
+    data: {
+      ...data,
+      createdBy: { connect: { id: adminId } },
+      lastUpdatedBy: { connect: { id: adminId } },
+    },
+    include: {
+      officeShiftType: true,
+      employee: { include: { office: { select: { name: true } } } },
+    },
   });
+
+  await client.changelog.create({
+    data: {
+      action: 'CREATE',
+      entityType: 'OfficeShift',
+      entityId: created.id,
+      actor: 'admin',
+      actorId: adminId,
+      details: {
+        officeShiftTypeName: created.officeShiftType.name,
+        employeeName: created.employee.fullName,
+        date: created.date,
+        startsAt: created.startsAt,
+        endsAt: created.endsAt,
+        status: created.status,
+        note: created.note,
+        officeShiftTypeId: created.officeShiftTypeId,
+        employeeId: created.employeeId,
+      },
+    },
+  });
+
+  return created;
 }
 
 export async function updateOfficeShiftWithChangelog(
   id: string,
   data: Prisma.OfficeShiftUpdateInput,
-  adminId: string
+  adminId: string,
+  tx?: Prisma.TransactionClient
 ) {
-  return prisma.$transaction(async tx => {
-    const before = await tx.officeShift.findUnique({
-      where: { id, deletedAt: null },
-      include: {
-        officeShiftType: true,
-        employee: true,
-      },
-    });
+  const client: TxLike = tx ?? prisma;
 
-    if (!before) {
-      throw new Error('Office Shift not found');
-    }
+  const before = await client.officeShift.findUnique({
+    where: { id, deletedAt: null },
+    include: {
+      officeShiftType: true,
+      employee: true,
+    },
+  });
 
-    const updated = await tx.officeShift.update({
-      where: { id },
-      data: {
-        ...data,
-        lastUpdatedBy: { connect: { id: adminId } },
-      },
-      include: {
-        officeShiftType: true,
-        employee: true,
-      },
-    });
+  if (!before) {
+    throw new Error('Office Shift not found');
+  }
 
-    const changes: Record<string, { from: Prisma.InputJsonValue; to: Prisma.InputJsonValue }> = {};
-    const fieldsToTrack = ['officeShiftTypeId', 'employeeId', 'date', 'startsAt', 'endsAt', 'status', 'note'] as const;
-    for (const field of fieldsToTrack) {
-      const oldValue = before[field];
-      const newValue = updated[field];
-      if (oldValue instanceof Date && newValue instanceof Date) {
-        if (oldValue.getTime() !== newValue.getTime()) {
-          changes[field] = {
-            from: oldValue.toISOString() as Prisma.InputJsonValue,
-            to: newValue.toISOString() as Prisma.InputJsonValue,
-          };
-        }
-      } else if (oldValue !== newValue) {
+  const updated = await client.officeShift.update({
+    where: { id },
+    data: {
+      ...data,
+      lastUpdatedBy: { connect: { id: adminId } },
+    },
+    include: {
+      officeShiftType: true,
+      employee: true,
+    },
+  });
+
+  const changes: Record<string, { from: Prisma.InputJsonValue; to: Prisma.InputJsonValue }> = {};
+  const fieldsToTrack = ['officeShiftTypeId', 'employeeId', 'date', 'startsAt', 'endsAt', 'status', 'note'] as const;
+  for (const field of fieldsToTrack) {
+    const oldValue = before[field];
+    const newValue = updated[field];
+    if (oldValue instanceof Date && newValue instanceof Date) {
+      if (oldValue.getTime() !== newValue.getTime()) {
         changes[field] = {
-          from: (oldValue ?? null) as Prisma.InputJsonValue,
-          to: (newValue ?? null) as Prisma.InputJsonValue,
+          from: oldValue.toISOString() as Prisma.InputJsonValue,
+          to: newValue.toISOString() as Prisma.InputJsonValue,
         };
       }
-    }
-
-    if (before.officeShiftType.name !== updated.officeShiftType.name) {
-      changes.officeShiftTypeName = {
-        from: before.officeShiftType.name as Prisma.InputJsonValue,
-        to: updated.officeShiftType.name as Prisma.InputJsonValue,
+    } else if (oldValue !== newValue) {
+      changes[field] = {
+        from: (oldValue ?? null) as Prisma.InputJsonValue,
+        to: (newValue ?? null) as Prisma.InputJsonValue,
       };
     }
+  }
 
-    await tx.changelog.create({
-      data: {
-        action: 'UPDATE',
-        entityType: 'OfficeShift',
-        entityId: updated.id,
-        actor: 'admin',
-        actorId: adminId,
-        details: {
-          officeShiftTypeName: updated.officeShiftType.name,
-          employeeName: updated.employee.fullName,
-          date: updated.date,
-          startsAt: updated.startsAt,
-          endsAt: updated.endsAt,
-          status: updated.status,
-          note: updated.note,
-          officeShiftTypeId: updated.officeShiftTypeId,
-          employeeId: updated.employeeId,
-          changes: Object.keys(changes).length > 0 ? changes : undefined,
-        },
+  if (before.officeShiftType.name !== updated.officeShiftType.name) {
+    changes.officeShiftTypeName = {
+      from: before.officeShiftType.name as Prisma.InputJsonValue,
+      to: updated.officeShiftType.name as Prisma.InputJsonValue,
+    };
+  }
+
+  await client.changelog.create({
+    data: {
+      action: 'UPDATE',
+      entityType: 'OfficeShift',
+      entityId: updated.id,
+      actor: 'admin',
+      actorId: adminId,
+      details: {
+        officeShiftTypeName: updated.officeShiftType.name,
+        employeeName: updated.employee.fullName,
+        date: updated.date,
+        startsAt: updated.startsAt,
+        endsAt: updated.endsAt,
+        status: updated.status,
+        note: updated.note,
+        officeShiftTypeId: updated.officeShiftTypeId,
+        employeeId: updated.employeeId,
+        changes: Object.keys(changes).length > 0 ? changes : undefined,
       },
-    });
-
-    return updated;
+    },
   });
+
+  return updated;
 }
 
-export async function deleteOfficeShiftWithChangelog(id: string, adminId: string) {
-  return prisma.$transaction(async tx => {
-    const officeShift = await tx.officeShift.findUnique({
-      where: { id, deletedAt: null },
-      include: {
-        officeShiftType: true,
-        employee: true,
-      },
-    });
+export async function deleteOfficeShiftWithChangelog(id: string, adminId: string, tx?: Prisma.TransactionClient) {
+  const client: TxLike = tx ?? prisma;
 
-    if (!officeShift) {
-      throw new Error('Office Shift not found');
-    }
+  const officeShift = await client.officeShift.findUnique({
+    where: { id, deletedAt: null },
+    include: {
+      officeShiftType: true,
+      employee: true,
+    },
+  });
 
-    await tx.officeShift.update({
-      where: { id },
-      data: {
+  if (!officeShift) {
+    throw new Error('Office Shift not found');
+  }
+
+  const dateObj = new Date(officeShift.date.toISOString().slice(0, 10) + 'T00:00:00Z');
+
+  await client.officeShift.update({
+    where: { id },
+    data: {
+      deletedAt: new Date(),
+      status: 'cancelled',
+      lastUpdatedBy: { connect: { id: adminId } },
+    },
+  });
+
+  await client.employeeOfficeDayOverride.deleteMany({
+    where: {
+      employeeId: officeShift.employeeId,
+      date: dateObj,
+      overrideType: 'shift_override',
+    },
+  });
+
+  await client.changelog.create({
+    data: {
+      action: 'DELETE',
+      entityType: 'OfficeShift',
+      entityId: id,
+      actor: 'admin',
+      actorId: adminId,
+      details: {
+        officeShiftTypeName: officeShift.officeShiftType.name,
+        employeeName: officeShift.employee.fullName,
+        date: officeShift.date,
+        startsAt: officeShift.startsAt,
+        endsAt: officeShift.endsAt,
+        note: officeShift.note,
         deletedAt: new Date(),
-        status: 'cancelled',
-        lastUpdatedBy: { connect: { id: adminId } },
       },
-    });
-
-    await tx.changelog.create({
-      data: {
-        action: 'DELETE',
-        entityType: 'OfficeShift',
-        entityId: id,
-        actor: 'admin',
-        actorId: adminId,
-        details: {
-          officeShiftTypeName: officeShift.officeShiftType.name,
-          employeeName: officeShift.employee.fullName,
-          date: officeShift.date,
-          startsAt: officeShift.startsAt,
-          endsAt: officeShift.endsAt,
-          note: officeShift.note,
-          deletedAt: new Date(),
-        },
-      },
-    });
+    },
   });
 }
 

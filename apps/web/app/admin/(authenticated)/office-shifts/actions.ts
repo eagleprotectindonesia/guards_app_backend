@@ -178,18 +178,31 @@ export async function createOfficeShift(
       return { success: false, message: 'Employee already has a conflicting office shift during this time.' };
     }
 
-    await createOfficeShiftWithChangelog(
-      {
-        officeShiftType: { connect: { id: officeShiftTypeId } },
-        employee: { connect: { id: employeeId } },
-        date: dateObj,
-        startsAt: startDateTime,
-        endsAt: endDateTime,
-        note,
-        status: 'scheduled',
-      },
-      adminId!
-    );
+    await prisma.$transaction(async tx => {
+      await createOfficeShiftWithChangelog(
+        {
+          officeShiftType: { connect: { id: officeShiftTypeId } },
+          employee: { connect: { id: employeeId } },
+          date: dateObj,
+          startsAt: startDateTime,
+          endsAt: endDateTime,
+          note,
+          status: 'scheduled',
+        },
+        adminId!,
+        tx
+      );
+
+      await upsertEmployeeOfficeDayOverride(
+        {
+          employeeId,
+          date,
+          overrideType: 'shift_override',
+          adminId: adminId!,
+        },
+        tx
+      );
+    });
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -260,18 +273,31 @@ export async function updateOfficeShift(
       return { success: false, message: 'Employee already has a conflicting office shift during this time.' };
     }
 
-    await updateOfficeShiftWithChangelog(
-      id,
-      {
-        officeShiftType: { connect: { id: officeShiftTypeId } },
-        employee: { connect: { id: employeeId } },
-        date: dateObj,
-        startsAt: startDateTime,
-        endsAt: endDateTime,
-        note,
-      },
-      adminId!
-    );
+    await prisma.$transaction(async tx => {
+      await updateOfficeShiftWithChangelog(
+        id,
+        {
+          officeShiftType: { connect: { id: officeShiftTypeId } },
+          employee: { connect: { id: employeeId } },
+          date: dateObj,
+          startsAt: startDateTime,
+          endsAt: endDateTime,
+          note,
+        },
+        adminId!,
+        tx
+      );
+
+      await upsertEmployeeOfficeDayOverride(
+        {
+          employeeId,
+          date,
+          overrideType: 'shift_override',
+          adminId: adminId!,
+        },
+        tx
+      );
+    });
   } catch (error) {
     console.error('Database Error:', error);
     return {
