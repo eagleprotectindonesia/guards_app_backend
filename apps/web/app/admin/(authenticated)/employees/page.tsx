@@ -10,6 +10,7 @@ import {
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { applyEmployeeVisibilityScope } from '@/lib/auth/admin-visibility';
+import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 
 export const metadata: Metadata = {
   title: 'Employees Management',
@@ -23,6 +24,7 @@ type EmployeesPageProps = {
 
 export default async function EmployeesPage(props: EmployeesPageProps) {
   const session = await requirePermission(PERMISSIONS.EMPLOYEES.VIEW);
+  const officeWorkSchedulesEnabled = isOfficeWorkSchedulesEnabled();
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
   const query = searchParams.q as string | undefined;
@@ -46,6 +48,7 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
     orderBy: { [sortField]: sortOrder as 'asc' | 'desc' },
     skip,
     take: perPage,
+    includeActiveOfficeWorkScheduleName: officeWorkSchedulesEnabled,
   });
 
   const lastSyncTimestamp = await getLastEmployeeSyncTimestamp();
@@ -57,6 +60,7 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
       <Suspense fallback={<div>Loading employees...</div>}>
         <EmployeeList
           employees={serializedEmployees}
+          showOfficeWorkSchedules={officeWorkSchedulesEnabled}
           page={page}
           perPage={perPage}
           totalCount={totalCount}

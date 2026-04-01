@@ -12,6 +12,7 @@ import {
   updateEmployeeOfficeWorkScheduleAssignment,
 } from '../app/admin/(authenticated)/employees/actions';
 import { checkSuperAdmin, getAdminIdFromToken, requirePermission } from '@/lib/admin-auth';
+import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 import {
   bulkUpsertFutureOfficeWorkScheduleAssignments,
   createOfficeWorkSchedule,
@@ -29,6 +30,10 @@ jest.mock('@/lib/admin-auth', () => ({
   checkSuperAdmin: jest.fn(),
   requirePermission: jest.fn(),
   getAdminIdFromToken: jest.fn(),
+}));
+
+jest.mock('@/lib/feature-flags', () => ({
+  isOfficeWorkSchedulesEnabled: jest.fn(),
 }));
 
 jest.mock('@repo/database', () => ({
@@ -73,9 +78,22 @@ describe('office work schedule actions', () => {
 
   beforeEach(() => {
     jest.resetAllMocks();
+    (isOfficeWorkSchedulesEnabled as jest.Mock).mockReturnValue(true);
     (checkSuperAdmin as jest.Mock).mockResolvedValue({ id: 'admin-1' });
     (requirePermission as jest.Mock).mockResolvedValue({ id: 'admin-1' });
     (getAdminIdFromToken as jest.Mock).mockResolvedValue('admin-1');
+  });
+
+  test('blocks default office schedule updates when office schedules are disabled', async () => {
+    (isOfficeWorkSchedulesEnabled as jest.Mock).mockReturnValue(false);
+
+    const result = await updateDefaultOfficeWorkSchedule({ success: false }, new FormData());
+
+    expect(result).toEqual({
+      success: false,
+      message: 'Office schedules are currently disabled.',
+    });
+    expect(checkSuperAdmin).not.toHaveBeenCalled();
   });
 
   test('updates the default office work schedule from structured weekday data', async () => {

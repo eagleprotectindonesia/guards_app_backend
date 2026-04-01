@@ -70,7 +70,7 @@ export default function EmployeeFieldModeCard({
           <div>
             <h1 className="text-2xl font-bold text-foreground">{employeeName}</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Review job-title categorization and the field mode rule before managing office schedules.
+              Review job-title categorization and the field mode rule for this employee.
             </p>
           </div>
 

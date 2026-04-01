@@ -15,6 +15,7 @@ import {
 import { UpdateDefaultOfficeWorkScheduleInput, UpdateSettingsInput, updateDefaultOfficeWorkScheduleSchema } from '@repo/validations';
 import { ActionState } from '@/types/actions';
 import { revalidatePath } from 'next/cache';
+import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 
 const OFFICE_JOB_TITLE_CATEGORY_MAP_NOTE =
   'Maps external office employee job titles into the staff and management categories.';
@@ -129,6 +130,13 @@ export async function updateDefaultOfficeWorkSchedule(
   prevState: ActionState<UpdateDefaultOfficeWorkScheduleInput>,
   formData: FormData
 ): Promise<ActionState<UpdateDefaultOfficeWorkScheduleInput>> {
+  if (!isOfficeWorkSchedulesEnabled()) {
+    return {
+      success: false,
+      message: 'Office schedules are currently disabled.',
+    };
+  }
+
   const currentAdmin = await checkSuperAdmin();
   if (!currentAdmin) {
     return {

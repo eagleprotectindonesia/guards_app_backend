@@ -226,6 +226,38 @@ describe('employees repository', () => {
     });
   });
 
+  test('skips office schedule lookups when active office schedule names are disabled', async () => {
+    (prisma.employee.findMany as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'employee-1',
+        fullName: 'Office User',
+        employeeNumber: 'EMP001',
+        department: 'Finance',
+        jobTitle: 'Analyst',
+        role: 'office',
+        officeId: 'office-1',
+        fieldModeEnabled: false,
+        office: { name: 'HQ' },
+      },
+    ]);
+    (prisma.employee.count as jest.Mock).mockResolvedValueOnce(1);
+
+    const result = await getPaginatedEmployees({
+      where: {},
+      orderBy: { fullName: 'asc' },
+      skip: 0,
+      take: 10,
+      includeActiveOfficeWorkScheduleName: false,
+    });
+
+    expect(result.employees[0]).toMatchObject({
+      fullName: 'Office User',
+      activeOfficeWorkScheduleName: null,
+    });
+    expect(prisma.officeWorkSchedule.findUnique).not.toHaveBeenCalled();
+    expect(prisma.employeeOfficeWorkScheduleAssignment.findFirst).not.toHaveBeenCalled();
+  });
+
   test('returns active employee summary for office employees without mode filtering', async () => {
     (prisma.employee.findMany as jest.Mock).mockResolvedValueOnce([
       {

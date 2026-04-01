@@ -1,13 +1,19 @@
+import { notFound } from 'next/navigation';
 import { getAllOfficeWorkSchedules } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import ScheduleList from './components/schedule-list';
+import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 
 export const dynamic = 'force-dynamic';
 
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default async function OfficeWorkSchedulesPage() {
+  if (!isOfficeWorkSchedulesEnabled()) {
+    notFound();
+  }
+
   await requirePermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.VIEW);
 
   const schedules = await getAllOfficeWorkSchedules();

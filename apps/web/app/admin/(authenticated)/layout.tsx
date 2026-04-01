@@ -9,6 +9,7 @@ import { Metadata } from 'next';
 import { AdminBreadcrumb } from './components/admin-breadcrumb';
 import { SocketProvider } from '@/components/socket-provider';
 import FloatingChatWidget from './components/floating-chat-widget';
+import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 
 export const metadata: Metadata = {
   title: {
@@ -20,6 +21,7 @@ export const metadata: Metadata = {
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getAdminSession();
+  const officeWorkSchedulesEnabled = isOfficeWorkSchedulesEnabled();
 
   if (!session) {
     redirect('/admin/login');
@@ -45,7 +47,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               containerStyle={{ zIndex: 99999 }}
               toastOptions={{ style: { zIndex: 99999 } }}
             />
-            <Sidebar />
+            <Sidebar officeWorkSchedulesEnabled={officeWorkSchedulesEnabled} />
             <div className="flex-1 flex flex-col">
               <Header currentAdmin={session} />
               <div className="px-8 pt-4">

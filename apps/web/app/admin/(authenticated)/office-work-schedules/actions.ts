@@ -14,6 +14,7 @@ import { ActionState } from '@/types/actions';
 import { revalidatePath } from 'next/cache';
 import { getAdminIdFromToken, requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 
 function slugifyScheduleCode(name: string) {
   return (
@@ -40,6 +41,13 @@ export async function createOfficeWorkScheduleAction(
   prevState: ActionState<UpdateOfficeWorkScheduleInput>,
   formData: FormData
 ): Promise<ActionState<UpdateOfficeWorkScheduleInput>> {
+  if (!isOfficeWorkSchedulesEnabled()) {
+    return {
+      success: false,
+      message: 'Office schedules are currently disabled.',
+    };
+  }
+
   const session = await requirePermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.CREATE);
 
   const validatedFields = updateOfficeWorkScheduleSchema.safeParse({
@@ -81,6 +89,13 @@ export async function updateOfficeWorkScheduleAction(
   prevState: ActionState<UpdateOfficeWorkScheduleInput>,
   formData: FormData
 ): Promise<ActionState<UpdateOfficeWorkScheduleInput>> {
+  if (!isOfficeWorkSchedulesEnabled()) {
+    return {
+      success: false,
+      message: 'Office schedules are currently disabled.',
+    };
+  }
+
   const session = await requirePermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.EDIT);
 
   const validatedFields = updateOfficeWorkScheduleSchema.safeParse({
@@ -128,6 +143,13 @@ export async function updateOfficeWorkScheduleAction(
 export async function deleteOfficeWorkScheduleAction(
   id: string
 ): Promise<{ success: boolean; message?: string }> {
+  if (!isOfficeWorkSchedulesEnabled()) {
+    return {
+      success: false,
+      message: 'Office schedules are currently disabled.',
+    };
+  }
+
   await requirePermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.DELETE);
   const adminId = await getAdminIdFromToken();
 

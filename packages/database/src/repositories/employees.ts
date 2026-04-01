@@ -91,11 +91,14 @@ async function buildEmployeeWithSchedule<T extends {
 }>(
   employee: T,
   categoryMap: OfficeJobTitleCategoryMap,
-  defaultScheduleName: string
+  defaultScheduleName: string,
+  includeActiveOfficeWorkScheduleName = true
 ) {
   const [derivedEmployee, activeOfficeWorkScheduleName] = await Promise.all([
     attachDerivedOfficeMetadata(employee, categoryMap),
-    getActiveOfficeScheduleName(employee.id, employee.role, defaultScheduleName),
+    includeActiveOfficeWorkScheduleName
+      ? getActiveOfficeScheduleName(employee.id, employee.role, defaultScheduleName)
+      : Promise.resolve(null),
   ]);
 
   return {
@@ -258,8 +261,9 @@ export async function getPaginatedEmployees(params: {
   orderBy: Prisma.EmployeeOrderByWithRelationInput;
   skip: number;
   take: number;
+  includeActiveOfficeWorkScheduleName?: boolean;
 }) {
-  const { where, orderBy, skip, take } = params;
+  const { where, orderBy, skip, take, includeActiveOfficeWorkScheduleName = true } = params;
   const finalWhere = { ...where, deletedAt: null };
 
   const [employees, totalCount] = await prisma.$transaction([
@@ -274,11 +278,18 @@ export async function getPaginatedEmployees(params: {
   ]);
 
   const [defaultOfficeSchedule, categoryMap] = await Promise.all([
-    getDefaultOfficeWorkSchedule(),
+    includeActiveOfficeWorkScheduleName ? getDefaultOfficeWorkSchedule() : Promise.resolve(null),
     getOfficeJobTitleCategoryMapSetting(),
   ]);
   const employeesWithSchedules = await Promise.all(
-    employees.map(employee => buildEmployeeWithSchedule(employee, categoryMap, defaultOfficeSchedule.name))
+    employees.map(employee =>
+      buildEmployeeWithSchedule(
+        employee,
+        categoryMap,
+        includeActiveOfficeWorkScheduleName ? defaultOfficeSchedule?.name ?? '' : '',
+        includeActiveOfficeWorkScheduleName
+      )
+    )
   );
 
   return { employees: employeesWithSchedules, totalCount };

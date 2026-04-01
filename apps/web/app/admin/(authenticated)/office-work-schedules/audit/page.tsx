@@ -1,3 +1,4 @@
+import { notFound } from 'next/navigation';
 import { prisma, getAllOfficeWorkSchedules } from '@repo/database';
 import { getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
@@ -9,6 +10,7 @@ import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
+import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 
 export const metadata: Metadata = {
   title: 'Office Work Schedule Audit Logs',
@@ -21,6 +23,10 @@ type PageProps = {
 };
 
 export default async function OfficeWorkScheduleAuditPage(props: PageProps) {
+  if (!isOfficeWorkSchedulesEnabled()) {
+    notFound();
+  }
+
   await requirePermission([PERMISSIONS.OFFICE_WORK_SCHEDULES.VIEW, PERMISSIONS.CHANGELOGS.VIEW]);
 
   const searchParams = await props.searchParams;

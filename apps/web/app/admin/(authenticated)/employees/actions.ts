@@ -30,6 +30,7 @@ import { requirePermission } from '@/lib/admin-auth';
 import { ActionState } from '@/types/actions';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { applyEmployeeVisibilityScope } from '@/lib/auth/admin-visibility';
+import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 import {
   bulkUpsertFutureOfficeWorkScheduleAssignments,
   deleteFutureOfficeWorkScheduleAssignment,
@@ -44,6 +45,13 @@ function parseCsvLine(line: string) {
 }
 
 revalidatePath('/admin/employees');
+
+function officeWorkSchedulesDisabledResponse() {
+  return {
+    success: false,
+    message: 'Office schedules are currently disabled.',
+  };
+}
 
 export async function updateEmployee(
   id: string,
@@ -223,6 +231,10 @@ export async function scheduleEmployeeOfficeWorkSchedule(
   prevState: ActionState<CreateEmployeeOfficeWorkScheduleAssignmentInput>,
   formData: FormData
 ): Promise<ActionState<CreateEmployeeOfficeWorkScheduleAssignmentInput>> {
+  if (!isOfficeWorkSchedulesEnabled()) {
+    return officeWorkSchedulesDisabledResponse();
+  }
+
   await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
   const adminId = await getAdminIdFromToken();
 
@@ -274,6 +286,10 @@ export async function updateEmployeeOfficeWorkScheduleAssignment(
   prevState: ActionState<CreateEmployeeOfficeWorkScheduleAssignmentInput>,
   formData: FormData
 ): Promise<ActionState<CreateEmployeeOfficeWorkScheduleAssignmentInput>> {
+  if (!isOfficeWorkSchedulesEnabled()) {
+    return officeWorkSchedulesDisabledResponse();
+  }
+
   await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
   const adminId = await getAdminIdFromToken();
 
@@ -323,6 +339,10 @@ export async function deleteEmployeeOfficeWorkScheduleAssignment(
   employeeId: string,
   assignmentId: string
 ): Promise<{ success: boolean; message?: string }> {
+  if (!isOfficeWorkSchedulesEnabled()) {
+    return officeWorkSchedulesDisabledResponse();
+  }
+
   await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
   const adminId = await getAdminIdFromToken();
 
@@ -347,6 +367,10 @@ export async function deleteEmployeeOfficeWorkScheduleAssignment(
 export async function bulkScheduleEmployeeOfficeWorkSchedules(
   formData: FormData
 ): Promise<{ success: boolean; message?: string; errors?: string[] }> {
+  if (!isOfficeWorkSchedulesEnabled()) {
+    return officeWorkSchedulesDisabledResponse();
+  }
+
   await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
   const adminId = await getAdminIdFromToken();
 

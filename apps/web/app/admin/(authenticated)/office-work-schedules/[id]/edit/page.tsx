@@ -4,10 +4,15 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 import { getOfficeWorkScheduleById } from '@repo/database';
 import ScheduleForm from '../../components/schedule-form';
 import { updateOfficeWorkScheduleAction } from '../../actions';
+import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EditOfficeWorkSchedulePage({ params }: { params: Promise<{ id: string }> }) {
+  if (!isOfficeWorkSchedulesEnabled()) {
+    notFound();
+  }
+
   await requirePermission(PERMISSIONS.OFFICE_WORK_SCHEDULES.EDIT);
   const { id } = await params;
 

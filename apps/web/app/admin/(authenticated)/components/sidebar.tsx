@@ -6,15 +6,20 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@repo/shared';
-import { ADMIN_NAV_ITEMS, ADMIN_SECONDARY_NAV_ITEMS } from '@/lib/admin-navigation';
+import { ADMIN_SECONDARY_NAV_ITEMS, getAdminNavItems } from '@/lib/admin-navigation';
 import { useSession } from '../context/session-context';
 
-export default function Sidebar() {
+type Props = {
+  officeWorkSchedulesEnabled: boolean;
+};
+
+export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
   const { hasPermission } = useSession();
+  const navItems = getAdminNavItems(officeWorkSchedulesEnabled);
 
-  const filteredNavItems = ADMIN_NAV_ITEMS.filter(
+  const filteredNavItems = navItems.filter(
     item => !item.requiredPermission || hasPermission(item.requiredPermission)
   );
 

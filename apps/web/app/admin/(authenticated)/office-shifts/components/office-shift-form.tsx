@@ -148,7 +148,7 @@ export default function OfficeShiftForm({ officeShift, officeShiftTypes, employe
             rows={3}
             disabled={isReadOnly}
             className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground resize-none"
-            placeholder="Add any special instructions or notes for this office shift override..."
+            placeholder="Add any special instructions or notes for this office shift..."
           />
         </div>
 

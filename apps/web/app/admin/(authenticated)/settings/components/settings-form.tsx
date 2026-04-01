@@ -22,11 +22,12 @@ type SerializedOfficeWorkSchedule = {
 
 type Props = {
   settings: Serialized<SystemSetting>[];
-  defaultOfficeSchedule: SerializedOfficeWorkSchedule;
+  defaultOfficeSchedule: SerializedOfficeWorkSchedule | null;
+  showDefaultOfficeSchedule: boolean;
   isSuperAdmin: boolean;
 };
 
-export default function SettingsForm({ settings, defaultOfficeSchedule, isSuperAdmin }: Props) {
+export default function SettingsForm({ settings, defaultOfficeSchedule, showDefaultOfficeSchedule, isSuperAdmin }: Props) {
   const officeJobTitleMapSetting = settings.find(setting => setting.name === OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING);
   const officeAttendanceDistanceSetting = settings.find(
     setting => setting.name === OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING
@@ -61,27 +62,27 @@ export default function SettingsForm({ settings, defaultOfficeSchedule, isSuperA
         </p>
       </div>
 
-      <div className="space-y-6 mb-8">
-        <div className="rounded-lg border border-border bg-muted/20 p-5">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Default Office Schedule</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              This schedule applies when an office employee has no custom assigned schedule.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-            <div className="rounded-lg border border-border bg-card px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Schedule ID</p>
-              <p className="mt-1 font-mono text-sm text-foreground break-all">{defaultOfficeSchedule.id}</p>
+      {showDefaultOfficeSchedule && defaultOfficeSchedule ? (
+        <div className="space-y-6 mb-8">
+          <div className="rounded-lg border border-border bg-muted/20 p-5">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-foreground">Default Office Schedule</h2>
+              <p className="text-sm text-muted-foreground mt-1">Reference details for the default office schedule.</p>
             </div>
-            <div className="rounded-lg border border-border bg-card px-4 py-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Schedule Name</p>
-              <p className="mt-1 text-sm font-medium text-foreground">{defaultOfficeSchedule.name}</p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+              <div className="rounded-lg border border-border bg-card px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Schedule ID</p>
+                <p className="mt-1 font-mono text-sm text-foreground break-all">{defaultOfficeSchedule.id}</p>
+              </div>
+              <div className="rounded-lg border border-border bg-card px-4 py-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Schedule Name</p>
+                <p className="mt-1 text-sm font-medium text-foreground">{defaultOfficeSchedule.name}</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       <form action={formAction} className="space-y-6">
         <div className="rounded-lg border border-border bg-muted/20 p-5">

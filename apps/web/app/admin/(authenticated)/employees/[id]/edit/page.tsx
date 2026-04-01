@@ -3,6 +3,7 @@ import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import EmployeeScheduleManager from '../../components/employee-schedule-manager';
 import EmployeeFieldModeCard from '../../components/employee-field-mode-card';
+import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 import {
   getAllOfficeWorkSchedules,
   getEmployeeByIdWithRelations,
@@ -14,17 +15,20 @@ export const dynamic = 'force-dynamic';
 export default async function EditEmployeePage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
   const { id } = await params;
+  const officeWorkSchedulesEnabled = isOfficeWorkSchedulesEnabled();
 
-  const [employee, schedules, assignments] = await Promise.all([
+  const [employee, officeWorkScheduleData] = await Promise.all([
     getEmployeeByIdWithRelations(id),
-    getAllOfficeWorkSchedules(),
-    listOfficeWorkScheduleAssignments(id),
+    officeWorkSchedulesEnabled
+      ? Promise.all([getAllOfficeWorkSchedules(), listOfficeWorkScheduleAssignments(id)])
+      : Promise.resolve([[], []] as const),
   ]);
 
   if (!employee) {
     notFound();
   }
 
+  const [schedules, assignments] = officeWorkScheduleData;
   const now = new Date();
   const scheduleOptions = schedules.map(schedule => ({
     id: schedule.id,
@@ -62,7 +66,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
         isFieldModeEditable={employee.isFieldModeEditable}
         fieldModeReasonCode={employee.fieldModeReasonCode}
       />
-      {employee.role === 'office' ? (
+      {employee.role === 'office' && officeWorkSchedulesEnabled ? (
         <EmployeeScheduleManager
           employeeId={employee.id}
           employeeName={employee.fullName}
@@ -74,10 +78,9 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
       ) : null}
       {employee.role === 'office' ? (
         <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-          <h2 className="text-xl font-bold text-foreground">Office Shift Overrides</h2>
+          <h2 className="text-xl font-bold text-foreground">Office Shifts</h2>
           <p className="text-sm text-muted-foreground mt-2">
-            Baseline schedules define the default attendance expectation. Use office shifts to manage date-specific
-            working overrides for this employee.
+            Manage office shifts and day-specific availability for this employee.
           </p>
           <a
             href={`/admin/office-shifts?employeeId=${employee.id}`}
