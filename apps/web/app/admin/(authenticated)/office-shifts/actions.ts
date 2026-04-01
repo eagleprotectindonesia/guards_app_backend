@@ -9,8 +9,10 @@ import {
   bulkCreateOfficeShiftsWithChangelog,
   checkOverlappingOfficeShift,
   createOfficeShiftWithChangelog,
+  deleteEmployeeOfficeDayOverridesByEmployeeAndDates,
   deleteOfficeShiftWithChangelog,
   getShiftTypeDurationInMins,
+  upsertEmployeeOfficeDayOverride,
   updateOfficeShiftWithChangelog,
   getOfficeEmployeesByCodes,
   deleteOfficeShiftsByEmployeeAndDates,
@@ -26,6 +28,13 @@ interface ParsedCSVRow {
   date: string;
   note?: string;
 }
+
+type EmployeeDateIntent = {
+  employeeId: string;
+  employeeCode: string;
+  date: string;
+  type: 'off' | 'working';
+};
 
 interface ShiftPreviewData {
   date: string;
@@ -69,6 +78,43 @@ function parseCsvLine(line: string) {
 function revalidateOfficeShiftPaths() {
   revalidatePath('/admin/office-shifts');
   revalidatePath('/admin/employees');
+}
+
+function validateOfficeShiftBatchIntent(rows: ParsedCSVRow[], employeeMap: Map<string, { id: string; employeeNumber: string | null }>) {
+  const errors: string[] = [];
+  const intentByEmployeeDate = new Map<string, EmployeeDateIntent>();
+
+  for (const row of rows) {
+    const employee = employeeMap.get(row.employeeCode.toLowerCase());
+    if (!employee) continue;
+
+    const type = row.shiftTypeName.toLowerCase() === 'off' ? 'off' : 'working';
+    const key = `${employee.id}:${row.date}`;
+    const existing = intentByEmployeeDate.get(key);
+
+    if (!existing) {
+      intentByEmployeeDate.set(key, {
+        employeeId: employee.id,
+        employeeCode: employee.employeeNumber || row.employeeCode,
+        date: row.date,
+        type,
+      });
+      continue;
+    }
+
+    if (existing.type !== type) {
+      errors.push(
+        `Employee '${existing.employeeCode}' has mixed off and working shift rows on ${row.date}.`
+      );
+      continue;
+    }
+
+    if (type === 'off') {
+      errors.push(`Employee '${existing.employeeCode}' has duplicate off rows on ${row.date}.`);
+    }
+  }
+
+  return errors;
 }
 
 export async function createOfficeShift(
@@ -351,9 +397,15 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
   for (const row of parsedRows) {
     const employee = employeeMap.get(row.employeeCode.toLowerCase());
     if (!employee) {
-      errors.push(`Employee '${row.employeeCode}' not found or is not shift-based office staff.`);
+      errors.push(`Employee '${row.employeeCode}' not found or is not an active office employee.`);
     }
   }
+
+  if (errors.length > 0) {
+    return { success: false, message: 'Validation failed for one or more rows.', errors };
+  }
+
+  errors.push(...validateOfficeShiftBatchIntent(parsedRows, employeeMap));
 
   if (errors.length > 0) {
     return { success: false, message: 'Validation failed for one or more rows.', errors };
@@ -517,7 +569,6 @@ export async function bulkCreateOfficeShifts(
         status: true,
         deletedAt: null,
         role: 'office',
-        officeAttendanceMode: 'shift_based',
       },
       select: {
         id: true,
@@ -553,7 +604,7 @@ export async function bulkCreateOfficeShifts(
 
     const employee = employeeMap.get(employeeCode.toLowerCase());
     if (!employee) {
-      errors.push(`Row ${i + 1}: Employee '${employeeCode}' not found or is not shift-based office staff.`);
+      errors.push(`Row ${i + 1}: Employee '${employeeCode}' not found or is not an active office employee.`);
       continue;
     }
 
@@ -628,31 +679,87 @@ export async function bulkCreateOfficeShifts(
     return { success: false, message: 'Validation failed for one or more rows.', errors };
   }
 
+  errors.push(...validateOfficeShiftBatchIntent(
+    lines.slice(1).map(line => {
+      const cols = parseCsvLine(line);
+      const [employeeCode, shiftTypeName, date, note = ''] = cols;
+      return { employeeCode, shiftTypeName, date, note };
+    }).filter(row => row.employeeCode && row.shiftTypeName && row.date),
+    employeeMap
+  ));
+
+  if (errors.length > 0) {
+    return { success: false, message: 'Validation failed for one or more rows.', errors };
+  }
+
   // Check if there's nothing to do (no shifts to create and no day-offs to process)
   if (officeShiftsToCreate.length === 0 && dayOffByEmployee.size === 0) {
     return { success: false, message: 'No valid office shifts or day-off markers found to process.' };
   }
 
   try {
-    // First: Delete existing shifts on "off" dates
     let totalDeleted = 0;
-    if (dayOffByEmployee.size > 0) {
-      for (const [employeeId, dates] of dayOffByEmployee.entries()) {
-        const deleted = await deleteOfficeShiftsByEmployeeAndDates(employeeId, dates, adminId!, prisma);
-        totalDeleted += deleted;
+    let totalOverridesCreated = 0;
+    const workingDatesByEmployee = new Map<string, Set<string>>();
+
+    for (const shift of officeShiftsToCreate) {
+      const dateKey = shift.date.toISOString().slice(0, 10);
+      if (!workingDatesByEmployee.has(shift.employeeId)) {
+        workingDatesByEmployee.set(shift.employeeId, new Set<string>());
       }
+      workingDatesByEmployee.get(shift.employeeId)!.add(dateKey);
     }
 
-    // Second: Create new shifts
-    if (officeShiftsToCreate.length > 0) {
-      await bulkCreateOfficeShiftsWithChangelog(officeShiftsToCreate, adminId!);
-    }
+    await prisma.$transaction(async tx => {
+      for (const [employeeId, dates] of dayOffByEmployee.entries()) {
+        totalDeleted += await deleteOfficeShiftsByEmployeeAndDates(employeeId, dates, adminId!, tx);
+        await deleteEmployeeOfficeDayOverridesByEmployeeAndDates(employeeId, dates, adminId!, tx);
+
+        for (const date of dates) {
+          await upsertEmployeeOfficeDayOverride(
+            {
+              employeeId,
+              date,
+              overrideType: 'off',
+              adminId: adminId!,
+            },
+            tx
+          );
+          totalOverridesCreated++;
+        }
+      }
+
+      for (const [employeeId, dates] of workingDatesByEmployee.entries()) {
+        const dateKeys = [...dates];
+        await deleteEmployeeOfficeDayOverridesByEmployeeAndDates(employeeId, dateKeys, adminId!, tx);
+
+        for (const date of dateKeys) {
+          await upsertEmployeeOfficeDayOverride(
+            {
+              employeeId,
+              date,
+              overrideType: 'shift_override',
+              adminId: adminId!,
+            },
+            tx
+          );
+          totalOverridesCreated++;
+        }
+      }
+
+      if (officeShiftsToCreate.length > 0) {
+        await bulkCreateOfficeShiftsWithChangelog(officeShiftsToCreate, adminId!, tx);
+      }
+    });
 
     revalidateOfficeShiftPaths();
     
     const messages = [];
     if (totalDeleted > 0) {
-      messages.push(`Deleted ${totalDeleted} existing shift(s) for day-off markers`);
+      messages.push(`Deleted ${totalDeleted} existing shift(s) for off-day overrides`);
+    }
+    if (totalOverridesCreated > 0) {
+      messages.push(`Upserted ${totalOverridesCreated} day override(s)`);
     }
     if (officeShiftsToCreate.length > 0) {
       messages.push(`Created ${officeShiftsToCreate.length} new shift(s)`);

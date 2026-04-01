@@ -21,6 +21,11 @@ enum OfficeAttendanceMode {
   fixed_schedule
 }
 
+enum OfficeDayOverrideType {
+  off
+  shift_override
+}
+
 model Permission {
   id          String   @id @default(uuid())
   action      String // e.g., "view", "create", "edit", "delete"
@@ -78,6 +83,8 @@ model Admin {
   updatedOfficeShiftTypes                      OfficeShiftType[]                      @relation("OfficeShiftTypeLastUpdatedBy")
   createdOfficeShifts                          OfficeShift[]                          @relation("OfficeShiftCreatedBy")
   updatedOfficeShifts                          OfficeShift[]                          @relation("OfficeShiftLastUpdatedBy")
+  createdEmployeeOfficeDayOverrides            EmployeeOfficeDayOverride[]            @relation("EmployeeOfficeDayOverrideCreatedBy")
+  updatedEmployeeOfficeDayOverrides            EmployeeOfficeDayOverride[]            @relation("EmployeeOfficeDayOverrideLastUpdatedBy")
   createdOfficeWorkSchedules                   OfficeWorkSchedule[]                   @relation("OfficeWorkScheduleCreatedBy")
   updatedOfficeWorkSchedules                   OfficeWorkSchedule[]                   @relation("OfficeWorkScheduleLastUpdatedBy")
   createdEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentCreatedBy")
@@ -207,6 +214,7 @@ model Employee {
   fieldModeEnabled              Boolean                                @default(false) @map("field_mode_enabled")
   office                        Office?                                @relation(fields: [officeId], references: [id])
   officeShifts                  OfficeShift[]
+  officeDayOverrides            EmployeeOfficeDayOverride[]
   officeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[]
   officeAttendances             OfficeAttendance[]
   chatMessages                  ChatMessage[]
@@ -502,6 +510,26 @@ model OfficeShift {
   @@index([employeeId, status, endsAt])
   @@index([deletedAt])
   @@map("office_shifts")
+}
+
+model EmployeeOfficeDayOverride {
+  id              String                @id @default(uuid())
+  employeeId      String                @map("employee_id")
+  date            DateTime              @db.Date
+  overrideType    OfficeDayOverrideType @map("override_type")
+  note            String?               @db.Text
+  createdById     String?               @map("created_by_id")
+  lastUpdatedById String?               @map("last_updated_by_id")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+
+  employee        Employee              @relation(fields: [employeeId], references: [id])
+  createdBy       Admin?                @relation("EmployeeOfficeDayOverrideCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy   Admin?                @relation("EmployeeOfficeDayOverrideLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+
+  @@unique([employeeId, date])
+  @@index([employeeId, date])
+  @@map("employee_office_day_overrides")
 }
 
 model SystemSetting {

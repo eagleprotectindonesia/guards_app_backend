@@ -1513,21 +1513,33 @@ export async function resolveOfficeWorkScheduleForEmployee(employeeId: string, a
   };
 }
 
-export async function resolveOfficeWorkScheduleContextForEmployee(employeeId: string, at = new Date()) {
+export async function resolveOfficeWorkScheduleContextForEmployee(
+  employeeId: string,
+  at = new Date(),
+  options?: {
+    offDateKeys?: Set<string>;
+  }
+) {
   const resolved = await resolveOfficeWorkScheduleForEmployee(employeeId, at);
   const currentParts = getBusinessParts(at, BUSINESS_TIMEZONE);
   const businessDay = getBusinessDayRange(at, BUSINESS_TIMEZONE);
   const dayRule = resolved.schedule.days.find(day => day.weekday === businessDay.weekday) ?? null;
   const previousDayRule = resolved.schedule.days.find(day => day.weekday === ((businessDay.weekday + 6) % 7)) ?? null;
+  const offDateKeys = options?.offDateKeys ?? new Set<string>();
 
   if (!dayRule) {
     throw new Error(`Office work schedule ${resolved.schedule.id} has no rule for weekday ${businessDay.weekday}`);
   }
 
-  const currentWindow = buildScheduleWindow(dayRule, currentParts);
+  const currentWindow = offDateKeys.has(businessDay.dateKey) ? null : buildScheduleWindow(dayRule, currentParts);
   const previousDayParts = subtractOneLocalDay(currentParts.year, currentParts.month, currentParts.day);
+  const previousDateKey = `${previousDayParts.year}-${String(previousDayParts.month).padStart(2, '0')}-${String(previousDayParts.day).padStart(2, '0')}`;
   const previousWindow =
-    previousDayRule && previousDayRule.isWorkingDay && previousDayRule.startTime && previousDayRule.endTime
+    !offDateKeys.has(previousDateKey) &&
+    previousDayRule &&
+    previousDayRule.isWorkingDay &&
+    previousDayRule.startTime &&
+    previousDayRule.endTime
       ? buildScheduleWindow(previousDayRule, previousDayParts)
       : null;
 
@@ -1553,8 +1565,14 @@ export async function resolveOfficeWorkScheduleContextForEmployee(employeeId: st
   };
 }
 
-export async function getScheduledPaidMinutesForFixedOfficeScheduleAttendance(employeeId: string, at = new Date()) {
-  const context = await resolveOfficeWorkScheduleContextForEmployee(employeeId, at);
+export async function getScheduledPaidMinutesForFixedOfficeScheduleAttendance(
+  employeeId: string,
+  at = new Date(),
+  options?: {
+    offDateKeys?: Set<string>;
+  }
+) {
+  const context = await resolveOfficeWorkScheduleContextForEmployee(employeeId, at, options);
 
   if (!context.isWorkingDay || !context.windowStart || !context.windowEnd) {
     return 0;

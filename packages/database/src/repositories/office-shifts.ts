@@ -39,7 +39,33 @@ function getMinutesSinceMidnight(date: Date, timeZone: string) {
   return hour * 60 + minute;
 }
 
-export async function findRelevantOfficeShiftForEmployee(employeeId: string, at = new Date()) {
+function getDateKeyInTimeZone(date: Date, timeZone: string) {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+  const parts = formatter.formatToParts(date);
+  const year = parts.find(part => part.type === 'year')?.value;
+  const month = parts.find(part => part.type === 'month')?.value;
+  const day = parts.find(part => part.type === 'day')?.value;
+
+  if (!year || !month || !day) {
+    throw new Error(`Unable to resolve date key for timezone ${timeZone}`);
+  }
+
+  return `${year}-${month}-${day}`;
+}
+
+export async function findRelevantOfficeShiftForEmployee(
+  employeeId: string,
+  at = new Date(),
+  options?: {
+    allowedDateKeys?: Set<string>;
+  }
+) {
   const { businessDay, where } = getOfficeShiftWindowQuery(at);
 
   const shifts = await prisma.officeShift.findMany({
@@ -54,19 +80,23 @@ export async function findRelevantOfficeShiftForEmployee(employeeId: string, at 
       startsAt: 'asc',
     },
   });
+  const allowedDateKeys = options?.allowedDateKeys;
+  const relevantShifts = allowedDateKeys
+    ? shifts.filter(shift => allowedDateKeys.has(getDateKeyInTimeZone(shift.date, BUSINESS_TIMEZONE)))
+    : shifts;
 
   const activeShift =
-    shifts.find(shift => shift.startsAt.getTime() <= at.getTime() && shift.endsAt.getTime() >= at.getTime()) ?? null;
+    relevantShifts.find(shift => shift.startsAt.getTime() <= at.getTime() && shift.endsAt.getTime() >= at.getTime()) ?? null;
   if (activeShift) {
     return { shift: activeShift, businessDay };
   }
 
-  const upcomingShift = shifts.find(shift => shift.startsAt.getTime() > at.getTime()) ?? null;
+  const upcomingShift = relevantShifts.find(shift => shift.startsAt.getTime() > at.getTime()) ?? null;
   if (upcomingShift) {
     return { shift: upcomingShift, businessDay };
   }
 
-  const pastShift = [...shifts].reverse().find(shift => shift.endsAt.getTime() <= at.getTime()) ?? null;
+  const pastShift = [...relevantShifts].reverse().find(shift => shift.endsAt.getTime() <= at.getTime()) ?? null;
   return { shift: pastShift, businessDay };
 }
 
@@ -116,8 +146,14 @@ export async function getPaginatedOfficeShifts(params: {
   return { officeShifts, totalCount };
 }
 
-export async function resolveOfficeShiftContextForEmployee(employeeId: string, at = new Date()) {
-  const { shift, businessDay } = await findRelevantOfficeShiftForEmployee(employeeId, at);
+export async function resolveOfficeShiftContextForEmployee(
+  employeeId: string,
+  at = new Date(),
+  options?: {
+    allowedDateKeys?: Set<string>;
+  }
+) {
+  const { shift, businessDay } = await findRelevantOfficeShiftForEmployee(employeeId, at, options);
 
   if (!shift) {
     return {
@@ -347,9 +383,10 @@ export async function deleteOfficeShiftWithChangelog(id: string, adminId: string
 
 export async function bulkCreateOfficeShiftsWithChangelog(
   officeShiftsToCreate: Prisma.OfficeShiftCreateManyInput[],
-  adminId: string
+  adminId: string,
+  txLike?: TxLike
 ) {
-  return prisma.$transaction(async tx => {
+  const execute = async (tx: TxLike) => {
     const results = await tx.officeShift.createManyAndReturn({
       data: officeShiftsToCreate.map(shift => ({
         ...shift,
@@ -384,7 +421,13 @@ export async function bulkCreateOfficeShiftsWithChangelog(
     });
 
     return results;
-  });
+  };
+
+  if (txLike) {
+    return execute(txLike);
+  }
+
+  return prisma.$transaction(execute);
 }
 
 export async function deleteFutureOfficeShiftsByEmployee(employeeId: string, tx: TxLike) {

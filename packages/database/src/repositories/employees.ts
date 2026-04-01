@@ -182,7 +182,6 @@ export async function getOfficeEmployeesByCodes(
       status: true,
       deletedAt: null,
       role: 'office',
-      officeAttendanceMode: 'shift_based',
     },
     select: {
       id: true,

@@ -3,6 +3,7 @@ import {
   getScheduledPaidMinutesForFixedOfficeScheduleAttendance,
   resolveOfficeWorkScheduleContextForEmployee,
 } from './office-work-schedules';
+import { resolveOfficeDayOverrideAnchorsForEmployee } from './office-day-overrides';
 import {
   getScheduledPaidMinutesForOfficeShiftAttendance,
   resolveOfficeShiftContextForEmployee,
@@ -13,7 +14,6 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
     where: { id: employeeId },
     select: {
       role: true,
-      officeAttendanceMode: true,
     },
   });
 
@@ -21,19 +21,58 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
     throw new Error('Only office employees have office attendance context');
   }
 
-  const mode = employee.officeAttendanceMode ?? 'shift_based';
+  const overrideAnchors = await resolveOfficeDayOverrideAnchorsForEmployee(employeeId, at);
+  const offDateKeys = new Set<string>();
+  const shiftOverrideDateKeys = new Set<string>();
 
-  if (mode === 'fixed_schedule') {
-    const context = await resolveOfficeWorkScheduleContextForEmployee(employeeId, at);
+  if (overrideAnchors.currentOverride?.overrideType === 'off') {
+    offDateKeys.add(overrideAnchors.currentDateKey);
+  } else if (overrideAnchors.currentOverride?.overrideType === 'shift_override') {
+    shiftOverrideDateKeys.add(overrideAnchors.currentDateKey);
+  }
+
+  if (overrideAnchors.previousOverride?.overrideType === 'off') {
+    offDateKeys.add(overrideAnchors.previousDateKey);
+  } else if (overrideAnchors.previousOverride?.overrideType === 'shift_override') {
+    shiftOverrideDateKeys.add(overrideAnchors.previousDateKey);
+  }
+
+  const shiftContext = await resolveOfficeShiftContextForEmployee(employeeId, at, {
+    allowedDateKeys: shiftOverrideDateKeys,
+  });
+  if (shiftContext.shift) {
+    return shiftContext;
+  }
+
+  if (overrideAnchors.currentOverride?.overrideType === 'off') {
     return {
-      ...context,
-      mode,
-      source: 'office_work_schedule' as const,
+      source: 'office_day_override_off' as const,
+      mode: 'fixed_schedule' as const,
       shift: null,
+      businessDay: overrideAnchors.businessDay,
+      startMinutes: null,
+      endMinutes: null,
+      windowStart: null,
+      windowEnd: null,
+      isWorkingDay: false,
+      isLate: false,
+      isAfterEnd: false,
     };
   }
 
-  return resolveOfficeShiftContextForEmployee(employeeId, at);
+  if (overrideAnchors.currentOverride?.overrideType === 'shift_override') {
+    return shiftContext;
+  }
+
+  const scheduleContext = await resolveOfficeWorkScheduleContextForEmployee(employeeId, at, {
+    offDateKeys,
+  });
+  return {
+    ...scheduleContext,
+    mode: 'fixed_schedule' as const,
+    source: 'office_work_schedule' as const,
+    shift: null,
+  };
 }
 
 export async function getScheduledPaidMinutesForOfficeAttendance(employeeId: string, at = new Date()) {
@@ -41,7 +80,6 @@ export async function getScheduledPaidMinutesForOfficeAttendance(employeeId: str
     where: { id: employeeId },
     select: {
       role: true,
-      officeAttendanceMode: true,
     },
   });
 
@@ -49,10 +87,26 @@ export async function getScheduledPaidMinutesForOfficeAttendance(employeeId: str
     return 0;
   }
 
-  const mode = employee.officeAttendanceMode ?? 'shift_based';
-  if (mode === 'shift_based') {
+  const attendanceContext = await resolveOfficeAttendanceContextForEmployee(employeeId, at);
+
+  if (attendanceContext.source === 'office_day_override_off') {
+    return 0;
+  }
+
+  if (attendanceContext.source === 'office_shift' && attendanceContext.shift) {
     return getScheduledPaidMinutesForOfficeShiftAttendance(employeeId, at);
   }
 
-  return getScheduledPaidMinutesForFixedOfficeScheduleAttendance(employeeId, at);
+  const offDateKeys = new Set<string>();
+  const overrideAnchors = await resolveOfficeDayOverrideAnchorsForEmployee(employeeId, at);
+  if (overrideAnchors.currentOverride?.overrideType === 'off') {
+    offDateKeys.add(overrideAnchors.currentDateKey);
+  }
+  if (overrideAnchors.previousOverride?.overrideType === 'off') {
+    offDateKeys.add(overrideAnchors.previousDateKey);
+  }
+
+  return getScheduledPaidMinutesForFixedOfficeScheduleAttendance(employeeId, at, {
+    offDateKeys,
+  });
 }
