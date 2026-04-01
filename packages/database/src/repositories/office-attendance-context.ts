@@ -4,10 +4,7 @@ import {
   resolveOfficeWorkScheduleContextForEmployee,
 } from './office-work-schedules';
 import { resolveOfficeDayOverrideAnchorsForEmployee } from './office-day-overrides';
-import {
-  getScheduledPaidMinutesForOfficeShiftAttendance,
-  resolveOfficeShiftContextForEmployee,
-} from './office-shifts';
+import { getScheduledPaidMinutesForOfficeShiftAttendance, resolveOfficeShiftContextForEmployee } from './office-shifts';
 
 export async function resolveOfficeAttendanceContextForEmployee(employeeId: string, at = new Date()) {
   const employee = await prisma.employee.findUnique({

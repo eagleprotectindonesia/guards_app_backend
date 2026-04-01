@@ -74,7 +74,12 @@ export async function findRelevantOfficeShiftForEmployee(
       ...where,
     },
     include: {
-      officeShiftType: true,
+      officeShiftType: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
     },
     orderBy: {
       startsAt: 'asc',

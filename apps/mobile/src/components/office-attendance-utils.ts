@@ -1,22 +1,30 @@
 import type { OfficeAttendanceState, OfficeAttendanceWindowStatus } from '@repo/types';
 import { TranslationFunction } from '@repo/shared';
 
-type OfficeScheduleContextLike = {
-  isWorkingDay?: boolean;
-  isLate?: boolean;
-  isAfterEnd?: boolean;
-  scheduledStartStr?: string | null;
-  scheduledEndStr?: string | null;
-  businessDateStr?: string | null;
-  startMinutes?: number | null;
-  endMinutes?: number | null;
-  schedule?: {
-    name?: string | null;
-  } | null;
-  businessDay?: {
-    dateKey?: string | null;
-  } | null;
-} | null | undefined;
+type OfficeScheduleContextLike =
+  | {
+      isWorkingDay?: boolean;
+      isLate?: boolean;
+      isAfterEnd?: boolean;
+      scheduledStartStr?: string | null;
+      scheduledEndStr?: string | null;
+      businessDateStr?: string | null;
+      startMinutes?: number | null;
+      endMinutes?: number | null;
+      schedule?: {
+        name?: string | null;
+      } | null;
+      shift?: {
+        officeShiftType?: {
+          name?: string | null;
+        } | null;
+      } | null;
+      businessDay?: {
+        dateKey?: string | null;
+      } | null;
+    }
+  | null
+  | undefined;
 
 type OfficeAttendanceErrorInput = {
   code?: string;
@@ -40,11 +48,16 @@ export function getOfficeScheduleDisplayState(
 ) {
   const status = (attendanceState?.status ?? 'non_working_day') as OfficeAttendanceWindowStatus;
 
+  // When there's a shift override, use the shift type name instead of the schedule name
+  const shiftTypeName = scheduleContext?.shift?.officeShiftType?.name ?? null;
+  const scheduleName = scheduleContext?.schedule?.name ?? null;
+  const displayName = shiftTypeName || scheduleName;
+
   return {
     isWorkingDay: Boolean(scheduleContext?.isWorkingDay),
     isLate: Boolean(scheduleContext?.isLate),
     isAfterEnd: Boolean(scheduleContext?.isAfterEnd),
-    scheduleName: scheduleContext?.schedule?.name ?? null,
+    scheduleName: displayName,
     businessDate: scheduleContext?.businessDateStr ?? scheduleContext?.businessDay?.dateKey ?? null,
     scheduledStartStr: scheduleContext?.scheduledStartStr ?? formatMinutesAsTime(scheduleContext?.startMinutes),
     scheduledEndStr: scheduleContext?.scheduledEndStr ?? formatMinutesAsTime(scheduleContext?.endMinutes),
