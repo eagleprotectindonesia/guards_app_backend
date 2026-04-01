@@ -87,6 +87,11 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  // Bypass caching for admin pages to ensure they are always fresh and secure
+  if (url.pathname.startsWith('/admin')) {
+    return;
+  }
+
   // 2. API: Network Only
   if (url.pathname.includes('/api/')) {
     event.respondWith(
