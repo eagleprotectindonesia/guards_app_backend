@@ -80,7 +80,10 @@ function revalidateOfficeShiftPaths() {
   revalidatePath('/admin/employees');
 }
 
-function validateOfficeShiftBatchIntent(rows: ParsedCSVRow[], employeeMap: Map<string, { id: string; employeeNumber: string | null }>) {
+function validateOfficeShiftBatchIntent(
+  rows: ParsedCSVRow[],
+  employeeMap: Map<string, { id: string; employeeNumber: string | null }>
+) {
   const errors: string[] = [];
   const intentByEmployeeDate = new Map<string, EmployeeDateIntent>();
 
@@ -103,9 +106,7 @@ function validateOfficeShiftBatchIntent(rows: ParsedCSVRow[], employeeMap: Map<s
     }
 
     if (existing.type !== type) {
-      errors.push(
-        `Employee '${existing.employeeCode}' has mixed off and working shift rows on ${row.date}.`
-      );
+      errors.push(`Employee '${existing.employeeCode}' has mixed off and working shift rows on ${row.date}.`);
       continue;
     }
 
@@ -144,7 +145,7 @@ export async function createOfficeShift(
       prisma.officeShiftType.findUnique({ where: { id: officeShiftTypeId, deletedAt: null } }),
       prisma.employee.findUnique({
         where: { id: employeeId, deletedAt: null },
-        select: { id: true, role: true, officeAttendanceMode: true },
+        select: { id: true, role: true },
       }),
     ]);
 
@@ -152,8 +153,8 @@ export async function createOfficeShift(
       return { success: false, message: 'Selected Office Shift Type does not exist.' };
     }
 
-    if (!employee || employee.role !== 'office' || employee.officeAttendanceMode !== 'shift_based') {
-      return { success: false, message: 'Selected employee is not eligible for office shifts.' };
+    if (!employee || employee.role !== 'office') {
+      return { success: false, message: 'Selected employee is not an office employee.' };
     }
 
     const dateObj = new Date(`${date}T00:00:00Z`);
@@ -229,7 +230,7 @@ export async function updateOfficeShift(
       prisma.officeShiftType.findUnique({ where: { id: officeShiftTypeId, deletedAt: null } }),
       prisma.employee.findUnique({
         where: { id: employeeId, deletedAt: null },
-        select: { id: true, role: true, officeAttendanceMode: true },
+        select: { id: true, role: true },
       }),
     ]);
 
@@ -237,8 +238,8 @@ export async function updateOfficeShift(
       return { success: false, message: 'Selected Office Shift Type does not exist.' };
     }
 
-    if (!employee || employee.role !== 'office' || employee.officeAttendanceMode !== 'shift_based') {
-      return { success: false, message: 'Selected employee is not eligible for office shifts.' };
+    if (!employee || employee.role !== 'office') {
+      return { success: false, message: 'Selected employee is not an office employee.' };
     }
 
     const dateObj = new Date(`${date}T00:00:00Z`);
@@ -392,7 +393,6 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
   const employees = await getOfficeEmployeesByCodes(uniqueEmployeeCodes);
   const employeeMap = new Map(employees.map(emp => [emp.employeeNumber.toLowerCase(), emp]));
 
-  console.log(uniqueEmployeeCodes);
   // Validate employees exist
   for (const row of parsedRows) {
     const employee = employeeMap.get(row.employeeCode.toLowerCase());
@@ -424,7 +424,7 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
     if (row.shiftTypeName.toLowerCase() === 'off') {
       continue;
     }
-    
+
     const shiftType = shiftTypeMap.get(row.shiftTypeName.toLowerCase());
     if (!shiftType) {
       errors.push(`Office Shift Type '${row.shiftTypeName}' not found.`);
@@ -470,7 +470,7 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
     const shifts: ShiftPreviewData[] = [];
     for (const row of rows) {
       const isDayOff = row.shiftTypeName.toLowerCase() === 'off';
-      
+
       if (isDayOff) {
         // Explicit day off marker from CSV
         shifts.push({
@@ -679,14 +679,19 @@ export async function bulkCreateOfficeShifts(
     return { success: false, message: 'Validation failed for one or more rows.', errors };
   }
 
-  errors.push(...validateOfficeShiftBatchIntent(
-    lines.slice(1).map(line => {
-      const cols = parseCsvLine(line);
-      const [employeeCode, shiftTypeName, date, note = ''] = cols;
-      return { employeeCode, shiftTypeName, date, note };
-    }).filter(row => row.employeeCode && row.shiftTypeName && row.date),
-    employeeMap
-  ));
+  errors.push(
+    ...validateOfficeShiftBatchIntent(
+      lines
+        .slice(1)
+        .map(line => {
+          const cols = parseCsvLine(line);
+          const [employeeCode, shiftTypeName, date, note = ''] = cols;
+          return { employeeCode, shiftTypeName, date, note };
+        })
+        .filter(row => row.employeeCode && row.shiftTypeName && row.date),
+      employeeMap
+    )
+  );
 
   if (errors.length > 0) {
     return { success: false, message: 'Validation failed for one or more rows.', errors };
@@ -703,7 +708,8 @@ export async function bulkCreateOfficeShifts(
     const workingDatesByEmployee = new Map<string, Set<string>>();
 
     for (const shift of officeShiftsToCreate) {
-      const dateKey = shift.date.toISOString().slice(0, 10);
+      const dateValue = shift.date instanceof Date ? shift.date : new Date(shift.date);
+      const dateKey = dateValue.toISOString().slice(0, 10);
       if (!workingDatesByEmployee.has(shift.employeeId)) {
         workingDatesByEmployee.set(shift.employeeId, new Set<string>());
       }
@@ -753,7 +759,7 @@ export async function bulkCreateOfficeShifts(
     });
 
     revalidateOfficeShiftPaths();
-    
+
     const messages = [];
     if (totalDeleted > 0) {
       messages.push(`Deleted ${totalDeleted} existing shift(s) for off-day overrides`);
@@ -764,10 +770,10 @@ export async function bulkCreateOfficeShifts(
     if (officeShiftsToCreate.length > 0) {
       messages.push(`Created ${officeShiftsToCreate.length} new shift(s)`);
     }
-    
-    return { 
-      success: true, 
-      message: messages.join('; ') || 'No changes made.' 
+
+    return {
+      success: true,
+      message: messages.join('; ') || 'No changes made.',
     };
   } catch (error) {
     console.error('Database Error:', error);

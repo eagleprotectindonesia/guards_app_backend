@@ -98,7 +98,7 @@ export default function OfficeShiftForm({ officeShift, officeShiftTypes, employe
             options={employeeOptions}
             value={employeeOptions.find(opt => opt.value === selectedEmployeeId) || null}
             onChange={option => setSelectedEmployeeId(option?.value || '')}
-            placeholder="Select a shift-based office employee"
+            placeholder="Select an office employee"
             isClearable={!isReadOnly}
             isDisabled={isReadOnly}
             filterOption={(option, inputValue) => {
@@ -148,7 +148,7 @@ export default function OfficeShiftForm({ officeShift, officeShiftTypes, employe
             rows={3}
             disabled={isReadOnly}
             className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground resize-none"
-            placeholder="Add any special instructions or notes for this office shift..."
+            placeholder="Add any special instructions or notes for this office shift override..."
           />
         </div>
 

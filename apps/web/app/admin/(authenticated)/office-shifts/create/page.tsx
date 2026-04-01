@@ -8,7 +8,7 @@ export default async function CreateOfficeShiftPage() {
 
   const [officeShiftTypes, employees] = await Promise.all([
     prisma.officeShiftType.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' } }),
-    getActiveEmployeesSummary('office', 'shift_based'),
+    getActiveEmployeesSummary('office'),
   ]);
 
   return <OfficeShiftForm officeShiftTypes={officeShiftTypes} employees={employees} />;

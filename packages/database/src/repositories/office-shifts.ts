@@ -158,7 +158,6 @@ export async function resolveOfficeShiftContextForEmployee(
   if (!shift) {
     return {
       source: 'office_shift' as const,
-      mode: 'shift_based' as const,
       shift: null,
       businessDay,
       startMinutes: null,
@@ -173,7 +172,6 @@ export async function resolveOfficeShiftContextForEmployee(
 
   return {
     source: 'office_shift' as const,
-    mode: 'shift_based' as const,
     shift,
     businessDay,
     startMinutes: getMinutesSinceMidnight(shift.startsAt, BUSINESS_TIMEZONE),

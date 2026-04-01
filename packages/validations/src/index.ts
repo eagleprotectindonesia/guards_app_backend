@@ -6,7 +6,6 @@ export const ShiftStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 
 export const EmployeeTitleEnum = z.enum(['Mr', 'Miss', 'Mrs']);
 
 export const EmployeeRoleEnum = z.enum(['on_site', 'office']);
-export const OfficeAttendanceModeEnum = z.enum(['shift_based', 'fixed_schedule']);
 
 const optionalNumber = z.preprocess(val => (!val ? undefined : Number(val)), z.number().optional());
 
@@ -76,7 +75,6 @@ export const updateEmployeeSchema = z.object({
   jobTitle: z.string().optional(),
   department: z.string().optional(),
   role: EmployeeRoleEnum.optional(),
-  officeAttendanceMode: OfficeAttendanceModeEnum.optional(),
   fieldModeEnabled: z.boolean().optional(),
   status: z.boolean().optional(),
   note: z.string().optional(),
@@ -98,10 +96,6 @@ export const updateEmployeePasswordSchema = z
 
 export const updateEmployeeFieldModeSchema = z.object({
   fieldModeEnabled: z.boolean(),
-});
-
-export const updateEmployeeOfficeAttendanceModeSchema = z.object({
-  officeAttendanceMode: OfficeAttendanceModeEnum,
 });
 
 // Deprecated: Use updateEmployeePasswordSchema
@@ -294,7 +288,6 @@ export type UpdateAdminInput = z.infer<typeof updateAdminSchema>;
 export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 export type UpdateEmployeePasswordInput = z.infer<typeof updateEmployeePasswordSchema>;
 export type UpdateEmployeeFieldModeInput = z.infer<typeof updateEmployeeFieldModeSchema>;
-export type UpdateEmployeeOfficeAttendanceModeInput = z.infer<typeof updateEmployeeOfficeAttendanceModeSchema>;
 
 // Deprecated
 

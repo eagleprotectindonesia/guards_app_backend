@@ -3,7 +3,6 @@ import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import EmployeeScheduleManager from '../../components/employee-schedule-manager';
 import EmployeeFieldModeCard from '../../components/employee-field-mode-card';
-import EmployeeOfficeAttendanceModeCard from '../../components/employee-office-attendance-mode-card';
 import {
   getAllOfficeWorkSchedules,
   getEmployeeByIdWithRelations,
@@ -63,13 +62,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
         isFieldModeEditable={employee.isFieldModeEditable}
         fieldModeReasonCode={employee.fieldModeReasonCode}
       />
-      <EmployeeOfficeAttendanceModeCard
-        employeeId={employee.id}
-        employeeName={employee.fullName}
-        role={employee.role ?? null}
-        officeAttendanceMode={employee.officeAttendanceMode}
-      />
-      {employee.officeAttendanceMode === 'fixed_schedule' ? (
+      {employee.role === 'office' ? (
         <EmployeeScheduleManager
           employeeId={employee.id}
           employeeName={employee.fullName}
@@ -78,11 +71,13 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
           timeline={timeline}
           scheduleOptions={scheduleOptions}
         />
-      ) : employee.role === 'office' ? (
+      ) : null}
+      {employee.role === 'office' ? (
         <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-          <h2 className="text-xl font-bold text-foreground">Office Shift Scheduling</h2>
+          <h2 className="text-xl font-bold text-foreground">Office Shift Overrides</h2>
           <p className="text-sm text-muted-foreground mt-2">
-            This employee is in shift-based office mode. Manage assignments from the dedicated office shifts page.
+            Baseline schedules define the default attendance expectation. Use office shifts to manage date-specific
+            working overrides for this employee.
           </p>
           <a
             href={`/admin/office-shifts?employeeId=${employee.id}`}

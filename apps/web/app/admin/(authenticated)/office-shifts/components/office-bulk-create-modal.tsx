@@ -95,7 +95,7 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
     startTransition(async () => {
       const result = await bulkCreateOfficeShifts(formData);
       if (result.success) {
-        toast.success(result.message || 'Office shifts created successfully!');
+        toast.success(result.message || 'Office scheduling overrides created successfully!');
         onClose();
         resetState();
       } else {
@@ -179,7 +179,8 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
                 employee_code,shift_type_name,date,note
               </code>
               <p className="text-xs text-muted-foreground">
-                Import is all-or-nothing. Multiple same-day office shifts are allowed when they do not overlap.
+                Import is all-or-nothing. Use a shift type to create a working shift override, or `OFF` to create an
+                explicit off-day override. Multiple same-day office shifts are allowed when they do not overlap.
               </p>
             </div>
 

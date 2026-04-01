@@ -111,7 +111,6 @@ describe('employees repository', () => {
         department: 'Finance',
         jobTitle: 'Analyst',
         role: 'office',
-        officeAttendanceMode: 'fixed_schedule',
         officeId: 'office-1',
         fieldModeEnabled: false,
         office: { name: 'HQ' },
@@ -145,7 +144,6 @@ describe('employees repository', () => {
         department: 'Finance',
         jobTitle: 'Analyst',
         role: 'office',
-        officeAttendanceMode: 'fixed_schedule',
         officeId: 'office-1',
         fieldModeEnabled: false,
         office: { name: 'HQ' },
@@ -228,23 +226,22 @@ describe('employees repository', () => {
     });
   });
 
-  test('filters active employee summary by office attendance mode for office employees', async () => {
+  test('returns active employee summary for office employees without mode filtering', async () => {
     (prisma.employee.findMany as jest.Mock).mockResolvedValueOnce([
       {
         id: 'employee-1',
-        fullName: 'Shift Based Office User',
+        fullName: 'Office User',
         employeeNumber: 'EMP001',
       },
     ]);
 
-    const result = await getActiveEmployeesSummary('office', 'shift_based');
+    const result = await getActiveEmployeesSummary('office');
 
     expect(prisma.employee.findMany).toHaveBeenCalledWith({
       where: {
         status: true,
         deletedAt: null,
         role: 'office',
-        officeAttendanceMode: 'shift_based',
       },
       orderBy: { fullName: 'asc' },
       select: {
@@ -256,13 +253,13 @@ describe('employees repository', () => {
     expect(result).toEqual([
       {
         id: 'employee-1',
-        fullName: 'Shift Based Office User',
+        fullName: 'Office User',
         employeeNumber: 'EMP001',
       },
     ]);
   });
 
-  test('ignores office attendance mode filter for non-office employee summaries', async () => {
+  test('returns active employee summary for non-office employees', async () => {
     (prisma.employee.findMany as jest.Mock).mockResolvedValueOnce([
       {
         id: 'employee-2',
@@ -271,7 +268,7 @@ describe('employees repository', () => {
       },
     ]);
 
-    await getActiveEmployeesSummary('on_site', 'shift_based');
+    await getActiveEmployeesSummary('on_site');
 
     expect(prisma.employee.findMany).toHaveBeenCalledWith({
       where: {

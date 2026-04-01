@@ -2,6 +2,17 @@ import { db as prisma, Prisma } from '../prisma/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
+type OfficeDayOverrideRow = {
+  id: string;
+  employeeId: string;
+  date: Date;
+  overrideType: 'off' | 'shift_override';
+  note: string | null;
+  createdById: string | null;
+  lastUpdatedById: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
 
 function getDateKeyInTimeZone(date: Date, timeZone: string) {
   const formatter = new Intl.DateTimeFormat('en-CA', {
@@ -49,7 +60,7 @@ export async function listEmployeeOfficeDayOverridesForDates(
   employeeId: string,
   dateKeys: string[],
   tx: TxLike = prisma
-) {
+): Promise<OfficeDayOverrideRow[]> {
   if (dateKeys.length === 0) return [];
 
   return (tx as any).employeeOfficeDayOverride.findMany({
@@ -66,7 +77,7 @@ export async function getEmployeeOfficeDayOverrideForDate(
   employeeId: string,
   dateKey: string,
   tx: TxLike = prisma
-) {
+): Promise<OfficeDayOverrideRow | null> {
   return (tx as any).employeeOfficeDayOverride.findUnique({
     where: {
       employeeId_date: {
@@ -81,7 +92,7 @@ export async function resolveOfficeDayOverrideAnchorsForEmployee(employeeId: str
   const { businessDay, currentDateKey, previousDateKey } = getOfficeDayOverrideAnchorDates(at);
   const overrides = await listEmployeeOfficeDayOverridesForDates(employeeId, [currentDateKey, previousDateKey], tx);
   const overridesByDate = new Map(
-    overrides.map((override: { date: Date }) => [shiftDateToDateKey(override.date), override])
+    overrides.map(override => [shiftDateToDateKey(override.date), override] as const)
   );
 
   return {

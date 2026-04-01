@@ -17,8 +17,6 @@ import {
   UpdateEmployeePasswordInput,
   updateEmployeeFieldModeSchema,
   UpdateEmployeeFieldModeInput,
-  updateEmployeeOfficeAttendanceModeSchema,
-  UpdateEmployeeOfficeAttendanceModeInput,
   createEmployeeOfficeWorkScheduleAssignmentSchema,
   CreateEmployeeOfficeWorkScheduleAssignmentInput,
 } from '@repo/validations';
@@ -198,40 +196,6 @@ export async function updateEmployeeFieldMode(
   return { success: true, message: 'Field mode updated successfully.' };
 }
 
-export async function updateEmployeeOfficeAttendanceMode(
-  id: string,
-  prevState: ActionState<UpdateEmployeeOfficeAttendanceModeInput>,
-  formData: FormData
-): Promise<ActionState<UpdateEmployeeOfficeAttendanceModeInput>> {
-  await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
-
-  const validatedFields = updateEmployeeOfficeAttendanceModeSchema.safeParse({
-    officeAttendanceMode: formData.get('officeAttendanceMode'),
-  });
-
-  if (!validatedFields.success) {
-    return {
-      errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Invalid input. Failed to update office attendance mode.',
-      success: false,
-    };
-  }
-
-  try {
-    await updateEmployeeDb(id, { officeAttendanceMode: validatedFields.data.officeAttendanceMode });
-  } catch (error) {
-    console.error('Database Error:', error);
-    return {
-      message: error instanceof Error ? error.message : 'Database Error: Failed to update office attendance mode.',
-      success: false,
-    };
-  }
-
-  revalidatePath(`/admin/employees/${id}/edit`);
-  revalidatePath('/admin/employees');
-  revalidatePath('/admin/office-shifts');
-  return { success: true, message: 'Office attendance mode updated successfully.' };
-}
 
 export async function syncEmployeesAction() {
   const adminId = await getAdminIdFromToken();

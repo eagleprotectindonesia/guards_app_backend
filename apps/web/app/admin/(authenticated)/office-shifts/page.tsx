@@ -87,7 +87,7 @@ export default async function OfficeShiftsPage({
     lastUpdatedBy: officeShift.lastUpdatedBy,
   }));
 
-  const employeeOptions: EmployeeSummary[] = await getActiveEmployeesSummary('office', 'shift_based');
+  const employeeOptions: EmployeeSummary[] = await getActiveEmployeesSummary('office');
 
   return (
     <div className="max-w-7xl mx-auto">

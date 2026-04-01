@@ -5,28 +5,20 @@ This document describes the office employee scheduling system used for office at
 It covers:
 - how office work schedules are modeled
 - how employee-specific future schedule changes work
-- how office attendance resolves the active schedule
+- how office attendance resolves the active schedule or day override
 - how admin UI manages default schedules, templates, and employee schedule assignments
 
 Related documentation:
-- [`docs/OFFICE_SHIFT_SCHEDULING.md`](/home/tian/Documents/Work/guards_app_backend/docs/OFFICE_SHIFT_SCHEDULING.md) for `shift_based` office employees
+- [`docs/OFFICE_SHIFT_SCHEDULING.md`](/home/tian/Documents/Work/guards_app_backend/docs/OFFICE_SHIFT_SCHEDULING.md) for office shift overrides and off-day overrides
 
 ## Overview
 
-This document focuses on `fixed_schedule` office employees.
+Office employees now use one scheduling model:
+- a baseline office work schedule defines the default attendance expectation
+- optional date-level overrides can replace that baseline for a specific day
+- overrides may be working office shifts or explicit off-days
 
-Office employees can now use two scheduling modes:
-- `fixed_schedule`
-- `shift_based`
-
-For `shift_based` office employees, see:
-- [`docs/OFFICE_SHIFT_SCHEDULING.md`](/home/tian/Documents/Work/guards_app_backend/docs/OFFICE_SHIFT_SCHEDULING.md)
-
-Historically, office employees did not record attendance against shifts.
-
-Instead:
-- `on_site` employees use shift-based attendance
-- `office` employees in `fixed_schedule` mode use daily attendance rules based on an office work schedule
+`on_site` employees still use the separate on-site shift attendance system.
 
 An office work schedule is a reusable weekly template:
 - each weekday can be marked as working or non-working
@@ -34,7 +26,8 @@ An office work schedule is a reusable weekly template:
 - overnight windows are allowed, so `endTime` may be earlier than `startTime` when the shift continues into the next day
 
 At runtime, office attendance resolves the effective schedule for the employee on the attendance date:
-- if the employee has an active schedule assignment on that date, use that schedule
+- if the employee has an explicit day override for that anchor date, use the override
+- otherwise resolve the active assigned schedule for that date
 - otherwise use the system default office schedule
 
 ## Data Model

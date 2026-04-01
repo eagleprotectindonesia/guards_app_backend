@@ -1,27 +1,24 @@
 # Office Shift Scheduling
 
-This document describes the `shift_based` office employee scheduling model used for office attendance.
+This document describes office shift overrides used for office attendance.
 
 It covers:
-- how shift-based office employees are modeled
+- how office day overrides are modeled
 - how office shift types and office shifts are stored
 - how office attendance resolves the active office shift
-- how admin UI manages office shift types, office shifts, and bulk CSV import
+- how admin UI manages office shift types, office shifts, off-day overrides, and bulk CSV import
 
 ## Overview
 
-Office employees can now use one of two scheduling modes:
-- `fixed_schedule`
-- `shift_based`
+Office employees no longer choose between separate attendance modes.
 
-This document is for `shift_based`.
+Instead:
+- baseline office schedules define the default attendance expectation
+- office day overrides define per-date exceptions
+- working dates may be overridden by office shifts
+- non-working dates may be overridden by explicit off-day records
 
-In this mode:
-- the employee still has `role = office`
-- the employee has `officeAttendanceMode = shift_based`
-- attendance eligibility comes from assigned office shifts, not office work schedule templates
-
-`fixed_schedule` remains documented in:
+Baseline scheduling remains documented in:
 - [`docs/OFFICE_EMPLOYEE_SCHEDULING.md`](/home/tian/Documents/Work/guards_app_backend/docs/OFFICE_EMPLOYEE_SCHEDULING.md)
 
 ## Data Model
@@ -32,19 +29,22 @@ Defined in:
 - [`packages/database/src/repositories/office-shift-types.ts`](/home/tian/Documents/Work/guards_app_backend/packages/database/src/repositories/office-shift-types.ts)
 - [`packages/database/src/repositories/office-attendance-context.ts`](/home/tian/Documents/Work/guards_app_backend/packages/database/src/repositories/office-attendance-context.ts)
 
-### 1. Employee Mode
+### 1. Office Day Overrides
 
-Shift-based office scheduling is enabled by:
-- `employees.role = office`
-- `employees.office_attendance_mode = shift_based`
+Table:
+- `employee_office_day_overrides`
 
-Default behavior:
-- newly created or synced office employees default to `shift_based`
+Purpose:
+- stores the explicit day-level intent for office attendance resolution
 
-Mode switching behavior:
-- switching from `fixed_schedule -> shift_based` clears future office work schedule assignments
-- switching from `shift_based -> fixed_schedule` clears future office shifts
-- historical records are preserved
+Override types:
+- `off`
+- `shift_override`
+
+Rules:
+- one employee may have only one override row per date
+- `off` blocks attendance for that anchor date
+- `shift_override` tells attendance resolution to use `office_shifts` for that date instead of the baseline schedule
 
 ### 2. Office Shift Types
 
@@ -95,7 +95,7 @@ Additional relation:
 - `office_shift_id`
 
 Purpose:
-- persist which office shift a `shift_based` attendance record belongs to
+- persist which office shift a shift-derived attendance record belongs to
 
 This makes attendance history stable even if shift data changes later.
 
@@ -104,17 +104,19 @@ This makes attendance history stable even if shift data changes later.
 Implemented in:
 - [`packages/database/src/repositories/office-attendance-context.ts`](/home/tian/Documents/Work/guards_app_backend/packages/database/src/repositories/office-attendance-context.ts)
 
-Mode-aware flow:
-1. Load employee role and `officeAttendanceMode`
-2. If mode is `fixed_schedule`, resolve from office work schedule context
-3. If mode is `shift_based`, resolve from office shift context
-4. Return one common attendance window shape to the employee attendance APIs
+Override-aware flow:
+1. Load employee role
+2. Resolve the current and previous anchor-date office day overrides
+3. If the current anchor date is `off`, return non-working-day context
+4. If the relevant anchor date is `shift_override`, resolve from office shift context
+5. Otherwise fall back to office work schedule context
 
-For `shift_based` employees:
+For shift override dates:
 1. Find relevant office shifts for the employee in the current business-day window
-2. Prefer the active office shift if one is currently in progress
-3. Otherwise use the nearest relevant shift in that business day context
-4. Derive:
+2. Restrict matching to dates explicitly marked as `shift_override`
+3. Prefer the active office shift if one is currently in progress
+4. Otherwise use the nearest relevant shift in that business day context
+5. Derive:
    - `isWorkingDay`
    - `windowStart`
    - `windowEnd`
@@ -127,7 +129,7 @@ Important helpers:
 - `findRelevantOfficeShiftForEmployee(employeeId, at)`
 - `getScheduledPaidMinutesForOfficeAttendance(employeeId, at)`
 
-## Office Attendance Rules For Shift-Based Office Employees
+## Office Attendance Rules For Shift Override Dates
 
 Implemented in:
 - [`apps/web/app/api/employee/my/office-attendance/route.ts`](/home/tian/Documents/Work/guards_app_backend/apps/web/app/api/employee/my/office-attendance/route.ts)
@@ -144,11 +146,11 @@ Late metadata:
 - `metadata.latenessMins`
 
 Attendance relation:
-- `officeAttendance.officeShiftId` is stored when the attendance came from a shift-based office window
+- `officeAttendance.officeShiftId` is stored when the attendance came from a shift-derived office window
 
 ## Location Enforcement
 
-Shift-based office attendance still uses office geofence rules, not shift location rules.
+Shift-derived office attendance still uses office geofence rules, not shift location rules.
 
 Validation is based on:
 - `employee.fieldModeEnabled`
@@ -164,13 +166,12 @@ Behavior:
 Implemented in:
 - [`apps/web/app/admin/(authenticated)/office-shift-types/page.tsx`](/home/tian/Documents/Work/guards_app_backend/apps/web/app/admin/(authenticated)/office-shift-types/page.tsx)
 - [`apps/web/app/admin/(authenticated)/office-shifts/page.tsx`](/home/tian/Documents/Work/guards_app_backend/apps/web/app/admin/(authenticated)/office-shifts/page.tsx)
-- [`apps/web/app/admin/(authenticated)/employees/components/employee-office-attendance-mode-card.tsx`](/home/tian/Documents/Work/guards_app_backend/apps/web/app/admin/(authenticated)/employees/components/employee-office-attendance-mode-card.tsx)
 
 Admin capabilities:
 - manage office shift types
 - create, edit, delete, and cancel office shifts
 - bulk import office shifts by CSV
-- switch office employees between `shift_based` and `fixed_schedule`
+- apply date-specific working overrides for office employees
 
 ### Bulk CSV Import
 
@@ -187,7 +188,6 @@ Supported headers:
 Validation rules:
 - employee must exist
 - employee must be `role = office`
-- employee must be `officeAttendanceMode = shift_based`
 - office shift type name must exist
 - date must be valid
 - generated shift window must not overlap existing office shifts

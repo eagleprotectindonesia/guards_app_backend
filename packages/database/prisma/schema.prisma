@@ -16,11 +16,6 @@ enum EmployeeRole {
   office
 }
 
-enum OfficeAttendanceMode {
-  shift_based
-  fixed_schedule
-}
-
 enum OfficeDayOverrideType {
   off
   shift_override
@@ -210,7 +205,6 @@ model Employee {
   shifts                        Shift[]
   attendances                   Attendance[]
   officeId                      String?                                @map("office_id")
-  officeAttendanceMode          OfficeAttendanceMode?                  @map("office_attendance_mode")
   fieldModeEnabled              Boolean                                @default(false) @map("field_mode_enabled")
   office                        Office?                                @relation(fields: [officeId], references: [id])
   officeShifts                  OfficeShift[]

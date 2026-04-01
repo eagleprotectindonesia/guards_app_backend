@@ -47,7 +47,6 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
   if (overrideAnchors.currentOverride?.overrideType === 'off') {
     return {
       source: 'office_day_override_off' as const,
-      mode: 'fixed_schedule' as const,
       shift: null,
       businessDay: overrideAnchors.businessDay,
       startMinutes: null,
@@ -69,7 +68,6 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
   });
   return {
     ...scheduleContext,
-    mode: 'fixed_schedule' as const,
     source: 'office_work_schedule' as const,
     shift: null,
   };

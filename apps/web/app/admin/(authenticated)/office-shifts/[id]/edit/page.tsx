@@ -11,7 +11,7 @@ export default async function EditOfficeShiftPage({ params }: { params: Promise<
   const [officeShift, officeShiftTypes, employees] = await Promise.all([
     getOfficeShiftById(id),
     prisma.officeShiftType.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' } }),
-    getActiveEmployeesSummary('office', 'shift_based'),
+    getActiveEmployeesSummary('office'),
   ]);
 
   if (!officeShift) {
