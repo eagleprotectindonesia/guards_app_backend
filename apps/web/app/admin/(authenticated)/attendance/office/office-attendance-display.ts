@@ -53,10 +53,12 @@ function getActualPaidMinutes(clockInAt: string, clockOutAt: string | null) {
     return null;
   }
 
-  return Math.max(
-    0,
-    Math.floor((new Date(clockOutAt).getTime() - new Date(clockInAt).getTime()) / (1000 * 60)) - OFFICE_PAID_BREAK_MINUTES
+  const durationMinutes = Math.floor(
+    (new Date(clockOutAt).getTime() - new Date(clockInAt).getTime()) / (1000 * 60)
   );
+  const breakMinutes = durationMinutes > 5 * 60 ? OFFICE_PAID_BREAK_MINUTES : 0;
+
+  return Math.max(0, durationMinutes - breakMinutes);
 }
 
 function toUnifiedRow(

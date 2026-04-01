@@ -1578,10 +1578,12 @@ export async function getScheduledPaidMinutesForFixedOfficeScheduleAttendance(
     return 0;
   }
 
-  const scheduledMinutes = Math.max(
-    0,
-    Math.floor((context.windowEnd.getTime() - context.windowStart.getTime()) / (1000 * 60)) - OFFICE_PAID_BREAK_MINUTES
+  const totalWindowMinutes = Math.floor(
+    (context.windowEnd.getTime() - context.windowStart.getTime()) / (1000 * 60)
   );
+  const breakMinutes = totalWindowMinutes > 5 * 60 ? OFFICE_PAID_BREAK_MINUTES : 0;
+
+  const scheduledMinutes = Math.max(0, totalWindowMinutes - breakMinutes);
 
   return scheduledMinutes;
 }

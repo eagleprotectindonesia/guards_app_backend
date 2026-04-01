@@ -328,6 +328,52 @@ describe('office work schedules', () => {
     );
   });
 
+  test('returns full 5 hours for a 5-hour scheduled window (no break subtracted)', async () => {
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock).mockResolvedValue({
+      id: 'assignment-5h',
+      employeeId: 'employee-1',
+      officeWorkSchedule: {
+        id: 'schedule-5h',
+        days: [
+          { weekday: 1, isWorkingDay: true, startTime: '08:00', endTime: '13:00' },
+          { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 2, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 3, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 4, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 5, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 6, isWorkingDay: false, startTime: null, endTime: null },
+        ],
+      },
+    });
+
+    await expect(getScheduledPaidMinutesForFixedOfficeScheduleAttendance('employee-1', new Date('2026-03-30T01:00:00.000Z'))).resolves.toBe(
+      5 * 60
+    );
+  });
+
+  test('returns full 4 hours for a 4-hour scheduled window (no break subtracted)', async () => {
+    (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock).mockResolvedValue({
+      id: 'assignment-4h',
+      employeeId: 'employee-1',
+      officeWorkSchedule: {
+        id: 'schedule-4h',
+        days: [
+          { weekday: 1, isWorkingDay: true, startTime: '08:00', endTime: '12:00' },
+          { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 2, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 3, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 4, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 5, isWorkingDay: false, startTime: null, endTime: null },
+          { weekday: 6, isWorkingDay: false, startTime: null, endTime: null },
+        ],
+      },
+    });
+
+    await expect(getScheduledPaidMinutesForFixedOfficeScheduleAttendance('employee-1', new Date('2026-03-30T01:00:00.000Z'))).resolves.toBe(
+      4 * 60
+    );
+  });
+
   test('returns zero scheduled paid minutes on a non-working day', async () => {
     (prisma.employeeOfficeWorkScheduleAssignment.findFirst as jest.Mock).mockResolvedValue({
       id: 'assignment-off',

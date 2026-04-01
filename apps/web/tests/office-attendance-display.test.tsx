@@ -122,7 +122,7 @@ describe('office attendance admin display', () => {
     });
   });
 
-  test('clamps paid hours to zero when a completed session is exactly one hour', async () => {
+  test('does not subtract break when a completed session is exactly one hour', async () => {
     const rows = await buildOfficeAttendanceDisplayRows(
       [
         buildAttendance({
@@ -140,11 +140,11 @@ describe('office attendance admin display', () => {
     );
 
     expect(rows[0]).toMatchObject({
-      paidHours: '0 hrs 0 mins',
+      paidHours: '1 hrs 0 mins',
     });
   });
 
-  test('clamps paid hours to zero when a completed session is shorter than one hour', async () => {
+  test('does not subtract break when a completed session is shorter than one hour', async () => {
     const rows = await buildOfficeAttendanceDisplayRows(
       [
         buildAttendance({
@@ -162,7 +162,7 @@ describe('office attendance admin display', () => {
     );
 
     expect(rows[0]).toMatchObject({
-      paidHours: '0 hrs 0 mins',
+      paidHours: '0 hrs 45 mins',
     });
   });
 
