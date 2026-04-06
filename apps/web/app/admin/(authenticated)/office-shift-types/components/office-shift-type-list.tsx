@@ -21,6 +21,8 @@ type Props = {
 export default function OfficeShiftTypeList({ officeShiftTypes, page, perPage, totalCount }: Props) {
   const { hasPermission } = useSession();
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [forceDeleteId, setForceDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const canCreate = hasPermission(PERMISSIONS.OFFICE_SHIFT_TYPES.CREATE);
@@ -35,8 +37,31 @@ export default function OfficeShiftTypeList({ officeShiftTypes, page, perPage, t
       if (result.success) {
         toast.success('Office Shift Type deleted successfully!');
         setDeleteId(null);
+        setForceDeleteId(null);
+        setDeleteError(null);
       } else {
         toast.error(result.message || 'Failed to delete office shift type.');
+        if (result.message === 'Cannot delete office shift type: It has associated office shifts.') {
+          setDeleteId(null);
+          setForceDeleteId(deleteId);
+          setDeleteError(result.message);
+        }
+      }
+    });
+  };
+
+  const handleConfirmForceDelete = () => {
+    if (!forceDeleteId || !canDelete) return;
+
+    startTransition(async () => {
+      const result = await deleteOfficeShiftType(forceDeleteId, { force: true });
+      if (result.success) {
+        toast.success('Office Shift Type and related office shifts deleted successfully!');
+        setDeleteId(null);
+        setForceDeleteId(null);
+        setDeleteError(null);
+      } else {
+        toast.error(result.message || 'Failed to force delete office shift type.');
       }
     });
   };
@@ -107,7 +132,12 @@ export default function OfficeShiftTypeList({ officeShiftTypes, page, perPage, t
                           title={!canEdit ? 'Permission Denied' : 'Edit'}
                         />
                         <DeleteButton
-                          onClick={() => canDelete && setDeleteId(officeShiftType.id)}
+                          onClick={() => {
+                            if (!canDelete) return;
+                            setDeleteError(null);
+                            setForceDeleteId(null);
+                            setDeleteId(officeShiftType.id);
+                          }}
                           disabled={!canDelete || isPending}
                           title={!canDelete ? 'Permission Denied' : 'Delete'}
                         />
@@ -130,6 +160,23 @@ export default function OfficeShiftTypeList({ officeShiftTypes, page, perPage, t
         title="Delete Office Shift Type"
         description="Are you sure you want to delete this office shift type? This might affect existing office shifts."
         confirmText="Delete Office Shift Type"
+        isPending={isPending}
+      />
+
+      <ConfirmDialog
+        isOpen={!!forceDeleteId}
+        onClose={() => {
+          setForceDeleteId(null);
+          setDeleteError(null);
+        }}
+        onConfirm={handleConfirmForceDelete}
+        title="Force Delete Office Shift Type"
+        description={
+          deleteError
+            ? `${deleteError} Force deleting will also cancel and soft-delete all related office shifts.`
+            : 'Force deleting will also cancel and soft-delete all related office shifts.'
+        }
+        confirmText="Force Delete Office Shift Type"
         isPending={isPending}
       />
     </div>

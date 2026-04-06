@@ -92,10 +92,10 @@ export async function updateOfficeShiftType(
   return { success: true, message: 'Office Shift Type updated successfully' };
 }
 
-export async function deleteOfficeShiftType(id: string) {
+export async function deleteOfficeShiftType(id: string, options?: { force?: boolean }) {
   try {
     const adminId = await getAdminIdFromToken();
-    await deleteOfficeShiftTypeWithChangelog(id, adminId!);
+    await deleteOfficeShiftTypeWithChangelog(id, adminId!, options);
     revalidatePath('/admin/office-shift-types');
     revalidatePath('/admin/office-shifts', 'layout');
     return { success: true };

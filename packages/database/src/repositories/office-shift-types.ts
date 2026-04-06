@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { addDays, isBefore, parse } from 'date-fns';
+import { deleteOfficeShiftWithChangelog } from './office-shifts';
 
 export async function getOfficeShiftTypeSummaries(
   orderBy: Prisma.OfficeShiftTypeOrderByWithRelationInput = { name: 'asc' }
@@ -141,8 +142,13 @@ export async function updateOfficeShiftTypeWithChangelog(
   });
 }
 
-export async function deleteOfficeShiftTypeWithChangelog(id: string, adminId: string) {
+export async function deleteOfficeShiftTypeWithChangelog(
+  id: string,
+  adminId: string,
+  options?: { force?: boolean }
+) {
   return prisma.$transaction(async tx => {
+    const force = options?.force === true;
     const officeShiftType = await tx.officeShiftType.findUnique({
       where: { id, deletedAt: null },
       select: { id: true, name: true, startTime: true, endTime: true },
@@ -152,12 +158,17 @@ export async function deleteOfficeShiftTypeWithChangelog(id: string, adminId: st
       throw new Error('Office Shift Type not found');
     }
 
-    const relatedShift = await tx.officeShift.findFirst({
+    const relatedShifts = await tx.officeShift.findMany({
       where: { officeShiftTypeId: id, deletedAt: null },
+      select: { id: true },
     });
 
-    if (relatedShift) {
+    if (relatedShifts.length > 0 && !force) {
       throw new Error('Cannot delete office shift type: It has associated office shifts.');
+    }
+
+    for (const relatedShift of relatedShifts) {
+      await deleteOfficeShiftWithChangelog(relatedShift.id, adminId, tx);
     }
 
     await tx.officeShiftType.update({
