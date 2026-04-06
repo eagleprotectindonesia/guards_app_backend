@@ -8,6 +8,7 @@ import { EditButton, DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { History } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
@@ -28,6 +29,7 @@ export default function OfficeShiftTypeList({ officeShiftTypes, page, perPage, t
   const canCreate = hasPermission(PERMISSIONS.OFFICE_SHIFT_TYPES.CREATE);
   const canEdit = hasPermission(PERMISSIONS.OFFICE_SHIFT_TYPES.EDIT);
   const canDelete = hasPermission(PERMISSIONS.OFFICE_SHIFT_TYPES.DELETE);
+  const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
 
   const handleConfirmDelete = () => {
     if (!deleteId || !canDelete) return;
@@ -73,15 +75,26 @@ export default function OfficeShiftTypeList({ officeShiftTypes, page, perPage, t
           <h1 className="text-2xl font-bold text-foreground">Office Shift Types</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage standard office shift templates.</p>
         </div>
-        {canCreate && (
-          <Link
-            href="/admin/office-shift-types/create"
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm shadow-red-500/30"
-          >
-            <span className="mr-2 text-lg leading-none">+</span>
-            Add Office Shift Type
-          </Link>
-        )}
+        <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
+          {canViewAudit && (
+            <Link
+              href="/admin/office-shift-types/audit"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted transition-colors shadow-sm w-full md:w-auto"
+            >
+              <History className="mr-2 h-4 w-4" />
+              Audit Log
+            </Link>
+          )}
+          {canCreate && (
+            <Link
+              href="/admin/office-shift-types/create"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm shadow-red-500/30 w-full md:w-auto"
+            >
+              <span className="mr-2 text-lg leading-none">+</span>
+              Add Office Shift Type
+            </Link>
+          )}
+        </div>
       </div>
 
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
@@ -90,15 +103,21 @@ export default function OfficeShiftTypeList({ officeShiftTypes, page, perPage, t
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">Start Time</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">End Time</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
+                  Start Time
+                </th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
+                  End Time
+                </th>
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-blue-600">Created By</span>
                     <span className="text-muted-foreground/60">Last Updated By</span>
                   </div>
                 </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Actions</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -112,8 +131,12 @@ export default function OfficeShiftTypeList({ officeShiftTypes, page, perPage, t
                 officeShiftTypes.map(officeShiftType => (
                   <tr key={officeShiftType.id} className="hover:bg-muted/30 transition-colors">
                     <td className="py-4 px-6 text-sm font-medium text-foreground">{officeShiftType.name}</td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono text-center">{officeShiftType.startTime}</td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono text-center">{officeShiftType.endTime}</td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono text-center">
+                      {officeShiftType.startTime}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground font-mono text-center">
+                      {officeShiftType.endTime}
+                    </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground text-center">
                       <div className="flex flex-col items-center gap-1">
                         <div className="px-2 py-0.5 rounded text-[10px] font-medium whitespace-nowrap">
