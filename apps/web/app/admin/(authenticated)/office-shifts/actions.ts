@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { addDays, isBefore, parse } from 'date-fns';
 import { ShiftStatus } from '@prisma/client';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
+import * as XLSX from 'xlsx';
 import {
   bulkCreateOfficeShiftsWithChangelog,
   checkOverlappingOfficeShift,
@@ -363,11 +364,27 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
     return { success: false, message: 'No file provided.' };
   }
 
-  const text = await file.text();
+  let text = '';
+  if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'buffer' });
+    const lowerCaseSheetNames = workbook.SheetNames.map(name => name.toLowerCase());
+    const targetSheetIndex = lowerCaseSheetNames.indexOf('final_output');
+    
+    if (targetSheetIndex === -1) {
+      return { success: false, message: 'Could not find a sheet named "final_output" in the provided Excel document.' };
+    }
+    
+    const targetSheetName = workbook.SheetNames[targetSheetIndex];
+    text = XLSX.utils.sheet_to_csv(workbook.Sheets[targetSheetName]);
+  } else {
+    text = await file.text();
+  }
+
   const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
 
   if (lines.length < 2) {
-    return { success: false, message: 'CSV file is empty or missing data.' };
+    return { success: false, message: 'CSV/Excel file is empty or missing data.' };
   }
 
   const header = parseCsvLine(lines[0]).map(value => value.toLowerCase());
@@ -377,7 +394,7 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
   ) {
     return {
       success: false,
-      message: `Invalid CSV header. Expected: ${BULK_OFFICE_SHIFT_HEADERS.join(', ')}`,
+      message: `Invalid CSV/Excel header. Expected first 4 columns: ${BULK_OFFICE_SHIFT_HEADERS.join(', ')}`,
     };
   }
 
@@ -393,7 +410,13 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
     }
 
     const [employeeCode, shiftTypeName, dateStr, note = ''] = cols;
-    if (!employeeCode || !shiftTypeName || !dateStr) {
+
+    // Skip rows with empty employee code or #N/A (as seen in user template)
+    if (!employeeCode || employeeCode.trim() === '' || employeeCode === '#N/A') {
+      continue;
+    }
+
+    if (!shiftTypeName || !dateStr) {
       errors.push(`Row ${i + 1}: employee_code, shift_type_name, and date are required.`);
       continue;
     }
@@ -482,7 +505,7 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
   const employeesPreview: EmployeePreviewData[] = [];
   let totalShiftsToCreate = 0;
 
-  for (const [_employeeId, rows] of rowsByEmployee.entries()) {
+  for (const rows of rowsByEmployee.values()) {
     const employee = employeeMap.get(rows[0].employeeCode.toLowerCase())!;
 
     // Sort rows by date
@@ -567,11 +590,27 @@ export async function bulkCreateOfficeShifts(
     return { success: false, message: 'No file provided.' };
   }
 
-  const text = await file.text();
+  let text = '';
+  if (file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')) {
+    const arrayBuffer = await file.arrayBuffer();
+    const workbook = XLSX.read(arrayBuffer, { type: 'buffer' });
+    const lowerCaseSheetNames = workbook.SheetNames.map(name => name.toLowerCase());
+    const targetSheetIndex = lowerCaseSheetNames.indexOf('final_output');
+    
+    if (targetSheetIndex === -1) {
+      return { success: false, message: 'Could not find a sheet named "final_output" in the provided Excel document.' };
+    }
+    
+    const targetSheetName = workbook.SheetNames[targetSheetIndex];
+    text = XLSX.utils.sheet_to_csv(workbook.Sheets[targetSheetName]);
+  } else {
+    text = await file.text();
+  }
+
   const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
 
   if (lines.length < 2) {
-    return { success: false, message: 'CSV file is empty or missing data.' };
+    return { success: false, message: 'CSV/Excel file is empty or missing data.' };
   }
 
   const header = parseCsvLine(lines[0]).map(value => value.toLowerCase());
@@ -581,7 +620,7 @@ export async function bulkCreateOfficeShifts(
   ) {
     return {
       success: false,
-      message: `Invalid CSV header. Expected: ${BULK_OFFICE_SHIFT_HEADERS.join(', ')}`,
+      message: `Invalid CSV/Excel header. Expected first 4 columns: ${BULK_OFFICE_SHIFT_HEADERS.join(', ')}`,
     };
   }
 
@@ -623,6 +662,12 @@ export async function bulkCreateOfficeShifts(
     }
 
     const [employeeCode, shiftTypeName, dateStr, note = ''] = cols;
+
+    // Skip rows with empty employee code or #N/A (as seen in user template)
+    if (!employeeCode || employeeCode.trim() === '' || employeeCode === '#N/A') {
+      continue;
+    }
+
     if (!employeeCode || !shiftTypeName || !dateStr) {
       errors.push(`Row ${i + 1}: employee_code, shift_type_name, and date are required.`);
       continue;

@@ -53,7 +53,7 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
 
   const handleSubmit = () => {
     if (!file || !previewData) {
-      setError('Please select a CSV file and review the preview.');
+      setError('Please select a CSV or Excel file and review the preview.');
       return;
     }
 
@@ -98,17 +98,7 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
     }
   };
 
-  const handleDownloadExample = () => {
-    const csvContent = 'employee_code,shift_type_name,date,note\n';
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.setAttribute('href', url);
-    link.setAttribute('download', 'office_shifts_example.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
+
 
   return (
     <Modal
@@ -122,34 +112,15 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
           // Step 1: File Upload
           <div className="space-y-4">
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-muted-foreground">Upload a CSV with the required headers below.</p>
-                <button
-                  type="button"
-                  onClick={handleDownloadExample}
-                  className="text-sm text-blue-600 hover:underline font-medium"
-                >
-                  Download Example
-                </button>
-              </div>
-              <code className="text-xs bg-muted p-3 rounded-lg block border border-border text-foreground font-mono">
-                employee_code,shift_type_name,date,note
-              </code>
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800/50">
-                <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
-                  <strong>Pro Tip:</strong> Import is all-or-nothing. Use a shift type to create a scheduled shift, or
-                  `OFF` to mark the employee unavailable for that date. Multiple same-day office shifts are allowed
-                  when they do not overlap.
-                </p>
-              </div>
+              <p className="text-sm text-muted-foreground">Upload a CSV or Excel file based on the distributed template.</p>
             </div>
 
             <div className="mt-4">
-              <label className="block text-sm font-semibold text-foreground mb-2">Select CSV File</label>
+              <label className="block text-sm font-semibold text-foreground mb-2">Select CSV or Excel File</label>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv"
+                accept=".csv, .xlsx, .xls"
                 onChange={handleFileSelect}
                 className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-bold file:bg-blue-600 file:text-white hover:file:bg-blue-700 transition-all cursor-pointer border border-border rounded-lg p-1 bg-muted/30"
                 disabled={isPending}
