@@ -1,16 +1,22 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 export default function OfficeShiftsTabs() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const activeTab = pathname.includes('/day-offs') ? 'day-offs' : 'shifts';
+
+  // Preserve all existing query params when switching tabs
+  const queryString = searchParams.toString();
+  const shiftsHref = queryString ? `/admin/office-shifts?${queryString}` : '/admin/office-shifts';
+  const dayOffsHref = queryString ? `/admin/office-shifts/day-offs?${queryString}` : '/admin/office-shifts/day-offs';
 
   return (
     <div className="flex border-b border-border mb-6">
       <Link
-        href="/admin/office-shifts"
+        href={shiftsHref}
         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
           activeTab === 'shifts'
             ? 'border-red-600 text-red-600'
@@ -20,7 +26,7 @@ export default function OfficeShiftsTabs() {
         Office Shifts
       </Link>
       <Link
-        href="/admin/office-shifts/day-offs"
+        href={dayOffsHref}
         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
           activeTab === 'day-offs'
             ? 'border-red-600 text-red-600'

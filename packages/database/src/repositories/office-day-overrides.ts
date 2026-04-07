@@ -265,7 +265,7 @@ export type EmployeeDayOffWithEmployee = {
 
 export async function getEmployeeDayOffsForDateRange(
   startDate: Date,
-  endDate: Date,
+  endDate: Date | undefined,
   employeeId?: string,
   tx: TxLike = prisma
 ): Promise<EmployeeDayOffWithEmployee[]> {

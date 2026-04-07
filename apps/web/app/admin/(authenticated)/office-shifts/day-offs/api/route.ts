@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     }
 
     const startDate = startOfDay(parseISO(startDateParam));
-    const endDate = endDateParam ? endOfDay(parseISO(endDateParam)) : endOfDay(new Date());
+    const endDate = endDateParam ? endOfDay(parseISO(endDateParam)) : undefined;
 
     const dayOffs = await getEmployeeDayOffsForDateRange(startDate, endDate, employeeId);
 
