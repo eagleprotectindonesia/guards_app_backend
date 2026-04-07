@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -308,7 +309,7 @@ model Office {
 
 model ShiftType {
   id              String    @id @default(uuid())
-  name            String    @unique
+  name            String    @unique(map: "shift_types_active_name_key", where: { deletedAt: null })
   startTime       String    @map("start_time")
   endTime         String    @map("end_time")
   lastUpdatedById String?   @map("last_updated_by_id")
@@ -326,7 +327,7 @@ model ShiftType {
 
 model OfficeShiftType {
   id              String        @id @default(uuid())
-  name            String        @unique
+  name            String        @unique(map: "office_shift_types_active_name_key", where: { deletedAt: null })
   startTime       String        @map("start_time")
   endTime         String        @map("end_time")
   lastUpdatedById String?       @map("last_updated_by_id")

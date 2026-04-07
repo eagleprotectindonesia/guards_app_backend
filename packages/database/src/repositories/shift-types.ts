@@ -1,6 +1,7 @@
 import { db as prisma } from "../prisma/client";
 import { Prisma } from '@prisma/client';
 import { parse, addDays, isBefore, differenceInMinutes } from 'date-fns';
+import { getUserFriendlyPrismaError } from '../utils/prisma-errors';
 
 export function getShiftTypeDurationInMins(startTime: string, endTime: string) {
   const dummyDate = '2024-01-01';
@@ -102,95 +103,106 @@ export async function getPaginatedShiftTypes(params: {
 }
 
 export async function createShiftTypeWithChangelog(data: Prisma.ShiftTypeCreateInput, adminId: string) {
-  return prisma.$transaction(
-    async tx => {
-      const createdShiftType = await tx.shiftType.create({
-        data: {
-          ...data,
-          lastUpdatedBy: { connect: { id: adminId } },
-          createdBy: { connect: { id: adminId } },
-        },
-      });
-
-      await tx.changelog.create({
-        data: {
-          action: 'CREATE',
-          entityType: 'ShiftType',
-          entityId: createdShiftType.id,
-          actor: 'admin',
-          actorId: adminId,
-          details: {
-            name: createdShiftType.name,
-            startTime: createdShiftType.startTime,
-            endTime: createdShiftType.endTime,
+  try {
+    return await prisma.$transaction(
+      async tx => {
+        const createdShiftType = await tx.shiftType.create({
+          data: {
+            ...data,
+            lastUpdatedBy: { connect: { id: adminId } },
+            createdBy: { connect: { id: adminId } },
           },
-        },
-      });
+        });
 
-      return createdShiftType;
-    },
-    { timeout: 5000 }
-  );
+        await tx.changelog.create({
+          data: {
+            action: 'CREATE',
+            entityType: 'ShiftType',
+            entityId: createdShiftType.id,
+            actor: 'admin',
+            actorId: adminId,
+            details: {
+              name: createdShiftType.name,
+              startTime: createdShiftType.startTime,
+              endTime: createdShiftType.endTime,
+            },
+          },
+        });
+
+        return createdShiftType;
+      },
+      { timeout: 5000 }
+    );
+  } catch (error) {
+    throw new Error(getUserFriendlyPrismaError(error, 'ShiftType'));
+  }
 }
 
 export const SHIFT_TYPE_TRACKED_FIELDS = ['name', 'startTime', 'endTime'] as const;
 
 export async function updateShiftTypeWithChangelog(id: string, data: Prisma.ShiftTypeUpdateInput, adminId: string) {
-  return prisma.$transaction(
-    async tx => {
-      const beforeShiftType = await tx.shiftType.findUnique({
-        where: { id, deletedAt: null },
-      });
+  try {
+    return await prisma.$transaction(
+      async tx => {
+        const beforeShiftType = await tx.shiftType.findUnique({
+          where: { id, deletedAt: null },
+        });
 
-      if (!beforeShiftType) {
-        throw new Error('Shift Type not found');
-      }
-
-      const updatedShiftType = await tx.shiftType.update({
-        where: { id },
-        data: {
-          ...data,
-          lastUpdatedBy: { connect: { id: adminId } },
-        },
-      });
-
-      // Calculate changes
-      const changes: Record<string, { from: any; to: any }> = {};
-      const fieldsToTrack = ['name', 'startTime', 'endTime'] as const;
-
-      for (const field of fieldsToTrack) {
-        const oldValue = (beforeShiftType as any)[field];
-        const newValue = (updatedShiftType as any)[field];
-
-        if (oldValue !== newValue) {
-          changes[field] = { from: oldValue, to: newValue };
+        if (!beforeShiftType) {
+          throw new Error('Shift Type not found');
         }
-      }
 
-      await tx.changelog.create({
-        data: {
-          action: 'UPDATE',
-          entityType: 'ShiftType',
-          entityId: updatedShiftType.id,
-          actor: 'admin',
-          actorId: adminId,
-          details: {
-            name: updatedShiftType.name,
-            startTime: updatedShiftType.startTime,
-            endTime: updatedShiftType.endTime,
-            changes: Object.keys(changes).length > 0 ? changes : undefined,
+        const updatedShiftType = await tx.shiftType.update({
+          where: { id },
+          data: {
+            ...data,
+            lastUpdatedBy: { connect: { id: adminId } },
           },
-        },
-      });
+        });
 
-      const startTime = (data.startTime as string) || beforeShiftType.startTime;
-      const endTime = (data.endTime as string) || beforeShiftType.endTime;
-      const timesChanged = beforeShiftType.startTime !== startTime || beforeShiftType.endTime !== endTime;
+        // Calculate changes
+        const changes: Record<string, { from: any; to: any }> = {};
+        const fieldsToTrack = ['name', 'startTime', 'endTime'] as const;
 
-      return { updatedShiftType, timesChanged, startTime, endTime };
-    },
-    { timeout: 5000 }
-  );
+        for (const field of fieldsToTrack) {
+          const oldValue = (beforeShiftType as any)[field];
+          const newValue = (updatedShiftType as any)[field];
+
+          if (oldValue !== newValue) {
+            changes[field] = { from: oldValue, to: newValue };
+          }
+        }
+
+        await tx.changelog.create({
+          data: {
+            action: 'UPDATE',
+            entityType: 'ShiftType',
+            entityId: updatedShiftType.id,
+            actor: 'admin',
+            actorId: adminId,
+            details: {
+              name: updatedShiftType.name,
+              startTime: updatedShiftType.startTime,
+              endTime: updatedShiftType.endTime,
+              changes: Object.keys(changes).length > 0 ? changes : undefined,
+            },
+          },
+        });
+
+        const startTime = (data.startTime as string) || beforeShiftType.startTime;
+        const endTime = (data.endTime as string) || beforeShiftType.endTime;
+        const timesChanged = beforeShiftType.startTime !== startTime || beforeShiftType.endTime !== endTime;
+
+        return { updatedShiftType, timesChanged, startTime, endTime };
+      },
+      { timeout: 5000 }
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Shift Type not found') {
+      throw error;
+    }
+    throw new Error(getUserFriendlyPrismaError(error, 'ShiftType'));
+  }
 }
 
 export async function deleteShiftTypeWithChangelog(id: string, adminId: string) {
