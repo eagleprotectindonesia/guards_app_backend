@@ -1,6 +1,6 @@
 import { Prisma, ShiftStatus } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
-import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
+import { BUSINESS_TIMEZONE, getBusinessDayRange, OFFICE_PAID_BREAK_MINUTES } from './office-work-schedules';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 
@@ -196,7 +196,10 @@ export async function getScheduledPaidMinutesForOfficeShiftAttendance(employeeId
     return 0;
   }
 
-  return Math.max(0, Math.floor((context.windowEnd.getTime() - context.windowStart.getTime()) / 60_000));
+  const durationMinutes = Math.floor((context.windowEnd.getTime() - context.windowStart.getTime()) / 60_000);
+  const breakMinutes = durationMinutes > 5 * 60 ? OFFICE_PAID_BREAK_MINUTES : 0;
+
+  return Math.max(0, durationMinutes - breakMinutes);
 }
 
 export async function checkOverlappingOfficeShift(params: {
@@ -493,6 +496,75 @@ export async function deleteFutureOfficeShiftsByEmployee(employeeId: string, tx:
   });
 
   return shiftIds.length;
+}
+
+export async function deleteOfficeShiftsWithChangelog(ids: string[], adminId: string, tx?: Prisma.TransactionClient) {
+  const client: TxLike = tx ?? prisma;
+
+  const officeShifts = await client.officeShift.findMany({
+    where: { id: { in: ids }, deletedAt: null },
+    include: {
+      officeShiftType: true,
+      employee: true,
+    },
+  });
+
+  if (officeShifts.length === 0) {
+    throw new Error('No valid Office Shifts found to delete');
+  }
+
+  const now = new Date();
+
+  await client.officeShift.updateMany({
+    where: { id: { in: ids } },
+    data: {
+      deletedAt: now,
+      status: 'cancelled',
+      lastUpdatedById: adminId,
+    },
+  });
+
+  // Collect dates for deleting day overrides
+  const datesByEmployee = new Map<string, Set<Date>>();
+  for (const shift of officeShifts) {
+    const dateObj = new Date(shift.date.toISOString().slice(0, 10) + 'T00:00:00Z');
+    if (!datesByEmployee.has(shift.employeeId)) {
+      datesByEmployee.set(shift.employeeId, new Set());
+    }
+    datesByEmployee.get(shift.employeeId)!.add(dateObj);
+  }
+
+  // Delete day overrides for each employee
+  for (const [employeeId, dates] of datesByEmployee.entries()) {
+    await client.employeeOfficeDayOverride.deleteMany({
+      where: {
+        employeeId,
+        date: { in: [...dates] },
+        overrideType: 'shift_override',
+      },
+    });
+  }
+
+  await client.changelog.createMany({
+    data: officeShifts.map(officeShift => ({
+      action: 'DELETE',
+      entityType: 'OfficeShift',
+      entityId: officeShift.id,
+      actor: 'admin',
+      actorId: adminId,
+      details: {
+        officeShiftTypeName: officeShift.officeShiftType.name,
+        employeeName: officeShift.employee.fullName,
+        date: officeShift.date,
+        startsAt: officeShift.startsAt,
+        endsAt: officeShift.endsAt,
+        note: officeShift.note,
+        deletedAt: now,
+      },
+    })),
+  });
+
+  return officeShifts.length;
 }
 
 export async function deleteOfficeShiftsByEmployeeAndDates(
