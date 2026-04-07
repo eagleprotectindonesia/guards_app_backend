@@ -37,3 +37,8 @@ export * from './integrations';
 // Repositories Layer - Domain-oriented query and mutation helpers
 // ============================================================================
 export * from './repositories';
+
+// ============================================================================
+// Utils Layer - Shared utility functions
+// ============================================================================
+export { getUserFriendlyPrismaError } from './utils/prisma-errors';

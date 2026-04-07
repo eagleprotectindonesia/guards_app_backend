@@ -2,6 +2,7 @@ import { Prisma } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { addDays, isBefore, parse } from 'date-fns';
 import { deleteOfficeShiftWithChangelog } from './office-shifts';
+import { getUserFriendlyPrismaError } from '../utils/prisma-errors';
 
 export async function getOfficeShiftTypeSummaries(
   orderBy: Prisma.OfficeShiftTypeOrderByWithRelationInput = { name: 'asc' }
@@ -57,32 +58,36 @@ export async function getPaginatedOfficeShiftTypes(params: {
 }
 
 export async function createOfficeShiftTypeWithChangelog(data: Prisma.OfficeShiftTypeCreateInput, adminId: string) {
-  return prisma.$transaction(async tx => {
-    const created = await tx.officeShiftType.create({
-      data: {
-        ...data,
-        createdBy: { connect: { id: adminId } },
-        lastUpdatedBy: { connect: { id: adminId } },
-      },
-    });
-
-    await tx.changelog.create({
-      data: {
-        action: 'CREATE',
-        entityType: 'OfficeShiftType',
-        entityId: created.id,
-        actor: 'admin',
-        actorId: adminId,
-        details: {
-          name: created.name,
-          startTime: created.startTime,
-          endTime: created.endTime,
+  try {
+    return await prisma.$transaction(async tx => {
+      const created = await tx.officeShiftType.create({
+        data: {
+          ...data,
+          createdBy: { connect: { id: adminId } },
+          lastUpdatedBy: { connect: { id: adminId } },
         },
-      },
-    });
+      });
 
-    return created;
-  });
+      await tx.changelog.create({
+        data: {
+          action: 'CREATE',
+          entityType: 'OfficeShiftType',
+          entityId: created.id,
+          actor: 'admin',
+          actorId: adminId,
+          details: {
+            name: created.name,
+            startTime: created.startTime,
+            endTime: created.endTime,
+          },
+        },
+      });
+
+      return created;
+    });
+  } catch (error) {
+    throw new Error(getUserFriendlyPrismaError(error, 'OfficeShiftType'));
+  }
 }
 
 export async function updateOfficeShiftTypeWithChangelog(
@@ -90,63 +95,66 @@ export async function updateOfficeShiftTypeWithChangelog(
   data: Prisma.OfficeShiftTypeUpdateInput,
   adminId: string
 ) {
-  return prisma.$transaction(async tx => {
-    const before = await tx.officeShiftType.findUnique({
-      where: { id, deletedAt: null },
-    });
+  try {
+    return await prisma.$transaction(async tx => {
+      const before = await tx.officeShiftType.findUnique({
+        where: { id, deletedAt: null },
+      });
 
-    if (!before) {
-      throw new Error('Office Shift Type not found');
-    }
-
-    const updated = await tx.officeShiftType.update({
-      where: { id },
-      data: {
-        ...data,
-        lastUpdatedBy: { connect: { id: adminId } },
-      },
-    });
-
-    const changes: Record<string, { from: Prisma.InputJsonValue; to: Prisma.InputJsonValue }> = {};
-    const fieldsToTrack = ['name', 'startTime', 'endTime'] as const;
-    for (const field of fieldsToTrack) {
-      if (before[field] !== updated[field]) {
-        changes[field] = {
-          from: before[field] as Prisma.InputJsonValue,
-          to: updated[field] as Prisma.InputJsonValue,
-        };
+      if (!before) {
+        throw new Error('Office Shift Type not found');
       }
-    }
 
-    await tx.changelog.create({
-      data: {
-        action: 'UPDATE',
-        entityType: 'OfficeShiftType',
-        entityId: updated.id,
-        actor: 'admin',
-        actorId: adminId,
-        details: {
-          name: updated.name,
-          startTime: updated.startTime,
-          endTime: updated.endTime,
-          changes: Object.keys(changes).length > 0 ? changes : undefined,
+      const updated = await tx.officeShiftType.update({
+        where: { id },
+        data: {
+          ...data,
+          lastUpdatedBy: { connect: { id: adminId } },
         },
-      },
+      });
+
+      const changes: Record<string, { from: Prisma.InputJsonValue; to: Prisma.InputJsonValue }> = {};
+      const fieldsToTrack = ['name', 'startTime', 'endTime'] as const;
+      for (const field of fieldsToTrack) {
+        if (before[field] !== updated[field]) {
+          changes[field] = {
+            from: before[field] as Prisma.InputJsonValue,
+            to: updated[field] as Prisma.InputJsonValue,
+          };
+        }
+      }
+
+      await tx.changelog.create({
+        data: {
+          action: 'UPDATE',
+          entityType: 'OfficeShiftType',
+          entityId: updated.id,
+          actor: 'admin',
+          actorId: adminId,
+          details: {
+            name: updated.name,
+            startTime: updated.startTime,
+            endTime: updated.endTime,
+            changes: Object.keys(changes).length > 0 ? changes : undefined,
+          },
+        },
+      });
+
+      const startTime = (data.startTime as string) || before.startTime;
+      const endTime = (data.endTime as string) || before.endTime;
+      const timesChanged = before.startTime !== startTime || before.endTime !== endTime;
+
+      return { updatedOfficeShiftType: updated, timesChanged, startTime, endTime };
     });
-
-    const startTime = (data.startTime as string) || before.startTime;
-    const endTime = (data.endTime as string) || before.endTime;
-    const timesChanged = before.startTime !== startTime || before.endTime !== endTime;
-
-    return { updatedOfficeShiftType: updated, timesChanged, startTime, endTime };
-  });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Office Shift Type not found') {
+      throw error;
+    }
+    throw new Error(getUserFriendlyPrismaError(error, 'OfficeShiftType'));
+  }
 }
 
-export async function deleteOfficeShiftTypeWithChangelog(
-  id: string,
-  adminId: string,
-  options?: { force?: boolean }
-) {
+export async function deleteOfficeShiftTypeWithChangelog(id: string, adminId: string, options?: { force?: boolean }) {
   return prisma.$transaction(async tx => {
     const force = options?.force === true;
     const officeShiftType = await tx.officeShiftType.findUnique({
