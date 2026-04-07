@@ -4,7 +4,7 @@ import { prisma } from '@repo/database';
 import { revalidatePath } from 'next/cache';
 import { addDays, isBefore, parse } from 'date-fns';
 import { ShiftStatus } from '@prisma/client';
-import { getAdminIdFromToken } from '@/lib/admin-auth';
+import { getAdminSession, adminHasPermission } from '@/lib/admin-auth';
 import * as XLSX from 'xlsx';
 import {
   bulkCreateOfficeShiftsWithChangelog,
@@ -12,6 +12,7 @@ import {
   createOfficeShiftWithChangelog,
   deleteEmployeeOfficeDayOverridesByEmployeeAndDates,
   deleteOfficeShiftWithChangelog,
+  deleteOfficeShiftsWithChangelog,
   getShiftTypeDurationInMins,
   upsertEmployeeOfficeDayOverride,
   updateOfficeShiftWithChangelog,
@@ -20,6 +21,7 @@ import {
 } from '@repo/database';
 import { ActionState } from '@/types/actions';
 import { createOfficeShiftSchema, CreateOfficeShiftInput, UpdateOfficeShiftInput } from '@repo/validations';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 const BULK_OFFICE_SHIFT_HEADERS = ['employee_code', 'shift_type_name', 'date', 'note'] as const;
 
@@ -123,7 +125,12 @@ export async function createOfficeShift(
   prevState: ActionState<CreateOfficeShiftInput>,
   formData: FormData
 ): Promise<ActionState<CreateOfficeShiftInput>> {
-  const adminId = await getAdminIdFromToken();
+  const session = await getAdminSession();
+  if (!session) return { success: false, message: 'Unauthorized' };
+  if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.CREATE)) {
+    return { success: false, message: 'Permission denied' };
+  }
+
   const validatedFields = createOfficeShiftSchema.safeParse({
     officeShiftTypeId: formData.get('officeShiftTypeId'),
     employeeId: formData.get('employeeId'),
@@ -190,7 +197,7 @@ export async function createOfficeShift(
           note,
           status: 'scheduled',
         },
-        adminId!,
+        session.id,
         tx
       );
 
@@ -199,7 +206,7 @@ export async function createOfficeShift(
           employeeId,
           date,
           overrideType: 'shift_override',
-          adminId: adminId!,
+          adminId: session.id,
         },
         tx
       );
@@ -221,7 +228,12 @@ export async function updateOfficeShift(
   prevState: ActionState<UpdateOfficeShiftInput>,
   formData: FormData
 ): Promise<ActionState<UpdateOfficeShiftInput>> {
-  const adminId = await getAdminIdFromToken();
+  const session = await getAdminSession();
+  if (!session) return { success: false, message: 'Unauthorized' };
+  if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.EDIT)) {
+    return { success: false, message: 'Permission denied' };
+  }
+
   const validatedFields = createOfficeShiftSchema.safeParse({
     officeShiftTypeId: formData.get('officeShiftTypeId'),
     employeeId: formData.get('employeeId'),
@@ -285,7 +297,7 @@ export async function updateOfficeShift(
           endsAt: endDateTime,
           note,
         },
-        adminId!,
+        session.id,
         tx
       );
 
@@ -294,7 +306,7 @@ export async function updateOfficeShift(
           employeeId,
           date,
           overrideType: 'shift_override',
-          adminId: adminId!,
+          adminId: session.id,
         },
         tx
       );
@@ -313,8 +325,13 @@ export async function updateOfficeShift(
 
 export async function deleteOfficeShift(id: string) {
   try {
-    const adminId = await getAdminIdFromToken();
-    await deleteOfficeShiftWithChangelog(id, adminId!);
+    const session = await getAdminSession();
+    if (!session) return { success: false, message: 'Unauthorized' };
+    if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.DELETE)) {
+      return { success: false, message: 'Permission denied' };
+    }
+
+    await deleteOfficeShiftWithChangelog(id, session.id);
     revalidateOfficeShiftPaths();
     return { success: true };
   } catch (error) {
@@ -326,9 +343,38 @@ export async function deleteOfficeShift(id: string) {
   }
 }
 
+export async function bulkDeleteOfficeShifts(ids: string[]) {
+  try {
+    if (ids.length === 0) {
+      return { success: false, message: 'No shifts selected for deletion' };
+    }
+
+    const session = await getAdminSession();
+    if (!session) return { success: false, message: 'Unauthorized' };
+    if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.DELETE)) {
+      return { success: false, message: 'Permission denied' };
+    }
+
+    await deleteOfficeShiftsWithChangelog(ids, session.id);
+    revalidateOfficeShiftPaths();
+    return { success: true };
+  } catch (error) {
+    console.error('Database Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to delete office shifts',
+    };
+  }
+}
+
 export async function cancelOfficeShift(id: string, cancelNote?: string) {
   try {
-    const adminId = await getAdminIdFromToken();
+    const session = await getAdminSession();
+    if (!session) return { success: false, message: 'Unauthorized' };
+    if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.DELETE)) {
+      return { success: false, message: 'Permission denied' };
+    }
+
     const officeShift = await prisma.officeShift.findUnique({
       where: { id, deletedAt: null },
       select: { status: true, note: true },
@@ -349,7 +395,7 @@ export async function cancelOfficeShift(id: string, cancelNote?: string) {
       updatedNote = updatedNote ? `${formattedCancelNote}\n\n${updatedNote}` : formattedCancelNote;
     }
 
-    await updateOfficeShiftWithChangelog(id, { status: ShiftStatus.cancelled, note: updatedNote }, adminId!);
+    await updateOfficeShiftWithChangelog(id, { status: ShiftStatus.cancelled, note: updatedNote }, session.id);
     revalidateOfficeShiftPaths();
     return { success: true };
   } catch (error) {
@@ -584,7 +630,12 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
 export async function bulkCreateOfficeShifts(
   formData: FormData
 ): Promise<{ success: boolean; message?: string; errors?: string[] }> {
-  const adminId = await getAdminIdFromToken();
+  const session = await getAdminSession();
+  if (!session) return { success: false, message: 'Unauthorized' };
+  if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.CREATE)) {
+    return { success: false, message: 'Permission denied' };
+  }
+
   const file = formData.get('file') as File;
   if (!file) {
     return { success: false, message: 'No file provided.' };
@@ -789,8 +840,8 @@ export async function bulkCreateOfficeShifts(
 
     await prisma.$transaction(async tx => {
       for (const [employeeId, dates] of dayOffByEmployee.entries()) {
-        totalDeleted += await deleteOfficeShiftsByEmployeeAndDates(employeeId, dates, adminId!, tx);
-        await deleteEmployeeOfficeDayOverridesByEmployeeAndDates(employeeId, dates, adminId!, tx);
+        totalDeleted += await deleteOfficeShiftsByEmployeeAndDates(employeeId, dates, session.id, tx);
+        await deleteEmployeeOfficeDayOverridesByEmployeeAndDates(employeeId, dates, session.id, tx);
 
         for (const date of dates) {
           await upsertEmployeeOfficeDayOverride(
@@ -798,7 +849,7 @@ export async function bulkCreateOfficeShifts(
               employeeId,
               date,
               overrideType: 'off',
-              adminId: adminId!,
+              adminId: session.id,
             },
             tx
           );
@@ -808,7 +859,7 @@ export async function bulkCreateOfficeShifts(
 
       for (const [employeeId, dates] of workingDatesByEmployee.entries()) {
         const dateKeys = [...dates];
-        await deleteEmployeeOfficeDayOverridesByEmployeeAndDates(employeeId, dateKeys, adminId!, tx);
+        await deleteEmployeeOfficeDayOverridesByEmployeeAndDates(employeeId, dateKeys, session.id, tx);
 
         for (const date of dateKeys) {
           await upsertEmployeeOfficeDayOverride(
@@ -816,7 +867,7 @@ export async function bulkCreateOfficeShifts(
               employeeId,
               date,
               overrideType: 'shift_override',
-              adminId: adminId!,
+              adminId: session.id,
             },
             tx
           );
@@ -825,7 +876,7 @@ export async function bulkCreateOfficeShifts(
       }
 
       if (officeShiftsToCreate.length > 0) {
-        await bulkCreateOfficeShiftsWithChangelog(officeShiftsToCreate, adminId!, tx);
+        await bulkCreateOfficeShiftsWithChangelog(officeShiftsToCreate, session.id, tx);
       }
     });
 

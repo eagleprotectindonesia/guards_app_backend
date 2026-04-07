@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import type { Serialized } from '@/lib/server-utils';
-import { cancelOfficeShift, deleteOfficeShift } from '../actions';
+import { bulkDeleteOfficeShifts, cancelOfficeShift, deleteOfficeShift } from '../actions';
 import PaginationNav from '../../components/pagination-nav';
 import OfficeBulkCreateModal from './office-bulk-create-modal';
 import OfficeShiftFilterModal from './office-shift-filter-modal';
@@ -47,6 +47,8 @@ export default function OfficeShiftList({
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
   const [selectedOfficeShiftId, setSelectedOfficeShiftId] = useState<string | null>(null);
+  const [selectedOfficeShiftIds, setSelectedOfficeShiftIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const canCreate = hasPermission(PERMISSIONS.OFFICE_SHIFTS.CREATE);
@@ -55,6 +57,50 @@ export default function OfficeShiftList({
   const canViewAudit = hasPermission(PERMISSIONS.OFFICE_SHIFTS.VIEW) && hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
 
   const handleDeleteClick = (id: string) => setSelectedOfficeShiftId(id);
+
+  const handleBulkDeleteClick = () => {
+    if (selectedOfficeShiftIds.size === 0) return;
+    setIsBulkDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmBulkDelete = () => {
+    if (selectedOfficeShiftIds.size === 0 || !canDelete) return;
+
+    startTransition(async () => {
+      const result = await bulkDeleteOfficeShifts([...selectedOfficeShiftIds]);
+
+      if (result.success) {
+        toast.success(`${selectedOfficeShiftIds.size} office shift(s) deleted successfully!`);
+        setSelectedOfficeShiftIds(new Set());
+        setIsBulkDeleteConfirmOpen(false);
+      } else {
+        toast.error(result.message || 'Failed to delete office shifts.');
+      }
+    });
+  };
+
+  const handleCheckboxChange = (id: string, checked: boolean) => {
+    setSelectedOfficeShiftIds(prev => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllChange = (checked: boolean) => {
+    if (checked) {
+      setSelectedOfficeShiftIds(new Set(officeShifts.map(os => os.id)));
+    } else {
+      setSelectedOfficeShiftIds(new Set());
+    }
+  };
+
+  const isAllSelected = officeShifts.length > 0 && selectedOfficeShiftIds.size === officeShifts.length;
+  const isSomeSelected = selectedOfficeShiftIds.size > 0 && selectedOfficeShiftIds.size < officeShifts.length;
 
   const handleConfirmAction = () => {
     const officeShift = officeShifts.find(item => item.id === selectedOfficeShiftId);
@@ -115,9 +161,20 @@ export default function OfficeShiftList({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Office Shifts</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage office shifts and day-specific availability for office employees.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Manage office shifts and day-specific availability for office employees.
+          </p>
         </div>
         <div className="flex gap-2">
+          {selectedOfficeShiftIds.size > 0 && (
+            <button
+              onClick={handleBulkDeleteClick}
+              disabled={isPending || !canDelete}
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30 disabled:opacity-50"
+            >
+              Delete Selected ({selectedOfficeShiftIds.size})
+            </button>
+          )}
           <button
             onClick={() => setIsFilterOpen(true)}
             className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
@@ -194,12 +251,25 @@ export default function OfficeShiftList({
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
                   Actions
                 </th>
+                {canDelete && (
+                  <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      ref={input => {
+                        if (input) input.indeterminate = isSomeSelected;
+                      }}
+                      onChange={e => handleSelectAllChange(e.target.checked)}
+                      className="h-4 w-4 rounded border-border text-red-600 focus:ring-red-500 cursor-pointer"
+                    />
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {officeShifts.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={canDelete ? 7 : 6} className="py-8 text-center text-muted-foreground">
                     No office shifts found. Schedule one to get started.
                   </td>
                 </tr>
@@ -276,6 +346,16 @@ export default function OfficeShiftList({
                         />
                       </div>
                     </td>
+                    {canDelete && (
+                      <td className="py-4 px-6 text-center">
+                        <input
+                          type="checkbox"
+                          checked={selectedOfficeShiftIds.has(officeShift.id)}
+                          onChange={e => handleCheckboxChange(officeShift.id, e.target.checked)}
+                          className="h-4 w-4 rounded border-border text-red-600 focus:ring-red-500 cursor-pointer"
+                        />
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -327,6 +407,34 @@ export default function OfficeShiftList({
                 className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
               >
                 {isPending ? 'Processing...' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isBulkDeleteConfirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg">
+            <h2 className="text-lg font-semibold text-foreground">Confirm Bulk Delete</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Delete {selectedOfficeShiftIds.size} selected office shift(s)?
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleteConfirmOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-foreground bg-card border border-border rounded-md hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBulkDelete}
+                disabled={isPending}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+              >
+                {isPending ? 'Deleting...' : 'Delete'}
               </button>
             </div>
           </div>
