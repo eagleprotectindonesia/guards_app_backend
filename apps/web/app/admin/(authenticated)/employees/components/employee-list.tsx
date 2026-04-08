@@ -47,6 +47,7 @@ export default function EmployeeList({
   const [isPending, startTransition] = useTransition();
 
   const canEdit = hasPermission(PERMISSIONS.EMPLOYEES.EDIT);
+  const canDelete = hasPermission(PERMISSIONS.EMPLOYEES.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
 
   const handleSort = (field: string) => {
@@ -199,9 +200,7 @@ export default function EmployeeList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-20">
-                  No.
-                </th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-20">No.</th>
                 <SortableHeader
                   label="Employee ID"
                   field="employeeNumber"
@@ -266,7 +265,9 @@ export default function EmployeeList({
                     <td className="py-4 px-6 text-sm">
                       <div className="font-semibold text-foreground">{employee.office?.name || '-'}</div>
                       {showOfficeWorkSchedules ? (
-                        <div className="text-xs text-muted-foreground">{employee.activeOfficeWorkScheduleName || ''}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {employee.activeOfficeWorkScheduleName || ''}
+                        </div>
                       ) : null}
                     </td>
                     <td className="py-4 px-6 text-sm text-center">
@@ -285,7 +286,7 @@ export default function EmployeeList({
                         <button
                           type="button"
                           onClick={() => setPasswordModalData({ id: employee.id, name: employee.fullName })}
-                          disabled={!canEdit}
+                          disabled={!canDelete}
                           className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer disabled:opacity-30"
                           title="Change Password"
                         >

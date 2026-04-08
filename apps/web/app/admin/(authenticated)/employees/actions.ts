@@ -127,6 +127,8 @@ export async function updateEmployeePassword(
   prevState: ActionState<UpdateEmployeePasswordInput>,
   formData: FormData
 ): Promise<ActionState<UpdateEmployeePasswordInput>> {
+  await requirePermission(PERMISSIONS.EMPLOYEES.DELETE);
+
   const validatedFields = updateEmployeePasswordSchema.safeParse({
     password: formData.get('password'),
     confirmPassword: formData.get('confirmPassword'),
