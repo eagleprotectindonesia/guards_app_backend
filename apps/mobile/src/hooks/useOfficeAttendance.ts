@@ -27,6 +27,20 @@ export type OfficeAttendanceTodayResponse = {
   scheduleContext?: MobileOfficeAttendanceScheduleContext;
 };
 
+export type OfficeAttendanceDaySummary = {
+  date: string;
+  dateKey: string | null;
+  isWorkingDay: boolean;
+  scheduledStartStr: string | null;
+  scheduledEndStr: string | null;
+  attendances: OfficeAttendance[];
+  attendanceState: OfficeAttendanceState;
+};
+
+export type WeeklyOfficeAttendanceResponse = {
+  days: OfficeAttendanceDaySummary[];
+};
+
 export function useOfficeAttendance(enabled = true) {
   const { isAuthenticated } = useAuth();
 
@@ -38,6 +52,20 @@ export function useOfficeAttendance(enabled = true) {
       return response.data;
     },
     refetchInterval: 30000,
+  });
+}
+
+export function useWeeklyOfficeAttendance(enabled = true) {
+  const { isAuthenticated } = useAuth();
+
+  return useQuery<WeeklyOfficeAttendanceResponse>({
+    queryKey: [...queryKeys.officeAttendance.today, 'weekly'],
+    enabled: isAuthenticated && enabled,
+    queryFn: async () => {
+      const response = await client.get('/api/employee/my/office-attendance/weekly');
+      return response.data;
+    },
+    refetchInterval: 60000,
   });
 }
 
@@ -60,6 +88,7 @@ export function useRecordOfficeAttendance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.officeAttendance.today });
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.officeAttendance.today, 'weekly'] });
     },
   });
 }
