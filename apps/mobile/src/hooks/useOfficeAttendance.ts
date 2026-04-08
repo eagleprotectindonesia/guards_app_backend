@@ -59,7 +59,7 @@ export function useWeeklyOfficeAttendance(enabled = true) {
   const { isAuthenticated } = useAuth();
 
   return useQuery<WeeklyOfficeAttendanceResponse>({
-    queryKey: [...queryKeys.officeAttendance.today, 'weekly'],
+    queryKey: queryKeys.officeAttendance.weekly,
     enabled: isAuthenticated && enabled,
     queryFn: async () => {
       const response = await client.get('/api/employee/my/office-attendance/weekly');
@@ -88,7 +88,7 @@ export function useRecordOfficeAttendance() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.officeAttendance.today });
-      queryClient.invalidateQueries({ queryKey: [...queryKeys.officeAttendance.today, 'weekly'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.officeAttendance.weekly });
     },
   });
 }

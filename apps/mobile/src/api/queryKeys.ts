@@ -4,6 +4,7 @@ export const queryKeys = {
   sessionMonitor: ['session-monitor'] as const,
   officeAttendance: {
     today: ['office-attendance', 'today'] as const,
+    weekly: ['office-attendance', 'weekly'] as const,
   },
   shifts: {
     active: ['active-shift'] as const,

@@ -12,6 +12,7 @@ import { client } from '../../src/api/client';
 import AttendanceRecord from '../../src/components/AttendanceRecord';
 import CheckInCard from '../../src/components/CheckInCard';
 import OfficeAttendanceCard from '../../src/components/OfficeAttendanceCard';
+import OfficeAttendanceCarousel from '../../src/components/OfficeAttendanceCarousel';
 import ShiftCarousel from '../../src/components/ShiftCarousel';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -22,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useProfile } from '../../src/hooks/useProfile';
 import { queryKeys } from '../../src/api/queryKeys';
 import { usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
+import type { WeeklyOfficeAttendanceResponse } from '../../src/hooks/useOfficeAttendance';
 
 type ActiveShiftData = {
   activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;
@@ -59,6 +61,16 @@ export default function HomeScreen() {
   const nextShifts = shiftData?.nextShifts || [];
   const isLoading = isProfileLoading || (isOnSiteEmployee && isShiftLoading);
 
+  const { data: weeklyOfficeData, isLoading: isWeeklyOfficeLoading } = useQuery<WeeklyOfficeAttendanceResponse>({
+    queryKey: queryKeys.officeAttendance.weekly,
+    enabled: isOfficeEmployee,
+    queryFn: async () => {
+      const res = await client.get('/api/employee/my/office-attendance/weekly');
+      return res.data;
+    },
+    refetchInterval: 60000,
+  });
+
   const defaultAvatar =
     'https://lh3.googleusercontent.com/aida-public/AB6AXuDzcxM7B2Plj0M6rLwD5-jwCeXCJ-VxTGp8XT8dffCo7Cjv4BQ3_fM-MkOicyMU8jJxMw9Q81kjfqVm_zD_yfF92pmxUsZDY_fB7by9N3_LAOMNfdJlNjEUudjhqq7Cm5LUPTk9aKNVSgT9A4rsOYqHKU5vKRmjMZknp_AFtbKxzLh1PX2V_AKy5bez2tThvg_swnSuuvc4uRhd_JO8vfyGxuCUlrrS_Gt_LXaPHMHfgxPWTz6nvJqDPVw3QneYlTqVGg46xTuvrQDq';
 
@@ -72,6 +84,7 @@ export default function HomeScreen() {
           return;
         }
         await queryClient.invalidateQueries({ queryKey: queryKeys.officeAttendance.today });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.officeAttendance.weekly });
         return;
       }
 
@@ -127,9 +140,27 @@ export default function HomeScreen() {
               <Spinner size="large" className="text-brand-600" />
             </Center>
           ) : isOfficeEmployee ? (
-            <Box className="px-6">
-              {!isPasswordChangeModalOpen ? <OfficeAttendanceCard office={profile?.employee?.office} /> : null}
-            </Box>
+            <VStack space="xl">
+              <Box>
+                {weeklyOfficeData?.days && weeklyOfficeData.days.length > 0 ? (
+                  <OfficeAttendanceCarousel weeklyDays={weeklyOfficeData.days} isLoading={isWeeklyOfficeLoading} />
+                ) : (
+                  <Box className="px-6">
+                    <Box className="bg-white/5 p-8 rounded-2xl border border-dashed border-white/10 items-center">
+                      <Text className="text-typography-500 text-center font-medium">
+                        {t('dashboard.noActiveShift')}
+                      </Text>
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+
+              {!isPasswordChangeModalOpen ? (
+                <Box className="px-6">
+                  <OfficeAttendanceCard office={profile?.employee?.office} />
+                </Box>
+              ) : null}
+            </VStack>
           ) : (
             <VStack space="xl">
               <Box>

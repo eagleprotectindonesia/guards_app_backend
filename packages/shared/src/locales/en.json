@@ -33,7 +33,8 @@
     "minutes": "minutes",
     "seconds": "seconds",
     "loading": "Loading...",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "today": "Today"
   },
   "attendance": {
     "success": "Attendance Recorded Successfully!",
@@ -224,6 +225,7 @@
     "history": "Today's History",
     "in": "In",
     "out": "Out",
+    "noAttendance": "No attendance recorded",
     "errors": {
       "generic": "Failed to record office attendance.",
       "unauthorized": "You are not authorized to perform this action.",

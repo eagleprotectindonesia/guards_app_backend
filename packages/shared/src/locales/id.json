@@ -33,7 +33,8 @@
     "minutes": "menit",
     "seconds": "detik",
     "loading": "Memuat...",
-    "processing": "Memproses..."
+    "processing": "Memproses...",
+    "today": "Hari Ini"
   },
   "attendance": {
     "success": "Kehadiran Berhasil Direkam!",
@@ -224,6 +225,7 @@
     "history": "Riwayat Hari Ini",
     "in": "Masuk",
     "out": "Keluar",
+    "noAttendance": "Belum ada presensi",
     "errors": {
       "generic": "Gagal merekam kehadiran kantor.",
       "unauthorized": "Anda tidak memiliki izin untuk melakukan tindakan ini.",
