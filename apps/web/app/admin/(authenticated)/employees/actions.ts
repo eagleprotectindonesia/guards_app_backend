@@ -208,6 +208,8 @@ export async function updateEmployeeFieldMode(
 
 
 export async function syncEmployeesAction() {
+  await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
+
   const adminId = await getAdminIdFromToken();
   if (!adminId) return { success: false, message: 'Unauthorized' };
 

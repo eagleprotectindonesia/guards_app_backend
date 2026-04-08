@@ -49,6 +49,7 @@ export default function EmployeeList({
   const canEdit = hasPermission(PERMISSIONS.EMPLOYEES.EDIT);
   const canDelete = hasPermission(PERMISSIONS.EMPLOYEES.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+  const canCreateChat = hasPermission(PERMISSIONS.CHAT.CREATE);
 
   const handleSort = (field: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -156,14 +157,16 @@ export default function EmployeeList({
             <Search placeholder="Search employees..." />
           </div>
 
-          <button
-            onClick={handleSync}
-            disabled={isPending}
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 w-full md:w-auto"
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
-            Sync Now
-          </button>
+          {canEdit && (
+            <button
+              onClick={handleSync}
+              disabled={isPending}
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 w-full md:w-auto"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+              Sync Now
+            </button>
+          )}
 
           <button
             onClick={handleExportCSV}
@@ -301,24 +304,26 @@ export default function EmployeeList({
                             <Pencil className="w-4 h-4" />
                           </Link>
                         )}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            window.dispatchEvent(
-                              new CustomEvent('open-admin-chat', {
-                                detail: {
-                                  employeeId: employee.id,
-                                  employeeName: employee.fullName,
-                                  employeeNumber: employee.employeeNumber,
-                                },
-                              })
-                            )
-                          }
-                          className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-900/10 rounded-lg transition-colors cursor-pointer"
-                          title="Chat"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                        </button>
+                        {canCreateChat && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              window.dispatchEvent(
+                                new CustomEvent('open-admin-chat', {
+                                  detail: {
+                                    employeeId: employee.id,
+                                    employeeName: employee.fullName,
+                                    employeeNumber: employee.employeeNumber,
+                                  },
+                                })
+                              )
+                            }
+                            className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-900/10 rounded-lg transition-colors cursor-pointer"
+                            title="Chat"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
