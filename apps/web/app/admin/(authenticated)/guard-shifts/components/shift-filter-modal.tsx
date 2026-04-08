@@ -56,7 +56,7 @@ export default function ShiftFilterModal({ isOpen, onClose, onApply, initialFilt
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Filter Shifts">
+    <Modal isOpen={isOpen} onClose={onClose} title="Filter Guard Shifts">
       <div className="space-y-4 p-4">
         {/* Date Range */}
         <div>

@@ -96,8 +96,8 @@ export default function CheckinList({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Check-ins</h1>
-          <p className="text-sm text-muted-foreground mt-1">View employee check-in history and status.</p>
+          <h1 className="text-2xl font-bold text-foreground">Guard Check-ins</h1>
+          <p className="text-sm text-muted-foreground mt-1">View employee guard check-in history and status.</p>
         </div>
         <div className="flex items-center gap-2">
           <CheckinExport initialFilters={initialFilters} employees={employees} />
@@ -134,7 +134,7 @@ export default function CheckinList({
                   <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     {' '}
                     {/* Updated colspan */}
-                    No check-ins found.
+                    No guard check-ins found.
                   </td>
                 </tr>
               ) : (

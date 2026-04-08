@@ -37,8 +37,8 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
 
   useEffect(() => {
     if (state.success) {
-      toast.success(state.message || (shift ? 'Shift updated successfully!' : 'Shift created successfully!'));
-      router.push('/admin/shifts');
+      toast.success(state.message || (shift ? 'Guard shift updated successfully!' : 'Guard shift created successfully!'));
+      router.push('/admin/guard-shifts');
     } else if (state.message && !state.success) {
       toast.error(state.message);
     }
@@ -58,7 +58,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
   return (
     <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold text-foreground mb-6">
-        {isReadOnly ? 'View Shift' : shift ? 'Edit Shift' : 'Schedule New Shift'}
+        {isReadOnly ? 'View Guard Shift' : shift ? 'Edit Guard Shift' : 'Schedule New Guard Shift'}
       </h1>
       <form action={formAction} className="space-y-8">
         {/* Site Field */}
@@ -85,7 +85,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
         {/* Shift Type Field */}
         <div>
           <label htmlFor="shiftTypeId" className="block font-medium text-foreground mb-1">
-            Shift Type
+            Guard Shift Type
           </label>
           <Select
             id="shift-type-select"
@@ -93,7 +93,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
             options={shiftTypeOptions}
             value={shiftTypeOptions.find(opt => opt.value === selectedShiftTypeId) || null}
             onChange={option => setSelectedShiftTypeId(option?.value || '')}
-            placeholder="Select a shift type"
+            placeholder="Select a guard shift type"
             isClearable={false}
             isSearchable={false}
             isDisabled={isReadOnly}
@@ -211,7 +211,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
             rows={3}
             disabled={isReadOnly}
             className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all resize-none disabled:bg-muted disabled:text-muted-foreground placeholder:text-muted-foreground/50"
-            placeholder="Add any special instructions or notes for this shift..."
+            placeholder="Add any special instructions or notes for this guard shift..."
           />
           {state.errors?.note && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.note[0]}</p>}
         </div>
@@ -227,7 +227,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <button
             type="button"
-            onClick={() => router.push('/admin/shifts')}
+            onClick={() => router.push('/admin/guard-shifts')}
             className="px-6 py-2.5 rounded-lg border border-border bg-card text-foreground font-bold text-sm hover:bg-muted transition-colors"
           >
             {isReadOnly ? 'Back' : 'Cancel'}
@@ -238,7 +238,7 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
               disabled={isPending}
               className="px-6 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
             >
-              {isPending ? 'Saving...' : shift ? 'Save Changes' : 'Schedule Shift'}
+              {isPending ? 'Saving...' : shift ? 'Save Changes' : 'Schedule Guard Shift'}
             </button>
           )}
         </div>

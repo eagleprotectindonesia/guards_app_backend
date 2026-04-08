@@ -38,12 +38,12 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
     startTransition(async () => {
       const result = await bulkCreateShifts(formData);
       if (result.success) {
-        toast.success(result.message || 'Shifts created successfully!');
+        toast.success(result.message || 'Guard shifts created successfully!');
         onClose();
         setFile(null);
         setValidationErrors([]);
       } else {
-        setError(result.message || 'Failed to create shifts.');
+        setError(result.message || 'Failed to create guard shifts.');
         if (result.errors && Array.isArray(result.errors)) {
           setValidationErrors(result.errors);
         }
@@ -67,7 +67,7 @@ export default function BulkCreateModal({ isOpen, onClose }: BulkCreateModalProp
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Bulk Create Shifts">
+    <Modal isOpen={isOpen} onClose={onClose} title="Bulk Create Guard Shifts">
       <form onSubmit={handleSubmit} className="space-y-4 p-4">
         <div>
           <div className="flex justify-between items-center mb-2">

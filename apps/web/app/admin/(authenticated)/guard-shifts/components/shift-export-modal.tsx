@@ -40,10 +40,10 @@ export default function ShiftExportModal({ isOpen, onClose, onExport }: ShiftExp
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Export Shifts">
+    <Modal isOpen={isOpen} onClose={onClose} title="Export Guard Shifts">
       <div className="p-6">
         <p className="text-sm text-muted-foreground mb-6">
-          Select a date range to export shift records. The maximum range is 31 days.
+          Select a date range to export guard shift records. The maximum range is 31 days.
         </p>
 
         <div className="space-y-4">

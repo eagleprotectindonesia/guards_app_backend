@@ -71,7 +71,7 @@ export default function ShiftList({
     const newSort = sort === 'desc' ? 'asc' : 'desc';
     params.set('sort', newSort);
     params.set('page', '1');
-    router.push(`/admin/shifts?${params.toString()}`);
+    router.push(`/admin/guard-shifts?${params.toString()}`);
   };
 
   const handleConfirmDelete = () => {
@@ -80,10 +80,10 @@ export default function ShiftList({
     startTransition(async () => {
       const result = await deleteShift(selectedShiftId);
       if (result.success) {
-        toast.success('Shift deleted successfully!');
+        toast.success('Guard shift deleted successfully!');
         setSelectedShiftId(null);
       } else {
-        toast.error(result.message || 'Failed to delete shift.');
+        toast.error(result.message || 'Failed to delete guard shift.');
       }
     });
   };
@@ -94,10 +94,10 @@ export default function ShiftList({
     startTransition(async () => {
       const result = await cancelShift(selectedShiftId, note);
       if (result.success) {
-        toast.success('Shift cancelled successfully!');
+        toast.success('Guard shift cancelled successfully!');
         setSelectedShiftId(null);
       } else {
-        toast.error(result.message || 'Failed to cancel shift.');
+        toast.error(result.message || 'Failed to cancel guard shift.');
       }
     });
   };
@@ -135,7 +135,7 @@ export default function ShiftList({
     }
 
     params.set('page', '1'); // Reset to page 1 when filtering
-    router.push(`/admin/shifts?${params.toString()}`);
+    router.push(`/admin/guard-shifts?${params.toString()}`);
   };
 
   const getStatusColor = (status: string) => {
@@ -162,7 +162,7 @@ export default function ShiftList({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Shifts</h1>
+          <h1 className="text-2xl font-bold text-foreground">Guard Shifts</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage employee schedules and assignments.</p>
         </div>
         <div className="flex gap-2">
@@ -208,7 +208,7 @@ export default function ShiftList({
           )}
           {canViewAudit && (
             <Link
-              href="/admin/shifts/audit"
+              href="/admin/guard-shifts/audit"
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
             >
               <History className="mr-2 h-4 w-4" />
@@ -217,11 +217,11 @@ export default function ShiftList({
           )}
           {canCreate && (
             <Link
-              href="/admin/shifts/create"
+              href="/admin/guard-shifts/create"
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
             >
               <span className="mr-2 text-lg leading-none">+</span>
-              Schedule Shift
+              Schedule Guard Shift
             </Link>
           )}
         </div>
@@ -335,7 +335,7 @@ export default function ShiftList({
                       <td className="py-4 px-6 text-right">
                         <div className="flex items-center justify-end gap-2 opacity-100">
                           <EditButton
-                            href={`/admin/shifts/${shift.id}/edit`}
+                            href={`/admin/guard-shifts/${shift.id}/edit`}
                             disabled={!canEdit}
                             title={!canEdit ? 'Permission Denied' : 'Edit'}
                           />

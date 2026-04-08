@@ -36,7 +36,7 @@ export async function createShift(
   if (!validatedFields.success) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Missing Fields. Failed to Create Shift.',
+      message: 'Missing Fields. Failed to Create Guard Shift.',
       success: false,
     };
   }
@@ -52,7 +52,7 @@ export async function createShift(
 
     if (!shiftType) {
       return {
-        message: 'Selected Shift Type does not exist.',
+        message: 'Selected Guard Shift Type does not exist.',
         success: false,
       };
     }
@@ -60,14 +60,14 @@ export async function createShift(
     const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
     if (durationInMins % requiredCheckinIntervalMins !== 0) {
       return {
-        message: `Shift duration (${durationInMins} mins) must be a multiple of the check-in interval (${requiredCheckinIntervalMins} mins).`,
+        message: `Guard shift duration (${durationInMins} mins) must be a multiple of the check-in interval (${requiredCheckinIntervalMins} mins).`,
         success: false,
       };
     }
 
     if (durationInMins < 2 * requiredCheckinIntervalMins) {
       return {
-        message: `Shift duration (${durationInMins} mins) must allow for at least 2 check-in slots. Please reduce the check-in interval.`,
+        message: `Guard shift duration (${durationInMins} mins) must allow for at least 2 check-in slots. Please reduce the check-in interval.`,
         success: false,
       };
     }
@@ -86,7 +86,7 @@ export async function createShift(
 
     if (isBefore(startDateTime, new Date())) {
       return {
-        message: 'Cannot schedule a shift in the past.',
+        message: 'Cannot schedule a guard shift in the past.',
         success: false,
       };
     }
@@ -101,7 +101,7 @@ export async function createShift(
 
       if (conflictingShift) {
         return {
-          message: 'Employee already has a conflicting shift during this time.',
+          message: 'Employee already has a conflicting guard shift during this time.',
           success: false,
         };
       }
@@ -125,13 +125,13 @@ export async function createShift(
   } catch (error) {
     console.error('Database Error:', error);
     return {
-      message: 'Database Error: Failed to Create Shift.',
+      message: 'Database Error: Failed to Create Guard Shift.',
       success: false,
     };
   }
 
-  revalidatePath('/admin/shifts');
-  return { success: true, message: 'Shift created successfully' };
+  revalidatePath('/admin/guard-shifts');
+  return { success: true, message: 'Guard shift created successfully' };
 }
 
 export async function updateShift(
@@ -153,7 +153,7 @@ export async function updateShift(
   if (!validatedFields.success) {
     return {
       errors: validatedFields.error.flatten().fieldErrors,
-      message: 'Missing Fields. Failed to Update Shift.',
+      message: 'Missing Fields. Failed to Update Guard Shift.',
       success: false,
     };
   }
@@ -167,20 +167,20 @@ export async function updateShift(
     });
 
     if (!shiftType) {
-      return { message: 'Selected Shift Type does not exist.', success: false };
+      return { message: 'Selected Guard Shift Type does not exist.', success: false };
     }
 
     const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
     if (durationInMins % requiredCheckinIntervalMins !== 0) {
       return {
-        message: `Shift duration (${durationInMins} mins) must be a multiple of the check-in interval (${requiredCheckinIntervalMins} mins).`,
+        message: `Guard shift duration (${durationInMins} mins) must be a multiple of the check-in interval (${requiredCheckinIntervalMins} mins).`,
         success: false,
       };
     }
 
     if (durationInMins < 2 * requiredCheckinIntervalMins) {
       return {
-        message: `Shift duration (${durationInMins} mins) must allow for at least 2 check-in slots. Please reduce the check-in interval.`,
+        message: `Guard shift duration (${durationInMins} mins) must allow for at least 2 check-in slots. Please reduce the check-in interval.`,
         success: false,
       };
     }
@@ -204,7 +204,7 @@ export async function updateShift(
 
       if (conflictingShift) {
         return {
-          message: 'Employee already has a conflicting shift during this time.',
+          message: 'Employee already has a conflicting guard shift during this time.',
           success: false,
         };
       }
@@ -228,24 +228,24 @@ export async function updateShift(
   } catch (error) {
     console.error('Database Error:', error);
     return {
-      message: 'Database Error: Failed to Update Shift.',
+      message: 'Database Error: Failed to Update Guard Shift.',
       success: false,
     };
   }
 
-  revalidatePath('/admin/shifts');
-  return { success: true, message: 'Shift updated successfully' };
+  revalidatePath('/admin/guard-shifts');
+  return { success: true, message: 'Guard shift updated successfully' };
 }
 
 export async function deleteShift(id: string) {
   try {
     const adminId = await getAdminIdFromToken();
     await deleteShiftWithChangelog(id, adminId);
-    revalidatePath('/admin/shifts');
+    revalidatePath('/admin/guard-shifts');
     return { success: true };
   } catch (error) {
     console.error('Database Error:', error);
-    return { success: false, message: 'Failed to delete shift' };
+    return { success: false, message: 'Failed to delete guard shift' };
   }
 }
 
@@ -260,11 +260,11 @@ export async function cancelShift(id: string, cancelNote?: string) {
     });
 
     if (!shift) {
-      return { success: false, message: 'Shift not found' };
+      return { success: false, message: 'Guard shift not found' };
     }
 
     if (shift.status !== 'in_progress') {
-      return { success: false, message: 'Only in-progress shifts can be cancelled' };
+      return { success: false, message: 'Only in-progress guard shifts can be cancelled' };
     }
 
     let updatedNote = shift.note;
@@ -275,11 +275,11 @@ export async function cancelShift(id: string, cancelNote?: string) {
     }
 
     await updateShiftWithChangelog(id, { status: ShiftStatus.cancelled, note: updatedNote }, adminId);
-    revalidatePath('/admin/shifts');
+    revalidatePath('/admin/guard-shifts');
     return { success: true };
   } catch (error) {
     console.error('Database Error:', error);
-    return { success: false, message: 'Failed to cancel shift' };
+    return { success: false, message: 'Failed to cancel guard shift' };
   }
 }
 
@@ -347,7 +347,7 @@ export async function bulkCreateShifts(
 
     const shiftType = shiftTypeMap.get(shiftTypeName.toLowerCase());
     if (!shiftType) {
-      errors.push(`Row ${i + 1}: Shift Type '${shiftTypeName}' not found.`);
+      errors.push(`Row ${i + 1}: Guard Shift Type '${shiftTypeName}' not found.`);
     }
 
     const employeeId = employeeName ? employeeMap.get(employeeName.toLowerCase()) || null : null;
@@ -385,14 +385,14 @@ export async function bulkCreateShifts(
       const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
       if (durationInMins % interval !== 0) {
         errors.push(
-          `Row ${i + 1}: Shift duration (${durationInMins} mins) must be a multiple of the check-in interval (${interval} mins).`
+          `Row ${i + 1}: Guard shift duration (${durationInMins} mins) must be a multiple of the check-in interval (${interval} mins).`
         );
         continue;
       }
 
       if (durationInMins < 2 * interval) {
         errors.push(
-          `Row ${i + 1}: Shift duration (${durationInMins} mins) must allow for at least 2 check-in slots. Please reduce the check-in interval.`
+          `Row ${i + 1}: Guard shift duration (${durationInMins} mins) must allow for at least 2 check-in slots. Please reduce the check-in interval.`
         );
         continue;
       }
@@ -406,7 +406,7 @@ export async function bulkCreateShifts(
       }
 
       if (isBefore(startDateTime, new Date())) {
-        errors.push(`Row ${i + 1}: Cannot schedule a shift in the past.`);
+        errors.push(`Row ${i + 1}: Cannot schedule a guard shift in the past.`);
         continue;
       }
 
@@ -416,7 +416,7 @@ export async function bulkCreateShifts(
         );
 
         if (overlapInBatch) {
-          errors.push(`Row ${i + 1}: Overlaps with another shift in this batch for employee ${employeeName}.`);
+          errors.push(`Row ${i + 1}: Overlaps with another guard shift in this batch for employee ${employeeName}.`);
           continue;
         }
 
@@ -429,7 +429,7 @@ export async function bulkCreateShifts(
         });
 
         if (existingShift) {
-          errors.push(`Row ${i + 1}: Employee ${employeeName} already has a shift overlapping with this time.`);
+          errors.push(`Row ${i + 1}: Employee ${employeeName} already has a guard shift overlapping with this time.`);
           continue;
         }
       }
@@ -454,13 +454,13 @@ export async function bulkCreateShifts(
   }
 
   if (shiftsToCreate.length === 0) {
-    return { success: false, message: 'No valid shifts found to create.' };
+    return { success: false, message: 'No valid guard shifts found to create.' };
   }
 
   try {
     await bulkCreateShiftsWithChangelog(shiftsToCreate, adminId);
-    revalidatePath('/admin/shifts');
-    return { success: true, message: `Successfully created ${shiftsToCreate.length} shifts.` };
+    revalidatePath('/admin/guard-shifts');
+    return { success: true, message: `Successfully created ${shiftsToCreate.length} guard shifts.` };
   } catch (error) {
     console.error('Bulk Create Error:', error);
     return { success: false, message: 'Database error during bulk creation.' };

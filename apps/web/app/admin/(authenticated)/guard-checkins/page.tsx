@@ -62,7 +62,7 @@ export default async function CheckinsPage(props: CheckinsPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading check-ins...</div>}>
+      <Suspense fallback={<div>Loading guard check-ins...</div>}>
         <CheckinList
           checkins={serializedCheckins}
           page={page}

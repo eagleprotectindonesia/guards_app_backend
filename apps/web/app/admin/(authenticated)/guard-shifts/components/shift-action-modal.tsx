@@ -46,9 +46,9 @@ export default function ShiftActionModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="Shift Actions">
+    <Modal isOpen={isOpen} onClose={handleClose} title="Guard Shift Actions">
       <div className="p-6">
-        <p className="text-sm text-muted-foreground mb-6">Choose an action to perform on this shift.</p>
+        <p className="text-sm text-muted-foreground mb-6">Choose an action to perform on this guard shift.</p>
 
         <div className="space-y-6">
           <RadioGroup value={selectedAction || ''} onValueChange={setSelectedAction} className="gap-4">
@@ -65,7 +65,7 @@ export default function ShiftActionModal({
                 <Label htmlFor="cancel" className="flex flex-col gap-1 cursor-pointer flex-1">
                   <span className="font-semibold text-foreground flex items-center gap-2">
                     <XCircle className="w-4 h-4 text-red-500" />
-                    Cancel Shift
+                    Cancel Guard Shift
                   </span>
                   <span className="text-xs text-muted-foreground font-normal">
                     Mark as cancelled but keep for audit records.
@@ -90,7 +90,7 @@ export default function ShiftActionModal({
                     Delete Permanently
                   </span>
                   <span className="text-xs text-muted-foreground font-normal">
-                    Completely remove this shift record. This cannot be undone.
+                    Completely remove this guard shift record. This cannot be undone.
                   </span>
                 </Label>
               </div>
@@ -101,7 +101,7 @@ export default function ShiftActionModal({
             <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-900/50 rounded-lg flex gap-3">
               <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 shrink-0" />
               <p className="text-sm text-yellow-700 dark:text-yellow-400">
-                Only in-progress shifts can be cancelled. Since you are not a Super Admin, you can only delete scheduled shifts.
+                Only in-progress guard shifts can be cancelled. Since you are not a Super Admin, you can only delete scheduled guard shifts.
               </p>
             </div>
           )}

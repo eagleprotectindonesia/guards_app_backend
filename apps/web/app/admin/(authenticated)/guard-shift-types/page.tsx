@@ -8,7 +8,7 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedShiftTypeWithAdminInfoDto } from '@/types/shift-types';
 
 export const metadata: Metadata = {
-  title: 'Shift Types Management',
+  title: 'Guard Shift Types Management',
 };
 
 export const dynamic = 'force-dynamic';
@@ -43,7 +43,7 @@ export default async function ShiftTypesPage(props: ShiftTypesPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading shift types...</div>}>
+      <Suspense fallback={<div>Loading guard shift types...</div>}>
         <ShiftTypeList
           shiftTypes={serializedShiftTypes}
           page={page}

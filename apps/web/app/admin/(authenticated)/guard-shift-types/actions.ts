@@ -40,8 +40,8 @@ export async function createShiftType(
     };
   }
 
-  revalidatePath('/admin/shift-types');
-  revalidatePath('/admin/shifts', 'layout');
+  revalidatePath('/admin/guard-shift-types');
+  revalidatePath('/admin/guard-shifts', 'layout');
   return { success: true, message: 'Shift Type created successfully' };
 }
 
@@ -84,8 +84,8 @@ export async function updateShiftType(
     };
   }
 
-  revalidatePath('/admin/shift-types');
-  revalidatePath('/admin/shifts', 'layout');
+  revalidatePath('/admin/guard-shift-types');
+  revalidatePath('/admin/guard-shifts', 'layout');
   return { success: true, message: 'Shift Type updated successfully' };
 }
 
@@ -93,8 +93,8 @@ export async function deleteShiftType(id: string) {
   try {
     const adminId = await getAdminIdFromToken();
     await deleteShiftTypeWithChangelog(id, adminId!);
-    revalidatePath('/admin/shift-types');
-    revalidatePath('/admin/shifts', 'layout');
+    revalidatePath('/admin/guard-shift-types');
+    revalidatePath('/admin/guard-shifts', 'layout');
     return { success: true };
   } catch (error) {
     console.error('Database Error:', error);

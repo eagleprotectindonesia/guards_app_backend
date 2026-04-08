@@ -13,7 +13,7 @@ import type { SerializedShiftWithRelationsDto } from '@/types/shifts';
 import { EmployeeSummary } from '@repo/database';
 
 export const metadata: Metadata = {
-  title: 'Shifts Management',
+  title: 'Guard Shifts Management',
 };
 
 export const dynamic = 'force-dynamic';
@@ -136,7 +136,7 @@ export default async function ShiftsPage({
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading shifts...</div>}>
+      <Suspense fallback={<div>Loading guard shifts...</div>}>
         <ShiftList
           shifts={shiftDtos}
           sites={siteOptions}

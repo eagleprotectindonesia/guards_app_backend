@@ -46,7 +46,7 @@ export default function CheckinFilterModal({ isOpen, onClose, onApply, initialFi
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Filter Check-ins">
+    <Modal isOpen={isOpen} onClose={onClose} title="Filter Guard Check-ins">
       <div className="space-y-4 p-4">
         {/* Date Range */}
         <div>

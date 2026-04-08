@@ -49,9 +49,9 @@ export default function ShiftTypeForm({ shiftType }: Props) {
   useEffect(() => {
     if (state.success) {
       toast.success(
-        state.message || (shiftType ? 'Shift Type updated successfully!' : 'Shift Type created successfully!')
+        state.message || (shiftType ? 'Guard Shift Type updated successfully!' : 'Guard Shift Type created successfully!')
       );
-      router.push('/admin/shift-types');
+      router.push('/admin/guard-shift-types');
     } else if (state.message && !state.success) {
       toast.error(state.message);
     }
@@ -59,7 +59,7 @@ export default function ShiftTypeForm({ shiftType }: Props) {
 
   return (
     <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-foreground mb-6">{shiftType ? 'Edit Shift Type' : 'Add New Shift Type'}</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-6">{shiftType ? 'Edit Guard Shift Type' : 'Add New Guard Shift Type'}</h1>
       <form action={formAction} className="space-y-8">
         {/* Name Field */}
         <div>
@@ -126,7 +126,7 @@ export default function ShiftTypeForm({ shiftType }: Props) {
         <div className="flex justify-end gap-3 pt-4 border-t border-border">
           <button
             type="button"
-            onClick={() => router.push('/admin/shift-types')}
+            onClick={() => router.push('/admin/guard-shift-types')}
             className="px-6 py-2.5 rounded-lg border border-border bg-card text-foreground font-bold text-sm hover:bg-muted transition-colors"
           >
             Cancel
@@ -136,7 +136,7 @@ export default function ShiftTypeForm({ shiftType }: Props) {
             disabled={isPending}
             className="px-6 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
           >
-            {isPending ? 'Saving...' : shiftType ? 'Save Changes' : 'Add Shift Type'}
+            {isPending ? 'Saving...' : shiftType ? 'Save Changes' : 'Add Guard Shift Type'}
           </button>
         </div>
       </form>

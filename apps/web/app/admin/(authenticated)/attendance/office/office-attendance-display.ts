@@ -53,9 +53,7 @@ function getActualPaidMinutes(clockInAt: string, clockOutAt: string | null) {
     return null;
   }
 
-  const durationMinutes = Math.floor(
-    (new Date(clockOutAt).getTime() - new Date(clockInAt).getTime()) / (1000 * 60)
-  );
+  const durationMinutes = Math.floor((new Date(clockOutAt).getTime() - new Date(clockInAt).getTime()) / (1000 * 60));
   const breakMinutes = durationMinutes > 5 * 60 ? OFFICE_PAID_BREAK_MINUTES : 0;
 
   return Math.max(0, durationMinutes - breakMinutes);
@@ -115,7 +113,9 @@ export function unifyOfficeAttendanceForAdminDisplay(
       continue;
     }
 
-    unifiedRows.push(toUnifiedRow(clockIn, attendance, getActualPaidMinutes(clockIn.recordedAt, attendance.recordedAt)));
+    unifiedRows.push(
+      toUnifiedRow(clockIn, attendance, getActualPaidMinutes(clockIn.recordedAt, attendance.recordedAt))
+    );
 
     if (employeeOpenSessions.length > 0) {
       openSessionsByEmployee.set(employeeKey, employeeOpenSessions);
