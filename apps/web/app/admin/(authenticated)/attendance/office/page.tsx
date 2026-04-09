@@ -4,13 +4,14 @@ import AttendanceTabs from '../components/attendance-tabs';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
-import { getActiveEmployeesSummary } from '@repo/database';
+import { getActiveEmployeesSummary, getActiveOffices } from '@repo/database';
 import { getScheduledPaidMinutesForOfficeAttendance, listOfficeAttendance } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { canAccessOfficeAttendance } from '@/lib/auth/admin-visibility';
 import {
   AttendanceEmployeeSummary,
+  AttendanceOfficeSummary,
   OfficeAttendanceMetadataDto,
   SerializedOfficeAttendanceWithRelationsDto,
 } from '@/types/attendance';
@@ -56,12 +57,13 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
     }
   }
 
-  const [attendances, employees] = await Promise.all([
+  const [attendances, employees, offices] = await Promise.all([
     listOfficeAttendance({
       where,
       orderBy: { recordedAt: 'asc' },
     }),
     getActiveEmployeesSummary('office'),
+    getActiveOffices(),
   ]);
 
   const serializedAttendances: SerializedOfficeAttendanceWithRelationsDto[] = attendances.map(att => ({
@@ -99,6 +101,11 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
     employeeNumber: emp.employeeNumber,
   }));
 
+  const serializedOffices: AttendanceOfficeSummary[] = offices.map(office => ({
+    id: office.id,
+    name: office.name,
+  }));
+
   const initialFilters = {
     employeeId,
     startDate: from,
@@ -114,6 +121,7 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
           page={page}
           perPage={perPage}
           totalCount={totalCount}
+          offices={serializedOffices}
           employees={serializedEmployees}
           initialFilters={initialFilters}
         />

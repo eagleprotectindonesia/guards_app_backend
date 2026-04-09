@@ -12,6 +12,11 @@ export type AttendanceEmployeeSummary = {
   employeeNumber: string | null;
 };
 
+export type AttendanceOfficeSummary = {
+  id: string;
+  name: string;
+};
+
 export type AttendanceWithRelationsDto = {
   id: string;
   recordedAt: Date;

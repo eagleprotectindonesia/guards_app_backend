@@ -3,11 +3,13 @@
 import { Clock, Hotel } from 'lucide-react';
 import { format } from 'date-fns';
 import {
+  AttendanceOfficeSummary,
   AttendanceEmployeeSummary,
   OfficeAttendanceMetadataDto,
   SerializedOfficeAttendanceDisplayDto,
 } from '@/types/attendance';
 import PaginationNav from '../../../components/pagination-nav';
+import OfficeAttendanceExport from './office-attendance-export';
 
 function buildLocationSummary(metadata: OfficeAttendanceMetadataDto | null) {
   if (!metadata?.location) return '-';
@@ -24,6 +26,7 @@ type OfficeAttendanceListProps = {
   page: number;
   perPage: number;
   totalCount: number;
+  offices: AttendanceOfficeSummary[];
   employees: AttendanceEmployeeSummary[];
   initialFilters: {
     startDate?: string;
@@ -32,7 +35,7 @@ type OfficeAttendanceListProps = {
   };
 };
 
-export default function OfficeAttendanceList({ attendances, page, perPage, totalCount }: OfficeAttendanceListProps) {
+export default function OfficeAttendanceList({ attendances, page, perPage, totalCount, offices }: OfficeAttendanceListProps) {
   return (
     <div>
       {/* Header Section */}
@@ -40,6 +43,9 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
         <div>
           <h1 className="text-2xl font-bold text-foreground">Office Attendance</h1>
           <p className="text-sm text-muted-foreground mt-1">View unified office attendance sessions.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <OfficeAttendanceExport offices={offices} />
         </div>
       </div>
 
