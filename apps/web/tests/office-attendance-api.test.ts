@@ -120,6 +120,64 @@ describe('POST /api/employee/my/office-attendance', () => {
     );
   });
 
+  test('persists rounded distanceMeters for office-required clock-in', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-distance-in',
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
+    });
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: false,
+      effectiveAttendanceMode: 'office_required',
+      startMinutes: 8 * 60,
+      businessDay: {
+        minutesSinceMidnight: 8 * 60 + 5,
+      },
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getOfficeById as jest.Mock).mockResolvedValue({
+      id: 'office-1',
+      latitude: 0,
+      longitude: 0,
+    });
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '1000' });
+    (recordOfficeAttendance as jest.Mock).mockResolvedValue({
+      id: 'attendance-distance-in',
+      employeeId: 'employee-distance-in',
+      officeId: 'office-1',
+      status: 'present',
+    });
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        status: 'present',
+        location: { lat: 0, lng: 0.0001 },
+      }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(data.attendance).toMatchObject({ id: 'attendance-distance-in' });
+    expect(recordOfficeAttendance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        officeId: 'office-1',
+        employeeId: 'employee-distance-in',
+        status: 'present',
+        metadata: expect.objectContaining({
+          location: { lat: 0, lng: 0.0001 },
+          distanceMeters: expect.any(Number),
+        }),
+      })
+    );
+  });
+
   test('records attendance for office employees without an assigned office when field mode is disabled', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-null-office',
@@ -309,6 +367,75 @@ describe('POST /api/employee/my/office-attendance', () => {
       expect.objectContaining({
         employeeId: 'employee-3b',
         status: 'clocked_out',
+      })
+    );
+  });
+
+  test('persists rounded distanceMeters for office-required clock-out', async () => {
+    const windowStart = new Date('2026-04-02T00:00:00.000Z');
+    const windowEnd = new Date('2026-04-02T23:59:59.999Z');
+
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-distance-out',
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
+    });
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: false,
+      effectiveAttendanceMode: 'office_required',
+      windowStart,
+      windowEnd,
+      startMinutes: 8 * 60,
+      businessDay: {
+        minutesSinceMidnight: 16 * 60,
+      },
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue({
+      id: 'attendance-open-window',
+      employeeId: 'employee-distance-out',
+      officeId: 'office-1',
+      status: 'present',
+      recordedAt: '2026-04-02T08:00:00.000Z',
+    });
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getOfficeById as jest.Mock).mockResolvedValue({
+      id: 'office-1',
+      latitude: 0,
+      longitude: 0,
+    });
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '1000' });
+    (recordOfficeAttendance as jest.Mock).mockResolvedValue({
+      id: 'attendance-distance-out',
+      employeeId: 'employee-distance-out',
+      officeId: 'office-1',
+      status: 'clocked_out',
+    });
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        status: 'clocked_out',
+        location: { lat: 0, lng: 0.0002 },
+      }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(data.attendance).toMatchObject({ id: 'attendance-distance-out' });
+    expect(recordOfficeAttendance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        officeId: 'office-1',
+        employeeId: 'employee-distance-out',
+        status: 'clocked_out',
+        metadata: expect.objectContaining({
+          location: { lat: 0, lng: 0.0002 },
+          distanceMeters: expect.any(Number),
+        }),
       })
     );
   });

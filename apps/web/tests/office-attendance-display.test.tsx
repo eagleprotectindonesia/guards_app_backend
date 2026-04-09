@@ -37,7 +37,7 @@ describe('office attendance admin display', () => {
           id: 'out-1',
           recordedAt: '2026-03-28T09:10:00.000Z',
           status: 'clocked_out',
-          metadata: { location: { lat: -5.1, lng: 119.4 } },
+          metadata: { location: { lat: -5.1, lng: 119.4 }, distanceMeters: 18 },
         }),
       ],
       async () => 8 * 60
@@ -51,6 +51,7 @@ describe('office attendance admin display', () => {
       paidHours: '8 hrs 0 mins',
       displayStatus: 'completed',
       businessDate: '2026-03-28',
+      clockOutMetadata: { location: { lat: -5.1, lng: 119.4 }, distanceMeters: 18 },
     });
   });
 
@@ -200,13 +201,13 @@ describe('office attendance admin display', () => {
             id: 'render-in',
             recordedAt: '2026-03-28T00:05:00.000Z',
             status: 'present',
-            metadata: { location: { lat: -5.1234, lng: 119.4567 }, latenessMins: 10 },
+            metadata: { location: { lat: -5.1234, lng: 119.4567 }, distanceMeters: 9, latenessMins: 10 },
           }),
           buildAttendance({
             id: 'render-out',
             recordedAt: '2026-03-28T09:00:00.000Z',
             status: 'clocked_out',
-            metadata: { location: { lat: -5.2, lng: 119.5 } },
+            metadata: { location: { lat: -5.2, lng: 119.5 }, distanceMeters: 14 },
           }),
         ],
         async () => 7 * 60
@@ -223,8 +224,8 @@ describe('office attendance admin display', () => {
       paidHours: '7 hrs 0 mins',
       latenessMins: 10,
       displayStatus: 'late',
-      clockInMetadata: { location: { lat: -5.1234, lng: 119.4567 }, latenessMins: 10 },
-      clockOutMetadata: { location: { lat: -5.2, lng: 119.5 } },
+      clockInMetadata: { location: { lat: -5.1234, lng: 119.4567 }, distanceMeters: 9, latenessMins: 10 },
+      clockOutMetadata: { location: { lat: -5.2, lng: 119.5 }, distanceMeters: 14 },
     });
   });
 });

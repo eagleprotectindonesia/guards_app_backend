@@ -14,6 +14,11 @@ function buildLocationSummary(metadata: OfficeAttendanceMetadataDto | null) {
   return `Lat: ${metadata.location.lat.toFixed(3)}, Lng: ${metadata.location.lng.toFixed(3)}`;
 }
 
+function buildDistanceSummary(metadata: OfficeAttendanceMetadataDto | null) {
+  if (metadata?.distanceMeters == null) return '-';
+  return `${metadata.distanceMeters} m`;
+}
+
 type OfficeAttendanceListProps = {
   attendances: SerializedOfficeAttendanceDisplayDto[];
   page: number;
@@ -88,13 +93,23 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                       {attendance.businessDate}
                     </td>
                     <td className="py-4 px-6 text-sm text-foreground font-medium">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-3 h-3 text-muted-foreground/60" />
-                        {format(new Date(attendance.clockInAt), 'HH:mm')}
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3 h-3 text-muted-foreground/60" />
+                          {format(new Date(attendance.clockInAt), 'HH:mm')}
+                        </div>
+                        <div className="text-xs font-normal text-muted-foreground">
+                          {buildDistanceSummary(attendance.clockInMetadata)}
+                        </div>
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-foreground font-medium">
-                      {attendance.clockOutAt ? format(new Date(attendance.clockOutAt), 'HH:mm') : '-'}
+                      <div className="flex flex-col gap-1">
+                        <div>{attendance.clockOutAt ? format(new Date(attendance.clockOutAt), 'HH:mm') : '-'}</div>
+                        <div className="text-xs font-normal text-muted-foreground">
+                          {attendance.clockOutAt ? buildDistanceSummary(attendance.clockOutMetadata) : '-'}
+                        </div>
+                      </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-foreground font-medium">
                       {attendance.paidHours ?? '-'}

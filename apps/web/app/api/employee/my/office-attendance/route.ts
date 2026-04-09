@@ -101,6 +101,7 @@ export async function POST(req: Request) {
     const effectiveAttendanceMode = scheduleContext.effectiveAttendanceMode ?? getFallbackAttendanceMode(employee);
 
     let office = null;
+    let roundedDistanceMeters: number | null = null;
     if (effectiveAttendanceMode === 'office_required' && employee.officeId) {
       office = await getOfficeById(employee.officeId);
       if (!office) {
@@ -137,20 +138,19 @@ export async function POST(req: Request) {
 
       const setting = await getSystemSetting(OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING);
       const maxDistanceStr = setting?.value || process.env.OFFICE_ATTENDANCE_MAX_DISTANCE_METERS;
+      const distance = calculateDistance(body.location.lat, body.location.lng, office.latitude, office.longitude);
+      roundedDistanceMeters = Math.round(distance);
 
       if (maxDistanceStr) {
         const maxDistance = parseInt(maxDistanceStr, 10);
         if (!isNaN(maxDistance) && maxDistance > 0) {
-          const distance = calculateDistance(body.location.lat, body.location.lng, office.latitude, office.longitude);
-
           if (distance > maxDistance) {
-            const currentDistanceMeters = Math.round(distance);
             return NextResponse.json(
               {
                 code: 'too_far_from_office',
-                error: `Anda berada terlalu jauh dari kantor. Jarak saat ini: ${currentDistanceMeters}m (Maksimal: ${maxDistance}m).`,
+                error: `Anda berada terlalu jauh dari kantor. Jarak saat ini: ${roundedDistanceMeters}m (Maksimal: ${maxDistance}m).`,
                 details: {
-                  currentDistanceMeters,
+                  currentDistanceMeters: roundedDistanceMeters,
                   maxDistanceMeters: maxDistance,
                 },
               },
@@ -173,6 +173,7 @@ export async function POST(req: Request) {
     const metadata = {
       ...(body.metadata || {}),
       ...(body.location ? { location: body.location } : {}),
+      ...(roundedDistanceMeters != null ? { distanceMeters: roundedDistanceMeters } : {}),
       ...(latenessMins != null ? { latenessMins } : {}),
     };
 

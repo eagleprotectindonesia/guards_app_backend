@@ -49,6 +49,7 @@ export type OfficeAttendanceMetadataDto = {
     lat: number;
     lng: number;
   };
+  distanceMeters?: number;
   latenessMins?: number;
 };
 
