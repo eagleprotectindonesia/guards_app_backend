@@ -189,6 +189,43 @@ export async function resolveOfficeShiftContextForEmployee(
   };
 }
 
+async function assertOfficeShiftAttendanceModeAllowed(
+  client: TxLike,
+  params: {
+    employeeId?: string;
+    attendanceMode?: 'office_required' | 'non_office' | null;
+  }
+) {
+  const { employeeId, attendanceMode } = params;
+  if (!employeeId || attendanceMode == null) return;
+
+  const employee = await client.employee.findUnique({
+    where: { id: employeeId, deletedAt: null },
+    select: { officeId: true },
+  });
+
+  if (!employee?.officeId) {
+    throw new Error('Shift attendance mode override can only be set for office employees with an assigned office.');
+  }
+}
+
+function normalizeOfficeShiftAttendanceMode(
+  value:
+    | Prisma.OfficeShiftUpdateInput['attendanceMode']
+    | Prisma.OfficeShiftCreateInput['attendanceMode']
+    | 'office_required'
+    | 'non_office'
+    | null
+    | undefined
+): 'office_required' | 'non_office' | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value === 'object' && 'set' in value) {
+    return (value.set ?? null) as 'office_required' | 'non_office' | null;
+  }
+  return value as 'office_required' | 'non_office';
+}
+
 export async function getScheduledPaidMinutesForOfficeShiftAttendance(employeeId: string, at = new Date()) {
   const context = await resolveOfficeShiftContextForEmployee(employeeId, at);
 
@@ -227,6 +264,10 @@ export async function createOfficeShiftWithChangelog(
   tx?: Prisma.TransactionClient
 ) {
   const client: TxLike = tx ?? prisma;
+  await assertOfficeShiftAttendanceModeAllowed(client, {
+    employeeId: 'connect' in data.employee ? data.employee.connect?.id : undefined,
+    attendanceMode: normalizeOfficeShiftAttendanceMode(data.attendanceMode) ?? null,
+  });
 
   const created = await client.officeShift.create({
     data: {
@@ -255,6 +296,7 @@ export async function createOfficeShiftWithChangelog(
         endsAt: created.endsAt,
         status: created.status,
         note: created.note,
+        attendanceMode: created.attendanceMode,
         officeShiftTypeId: created.officeShiftTypeId,
         employeeId: created.employeeId,
       },
@@ -284,6 +326,16 @@ export async function updateOfficeShiftWithChangelog(
     throw new Error('Office Shift not found');
   }
 
+  const nextEmployeeId =
+    data.employee && typeof data.employee === 'object' && 'connect' in data.employee ? data.employee.connect?.id : before.employeeId;
+  const nextAttendanceMode =
+    data.attendanceMode !== undefined ? normalizeOfficeShiftAttendanceMode(data.attendanceMode) : before.attendanceMode;
+
+  await assertOfficeShiftAttendanceModeAllowed(client, {
+    employeeId: nextEmployeeId,
+    attendanceMode: nextAttendanceMode,
+  });
+
   const updated = await client.officeShift.update({
     where: { id },
     data: {
@@ -297,7 +349,7 @@ export async function updateOfficeShiftWithChangelog(
   });
 
   const changes: Record<string, { from: Prisma.InputJsonValue; to: Prisma.InputJsonValue }> = {};
-  const fieldsToTrack = ['officeShiftTypeId', 'employeeId', 'date', 'startsAt', 'endsAt', 'status', 'note'] as const;
+  const fieldsToTrack = ['officeShiftTypeId', 'employeeId', 'date', 'startsAt', 'endsAt', 'attendanceMode', 'status', 'note'] as const;
   for (const field of fieldsToTrack) {
     const oldValue = before[field];
     const newValue = updated[field];
@@ -338,6 +390,7 @@ export async function updateOfficeShiftWithChangelog(
         endsAt: updated.endsAt,
         status: updated.status,
         note: updated.note,
+        attendanceMode: updated.attendanceMode,
         officeShiftTypeId: updated.officeShiftTypeId,
         employeeId: updated.employeeId,
         changes: Object.keys(changes).length > 0 ? changes : undefined,
@@ -408,6 +461,29 @@ export async function bulkCreateOfficeShiftsWithChangelog(
   txLike?: TxLike
 ) {
   const execute = async (tx: TxLike) => {
+    const employeeIdsNeedingValidation = Array.from(
+      new Set(
+        officeShiftsToCreate
+          .filter(shift => shift.attendanceMode != null)
+          .map(shift => shift.employeeId)
+      )
+    );
+
+    if (employeeIdsNeedingValidation.length > 0) {
+      const employees = await tx.employee.findMany({
+        where: { id: { in: employeeIdsNeedingValidation }, deletedAt: null },
+        select: { id: true, officeId: true },
+      });
+      const officeIdsByEmployee = new Map(employees.map(employee => [employee.id, employee.officeId]));
+
+      for (const shift of officeShiftsToCreate) {
+        if (shift.attendanceMode == null) continue;
+        if (!officeIdsByEmployee.get(shift.employeeId)) {
+          throw new Error('Shift attendance mode override can only be set for office employees with an assigned office.');
+        }
+      }
+    }
+
     const results = await tx.officeShift.createManyAndReturn({
       data: officeShiftsToCreate.map(shift => ({
         ...shift,
@@ -435,6 +511,7 @@ export async function bulkCreateOfficeShiftsWithChangelog(
           endsAt: shift.endsAt,
           status: shift.status,
           note: shift.note,
+          attendanceMode: shift.attendanceMode,
           officeShiftTypeId: shift.officeShiftTypeId,
           employeeId: shift.employeeId,
         },

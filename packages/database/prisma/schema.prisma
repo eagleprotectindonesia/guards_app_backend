@@ -22,6 +22,11 @@ enum OfficeDayOverrideType {
   shift_override
 }
 
+enum OfficeShiftAttendanceMode {
+  office_required
+  non_office
+}
+
 model Permission {
   id          String   @id @default(uuid())
   action      String // e.g., "view", "create", "edit", "delete"
@@ -485,6 +490,7 @@ model OfficeShift {
   date              DateTime    @db.Date
   startsAt          DateTime    @map("starts_at")
   endsAt            DateTime    @map("ends_at")
+  attendanceMode    OfficeShiftAttendanceMode? @map("attendance_mode")
   status            ShiftStatus @default(scheduled)
   createdById       String?     @map("created_by_id")
   lastUpdatedById   String?     @map("last_updated_by_id")

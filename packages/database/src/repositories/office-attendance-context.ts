@@ -6,11 +6,46 @@ import {
 import { resolveOfficeDayOverrideAnchorsForEmployee } from './office-day-overrides';
 import { getScheduledPaidMinutesForOfficeShiftAttendance, resolveOfficeShiftContextForEmployee } from './office-shifts';
 
+type OfficeShiftAttendanceMode = 'office_required' | 'non_office';
+type OfficeAttendancePolicySource = 'employee_default' | 'shift_override' | 'no_office_employee';
+
+function resolveEffectiveAttendanceMode(params: {
+  officeId?: string | null;
+  fieldModeEnabled?: boolean | null;
+  shiftAttendanceMode?: OfficeShiftAttendanceMode | null;
+}): {
+  effectiveAttendanceMode: OfficeShiftAttendanceMode;
+  attendancePolicySource: OfficeAttendancePolicySource;
+} {
+  const { officeId, fieldModeEnabled, shiftAttendanceMode } = params;
+
+  if (!officeId) {
+    return {
+      effectiveAttendanceMode: 'non_office',
+      attendancePolicySource: 'no_office_employee',
+    };
+  }
+
+  if (shiftAttendanceMode) {
+    return {
+      effectiveAttendanceMode: shiftAttendanceMode,
+      attendancePolicySource: 'shift_override',
+    };
+  }
+
+  return {
+    effectiveAttendanceMode: fieldModeEnabled ? 'non_office' : 'office_required',
+    attendancePolicySource: 'employee_default',
+  };
+}
+
 export async function resolveOfficeAttendanceContextForEmployee(employeeId: string, at = new Date()) {
   const employee = await prisma.employee.findUnique({
     where: { id: employeeId },
     select: {
       role: true,
+      officeId: true,
+      fieldModeEnabled: true,
     },
   });
 
@@ -38,7 +73,14 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
     allowedDateKeys: shiftOverrideDateKeys,
   });
   if (shiftContext.shift) {
-    return shiftContext;
+    return {
+      ...shiftContext,
+      ...resolveEffectiveAttendanceMode({
+        officeId: employee.officeId,
+        fieldModeEnabled: employee.fieldModeEnabled,
+        shiftAttendanceMode: shiftContext.shift.attendanceMode ?? null,
+      }),
+    };
   }
 
   if (overrideAnchors.currentOverride?.overrideType === 'off') {
@@ -53,11 +95,21 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
       isWorkingDay: false,
       isLate: false,
       isAfterEnd: false,
+      ...resolveEffectiveAttendanceMode({
+        officeId: employee.officeId,
+        fieldModeEnabled: employee.fieldModeEnabled,
+      }),
     };
   }
 
   if (overrideAnchors.currentOverride?.overrideType === 'shift_override') {
-    return shiftContext;
+    return {
+      ...shiftContext,
+      ...resolveEffectiveAttendanceMode({
+        officeId: employee.officeId,
+        fieldModeEnabled: employee.fieldModeEnabled,
+      }),
+    };
   }
 
   const scheduleContext = await resolveOfficeWorkScheduleContextForEmployee(employeeId, at, {
@@ -67,6 +119,10 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
     ...scheduleContext,
     source: 'office_work_schedule' as const,
     shift: null,
+    ...resolveEffectiveAttendanceMode({
+      officeId: employee.officeId,
+      fieldModeEnabled: employee.fieldModeEnabled,
+    }),
   };
 }
 

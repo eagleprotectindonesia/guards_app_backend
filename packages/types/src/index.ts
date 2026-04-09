@@ -11,6 +11,8 @@ export type CheckInStatus = 'on_time' | 'late' | 'invalid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification' | 'clocked_out';
 export type EmployeeRole = 'on_site' | 'office';
 export type OfficeJobTitleCategory = 'staff' | 'management';
+export type OfficeShiftAttendanceMode = 'office_required' | 'non_office';
+export type OfficeAttendancePolicySource = 'employee_default' | 'shift_override' | 'no_office_employee';
 
 export interface Department {
   id: string;
@@ -120,6 +122,7 @@ export interface OfficeShift {
   date: string | Date;
   startsAt: string | Date;
   endsAt: string | Date;
+  attendanceMode?: OfficeShiftAttendanceMode | null;
   status: ShiftStatus;
   note?: string | null;
   createdAt?: string | Date;

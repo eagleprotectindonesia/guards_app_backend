@@ -365,6 +365,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       isWorkingDay: true,
       isAfterEnd: false,
       isLate: false,
+      effectiveAttendanceMode: 'office_required',
       startMinutes: 8 * 60,
       businessDay: {
         minutesSinceMidnight: 8 * 60 + 10,
@@ -413,6 +414,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       isWorkingDay: true,
       isAfterEnd: false,
       isLate: false,
+      effectiveAttendanceMode: 'office_required',
       startMinutes: 8 * 60,
       businessDay: {
         minutesSinceMidnight: 8 * 60 + 10,
@@ -457,6 +459,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       isWorkingDay: true,
       isAfterEnd: false,
       isLate: false,
+      effectiveAttendanceMode: 'non_office',
       startMinutes: 8 * 60,
       businessDay: {
         minutesSinceMidnight: 8 * 60 + 10,
@@ -493,6 +496,100 @@ describe('POST /api/employee/my/office-attendance', () => {
         officeId: null,
         employeeId: 'employee-7',
         status: 'present',
+      })
+    );
+  });
+
+  test('shift override can force office attendance even when employee default allows anywhere', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-hybrid-office',
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: true,
+    });
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: false,
+      effectiveAttendanceMode: 'office_required',
+      attendancePolicySource: 'shift_override',
+      shift: { id: 'shift-1' },
+      startMinutes: 8 * 60,
+      businessDay: {
+        minutesSinceMidnight: 8 * 60 + 10,
+      },
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getOfficeById as jest.Mock).mockResolvedValue({
+      id: 'office-1',
+      latitude: 0,
+      longitude: 0,
+    });
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '100' });
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        status: 'present',
+        location: { lat: 0, lng: 0.002 },
+      }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toMatchObject({ code: 'too_far_from_office' });
+    expect(getOfficeById).toHaveBeenCalledWith('office-1');
+  });
+
+  test('shift override can allow non-office attendance even when employee default requires office', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-hybrid-remote',
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
+    });
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: false,
+      effectiveAttendanceMode: 'non_office',
+      attendancePolicySource: 'shift_override',
+      shift: { id: 'shift-2' },
+      startMinutes: 8 * 60,
+      businessDay: {
+        minutesSinceMidnight: 8 * 60 + 10,
+      },
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (recordOfficeAttendance as jest.Mock).mockResolvedValue({
+      id: 'attendance-hybrid-remote',
+      employeeId: 'employee-hybrid-remote',
+      officeId: null,
+      officeShiftId: 'shift-2',
+      status: 'present',
+    });
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        status: 'present',
+      }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(data.attendance).toMatchObject({ id: 'attendance-hybrid-remote' });
+    expect(getOfficeById).not.toHaveBeenCalled();
+    expect(recordOfficeAttendance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        officeId: null,
+        officeShiftId: 'shift-2',
       })
     );
   });

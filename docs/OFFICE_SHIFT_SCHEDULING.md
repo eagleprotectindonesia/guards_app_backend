@@ -78,6 +78,7 @@ Key fields:
 - `date`
 - `starts_at`
 - `ends_at`
+- `attendance_mode`
 - `status`
 - `note`
 
@@ -85,6 +86,8 @@ Rules:
 - one employee may have multiple office shifts in one day
 - office shifts for the same employee must not overlap
 - office shifts are office-based and do not use `site_id`
+- `attendance_mode` is nullable; `null` means inherit the employee-level office attendance policy
+- explicit shift attendance mode overrides are only valid for office employees with an assigned office
 
 ### 4. Office Attendance Link
 
@@ -122,6 +125,8 @@ For shift override dates:
    - `windowEnd`
    - `isLate`
    - `isAfterEnd`
+   - `effectiveAttendanceMode`
+   - `attendancePolicySource`
 
 Important helpers:
 - `resolveOfficeAttendanceContextForEmployee(employeeId, at)`
@@ -150,16 +155,18 @@ Attendance relation:
 
 ## Location Enforcement
 
-Shift-derived office attendance still uses office geofence rules, not shift location rules.
+Shift-derived office attendance may override the employee-level location policy.
 
 Validation is based on:
+- `officeShift.attendanceMode`
 - `employee.fieldModeEnabled`
 - `employee.officeId`
 
 Behavior:
-- if `fieldModeEnabled = false` and the employee has an assigned office, geofence validation uses that office
-- if `fieldModeEnabled = true`, attendance may be recorded from anywhere
-- if there is no assigned office, location comparison is skipped
+- if the active shift has `attendance_mode = office_required`, geofence validation uses the assigned office
+- if the active shift has `attendance_mode = non_office`, attendance may be recorded from anywhere
+- if the active shift has `attendance_mode = null`, behavior falls back to the employee-level policy
+- if there is no assigned office, attendance remains non-office and shift overrides are ignored
 
 ## Admin UI
 
@@ -172,6 +179,7 @@ Admin capabilities:
 - create, edit, delete, and cancel office shifts
 - bulk import office shifts by CSV
 - apply date-specific working overrides for office employees
+- backend supports hidden shift-level attendance mode overrides, but admin entry points do not expose them yet
 
 ### Bulk CSV Import
 

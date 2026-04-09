@@ -50,10 +50,12 @@ describe('office attendance context', () => {
   test('prefers office shift context even when employee mode is fixed schedule', async () => {
     (prisma.employee.findUnique as jest.Mock).mockResolvedValue({
       role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
     });
     (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
       source: 'office_shift',
-      shift: { id: 'shift-1' },
+      shift: { id: 'shift-1', attendanceMode: 'non_office' },
       isWorkingDay: true,
     });
 
@@ -68,12 +70,16 @@ describe('office attendance context', () => {
     expect(context).toMatchObject({
       source: 'office_shift',
       shift: { id: 'shift-1' },
+      effectiveAttendanceMode: 'non_office',
+      attendancePolicySource: 'shift_override',
     });
   });
 
   test('falls back to office work schedule context when no office shift exists', async () => {
     (prisma.employee.findUnique as jest.Mock).mockResolvedValue({
       role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
     });
     (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
       source: 'office_shift',
@@ -105,12 +111,16 @@ describe('office attendance context', () => {
       shift: null,
       schedule: { id: 'schedule-1', name: 'Default Office Schedule' },
       isWorkingDay: true,
+      effectiveAttendanceMode: 'office_required',
+      attendancePolicySource: 'employee_default',
     });
   });
 
   test('returns non-working off-day context when current day override is off', async () => {
     (prisma.employee.findUnique as jest.Mock).mockResolvedValue({
       role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
     });
     (resolveOfficeDayOverrideAnchorsForEmployee as jest.Mock).mockResolvedValue({
       businessDay: { dateKey: '2026-04-01' },
@@ -141,12 +151,16 @@ describe('office attendance context', () => {
       shift: null,
       windowStart: null,
       windowEnd: null,
+      effectiveAttendanceMode: 'office_required',
+      attendancePolicySource: 'employee_default',
     });
   });
 
   test('returns non-working shift-managed day when shift override exists without a shift', async () => {
     (prisma.employee.findUnique as jest.Mock).mockResolvedValue({
       role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: true,
     });
     (resolveOfficeDayOverrideAnchorsForEmployee as jest.Mock).mockResolvedValue({
       businessDay: { dateKey: '2026-04-01' },
@@ -175,12 +189,16 @@ describe('office attendance context', () => {
       source: 'office_shift',
       shift: null,
       isWorkingDay: false,
+      effectiveAttendanceMode: 'non_office',
+      attendancePolicySource: 'employee_default',
     });
   });
 
   test('uses shift paid minutes when a relevant office shift exists', async () => {
     (prisma.employee.findUnique as jest.Mock).mockResolvedValue({
       role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
     });
     (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
       source: 'office_shift',
@@ -198,6 +216,8 @@ describe('office attendance context', () => {
   test('uses schedule paid minutes when no relevant office shift exists', async () => {
     (prisma.employee.findUnique as jest.Mock).mockResolvedValue({
       role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
     });
     (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
       source: 'office_shift',
@@ -219,6 +239,8 @@ describe('office attendance context', () => {
   test('returns zero paid minutes for explicit off-day overrides', async () => {
     (prisma.employee.findUnique as jest.Mock).mockResolvedValue({
       role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
     });
     (resolveOfficeDayOverrideAnchorsForEmployee as jest.Mock).mockResolvedValue({
       businessDay: { dateKey: '2026-04-01' },
@@ -245,5 +267,49 @@ describe('office attendance context', () => {
     expect(minutes).toBe(0);
     expect(getScheduledPaidMinutesForFixedOfficeScheduleAttendance).not.toHaveBeenCalled();
     expect(getScheduledPaidMinutesForOfficeShiftAttendance).not.toHaveBeenCalled();
+  });
+
+  test('uses employee default non-office mode when no shift override exists', async () => {
+    (prisma.employee.findUnique as jest.Mock).mockResolvedValue({
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: true,
+    });
+    (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'office_shift',
+      shift: null,
+      isWorkingDay: false,
+    });
+    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'default',
+      isWorkingDay: true,
+    });
+
+    const context = await resolveOfficeAttendanceContextForEmployee('employee-1');
+
+    expect(context).toMatchObject({
+      effectiveAttendanceMode: 'non_office',
+      attendancePolicySource: 'employee_default',
+    });
+  });
+
+  test('keeps no-office employees in non-office mode even when a shift override exists', async () => {
+    (prisma.employee.findUnique as jest.Mock).mockResolvedValue({
+      role: 'office',
+      officeId: null,
+      fieldModeEnabled: false,
+    });
+    (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'office_shift',
+      shift: { id: 'shift-1', attendanceMode: 'office_required' },
+      isWorkingDay: true,
+    });
+
+    const context = await resolveOfficeAttendanceContextForEmployee('employee-1');
+
+    expect(context).toMatchObject({
+      effectiveAttendanceMode: 'non_office',
+      attendancePolicySource: 'no_office_employee',
+    });
   });
 });

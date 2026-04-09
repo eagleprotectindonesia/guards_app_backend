@@ -11,6 +11,11 @@ import { OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING } from '@repo/database';
 import { resolveOfficeAttendanceContextForEmployee } from '@repo/database';
 import { ZodError } from 'zod';
 
+function getFallbackAttendanceMode(employee: { officeId?: string | null; fieldModeEnabled?: boolean | null }) {
+  if (!employee.officeId) return 'non_office';
+  return employee.fieldModeEnabled ? 'non_office' : 'office_required';
+}
+
 export async function POST(req: Request) {
   const employee = await getAuthenticatedEmployee();
   if (!employee) {
@@ -93,8 +98,10 @@ export async function POST(req: Request) {
       );
     }
 
+    const effectiveAttendanceMode = scheduleContext.effectiveAttendanceMode ?? getFallbackAttendanceMode(employee);
+
     let office = null;
-    if (!employee.fieldModeEnabled && employee.officeId) {
+    if (effectiveAttendanceMode === 'office_required' && employee.officeId) {
       office = await getOfficeById(employee.officeId);
       if (!office) {
         return NextResponse.json(
