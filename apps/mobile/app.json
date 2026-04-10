@@ -3,7 +3,6 @@
     "name": "EP Employee",
     "slug": "mobile",
     "scheme": "ep-employee",
-    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icons/android-launchericon-512-512.png",
     "userInterfaceStyle": "automatic",
@@ -49,6 +48,7 @@
       ]
     },
     "plugins": [
+      "expo-updates",
       [
         "expo-build-properties",
         {
@@ -89,7 +89,6 @@
     "updates": {
       "url": "https://u.expo.dev/aa42139c-be53-41d6-8761-ae35510a83ca"
     },
-    "runtimeVersion": "1.1.0",
     "owner": "eagleprotect",
     "extra": {
       "eas": {

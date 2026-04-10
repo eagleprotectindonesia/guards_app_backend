@@ -1,8 +1,10 @@
 const fs = require('fs');
 const path = require('path');
 const appJson = require('./app.json');
+const packageJson = require('./package.json');
 
 const profile = process.env.EAS_BUILD_PROFILE || process.env.APP_VARIANT || 'production';
+const appVersion = packageJson.version;
 
 const variants = {
   development: {
@@ -47,6 +49,15 @@ if (resolvedAndroidGoogleServicesFile && !fs.existsSync(resolvedAndroidGoogleSer
 
 const config = {
   ...appJson.expo,
+  version: appVersion,
+  runtimeVersion: {
+    policy: 'appVersion',
+  },
+  updates: {
+    ...appJson.expo.updates,
+    enabled: true,
+    checkAutomatically: 'ON_LOAD',
+  },
   name: selected.appName,
   ios: {
     ...appJson.expo.ios,
