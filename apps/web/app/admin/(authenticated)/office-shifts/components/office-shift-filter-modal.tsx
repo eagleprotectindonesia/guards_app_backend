@@ -11,16 +11,25 @@ import type { EmployeeSummary } from '@repo/database';
 type Props = {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => void;
+  onApply: (filters: { startDate?: Date; endDate?: Date; employeeId: string; department: string }) => void;
   initialFilters: {
     startDate?: string;
     endDate?: string;
     employeeId?: string;
+    department?: string;
   };
   employees: EmployeeSummary[];
+  departments?: string[];
 };
 
-export default function OfficeShiftFilterModal({ isOpen, onClose, onApply, initialFilters, employees }: Props) {
+export default function OfficeShiftFilterModal({
+  isOpen,
+  onClose,
+  onApply,
+  initialFilters,
+  employees,
+  departments,
+}: Props) {
   const [startDate, setStartDate] = useState<Date | undefined>(
     initialFilters.startDate ? parseISO(initialFilters.startDate) : undefined
   );
@@ -28,10 +37,16 @@ export default function OfficeShiftFilterModal({ isOpen, onClose, onApply, initi
     initialFilters.endDate ? parseISO(initialFilters.endDate) : undefined
   );
   const [employeeId, setEmployeeId] = useState<string>(initialFilters.employeeId || '');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>(initialFilters.department || '');
 
   const employeeOptions = [
     { value: '', label: 'All Employees' },
     ...employees.map(employee => ({ value: employee.id, label: employee.fullName })),
+  ];
+
+  const departmentOptions = [
+    { value: '', label: 'All Departments' },
+    ...(departments || []).map(d => ({ value: d, label: d })),
   ];
 
   const handleApply = () => {
@@ -39,6 +54,7 @@ export default function OfficeShiftFilterModal({ isOpen, onClose, onApply, initi
       startDate,
       endDate,
       employeeId,
+      department: selectedDepartment,
     });
     onClose();
   };
@@ -47,6 +63,7 @@ export default function OfficeShiftFilterModal({ isOpen, onClose, onApply, initi
     setStartDate(undefined);
     setEndDate(undefined);
     setEmployeeId('');
+    setSelectedDepartment('');
   };
 
   return (
@@ -100,6 +117,24 @@ export default function OfficeShiftFilterModal({ isOpen, onClose, onApply, initi
             isClearable={false}
           />
         </div>
+
+        {/* Department Filter */}
+        {departments && departments.length > 0 && (
+          <div>
+            <label htmlFor="filter-department" className="block text-sm font-medium text-foreground mb-1">
+              Department
+            </label>
+            <Select
+              id="filter-department"
+              instanceId="filter-department"
+              options={departmentOptions}
+              value={departmentOptions.find(option => option.value === selectedDepartment)}
+              onChange={selectedOption => setSelectedDepartment(selectedOption ? selectedOption.value : '')}
+              placeholder="All Departments"
+              isClearable={false}
+            />
+          </div>
+        )}
 
         {/* Actions */}
         <div className="flex justify-between pt-6">

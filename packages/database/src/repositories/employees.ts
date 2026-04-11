@@ -48,6 +48,16 @@ export function getEmployeeSearchWhere(query?: string): Prisma.EmployeeWhereInpu
   };
 }
 
+export async function getDistinctDepartments(): Promise<string[]> {
+  const results = await prisma.employee.findMany({
+    where: { status: true, department: { not: null } },
+    distinct: ['department'],
+    select: { department: true },
+    orderBy: { department: 'asc' },
+  });
+  return results.map(r => r.department!).filter(Boolean);
+}
+
 async function attachDerivedOfficeMetadata<T extends {
   role?: EmployeeRole | null;
   officeId?: string | null;

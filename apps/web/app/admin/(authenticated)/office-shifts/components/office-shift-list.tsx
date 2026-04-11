@@ -16,14 +16,18 @@ import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { OfficeShiftWithRelationsDto } from '@/types/office-shifts';
 import type { EmployeeSummary } from '@repo/database';
+import SortableHeader from '@/components/sortable-header';
 
 type Props = {
   officeShifts: Serialized<OfficeShiftWithRelationsDto>[];
   employees: EmployeeSummary[];
+  departments: string[];
   startDate?: string;
   endDate?: string;
   employeeId?: string;
-  sort?: string;
+  department?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   page: number;
   perPage: number;
   totalCount: number;
@@ -32,10 +36,13 @@ type Props = {
 export default function OfficeShiftList({
   officeShifts,
   employees,
+  departments,
   startDate,
   endDate,
   employeeId,
-  sort = 'desc',
+  department,
+  sortBy = 'startsAt',
+  sortOrder = 'desc',
   page,
   perPage,
   totalCount,
@@ -102,6 +109,18 @@ export default function OfficeShiftList({
   const isAllSelected = officeShifts.length > 0 && selectedOfficeShiftIds.size === officeShifts.length;
   const isSomeSelected = selectedOfficeShiftIds.size > 0 && selectedOfficeShiftIds.size < officeShifts.length;
 
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'asc');
+    }
+    params.set('page', '1');
+    router.push(`/admin/office-shifts?${params.toString()}`);
+  };
+
   const handleConfirmAction = () => {
     const officeShift = officeShifts.find(item => item.id === selectedOfficeShiftId);
     if (!officeShift || !canDelete) return;
@@ -125,7 +144,7 @@ export default function OfficeShiftList({
     });
   };
 
-  const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => {
+  const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date; employeeId: string; department: string }) => {
     const params = new URLSearchParams(searchParams.toString());
 
     if (filters.startDate) {
@@ -146,15 +165,25 @@ export default function OfficeShiftList({
       params.delete('employeeId');
     }
 
-    if (sort) {
-      params.set('sort', sort);
+    if (filters.department) {
+      params.set('department', filters.department);
+    } else {
+      params.delete('department');
+    }
+
+    if (sortBy) {
+      params.set('sortBy', sortBy);
+    }
+
+    if (sortOrder) {
+      params.set('sortOrder', sortOrder);
     }
 
     params.set('page', '1');
     router.push(`/admin/office-shifts?${params.toString()}`);
   };
 
-  const activeFiltersCount = [startDate, endDate, employeeId].filter(Boolean).length;
+  const activeFiltersCount = [startDate, endDate, employeeId, department].filter(Boolean).length;
 
   return (
     <div>
@@ -237,10 +266,20 @@ export default function OfficeShiftList({
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Shift Type
                 </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Date / Time
-                </th>
+                <SortableHeader
+                  label="Employee"
+                  field="employee"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Date / Time"
+                  field="startsAt"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
                   <div className="flex flex-col gap-0.5">
@@ -376,8 +415,10 @@ export default function OfficeShiftList({
             startDate,
             endDate,
             employeeId,
+            department,
           }}
           employees={employees}
+          departments={departments}
         />
       )}
 

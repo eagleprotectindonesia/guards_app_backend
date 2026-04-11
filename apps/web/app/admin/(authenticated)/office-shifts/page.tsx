@@ -4,7 +4,7 @@ import OfficeShiftsTabs from './components/office-shifts-tabs';
 import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { getActiveEmployeesSummary, getPaginatedOfficeShifts } from '@repo/database';
+import { getActiveEmployeesSummary, getDistinctDepartments, getPaginatedOfficeShifts } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import type { SerializedOfficeShiftWithRelationsDto } from '@/types/office-shifts';
@@ -31,9 +31,11 @@ export default async function OfficeShiftsPage({
       : format(new Date(), 'yyyy-MM-dd');
   const endDate = typeof resolvedSearchParams.endDate === 'string' ? resolvedSearchParams.endDate : undefined;
   const employeeId = typeof resolvedSearchParams.employeeId === 'string' ? resolvedSearchParams.employeeId : undefined;
-  const sort =
-    typeof resolvedSearchParams.sort === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sort)
-      ? resolvedSearchParams.sort
+  const department = typeof resolvedSearchParams.department === 'string' ? resolvedSearchParams.department : undefined;
+  const sortBy = typeof resolvedSearchParams.sortBy === 'string' ? resolvedSearchParams.sortBy : 'startsAt';
+  const sortOrder: 'asc' | 'desc' =
+    typeof resolvedSearchParams.sortOrder === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sortOrder)
+      ? (resolvedSearchParams.sortOrder as 'asc' | 'desc')
       : 'desc';
 
   const parsedStartDate = startDate ? startOfDay(parseISO(startDate)) : undefined;
@@ -46,8 +48,12 @@ export default async function OfficeShiftsPage({
         lte: parsedEndDate,
       },
       employeeId: employeeId || undefined,
+      ...(department ? { employee: { department } } : {}),
     },
-    orderBy: { startsAt: sort as 'asc' | 'desc' },
+    orderBy:
+      sortBy === 'employee'
+        ? { employee: { fullName: sortOrder as 'asc' | 'desc' } }
+        : { startsAt: sortOrder as 'asc' | 'desc' },
     skip,
     take: perPage,
   });
@@ -89,6 +95,8 @@ export default async function OfficeShiftsPage({
   }));
 
   const employeeOptions: EmployeeSummary[] = await getActiveEmployeesSummary('office');
+  const allDepartments = await getDistinctDepartments();
+  const departmentOptions = allDepartments.filter(d => !d.toLowerCase().includes('security'));
 
   return (
     <div className="max-w-7xl mx-auto">
@@ -98,10 +106,13 @@ export default async function OfficeShiftsPage({
         <OfficeShiftList
           officeShifts={officeShiftDtos}
           employees={employeeOptions}
+          departments={departmentOptions}
           startDate={startDate}
           endDate={endDate}
           employeeId={employeeId}
-          sort={sort}
+          department={department}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
           page={page}
           perPage={perPage}
           totalCount={totalCount}
