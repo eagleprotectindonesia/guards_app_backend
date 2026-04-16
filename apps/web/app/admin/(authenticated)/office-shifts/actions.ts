@@ -63,6 +63,7 @@ interface OfficeShiftPreviewResult {
   success: boolean;
   message?: string;
   errors?: string[];
+  warnings?: string[];
   preview?: {
     employees: EmployeePreviewData[];
     totalShiftsToCreate: number;
@@ -550,20 +551,35 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
   // Build preview data for each employee (only showing rows from CSV, no auto day-off injection)
   const employeesPreview: EmployeePreviewData[] = [];
   let totalShiftsToCreate = 0;
+  let pastDatesSkipped = 0;
+  const now = new Date();
 
   for (const rows of rowsByEmployee.values()) {
     const employee = employeeMap.get(rows[0].employeeCode.toLowerCase())!;
 
+    // Filter out past dates before building preview
+    const nonPastRows: ParsedCSVRow[] = [];
+    for (const row of rows) {
+      const startDateTime = parse(`${row.date} 00:00`, 'yyyy-MM-dd HH:mm', new Date());
+      if (isBefore(startDateTime, now)) {
+        pastDatesSkipped++;
+      } else {
+        nonPastRows.push(row);
+      }
+    }
+
     // Sort rows by date
-    rows.sort((a, b) => a.date.localeCompare(b.date));
+    nonPastRows.sort((a, b) => a.date.localeCompare(b.date));
+
+    if (nonPastRows.length === 0) continue;
 
     // Get this employee's specific date range for display
-    const firstDate = rows[0].date;
-    const lastDate = rows[rows.length - 1].date;
+    const firstDate = nonPastRows[0].date;
+    const lastDate = nonPastRows[nonPastRows.length - 1].date;
 
     // Generate shifts from CSV rows only
     const shifts: ShiftPreviewData[] = [];
-    for (const row of rows) {
+    for (const row of nonPastRows) {
       const isDayOff = row.shiftTypeName.toLowerCase() === 'off';
 
       if (isDayOff) {
@@ -613,7 +629,7 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
     if (!overallMaxDate || emp.lastDate > overallMaxDate) overallMaxDate = emp.lastDate;
   }
 
-  return {
+  const result: OfficeShiftPreviewResult = {
     success: true,
     preview: {
       employees: employeesPreview,
@@ -625,6 +641,14 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
       },
     },
   };
+
+  if (pastDatesSkipped > 0) {
+    result.warnings = [
+      `${pastDatesSkipped} past date${pastDatesSkipped === 1 ? '' : 's'} will be skipped and are not shown in the preview.`,
+    ];
+  }
+
+  return result;
 }
 
 export async function bulkCreateOfficeShifts(
@@ -704,6 +728,7 @@ export async function bulkCreateOfficeShifts(
   const errors: string[] = [];
   const officeShiftsToCreate: Parameters<typeof bulkCreateOfficeShiftsWithChangelog>[0] = [];
   const dayOffByEmployee = new Map<string, string[]>(); // employeeId -> array of dates
+  let pastDatesSkipped = 0;
 
   for (let i = 1; i < lines.length; i++) {
     const cols = parseCsvLine(lines[i]);
@@ -763,8 +788,9 @@ export async function bulkCreateOfficeShifts(
       endDateTime = addDays(endDateTime, 1);
     }
 
+    // Silently skip past dates (already filtered in preview, but defensive check here)
     if (isBefore(startDateTime, new Date())) {
-      errors.push(`Row ${i + 1}: Cannot create office shift in the past.`);
+      pastDatesSkipped++;
       continue;
     }
 
@@ -891,6 +917,9 @@ export async function bulkCreateOfficeShifts(
     }
     if (officeShiftsToCreate.length > 0) {
       messages.push(`Created ${officeShiftsToCreate.length} new shift(s)`);
+    }
+    if (pastDatesSkipped > 0) {
+      messages.push(`${pastDatesSkipped} past date(s) skipped`);
     }
 
     return {

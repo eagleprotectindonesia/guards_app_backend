@@ -41,6 +41,7 @@ interface Props {
   isConfirming: boolean;
   error?: string | null;
   validationErrors?: string[];
+  warnings?: string[];
 }
 
 export default function OfficeBulkCreatePreview({
@@ -51,6 +52,7 @@ export default function OfficeBulkCreatePreview({
   isConfirming,
   error,
   validationErrors = [],
+  warnings = [],
 }: Props) {
   const [expandedEmployees, setExpandedEmployees] = useState<Set<string>>(
     new Set(previewData.employees.map(e => e.employeeId))
@@ -107,6 +109,19 @@ export default function OfficeBulkCreatePreview({
         </div>
       )}
 
+      {/* Warnings Section */}
+      {warnings.length > 0 && (
+        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg text-sm border border-amber-100 dark:border-amber-800/50 flex gap-3 shadow-sm">
+          <AlertTriangle className="w-5 h-5 shrink-0" />
+          <div>
+            <p className="font-bold">Note</p>
+            {warnings.map((warning, idx) => (
+              <p key={idx}>{warning}</p>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Summary Section */}
       <div className="bg-muted/50 rounded-xl p-6 border border-border shadow-sm">
         <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
@@ -142,7 +157,7 @@ export default function OfficeBulkCreatePreview({
             Sorted by employee code
           </span>
         </div>
-        
+
         <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
           {previewData.employees.map(employee => (
             <div
@@ -156,12 +171,15 @@ export default function OfficeBulkCreatePreview({
                 className="w-full px-5 py-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
               >
                 <div className="flex items-center gap-4">
-                  <div className={`p-1 rounded-md bg-muted transition-transform duration-200 ${expandedEmployees.has(employee.employeeId) ? 'rotate-90' : ''}`}>
+                  <div
+                    className={`p-1 rounded-md bg-muted transition-transform duration-200 ${expandedEmployees.has(employee.employeeId) ? 'rotate-90' : ''}`}
+                  >
                     <ChevronRight className="w-4 h-4" />
                   </div>
                   <div className="text-left">
                     <p className="font-bold text-lg text-foreground">
-                      {employee.employeeCode} <span className="text-muted-foreground mx-1">—</span> {employee.employeeName}
+                      {employee.employeeCode} <span className="text-muted-foreground mx-1">—</span>{' '}
+                      {employee.employeeName}
                     </p>
                     <p className="text-xs font-medium text-muted-foreground flex items-center gap-2">
                       <Calendar className="w-3.5 h-3.5" />
@@ -186,14 +204,22 @@ export default function OfficeBulkCreatePreview({
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="bg-muted/50 text-left border-b border-border">
-                          <th className="px-6 py-3 font-bold text-muted-foreground uppercase tracking-wider text-[11px]">Date</th>
-                          <th className="px-6 py-3 font-bold text-muted-foreground uppercase tracking-wider text-[11px]">Shift Type</th>
-                          <th className="px-6 py-3 font-bold text-muted-foreground uppercase tracking-wider text-[11px]">Time Window</th>
-                          <th className="px-6 py-3 font-bold text-muted-foreground uppercase tracking-wider text-[11px] text-right">Status</th>
+                          <th className="px-6 py-3 font-bold text-muted-foreground uppercase tracking-wider text-[11px]">
+                            Date
+                          </th>
+                          <th className="px-6 py-3 font-bold text-muted-foreground uppercase tracking-wider text-[11px]">
+                            Shift Type
+                          </th>
+                          <th className="px-6 py-3 font-bold text-muted-foreground uppercase tracking-wider text-[11px]">
+                            Time Window
+                          </th>
+                          <th className="px-6 py-3 font-bold text-muted-foreground uppercase tracking-wider text-[11px] text-right">
+                            Status
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/50">
-                        {employee.shifts.map((shift) => (
+                        {employee.shifts.map(shift => (
                           <tr
                             key={shift.date}
                             className={`transition-colors ${shift.isDayOff ? 'bg-emerald-500/3' : 'hover:bg-muted/20'}`}

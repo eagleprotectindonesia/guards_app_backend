@@ -16,6 +16,7 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [previewStep, setPreviewStep] = useState(false);
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -32,6 +33,7 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
     setFile(selectedFile);
     setError(null);
     setValidationErrors([]);
+    setWarnings([]);
     setPreviewData(null);
     setPreviewStep(false);
 
@@ -43,6 +45,7 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
       const result = await parseAndValidateOfficeShiftsCSV(formData);
       if (result.success && result.preview) {
         setPreviewData(result.preview);
+        setWarnings(result.warnings ?? []);
         setPreviewStep(true);
       } else {
         setError(result.message || 'Failed to parse CSV.');
@@ -80,6 +83,7 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
     setPreviewData(null);
     setPreviewStep(false);
     setValidationErrors([]);
+    setWarnings([]);
     setError(null);
     setIsConfirming(false);
     if (fileInputRef.current) fileInputRef.current.value = '';
@@ -92,6 +96,7 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
       setPreviewData(null);
       setError(null);
       setValidationErrors([]);
+      setWarnings([]);
     } else {
       onClose();
       resetState();
@@ -112,7 +117,9 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
           // Step 1: File Upload
           <div className="space-y-4">
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Upload a CSV or Excel file based on the distributed template.</p>
+              <p className="text-sm text-muted-foreground">
+                Upload a CSV or Excel file based on the distributed template.
+              </p>
             </div>
 
             <div className="mt-4">
@@ -173,6 +180,7 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
               isConfirming={isConfirming}
               error={error}
               validationErrors={validationErrors}
+              warnings={warnings}
             />
           )
         )}
