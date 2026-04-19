@@ -20,8 +20,21 @@ import {
 import { updateSystemSettingWithChangelog } from './settings';
 
 const LAST_EMPLOYEE_SYNC_KEY = 'employee:sync:last_timestamp';
+const LAST_EMPLOYEE_SYNC_DUPLICATE_WARNING_KEY = 'employee:sync:last_duplicate_warning';
 const EMPLOYEE_PASSWORD_HISTORY_LIMIT = 3;
 type ChangelogSyncActor = { type: 'admin' | 'system' | 'unknown'; id?: string };
+
+export type EmployeeSyncDuplicateWarningEntry = {
+  employeeNumber: string;
+  winnerId: string;
+  loserIds: string[];
+};
+
+export type EmployeeSyncDuplicateWarning = {
+  detectedAt: string;
+  duplicateCount: number;
+  entries: EmployeeSyncDuplicateWarningEntry[];
+};
 
 function getChangelogActorData(actor: ChangelogSyncActor) {
   return {
@@ -30,8 +43,79 @@ function getChangelogActorData(actor: ChangelogSyncActor) {
   };
 }
 
+type CanonicalExternalEmployeesResult = {
+  canonicalEmployees: ExternalEmployee[];
+  duplicateLosersByEmployeeNumber: Map<string, string[]>;
+};
+
+function resolveCanonicalExternalEmployees(
+  externalEmployees: ExternalEmployee[],
+  existingEmployeeIds: Set<string>
+): CanonicalExternalEmployeesResult {
+  const duplicateGroups = new Map<string, ExternalEmployee[]>();
+
+  for (const ext of externalEmployees) {
+    const employeeNumber = ext.employee_number?.trim();
+    if (!employeeNumber) continue;
+
+    if (!duplicateGroups.has(employeeNumber)) {
+      duplicateGroups.set(employeeNumber, []);
+    }
+    duplicateGroups.get(employeeNumber)!.push(ext);
+  }
+
+  const keepIds = new Set<string>();
+  const duplicateLosersByEmployeeNumber = new Map<string, string[]>();
+
+  for (const ext of externalEmployees) {
+    const employeeNumber = ext.employee_number?.trim();
+    if (!employeeNumber) {
+      keepIds.add(ext.id);
+      continue;
+    }
+
+    const group = duplicateGroups.get(employeeNumber) ?? [];
+    if (group.length <= 1) {
+      keepIds.add(ext.id);
+      continue;
+    }
+
+    const existingCandidates = group.filter(candidate => existingEmployeeIds.has(candidate.id));
+    const winnerPool = existingCandidates.length > 0 ? existingCandidates : group;
+    const winner = [...winnerPool].sort((a, b) => a.id.localeCompare(b.id))[0];
+    keepIds.add(winner.id);
+
+    if (!duplicateLosersByEmployeeNumber.has(employeeNumber)) {
+      duplicateLosersByEmployeeNumber.set(
+        employeeNumber,
+        group.filter(candidate => candidate.id !== winner.id).map(candidate => candidate.id)
+      );
+    }
+  }
+
+  return {
+    canonicalEmployees: externalEmployees.filter(ext => keepIds.has(ext.id)),
+    duplicateLosersByEmployeeNumber,
+  };
+}
+
 export async function getLastEmployeeSyncTimestamp(): Promise<string | null> {
   return redis.get(LAST_EMPLOYEE_SYNC_KEY);
+}
+
+export async function getLastEmployeeSyncDuplicateWarning(): Promise<EmployeeSyncDuplicateWarning | null> {
+  const raw = await redis.get(LAST_EMPLOYEE_SYNC_DUPLICATE_WARNING_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as EmployeeSyncDuplicateWarning;
+    if (!parsed || !Array.isArray(parsed.entries) || typeof parsed.detectedAt !== 'string') {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 export function getEmployeeSearchWhere(query?: string): Prisma.EmployeeWhereInput {
@@ -466,10 +550,12 @@ export async function deactivateEmployeesNotIn(
     const idsToDeactivate = toDeactivate.map(e => e.id);
 
     // 2. Bulk update status
+    const deactivatedAt = new Date();
     await tx.employee.updateMany({
       where: { id: { in: idsToDeactivate } },
       data: {
         status: false,
+        deletedAt: deactivatedAt,
       },
     });
 
@@ -783,18 +869,36 @@ export async function syncEmployeesFromExternal(
     );
   }
 
-  const externalIds = externalEmployees.map(e => e.id);
+  const externalIds = [...new Set(externalEmployees.map(e => e.id))];
 
   // 2. Fetch existing employees to avoid unnecessary hashing and for change detection
   const existingEmployees = await prisma.employee.findMany({
     where: { id: { in: externalIds } },
   });
   const existingMap = new Map(existingEmployees.map(e => [e.id, e]));
+  const existingEmployeeIds = new Set(existingEmployees.map(employee => employee.id));
+
+  const { canonicalEmployees, duplicateLosersByEmployeeNumber } = resolveCanonicalExternalEmployees(
+    externalEmployees,
+    existingEmployeeIds
+  );
+  const activeExternalIds = canonicalEmployees.map(employee => employee.id);
+  const duplicateWarningEntries: EmployeeSyncDuplicateWarningEntry[] = [];
+
+  for (const [employeeNumber, loserIds] of duplicateLosersByEmployeeNumber.entries()) {
+    const winnerId = canonicalEmployees.find(employee => employee.employee_number?.trim() === employeeNumber)?.id;
+    if (!winnerId) continue;
+
+    duplicateWarningEntries.push({ employeeNumber, winnerId, loserIds });
+    console.error(
+      `[SyncEmployees] Duplicate employee_number "${employeeNumber}" detected. Keeping id=${winnerId}; soft-deactivating duplicate ids=[${loserIds.join(', ')}]`
+    );
+  }
 
   let addedCount = 0;
   let updatedCount = 0;
 
-  for (const ext of externalEmployees) {
+  for (const ext of canonicalEmployees) {
     const isSecurityDepartment = ext.department?.toLowerCase().includes('security') ?? false;
     const role: EmployeeRole = isSecurityDepartment && !ext.office_id ? 'on_site' : 'office';
     const existing = existingMap.get(ext.id);
@@ -958,7 +1062,7 @@ export async function syncEmployeesFromExternal(
   }
 
   // 3. Deactivate those not in external list
-  const { deactivatedCount } = await deactivateEmployeesNotIn(externalIds, actor);
+  const { deactivatedCount } = await deactivateEmployeesNotIn(activeExternalIds, actor);
 
   console.log(
     `[SyncEmployees] Sync completed: ${addedCount} added, ${updatedCount} updated, ${deactivatedCount} deactivated`
@@ -967,8 +1071,18 @@ export async function syncEmployeesFromExternal(
   // 4. Update last sync timestamp in Redis
   try {
     await redis.set(LAST_EMPLOYEE_SYNC_KEY, new Date().toISOString());
+    if (duplicateWarningEntries.length > 0) {
+      const duplicateWarning: EmployeeSyncDuplicateWarning = {
+        detectedAt: new Date().toISOString(),
+        duplicateCount: duplicateWarningEntries.length,
+        entries: duplicateWarningEntries,
+      };
+      await redis.set(LAST_EMPLOYEE_SYNC_DUPLICATE_WARNING_KEY, JSON.stringify(duplicateWarning));
+    } else {
+      await redis.del(LAST_EMPLOYEE_SYNC_DUPLICATE_WARNING_KEY);
+    }
   } catch (err) {
-    console.error('[SyncEmployees] Failed to update last sync timestamp:', err);
+    console.error('[SyncEmployees] Failed to persist sync metadata:', err);
   }
 
   return {

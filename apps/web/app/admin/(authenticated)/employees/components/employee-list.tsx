@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import type { EmployeeWithRelationsAndSchedule } from '@repo/database';
+import type { EmployeeSyncDuplicateWarning, EmployeeWithRelationsAndSchedule } from '@repo/database';
 import type { Serialized } from '@/lib/server-utils';
 import ChangePasswordModal from './change-password-modal';
 import BulkScheduleUploadModal from './bulk-schedule-upload-modal';
@@ -27,6 +27,7 @@ type EmployeeListProps = {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   lastSyncTimestamp?: string | null;
+  lastSyncDuplicateWarning?: EmployeeSyncDuplicateWarning | null;
 };
 
 export default function EmployeeList({
@@ -38,6 +39,7 @@ export default function EmployeeList({
   sortBy = 'fullName',
   sortOrder = 'asc',
   lastSyncTimestamp,
+  lastSyncDuplicateWarning,
 }: EmployeeListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -197,6 +199,26 @@ export default function EmployeeList({
           )}
         </div>
       </div>
+
+      {lastSyncDuplicateWarning && (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+          <p className="text-sm font-semibold">
+            Duplicate employee numbers detected in last sync ({lastSyncDuplicateWarning.duplicateCount} group
+            {lastSyncDuplicateWarning.duplicateCount > 1 ? 's' : ''}).
+          </p>
+          <p className="text-xs mt-1">
+            Detected at: {format(new Date(lastSyncDuplicateWarning.detectedAt), 'PPP p', { locale: enUS })}
+          </p>
+          <div className="mt-2 space-y-1">
+            {lastSyncDuplicateWarning.entries.map(entry => (
+              <p key={`${entry.employeeNumber}-${entry.winnerId}`} className="text-xs">
+                <span className="font-semibold">{entry.employeeNumber}</span>: kept <code>{entry.winnerId}</code>,
+                deactivated <code>{entry.loserIds.join(', ')}</code>
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         <div className="overflow-x-auto">

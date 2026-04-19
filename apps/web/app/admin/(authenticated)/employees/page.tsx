@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import {
   getPaginatedEmployees,
+  getLastEmployeeSyncDuplicateWarning,
   getLastEmployeeSyncTimestamp,
   getEmployeeSearchWhere,
 } from '@repo/database';
@@ -51,7 +52,10 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
     includeActiveOfficeWorkScheduleName: officeWorkSchedulesEnabled,
   });
 
-  const lastSyncTimestamp = await getLastEmployeeSyncTimestamp();
+  const [lastSyncTimestamp, lastSyncDuplicateWarning] = await Promise.all([
+    getLastEmployeeSyncTimestamp(),
+    getLastEmployeeSyncDuplicateWarning(),
+  ]);
 
   const serializedEmployees = serialize(employees);
 
@@ -67,6 +71,7 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
           sortBy={sortField}
           sortOrder={sortOrder}
           lastSyncTimestamp={lastSyncTimestamp}
+          lastSyncDuplicateWarning={lastSyncDuplicateWarning}
         />
       </Suspense>
     </div>
