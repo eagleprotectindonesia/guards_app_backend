@@ -681,6 +681,109 @@ describe('employees repository', () => {
     consoleWarnSpy.mockRestore();
   });
 
+  test('sync soft-deletes duplicate losers even when loser is already inactive', async () => {
+    (prisma.employee.findMany as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'employee-2',
+          employeeNumber: 'EMP001',
+          fullName: 'Employee Existing',
+          personnelId: 'P2',
+          nickname: 'Existing',
+          jobTitle: 'Analyst',
+          department: 'Operations',
+          phone: '+62002',
+          role: 'office',
+          officeId: 'office-1',
+          fieldModeEnabled: false,
+          status: true,
+          deletedAt: null,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'employee-1',
+          employeeNumber: 'EMP001',
+          fullName: 'Employee Duplicate Inactive',
+          personnelId: 'P1',
+          nickname: 'Duplicate',
+          jobTitle: 'Analyst',
+          department: 'Operations',
+          role: 'office',
+          phone: '+62001',
+          status: false,
+        },
+      ]);
+    (prisma.employee.update as jest.Mock).mockResolvedValue({
+      id: 'employee-2',
+      employeeNumber: 'EMP001',
+      fullName: 'Employee Existing Updated',
+      personnelId: 'P2',
+      nickname: 'Existing',
+      jobTitle: 'Analyst',
+      department: 'Operations',
+      phone: '+62022',
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
+      status: true,
+    });
+    const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    await syncEmployeesFromExternal(
+      { type: 'system' },
+      [
+        {
+          id: 'employee-1',
+          employee_number: 'EMP001',
+          personnel_id: 'P1',
+          nickname: 'Duplicate',
+          full_name: 'Employee Duplicate Inactive',
+          job_title: 'Analyst',
+          department: 'Operations',
+          office_id: 'office-1',
+          office_name: 'HQ',
+          phone: '+62001',
+        },
+        {
+          id: 'employee-2',
+          employee_number: 'EMP001',
+          personnel_id: 'P2',
+          nickname: 'Existing',
+          full_name: 'Employee Existing Updated',
+          job_title: 'Analyst',
+          department: 'Operations',
+          office_id: 'office-1',
+          office_name: 'HQ',
+          phone: '+62022',
+        },
+      ]
+    );
+
+    expect(prisma.employee.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ['employee-1'] } },
+        data: expect.objectContaining({
+          status: false,
+          deletedAt: expect.any(Date),
+        }),
+      })
+    );
+    expect(prisma.changelog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          details: expect.objectContaining({
+            changes: expect.objectContaining({
+              status: { from: false, to: false },
+            }),
+          }),
+        }),
+      })
+    );
+    expect(consoleWarnSpy).toHaveBeenCalledWith(expect.stringContaining('Duplicate employee_number "EMP001" detected'));
+    consoleWarnSpy.mockRestore();
+  });
+
   test('returns last duplicate warning from redis when payload is valid', async () => {
     (redis.get as jest.Mock).mockResolvedValueOnce(
       JSON.stringify({

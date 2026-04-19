@@ -529,11 +529,11 @@ export async function deactivateEmployeesNotIn(
     const toDeactivate = await tx.employee.findMany({
       where: {
         id: { notIn: activeIds },
-        status: true,
         deletedAt: null,
       },
       select: {
         id: true,
+        status: true,
         employeeNumber: true,
         fullName: true,
         personnelId: true,
@@ -606,7 +606,7 @@ export async function deactivateEmployeesNotIn(
             fullName: employee.fullName,
             status: false,
             changes: {
-              status: { from: true, to: false },
+              status: { from: employee.status, to: false },
               reason: 'External sync deactivation',
             },
           },
@@ -890,7 +890,7 @@ export async function syncEmployeesFromExternal(
     if (!winnerId) continue;
 
     duplicateWarningEntries.push({ employeeNumber, winnerId, loserIds });
-    console.error(
+    console.warn(
       `[SyncEmployees] Duplicate employee_number "${employeeNumber}" detected. Keeping id=${winnerId}; soft-deactivating duplicate ids=[${loserIds.join(', ')}]`
     );
   }
