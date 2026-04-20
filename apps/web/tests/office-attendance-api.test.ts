@@ -120,6 +120,48 @@ describe('POST /api/employee/my/office-attendance', () => {
     );
   });
 
+  test('returns 200 when duplicate attendance resolves to an existing record', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-2',
+      role: 'office',
+      officeId: null,
+      fieldModeEnabled: true,
+    });
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: false,
+      startMinutes: 8 * 60,
+      businessDay: {
+        minutesSinceMidnight: 8 * 60 + 5,
+      },
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (recordOfficeAttendance as jest.Mock).mockResolvedValue({
+      attendance: {
+        id: 'attendance-existing',
+        employeeId: 'employee-2',
+        officeId: null,
+        status: 'present',
+      },
+      created: false,
+    });
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        status: 'present',
+      }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.attendance).toMatchObject({ id: 'attendance-existing' });
+  });
+
   test('persists rounded distanceMeters for office-required clock-in', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-distance-in',

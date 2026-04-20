@@ -177,15 +177,17 @@ export async function POST(req: Request) {
       ...(latenessMins != null ? { latenessMins } : {}),
     };
 
-    const attendance = await recordOfficeAttendance({
+    const recordResult = await recordOfficeAttendance({
       officeId: office?.id ?? null,
       officeShiftId: scheduleContext.shift?.id ?? null,
       employeeId: employee.id,
       status: requestedStatus,
       metadata,
     });
+    const attendance = 'attendance' in recordResult ? recordResult.attendance : recordResult;
+    const statusCode = 'created' in recordResult ? (recordResult.created ? 201 : 200) : 201;
 
-    return NextResponse.json({ attendance }, { status: 201 });
+    return NextResponse.json({ attendance }, { status: statusCode });
   } catch (error: unknown) {
     console.error('Error recording office attendance:', error);
     if (error instanceof ZodError) {

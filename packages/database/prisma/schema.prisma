@@ -622,6 +622,7 @@ model OfficeAttendance {
   @@index([employeeId])
   @@index([officeId])
   @@index([officeShiftId])
+  @@unique([officeShiftId, status], map: "office_attendance_shift_status_key")
   @@map("office_attendance")
 }
 

@@ -38,18 +38,45 @@ export async function recordOfficeAttendance(params: {
   recordedAt?: Date;
 }) {
   const { officeId, officeShiftId, employeeId, status, picture, metadata, recordedAt } = params;
+  const normalizedRecordedAt = recordedAt || new Date();
 
-  return prisma.officeAttendance.create({
-    data: {
-      officeId,
-      officeShiftId,
-      employeeId,
-      recordedAt: recordedAt || new Date(),
-      status,
-      picture,
-      metadata,
-    },
-  });
+  try {
+    const attendance = await prisma.officeAttendance.create({
+      data: {
+        officeId,
+        officeShiftId,
+        employeeId,
+        recordedAt: normalizedRecordedAt,
+        status,
+        picture,
+        metadata,
+      },
+    });
+
+    return { attendance, created: true as const };
+  } catch (error) {
+    if (
+      officeShiftId &&
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      const existingAttendance = await prisma.officeAttendance.findFirst({
+        where: {
+          officeShiftId,
+          status,
+        },
+        orderBy: {
+          recordedAt: 'asc',
+        },
+      });
+
+      if (existingAttendance) {
+        return { attendance: existingAttendance, created: false as const };
+      }
+    }
+
+    throw error;
+  }
 }
 
 export async function getTodayOfficeAttendance(employeeId: string, now = new Date(), timeZone = BUSINESS_TIMEZONE) {
