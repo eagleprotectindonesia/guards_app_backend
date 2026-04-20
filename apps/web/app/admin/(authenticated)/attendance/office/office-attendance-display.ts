@@ -80,6 +80,7 @@ function toUnifiedRow(
     latenessMins: clockIn.metadata?.latenessMins ?? null,
     displayStatus: getDisplayStatus(clockIn.metadata, !!clockOut),
     office: clockIn.office,
+    officeShift: clockIn.officeShift ?? null,
     employee: clockIn.employee,
   };
 }

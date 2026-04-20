@@ -79,7 +79,17 @@ describe('GET /api/admin/office-attendance/export', () => {
           officeId: 'office-1',
           metadata: { location: { lat: -5.1, lng: 119.4 }, distanceMeters: 12, latenessMins: 5 },
           office: { id: 'office-1', name: 'HQ' },
-          employee: { id: 'employee-1', fullName: 'Jane Doe', employeeNumber: 'EMP-1' },
+          officeShift: {
+            id: 'shift-1',
+            officeShiftType: { name: 'Morning Shift', startTime: '08:00', endTime: '17:00' },
+          },
+          employee: {
+            id: 'employee-1',
+            fullName: 'Jane Doe',
+            employeeNumber: 'EMP-1',
+            department: 'Operations',
+            jobTitle: 'Supervisor',
+          },
         },
         {
           id: 'out-1',
@@ -89,7 +99,17 @@ describe('GET /api/admin/office-attendance/export', () => {
           officeId: 'office-1',
           metadata: { location: { lat: -5.2, lng: 119.5 }, distanceMeters: 8 },
           office: { id: 'office-1', name: 'HQ' },
-          employee: { id: 'employee-1', fullName: 'Jane Doe', employeeNumber: 'EMP-1' },
+          officeShift: {
+            id: 'shift-1',
+            officeShiftType: { name: 'Morning Shift', startTime: '08:00', endTime: '17:00' },
+          },
+          employee: {
+            id: 'employee-1',
+            fullName: 'Jane Doe',
+            employeeNumber: 'EMP-1',
+            department: 'Operations',
+            jobTitle: 'Supervisor',
+          },
         },
       ])
       .mockResolvedValueOnce([]);
@@ -108,8 +128,12 @@ describe('GET /api/admin/office-attendance/export', () => {
     expect(firstCall.where.officeId).toBe('office-1');
     expect(firstCall.where.recordedAt.gte.getTime()).toBe(startOfDay(new Date('2026-04-01')).getTime());
     expect(firstCall.where.recordedAt.lte.getTime()).toBe(endOfDay(new Date('2026-04-03')).getTime());
-    expect(csv).toContain('Employee,Employee ID,Office,Business Date,Clock In Date,Clock In Time,Clock In Distance (m),Clock Out Date,Clock Out Time,Clock Out Distance (m),Paid Hours,Status,Lateness (mins)');
-    expect(csv).toContain('"Jane Doe","EMP-1","HQ",2026-04-01,2026-04-01,16:05,12,2026-04-02,01:00,8,"8 hrs 0 mins",late,5');
+    expect(csv).toContain(
+      'Employee ID,Employee,Department,Job Title,Office,Business Date,Day Name,Month,Assigned Shift,Shift Start Time,Shift End Time,Grace Minutes,Clock In Date,Clock In Time,Clock In Distance (m),Clock Out Date,Clock Out Time,Clock Out Distance (m),Paid Hours,Work Minutes,Overtime Minutes,Status,Lateness (mins),Late Flag,Early Leave Minutes,Missed Punch Flag,Manual Edit Flag,Edited By,Edit Reason'
+    );
+    expect(csv).toContain(
+      '"EMP-1","Jane Doe","Operations","Supervisor","HQ",2026-04-01,"Wednesday","April","Morning Shift","08:00","17:00",0,2026-04-01,16:05,12,2026-04-02,01:00,8,"8 hrs 0 mins",480,0,late,5,Yes,0,No,,,'
+    );
   });
 
   test('exports open sessions with blank clock-out fields', async () => {
@@ -130,7 +154,17 @@ describe('GET /api/admin/office-attendance/export', () => {
           officeId: 'office-1',
           metadata: { location: { lat: -5.1, lng: 119.4 }, distanceMeters: 12 },
           office: { id: 'office-1', name: 'HQ' },
-          employee: { id: 'employee-1', fullName: 'Jane Doe', employeeNumber: 'EMP-1' },
+          officeShift: {
+            id: 'shift-1',
+            officeShiftType: { name: 'Morning Shift', startTime: '08:00', endTime: '17:00' },
+          },
+          employee: {
+            id: 'employee-1',
+            fullName: 'Jane Doe',
+            employeeNumber: 'EMP-1',
+            department: 'Operations',
+            jobTitle: 'Supervisor',
+          },
         },
       ])
       .mockResolvedValueOnce([]);
@@ -141,6 +175,8 @@ describe('GET /api/admin/office-attendance/export', () => {
     const csv = await readResponseText(response);
 
     expect(response.status).toBe(200);
-    expect(csv).toContain('"Jane Doe","EMP-1","HQ",2026-04-01,2026-04-01,16:05,12,,,,"",clocked_in,');
+    expect(csv).toContain(
+      '"EMP-1","Jane Doe","Operations","Supervisor","HQ",2026-04-01,"Wednesday","April","Morning Shift","08:00","17:00",0,2026-04-01,16:05,12,,,,"",,,clocked_in,,No,,Yes,,,'
+    );
   });
 });

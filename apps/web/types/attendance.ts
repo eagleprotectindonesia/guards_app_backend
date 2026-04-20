@@ -10,6 +10,8 @@ export type AttendanceEmployeeSummary = {
   id: string;
   fullName: string;
   employeeNumber: string | null;
+  department?: string | null;
+  jobTitle?: string | null;
 };
 
 export type AttendanceOfficeSummary = {
@@ -69,6 +71,14 @@ export type OfficeAttendanceWithRelationsDto = {
     id: string;
     name: string;
   } | null;
+  officeShift?: {
+    id: string;
+    officeShiftType: {
+      name: string;
+      startTime: string;
+      endTime: string;
+    } | null;
+  } | null;
   employee: AttendanceEmployeeSummary | null;
 };
 
@@ -96,6 +106,14 @@ export type OfficeAttendanceDisplayDto = {
   office: {
     id: string;
     name: string;
+  } | null;
+  officeShift?: {
+    id: string;
+    officeShiftType: {
+      name: string;
+      startTime: string;
+      endTime: string;
+    } | null;
   } | null;
   employee: AttendanceEmployeeSummary | null;
 };

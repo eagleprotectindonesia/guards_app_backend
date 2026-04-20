@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { endOfDay, format, startOfDay } from 'date-fns';
 import {
   getOfficeAttendanceExportBatch,
+  OFFICE_PAID_BREAK_MINUTES,
   getScheduledPaidMinutesForOfficeAttendance,
 } from '@repo/database';
 import { adminHasPermission, getAdminSession } from '@/lib/admin-auth';
@@ -22,6 +23,17 @@ function escapeCsv(value: string) {
 
 function formatOptionalNumber(value?: number | null) {
   return value == null ? '' : String(value);
+}
+
+function getWorkMinutes(clockInAt: string, clockOutAt: string | null) {
+  if (!clockOutAt) {
+    return null;
+  }
+
+  const durationMinutes = Math.floor((new Date(clockOutAt).getTime() - new Date(clockInAt).getTime()) / (1000 * 60));
+  const breakMinutes = durationMinutes > 5 * 60 ? OFFICE_PAID_BREAK_MINUTES : 0;
+
+  return Math.max(0, durationMinutes - breakMinutes);
 }
 
 export async function GET(request: NextRequest) {
@@ -89,6 +101,20 @@ export async function GET(request: NextRequest) {
               id: att.employee.id,
               fullName: att.employee.fullName,
               employeeNumber: att.employee.employeeNumber,
+              department: att.employee.department,
+              jobTitle: att.employee.jobTitle,
+            }
+          : null,
+        officeShift: att.officeShift
+          ? {
+              id: att.officeShift.id,
+              officeShiftType: att.officeShift.officeShiftType
+                ? {
+                    name: att.officeShift.officeShiftType.name,
+                    startTime: att.officeShift.officeShiftType.startTime,
+                    endTime: att.officeShift.officeShiftType.endTime,
+                  }
+                : null,
             }
           : null,
       }))
@@ -102,15 +128,37 @@ export async function GET(request: NextRequest) {
   }
 
   const rows = await buildOfficeAttendanceDisplayRows(records, getScheduledPaidMinutesForOfficeAttendance);
+  const scheduledMinutesCache = new Map<string, number>();
+  const scheduledMinutesByRow = await Promise.all(
+    rows.map(async row => {
+      const key = `${row.employeeId}|${row.clockInAt}`;
+      const cached = scheduledMinutesCache.get(key);
+      if (cached != null) {
+        return cached;
+      }
+
+      const scheduledMinutes = await getScheduledPaidMinutesForOfficeAttendance(row.employeeId, new Date(row.clockInAt));
+      scheduledMinutesCache.set(key, scheduledMinutes);
+      return scheduledMinutes;
+    })
+  );
 
   const stream = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();
       const headers = [
-        'Employee',
         'Employee ID',
+        'Employee',
+        'Department',
+        'Job Title',
         'Office',
         'Business Date',
+        'Day Name',
+        'Month',
+        'Assigned Shift',
+        'Shift Start Time',
+        'Shift End Time',
+        'Grace Minutes',
         'Clock In Date',
         'Clock In Time',
         'Clock In Distance (m)',
@@ -118,20 +166,42 @@ export async function GET(request: NextRequest) {
         'Clock Out Time',
         'Clock Out Distance (m)',
         'Paid Hours',
+        'Work Minutes',
+        'Overtime Minutes',
         'Status',
         'Lateness (mins)',
+        'Late Flag',
+        'Early Leave Minutes',
+        'Missed Punch Flag',
+        'Manual Edit Flag',
+        'Edited By',
+        'Edit Reason',
       ];
 
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
       let chunk = '';
-      for (const row of rows) {
+      for (const [index, row] of rows.entries()) {
+        const scheduledMinutes = scheduledMinutesByRow[index];
+        const workMinutes = getWorkMinutes(row.clockInAt, row.clockOutAt);
+        const overtimeMinutes = workMinutes == null ? null : Math.max(0, workMinutes - scheduledMinutes);
+        const earlyLeaveMinutes = workMinutes == null ? null : Math.max(0, scheduledMinutes - workMinutes);
+        const businessDate = new Date(`${row.businessDate}T00:00:00`);
+
         chunk +=
           [
-            escapeCsv(row.employee?.fullName || 'Unknown'),
             escapeCsv(row.employee?.employeeNumber || ''),
+            escapeCsv(row.employee?.fullName || 'Unknown'),
+            escapeCsv(row.employee?.department || ''),
+            escapeCsv(row.employee?.jobTitle || ''),
             escapeCsv(row.office?.name || ''),
             row.businessDate,
+            escapeCsv(format(businessDate, 'EEEE')),
+            escapeCsv(format(businessDate, 'MMMM')),
+            escapeCsv(row.officeShift?.officeShiftType?.name || ''),
+            escapeCsv(row.officeShift?.officeShiftType?.startTime || ''),
+            escapeCsv(row.officeShift?.officeShiftType?.endTime || ''),
+            '0',
             format(new Date(row.clockInAt), 'yyyy-MM-dd'),
             format(new Date(row.clockInAt), 'HH:mm'),
             formatOptionalNumber(row.clockInMetadata?.distanceMeters),
@@ -139,8 +209,16 @@ export async function GET(request: NextRequest) {
             row.clockOutAt ? format(new Date(row.clockOutAt), 'HH:mm') : '',
             formatOptionalNumber(row.clockOutMetadata?.distanceMeters),
             escapeCsv(row.paidHours || ''),
+            formatOptionalNumber(workMinutes),
+            formatOptionalNumber(overtimeMinutes),
             row.displayStatus,
             formatOptionalNumber(row.latenessMins),
+            (row.latenessMins ?? 0) > 0 ? 'Yes' : 'No',
+            formatOptionalNumber(earlyLeaveMinutes),
+            row.clockOutAt ? 'No' : 'Yes',
+            '',
+            '',
+            '',
           ].join(',') + '\n';
       }
 

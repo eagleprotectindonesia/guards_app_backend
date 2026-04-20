@@ -190,7 +190,11 @@ export async function getOfficeAttendanceExportBatch(params: {
     include: {
       office: true,
       employee: true,
-      officeShift: true,
+      officeShift: {
+        include: {
+          officeShiftType: true,
+        },
+      },
     },
     ...(cursor && { skip: 1, cursor: { id: cursor } }),
   });
