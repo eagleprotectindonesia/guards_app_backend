@@ -67,11 +67,11 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
     startTransition(async () => {
       const result = await bulkCreateOfficeShifts(formData);
       if (result.success) {
-        toast.success(result.message || 'Office shifts updated successfully!');
+        toast.success(result.message || 'Office shifts upserted successfully!');
         onClose();
         resetState();
       } else {
-        setError(result.message || 'Failed to create office shifts.');
+        setError(result.message || 'Failed to upsert office shifts.');
         setValidationErrors(Array.isArray(result.errors) ? result.errors : []);
         setIsConfirming(false);
       }
@@ -109,7 +109,7 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Bulk Create Office Shifts"
+      title="Bulk Upsert Office Shifts"
       maxWidthClassName={previewStep ? 'max-w-5xl' : 'max-w-lg'}
     >
       <div className="p-6">
@@ -118,7 +118,8 @@ export default function OfficeBulkCreateModal({ isOpen, onClose }: Props) {
           <div className="space-y-4">
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Upload a CSV or Excel file based on the distributed template.
+                Upload a CSV or Excel file based on the distributed template. The preview will show which rows create new
+                shifts, update existing shifts, or set day off.
               </p>
             </div>
 

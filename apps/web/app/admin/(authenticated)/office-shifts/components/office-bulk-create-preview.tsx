@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { ChevronRight, Calendar, Loader2, CheckCircle2, Palmtree, AlertCircle, AlertTriangle } from 'lucide-react';
+import { ChevronRight, Calendar, Loader2, CheckCircle2, Palmtree, AlertCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 
 export interface ShiftPreviewData {
   date: string;
@@ -11,6 +11,8 @@ export interface ShiftPreviewData {
   endTime: string;
   note?: string | null;
   isDayOff: boolean;
+  action: 'create' | 'update' | 'off';
+  existingShiftId?: string;
 }
 
 export interface EmployeePreviewData {
@@ -26,6 +28,9 @@ export interface EmployeePreviewData {
 export interface PreviewData {
   employees: EmployeePreviewData[];
   totalShiftsToCreate: number;
+  totalCreates: number;
+  totalUpdates: number;
+  totalOffDays: number;
   totalEmployees: number;
   dateRange: {
     start: string;
@@ -126,16 +131,24 @@ export default function OfficeBulkCreatePreview({
       <div className="bg-muted/50 rounded-xl p-6 border border-border shadow-sm">
         <h3 className="font-bold text-foreground mb-4 flex items-center gap-2">
           <span className="bg-blue-600 w-1 h-5 rounded-full" />
-          Import Summary
+          Upsert Summary
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
           <div className="bg-card p-4 rounded-lg border border-border shadow-sm">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Employees</p>
             <p className="text-2xl font-black text-foreground mt-1">{previewData.totalEmployees}</p>
           </div>
           <div className="bg-card p-4 rounded-lg border border-border shadow-sm">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Shifts</p>
-            <p className="text-2xl font-black text-foreground mt-1">{previewData.totalShiftsToCreate}</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Create</p>
+            <p className="text-2xl font-black text-blue-600 mt-1">{previewData.totalCreates}</p>
+          </div>
+          <div className="bg-card p-4 rounded-lg border border-border shadow-sm">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Update</p>
+            <p className="text-2xl font-black text-amber-600 mt-1">{previewData.totalUpdates}</p>
+          </div>
+          <div className="bg-card p-4 rounded-lg border border-border shadow-sm">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Day Off</p>
+            <p className="text-2xl font-black text-emerald-600 mt-1">{previewData.totalOffDays}</p>
           </div>
           <div className="bg-card p-4 rounded-lg border border-border shadow-sm">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date Range</p>
@@ -189,7 +202,7 @@ export default function OfficeBulkCreatePreview({
                 </div>
                 <div className="flex gap-4 items-center">
                   <div className="text-right">
-                    <p className="text-sm font-bold text-blue-600">{employee.totalShifts} shifts</p>
+                    <p className="text-sm font-bold text-blue-600">{employee.totalShifts} working shifts</p>
                     <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-tight">
                       {employee.shifts.filter(s => s.isDayOff).length} days off
                     </p>
@@ -214,7 +227,7 @@ export default function OfficeBulkCreatePreview({
                             Time Window
                           </th>
                           <th className="px-6 py-3 font-bold text-muted-foreground uppercase tracking-wider text-[11px] text-right">
-                            Status
+                            Action
                           </th>
                         </tr>
                       </thead>
@@ -236,15 +249,20 @@ export default function OfficeBulkCreatePreview({
                               )}
                             </td>
                             <td className="px-6 py-4 text-right">
-                              {shift.isDayOff ? (
+                              {shift.action === 'off' ? (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 rounded-full text-xs font-bold ring-1 ring-inset ring-emerald-600/20">
                                   <Palmtree className="w-3 h-3" />
                                   Day Off
                                 </span>
+                              ) : shift.action === 'update' ? (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-full text-xs font-bold ring-1 ring-inset ring-amber-600/20">
+                                  <RefreshCw className="w-3 h-3" />
+                                  Update Existing
+                                </span>
                               ) : (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-full text-xs font-bold ring-1 ring-inset ring-blue-600/20">
                                   <CheckCircle2 className="w-3 h-3" />
-                                  Scheduled
+                                  Create
                                 </span>
                               )}
                             </td>
@@ -282,7 +300,7 @@ export default function OfficeBulkCreatePreview({
               Processing...
             </>
           ) : (
-            'Confirm & Upload Shifts'
+            'Confirm & Upsert Shifts'
           )}
         </button>
       </div>

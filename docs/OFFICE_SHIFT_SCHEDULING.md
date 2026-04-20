@@ -203,7 +203,13 @@ Validation rules:
 
 Import behavior:
 - all-or-nothing
+- working rows are processed as bulk upsert:
+  - create when no existing overlapping office shift is found for the employee
+  - update when exactly one existing overlapping office shift is found
+  - fail validation when multiple existing overlapping shifts are found for a row
+- `off` rows clear existing shifts on the date and set an explicit off-day override
 - multiple same-day office shifts are allowed for one employee if they do not overlap
+- preview shows per-row action (`Create`, `Update Existing`, `Day Off`) and summary counts for each action type
 
 ## Permissions
 
