@@ -57,7 +57,9 @@ export function parseOfficeJobTitleCategoryMap(rawValue?: string | null): Office
     const parsed = JSON.parse(rawValue) as Partial<Record<OfficeJobTitleCategory, unknown>>;
 
     return {
-      staff: normalizeOfficeJobTitleList(Array.isArray(parsed.staff) ? parsed.staff.filter(v => typeof v === 'string') : []),
+      staff: normalizeOfficeJobTitleList(
+        Array.isArray(parsed.staff) ? parsed.staff.filter(v => typeof v === 'string') : []
+      ),
       management: normalizeOfficeJobTitleList(
         Array.isArray(parsed.management) ? parsed.management.filter(v => typeof v === 'string') : []
       ),
