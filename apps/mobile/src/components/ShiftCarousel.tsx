@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
 import { CalendarCheck, MapPin, CalendarClock } from 'lucide-react-native';
 import { useSettings } from '../hooks/useSettings';
+import { parseShiftCarouselDisplayDate } from './shift-carousel-date';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 48; // Full width minus padding (24 * 2)
@@ -37,6 +38,8 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
   };
 
   const renderActiveShiftCard = (shift: ShiftWithRelations) => {
+    const displayDate = parseShiftCarouselDisplayDate({ shiftDate: shift.date, startsAt: shift.startsAt });
+
     return (
       <Box
         key={shift.id}
@@ -111,7 +114,7 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
               </HStack>
               <Box className="bg-white/5 border border-white/5 px-3 py-1 rounded-md">
                 <Text size="sm" className="text-typography-300 font-bold uppercase">
-                  {format(new Date(shift.startsAt), 'dd MMM', { locale: dateLocale })}
+                  {format(displayDate, 'dd MMM', { locale: dateLocale })}
                 </Text>
               </Box>
             </HStack>
@@ -122,6 +125,8 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
   };
 
   const renderNextShiftCard = (shift: ShiftWithRelations) => {
+    const displayDate = parseShiftCarouselDisplayDate({ shiftDate: shift.date, startsAt: shift.startsAt });
+
     return (
       <Box
         key={shift.id}
@@ -191,7 +196,7 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
               </HStack>
 
               <Text size="sm" className="text-typography-500 font-bold uppercase">
-                {format(new Date(shift.startsAt), 'dd MMM yyyy', { locale: dateLocale })}
+                {format(displayDate, 'dd MMM yyyy', { locale: dateLocale })}
               </Text>
             </HStack>
           </VStack>

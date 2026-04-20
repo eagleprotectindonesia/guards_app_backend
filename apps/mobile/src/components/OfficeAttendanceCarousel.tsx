@@ -9,6 +9,7 @@ import { HStack } from '@/components/ui/hstack';
 import { Text } from '@/components/ui/text';
 import { useTranslation } from 'react-i18next';
 import type { OfficeAttendanceDaySummary } from '../hooks/useOfficeAttendance';
+import { parseOfficeAttendanceDayDate, resolveOfficeAttendanceIsToday } from './office-attendance-carousel-date';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 36; // Full width minus padding (24 * 2)
@@ -36,9 +37,15 @@ export default function OfficeAttendanceCarousel({ weeklyDays, isLoading }: Offi
     return null;
   }
 
+  const firstDayDateKey = weeklyDays[0]?.dateKey;
+
   const renderDayCard = (day: OfficeAttendanceDaySummary, index: number) => {
-    const date = new Date(day.date);
-    const isToday = index === 0;
+    const date = parseOfficeAttendanceDayDate(day.dateKey, day.date);
+    const isToday = resolveOfficeAttendanceIsToday({
+      dayDateKey: day.dateKey,
+      firstDayDateKey,
+      index,
+    });
     const hasAttendance = day.attendances.length > 0;
 
     return (
