@@ -4,7 +4,7 @@ import { reviewEmployeeLeaveRequestSchema } from '@repo/validations';
 import { ZodError } from 'zod';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { getEmployeeRoleFilter } from '@/lib/auth/admin-visibility';
+import { resolveLeaveRequestAccessContext } from '@/lib/auth/leave-ownership';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requirePermission(PERMISSIONS.LEAVE_REQUESTS.EDIT);
@@ -12,17 +12,23 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   try {
     const body = reviewEmployeeLeaveRequestSchema.parse(await req.json());
+    const accessContext = await resolveLeaveRequestAccessContext(session);
 
-    const employeeRoleFilter = getEmployeeRoleFilter(session.rolePolicy);
-    if (employeeRoleFilter) {
-      const request = await prisma.employeeLeaveRequest.findUnique({
-        where: { id },
-        include: { employee: { select: { role: true } } },
-      });
+    const request = await prisma.employeeLeaveRequest.findUnique({
+      where: { id },
+      include: { employee: { select: { id: true, role: true, department: true, officeId: true } } },
+    });
 
-      if (!request || request.employee.role !== employeeRoleFilter) {
-        return NextResponse.json({ error: 'Leave request not found' }, { status: 404 });
-      }
+    if (
+      !request ||
+      !accessContext.isEmployeeVisible({
+        id: request.employee.id,
+        role: request.employee.role,
+        department: request.employee.department,
+        officeId: request.employee.officeId,
+      })
+    ) {
+      return NextResponse.json({ error: 'Leave request not found' }, { status: 404 });
     }
 
     const leaveRequest = await approveEmployeeLeaveRequest({

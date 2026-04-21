@@ -1,14 +1,21 @@
-import { isOfficeWorkSchedulesEnabled } from '../lib/feature-flags';
+import { isAdminLeaveOwnershipEnabled, isOfficeWorkSchedulesEnabled } from '../lib/feature-flags';
 import { getAdminNavItems } from '../lib/admin-navigation';
 
 describe('office work schedule feature flag', () => {
   const originalEnv = process.env.ENABLE_OFFICE_WORK_SCHEDULES;
+  const originalLeaveOwnershipEnv = process.env.ENABLE_ADMIN_LEAVE_OWNERSHIP;
 
   afterEach(() => {
     if (originalEnv === undefined) {
       delete process.env.ENABLE_OFFICE_WORK_SCHEDULES;
     } else {
       process.env.ENABLE_OFFICE_WORK_SCHEDULES = originalEnv;
+    }
+
+    if (originalLeaveOwnershipEnv === undefined) {
+      delete process.env.ENABLE_ADMIN_LEAVE_OWNERSHIP;
+    } else {
+      process.env.ENABLE_ADMIN_LEAVE_OWNERSHIP = originalLeaveOwnershipEnv;
     }
   });
 
@@ -32,5 +39,17 @@ describe('office work schedule feature flag', () => {
 
   test('includes office schedules in admin nav when enabled', () => {
     expect(getAdminNavItems(true).some(item => item.href === '/admin/office-work-schedules')).toBe(true);
+  });
+
+  test('leave ownership flag defaults to disabled', () => {
+    delete process.env.ENABLE_ADMIN_LEAVE_OWNERSHIP;
+
+    expect(isAdminLeaveOwnershipEnabled()).toBe(false);
+  });
+
+  test('leave ownership flag can be enabled', () => {
+    process.env.ENABLE_ADMIN_LEAVE_OWNERSHIP = 'true';
+
+    expect(isAdminLeaveOwnershipEnabled()).toBe(true);
   });
 });

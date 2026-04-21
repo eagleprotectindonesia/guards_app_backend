@@ -76,6 +76,7 @@ export async function createAdminWithChangelog(data: Prisma.AdminCreateInput, cr
             email: createdAdmin.email,
             roleId: createdAdmin.roleId,
             note: createdAdmin.note,
+            includeFallbackLeaveQueue: createdAdmin.includeFallbackLeaveQueue,
           },
         },
       });
@@ -106,6 +107,8 @@ export async function updateAdminWithChangelog(id: string, data: Prisma.AdminUpd
             email: data.email ? updatedAdmin.email : undefined,
             roleId: data.roleRef ? updatedAdmin.roleId : undefined,
             note: data.note !== undefined ? updatedAdmin.note : undefined,
+            includeFallbackLeaveQueue:
+              data.includeFallbackLeaveQueue !== undefined ? updatedAdmin.includeFallbackLeaveQueue : undefined,
             passwordChanged: !!data.hashedPassword,
           },
         },

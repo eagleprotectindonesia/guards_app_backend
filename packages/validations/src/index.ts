@@ -38,6 +38,22 @@ export const updateAdminSchema = z.object({
   note: z.string().optional(),
 });
 
+export const AdminOwnershipScopeTypeEnum = z.enum(['department', 'office']);
+
+export const adminOwnershipAssignmentSchema = z.object({
+  adminId: z.string().min(1, 'Admin ID is required'),
+  scopeType: AdminOwnershipScopeTypeEnum,
+  scopeValue: z.string().min(1, 'Scope value is required'),
+  priority: z.number().int().min(0).default(100),
+  isActive: z.boolean().default(true),
+});
+
+export const adminOwnershipSelectionSchema = z.object({
+  departmentKeys: z.array(z.string().trim().min(1)).default([]),
+  officeIds: z.array(z.string().trim().min(1)).default([]),
+  includeFallbackLeaveQueue: z.boolean().default(false),
+});
+
 // --- Employee ---
 const emptyStringToNull = z.literal('').transform(() => null);
 
@@ -303,6 +319,9 @@ export type CreateSiteInput = z.infer<typeof createSiteSchema>;
 export type UpdateSiteInput = CreateSiteInput; // Same for now
 export type CreateAdminInput = z.infer<typeof createAdminSchema>;
 export type UpdateAdminInput = z.infer<typeof updateAdminSchema>;
+export type AdminOwnershipAssignmentInput = z.infer<typeof adminOwnershipAssignmentSchema>;
+export type AdminOwnershipSelectionInput = z.infer<typeof adminOwnershipSelectionSchema>;
+export type AdminOwnershipScopeType = z.infer<typeof AdminOwnershipScopeTypeEnum>;
 export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 export type UpdateEmployeePasswordInput = z.infer<typeof updateEmployeePasswordSchema>;
 export type UpdateEmployeeFieldModeInput = z.infer<typeof updateEmployeeFieldModeSchema>;

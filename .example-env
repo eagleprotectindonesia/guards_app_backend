@@ -34,3 +34,6 @@ INTERNAL_REVALIDATE_SECRET="your_shared_revalidate_secret_here"
 # Use http://localhost:3000 for local dev
 # Use http://app:3000 for production (Docker service name)
 WEB_APP_URL="http://localhost:3000"
+
+ENABLE_ADMIN_LEAVE_OWNERSHIP=true
+ENABLE_OFFICE_WORK_SCHEDULES=false

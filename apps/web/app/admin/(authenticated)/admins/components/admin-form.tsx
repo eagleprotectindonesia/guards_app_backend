@@ -1,6 +1,11 @@
 'use client';
 
-import { SerializedAdminWithRoleDto, SerializedRoleDto } from '@/types/admins';
+import {
+  SerializedAdminOwnershipAssignmentDto,
+  SerializedAdminOwnershipOptionDto,
+  SerializedAdminWithRoleDto,
+  SerializedRoleDto,
+} from '@/types/admins';
 import { createAdmin, updateAdmin, disableAdmin2FA } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateAdminInput } from '@repo/validations';
@@ -13,14 +18,23 @@ import { ShieldAlert } from 'lucide-react';
 type Props = {
   admin?: SerializedAdminWithRoleDto;
   roles: SerializedRoleDto[];
+  ownershipAssignments: SerializedAdminOwnershipAssignmentDto[];
+  departmentOptions: SerializedAdminOwnershipOptionDto[];
+  officeOptions: SerializedAdminOwnershipOptionDto[];
 };
 
-export default function AdminForm({ admin, roles }: Props) {
+export default function AdminForm({ admin, roles, ownershipAssignments, departmentOptions, officeOptions }: Props) {
   const router = useRouter();
   const [isPending2FA, start2FATransition] = useTransition();
   const [state, formAction, isPending] = useActionState<ActionState<CreateAdminInput>, FormData>(
     admin ? updateAdmin.bind(null, admin.id) : createAdmin,
     { success: false }
+  );
+  const selectedDepartmentKeys = new Set(
+    ownershipAssignments.map(assignment => assignment.departmentKey).filter((value): value is string => !!value)
+  );
+  const selectedOfficeIds = new Set(
+    ownershipAssignments.map(assignment => assignment.officeId).filter((value): value is string => !!value)
   );
 
   useEffect(() => {
@@ -51,7 +65,7 @@ export default function AdminForm({ admin, roles }: Props) {
     <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-foreground">{admin ? 'Edit Admin' : 'Add New Admin'}</h1>
-        
+
         {admin?.twoFactorEnabled && (
           <button
             type="button"
@@ -122,6 +136,73 @@ export default function AdminForm({ admin, roles }: Props) {
             ))}
           </select>
           {state.errors?.roleId && <p className="text-red-500 text-xs mt-1">{state.errors.roleId[0]}</p>}
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-2">
+          <div>
+            <label className="block font-medium text-foreground mb-2">Owned Departments</label>
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-card p-3 space-y-2">
+              {departmentOptions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No departments available yet.</p>
+              ) : (
+                departmentOptions.map(option => (
+                  <label key={option.id} className="flex items-start gap-2 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      name="ownershipDepartmentKeys"
+                      value={option.id}
+                      defaultChecked={selectedDepartmentKeys.has(option.id)}
+                      className="mt-0.5 rounded border-border"
+                    />
+                    <span className="break-all">{option.label}</span>
+                  </label>
+                ))
+              )}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Department values are normalized (trimmed + lowercase) for stable matching.
+            </p>
+          </div>
+
+          <div>
+            <label className="block font-medium text-foreground mb-2">Owned Offices</label>
+            <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-card p-3 space-y-2">
+              {officeOptions.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No active offices available.</p>
+              ) : (
+                officeOptions.map(option => (
+                  <label key={option.id} className="flex items-start gap-2 text-sm text-foreground">
+                    <input
+                      type="checkbox"
+                      name="ownershipOfficeIds"
+                      value={option.id}
+                      defaultChecked={selectedOfficeIds.has(option.id)}
+                      className="mt-0.5 rounded border-border"
+                    />
+                    <span className="break-all">{option.label}</span>
+                  </label>
+                ))
+              )}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Employees matching selected department or office scopes will be routed to this admin.
+            </p>
+          </div>
+        </div>
+
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <input
+              type="checkbox"
+              name="includeFallbackLeaveQueue"
+              defaultChecked={admin?.includeFallbackLeaveQueue ?? false}
+              className="rounded border-border"
+            />
+            Include fallback queue (unassigned employees)
+          </label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            When enabled, this admin can review leave requests for employees without any ownership assignment.
+          </p>
         </div>
 
         {/* Password Field */}

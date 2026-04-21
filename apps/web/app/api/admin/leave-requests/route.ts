@@ -3,7 +3,7 @@ import { listEmployeeLeaveRequestsForAdmin } from '@repo/database';
 import { LeaveRequestStatus } from '@prisma/client';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { getEmployeeRoleFilter } from '@/lib/auth/admin-visibility';
+import { resolveLeaveRequestAccessContext } from '@/lib/auth/leave-ownership';
 
 const ALLOWED_STATUSES = new Set<LeaveRequestStatus>(['pending', 'approved', 'rejected', 'cancelled']);
 
@@ -24,17 +24,36 @@ export async function GET(req: Request) {
     const employeeId = searchParams.get('employeeId') || undefined;
     const startDate = searchParams.get('startDate') || undefined;
     const endDate = searchParams.get('endDate') || undefined;
-    const employeeRoleFilter = getEmployeeRoleFilter(session.rolePolicy);
+    const accessContext = await resolveLeaveRequestAccessContext(session);
 
     const leaveRequests = await listEmployeeLeaveRequestsForAdmin({
       statuses,
       employeeId,
       startDate,
       endDate,
-      employeeRoleFilter,
+      employeeRoleFilter: accessContext.employeeRoleFilter,
     });
 
-    return NextResponse.json({ leaveRequests });
+    const visibleLeaveRequests = leaveRequests
+      .filter(request =>
+        accessContext.isEmployeeVisible({
+          id: request.employee.id,
+          role: request.employee.role,
+          department: request.employee.department,
+          officeId: request.employee.officeId,
+        })
+      )
+      .map(({ employee, ...request }) => ({
+        ...request,
+        employee: {
+          id: employee.id,
+          fullName: employee.fullName,
+          employeeNumber: employee.employeeNumber,
+          role: employee.role,
+        },
+      }));
+
+    return NextResponse.json({ leaveRequests: visibleLeaveRequests });
   } catch (error) {
     console.error('Error listing leave requests:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

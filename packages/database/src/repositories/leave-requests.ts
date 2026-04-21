@@ -91,11 +91,28 @@ export async function listEmployeeLeaveRequestsForAdmin(
     startDate?: string;
     endDate?: string;
     employeeRoleFilter?: EmployeeRole;
+    employeeWhere?: Prisma.EmployeeWhereInput;
   },
   tx: TxLike = prisma
 ) {
   const startDate = params.startDate ? dateKeyToDate(params.startDate) : undefined;
   const endDate = params.endDate ? dateKeyToDate(params.endDate) : undefined;
+  const employeeFilters: Prisma.EmployeeWhereInput[] = [];
+
+  if (params.employeeRoleFilter) {
+    employeeFilters.push({ role: params.employeeRoleFilter });
+  }
+
+  if (params.employeeWhere) {
+    employeeFilters.push(params.employeeWhere);
+  }
+
+  const employeeFilter =
+    employeeFilters.length === 0
+      ? undefined
+      : employeeFilters.length === 1
+        ? employeeFilters[0]
+        : { AND: employeeFilters };
 
   return (tx as TxLike).employeeLeaveRequest.findMany({
     where: {
@@ -103,13 +120,10 @@ export async function listEmployeeLeaveRequestsForAdmin(
       employeeId: params.employeeId,
       ...(startDate || endDate
         ? {
-            AND: [
-              startDate ? { endDate: { gte: startDate } } : {},
-              endDate ? { startDate: { lte: endDate } } : {},
-            ],
+            AND: [startDate ? { endDate: { gte: startDate } } : {}, endDate ? { startDate: { lte: endDate } } : {}],
           }
         : {}),
-      employee: params.employeeRoleFilter ? { role: params.employeeRoleFilter } : undefined,
+      employee: employeeFilter ? { is: employeeFilter } : undefined,
     },
     include: {
       employee: {
@@ -118,6 +132,8 @@ export async function listEmployeeLeaveRequestsForAdmin(
           fullName: true,
           employeeNumber: true,
           role: true,
+          department: true,
+          officeId: true,
         },
       },
       reviewedBy: {
@@ -175,13 +191,11 @@ export async function cancelEmployeeLeaveRequestByEmployee(
   return updated;
 }
 
-export async function approveEmployeeLeaveRequest(
-  params: {
-    requestId: string;
-    adminId: string;
-    reviewNote?: string | null;
-  }
-) {
+export async function approveEmployeeLeaveRequest(params: {
+  requestId: string;
+  adminId: string;
+  reviewNote?: string | null;
+}) {
   const now = new Date();
 
   const result = await prisma.$transaction(async trx => {
@@ -280,7 +294,10 @@ export async function approveEmployeeLeaveRequest(
   });
 
   if (result.affectedOnsiteShiftCount > 0) {
-    await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_UPDATED_FROM_LEAVE', leaveRequestId: params.requestId }));
+    await redis.publish(
+      'events:shifts',
+      JSON.stringify({ type: 'SHIFT_UPDATED_FROM_LEAVE', leaveRequestId: params.requestId })
+    );
   }
 
   return result.updated;

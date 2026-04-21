@@ -1,17 +1,35 @@
 'use server';
 
 import {
+  buildOwnershipAssignmentsFromSelection,
   createAdminWithChangelog,
   deleteAdminWithChangelog,
   findAdminByEmail,
   getAdminById,
+  hashPassword,
+  replaceAdminOwnershipAssignments,
   updateAdminWithChangelog,
 } from '@repo/database';
 import { checkSuperAdmin } from '@/lib/admin-auth';
-import { createAdminSchema, updateAdminSchema, CreateAdminInput, UpdateAdminInput } from '@repo/validations';
+import {
+  adminOwnershipSelectionSchema,
+  createAdminSchema,
+  updateAdminSchema,
+  CreateAdminInput,
+  UpdateAdminInput,
+} from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { ActionState } from '@/types/actions';
-import { hashPassword } from '@repo/database';
+
+function parseAdminOwnershipSelection(formData: FormData) {
+  return adminOwnershipSelectionSchema.safeParse({
+    departmentKeys: formData
+      .getAll('ownershipDepartmentKeys')
+      .map(value => (typeof value === 'string' ? value : String(value))),
+    officeIds: formData.getAll('ownershipOfficeIds').map(value => (typeof value === 'string' ? value : String(value))),
+    includeFallbackLeaveQueue: formData.get('includeFallbackLeaveQueue') === 'on',
+  });
+}
 
 export async function createAdmin(
   prevState: ActionState<CreateAdminInput>,
@@ -42,6 +60,14 @@ export async function createAdmin(
   }
 
   const { name, email, password, roleId, note } = validatedFields.data;
+  const ownershipSelection = parseAdminOwnershipSelection(formData);
+
+  if (!ownershipSelection.success) {
+    return {
+      message: 'Invalid ownership selection. Failed to Create Admin.',
+      success: false,
+    };
+  }
 
   try {
     const existingAdmin = await findAdminByEmail(email);
@@ -56,16 +82,27 @@ export async function createAdmin(
 
     const hashedPassword = await hashPassword(password);
 
-    await createAdminWithChangelog(
+    const createdAdmin = await createAdminWithChangelog(
       {
         name,
         email,
         hashedPassword,
         roleRef: { connect: { id: roleId } },
         note: note || null,
+        includeFallbackLeaveQueue: ownershipSelection.data.includeFallbackLeaveQueue,
       },
       currentAdmin.id
     );
+
+    await replaceAdminOwnershipAssignments({
+      adminId: createdAdmin.id,
+      assignments: buildOwnershipAssignmentsFromSelection({
+        departmentKeys: ownershipSelection.data.departmentKeys,
+        officeIds: ownershipSelection.data.officeIds,
+      }),
+      includeFallbackLeaveQueue: ownershipSelection.data.includeFallbackLeaveQueue,
+      actorId: currentAdmin.id,
+    });
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -112,6 +149,14 @@ export async function updateAdmin(
   }
 
   const { name, email, roleId, note, password: newPassword } = validatedFields.data;
+  const ownershipSelection = parseAdminOwnershipSelection(formData);
+
+  if (!ownershipSelection.success) {
+    return {
+      message: 'Invalid ownership selection. Failed to Update Admin.',
+      success: false,
+    };
+  }
 
   try {
     // Check if email is taken by another admin
@@ -130,6 +175,7 @@ export async function updateAdmin(
       email,
       roleRef: { connect: { id: roleId } },
       note: note || null,
+      includeFallbackLeaveQueue: ownershipSelection.data.includeFallbackLeaveQueue,
       ...(newPassword && {
         hashedPassword: await hashPassword(newPassword),
         tokenVersion: { increment: 1 },
@@ -137,6 +183,16 @@ export async function updateAdmin(
     };
 
     await updateAdminWithChangelog(id, data, currentAdmin.id);
+
+    await replaceAdminOwnershipAssignments({
+      adminId: id,
+      assignments: buildOwnershipAssignmentsFromSelection({
+        departmentKeys: ownershipSelection.data.departmentKeys,
+        officeIds: ownershipSelection.data.officeIds,
+      }),
+      includeFallbackLeaveQueue: ownershipSelection.data.includeFallbackLeaveQueue,
+      actorId: currentAdmin.id,
+    });
   } catch (error) {
     console.error('Database Error:', error);
     return {

@@ -73,6 +73,7 @@ model Admin {
   roleId                                       String?                                @map("role_id")
   roleRef                                      Role?                                  @relation(fields: [roleId], references: [id])
   tokenVersion                                 Int                                    @default(0) @map("token_version")
+  includeFallbackLeaveQueue                    Boolean                                @default(false) @map("include_fallback_leave_queue")
   createdAt                                    DateTime                               @default(now())
   updatedAt                                    DateTime                               @updatedAt
   deletedAt                                    DateTime?                              @map("deleted_at")
@@ -97,13 +98,33 @@ model Admin {
   updatedOfficeWorkSchedules                   OfficeWorkSchedule[]                   @relation("OfficeWorkScheduleLastUpdatedBy")
   createdEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentCreatedBy")
   updatedEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentLastUpdatedBy")
-  reviewedLeaveRequests                         EmployeeLeaveRequest[]                  @relation("EmployeeLeaveRequestReviewedBy")
+  reviewedLeaveRequests                        EmployeeLeaveRequest[]                 @relation("EmployeeLeaveRequestReviewedBy")
+  ownershipAssignments                         AdminOwnershipAssignment[]
   changelogs                                   Changelog[]
   sentMessages                                 ChatMessage[]
   chatConversationStates                       AdminChatConversationState[]
 
   @@index([deletedAt])
   @@map("admins")
+}
+
+model AdminOwnershipAssignment {
+  id            String   @id @default(uuid())
+  adminId       String   @map("admin_id")
+  departmentKey String?  @map("department_key")
+  officeId      String?  @map("office_id")
+  priority      Int      @default(100)
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  admin  Admin   @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  office Office? @relation(fields: [officeId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, isActive])
+  @@index([departmentKey, isActive])
+  @@index([officeId, isActive])
+  @@map("admin_ownership_assignments")
 }
 
 enum ChangelogActor {
@@ -299,22 +320,23 @@ model Site {
 }
 
 model Office {
-  id                String             @id @default(uuid())
-  name              String
-  address           String?
-  latitude          Float?
-  longitude         Float?
-  status            Boolean?           @default(true)
-  lastUpdatedById   String?            @map("last_updated_by_id")
-  createdById       String?            @map("created_by_id")
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  deletedAt         DateTime?          @map("deleted_at")
-  note              String?            @db.Text
-  officeAttendances OfficeAttendance[]
-  employees         Employee[]
-  lastUpdatedBy     Admin?             @relation("OfficeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  createdBy         Admin?             @relation("OfficeCreatedBy", fields: [createdById], references: [id])
+  id                   String                     @id @default(uuid())
+  name                 String
+  address              String?
+  latitude             Float?
+  longitude            Float?
+  status               Boolean?                   @default(true)
+  lastUpdatedById      String?                    @map("last_updated_by_id")
+  createdById          String?                    @map("created_by_id")
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+  deletedAt            DateTime?                  @map("deleted_at")
+  note                 String?                    @db.Text
+  officeAttendances    OfficeAttendance[]
+  employees            Employee[]
+  ownershipAssignments AdminOwnershipAssignment[]
+  lastUpdatedBy        Admin?                     @relation("OfficeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  createdBy            Admin?                     @relation("OfficeCreatedBy", fields: [createdById], references: [id])
 
   @@index([status])
   @@index([deletedAt])
@@ -493,20 +515,20 @@ model Attendance {
 }
 
 model OfficeShift {
-  id                String      @id @default(uuid())
-  officeShiftTypeId String      @map("office_shift_type_id")
-  employeeId        String      @map("employee_id")
-  date              DateTime    @db.Date
-  startsAt          DateTime    @map("starts_at")
-  endsAt            DateTime    @map("ends_at")
+  id                String                     @id @default(uuid())
+  officeShiftTypeId String                     @map("office_shift_type_id")
+  employeeId        String                     @map("employee_id")
+  date              DateTime                   @db.Date
+  startsAt          DateTime                   @map("starts_at")
+  endsAt            DateTime                   @map("ends_at")
   attendanceMode    OfficeShiftAttendanceMode? @map("attendance_mode")
-  status            ShiftStatus @default(scheduled)
-  createdById       String?     @map("created_by_id")
-  lastUpdatedById   String?     @map("last_updated_by_id")
-  createdAt         DateTime    @default(now()) @map("created_at")
-  updatedAt         DateTime    @updatedAt
-  deletedAt         DateTime?   @map("deleted_at")
-  note              String?     @db.Text
+  status            ShiftStatus                @default(scheduled)
+  createdById       String?                    @map("created_by_id")
+  lastUpdatedById   String?                    @map("last_updated_by_id")
+  createdAt         DateTime                   @default(now()) @map("created_at")
+  updatedAt         DateTime                   @updatedAt
+  deletedAt         DateTime?                  @map("deleted_at")
+  note              String?                    @db.Text
 
   employee          Employee           @relation(fields: [employeeId], references: [id])
   officeShiftType   OfficeShiftType    @relation(fields: [officeShiftTypeId], references: [id])
@@ -533,9 +555,9 @@ model EmployeeOfficeDayOverride {
   createdAt       DateTime              @default(now()) @map("created_at")
   updatedAt       DateTime              @updatedAt @map("updated_at")
 
-  employee        Employee              @relation(fields: [employeeId], references: [id])
-  createdBy       Admin?                @relation("EmployeeOfficeDayOverrideCreatedBy", fields: [createdById], references: [id])
-  lastUpdatedBy   Admin?                @relation("EmployeeOfficeDayOverrideLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  createdBy     Admin?   @relation("EmployeeOfficeDayOverrideCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy Admin?   @relation("EmployeeOfficeDayOverrideLastUpdatedBy", fields: [lastUpdatedById], references: [id])
 
   @@unique([employeeId, date])
   @@index([employeeId, date])
@@ -650,11 +672,11 @@ model OfficeAttendance {
   officeShift OfficeShift? @relation(fields: [officeShiftId], references: [id])
   employee    Employee     @relation(fields: [employeeId], references: [id])
 
+  @@unique([officeShiftId, status], map: "office_attendance_shift_status_key")
   @@index([recordedAt])
   @@index([employeeId])
   @@index([officeId])
   @@index([officeShiftId])
-  @@unique([officeShiftId, status], map: "office_attendance_shift_status_key")
   @@map("office_attendance")
 }
 
