@@ -23,6 +23,9 @@ export type EmployeeAttendanceCheckinErrorTranslationInput = {
   details?: Record<string, unknown>;
 };
 
+// ESLint's no-unused-vars currently flags named tuple labels in function types.
+// Keep the readable signature and suppress the false positive locally.
+// eslint-disable-next-line no-unused-vars
 export type TranslationFunction = (key: string, options?: Record<string, unknown>) => string;
 
 const EMPLOYEE_ATTENDANCE_CHECKIN_ERROR_KEY_MAP: Record<EmployeeAttendanceCheckinErrorCode, string> = {

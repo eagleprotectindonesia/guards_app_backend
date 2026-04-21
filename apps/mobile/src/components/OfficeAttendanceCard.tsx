@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
-import { id, enUS } from 'date-fns/locale';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
@@ -28,17 +27,16 @@ type Props = {
 };
 
 export default function OfficeAttendanceCard({ office, enabled = true }: Props) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { showAlert } = useAlert();
   const { user } = useAuth();
   const toast = useCustomToast();
   const [statusMessage, setStatusMessage] = useState('');
 
-  const { data, refetch, isLoading, isRefetching } = useOfficeAttendance(enabled);
+  const { data, refetch, isRefetching } = useOfficeAttendance(enabled);
   const { data: profileData } = useProfile();
   const recordMutation = useRecordOfficeAttendance();
 
-  const locale = i18n.language === 'id' ? id : enUS;
   const attendances = data?.attendances ?? [];
   const scheduleContext = data?.scheduleContext;
   const attendanceState = data?.attendanceState;

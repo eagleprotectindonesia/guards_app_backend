@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { ScrollView, Dimensions, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { format } from 'date-fns';
 import { id, enUS } from 'date-fns/locale';
-import { CalendarDays, CheckCircle2, Clock } from 'lucide-react-native';
+import { CalendarDays, Clock } from 'lucide-react-native';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';

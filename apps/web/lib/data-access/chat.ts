@@ -3,7 +3,6 @@ import {
   finalizeMessageDraft as finalizeMessageDraftDb,
   getChatMessages as getChatMessagesDb,
   getMessagesSince as getMessagesSinceDb,
-  chatMessageInclude,
 } from '@repo/database';
 import { getCachedPresignedDownloadUrl } from '@/lib/s3';
 
