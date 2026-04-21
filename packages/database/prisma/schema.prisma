@@ -27,6 +27,13 @@ enum OfficeShiftAttendanceMode {
   non_office
 }
 
+enum LeaveRequestStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
 model Permission {
   id          String   @id @default(uuid())
   action      String // e.g., "view", "create", "edit", "delete"
@@ -90,6 +97,7 @@ model Admin {
   updatedOfficeWorkSchedules                   OfficeWorkSchedule[]                   @relation("OfficeWorkScheduleLastUpdatedBy")
   createdEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentCreatedBy")
   updatedEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentLastUpdatedBy")
+  reviewedLeaveRequests                         EmployeeLeaveRequest[]                  @relation("EmployeeLeaveRequestReviewedBy")
   changelogs                                   Changelog[]
   sentMessages                                 ChatMessage[]
   chatConversationStates                       AdminChatConversationState[]
@@ -223,6 +231,7 @@ model Employee {
   refreshTokens                 RefreshToken[]
   sessions                      EmployeeSession[]
   passwordHistories             EmployeePasswordHistory[]
+  leaveRequests                 EmployeeLeaveRequest[]
 
   @@index([status])
   @@index([deletedAt])
@@ -531,6 +540,29 @@ model EmployeeOfficeDayOverride {
   @@unique([employeeId, date])
   @@index([employeeId, date])
   @@map("employee_office_day_overrides")
+}
+
+model EmployeeLeaveRequest {
+  id           String             @id @default(uuid())
+  employeeId   String             @map("employee_id")
+  startDate    DateTime           @map("start_date") @db.Date
+  endDate      DateTime           @map("end_date") @db.Date
+  reason       String?            @db.Text
+  status       LeaveRequestStatus @default(pending)
+  reviewedById String?            @map("reviewed_by_id")
+  reviewedAt   DateTime?          @map("reviewed_at")
+  reviewNote   String?            @map("review_note") @db.Text
+  cancelledAt  DateTime?          @map("cancelled_at")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  updatedAt    DateTime           @updatedAt @map("updated_at")
+
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewedBy Admin?   @relation("EmployeeLeaveRequestReviewedBy", fields: [reviewedById], references: [id])
+
+  @@index([employeeId, startDate])
+  @@index([status, createdAt])
+  @@index([startDate, endDate])
+  @@map("employee_leave_requests")
 }
 
 model SystemSetting {

@@ -20,6 +20,7 @@ async function main() {
     'dashboard',
     'departments',
     'designations',
+    'leave-requests',
   ];
 
   const actions = ['view', 'create', 'edit', 'delete'];
@@ -101,6 +102,9 @@ async function main() {
           'attendance:view',
           'checkins:view',
           'alerts:view',
+          'leave-requests:view',
+          'leave-requests:create',
+          'leave-requests:edit',
         ],
       },
     },

@@ -263,6 +263,24 @@ export const createOfficeAttendanceSchema = z.object({
   metadata: z.record(z.string(), z.any()).optional(),
 });
 
+// --- Leave Requests ---
+const isoDateKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format');
+
+export const createEmployeeLeaveRequestSchema = z
+  .object({
+    startDate: isoDateKeySchema,
+    endDate: isoDateKeySchema,
+    reason: z.string().max(2000).optional(),
+  })
+  .refine(data => data.startDate <= data.endDate, {
+    message: 'startDate must be before or equal to endDate',
+    path: ['endDate'],
+  });
+
+export const reviewEmployeeLeaveRequestSchema = z.object({
+  reviewNote: z.string().max(2000).optional(),
+});
+
 // --- Alert Reporting ---
 export const reportAlertSchema = z.object({
   shiftId: z.string().uuid(),

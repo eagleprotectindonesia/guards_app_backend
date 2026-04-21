@@ -22,7 +22,8 @@ export const RESOURCES = [
   'dashboard',
   'departments',
   'designations',
-  'chat'
+  'chat',
+  'leave-requests',
 ] as const;
 
 export const ACTIONS = ['view', 'create', 'edit', 'delete'] as const;
@@ -133,6 +134,12 @@ export const PERMISSIONS = {
   CHAT: {
     VIEW: 'chat:view',
     CREATE: 'chat:create',
+  },
+  LEAVE_REQUESTS: {
+    VIEW: 'leave-requests:view',
+    CREATE: 'leave-requests:create',
+    EDIT: 'leave-requests:edit',
+    DELETE: 'leave-requests:delete',
   },
 } satisfies Record<string, Record<string, PermissionCode>>;
 
