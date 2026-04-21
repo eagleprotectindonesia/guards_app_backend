@@ -18,23 +18,41 @@ import { ShieldAlert } from 'lucide-react';
 type Props = {
   admin?: SerializedAdminWithRoleDto;
   roles: SerializedRoleDto[];
-  ownershipAssignments: SerializedAdminOwnershipAssignmentDto[];
+  leaveOwnershipAssignments: SerializedAdminOwnershipAssignmentDto[];
+  employeeVisibilityOwnershipAssignments: SerializedAdminOwnershipAssignmentDto[];
   departmentOptions: SerializedAdminOwnershipOptionDto[];
   officeOptions: SerializedAdminOwnershipOptionDto[];
 };
 
-export default function AdminForm({ admin, roles, ownershipAssignments, departmentOptions, officeOptions }: Props) {
+export default function AdminForm({
+  admin,
+  roles,
+  leaveOwnershipAssignments,
+  employeeVisibilityOwnershipAssignments,
+  departmentOptions,
+  officeOptions,
+}: Props) {
   const router = useRouter();
   const [isPending2FA, start2FATransition] = useTransition();
   const [state, formAction, isPending] = useActionState<ActionState<CreateAdminInput>, FormData>(
     admin ? updateAdmin.bind(null, admin.id) : createAdmin,
     { success: false }
   );
-  const selectedDepartmentKeys = new Set(
-    ownershipAssignments.map(assignment => assignment.departmentKey).filter((value): value is string => !!value)
+  const selectedLeaveDepartmentKeys = new Set(
+    leaveOwnershipAssignments.map(assignment => assignment.departmentKey).filter((value): value is string => !!value)
   );
-  const selectedOfficeIds = new Set(
-    ownershipAssignments.map(assignment => assignment.officeId).filter((value): value is string => !!value)
+  const selectedLeaveOfficeIds = new Set(
+    leaveOwnershipAssignments.map(assignment => assignment.officeId).filter((value): value is string => !!value)
+  );
+  const selectedEmployeeVisibilityDepartmentKeys = new Set(
+    employeeVisibilityOwnershipAssignments
+      .map(assignment => assignment.departmentKey)
+      .filter((value): value is string => !!value)
+  );
+  const selectedEmployeeVisibilityOfficeIds = new Set(
+    employeeVisibilityOwnershipAssignments
+      .map(assignment => assignment.officeId)
+      .filter((value): value is string => !!value)
   );
 
   useEffect(() => {
@@ -138,71 +156,131 @@ export default function AdminForm({ admin, roles, ownershipAssignments, departme
           {state.errors?.roleId && <p className="text-red-500 text-xs mt-1">{state.errors.roleId[0]}</p>}
         </div>
 
-        <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-6">
           <div>
-            <label className="block font-medium text-foreground mb-2">Owned Departments</label>
-            <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-card p-3 space-y-2">
-              {departmentOptions.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No departments available yet.</p>
-              ) : (
-                departmentOptions.map(option => (
-                  <label key={option.id} className="flex items-start gap-2 text-sm text-foreground">
-                    <input
-                      type="checkbox"
-                      name="ownershipDepartmentKeys"
-                      value={option.id}
-                      defaultChecked={selectedDepartmentKeys.has(option.id)}
-                      className="mt-0.5 rounded border-border"
-                    />
-                    <span className="break-all">{option.label}</span>
-                  </label>
-                ))
-              )}
+            <h2 className="text-base font-semibold text-foreground">Leave Ownership</h2>
+            <p className="text-xs text-muted-foreground mt-1">Used for leave request list/approve/reject visibility.</p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <label className="block font-medium text-foreground mb-2">Owned Departments</label>
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-card p-3 space-y-2">
+                {departmentOptions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No departments available yet.</p>
+                ) : (
+                  departmentOptions.map(option => (
+                    <label key={option.id} className="flex items-start gap-2 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        name="leaveOwnershipDepartmentKeys"
+                        value={option.id}
+                        defaultChecked={selectedLeaveDepartmentKeys.has(option.id)}
+                        className="mt-0.5 rounded border-border"
+                      />
+                      <span className="break-all">{option.label}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Department values are normalized (trimmed + lowercase) for stable matching.
+              </p>
             </div>
+
+            <div>
+              <label className="block font-medium text-foreground mb-2">Owned Offices</label>
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-card p-3 space-y-2">
+                {officeOptions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No active offices available.</p>
+                ) : (
+                  officeOptions.map(option => (
+                    <label key={option.id} className="flex items-start gap-2 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        name="leaveOwnershipOfficeIds"
+                        value={option.id}
+                        defaultChecked={selectedLeaveOfficeIds.has(option.id)}
+                        className="mt-0.5 rounded border-border"
+                      />
+                      <span className="break-all">{option.label}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Employees matching selected department or office scopes will route leave requests to this admin.
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <input
+                type="checkbox"
+                name="includeFallbackLeaveQueue"
+                defaultChecked={admin?.includeFallbackLeaveQueue ?? false}
+                className="rounded border-border"
+              />
+              Include fallback queue (unassigned employees)
+            </label>
             <p className="mt-1 text-xs text-muted-foreground">
-              Department values are normalized (trimmed + lowercase) for stable matching.
+              When enabled, this admin can review leave requests for employees without any leave ownership assignment.
             </p>
           </div>
 
           <div>
-            <label className="block font-medium text-foreground mb-2">Owned Offices</label>
-            <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-card p-3 space-y-2">
-              {officeOptions.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No active offices available.</p>
-              ) : (
-                officeOptions.map(option => (
-                  <label key={option.id} className="flex items-start gap-2 text-sm text-foreground">
-                    <input
-                      type="checkbox"
-                      name="ownershipOfficeIds"
-                      value={option.id}
-                      defaultChecked={selectedOfficeIds.has(option.id)}
-                      className="mt-0.5 rounded border-border"
-                    />
-                    <span className="break-all">{option.label}</span>
-                  </label>
-                ))
-              )}
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Employees matching selected department or office scopes will be routed to this admin.
+            <h2 className="text-base font-semibold text-foreground">Employee Visibility Ownership</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Used for employees list/export visibility. Unmatched employees are hidden from non-super-admins.
             </p>
           </div>
-        </div>
 
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <input
-              type="checkbox"
-              name="includeFallbackLeaveQueue"
-              defaultChecked={admin?.includeFallbackLeaveQueue ?? false}
-              className="rounded border-border"
-            />
-            Include fallback queue (unassigned employees)
-          </label>
-          <p className="mt-1 text-xs text-muted-foreground">
-            When enabled, this admin can review leave requests for employees without any ownership assignment.
-          </p>
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <label className="block font-medium text-foreground mb-2">Visible Departments</label>
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-card p-3 space-y-2">
+                {departmentOptions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No departments available yet.</p>
+                ) : (
+                  departmentOptions.map(option => (
+                    <label key={option.id} className="flex items-start gap-2 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        name="employeeVisibilityDepartmentKeys"
+                        value={option.id}
+                        defaultChecked={selectedEmployeeVisibilityDepartmentKeys.has(option.id)}
+                        className="mt-0.5 rounded border-border"
+                      />
+                      <span className="break-all">{option.label}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-medium text-foreground mb-2">Visible Offices</label>
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-border bg-card p-3 space-y-2">
+                {officeOptions.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No active offices available.</p>
+                ) : (
+                  officeOptions.map(option => (
+                    <label key={option.id} className="flex items-start gap-2 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        name="employeeVisibilityOfficeIds"
+                        value={option.id}
+                        defaultChecked={selectedEmployeeVisibilityOfficeIds.has(option.id)}
+                        className="mt-0.5 rounded border-border"
+                      />
+                      <span className="break-all">{option.label}</span>
+                    </label>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Password Field */}

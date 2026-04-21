@@ -34,6 +34,11 @@ enum LeaveRequestStatus {
   cancelled
 }
 
+enum AdminOwnershipDomain {
+  leave
+  employees
+}
+
 model Permission {
   id          String   @id @default(uuid())
   action      String // e.g., "view", "create", "edit", "delete"
@@ -109,21 +114,22 @@ model Admin {
 }
 
 model AdminOwnershipAssignment {
-  id            String   @id @default(uuid())
-  adminId       String   @map("admin_id")
-  departmentKey String?  @map("department_key")
-  officeId      String?  @map("office_id")
-  priority      Int      @default(100)
-  isActive      Boolean  @default(true) @map("is_active")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  id            String               @id @default(uuid())
+  adminId       String               @map("admin_id")
+  domain        AdminOwnershipDomain @default(leave)
+  departmentKey String?              @map("department_key")
+  officeId      String?              @map("office_id")
+  priority      Int                  @default(100)
+  isActive      Boolean              @default(true) @map("is_active")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
 
   admin  Admin   @relation(fields: [adminId], references: [id], onDelete: Cascade)
   office Office? @relation(fields: [officeId], references: [id], onDelete: Cascade)
 
-  @@index([adminId, isActive])
-  @@index([departmentKey, isActive])
-  @@index([officeId, isActive])
+  @@index([adminId, domain, isActive])
+  @@index([domain, departmentKey, isActive])
+  @@index([domain, officeId, isActive])
   @@map("admin_ownership_assignments")
 }
 

@@ -19,7 +19,3 @@ function parseBooleanFlag(value: string | undefined, defaultValue: boolean) {
 export function isOfficeWorkSchedulesEnabled() {
   return parseBooleanFlag(process.env.ENABLE_OFFICE_WORK_SCHEDULES, false);
 }
-
-export function isAdminLeaveOwnershipEnabled() {
-  return parseBooleanFlag(process.env.ENABLE_ADMIN_LEAVE_OWNERSHIP, false);
-}

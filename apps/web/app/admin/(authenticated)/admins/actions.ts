@@ -12,7 +12,7 @@ import {
 } from '@repo/database';
 import { checkSuperAdmin } from '@/lib/admin-auth';
 import {
-  adminOwnershipSelectionSchema,
+  adminOwnershipFormSchema,
   createAdminSchema,
   updateAdminSchema,
   CreateAdminInput,
@@ -21,12 +21,24 @@ import {
 import { revalidatePath } from 'next/cache';
 import { ActionState } from '@/types/actions';
 
-function parseAdminOwnershipSelection(formData: FormData) {
-  return adminOwnershipSelectionSchema.safeParse({
-    departmentKeys: formData
-      .getAll('ownershipDepartmentKeys')
-      .map(value => (typeof value === 'string' ? value : String(value))),
-    officeIds: formData.getAll('ownershipOfficeIds').map(value => (typeof value === 'string' ? value : String(value))),
+function parseAdminOwnershipForm(formData: FormData) {
+  return adminOwnershipFormSchema.safeParse({
+    leave: {
+      departmentKeys: formData
+        .getAll('leaveOwnershipDepartmentKeys')
+        .map(value => (typeof value === 'string' ? value : String(value))),
+      officeIds: formData
+        .getAll('leaveOwnershipOfficeIds')
+        .map(value => (typeof value === 'string' ? value : String(value))),
+    },
+    employees: {
+      departmentKeys: formData
+        .getAll('employeeVisibilityDepartmentKeys')
+        .map(value => (typeof value === 'string' ? value : String(value))),
+      officeIds: formData
+        .getAll('employeeVisibilityOfficeIds')
+        .map(value => (typeof value === 'string' ? value : String(value))),
+    },
     includeFallbackLeaveQueue: formData.get('includeFallbackLeaveQueue') === 'on',
   });
 }
@@ -60,9 +72,9 @@ export async function createAdmin(
   }
 
   const { name, email, password, roleId, note } = validatedFields.data;
-  const ownershipSelection = parseAdminOwnershipSelection(formData);
+  const ownershipForm = parseAdminOwnershipForm(formData);
 
-  if (!ownershipSelection.success) {
+  if (!ownershipForm.success) {
     return {
       message: 'Invalid ownership selection. Failed to Create Admin.',
       success: false,
@@ -89,18 +101,29 @@ export async function createAdmin(
         hashedPassword,
         roleRef: { connect: { id: roleId } },
         note: note || null,
-        includeFallbackLeaveQueue: ownershipSelection.data.includeFallbackLeaveQueue,
+        includeFallbackLeaveQueue: ownershipForm.data.includeFallbackLeaveQueue,
       },
       currentAdmin.id
     );
 
     await replaceAdminOwnershipAssignments({
       adminId: createdAdmin.id,
+      domain: 'leave',
       assignments: buildOwnershipAssignmentsFromSelection({
-        departmentKeys: ownershipSelection.data.departmentKeys,
-        officeIds: ownershipSelection.data.officeIds,
+        departmentKeys: ownershipForm.data.leave.departmentKeys,
+        officeIds: ownershipForm.data.leave.officeIds,
       }),
-      includeFallbackLeaveQueue: ownershipSelection.data.includeFallbackLeaveQueue,
+      includeFallbackLeaveQueue: ownershipForm.data.includeFallbackLeaveQueue,
+      actorId: currentAdmin.id,
+    });
+
+    await replaceAdminOwnershipAssignments({
+      adminId: createdAdmin.id,
+      domain: 'employees',
+      assignments: buildOwnershipAssignmentsFromSelection({
+        departmentKeys: ownershipForm.data.employees.departmentKeys,
+        officeIds: ownershipForm.data.employees.officeIds,
+      }),
       actorId: currentAdmin.id,
     });
   } catch (error) {
@@ -149,9 +172,9 @@ export async function updateAdmin(
   }
 
   const { name, email, roleId, note, password: newPassword } = validatedFields.data;
-  const ownershipSelection = parseAdminOwnershipSelection(formData);
+  const ownershipForm = parseAdminOwnershipForm(formData);
 
-  if (!ownershipSelection.success) {
+  if (!ownershipForm.success) {
     return {
       message: 'Invalid ownership selection. Failed to Update Admin.',
       success: false,
@@ -175,7 +198,7 @@ export async function updateAdmin(
       email,
       roleRef: { connect: { id: roleId } },
       note: note || null,
-      includeFallbackLeaveQueue: ownershipSelection.data.includeFallbackLeaveQueue,
+      includeFallbackLeaveQueue: ownershipForm.data.includeFallbackLeaveQueue,
       ...(newPassword && {
         hashedPassword: await hashPassword(newPassword),
         tokenVersion: { increment: 1 },
@@ -186,11 +209,22 @@ export async function updateAdmin(
 
     await replaceAdminOwnershipAssignments({
       adminId: id,
+      domain: 'leave',
       assignments: buildOwnershipAssignmentsFromSelection({
-        departmentKeys: ownershipSelection.data.departmentKeys,
-        officeIds: ownershipSelection.data.officeIds,
+        departmentKeys: ownershipForm.data.leave.departmentKeys,
+        officeIds: ownershipForm.data.leave.officeIds,
       }),
-      includeFallbackLeaveQueue: ownershipSelection.data.includeFallbackLeaveQueue,
+      includeFallbackLeaveQueue: ownershipForm.data.includeFallbackLeaveQueue,
+      actorId: currentAdmin.id,
+    });
+
+    await replaceAdminOwnershipAssignments({
+      adminId: id,
+      domain: 'employees',
+      assignments: buildOwnershipAssignmentsFromSelection({
+        departmentKeys: ownershipForm.data.employees.departmentKeys,
+        officeIds: ownershipForm.data.employees.officeIds,
+      }),
       actorId: currentAdmin.id,
     });
   } catch (error) {

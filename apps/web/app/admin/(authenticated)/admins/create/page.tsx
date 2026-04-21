@@ -35,7 +35,8 @@ export default async function CreateAdminPage() {
         roles={serializedRoles}
         departmentOptions={serializedDepartmentOptions}
         officeOptions={serializedOfficeOptions}
-        ownershipAssignments={[]}
+        leaveOwnershipAssignments={[]}
+        employeeVisibilityOwnershipAssignments={[]}
       />
     </div>
   );

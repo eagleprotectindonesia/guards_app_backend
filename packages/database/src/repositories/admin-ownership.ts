@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { AdminOwnershipDomain, Prisma } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { getDistinctDepartments } from './employees';
 
@@ -15,8 +15,9 @@ export type AdminOwnershipAssignmentInput = {
 
 export type ReplaceAdminOwnershipAssignmentsInput = {
   adminId: string;
+  domain: AdminOwnershipDomain;
   assignments: AdminOwnershipAssignmentInput[];
-  includeFallbackLeaveQueue: boolean;
+  includeFallbackLeaveQueue?: boolean;
   actorId?: string;
 };
 
@@ -31,7 +32,6 @@ export function normalizeDepartmentScopeKey(value: NullableString) {
   }
 
   const normalized = value.trim().toLocaleLowerCase('en-US').replace(/\s+/g, ' ');
-
   return normalized.length > 0 ? normalized : null;
 }
 
@@ -107,9 +107,9 @@ function dedupeAssignments(assignments: AdminOwnershipAssignmentInput[]) {
   );
 }
 
-export async function getAdminOwnershipAssignments(adminId: string) {
+export async function getAdminOwnershipAssignments(adminId: string, domain: AdminOwnershipDomain) {
   return prisma.adminOwnershipAssignment.findMany({
-    where: { adminId, isActive: true },
+    where: { adminId, domain, isActive: true },
     orderBy: [{ priority: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
     include: {
       office: {
@@ -122,9 +122,10 @@ export async function getAdminOwnershipAssignments(adminId: string) {
   });
 }
 
-export async function getAllActiveAdminOwnershipAssignments() {
+export async function getAllActiveAdminOwnershipAssignments(domain: AdminOwnershipDomain) {
   return prisma.adminOwnershipAssignment.findMany({
     where: {
+      domain,
       isActive: true,
       admin: {
         deletedAt: null,
@@ -134,6 +135,7 @@ export async function getAllActiveAdminOwnershipAssignments() {
     select: {
       id: true,
       adminId: true,
+      domain: true,
       departmentKey: true,
       officeId: true,
       priority: true,
@@ -148,21 +150,24 @@ export async function replaceAdminOwnershipAssignments(input: ReplaceAdminOwners
 
   return prisma.$transaction(
     async tx => {
-      await tx.admin.update({
-        where: { id: input.adminId },
-        data: {
-          includeFallbackLeaveQueue: input.includeFallbackLeaveQueue,
-        },
-      });
+      if (input.includeFallbackLeaveQueue !== undefined) {
+        await tx.admin.update({
+          where: { id: input.adminId },
+          data: {
+            includeFallbackLeaveQueue: input.includeFallbackLeaveQueue,
+          },
+        });
+      }
 
       await tx.adminOwnershipAssignment.deleteMany({
-        where: { adminId: input.adminId },
+        where: { adminId: input.adminId, domain: input.domain },
       });
 
       if (normalizedAssignments.length > 0) {
         await tx.adminOwnershipAssignment.createMany({
           data: normalizedAssignments.map(assignment => ({
             adminId: input.adminId,
+            domain: input.domain,
             departmentKey: assignment.departmentKey,
             officeId: assignment.officeId,
             priority: assignment.priority,
@@ -181,6 +186,7 @@ export async function replaceAdminOwnershipAssignments(input: ReplaceAdminOwners
             actorId: input.actorId,
             details: {
               adminId: input.adminId,
+              domain: input.domain,
               includeFallbackLeaveQueue: input.includeFallbackLeaveQueue,
               assignmentCount: normalizedAssignments.length,
               assignments: normalizedAssignments,
@@ -197,7 +203,7 @@ export async function replaceAdminOwnershipAssignments(input: ReplaceAdminOwners
   );
 }
 
-export async function getAdminOwnershipSummaryByAdminId(adminId: string) {
+export async function getAdminOwnershipSummaryByAdminId(adminId: string, domain: AdminOwnershipDomain) {
   const [admin, assignments] = await prisma.$transaction([
     prisma.admin.findUnique({
       where: { id: adminId, deletedAt: null },
@@ -209,10 +215,13 @@ export async function getAdminOwnershipSummaryByAdminId(adminId: string) {
     prisma.adminOwnershipAssignment.findMany({
       where: {
         adminId,
+        domain,
         isActive: true,
       },
       select: {
         id: true,
+        adminId: true,
+        domain: true,
         departmentKey: true,
         officeId: true,
         priority: true,

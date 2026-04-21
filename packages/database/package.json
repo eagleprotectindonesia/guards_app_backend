@@ -20,8 +20,8 @@
     "db:push": "prisma db push"
   },
   "dependencies": {
-    "@prisma/adapter-pg": "^7.4.0",
-    "@prisma/client": "^7.4.0",
+    "@prisma/adapter-pg": "^7.7.0",
+    "@prisma/client": "^7.7.0",
     "@repo/shared": "workspace:*",
     "bcryptjs": "^3.0.3",
     "date-fns": "^4.1.0",
@@ -35,7 +35,7 @@
     "@types/pg": "^8.16.0",
     "@typescript-eslint/parser": "^8.57.0",
     "eslint": "^9.39.2",
-    "prisma": "^7.4.0",
+    "prisma": "^7.7.0",
     "typescript": "^5"
   }
 }

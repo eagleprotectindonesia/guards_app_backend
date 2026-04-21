@@ -51,6 +51,11 @@ export const adminOwnershipAssignmentSchema = z.object({
 export const adminOwnershipSelectionSchema = z.object({
   departmentKeys: z.array(z.string().trim().min(1)).default([]),
   officeIds: z.array(z.string().trim().min(1)).default([]),
+});
+
+export const adminOwnershipFormSchema = z.object({
+  leave: adminOwnershipSelectionSchema,
+  employees: adminOwnershipSelectionSchema,
   includeFallbackLeaveQueue: z.boolean().default(false),
 });
 
@@ -321,6 +326,7 @@ export type CreateAdminInput = z.infer<typeof createAdminSchema>;
 export type UpdateAdminInput = z.infer<typeof updateAdminSchema>;
 export type AdminOwnershipAssignmentInput = z.infer<typeof adminOwnershipAssignmentSchema>;
 export type AdminOwnershipSelectionInput = z.infer<typeof adminOwnershipSelectionSchema>;
+export type AdminOwnershipFormInput = z.infer<typeof adminOwnershipFormSchema>;
 export type AdminOwnershipScopeType = z.infer<typeof AdminOwnershipScopeTypeEnum>;
 export type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 export type UpdateEmployeePasswordInput = z.infer<typeof updateEmployeePasswordSchema>;

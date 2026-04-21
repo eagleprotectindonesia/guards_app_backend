@@ -25,13 +25,15 @@ type EditAdminPageProps = {
 export default async function EditAdminPage(props: EditAdminPageProps) {
   await requirePermission(PERMISSIONS.ADMINS.EDIT);
   const params = await props.params;
-  const [admin, roles, ownershipAssignments, offices, departmentKeys] = await Promise.all([
-    getAdminById(params.id),
-    getAllRoles(),
-    getAdminOwnershipAssignments(params.id),
-    getActiveOffices(),
-    getDistinctNormalizedDepartmentKeys(),
-  ]);
+  const [admin, roles, leaveOwnershipAssignments, employeeVisibilityOwnershipAssignments, offices, departmentKeys] =
+    await Promise.all([
+      getAdminById(params.id),
+      getAllRoles(),
+      getAdminOwnershipAssignments(params.id, 'leave'),
+      getAdminOwnershipAssignments(params.id, 'employees'),
+      getActiveOffices(),
+      getDistinctNormalizedDepartmentKeys(),
+    ]);
 
   if (!admin) {
     notFound();
@@ -54,9 +56,10 @@ export default async function EditAdminPage(props: EditAdminPageProps) {
     name: role.name,
   }));
 
-  const serializedOwnershipAssignments: SerializedAdminOwnershipAssignmentDto[] = ownershipAssignments.map(
+  const serializedLeaveOwnershipAssignments: SerializedAdminOwnershipAssignmentDto[] = leaveOwnershipAssignments.map(
     assignment => ({
       id: assignment.id,
+      domain: 'leave',
       departmentKey: assignment.departmentKey,
       officeId: assignment.officeId,
       officeName: assignment.office?.name ?? null,
@@ -64,6 +67,16 @@ export default async function EditAdminPage(props: EditAdminPageProps) {
       isActive: assignment.isActive,
     })
   );
+  const serializedEmployeeVisibilityOwnershipAssignments: SerializedAdminOwnershipAssignmentDto[] =
+    employeeVisibilityOwnershipAssignments.map(assignment => ({
+      id: assignment.id,
+      domain: 'employees',
+      departmentKey: assignment.departmentKey,
+      officeId: assignment.officeId,
+      officeName: assignment.office?.name ?? null,
+      priority: assignment.priority,
+      isActive: assignment.isActive,
+    }));
 
   const serializedDepartmentOptions: SerializedAdminOwnershipOptionDto[] = departmentKeys.map(key => ({
     id: key,
@@ -80,7 +93,8 @@ export default async function EditAdminPage(props: EditAdminPageProps) {
       <AdminForm
         admin={serializedAdmin}
         roles={serializedRoles}
-        ownershipAssignments={serializedOwnershipAssignments}
+        leaveOwnershipAssignments={serializedLeaveOwnershipAssignments}
+        employeeVisibilityOwnershipAssignments={serializedEmployeeVisibilityOwnershipAssignments}
         departmentOptions={serializedDepartmentOptions}
         officeOptions={serializedOfficeOptions}
       />

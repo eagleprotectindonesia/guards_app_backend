@@ -1,4 +1,4 @@
-import { EmployeeRole } from '@prisma/client';
+import { AdminOwnershipDomain, EmployeeRole } from '@prisma/client';
 import {
   getAdminOwnershipSummaryByAdminId,
   getAllActiveAdminOwnershipAssignments,
@@ -6,9 +6,8 @@ import {
 } from '@repo/database';
 import type { AdminSession } from '@/lib/admin-auth';
 import { getEmployeeRoleFilter } from './admin-visibility';
-import { isAdminLeaveOwnershipEnabled } from '@/lib/feature-flags';
 
-export type LeaveOwnershipEmployeeScope = {
+export type OwnershipEmployeeScope = {
   id: string;
   role: EmployeeRole | null;
   department?: string | null;
@@ -24,13 +23,13 @@ export type ActiveOwnershipAssignment = {
   createdAt: Date;
 };
 
-export type LeaveRequestAccessMode = 'super_admin' | 'legacy_role_scope' | 'ownership_scope';
+export type OwnershipAccessMode = 'super_admin' | 'ownership_scope';
 
-export type LeaveRequestAccessContext = {
-  mode: LeaveRequestAccessMode;
+export type OwnershipAccessContext = {
+  mode: OwnershipAccessMode;
   employeeRoleFilter: EmployeeRole | undefined;
   includeFallbackQueue: boolean;
-  isEmployeeVisible: (employee: LeaveOwnershipEmployeeScope) => boolean;
+  isEmployeeVisible: (employee: OwnershipEmployeeScope) => boolean;
 };
 
 function getAssignmentSpecificity(assignment: Pick<ActiveOwnershipAssignment, 'departmentKey' | 'officeId'>) {
@@ -73,7 +72,7 @@ function compareOwnershipAssignments(a: ActiveOwnershipAssignment, b: ActiveOwne
 
 function doesAssignmentMatchEmployee(
   assignment: Pick<ActiveOwnershipAssignment, 'departmentKey' | 'officeId'>,
-  employee: Pick<LeaveOwnershipEmployeeScope, 'department' | 'officeId'>
+  employee: Pick<OwnershipEmployeeScope, 'department' | 'officeId'>
 ) {
   if (assignment.departmentKey) {
     const employeeDepartmentKey = normalizeDepartmentScopeKey(employee.department);
@@ -91,7 +90,7 @@ function doesAssignmentMatchEmployee(
 
 function resolveEmployeeOwnerAdminIdFromSortedAssignments(
   assignments: ActiveOwnershipAssignment[],
-  employee: Pick<LeaveOwnershipEmployeeScope, 'department' | 'officeId'>
+  employee: Pick<OwnershipEmployeeScope, 'department' | 'officeId'>
 ) {
   for (const assignment of assignments) {
     if (doesAssignmentMatchEmployee(assignment, employee)) {
@@ -104,14 +103,18 @@ function resolveEmployeeOwnerAdminIdFromSortedAssignments(
 
 export function resolveEmployeeOwnerAdminId(
   assignments: ActiveOwnershipAssignment[],
-  employee: Pick<LeaveOwnershipEmployeeScope, 'department' | 'officeId'>
+  employee: Pick<OwnershipEmployeeScope, 'department' | 'officeId'>
 ) {
   return resolveEmployeeOwnerAdminIdFromSortedAssignments([...assignments].sort(compareOwnershipAssignments), employee);
 }
 
-export async function resolveLeaveRequestAccessContext(
-  session: Pick<AdminSession, 'id' | 'isSuperAdmin' | 'rolePolicy'>
-): Promise<LeaveRequestAccessContext> {
+async function resolveOwnershipAccessContext(
+  session: Pick<AdminSession, 'id' | 'isSuperAdmin' | 'rolePolicy'>,
+  domain: AdminOwnershipDomain,
+  options?: {
+    includeFallbackForUnmatched?: boolean;
+  }
+): Promise<OwnershipAccessContext> {
   const employeeRoleFilter = getEmployeeRoleFilter(session.rolePolicy);
 
   if (session.isSuperAdmin) {
@@ -123,38 +126,10 @@ export async function resolveLeaveRequestAccessContext(
     };
   }
 
-  if (!isAdminLeaveOwnershipEnabled()) {
-    return {
-      mode: 'legacy_role_scope',
-      employeeRoleFilter,
-      includeFallbackQueue: false,
-      isEmployeeVisible: employee => {
-        if (employeeRoleFilter && employee.role !== employeeRoleFilter) {
-          return false;
-        }
-        return true;
-      },
-    };
-  }
-
   const [{ admin }, allAssignmentsRaw] = await Promise.all([
-    getAdminOwnershipSummaryByAdminId(session.id),
-    getAllActiveAdminOwnershipAssignments(),
+    getAdminOwnershipSummaryByAdminId(session.id, domain),
+    getAllActiveAdminOwnershipAssignments(domain),
   ]);
-
-  if (!admin || allAssignmentsRaw.length === 0) {
-    return {
-      mode: 'legacy_role_scope',
-      employeeRoleFilter,
-      includeFallbackQueue: false,
-      isEmployeeVisible: employee => {
-        if (employeeRoleFilter && employee.role !== employeeRoleFilter) {
-          return false;
-        }
-        return true;
-      },
-    };
-  }
 
   const allAssignments: ActiveOwnershipAssignment[] = allAssignmentsRaw
     .map(assignment => ({
@@ -167,26 +142,48 @@ export async function resolveLeaveRequestAccessContext(
     }))
     .sort(compareOwnershipAssignments);
 
+  const includeFallbackQueue =
+    options?.includeFallbackForUnmatched !== undefined
+      ? options.includeFallbackForUnmatched
+      : domain === 'leave'
+        ? !!admin?.includeFallbackLeaveQueue
+        : false;
+
   return {
     mode: 'ownership_scope',
     employeeRoleFilter,
-    includeFallbackQueue: admin.includeFallbackLeaveQueue,
+    includeFallbackQueue,
     isEmployeeVisible: employee => {
       if (employeeRoleFilter && employee.role !== employeeRoleFilter) {
         return false;
       }
 
       const ownerAdminId = resolveEmployeeOwnerAdminIdFromSortedAssignments(allAssignments, employee);
-
       if (ownerAdminId === session.id) {
         return true;
       }
 
-      if (ownerAdminId === null && admin.includeFallbackLeaveQueue) {
+      if (ownerAdminId === null && includeFallbackQueue) {
         return true;
       }
 
       return false;
     },
   };
+}
+
+export async function resolveLeaveRequestAccessContext(
+  session: Pick<AdminSession, 'id' | 'isSuperAdmin' | 'rolePolicy'>
+): Promise<OwnershipAccessContext> {
+  return resolveOwnershipAccessContext(session, 'leave', {
+    includeFallbackForUnmatched: undefined,
+  });
+}
+
+export async function resolveEmployeeVisibilityAccessContext(
+  session: Pick<AdminSession, 'id' | 'isSuperAdmin' | 'rolePolicy'>
+): Promise<OwnershipAccessContext> {
+  return resolveOwnershipAccessContext(session, 'employees', {
+    includeFallbackForUnmatched: false,
+  });
 }

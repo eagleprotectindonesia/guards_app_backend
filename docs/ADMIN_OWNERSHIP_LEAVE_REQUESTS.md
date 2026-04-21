@@ -1,12 +1,15 @@
-# Admin Ownership for Leave Requests
+# Admin Ownership Domains
 
 ## Purpose
 
-This document defines the per-admin employee ownership model used by admin leave-request APIs and admin management UI.
+This document defines the per-admin employee ownership model used by admin leave APIs and employee visibility APIs.
 
 ## Scope
 
 - Ownership is assigned per admin (not per role).
+- Supported ownership domains:
+  - `leave`
+  - `employees` (employee list/export visibility)
 - Supported ownership dimensions:
   - `department` (normalized string key)
   - `office` (office id)
@@ -24,6 +27,7 @@ This document defines the per-admin employee ownership model used by admin leave
 
 - `id`
 - `adminId`
+- `domain` (`leave` | `employees`)
 - `departmentKey` (nullable, normalized)
 - `officeId` (nullable)
 - `priority` (`INTEGER`, lower means higher priority)
@@ -34,7 +38,7 @@ This document defines the per-admin employee ownership model used by admin leave
 Constraints and indexes:
 
 - At least one scope dimension required (`departmentKey` or `officeId`).
-- Unique scope per admin: (`admin_id`, `department_key`, `office_id`) normalized via SQL expression index.
+- Unique scope per admin and domain: (`admin_id`, `domain`, `department_key`, `office_id`) normalized via SQL expression index.
 - Lookup indexes:
   - `(admin_id, is_active)`
   - `(department_key, is_active)`
@@ -76,16 +80,9 @@ The first matching assignment in this sorted order is the owner.
 
 If no assignment matches an employee:
 
-- employee is visible only to admins with `includeFallbackLeaveQueue = true`
+- in `leave` domain: employee is visible only to admins with `includeFallbackLeaveQueue = true`
+- in `employees` domain: unmatched employees are hidden for non-super-admins
 - super admin can always view and act regardless of ownership/fallback
-
-## Feature Flag
-
-- Flag: `ENABLE_ADMIN_LEAVE_OWNERSHIP`
-- Default: `false`
-- Behavior:
-  - `false`: leave APIs use legacy role-policy scope behavior
-  - `true`: leave APIs enforce ownership resolver
 
 ## API Enforcement Surface
 
@@ -94,24 +91,31 @@ Ownership is enforced in:
 - `GET /api/admin/leave-requests`
 - `POST /api/admin/leave-requests/:id/approve`
 - `POST /api/admin/leave-requests/:id/reject`
+- employee visibility is enforced in:
+  - admin employees page list query
+  - admin employee export query
 
 For approve/reject, ownership is checked before mutation and non-owned requests return not found.
 
 ## Admin Management UX
 
-Admin create/edit form supports:
+Admin create/edit form supports separate sections:
 
-- selecting owned departments
-- selecting owned offices
-- toggling fallback queue inclusion
+- Leave Ownership:
+  - owned departments
+  - owned offices
+  - fallback queue toggle
+- Employee Visibility Ownership:
+  - visible departments
+  - visible offices
 
-Server actions normalize and replace assignment sets atomically.
+Server actions normalize and replace assignment sets atomically per domain.
 
 ## Rollout Guidance
 
-1. Deploy schema and code with `ENABLE_ADMIN_LEAVE_OWNERSHIP=false`.
-2. Populate admin ownership assignments and fallback assignments.
-3. Enable `ENABLE_ADMIN_LEAVE_OWNERSHIP=true`.
+1. Deploy schema and code.
+2. Populate leave and employees domain assignments.
+3. Verify leave fallback assignees and employee visibility coverage.
 4. Monitor unmatched volume and fallback usage.
 
 ## Source Files

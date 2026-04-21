@@ -1,6 +1,7 @@
 'use server';
 
 import {
+  db,
   updateEmployee as updateEmployeeDb,
   updateEmployeeFieldMode as updateEmployeeFieldModeDb,
   getAllEmployees,
@@ -31,6 +32,7 @@ import { ActionState } from '@/types/actions';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { applyEmployeeVisibilityScope } from '@/lib/auth/admin-visibility';
 import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
+import { resolveEmployeeVisibilityAccessContext } from '@/lib/auth/leave-ownership';
 import {
   bulkUpsertFutureOfficeWorkScheduleAssignments,
   deleteFutureOfficeWorkScheduleAssignment,
@@ -107,7 +109,39 @@ export async function getAllEmployeesForExport(params: {
   const { query, sortBy, sortOrder } = params;
 
   // Build where clause to match the main employees page
-  const where = applyEmployeeVisibilityScope(getEmployeeSearchWhere(query), session);
+  const baseWhere = applyEmployeeVisibilityScope(getEmployeeSearchWhere(query), session);
+  const ownershipContext = await resolveEmployeeVisibilityAccessContext(session);
+  let where = baseWhere;
+
+  if (!session.isSuperAdmin) {
+    const ownershipCandidates = await db.employee.findMany({
+      where: {
+        ...baseWhere,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        role: true,
+        department: true,
+        officeId: true,
+      },
+    });
+
+    const visibleEmployeeIds = ownershipCandidates
+      .filter(candidate =>
+        ownershipContext.isEmployeeVisible({
+          id: candidate.id,
+          role: candidate.role,
+          department: candidate.department,
+          officeId: candidate.officeId,
+        })
+      )
+      .map(candidate => candidate.id);
+
+    where = {
+      AND: [baseWhere, { id: { in: visibleEmployeeIds.length > 0 ? visibleEmployeeIds : ['__none__'] } }],
+    };
+  }
 
   // Handle sorting parameters
   const validSortFields = ['fullName', 'employeeNumber', 'department', 'jobTitle'];
@@ -205,7 +239,6 @@ export async function updateEmployeeFieldMode(
   revalidatePath('/admin/employees');
   return { success: true, message: 'Field mode updated successfully.' };
 }
-
 
 export async function syncEmployeesAction() {
   await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
@@ -404,9 +437,7 @@ export async function bulkScheduleEmployeeOfficeWorkSchedules(
   const [employees, schedules] = await Promise.all([getActiveEmployees(), getAllOfficeWorkSchedules()]);
 
   const employeeMap = new Map(
-    employees
-      .filter(employee => employee.employeeNumber)
-      .map(employee => [employee.employeeNumber as string, employee])
+    employees.filter(employee => employee.employeeNumber).map(employee => [employee.employeeNumber as string, employee])
   );
   const scheduleMap = new Map(schedules.map(schedule => [schedule.name, schedule]));
 
@@ -489,7 +520,8 @@ export async function bulkScheduleEmployeeOfficeWorkSchedules(
   }
 
   assignments.sort(
-    (left, right) => left.employeeId.localeCompare(right.employeeId) || left.effectiveFrom.getTime() - right.effectiveFrom.getTime()
+    (left, right) =>
+      left.employeeId.localeCompare(right.employeeId) || left.effectiveFrom.getTime() - right.effectiveFrom.getTime()
   );
 
   try {
@@ -501,10 +533,7 @@ export async function bulkScheduleEmployeeOfficeWorkSchedules(
     console.error('Bulk office schedule import error:', error);
     return {
       success: false,
-      message:
-        error instanceof Error
-          ? error.message
-          : 'Database Error: Failed to import office schedule assignments.',
+      message: error instanceof Error ? error.message : 'Database Error: Failed to import office schedule assignments.',
     };
   }
 

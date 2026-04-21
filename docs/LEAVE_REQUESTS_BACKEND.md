@@ -68,8 +68,7 @@ Usage:
 - Admin list endpoint requires `leave-requests:view`.
 - Admin approve/reject endpoints require `leave-requests:edit`.
 - Super admin bypasses ownership and role-scope filters.
-- When `ENABLE_ADMIN_LEAVE_OWNERSHIP=false` (default), legacy role-policy scope still applies (`on_site_only` filter).
-- When `ENABLE_ADMIN_LEAVE_OWNERSHIP=true`, leave visibility/edit is constrained by ownership resolver (details in `docs/ADMIN_OWNERSHIP_LEAVE_REQUESTS.md`).
+- Leave visibility/edit is constrained by ownership resolver using ownership domain `leave` (details in `docs/ADMIN_OWNERSHIP_LEAVE_REQUESTS.md`).
 
 ## API Contracts
 
@@ -96,7 +95,7 @@ Usage:
     - `employeeId`
     - `startDate` (YYYY-MM-DD)
     - `endDate` (YYYY-MM-DD)
-  - Applies leave ownership resolver when ownership flag is enabled.
+  - Applies leave ownership resolver.
   - Returns only requests visible to current admin.
 
 - `POST /api/admin/leave-requests/:id/approve`

@@ -27,6 +27,7 @@ export type SerializedRoleDto = RoleDto;
 
 export type AdminOwnershipAssignmentDto = {
   id: string;
+  domain: 'leave' | 'employees';
   departmentKey: string | null;
   officeId: string | null;
   officeName: string | null;
