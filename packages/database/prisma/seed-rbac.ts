@@ -21,6 +21,7 @@ async function main() {
     'departments',
     'designations',
     'leave-requests',
+    'holiday-calendars',
   ];
 
   const actions = ['view', 'create', 'edit', 'delete'];
@@ -105,6 +106,9 @@ async function main() {
           'leave-requests:view',
           'leave-requests:create',
           'leave-requests:edit',
+          'holiday-calendars:view',
+          'holiday-calendars:create',
+          'holiday-calendars:edit',
         ],
       },
     },

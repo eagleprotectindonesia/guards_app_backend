@@ -45,6 +45,18 @@ enum AdminOwnershipDomain {
   employees
 }
 
+enum HolidayCalendarType {
+  holiday
+  week_off
+  emergency
+  special_working_day
+}
+
+enum HolidayCalendarScope {
+  all
+  department
+}
+
 model Permission {
   id          String   @id @default(uuid())
   action      String // e.g., "view", "create", "edit", "delete"
@@ -105,6 +117,8 @@ model Admin {
   updatedOfficeShifts                          OfficeShift[]                          @relation("OfficeShiftLastUpdatedBy")
   createdEmployeeOfficeDayOverrides            EmployeeOfficeDayOverride[]            @relation("EmployeeOfficeDayOverrideCreatedBy")
   updatedEmployeeOfficeDayOverrides            EmployeeOfficeDayOverride[]            @relation("EmployeeOfficeDayOverrideLastUpdatedBy")
+  createdHolidayCalendarEntries                HolidayCalendarEntry[]                 @relation("HolidayCalendarEntryCreatedBy")
+  updatedHolidayCalendarEntries                HolidayCalendarEntry[]                 @relation("HolidayCalendarEntryLastUpdatedBy")
   createdOfficeWorkSchedules                   OfficeWorkSchedule[]                   @relation("OfficeWorkScheduleCreatedBy")
   updatedOfficeWorkSchedules                   OfficeWorkSchedule[]                   @relation("OfficeWorkScheduleLastUpdatedBy")
   createdEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentCreatedBy")
@@ -599,6 +613,33 @@ model EmployeeLeaveRequest {
   @@index([status, createdAt])
   @@index([startDate, endDate])
   @@map("employee_leave_requests")
+}
+
+model HolidayCalendarEntry {
+  id                   String              @id @default(uuid())
+  startDate            DateTime            @map("start_date") @db.Date
+  endDate              DateTime            @map("end_date") @db.Date
+  title                String
+  type                 HolidayCalendarType
+  scope                HolidayCalendarScope
+  departmentKeys       String[]            @default([]) @map("department_keys")
+  isPaid               Boolean             @default(true) @map("is_paid")
+  affectsAttendance    Boolean             @default(true) @map("affects_attendance")
+  notificationRequired Boolean             @default(false) @map("notification_required")
+  note                 String?             @db.Text
+  createdById          String?             @map("created_by_id")
+  lastUpdatedById      String?             @map("last_updated_by_id")
+  createdAt            DateTime            @default(now()) @map("created_at")
+  updatedAt            DateTime            @updatedAt @map("updated_at")
+
+  createdBy     Admin? @relation("HolidayCalendarEntryCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy Admin? @relation("HolidayCalendarEntryLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+
+  @@index([startDate])
+  @@index([endDate])
+  @@index([type])
+  @@index([scope])
+  @@map("holiday_calendar_entries")
 }
 
 model SystemSetting {

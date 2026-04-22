@@ -304,6 +304,49 @@ export const reviewEmployeeLeaveRequestSchema = z.object({
   adminNote: z.string().max(2000).optional(),
 });
 
+// --- Holiday Calendars ---
+export const holidayCalendarTypeSchema = z.enum(['holiday', 'week_off', 'emergency', 'special_working_day']);
+export const holidayCalendarScopeSchema = z.enum(['all', 'department']);
+
+export const holidayCalendarEntrySchema = z
+  .object({
+    startDate: isoDateKeySchema,
+    endDate: isoDateKeySchema,
+    title: z.string().min(1, 'Title is required').max(120, 'Title is too long'),
+    type: holidayCalendarTypeSchema,
+    scope: holidayCalendarScopeSchema,
+    departmentKeys: z.array(z.string().trim().min(1)).default([]),
+    isPaid: z.boolean(),
+    affectsAttendance: z.boolean(),
+    notificationRequired: z.boolean(),
+    note: z.string().max(2000).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.startDate > data.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'endDate must be on or after startDate',
+      });
+    }
+
+    if (data.scope === 'all' && data.departmentKeys.length > 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['departmentKeys'],
+        message: 'Department keys must be empty for all scope',
+      });
+    }
+
+    if (data.scope === 'department' && data.departmentKeys.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['departmentKeys'],
+        message: 'At least one department must be selected for department scope',
+      });
+    }
+  });
+
 // --- Alert Reporting ---
 export const reportAlertSchema = z.object({
   shiftId: z.string().uuid(),
@@ -364,3 +407,6 @@ export type CreateEmployeeOfficeWorkScheduleAssignmentInput = z.infer<
 
 export type ReportAlertInput = z.infer<typeof reportAlertSchema>;
 export type ResolveAlertInput = z.infer<typeof resolveAlertSchema>;
+export type HolidayCalendarTypeInput = z.infer<typeof holidayCalendarTypeSchema>;
+export type HolidayCalendarScopeInput = z.infer<typeof holidayCalendarScopeSchema>;
+export type HolidayCalendarEntryInput = z.infer<typeof holidayCalendarEntrySchema>;

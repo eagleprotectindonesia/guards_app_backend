@@ -10,6 +10,7 @@ export * from './checkins';
 export * from './employees';
 export * from './employee-sessions';
 export * from './leave-requests';
+export * from './holiday-calendar-entries';
 export * from './employee-office-config';
 export * from './fcm-tokens';
 export * from './settings';
