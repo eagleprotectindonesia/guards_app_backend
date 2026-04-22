@@ -34,7 +34,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const leaveRequest = await rejectEmployeeLeaveRequest({
       requestId: id,
       adminId: session.id,
-      reviewNote: body.reviewNote,
+      adminNote: body.adminNote,
     });
 
     return NextResponse.json({ leaveRequest });

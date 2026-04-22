@@ -29,6 +29,10 @@ Out of scope in v1:
   - `approved`
   - `rejected`
   - `cancelled`
+- `LeaveRequestReason`
+  - `sick`
+  - `casual`
+  - `emergency`
 
 ### Prisma Model
 
@@ -37,7 +41,9 @@ Out of scope in v1:
   - `employeeId`
   - `startDate` (`DATE`)
   - `endDate` (`DATE`)
-  - `reason`
+  - `reason` (`LeaveRequestReason`)
+  - `note` (optional text)
+  - `attachments` (`string[]`, S3 keys)
   - `status`
   - `reviewedById`
   - `reviewedAt`
@@ -81,7 +87,9 @@ Usage:
   - Body:
     - `startDate` (YYYY-MM-DD)
     - `endDate` (YYYY-MM-DD)
-    - `reason` (optional)
+    - `reason` (`sick` | `casual` | `emergency`)
+    - `note` (optional)
+    - `attachments` (optional, max 4 S3 keys)
   - Creates request with status `pending`.
 
 - `POST /api/employee/my/leave-requests/:id/cancel`
@@ -191,8 +199,7 @@ For each approved date key in `[startDate..endDate]`:
    - integration tests for scheduling effects
 7. Add reporting/export endpoint for leave analytics.
 8. Add leave type taxonomy (`annual`, `sick`, etc.) if business requires.
-9. Add optional attachment support (medical note, documents).
-10. Add idempotency keys for approval/rejection API safety under retries.
+9. Add idempotency keys for approval/rejection API safety under retries.
 
 ## Operational Notes
 

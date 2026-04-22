@@ -127,7 +127,7 @@ describe('admin leave requests API ownership enforcement', () => {
     const response = await approveLeaveRequest(
       new Request('http://localhost/api/admin/leave-requests/leave-1/approve', {
         method: 'POST',
-        body: JSON.stringify({ reviewNote: 'ok' }),
+      body: JSON.stringify({ adminNote: 'ok' }),
       }),
       { params: Promise.resolve({ id: 'leave-1' }) }
     );
@@ -162,7 +162,7 @@ describe('admin leave requests API ownership enforcement', () => {
     const response = await rejectLeaveRequest(
       new Request('http://localhost/api/admin/leave-requests/leave-1/reject', {
         method: 'POST',
-        body: JSON.stringify({ reviewNote: 'not approved' }),
+      body: JSON.stringify({ adminNote: 'not approved' }),
       }),
       { params: Promise.resolve({ id: 'leave-1' }) }
     );
@@ -174,7 +174,7 @@ describe('admin leave requests API ownership enforcement', () => {
     expect(rejectEmployeeLeaveRequest).toHaveBeenCalledWith({
       requestId: 'leave-1',
       adminId: 'admin-1',
-      reviewNote: 'not approved',
+      adminNote: 'not approved',
     });
   });
 });

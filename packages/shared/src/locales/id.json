@@ -250,6 +250,18 @@
     "endDate": "Tanggal Berakhir",
     "reason": "Alasan",
     "reasonPlaceholder": "Alasan izin (opsional)",
+    "reasonType": {
+      "sick": "Sakit",
+      "casual": "Biasa",
+      "emergency": "Darurat"
+    },
+    "employeeNote": "Catatan Karyawan",
+    "adminNote": "Catatan Admin",
+    "notePlaceholder": "Tambahkan catatan opsional",
+    "attachments": "Lampiran",
+    "addAttachment": "Tambah",
+    "attachmentHint": "Anda dapat melampirkan hingga 4 file.",
+    "attachmentCount": "{{count}} file",
     "submit": "Ajukan Pengajuan",
     "cancel": "Batalkan Pengajuan",
     "noRequests": "Tidak ada pengajuan izin ditemukan",
@@ -270,7 +282,9 @@
     },
     "error": {
       "createFailed": "Gagal mengirim pengajuan izin",
-      "cancelFailed": "Gagal membatalkan pengajuan izin"
+      "cancelFailed": "Gagal membatalkan pengajuan izin",
+      "attachmentPickFailed": "Gagal memilih lampiran",
+      "attachmentUploadFailed": "Gagal mengunggah lampiran"
     }
   },
   "notifications": {

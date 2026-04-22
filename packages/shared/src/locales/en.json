@@ -250,6 +250,18 @@
     "endDate": "End Date",
     "reason": "Reason",
     "reasonPlaceholder": "Reason for leave (optional)",
+    "reasonType": {
+      "sick": "Sick",
+      "casual": "Casual",
+      "emergency": "Emergency"
+    },
+    "employeeNote": "Employee Note",
+    "adminNote": "Admin Note",
+    "notePlaceholder": "Add optional note",
+    "attachments": "Attachments",
+    "addAttachment": "Add",
+    "attachmentHint": "You can attach up to 4 files.",
+    "attachmentCount": "{{count}} file(s)",
     "submit": "Submit Request",
     "cancel": "Cancel Request",
     "noRequests": "No leave requests found",
@@ -270,7 +282,9 @@
     },
     "error": {
       "createFailed": "Failed to submit leave request",
-      "cancelFailed": "Failed to cancel leave request"
+      "cancelFailed": "Failed to cancel leave request",
+      "attachmentPickFailed": "Failed to pick attachments",
+      "attachmentUploadFailed": "Failed to upload attachments"
     }
   },
   "notifications": {

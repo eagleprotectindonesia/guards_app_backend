@@ -32,6 +32,8 @@ export async function POST(req: Request) {
       startDate: body.startDate,
       endDate: body.endDate,
       reason: body.reason,
+      employeeNote: body.employeeNote,
+      attachments: body.attachments,
     });
 
     return NextResponse.json({ leaveRequest }, { status: 201 });

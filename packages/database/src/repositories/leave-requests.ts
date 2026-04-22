@@ -1,4 +1,4 @@
-import { EmployeeRole, LeaveRequestStatus, Prisma } from '@prisma/client';
+import { EmployeeRole, LeaveRequestReason, LeaveRequestStatus, Prisma } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { upsertEmployeeOfficeDayOverride } from './office-day-overrides';
 import { redis } from '../redis/client';
@@ -42,7 +42,9 @@ export async function createEmployeeLeaveRequest(
     employeeId: string;
     startDate: string;
     endDate: string;
-    reason?: string | null;
+    reason: LeaveRequestReason;
+    employeeNote?: string | null;
+    attachments?: string[];
   },
   tx: TxLike = prisma
 ) {
@@ -53,7 +55,9 @@ export async function createEmployeeLeaveRequest(
       employeeId: params.employeeId,
       startDate,
       endDate,
-      reason: params.reason ?? null,
+      reason: params.reason,
+      employeeNote: params.employeeNote ?? null,
+      attachments: params.attachments ?? [],
       status: 'pending',
     },
   });
@@ -68,7 +72,9 @@ export async function createEmployeeLeaveRequest(
         employeeId: params.employeeId,
         startDate: params.startDate,
         endDate: params.endDate,
-        reason: params.reason ?? null,
+        reason: params.reason,
+        employeeNote: params.employeeNote ?? null,
+        attachments: params.attachments ?? [],
         status: 'pending',
       },
     },
@@ -194,7 +200,7 @@ export async function cancelEmployeeLeaveRequestByEmployee(
 export async function approveEmployeeLeaveRequest(params: {
   requestId: string;
   adminId: string;
-  reviewNote?: string | null;
+  adminNote?: string | null;
 }) {
   const now = new Date();
 
@@ -225,7 +231,7 @@ export async function approveEmployeeLeaveRequest(params: {
         status: 'approved',
         reviewedById: params.adminId,
         reviewedAt: now,
-        reviewNote: params.reviewNote ?? null,
+        adminNote: params.adminNote ?? null,
       },
     });
 
@@ -283,7 +289,10 @@ export async function approveEmployeeLeaveRequest(params: {
         details: {
           employeeId: updated.employeeId,
           status: 'approved',
-          reviewNote: params.reviewNote ?? null,
+          reason: updated.reason,
+          employeeNote: updated.employeeNote,
+          adminNote: updated.adminNote,
+          attachments: updated.attachments,
           affectedOfficeOverrideCount,
           affectedOnsiteShiftCount,
         },
@@ -307,7 +316,7 @@ export async function rejectEmployeeLeaveRequest(
   params: {
     requestId: string;
     adminId: string;
-    reviewNote?: string | null;
+    adminNote?: string | null;
   },
   tx: TxLike = prisma
 ) {
@@ -325,12 +334,12 @@ export async function rejectEmployeeLeaveRequest(
 
   const updated = await (tx as TxLike).employeeLeaveRequest.update({
     where: { id: request.id },
-    data: {
-      status: 'rejected',
-      reviewedById: params.adminId,
-      reviewedAt: new Date(),
-      reviewNote: params.reviewNote ?? null,
-    },
+      data: {
+        status: 'rejected',
+        reviewedById: params.adminId,
+        reviewedAt: new Date(),
+        adminNote: params.adminNote ?? null,
+      },
   });
 
   await tx.changelog.create({
@@ -343,7 +352,10 @@ export async function rejectEmployeeLeaveRequest(
       details: {
         employeeId: updated.employeeId,
         status: 'rejected',
-        reviewNote: params.reviewNote ?? null,
+        reason: updated.reason,
+        employeeNote: updated.employeeNote,
+        adminNote: updated.adminNote,
+        attachments: updated.attachments,
       },
     },
   });

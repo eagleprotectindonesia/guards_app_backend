@@ -34,6 +34,12 @@ enum LeaveRequestStatus {
   cancelled
 }
 
+enum LeaveRequestReason {
+  sick
+  casual
+  emergency
+}
+
 enum AdminOwnershipDomain {
   leave
   employees
@@ -575,11 +581,13 @@ model EmployeeLeaveRequest {
   employeeId   String             @map("employee_id")
   startDate    DateTime           @map("start_date") @db.Date
   endDate      DateTime           @map("end_date") @db.Date
-  reason       String?            @db.Text
+  reason       LeaveRequestReason
+  employeeNote String?            @map("employee_note") @db.Text
+  adminNote    String?            @map("admin_note") @db.Text
+  attachments  String[]           @default([])
   status       LeaveRequestStatus @default(pending)
   reviewedById String?            @map("reviewed_by_id")
   reviewedAt   DateTime?          @map("reviewed_at")
-  reviewNote   String?            @map("review_note") @db.Text
   cancelledAt  DateTime?          @map("cancelled_at")
   createdAt    DateTime           @default(now()) @map("created_at")
   updatedAt    DateTime           @updatedAt @map("updated_at")

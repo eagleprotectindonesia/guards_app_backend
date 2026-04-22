@@ -65,6 +65,18 @@ export default function LeaveRequestsScreen() {
     }
   };
 
+  const getReasonLabel = (reason: 'sick' | 'casual' | 'emergency') => {
+    switch (reason) {
+      case 'sick':
+        return t('leave.reasonType.sick', 'Sick');
+      case 'emergency':
+        return t('leave.reasonType.emergency', 'Emergency');
+      case 'casual':
+      default:
+        return t('leave.reasonType.casual', 'Casual');
+    }
+  };
+
   const handleCancel = (id: string) => {
     showAlert(
       t('leave.cancel'),
@@ -200,13 +212,44 @@ export default function LeaveRequestsScreen() {
 
                   <Box className="h-[1px] bg-white/5 w-full mb-4" />
 
-                  {request.reason && (
+                  <VStack space="xs" className="mb-4">
+                    <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
+                      {t('leave.reason')}
+                    </Text>
+                    <Text className="text-[#D1D1D1]" size="sm">
+                      {getReasonLabel(request.reason)}
+                    </Text>
+                  </VStack>
+
+                  {request.employeeNote && (
                     <VStack space="xs" className="mb-4">
                       <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
-                        {t('leave.reason')}
+                        {t('leave.employeeNote', 'Employee Note')}
                       </Text>
                       <Text className="text-[#D1D1D1]" size="sm">
-                        {request.reason}
+                        {request.employeeNote}
+                      </Text>
+                    </VStack>
+                  )}
+
+                  {request.adminNote && (
+                    <VStack space="xs" className="mb-4">
+                      <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
+                        {t('leave.adminNote', 'Admin Note')}
+                      </Text>
+                      <Text className="text-[#D1D1D1]" size="sm">
+                        {request.adminNote}
+                      </Text>
+                    </VStack>
+                  )}
+
+                  {request.attachments && request.attachments.length > 0 && (
+                    <VStack space="xs" className="mb-4">
+                      <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
+                        {t('leave.attachments', 'Attachments')}
+                      </Text>
+                      <Text className="text-[#D1D1D1]" size="sm">
+                        {t('leave.attachmentCount', '{{count}} file(s)', { count: request.attachments.length })}
                       </Text>
                     </VStack>
                   )}
@@ -234,16 +277,6 @@ export default function LeaveRequestsScreen() {
                     )}
                   </HStack>
 
-                  {request.reviewNote && (
-                    <Box className="mt-4 p-3 rounded-2xl bg-white/5 border border-white/5">
-                      <Text className="text-[#666] font-bold uppercase tracking-[1px] mb-1" size="2xs">
-                        Admin Note
-                      </Text>
-                      <Text className="text-[#A0A0A0] italic" size="xs">
-                        "{request.reviewNote}"
-                      </Text>
-                    </Box>
-                  )}
                 </Box>
               );
             })}

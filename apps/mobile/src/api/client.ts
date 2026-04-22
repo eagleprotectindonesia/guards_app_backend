@@ -7,8 +7,7 @@ let authTokenCache: string | null = null;
 
 // Determine the base URL based on the environment
 const getBaseUrl = () => {
-  // public url is hardcoded due to OTA updates somehow fails to get them from local env and expo dev env
-  const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.trim() || 'https://crm.eagleprotect.id';
+  const configuredUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
 
   if (configuredUrl) {
     if (!__DEV__ && !configuredUrl.startsWith('https://')) {
@@ -18,7 +17,8 @@ const getBaseUrl = () => {
   }
 
   if (!__DEV__) {
-    throw new Error('EXPO_PUBLIC_API_URL is required for non-development builds');
+    // Fallback for production-like builds when the env var is unavailable.
+    return 'https://crm.eagleprotect.id';
   }
 
   // For development (Expo Go / Emulator)

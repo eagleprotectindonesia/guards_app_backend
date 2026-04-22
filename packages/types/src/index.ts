@@ -10,6 +10,7 @@ export type ShiftStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' |
 export type CheckInStatus = 'on_time' | 'late' | 'invalid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification' | 'clocked_out';
 export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type LeaveRequestReason = 'sick' | 'casual' | 'emergency';
 export type EmployeeRole = 'on_site' | 'office';
 export type OfficeJobTitleCategory = 'staff' | 'management';
 export type OfficeShiftAttendanceMode = 'office_required' | 'non_office';
@@ -74,11 +75,13 @@ export interface EmployeeLeaveRequest {
   employeeId: string;
   startDate: string | Date;
   endDate: string | Date;
-  reason?: string | null;
+  reason: LeaveRequestReason;
+  employeeNote?: string | null;
+  adminNote?: string | null;
+  attachments: string[];
   status: LeaveRequestStatus;
   reviewedById?: string | null;
   reviewedAt?: string | Date | null;
-  reviewNote?: string | null;
   cancelledAt?: string | Date | null;
   createdAt: string | Date;
   updatedAt: string | Date;

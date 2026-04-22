@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
-import { EmployeeLeaveRequest } from '@repo/types';
+import { EmployeeLeaveRequest, LeaveRequestReason } from '@repo/types';
 import { queryKeys } from '../api/queryKeys';
 
 type LeaveRequestsResponse = {
@@ -21,7 +21,13 @@ export function useCreateLeaveRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: { startDate: string; endDate: string; reason?: string }) => {
+    mutationFn: async (data: {
+      startDate: string;
+      endDate: string;
+      reason: LeaveRequestReason;
+      employeeNote?: string;
+      attachments?: string[];
+    }) => {
       const res = await client.post('/api/employee/my/leave-requests', data);
       return res.data;
     },

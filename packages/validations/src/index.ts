@@ -291,7 +291,9 @@ export const createEmployeeLeaveRequestSchema = z
   .object({
     startDate: isoDateKeySchema,
     endDate: isoDateKeySchema,
-    reason: z.string().max(2000).optional(),
+    reason: z.enum(['sick', 'casual', 'emergency']),
+    employeeNote: z.string().max(2000).optional(),
+    attachments: z.array(z.string().min(1)).max(4).optional(),
   })
   .refine(data => data.startDate <= data.endDate, {
     message: 'startDate must be before or equal to endDate',
@@ -299,7 +301,7 @@ export const createEmployeeLeaveRequestSchema = z
   });
 
 export const reviewEmployeeLeaveRequestSchema = z.object({
-  reviewNote: z.string().max(2000).optional(),
+  adminNote: z.string().max(2000).optional(),
 });
 
 // --- Alert Reporting ---
