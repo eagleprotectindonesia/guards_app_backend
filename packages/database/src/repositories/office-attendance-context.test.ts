@@ -12,6 +12,7 @@ import {
   resolveOfficeShiftContextForEmployee,
 } from './office-shifts';
 import { resolveOfficeDayOverrideAnchorsForEmployee } from './office-day-overrides';
+import { resolveHolidayPolicyForEmployeeDate } from './holiday-calendar-entries';
 
 jest.mock('../prisma/client', () => ({
   db: {
@@ -35,6 +36,10 @@ jest.mock('./office-day-overrides', () => ({
   resolveOfficeDayOverrideAnchorsForEmployee: jest.fn(),
 }));
 
+jest.mock('./holiday-calendar-entries', () => ({
+  resolveHolidayPolicyForEmployeeDate: jest.fn(),
+}));
+
 describe('office attendance context', () => {
   beforeEach(() => {
     jest.resetAllMocks();
@@ -45,6 +50,7 @@ describe('office attendance context', () => {
       currentOverride: null,
       previousOverride: null,
     });
+    (resolveHolidayPolicyForEmployeeDate as jest.Mock).mockResolvedValue(null);
   });
 
   test('prefers office shift context even when employee mode is fixed schedule', async () => {
@@ -52,6 +58,7 @@ describe('office attendance context', () => {
       role: 'office',
       officeId: 'office-1',
       fieldModeEnabled: false,
+      department: null,
     });
     (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
       source: 'office_shift',
@@ -80,6 +87,7 @@ describe('office attendance context', () => {
       role: 'office',
       officeId: 'office-1',
       fieldModeEnabled: false,
+      department: null,
     });
     (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
       source: 'office_shift',
@@ -121,6 +129,7 @@ describe('office attendance context', () => {
       role: 'office',
       officeId: 'office-1',
       fieldModeEnabled: false,
+      department: null,
     });
     (resolveOfficeDayOverrideAnchorsForEmployee as jest.Mock).mockResolvedValue({
       businessDay: { dateKey: '2026-04-01' },
@@ -161,6 +170,7 @@ describe('office attendance context', () => {
       role: 'office',
       officeId: 'office-1',
       fieldModeEnabled: true,
+      department: null,
     });
     (resolveOfficeDayOverrideAnchorsForEmployee as jest.Mock).mockResolvedValue({
       businessDay: { dateKey: '2026-04-01' },
@@ -199,6 +209,7 @@ describe('office attendance context', () => {
       role: 'office',
       officeId: 'office-1',
       fieldModeEnabled: false,
+      department: null,
     });
     (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
       source: 'office_shift',
@@ -218,6 +229,7 @@ describe('office attendance context', () => {
       role: 'office',
       officeId: 'office-1',
       fieldModeEnabled: false,
+      department: null,
     });
     (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
       source: 'office_shift',
@@ -241,6 +253,7 @@ describe('office attendance context', () => {
       role: 'office',
       officeId: 'office-1',
       fieldModeEnabled: false,
+      department: null,
     });
     (resolveOfficeDayOverrideAnchorsForEmployee as jest.Mock).mockResolvedValue({
       businessDay: { dateKey: '2026-04-01' },
@@ -274,6 +287,7 @@ describe('office attendance context', () => {
       role: 'office',
       officeId: 'office-1',
       fieldModeEnabled: true,
+      department: null,
     });
     (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
       source: 'office_shift',
@@ -298,6 +312,7 @@ describe('office attendance context', () => {
       role: 'office',
       officeId: null,
       fieldModeEnabled: false,
+      department: null,
     });
     (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
       source: 'office_shift',
@@ -310,6 +325,138 @@ describe('office attendance context', () => {
     expect(context).toMatchObject({
       effectiveAttendanceMode: 'non_office',
       attendancePolicySource: 'no_office_employee',
+    });
+  });
+
+  test('returns holiday non-working context and bypasses shift/schedule resolution', async () => {
+    (prisma.employee.findUnique as jest.Mock).mockResolvedValue({
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
+      department: 'Finance',
+    });
+    (resolveHolidayPolicyForEmployeeDate as jest.Mock).mockResolvedValue({
+      entry: {
+        id: 'holiday-1',
+        title: 'National Holiday',
+        type: 'holiday',
+        isPaid: true,
+        affectsAttendance: true,
+        notificationRequired: false,
+        scope: 'all',
+        departmentKeys: [],
+      },
+      marksAsWorkingDay: false,
+    });
+
+    const context = await resolveOfficeAttendanceContextForEmployee('employee-1');
+
+    expect(resolveOfficeShiftContextForEmployee).not.toHaveBeenCalled();
+    expect(resolveOfficeWorkScheduleContextForEmployee).not.toHaveBeenCalled();
+    expect(context).toMatchObject({
+      source: 'holiday_calendar_off',
+      isWorkingDay: false,
+      holidayPolicy: {
+        entry: {
+          type: 'holiday',
+        },
+      },
+    });
+  });
+
+  test('returns week-off non-working context and zero paid minutes', async () => {
+    (prisma.employee.findUnique as jest.Mock)
+      .mockResolvedValueOnce({
+        role: 'office',
+        officeId: 'office-1',
+        fieldModeEnabled: false,
+        department: 'Finance',
+      })
+      .mockResolvedValueOnce({
+        role: 'office',
+      })
+      .mockResolvedValueOnce({
+        role: 'office',
+        officeId: 'office-1',
+        fieldModeEnabled: false,
+        department: 'Finance',
+      });
+    (resolveHolidayPolicyForEmployeeDate as jest.Mock).mockResolvedValue({
+      entry: {
+        id: 'holiday-2',
+        title: 'Team Week Off',
+        type: 'week_off',
+        isPaid: true,
+        affectsAttendance: true,
+        notificationRequired: false,
+        scope: 'department',
+        departmentKeys: ['finance'],
+      },
+      marksAsWorkingDay: false,
+    });
+
+    const context = await resolveOfficeAttendanceContextForEmployee('employee-1');
+    const minutes = await getScheduledPaidMinutesForOfficeAttendance('employee-1');
+
+    expect(context).toMatchObject({
+      source: 'holiday_calendar_off',
+      isWorkingDay: false,
+      holidayPolicy: {
+        entry: {
+          type: 'week_off',
+        },
+      },
+    });
+    expect(minutes).toBe(0);
+    expect(getScheduledPaidMinutesForOfficeShiftAttendance).not.toHaveBeenCalled();
+    expect(getScheduledPaidMinutesForFixedOfficeScheduleAttendance).not.toHaveBeenCalled();
+  });
+
+  test('does not force non-working day for special working day entries', async () => {
+    (prisma.employee.findUnique as jest.Mock).mockResolvedValue({
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
+      department: 'Finance',
+    });
+    (resolveHolidayPolicyForEmployeeDate as jest.Mock).mockResolvedValue({
+      entry: {
+        id: 'holiday-3',
+        title: 'Special Working Saturday',
+        type: 'special_working_day',
+        isPaid: true,
+        affectsAttendance: true,
+        notificationRequired: false,
+        scope: 'department',
+        departmentKeys: ['finance'],
+      },
+      marksAsWorkingDay: true,
+    });
+    (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'office_shift',
+      shift: null,
+      isWorkingDay: false,
+    });
+    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'default',
+      schedule: { id: 'schedule-1', name: 'Default Office Schedule' },
+      isWorkingDay: true,
+      windowStart: new Date('2026-04-01T00:00:00.000Z'),
+      windowEnd: new Date('2026-04-01T09:00:00.000Z'),
+    });
+
+    const context = await resolveOfficeAttendanceContextForEmployee('employee-1');
+
+    expect(resolveOfficeShiftContextForEmployee).toHaveBeenCalled();
+    expect(resolveOfficeWorkScheduleContextForEmployee).toHaveBeenCalled();
+    expect(context).toMatchObject({
+      source: 'office_work_schedule',
+      isWorkingDay: true,
+      holidayPolicy: {
+        entry: {
+          type: 'special_working_day',
+        },
+      },
     });
   });
 });

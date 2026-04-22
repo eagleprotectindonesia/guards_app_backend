@@ -129,6 +129,7 @@ export async function GET() {
         isWorkingDay: scheduleContext.isWorkingDay,
         scheduledStartStr: formatMinutesAsTime(scheduleContext.startMinutes),
         scheduledEndStr: formatMinutesAsTime(scheduleContext.endMinutes),
+        holidayPolicy: scheduleContext.holidayPolicy ?? null,
         effectiveAttendanceMode: scheduleContext.effectiveAttendanceMode ?? (employee.officeId ? (employee.fieldModeEnabled ? 'non_office' : 'office_required') : 'non_office'),
         attendancePolicySource: scheduleContext.attendancePolicySource ?? (!employee.officeId ? 'no_office_employee' : 'employee_default'),
         attendances,

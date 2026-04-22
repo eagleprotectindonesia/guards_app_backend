@@ -131,6 +131,61 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
   });
 
+  test('includes holiday policy in schedule context for holiday override days', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-holiday',
+      role: 'office',
+    });
+    (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'holiday_calendar_off',
+      isWorkingDay: false,
+      isLate: false,
+      isAfterEnd: false,
+      startMinutes: null,
+      endMinutes: null,
+      holidayPolicy: {
+        entry: {
+          id: 'holiday-1',
+          title: 'National Holiday',
+          type: 'holiday',
+          scope: 'all',
+          departmentKeys: [],
+          isPaid: true,
+          affectsAttendance: true,
+          notificationRequired: false,
+        },
+        marksAsWorkingDay: false,
+      },
+      businessDay: {
+        dateKey: '2026-04-02',
+      },
+    });
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.attendanceState).toMatchObject({
+      status: 'non_working_day',
+      canClockIn: false,
+      canClockOut: false,
+    });
+    expect(data.scheduleContext).toMatchObject({
+      holidayPolicy: {
+        entry: {
+          type: 'holiday',
+          title: 'National Holiday',
+        },
+      },
+      businessDateStr: '2026-04-02',
+      scheduledStartStr: null,
+      scheduledEndStr: null,
+    });
+  });
+
   test('returns missed state when the office window already ended without attendance', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-3',

@@ -118,6 +118,7 @@ export async function GET() {
       attendanceState,
       scheduleContext: {
         ...scheduleContext,
+        holidayPolicy: scheduleContext.holidayPolicy ?? null,
         businessDateStr: scheduleContext.businessDay?.dateKey ?? null,
         scheduledStartStr: formatMinutesAsTime(scheduleContext.startMinutes),
         scheduledEndStr: formatMinutesAsTime(scheduleContext.endMinutes),

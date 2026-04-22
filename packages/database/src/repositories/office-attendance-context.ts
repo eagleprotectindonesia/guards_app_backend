@@ -5,6 +5,7 @@ import {
 } from './office-work-schedules';
 import { resolveOfficeDayOverrideAnchorsForEmployee } from './office-day-overrides';
 import { getScheduledPaidMinutesForOfficeShiftAttendance, resolveOfficeShiftContextForEmployee } from './office-shifts';
+import { resolveHolidayPolicyForEmployeeDate } from './holiday-calendar-entries';
 
 type OfficeShiftAttendanceMode = 'office_required' | 'non_office';
 type OfficeAttendancePolicySource = 'employee_default' | 'shift_override' | 'no_office_employee';
@@ -46,6 +47,7 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
       role: true,
       officeId: true,
       fieldModeEnabled: true,
+      department: true,
     },
   });
 
@@ -54,6 +56,30 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
   }
 
   const overrideAnchors = await resolveOfficeDayOverrideAnchorsForEmployee(employeeId, at);
+  const holidayPolicy = await resolveHolidayPolicyForEmployeeDate({
+    date: new Date(`${overrideAnchors.currentDateKey}T00:00:00Z`),
+    department: employee.department ?? null,
+  });
+  if (holidayPolicy && (holidayPolicy.entry.type === 'holiday' || holidayPolicy.entry.type === 'week_off')) {
+    return {
+      source: 'holiday_calendar_off' as const,
+      shift: null,
+      businessDay: overrideAnchors.businessDay,
+      startMinutes: null,
+      endMinutes: null,
+      windowStart: null,
+      windowEnd: null,
+      isWorkingDay: false,
+      isLate: false,
+      isAfterEnd: false,
+      holidayPolicy,
+      ...resolveEffectiveAttendanceMode({
+        officeId: employee.officeId,
+        fieldModeEnabled: employee.fieldModeEnabled,
+      }),
+    };
+  }
+
   const offDateKeys = new Set<string>();
   const shiftOverrideDateKeys = new Set<string>();
 
@@ -75,6 +101,7 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
   if (shiftContext.shift) {
     return {
       ...shiftContext,
+      holidayPolicy,
       ...resolveEffectiveAttendanceMode({
         officeId: employee.officeId,
         fieldModeEnabled: employee.fieldModeEnabled,
@@ -95,6 +122,7 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
       isWorkingDay: false,
       isLate: false,
       isAfterEnd: false,
+      holidayPolicy,
       ...resolveEffectiveAttendanceMode({
         officeId: employee.officeId,
         fieldModeEnabled: employee.fieldModeEnabled,
@@ -105,6 +133,7 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
   if (overrideAnchors.currentOverride?.overrideType === 'shift_override') {
     return {
       ...shiftContext,
+      holidayPolicy,
       ...resolveEffectiveAttendanceMode({
         officeId: employee.officeId,
         fieldModeEnabled: employee.fieldModeEnabled,
@@ -119,6 +148,7 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
     ...scheduleContext,
     source: 'office_work_schedule' as const,
     shift: null,
+    holidayPolicy,
     ...resolveEffectiveAttendanceMode({
       officeId: employee.officeId,
       fieldModeEnabled: employee.fieldModeEnabled,
@@ -140,7 +170,7 @@ export async function getScheduledPaidMinutesForOfficeAttendance(employeeId: str
 
   const attendanceContext = await resolveOfficeAttendanceContextForEmployee(employeeId, at);
 
-  if (attendanceContext.source === 'office_day_override_off') {
+  if (attendanceContext.source === 'office_day_override_off' || attendanceContext.source === 'holiday_calendar_off') {
     return 0;
   }
 

@@ -4,6 +4,20 @@ import { client } from '../api/client';
 import { queryKeys } from '../api/queryKeys';
 import { useAuth } from '../contexts/AuthContext';
 
+export type MobileOfficeAttendanceHolidayPolicy = {
+  entry: {
+    id: string;
+    title: string;
+    type: 'holiday' | 'week_off' | 'emergency' | 'special_working_day';
+    isPaid: boolean;
+    affectsAttendance: boolean;
+    notificationRequired: boolean;
+    scope: 'all' | 'department';
+    departmentKeys: string[];
+  };
+  marksAsWorkingDay: boolean;
+};
+
 export type MobileOfficeAttendanceScheduleContext = {
   isWorkingDay: boolean;
   isLate?: boolean;
@@ -19,6 +33,7 @@ export type MobileOfficeAttendanceScheduleContext = {
   businessDay?: {
     dateKey?: string;
   } | null;
+  holidayPolicy?: MobileOfficeAttendanceHolidayPolicy | null;
 };
 
 export type OfficeAttendanceTodayResponse = {
@@ -33,6 +48,7 @@ export type OfficeAttendanceDaySummary = {
   isWorkingDay: boolean;
   scheduledStartStr: string | null;
   scheduledEndStr: string | null;
+  holidayPolicy?: MobileOfficeAttendanceHolidayPolicy | null;
   attendances: OfficeAttendance[];
   attendanceState: OfficeAttendanceState;
 };

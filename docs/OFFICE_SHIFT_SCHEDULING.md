@@ -109,10 +109,15 @@ Implemented in:
 
 Override-aware flow:
 1. Load employee role
-2. Resolve the current and previous anchor-date office day overrides
-3. If the current anchor date is `off`, return non-working-day context
-4. If the relevant anchor date is `shift_override`, resolve from office shift context
-5. Otherwise fall back to office work schedule context
+2. Resolve holiday policy for the current business date
+3. If holiday policy type is `holiday` or `week_off`, return non-working-day context
+4. Resolve the current and previous anchor-date office day overrides
+5. If the current anchor date is `off`, return non-working-day context
+6. If the relevant anchor date is `shift_override`, resolve from office shift context
+7. Otherwise fall back to office work schedule context
+
+Holiday override rule:
+- for office attendance, `holiday` and `week_off` entries with `affectsAttendance = true` take precedence over office shifts and office schedules for that business date
 
 For shift override dates:
 1. Find relevant office shifts for the employee in the current business-day window
