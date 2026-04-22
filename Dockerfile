@@ -58,10 +58,14 @@ RUN pnpm --filter @repo/database prisma:generate && \
 FROM worker-builder AS worker-deployer
 RUN pnpm --filter worker --prod deploy --legacy /out/worker-deploy && \
     DEPLOYED_PRISMA_CLIENT_DIR="$(find /out/worker-deploy/node_modules -path '*/node_modules/@prisma/client' -type d | head -n 1)" && \
+    DEPLOYED_NODE_MODULES_DIR="$(dirname "$(dirname "$DEPLOYED_PRISMA_CLIENT_DIR")")" && \
     BUILT_PRISMA_DIR="$(find /app/node_modules -path '*/node_modules/.prisma' -type d | head -n 1)" && \
     test -n "$DEPLOYED_PRISMA_CLIENT_DIR" && \
+    test -n "$DEPLOYED_NODE_MODULES_DIR" && \
     test -n "$BUILT_PRISMA_DIR" && \
+    mkdir -p "$DEPLOYED_NODE_MODULES_DIR/.prisma" && \
     mkdir -p "$DEPLOYED_PRISMA_CLIENT_DIR/.prisma" && \
+    cp -R "$BUILT_PRISMA_DIR"/. "$DEPLOYED_NODE_MODULES_DIR/.prisma/" && \
     cp -R "$BUILT_PRISMA_DIR"/. "$DEPLOYED_PRISMA_CLIENT_DIR/.prisma/"
 
 # 6. Web Runner (production image)
