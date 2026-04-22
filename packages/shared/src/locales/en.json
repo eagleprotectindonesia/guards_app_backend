@@ -241,6 +241,38 @@
       "internalServerError": "Internal server error."
     }
   },
+  "leave": {
+    "title": "Leave Requests",
+    "requestLeave": "Request Leave",
+    "newRequest": "New Leave Request",
+    "history": "Leave History",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "reason": "Reason",
+    "reasonPlaceholder": "Reason for leave (optional)",
+    "submit": "Submit Request",
+    "cancel": "Cancel Request",
+    "noRequests": "No leave requests found",
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "validation": {
+      "startDateRequired": "Start date is required",
+      "endDateRequired": "End date is required",
+      "invalidRange": "End date must be after or equal to start date"
+    },
+    "success": {
+      "created": "Leave request submitted successfully",
+      "cancelled": "Leave request cancelled successfully"
+    },
+    "error": {
+      "createFailed": "Failed to submit leave request",
+      "cancelFailed": "Failed to cancel leave request"
+    }
+  },
   "notifications": {
     "permission_title": "Enable Notifications",
     "permission_message": "Notification permission was denied. To receive messages from admin, please enable notifications in app settings.",

@@ -7,7 +7,7 @@ import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { LogOut, Key, ChevronRight, Fingerprint } from 'lucide-react-native';
+import { LogOut, Key, ChevronRight, Fingerprint, Calendar } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
@@ -181,6 +181,21 @@ export default function AccountScreen() {
 
             <Box className="bg-[#121212] border border-white/5 rounded-3xl p-2">
               <VStack space="xs">
+                {/* Leave Requests */}
+                <TouchableOpacity onPress={() => router.push('/leave-requests')} activeOpacity={0.7}>
+                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
+                    <HStack space="md" className="items-center">
+                      <Box className="w-10 h-10 rounded-xl bg-[#34C759]/10 items-center justify-center border border-[#34C759]/20">
+                        <Calendar size={20} color="#34C759" />
+                      </Box>
+                      <Text size="sm" className="font-semibold text-white">
+                        {t('leave.title', 'Leave Requests')}
+                      </Text>
+                    </HStack>
+                    <ChevronRight size={18} color="#666666" />
+                  </Box>
+                </TouchableOpacity>
+
                 {/* Change Password */}
                 <TouchableOpacity onPress={() => openPasswordChangeModal(false)} activeOpacity={0.7}>
                   <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">

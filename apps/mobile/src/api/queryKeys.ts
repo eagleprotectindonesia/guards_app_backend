@@ -14,4 +14,7 @@ export const queryKeys = {
     unread: ['chat', 'unread'] as const,
     messages: (employeeId?: string) => ['chat', 'messages', employeeId] as const,
   },
+  leaveRequests: {
+    list: ['leave-requests'] as const,
+  },
 };

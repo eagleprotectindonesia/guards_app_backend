@@ -241,6 +241,38 @@
       "internalServerError": "Terjadi kesalahan pada server."
     }
   },
+  "leave": {
+    "title": "Pengajuan Izin/Cuti",
+    "requestLeave": "Ajukan Izin/Cuti",
+    "newRequest": "Pengajuan Baru",
+    "history": "Riwayat Izin/Cuti",
+    "startDate": "Tanggal Mulai",
+    "endDate": "Tanggal Berakhir",
+    "reason": "Alasan",
+    "reasonPlaceholder": "Alasan izin (opsional)",
+    "submit": "Ajukan Pengajuan",
+    "cancel": "Batalkan Pengajuan",
+    "noRequests": "Tidak ada pengajuan izin ditemukan",
+    "status": {
+      "pending": "Menunggu Konfirmasi",
+      "approved": "Disetujui",
+      "rejected": "Ditolak",
+      "cancelled": "Dibatalkan"
+    },
+    "validation": {
+      "startDateRequired": "Tanggal mulai wajib diisi",
+      "endDateRequired": "Tanggal berakhir wajib diisi",
+      "invalidRange": "Tanggal berakhir harus setelah atau sama dengan tanggal mulai"
+    },
+    "success": {
+      "created": "Pengajuan izin berhasil dikirim",
+      "cancelled": "Pengajuan izin berhasil dibatalkan"
+    },
+    "error": {
+      "createFailed": "Gagal mengirim pengajuan izin",
+      "cancelFailed": "Gagal membatalkan pengajuan izin"
+    }
+  },
   "notifications": {
     "permission_title": "Aktifkan Notifikasi",
     "permission_message": "Izin notifikasi ditolak. Untuk menerima pesan dari admin, aktifkan notifikasi di pengaturan aplikasi.",

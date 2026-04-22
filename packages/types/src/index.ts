@@ -9,6 +9,7 @@ export type ActionState<T = Record<string, unknown>> = {
 export type ShiftStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' | 'cancelled';
 export type CheckInStatus = 'on_time' | 'late' | 'invalid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification' | 'clocked_out';
+export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
 export type EmployeeRole = 'on_site' | 'office';
 export type OfficeJobTitleCategory = 'staff' | 'management';
 export type OfficeShiftAttendanceMode = 'office_required' | 'non_office';
@@ -65,6 +66,22 @@ export interface Employee {
   note?: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
+  leaveRequests?: EmployeeLeaveRequest[];
+}
+
+export interface EmployeeLeaveRequest {
+  id: string;
+  employeeId: string;
+  startDate: string | Date;
+  endDate: string | Date;
+  reason?: string | null;
+  status: LeaveRequestStatus;
+  reviewedById?: string | null;
+  reviewedAt?: string | Date | null;
+  reviewNote?: string | null;
+  cancelledAt?: string | Date | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 export interface Site {
