@@ -18,6 +18,7 @@ import { id, enUS } from 'date-fns/locale';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useCustomToast } from '../../src/hooks/useCustomToast';
+import { useAlert } from '../../src/contexts/AlertContext';
 import type { LeaveRequestReason } from '@repo/types';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -37,6 +38,7 @@ export default function NewLeaveRequestScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const toast = useCustomToast();
+  const { showAlert } = useAlert();
   const createMutation = useCreateLeaveRequest();
 
   const [startDate, setStartDate] = useState(new Date());
@@ -81,17 +83,22 @@ export default function NewLeaveRequestScreen() {
     return base.includes('.') ? base : `${base}.${fallbackExt}`;
   };
 
-  const pickAttachments = async () => {
+  const appendAttachments = (newAttachments: LeaveAttachment[]) => {
+    setAttachments(prev => [...prev, ...newAttachments].slice(0, MAX_ATTACHMENTS));
+  };
+
+  const pickImages = async () => {
     if (attachments.length >= MAX_ATTACHMENTS) {
       toast.warning(t('chat.limit_reached', 'Limit reached'), t('chat.limit_reached_desc', 'Maximum attachments reached'));
       return;
     }
 
     try {
+      const remainingSlots = MAX_ATTACHMENTS - attachments.length;
       const imageResult = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsMultipleSelection: true,
-        selectionLimit: MAX_ATTACHMENTS - attachments.length,
+        selectionLimit: remainingSlots,
         quality: 0.7,
       });
 
@@ -104,6 +111,21 @@ export default function NewLeaveRequestScreen() {
             fileSize: asset.fileSize,
           }));
 
+      appendAttachments(imageAttachments);
+    } catch (error) {
+      console.error('Error picking leave image attachments:', error);
+      toast.error(t('common.errorTitle'), t('leave.error.attachmentPickFailed', 'Failed to pick attachments'));
+    }
+  };
+
+  const pickPdfs = async () => {
+    if (attachments.length >= MAX_ATTACHMENTS) {
+      toast.warning(t('chat.limit_reached', 'Limit reached'), t('chat.limit_reached_desc', 'Maximum attachments reached'));
+      return;
+    }
+
+    try {
+      const remainingSlots = MAX_ATTACHMENTS - attachments.length;
       const pdfResult = await DocumentPicker.getDocumentAsync({
         type: 'application/pdf',
         multiple: true,
@@ -120,11 +142,34 @@ export default function NewLeaveRequestScreen() {
               fileSize: asset.size ?? undefined,
             }));
 
-      setAttachments(prev => [...prev, ...imageAttachments, ...pdfAttachments].slice(0, MAX_ATTACHMENTS));
+      appendAttachments(pdfAttachments.slice(0, remainingSlots));
     } catch (error) {
-      console.error('Error picking leave attachments:', error);
+      console.error('Error picking leave pdf attachments:', error);
       toast.error(t('common.errorTitle'), t('leave.error.attachmentPickFailed', 'Failed to pick attachments'));
     }
+  };
+
+  const pickAttachments = () => {
+    if (attachments.length >= MAX_ATTACHMENTS) {
+      toast.warning(t('chat.limit_reached', 'Limit reached'), t('chat.limit_reached_desc', 'Maximum attachments reached'));
+      return;
+    }
+
+    const imageLabel = t('leave.attachmentType.image', 'Image');
+    const pdfLabel = t('leave.attachmentType.pdf', 'PDF');
+    const cancelLabel = t('common.cancel', 'Cancel');
+    const title = t('leave.attachmentType.title', 'Select attachment type');
+
+    showAlert(
+      title,
+      t('leave.attachmentType.message', 'Choose the file type to attach'),
+      [
+        { text: cancelLabel, style: 'cancel' },
+        { text: imageLabel, onPress: () => void pickImages() },
+        { text: pdfLabel, onPress: () => void pickPdfs() },
+      ],
+      { icon: 'info' }
+    );
   };
 
   const removeAttachment = (index: number) => {
@@ -134,6 +179,11 @@ export default function NewLeaveRequestScreen() {
   const handleSubmit = async () => {
     if (isBefore(startOfDay(endDate), startOfDay(startDate))) {
       toast.error(t('common.errorTitle'), t('leave.validation.invalidRange'));
+      return;
+    }
+
+    if (reason === 'sick' && attachments.length === 0) {
+      toast.error(t('common.errorTitle'), t('leave.validation.attachmentRequiredForSick'));
       return;
     }
 
@@ -319,9 +369,16 @@ export default function NewLeaveRequestScreen() {
               </HStack>
 
               {attachments.length === 0 ? (
-                <Text className="text-[#666]" size="sm">
-                  {t('leave.attachmentHint', 'You can attach up to 4 files.')}
-                </Text>
+                <VStack space="xs">
+                  <Text className="text-[#666]" size="sm">
+                    {t('leave.attachmentHint', 'You can attach up to 4 files.')}
+                  </Text>
+                  {reason === 'sick' && (
+                    <Text className="text-[#EF4444]" size="sm">
+                      {t('leave.attachmentRequiredForSickHint')}
+                    </Text>
+                  )}
+                </VStack>
               ) : (
                 <VStack space="xs">
                   {attachments.map((asset, index) => (

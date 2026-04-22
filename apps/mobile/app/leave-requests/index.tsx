@@ -79,8 +79,8 @@ export default function LeaveRequestsScreen() {
 
   const handleCancel = (id: string) => {
     showAlert(
-      t('leave.cancel'),
-      t('leave.cancelConfirm', 'Are you sure you want to cancel this request?'),
+      t('leave.cancelConfirmTitle', 'Cancel Leave Request'),
+      t('leave.cancelConfirmMessage', 'Are you sure you want to cancel this leave request?'),
       [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -266,11 +266,12 @@ export default function LeaveRequestsScreen() {
                     </Box>
 
                     {request.status === 'pending' && (
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         onPress={() => handleCancel(request.id)}
                         disabled={cancelMutation.isPending}
+                        className="rounded-full bg-white/5 border border-white/10 px-3 py-1.5"
                       >
-                        <Text className="text-[#EF4444] font-bold" size="xs">
+                        <Text className="text-[#EF4444] font-bold uppercase tracking-[0.5px]" size="2xs">
                           {t('leave.cancel')}
                         </Text>
                       </TouchableOpacity>

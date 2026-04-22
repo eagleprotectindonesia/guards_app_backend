@@ -261,9 +261,17 @@
     "attachments": "Lampiran",
     "addAttachment": "Tambah",
     "attachmentHint": "Anda dapat melampirkan hingga 4 file.",
+    "attachmentType": {
+      "title": "Pilih jenis lampiran",
+      "message": "Pilih jenis file yang ingin dilampirkan",
+      "image": "Gambar",
+      "pdf": "PDF"
+    },
     "attachmentCount": "{{count}} file",
     "submit": "Ajukan Pengajuan",
     "cancel": "Batalkan Pengajuan",
+    "cancelConfirmTitle": "Batalkan Pengajuan Izin",
+    "cancelConfirmMessage": "Apakah Anda yakin ingin membatalkan pengajuan izin ini?",
     "noRequests": "Tidak ada pengajuan izin ditemukan",
     "status": {
       "pending": "Menunggu Konfirmasi",
@@ -274,8 +282,10 @@
     "validation": {
       "startDateRequired": "Tanggal mulai wajib diisi",
       "endDateRequired": "Tanggal berakhir wajib diisi",
-      "invalidRange": "Tanggal berakhir harus setelah atau sama dengan tanggal mulai"
+      "invalidRange": "Tanggal berakhir harus setelah atau sama dengan tanggal mulai",
+      "attachmentRequiredForSick": "Minimal 1 lampiran wajib untuk izin sakit"
     },
+    "attachmentRequiredForSickHint": "Minimal 1 lampiran wajib untuk izin sakit.",
     "success": {
       "created": "Pengajuan izin berhasil dikirim",
       "cancelled": "Pengajuan izin berhasil dibatalkan"

@@ -261,9 +261,17 @@
     "attachments": "Attachments",
     "addAttachment": "Add",
     "attachmentHint": "You can attach up to 4 files.",
+    "attachmentType": {
+      "title": "Select attachment type",
+      "message": "Choose the file type to attach",
+      "image": "Image",
+      "pdf": "PDF"
+    },
     "attachmentCount": "{{count}} file(s)",
     "submit": "Submit Request",
     "cancel": "Cancel Request",
+    "cancelConfirmTitle": "Cancel Leave Request",
+    "cancelConfirmMessage": "Are you sure you want to cancel this leave request?",
     "noRequests": "No leave requests found",
     "status": {
       "pending": "Pending",
@@ -274,8 +282,10 @@
     "validation": {
       "startDateRequired": "Start date is required",
       "endDateRequired": "End date is required",
-      "invalidRange": "End date must be after or equal to start date"
+      "invalidRange": "End date must be after or equal to start date",
+      "attachmentRequiredForSick": "At least 1 attachment is required for sick leave"
     },
+    "attachmentRequiredForSickHint": "At least 1 attachment is required for sick leave.",
     "success": {
       "created": "Leave request submitted successfully",
       "cancelled": "Leave request cancelled successfully"
