@@ -1,16 +1,25 @@
 Dockerfile
 .dockerignore
 node_modules
+**/node_modules
 npm-debug.log
 README.md
 .next
+**/.next
 .git
+.turbo
+**/.turbo
 .env*
 !.env.example
 .DS_Store
 tests
 dist
+**/dist
 coverage
+**/coverage
+playwright-report
+test-results
+*.tsbuildinfo
 
 # Orchestration & CI
 docker-compose*.yml

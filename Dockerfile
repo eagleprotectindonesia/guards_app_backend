@@ -16,24 +16,15 @@ RUN turbo prune --scope=web --docker && \
     turbo prune --scope=worker --docker && \
     mv out out-worker
 
-# 2. Dependencies base (shared layer for both services)
-FROM base AS deps-base
+# 2. Shared build base
+FROM base AS build-base
 RUN apk add --no-cache python3 make g++
 
-# 3. Web dependencies
-FROM deps-base AS web-deps
+# 3. Build Web
+FROM build-base AS web-builder
 COPY --from=pruner /app/out-web/json/ .
 RUN --mount=type=cache,target=/pnpm/store \
     pnpm install --frozen-lockfile --ignore-scripts
-
-# 4. Worker dependencies
-FROM deps-base AS worker-deps
-COPY --from=pruner /app/out-worker/json/ .
-RUN --mount=type=cache,target=/pnpm/store \
-    pnpm install --frozen-lockfile --ignore-scripts
-
-# 5. Build Web
-FROM web-deps AS web-builder
 COPY --from=pruner /app/out-web/full/ .
 COPY turbo.json turbo.json
 
@@ -49,8 +40,11 @@ RUN turbo run build --filter=web && \
     # Clean up unnecessary files
     rm -rf apps/web/.next/cache
 
-# 6. Build Worker
-FROM worker-deps AS worker-builder
+# 4. Build Worker
+FROM build-base AS worker-builder
+COPY --from=pruner /app/out-worker/json/ .
+RUN --mount=type=cache,target=/pnpm/store \
+    pnpm install --frozen-lockfile --ignore-scripts
 COPY --from=pruner /app/out-worker/full/ .
 COPY turbo.json turbo.json
 
@@ -60,11 +54,17 @@ ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
 RUN pnpm --filter @repo/database prisma:generate && \
     turbo run build --filter=worker
 
-# 6b. Deploy Worker
+# 5. Package Worker runtime
 FROM worker-builder AS worker-deployer
-RUN pnpm --filter worker --prod deploy --legacy /out/worker-deploy
+RUN pnpm --filter worker --prod deploy --legacy /out/worker-deploy && \
+    DEPLOYED_PRISMA_CLIENT_DIR="$(find /out/worker-deploy/node_modules -path '*/node_modules/@prisma/client' -type d | head -n 1)" && \
+    BUILT_PRISMA_DIR="$(find /app/node_modules -path '*/node_modules/.prisma' -type d | head -n 1)" && \
+    test -n "$DEPLOYED_PRISMA_CLIENT_DIR" && \
+    test -n "$BUILT_PRISMA_DIR" && \
+    mkdir -p "$(dirname "$DEPLOYED_PRISMA_CLIENT_DIR")/.prisma" && \
+    cp -R "$BUILT_PRISMA_DIR"/. "$(dirname "$DEPLOYED_PRISMA_CLIENT_DIR")/.prisma/"
 
-# 7. Web Runner (production image)
+# 6. Web Runner (production image)
 FROM base AS app-runner
 WORKDIR /app
 ENV NODE_ENV=production \
@@ -84,7 +84,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
 
 CMD ["pnpm", "--filter", "web", "start"]
 
-# 8. Worker Runner (production image)
+# 7. Worker Runner (production image)
 FROM node:24-alpine AS worker-runner
 WORKDIR /app
 ENV NODE_ENV=production \
@@ -96,7 +96,6 @@ RUN apk add --no-cache libc6-compat && \
 
 # Copy deployed worker package as a self-contained pnpm runtime unit
 COPY --from=worker-deployer /out/worker-deploy ./
-COPY --from=worker-builder /app/node_modules/.pnpm/@prisma+client@7.4.2_prisma@7.4.2_@types+react@19.2.7_react-dom@19.2.3_react@19.2.3__re_7229e76a40716f999503a50dd2f656d0/node_modules/.prisma ./node_modules/.pnpm/@prisma+client@7.4.2_prisma@7.4.2_@types+react@19.2.7_react-dom@19.2.3_react@19.2.3__re_7229e76a40716f999503a50dd2f656d0/node_modules/.prisma
 
 USER workeruser
 
@@ -105,18 +104,14 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 CMD ["node", "dist/worker.js"]
 
-# 9. Migration Runner (lightweight)
-FROM node:24-alpine AS migration-runner
+# 8. Migration Runner (lightweight)
+FROM base AS migration-runner
 WORKDIR /app
 ENV NODE_ENV=production \
     TZ=Asia/Makassar
 
-RUN apk add --no-cache libc6-compat
-
 # Install migration dependencies
-RUN corepack enable && \
-    corepack prepare pnpm@10.32.1 --activate && \
-    pnpm add --prod prisma tsx dotenv
+RUN pnpm add --prod prisma tsx dotenv
 
 # Copy migration files
 COPY packages/database/prisma ./prisma
