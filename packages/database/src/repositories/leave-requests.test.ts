@@ -1,14 +1,22 @@
 import {
+  OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR,
+  createEmployeeLeaveRequest,
   getPaginatedEmployeeLeaveRequestsForAdmin,
   listEmployeeLeaveRequestsForAdmin,
 } from './leave-requests';
 import { db as prisma } from '../prisma/client';
+import { Prisma } from '@prisma/client';
 
 jest.mock('../prisma/client', () => ({
   db: {
     employeeLeaveRequest: {
+      findFirst: jest.fn(),
+      create: jest.fn(),
       findMany: jest.fn(),
       count: jest.fn(),
+    },
+    changelog: {
+      create: jest.fn(),
     },
   },
 }));
@@ -77,5 +85,68 @@ describe('leave-requests repository admin queries', () => {
       totalCount: 17,
     });
   });
-});
 
+  test('createEmployeeLeaveRequest rejects overlapping pending request', async () => {
+    (prisma.employeeLeaveRequest.findFirst as jest.Mock).mockResolvedValue({ id: 'leave-existing' });
+
+    await expect(
+      createEmployeeLeaveRequest({
+        employeeId: 'employee-1',
+        startDate: '2026-04-10',
+        endDate: '2026-04-12',
+        reason: 'sick',
+      })
+    ).rejects.toThrow(OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR);
+
+    expect(prisma.employeeLeaveRequest.create).not.toHaveBeenCalled();
+    expect(prisma.changelog.create).not.toHaveBeenCalled();
+  });
+
+  test('createEmployeeLeaveRequest allows overlap when existing status is not pending', async () => {
+    (prisma.employeeLeaveRequest.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.employeeLeaveRequest.create as jest.Mock).mockResolvedValue({
+      id: 'leave-created',
+      employeeId: 'employee-1',
+      startDate: new Date('2026-04-10T00:00:00Z'),
+      endDate: new Date('2026-04-12T00:00:00Z'),
+      reason: 'sick',
+      employeeNote: null,
+      attachments: [],
+      status: 'pending',
+    });
+    (prisma.changelog.create as jest.Mock).mockResolvedValue({ id: 'log-1' });
+
+    const created = await createEmployeeLeaveRequest({
+      employeeId: 'employee-1',
+      startDate: '2026-04-10',
+      endDate: '2026-04-12',
+      reason: 'sick',
+    });
+
+    expect(created.id).toBe('leave-created');
+    expect(prisma.employeeLeaveRequest.create).toHaveBeenCalled();
+    expect(prisma.changelog.create).toHaveBeenCalled();
+  });
+
+  test('createEmployeeLeaveRequest maps exclusion-constraint conflict to overlap error', async () => {
+    (prisma.employeeLeaveRequest.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const conflict = new Prisma.PrismaClientKnownRequestError('Constraint failed', {
+      code: 'P2004',
+      clientVersion: '7.7.0',
+      meta: {
+        database_error: 'employee_leave_requests_pending_no_overlap',
+      },
+    });
+    (prisma.employeeLeaveRequest.create as jest.Mock).mockRejectedValue(conflict);
+
+    await expect(
+      createEmployeeLeaveRequest({
+        employeeId: 'employee-1',
+        startDate: '2026-04-10',
+        endDate: '2026-04-12',
+        reason: 'sick',
+      })
+    ).rejects.toThrow(OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR);
+  });
+});

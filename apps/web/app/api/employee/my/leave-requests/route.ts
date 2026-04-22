@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { createEmployeeLeaveRequestSchema } from '@repo/validations';
-import { createEmployeeLeaveRequest, listEmployeeLeaveRequestsByEmployee } from '@repo/database';
+import {
+  createEmployeeLeaveRequest,
+  listEmployeeLeaveRequestsByEmployee,
+  OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR,
+} from '@repo/database';
 import { ZodError } from 'zod';
 
 export async function GET() {
@@ -43,6 +47,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
     }
     if (error instanceof Error) {
+      if (error.message === OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR) {
+        return NextResponse.json({ error: OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR }, { status: 400 });
+      }
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

@@ -176,24 +176,20 @@ For each approved date key in `[startDate..endDate]`:
 
 ## Future Task Backlog
 
-1. Add leave-request UI in employee app (create/list/cancel).
-2. Add admin leave-request management UI (list/filter/approve/reject).
-3. Add notifications:
+1. Add notifications:
    - notify employee when approved/rejected.
    - notify approvers when new request is created.
-4. Add conflict rules before submission:
-   - prevent duplicate overlapping pending requests.
-5. Add assignment analytics dashboard:
+2. Add assignment analytics dashboard:
    - unmatched employee count
    - ownership coverage per department/office
    - conflict preview for newly added assignments
-6. Add full test suite:
+3. Add full test suite:
    - repository unit tests for transitions + side effects
    - server action tests for auth/scope/errors
    - integration tests for scheduling effects
-7. Add reporting/export endpoint for leave analytics.
-8. Add leave type taxonomy (`annual`, `sick`, etc.) if business requires.
-9. Add idempotency keys for approval/rejection action safety under retries.
+4. Add reporting/export endpoint for leave analytics.
+5. Add leave type taxonomy (`annual`, `sick`, etc.) if business requires.
+6. Add idempotency keys for approval/rejection action safety under retries.
 
 ## Operational Notes
 

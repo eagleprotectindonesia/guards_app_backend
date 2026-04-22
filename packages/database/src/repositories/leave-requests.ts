@@ -4,6 +4,7 @@ import { upsertEmployeeOfficeDayOverride } from './office-day-overrides';
 import { redis } from '../redis/client';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
+export const OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR = 'Overlapping pending leave request already exists';
 type AdminLeaveRequestSortField = 'startDate' | 'status' | 'createdAt';
 type AdminLeaveRequestFilterParams = {
   statuses?: LeaveRequestStatus[];
@@ -68,6 +69,20 @@ function normalizeDateRange(startDateKey: string, endDateKey: string) {
   };
 }
 
+function isOverlapConflictError(error: unknown) {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return false;
+  }
+
+  if (error.code !== 'P2004') {
+    return false;
+  }
+
+  const databaseError =
+    typeof error.meta?.database_error === 'string' ? error.meta.database_error : error.message;
+  return databaseError.includes('employee_leave_requests_pending_no_overlap');
+}
+
 export async function createEmployeeLeaveRequest(
   params: {
     employeeId: string;
@@ -80,18 +95,44 @@ export async function createEmployeeLeaveRequest(
   tx: TxLike = prisma
 ) {
   const { startDate, endDate } = normalizeDateRange(params.startDate, params.endDate);
+  const targetTx = tx as TxLike;
 
-  const created = await (tx as TxLike).employeeLeaveRequest.create({
-    data: {
+  const overlappingPendingRequest = await targetTx.employeeLeaveRequest.findFirst({
+    where: {
       employeeId: params.employeeId,
-      startDate,
-      endDate,
-      reason: params.reason,
-      employeeNote: params.employeeNote ?? null,
-      attachments: params.attachments ?? [],
       status: 'pending',
+      endDate: { gte: startDate },
+      startDate: { lte: endDate },
+    },
+    select: {
+      id: true,
     },
   });
+
+  if (overlappingPendingRequest) {
+    throw new Error(OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR);
+  }
+
+  const created = await (async () => {
+    try {
+      return await targetTx.employeeLeaveRequest.create({
+        data: {
+          employeeId: params.employeeId,
+          startDate,
+          endDate,
+          reason: params.reason,
+          employeeNote: params.employeeNote ?? null,
+          attachments: params.attachments ?? [],
+          status: 'pending',
+        },
+      });
+    } catch (error) {
+      if (isOverlapConflictError(error)) {
+        throw new Error(OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR);
+      }
+      throw error;
+    }
+  })();
 
   await tx.changelog.create({
     data: {
