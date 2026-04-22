@@ -4,6 +4,37 @@ import { upsertEmployeeOfficeDayOverride } from './office-day-overrides';
 import { redis } from '../redis/client';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
+type AdminLeaveRequestSortField = 'startDate' | 'status' | 'createdAt';
+type AdminLeaveRequestFilterParams = {
+  statuses?: LeaveRequestStatus[];
+  employeeId?: string;
+  startDate?: string;
+  endDate?: string;
+  employeeRoleFilter?: EmployeeRole;
+  employeeWhere?: Prisma.EmployeeWhereInput;
+  sortBy?: AdminLeaveRequestSortField;
+  sortOrder?: Prisma.SortOrder;
+};
+
+const adminLeaveRequestInclude = {
+  employee: {
+    select: {
+      id: true,
+      fullName: true,
+      employeeNumber: true,
+      role: true,
+      department: true,
+      officeId: true,
+    },
+  },
+  reviewedBy: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+} satisfies Prisma.EmployeeLeaveRequestInclude;
 
 function dateKeyToDate(dateKey: string) {
   return new Date(`${dateKey}T00:00:00Z`);
@@ -91,16 +122,52 @@ export async function listEmployeeLeaveRequestsByEmployee(employeeId: string, tx
 }
 
 export async function listEmployeeLeaveRequestsForAdmin(
-  params: {
-    statuses?: LeaveRequestStatus[];
-    employeeId?: string;
-    startDate?: string;
-    endDate?: string;
-    employeeRoleFilter?: EmployeeRole;
-    employeeWhere?: Prisma.EmployeeWhereInput;
+  params: AdminLeaveRequestFilterParams,
+  tx: TxLike = prisma
+) {
+  const where = buildAdminLeaveRequestWhere(params);
+  const orderBy = buildAdminLeaveRequestOrderBy(params);
+
+  return (tx as TxLike).employeeLeaveRequest.findMany({
+    where,
+    include: adminLeaveRequestInclude,
+    orderBy,
+  });
+}
+
+export async function getPaginatedEmployeeLeaveRequestsForAdmin(
+  params: AdminLeaveRequestFilterParams & {
+    skip: number;
+    take: number;
   },
   tx: TxLike = prisma
 ) {
+  const where = buildAdminLeaveRequestWhere(params);
+  const orderBy = buildAdminLeaveRequestOrderBy(params);
+  const targetTx = tx as TxLike;
+
+  const [leaveRequests, totalCount] = await Promise.all([
+    targetTx.employeeLeaveRequest.findMany({
+      where,
+      include: adminLeaveRequestInclude,
+      orderBy,
+      skip: params.skip,
+      take: params.take,
+    }),
+    targetTx.employeeLeaveRequest.count({ where }),
+  ]);
+
+  return { leaveRequests, totalCount };
+}
+
+export async function getEmployeeLeaveRequestByIdForAdmin(requestId: string, tx: TxLike = prisma) {
+  return (tx as TxLike).employeeLeaveRequest.findUnique({
+    where: { id: requestId },
+    include: adminLeaveRequestInclude,
+  });
+}
+
+function buildAdminLeaveRequestWhere(params: AdminLeaveRequestFilterParams): Prisma.EmployeeLeaveRequestWhereInput {
   const startDate = params.startDate ? dateKeyToDate(params.startDate) : undefined;
   const endDate = params.endDate ? dateKeyToDate(params.endDate) : undefined;
   const employeeFilters: Prisma.EmployeeWhereInput[] = [];
@@ -120,38 +187,32 @@ export async function listEmployeeLeaveRequestsForAdmin(
         ? employeeFilters[0]
         : { AND: employeeFilters };
 
-  return (tx as TxLike).employeeLeaveRequest.findMany({
-    where: {
-      status: params.statuses && params.statuses.length > 0 ? { in: params.statuses } : undefined,
-      employeeId: params.employeeId,
-      ...(startDate || endDate
-        ? {
-            AND: [startDate ? { endDate: { gte: startDate } } : {}, endDate ? { startDate: { lte: endDate } } : {}],
-          }
-        : {}),
-      employee: employeeFilter ? { is: employeeFilter } : undefined,
-    },
-    include: {
-      employee: {
-        select: {
-          id: true,
-          fullName: true,
-          employeeNumber: true,
-          role: true,
-          department: true,
-          officeId: true,
-        },
-      },
-      reviewedBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
-    },
-    orderBy: [{ createdAt: 'desc' }],
-  });
+  return {
+    status: params.statuses && params.statuses.length > 0 ? { in: params.statuses } : undefined,
+    employeeId: params.employeeId,
+    ...(startDate || endDate
+      ? {
+          AND: [startDate ? { endDate: { gte: startDate } } : {}, endDate ? { startDate: { lte: endDate } } : {}],
+        }
+      : {}),
+    employee: employeeFilter ? { is: employeeFilter } : undefined,
+  };
+}
+
+function buildAdminLeaveRequestOrderBy(
+  params: Pick<AdminLeaveRequestFilterParams, 'sortBy' | 'sortOrder'>
+): Prisma.EmployeeLeaveRequestOrderByWithRelationInput[] {
+  const sortOrder: Prisma.SortOrder = params.sortOrder === 'asc' ? 'asc' : 'desc';
+  const sortBy: AdminLeaveRequestSortField = params.sortBy ?? 'createdAt';
+
+  switch (sortBy) {
+    case 'startDate':
+      return [{ startDate: sortOrder }, { createdAt: 'desc' }];
+    case 'status':
+      return [{ status: sortOrder }, { createdAt: 'desc' }];
+    default:
+      return [{ createdAt: sortOrder }];
+  }
 }
 
 export async function cancelEmployeeLeaveRequestByEmployee(

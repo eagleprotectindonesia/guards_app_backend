@@ -33,4 +33,9 @@ describe('office work schedule feature flag', () => {
   test('includes office schedules in admin nav when enabled', () => {
     expect(getAdminNavItems(true).some(item => item.href === '/admin/office-work-schedules')).toBe(true);
   });
+
+  test('includes leave requests in admin nav', () => {
+    expect(getAdminNavItems(false).some(item => item.href === '/admin/leave-requests')).toBe(true);
+    expect(getAdminNavItems(true).some(item => item.href === '/admin/leave-requests')).toBe(true);
+  });
 });

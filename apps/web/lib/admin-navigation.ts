@@ -11,6 +11,7 @@ import {
   Hotel,
   Clock3,
   MessageSquare,
+  CalendarCheck2,
   type LucideIcon,
 } from 'lucide-react';
 import { PermissionCode } from './auth/permissions';
@@ -49,6 +50,12 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
       icon: Calendar,
       requiredPermission: 'office-shifts:view',
     },
+    {
+      name: 'Leave Requests',
+      href: '/admin/leave-requests',
+      icon: CalendarCheck2,
+      requiredPermission: 'leave-requests:view',
+    },
     { name: 'Chat', href: '/admin/chat', icon: MessageSquare, requiredPermission: 'chat:view' },
     { name: 'Employees', href: '/admin/employees', icon: Users, requiredPermission: 'employees:view' },
     { name: 'Guard Shift Types', href: '/admin/guard-shift-types', icon: Layers, requiredPermission: 'shift-types:view' },
@@ -73,6 +80,7 @@ export const ADMIN_LABEL_MAP: Record<string, string> = {
   'office-work-schedules': 'Office Schedules',
   'office-shift-types': 'Office Shift Types',
   'office-shifts': 'Office Shifts',
+  'leave-requests': 'Leave Requests',
   'guard-shift-types': 'Guard Shift Types',
   'guard-shifts': 'Guard Shifts',
   attendance: 'Attendance',

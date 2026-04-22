@@ -71,8 +71,8 @@ Permission codes:
 
 Usage:
 
-- Admin list endpoint requires `leave-requests:view`.
-- Admin approve/reject endpoints require `leave-requests:edit`.
+- Admin leave-requests page data loading requires `leave-requests:view`.
+- Admin approve/reject server actions require `leave-requests:edit`.
 - Super admin bypasses ownership and role-scope filters.
 - Leave visibility/edit is constrained by ownership resolver using ownership domain `leave` (details in `docs/ADMIN_OWNERSHIP_LEAVE_REQUESTS.md`).
 
@@ -95,26 +95,20 @@ Usage:
 - `POST /api/employee/my/leave-requests/:id/cancel`
   - Cancels own request only if status is `pending`.
 
-### Admin APIs
+### Admin Server Actions and Page Load
 
-- `GET /api/admin/leave-requests`
-  - Query params:
-    - `statuses` (comma-separated)
-    - `employeeId`
-    - `startDate` (YYYY-MM-DD)
-    - `endDate` (YYYY-MM-DD)
-  - Applies leave ownership resolver.
+- `apps/web/app/admin/(authenticated)/leave-requests/page.tsx`
+  - Reads filters (`statuses`, `employeeId`, `startDate`, `endDate`) from page search params.
+  - Applies leave ownership resolver before querying leave requests.
   - Returns only requests visible to current admin.
 
-- `POST /api/admin/leave-requests/:id/approve`
-  - Body:
-    - `reviewNote` (optional)
+- `approveLeaveRequestAction(requestId, adminNote?)`
+  - File: `apps/web/app/admin/(authenticated)/leave-requests/actions.ts`
   - Hard ownership check before mutation.
   - Approves pending request and applies operational effects.
 
-- `POST /api/admin/leave-requests/:id/reject`
-  - Body:
-    - `reviewNote` (optional)
+- `rejectLeaveRequestAction(requestId, adminNote)`
+  - File: `apps/web/app/admin/(authenticated)/leave-requests/actions.ts`
   - Hard ownership check before mutation.
   - Rejects pending request.
 
@@ -172,9 +166,9 @@ For each approved date key in `[startDate..endDate]`:
 - `packages/database/prisma/seed-rbac.ts`
 - `apps/web/app/api/employee/my/leave-requests/route.ts`
 - `apps/web/app/api/employee/my/leave-requests/[id]/cancel/route.ts`
-- `apps/web/app/api/admin/leave-requests/route.ts`
-- `apps/web/app/api/admin/leave-requests/[id]/approve/route.ts`
-- `apps/web/app/api/admin/leave-requests/[id]/reject/route.ts`
+- `apps/web/app/admin/(authenticated)/leave-requests/page.tsx`
+- `apps/web/app/admin/(authenticated)/leave-requests/actions.ts`
+- `apps/web/app/admin/(authenticated)/leave-requests/components/leave-request-detail.tsx`
 - `apps/web/app/admin/(authenticated)/admins/actions.ts`
 - `apps/web/app/admin/(authenticated)/admins/components/admin-form.tsx`
 - `apps/web/app/admin/(authenticated)/admins/create/page.tsx`
@@ -195,15 +189,15 @@ For each approved date key in `[startDate..endDate]`:
    - conflict preview for newly added assignments
 6. Add full test suite:
    - repository unit tests for transitions + side effects
-   - API tests for auth/scope/errors
+   - server action tests for auth/scope/errors
    - integration tests for scheduling effects
 7. Add reporting/export endpoint for leave analytics.
 8. Add leave type taxonomy (`annual`, `sick`, etc.) if business requires.
-9. Add idempotency keys for approval/rejection API safety under retries.
+9. Add idempotency keys for approval/rejection action safety under retries.
 
 ## Operational Notes
 
-- Apply schema migration before using endpoints.
+- Apply schema migration before using leave-request flows.
 - Re-seed RBAC permissions to ensure `leave-requests:*` exists for role assignment.
 - If full monorepo lint fails due to unrelated workspace issues, validate at least:
   - `pnpm --filter @repo/database type-check`

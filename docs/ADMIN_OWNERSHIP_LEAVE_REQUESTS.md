@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines the per-admin employee ownership model used by admin leave APIs and employee visibility APIs.
+This document defines the per-admin employee ownership model used by admin leave-management actions and employee visibility APIs.
 
 ## Scope
 
@@ -84,13 +84,13 @@ If no assignment matches an employee:
 - in `employees` domain: unmatched employees are hidden for non-super-admins
 - super admin can always view and act regardless of ownership/fallback
 
-## API Enforcement Surface
+## Enforcement Surface
 
 Ownership is enforced in:
 
-- `GET /api/admin/leave-requests`
-- `POST /api/admin/leave-requests/:id/approve`
-- `POST /api/admin/leave-requests/:id/reject`
+- `apps/web/app/admin/(authenticated)/leave-requests/page.tsx` (list/filter data loading)
+- `approveLeaveRequestAction` in `apps/web/app/admin/(authenticated)/leave-requests/actions.ts`
+- `rejectLeaveRequestAction` in `apps/web/app/admin/(authenticated)/leave-requests/actions.ts`
 - employee visibility is enforced in:
   - admin employees page list query
   - admin employee export query
@@ -129,6 +129,5 @@ Server actions normalize and replace assignment sets atomically per domain.
 - `apps/web/app/admin/(authenticated)/admins/components/admin-form.tsx`
 - `apps/web/app/admin/(authenticated)/admins/create/page.tsx`
 - `apps/web/app/admin/(authenticated)/admins/[id]/edit/page.tsx`
-- `apps/web/app/api/admin/leave-requests/route.ts`
-- `apps/web/app/api/admin/leave-requests/[id]/approve/route.ts`
-- `apps/web/app/api/admin/leave-requests/[id]/reject/route.ts`
+- `apps/web/app/admin/(authenticated)/leave-requests/page.tsx`
+- `apps/web/app/admin/(authenticated)/leave-requests/actions.ts`
