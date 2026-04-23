@@ -123,6 +123,23 @@ export async function GET() {
         latestTodayAttendance: attendances[0] ?? null,
       });
 
+      console.info('[OfficeAttendanceWeeklyAPI] Day summary holiday policy', {
+        employeeId: employee.id,
+        targetDate: targetDate.toISOString(),
+        dateKey: scheduleContext.businessDay?.dateKey ?? null,
+        isWorkingDay: scheduleContext.isWorkingDay,
+        holidayPolicy: scheduleContext.holidayPolicy
+          ? {
+              entryId: scheduleContext.holidayPolicy.entry.id,
+              title: scheduleContext.holidayPolicy.entry.title,
+              type: scheduleContext.holidayPolicy.entry.type,
+              affectsAttendance: scheduleContext.holidayPolicy.entry.affectsAttendance,
+              notificationRequired: scheduleContext.holidayPolicy.entry.notificationRequired,
+              marksAsWorkingDay: scheduleContext.holidayPolicy.marksAsWorkingDay,
+            }
+          : null,
+      });
+
       days.push({
         date: targetDate.toISOString(),
         dateKey: scheduleContext.businessDay?.dateKey ?? null,
@@ -136,6 +153,19 @@ export async function GET() {
         attendanceState,
       });
     }
+
+    console.info('[OfficeAttendanceWeeklyAPI] Weekly response complete', {
+      employeeId: employee.id,
+      dayCount: days.length,
+      holidayDays: days
+        .filter(day => day.holidayPolicy)
+        .map(day => ({
+          date: day.date,
+          dateKey: day.dateKey,
+          title: day.holidayPolicy?.entry.title,
+          type: day.holidayPolicy?.entry.type,
+        })),
+    });
 
     return NextResponse.json({ days });
   } catch (error: unknown) {

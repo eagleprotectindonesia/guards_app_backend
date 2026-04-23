@@ -19,7 +19,11 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCustomToast } from '../hooks/useCustomToast';
 import { useOfficeAttendance, useRecordOfficeAttendance } from '../hooks/useOfficeAttendance';
 import { useProfile } from '../hooks/useProfile';
-import { getOfficeScheduleDisplayState, resolveOfficeAttendanceErrorMessage } from './office-attendance-utils';
+import {
+  getOfficeHolidayDisplayContent,
+  getOfficeScheduleDisplayState,
+  resolveOfficeAttendanceErrorMessage,
+} from './office-attendance-utils';
 
 type Props = {
   office?: Office | null;
@@ -41,6 +45,23 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
   const scheduleContext = data?.scheduleContext;
   const attendanceState = data?.attendanceState;
   const scheduleDisplay = getOfficeScheduleDisplayState(scheduleContext, attendanceState);
+  const holidayDisplay = getOfficeHolidayDisplayContent(t, scheduleDisplay.holidayPolicy);
+
+  console.log('[OfficeAttendanceCard] Render state', {
+    hasScheduleContext: Boolean(scheduleContext),
+    isWorkingDay: scheduleDisplay.isWorkingDay,
+    businessDate: scheduleDisplay.businessDate,
+    holidayPolicy: scheduleDisplay.holidayPolicy
+      ? {
+          entryId: scheduleDisplay.holidayPolicy.entry?.id,
+          title: scheduleDisplay.holidayPolicy.entry?.title,
+          type: scheduleDisplay.holidayPolicy.entry?.type,
+          affectsAttendance: scheduleDisplay.holidayPolicy.entry?.affectsAttendance,
+          marksAsWorkingDay: scheduleDisplay.holidayPolicy.marksAsWorkingDay,
+        }
+      : null,
+    holidayDisplay,
+  });
 
   const latestAttendance = scheduleDisplay.latestAttendance ?? attendances[0];
 
@@ -208,6 +229,58 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
         ) : scheduleContext ? (
           <Box className="bg-white/5 border border-white/10 rounded-2xl p-4 mb-5">
             <Text className="text-typography-400 text-center">{t('officeAttendance.nonWorkingDay')}</Text>
+          </Box>
+        ) : null}
+
+        {holidayDisplay ? (
+          <Box
+            className={`rounded-2xl p-4 mb-5 border ${
+              scheduleDisplay.holidayPolicy?.entry?.type === 'emergency'
+                ? 'bg-warning-500/10 border-warning-500/20'
+                : scheduleDisplay.holidayPolicy?.entry?.type === 'special_working_day'
+                  ? 'bg-blue-500/10 border-blue-500/20'
+                  : 'bg-success-500/10 border-success-500/20'
+            }`}
+          >
+            <VStack space="xs">
+              <HStack className="justify-between items-center">
+                <Text size="xs" className="text-typography-400 uppercase tracking-[1.2px] font-bold">
+                  {holidayDisplay.headline}
+                </Text>
+                <Text size="2xs" className="text-typography-400">
+                  {holidayDisplay.typeLabel}
+                </Text>
+              </HStack>
+              <Text className="text-white font-semibold">{holidayDisplay.title}</Text>
+              <Text
+                size="sm"
+                className={
+                  scheduleDisplay.holidayPolicy?.entry?.type === 'emergency'
+                    ? 'text-warning-200'
+                    : scheduleDisplay.holidayPolicy?.entry?.type === 'special_working_day'
+                      ? 'text-blue-200'
+                      : 'text-success-200'
+                }
+              >
+                {holidayDisplay.impact}
+              </Text>
+              <HStack className="justify-between items-center">
+                <Text size="sm" className="text-typography-400">
+                  {t('officeAttendance.dateLabel')}
+                </Text>
+                <Text size="sm" className="text-white">
+                  {scheduleDisplay.businessDate || '-'}
+                </Text>
+              </HStack>
+              <HStack className="justify-between items-center">
+                <Text size="sm" className="text-typography-400">
+                  {t('officeAttendance.holiday.compensation')}
+                </Text>
+                <Text size="sm" className="text-white">
+                  {holidayDisplay.paidStatus}
+                </Text>
+              </HStack>
+            </VStack>
           </Box>
         ) : null}
 

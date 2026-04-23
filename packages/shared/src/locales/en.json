@@ -226,6 +226,24 @@
     "in": "In",
     "out": "Out",
     "noAttendance": "No attendance recorded",
+    "holiday": {
+      "headlineHoliday": "Holiday today",
+      "headlineWeekOff": "Day off today",
+      "headlineEmergency": "Emergency schedule change",
+      "headlineSpecialWorkingDay": "Special working day",
+      "impactNoAttendanceRequired": "No attendance required.",
+      "impactAttendanceRequired": "Attendance is still required today.",
+      "impactOfficeOpenNormal": "Office attendance remains active as normal.",
+      "compensation": "Compensation",
+      "paid": "Paid",
+      "unpaid": "Unpaid",
+      "type": {
+        "holiday": "Holiday",
+        "weekOff": "Week Off",
+        "emergency": "Emergency",
+        "specialWorkingDay": "Special Working Day"
+      }
+    },
     "errors": {
       "generic": "Failed to record office attendance.",
       "unauthorized": "You are not authorized to perform this action.",

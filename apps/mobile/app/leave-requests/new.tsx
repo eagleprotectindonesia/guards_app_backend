@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, TouchableOpacity, Platform } from 'react-native';
+import { ScrollView, TouchableOpacity, Platform, View, StyleSheet } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
@@ -16,6 +16,7 @@ import { useCreateLeaveRequest } from '../../src/hooks/useLeaveRequests';
 import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { id, enUS } from 'date-fns/locale';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useCustomToast } from '../../src/hooks/useCustomToast';
 import { useAlert } from '../../src/contexts/AlertContext';
@@ -25,6 +26,8 @@ import * as DocumentPicker from 'expo-document-picker';
 import { uploadToS3 } from '../../src/api/upload';
 
 const MAX_ATTACHMENTS = 4;
+const PRIMARY_RED = '#FF3B30';
+const DARK_RED = '#A00000';
 
 type LeaveAttachment = {
   uri: string;
@@ -223,10 +226,12 @@ export default function NewLeaveRequestScreen() {
 
   return (
     <Box className="flex-1 bg-black">
+      {/* Background Effects */}
       <Box className="absolute top-0 left-0 right-0 h-[300px] opacity-20">
-        <LinearGradient colors={['rgba(236, 91, 19, 0.2)', 'transparent']} style={{ flex: 1 }} />
+        <LinearGradient colors={['rgba(255, 59, 48, 0.2)', 'transparent']} style={{ flex: 1 }} />
       </Box>
 
+      {/* Header */}
       <Box style={{ paddingTop: insets.top + 10 }} className="px-6 pb-4 flex-row items-center">
         <TouchableOpacity
           onPress={() => router.back()}
@@ -241,19 +246,20 @@ export default function NewLeaveRequestScreen() {
 
       <ScrollView className="flex-1 px-6 mt-4" contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
         <VStack space="xl">
-          <Box className="bg-[#121212] border border-white/5 rounded-3xl p-6">
-            <VStack space="lg">
+          {/* Date Selection Card */}
+          <BlurView intensity={20} tint="dark" style={styles.glassCard}>
+            <VStack space="lg" className="p-6">
               <FormControl>
                 <FormControlLabel className="mb-2">
-                  <FormControlLabelText className="text-[#A0A0A0] uppercase font-bold tracking-[1px]" size="xs">
+                  <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
                     {t('leave.startDate')}
                   </FormControlLabelText>
                 </FormControlLabel>
                 <TouchableOpacity
                   onPress={() => setShowStartPicker(true)}
-                  className="bg-black/40 border border-white/10 h-14 rounded-2xl px-4 flex-row items-center"
+                  className="bg-black/40 border border-white/5 h-14 rounded-2xl px-4 flex-row items-center"
                 >
-                  <CalendarIcon size={20} color="#34C759" className="mr-3" />
+                  <CalendarIcon size={20} color={PRIMARY_RED} className="mr-3" />
                   <Text className="text-white font-semibold">{format(startDate, 'PPPP', { locale: dateLocale })}</Text>
                 </TouchableOpacity>
                 {showStartPicker && (
@@ -270,15 +276,15 @@ export default function NewLeaveRequestScreen() {
 
               <FormControl>
                 <FormControlLabel className="mb-2">
-                  <FormControlLabelText className="text-[#A0A0A0] uppercase font-bold tracking-[1px]" size="xs">
+                  <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
                     {t('leave.endDate')}
                   </FormControlLabelText>
                 </FormControlLabel>
                 <TouchableOpacity
                   onPress={() => setShowEndPicker(true)}
-                  className="bg-black/40 border border-white/10 h-14 rounded-2xl px-4 flex-row items-center"
+                  className="bg-black/40 border border-white/5 h-14 rounded-2xl px-4 flex-row items-center"
                 >
-                  <CalendarIcon size={20} color="#FF3B30" className="mr-3" />
+                  <CalendarIcon size={20} color={PRIMARY_RED} className="mr-3" />
                   <Text className="text-white font-semibold">{format(endDate, 'PPPP', { locale: dateLocale })}</Text>
                 </TouchableOpacity>
                 {showEndPicker && (
@@ -293,75 +299,82 @@ export default function NewLeaveRequestScreen() {
                 )}
               </FormControl>
             </VStack>
-          </Box>
+          </BlurView>
 
-          <Box className="bg-[#121212] border border-white/5 rounded-3xl p-6">
-            <FormControl>
-              <FormControlLabel className="mb-2">
-                <FormControlLabelText className="text-[#A0A0A0] uppercase font-bold tracking-[1px]" size="xs">
-                  {t('leave.reason')}
-                </FormControlLabelText>
-              </FormControlLabel>
-              <HStack space="sm" className="flex-wrap">
-                {reasonOptions.map(option => {
-                  const active = option.value === reason;
-                  return (
-                    <TouchableOpacity
-                      key={option.value}
-                      onPress={() => setReason(option.value)}
-                      className="px-4 py-2 rounded-full border"
-                      style={{
-                        borderColor: active ? '#34C759' : 'rgba(255,255,255,0.15)',
-                        backgroundColor: active ? 'rgba(52,199,89,0.15)' : 'rgba(255,255,255,0.04)',
-                      }}
-                    >
-                      <Text className="font-bold" style={{ color: active ? '#34C759' : '#A0A0A0' }}>
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </HStack>
-            </FormControl>
-          </Box>
-
-          <Box className="bg-[#121212] border border-white/5 rounded-3xl p-6">
-            <FormControl>
-              <FormControlLabel className="mb-2">
-                <FormControlLabelText className="text-[#A0A0A0] uppercase font-bold tracking-[1px]" size="xs">
-                  {t('leave.note', 'Note')}
-                </FormControlLabelText>
-              </FormControlLabel>
-              <Input className="bg-black/40 border border-white/10 rounded-2xl min-h-[120px]">
-                <HStack space="sm" className="px-2 pt-2 items-start">
-                  <InputSlot className="pl-1 pt-1 self-start">
-                    <InputIcon as={MessageSquare} className="text-[#666]" size="sm" />
-                  </InputSlot>
-                  <InputField
-                    multiline
-                    numberOfLines={4}
-                    value={employeeNote}
-                    onChangeText={setEmployeeNote}
-                    placeholder={t('leave.notePlaceholder', 'Add optional note')}
-                    placeholderTextColor="rgba(255,255,255,0.2)"
-                    className="text-white text-md flex-1 text-left"
-                    style={{ textAlignVertical: 'top', height: 100 }}
-                  />
+          {/* Reason Card */}
+          <BlurView intensity={15} tint="dark" style={styles.glassCard}>
+            <VStack space="md" className="p-6">
+              <FormControl>
+                <FormControlLabel className="mb-3">
+                  <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
+                    {t('leave.reason')}
+                  </FormControlLabelText>
+                </FormControlLabel>
+                <HStack space="sm" className="flex-wrap">
+                  {reasonOptions.map(option => {
+                    const active = option.value === reason;
+                    return (
+                      <TouchableOpacity
+                        key={option.value}
+                        onPress={() => setReason(option.value)}
+                        className="px-4 py-2.5 rounded-full border"
+                        style={{
+                          borderColor: active ? PRIMARY_RED : 'rgba(255,255,255,0.1)',
+                          backgroundColor: active ? 'rgba(255, 59, 48, 0.15)' : 'rgba(255,255,255,0.03)',
+                        }}
+                      >
+                        <Text className="font-bold" style={{ color: active ? 'white' : '#A0A0A0', fontSize: 13 }}>
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </HStack>
-              </Input>
-            </FormControl>
-          </Box>
+              </FormControl>
+            </VStack>
+          </BlurView>
 
-          <Box className="bg-[#121212] border border-white/5 rounded-3xl p-6">
-            <VStack space="md">
-              <HStack className="justify-between items-center">
-                <Text className="text-[#A0A0A0] uppercase font-bold tracking-[1px]" size="xs">
+          {/* Note Card */}
+          <BlurView intensity={15} tint="dark" style={styles.glassCard}>
+            <VStack space="md" className="p-6">
+              <FormControl>
+                <FormControlLabel className="mb-3">
+                  <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
+                    {t('leave.note', 'Note')}
+                  </FormControlLabelText>
+                </FormControlLabel>
+                <Input className="bg-black/40 border border-white/5 rounded-2xl min-h-[120px]">
+                  <HStack space="sm" className="px-3 pt-3 items-start">
+                    <InputSlot className="pl-1 pt-1 self-start">
+                      <InputIcon as={MessageSquare} className="text-[#636366]" size="sm" />
+                    </InputSlot>
+                    <InputField
+                      multiline
+                      numberOfLines={4}
+                      value={employeeNote}
+                      onChangeText={setEmployeeNote}
+                      placeholder={t('leave.notePlaceholder', 'Add optional note')}
+                      placeholderTextColor="rgba(255,255,255,0.15)"
+                      className="text-white text-md flex-1 text-left"
+                      style={{ textAlignVertical: 'top', height: 100 }}
+                    />
+                  </HStack>
+                </Input>
+              </FormControl>
+            </VStack>
+          </BlurView>
+
+          {/* Attachments Card */}
+          <BlurView intensity={15} tint="dark" style={styles.glassCard}>
+            <VStack space="md" className="p-6">
+              <HStack className="justify-between items-center mb-2">
+                <Text className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
                   {t('leave.attachments', 'Attachments')}
                 </Text>
                 <TouchableOpacity onPress={pickAttachments} disabled={attachments.length >= MAX_ATTACHMENTS}>
-                  <HStack space="xs" className="items-center">
-                    <Paperclip size={14} color={attachments.length >= MAX_ATTACHMENTS ? '#666' : '#34C759'} />
-                    <Text className="font-bold" style={{ color: attachments.length >= MAX_ATTACHMENTS ? '#666' : '#34C759' }}>
+                  <HStack space="xs" className="items-center bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
+                    <Paperclip size={14} color={attachments.length >= MAX_ATTACHMENTS ? '#666' : PRIMARY_RED} />
+                    <Text className="font-bold" style={{ color: attachments.length >= MAX_ATTACHMENTS ? '#666' : PRIMARY_RED, fontSize: 12 }}>
                       {t('leave.addAttachment', 'Add')}
                     </Text>
                   </HStack>
@@ -370,11 +383,11 @@ export default function NewLeaveRequestScreen() {
 
               {attachments.length === 0 ? (
                 <VStack space="xs">
-                  <Text className="text-[#666]" size="sm">
+                  <Text className="text-[#636366]" size="sm">
                     {t('leave.attachmentHint', 'You can attach up to 4 files.')}
                   </Text>
                   {reason === 'sick' && (
-                    <Text className="text-[#EF4444]" size="sm">
+                    <Text className="text-[#FF3B30] opacity-80" size="xs" style={{ fontWeight: '500' }}>
                       {t('leave.attachmentRequiredForSickHint')}
                     </Text>
                   )}
@@ -384,46 +397,51 @@ export default function NewLeaveRequestScreen() {
                   {attachments.map((asset, index) => (
                     <HStack
                       key={`${asset.uri}-${index}`}
-                      className="justify-between items-center bg-black/40 border border-white/10 rounded-xl px-3 py-2"
+                      className="justify-between items-center bg-black/40 border border-white/5 rounded-xl px-4 py-3"
                     >
-                      <Text className="text-[#D1D1D1] flex-1" size="sm" numberOfLines={1}>
-                        {asset.name || `attachment-${index + 1}`}
-                      </Text>
-                      <TouchableOpacity onPress={() => removeAttachment(index)}>
-                        <X size={14} color="#EF4444" />
+                      <HStack space="sm" className="flex-1 items-center">
+                        <Paperclip size={14} color="#A1A1A1" />
+                        <Text className="text-[#D1D1D1] flex-1" size="sm" numberOfLines={1}>
+                          {asset.name || `attachment-${index + 1}`}
+                        </Text>
+                      </HStack>
+                      <TouchableOpacity onPress={() => removeAttachment(index)} className="p-1">
+                        <X size={16} color="#FF3B30" />
                       </TouchableOpacity>
                     </HStack>
                   ))}
                 </VStack>
               )}
             </VStack>
+          </BlurView>
+
+          {/* Submit Button */}
+          <Box className="mt-4">
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={createMutation.isPending}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[PRIMARY_RED, DARK_RED]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.submitButton}
+              >
+                {createMutation.isPending ? (
+                  <ButtonSpinner color="white" />
+                ) : (
+                  <HStack space="sm" className="items-center justify-center">
+                    <Send size={20} color="white" />
+                    <Text className="text-white font-bold text-lg uppercase tracking-[2px]">{t('leave.submit')}</Text>
+                  </HStack>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
           </Box>
 
-          <Button
-            size="xl"
-            onPress={handleSubmit}
-            isDisabled={createMutation.isPending}
-            className="h-16 rounded-2xl bg-[#34C759]"
-            style={{
-              shadowColor: '#34C759',
-              shadowOffset: { width: 0, height: 8 },
-              shadowOpacity: 0.3,
-              shadowRadius: 15,
-              elevation: 8,
-            }}
-          >
-            {createMutation.isPending ? (
-              <ButtonSpinner color="white" />
-            ) : (
-              <HStack space="sm" className="items-center">
-                <Send size={20} color="white" />
-                <ButtonText className="text-white font-bold text-lg">{t('leave.submit')}</ButtonText>
-              </HStack>
-            )}
-          </Button>
-
-          <TouchableOpacity onPress={() => router.back()} disabled={createMutation.isPending} className="items-center py-2">
-            <Text className="text-[#666] font-bold tracking-[1px] uppercase" size="xs">
+          <TouchableOpacity onPress={() => router.back()} disabled={createMutation.isPending} className="items-center py-4">
+            <Text className="text-[#636366] font-bold tracking-[2px] uppercase" size="2xs">
               {t('common.cancel')}
             </Text>
           </TouchableOpacity>
@@ -432,3 +450,24 @@ export default function NewLeaveRequestScreen() {
     </Box>
   );
 }
+
+const styles = StyleSheet.create({
+  glassCard: {
+    borderRadius: 32,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(25, 25, 27, 0.6)',
+  },
+  submitButton: {
+    height: 64,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: PRIMARY_RED,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 15,
+    elevation: 8,
+  },
+});

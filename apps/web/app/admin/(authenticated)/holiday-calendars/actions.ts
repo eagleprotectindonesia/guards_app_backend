@@ -20,6 +20,10 @@ function revalidateHolidayPaths() {
   revalidatePath('/admin/holiday-calendars');
 }
 
+function parseBooleanFormField(formData: FormData, fieldName: string) {
+  return formData.getAll(fieldName).some(value => String(value) === 'true');
+}
+
 function parseFormPayload(formData: FormData) {
   const payload = {
     startDate: String(formData.get('startDate') || ''),
@@ -31,9 +35,9 @@ function parseFormPayload(formData: FormData) {
       .getAll('departmentKeys')
       .map(value => String(value).trim().toLowerCase())
       .filter(Boolean),
-    isPaid: String(formData.get('isPaid') || 'false') === 'true',
-    affectsAttendance: String(formData.get('affectsAttendance') || 'false') === 'true',
-    notificationRequired: String(formData.get('notificationRequired') || 'false') === 'true',
+    isPaid: parseBooleanFormField(formData, 'isPaid'),
+    affectsAttendance: parseBooleanFormField(formData, 'affectsAttendance'),
+    notificationRequired: parseBooleanFormField(formData, 'notificationRequired'),
     note: String(formData.get('note') || '').trim() || undefined,
   };
 

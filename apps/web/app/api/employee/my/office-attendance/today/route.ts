@@ -113,6 +113,23 @@ export async function GET() {
       latestTodayAttendance: attendances[0] ?? null,
     });
 
+    console.info('[OfficeAttendanceTodayAPI] Responding with holiday policy', {
+      employeeId: employee.id,
+      now: now.toISOString(),
+      attendancesCount: attendances.length,
+      isWorkingDay: scheduleContext.isWorkingDay,
+      holidayPolicy: scheduleContext.holidayPolicy
+        ? {
+            entryId: scheduleContext.holidayPolicy.entry.id,
+            title: scheduleContext.holidayPolicy.entry.title,
+            type: scheduleContext.holidayPolicy.entry.type,
+            affectsAttendance: scheduleContext.holidayPolicy.entry.affectsAttendance,
+            notificationRequired: scheduleContext.holidayPolicy.entry.notificationRequired,
+            marksAsWorkingDay: scheduleContext.holidayPolicy.marksAsWorkingDay,
+          }
+        : null,
+    });
+
     return NextResponse.json({
       attendances,
       attendanceState,

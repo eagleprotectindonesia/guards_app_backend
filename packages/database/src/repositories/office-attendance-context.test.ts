@@ -459,4 +459,54 @@ describe('office attendance context', () => {
       },
     });
   });
+
+  test('keeps informational holidays in context without forcing a non-working day', async () => {
+    (prisma.employee.findUnique as jest.Mock).mockResolvedValue({
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
+      department: 'Finance',
+    });
+    (resolveHolidayPolicyForEmployeeDate as jest.Mock).mockResolvedValue({
+      entry: {
+        id: 'holiday-4',
+        title: 'Company Anniversary',
+        type: 'holiday',
+        isPaid: true,
+        affectsAttendance: false,
+        notificationRequired: true,
+        scope: 'all',
+        departmentKeys: [],
+      },
+      marksAsWorkingDay: false,
+    });
+    (resolveOfficeShiftContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'office_shift',
+      shift: null,
+      isWorkingDay: false,
+    });
+    (resolveOfficeWorkScheduleContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'default',
+      schedule: { id: 'schedule-1', name: 'Default Office Schedule' },
+      isWorkingDay: true,
+      windowStart: new Date('2026-04-01T00:00:00.000Z'),
+      windowEnd: new Date('2026-04-01T09:00:00.000Z'),
+    });
+
+    const context = await resolveOfficeAttendanceContextForEmployee('employee-1');
+
+    expect(resolveOfficeShiftContextForEmployee).toHaveBeenCalled();
+    expect(resolveOfficeWorkScheduleContextForEmployee).toHaveBeenCalled();
+    expect(context).toMatchObject({
+      source: 'office_work_schedule',
+      isWorkingDay: true,
+      holidayPolicy: {
+        entry: {
+          type: 'holiday',
+          affectsAttendance: false,
+          notificationRequired: true,
+        },
+      },
+    });
+  });
 });

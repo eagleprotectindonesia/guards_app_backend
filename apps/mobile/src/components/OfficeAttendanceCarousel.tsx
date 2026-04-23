@@ -10,6 +10,7 @@ import { Text } from '@/components/ui/text';
 import { useTranslation } from 'react-i18next';
 import type { OfficeAttendanceDaySummary } from '../hooks/useOfficeAttendance';
 import { parseOfficeAttendanceDayDate, resolveOfficeAttendanceIsToday } from './office-attendance-carousel-date';
+import { getOfficeHolidayDisplayContent } from './office-attendance-utils';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 36; // Full width minus padding (24 * 2)
@@ -47,6 +48,24 @@ export default function OfficeAttendanceCarousel({ weeklyDays, isLoading }: Offi
       index,
     });
     const hasAttendance = day.attendances.length > 0;
+    const holidayDisplay = getOfficeHolidayDisplayContent(t, day.holidayPolicy);
+    const holidayType = day.holidayPolicy?.entry?.type;
+
+    console.log('[OfficeAttendanceCarousel] Day render', {
+      date: day.date,
+      dateKey: day.dateKey,
+      isWorkingDay: day.isWorkingDay,
+      holidayPolicy: day.holidayPolicy
+        ? {
+            entryId: day.holidayPolicy.entry.id,
+            title: day.holidayPolicy.entry.title,
+            type: day.holidayPolicy.entry.type,
+            affectsAttendance: day.holidayPolicy.entry.affectsAttendance,
+            marksAsWorkingDay: day.holidayPolicy.marksAsWorkingDay,
+          }
+        : null,
+      holidayDisplay,
+    });
 
     return (
       <Box
@@ -85,6 +104,52 @@ export default function OfficeAttendanceCarousel({ weeklyDays, isLoading }: Offi
           {/* Details */}
           {day.isWorkingDay ? (
             <VStack space="md">
+              {holidayDisplay ? (
+                <Box
+                  className={`rounded-2xl p-4 border ${
+                    holidayType === 'emergency'
+                      ? 'bg-warning-500/10 border-warning-500/20'
+                      : holidayType === 'special_working_day'
+                        ? 'bg-blue-500/10 border-blue-500/20'
+                        : 'bg-success-500/10 border-success-500/20'
+                  }`}
+                >
+                  <VStack space="xs">
+                    <HStack className="justify-between items-center">
+                      <Text size="xs" className="text-typography-400 uppercase tracking-[1.2px] font-bold">
+                        {holidayDisplay.headline}
+                      </Text>
+                      <Text size="2xs" className="text-typography-400">
+                        {holidayDisplay.typeLabel}
+                      </Text>
+                    </HStack>
+                    <Text size="sm" className="text-white font-semibold">
+                      {holidayDisplay.title}
+                    </Text>
+                    <Text
+                      size="sm"
+                      className={
+                        holidayType === 'emergency'
+                          ? 'text-warning-200'
+                          : holidayType === 'special_working_day'
+                            ? 'text-blue-200'
+                            : 'text-success-200'
+                      }
+                    >
+                      {holidayDisplay.impact}
+                    </Text>
+                    <HStack className="justify-between items-center pt-1">
+                      <Text size="sm" className="text-typography-400">
+                        {t('officeAttendance.holiday.compensation')}
+                      </Text>
+                      <Text size="sm" className="text-white">
+                        {holidayDisplay.paidStatus}
+                      </Text>
+                    </HStack>
+                  </VStack>
+                </Box>
+              ) : null}
+
               <HStack space="md" className="items-center">
                 <Box className="flex-1">
                   <Text size="xs" className="text-typography-500 uppercase tracking-[1.5px] mb-1.5 font-semibold">
@@ -142,9 +207,48 @@ export default function OfficeAttendanceCarousel({ weeklyDays, isLoading }: Offi
               )}
             </VStack>
           ) : (
-            <Box className="py-4">
-              <Text className="text-typography-400 text-center">{t('officeAttendance.nonWorkingDay')}</Text>
-            </Box>
+            <VStack space="md" className="py-4">
+              {holidayDisplay ? (
+                <Box
+                  className={`rounded-2xl p-4 border ${
+                    holidayType === 'emergency'
+                      ? 'bg-warning-500/10 border-warning-500/20'
+                      : 'bg-success-500/10 border-success-500/20'
+                  }`}
+                >
+                  <VStack space="xs">
+                    <HStack className="justify-between items-center">
+                      <Text size="xs" className="text-typography-400 uppercase tracking-[1.2px] font-bold">
+                        {holidayDisplay.headline}
+                      </Text>
+                      <Text size="2xs" className="text-typography-400">
+                        {holidayDisplay.typeLabel}
+                      </Text>
+                    </HStack>
+                    <Text size="sm" className="text-white font-semibold">
+                      {holidayDisplay.title}
+                    </Text>
+                    <Text size="sm" className={holidayType === 'emergency' ? 'text-warning-200' : 'text-success-200'}>
+                      {holidayDisplay.impact}
+                    </Text>
+                    {/* <HStack className="justify-between items-center pt-1">
+                      <Text size="sm" className="text-typography-400">
+                        {t('officeAttendance.holiday.compensation')}
+                      </Text>
+                      <Text size="sm" className="text-white">
+                        {holidayDisplay.paidStatus}
+                      </Text>
+                    </HStack> */}
+                  </VStack>
+                </Box>
+              ) : null}
+
+              {!holidayDisplay ? (
+                <Box>
+                  <Text className="text-typography-400 text-center">{t('officeAttendance.nonWorkingDay')}</Text>
+                </Box>
+              ) : null}
+            </VStack>
           )}
         </Box>
       </Box>

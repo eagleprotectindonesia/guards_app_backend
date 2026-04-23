@@ -22,6 +22,16 @@ type OfficeScheduleContextLike =
       businessDay?: {
         dateKey?: string | null;
       } | null;
+      holidayPolicy?: {
+        entry?: {
+          id?: string;
+          title?: string | null;
+          type?: 'holiday' | 'week_off' | 'emergency' | 'special_working_day' | null;
+          isPaid?: boolean;
+          affectsAttendance?: boolean;
+        } | null;
+        marksAsWorkingDay?: boolean;
+      } | null;
     }
   | null
   | undefined;
@@ -61,6 +71,7 @@ export function getOfficeScheduleDisplayState(
     businessDate: scheduleContext?.businessDateStr ?? scheduleContext?.businessDay?.dateKey ?? null,
     scheduledStartStr: scheduleContext?.scheduledStartStr ?? formatMinutesAsTime(scheduleContext?.startMinutes),
     scheduledEndStr: scheduleContext?.scheduledEndStr ?? formatMinutesAsTime(scheduleContext?.endMinutes),
+    holidayPolicy: scheduleContext?.holidayPolicy ?? null,
     status,
     canClockIn: attendanceState?.canClockIn ?? false,
     canClockOut: attendanceState?.canClockOut ?? false,
@@ -71,6 +82,47 @@ export function getOfficeScheduleDisplayState(
     isCompleted: status === 'completed',
     messageCode: attendanceState?.messageCode ?? null,
     latestAttendance: attendanceState?.latestAttendance ?? null,
+  };
+}
+
+export function getOfficeHolidayDisplayContent(
+  t: TranslationFunction,
+  holidayPolicy: OfficeScheduleContextLike extends infer T
+    ? T extends { holidayPolicy?: infer H }
+      ? H | undefined
+      : never
+    : never
+) {
+  const entry = holidayPolicy?.entry;
+  if (!entry?.type) return null;
+
+  const typeKeyMap = {
+    holiday: 'holiday',
+    week_off: 'weekOff',
+    emergency: 'emergency',
+    special_working_day: 'specialWorkingDay',
+  } as const;
+
+  const headlineKeyMap = {
+    holiday: 'headlineHoliday',
+    week_off: 'headlineWeekOff',
+    emergency: 'headlineEmergency',
+    special_working_day: 'headlineSpecialWorkingDay',
+  } as const;
+
+  const impactKey =
+    entry.type === 'special_working_day'
+      ? 'impactAttendanceRequired'
+      : entry.affectsAttendance
+        ? 'impactNoAttendanceRequired'
+        : 'impactOfficeOpenNormal';
+
+  return {
+    title: entry.title,
+    typeLabel: t(`officeAttendance.holiday.type.${typeKeyMap[entry.type]}`),
+    headline: t(`officeAttendance.holiday.${headlineKeyMap[entry.type]}`),
+    impact: t(`officeAttendance.holiday.${impactKey}`),
+    paidStatus: entry.isPaid ? t('officeAttendance.holiday.paid') : t('officeAttendance.holiday.unpaid'),
   };
 }
 

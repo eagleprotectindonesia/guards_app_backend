@@ -257,7 +257,6 @@ export async function resolveHolidayPolicyForEmployeeDate(
       startDate: { lte: dateStart },
       endDate: { gte: dateStart },
       OR: [{ scope: 'all' }, ...(departmentKey ? [{ scope: 'department', departmentKeys: { has: departmentKey } }] : [])],
-      affectsAttendance: true,
     },
     orderBy: [{ scope: 'desc' }, { createdAt: 'desc' }],
   });

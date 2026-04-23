@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, RefreshControl, TouchableOpacity } from 'react-native';
+import { ScrollView, RefreshControl, TouchableOpacity, View, StyleSheet } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
@@ -16,9 +16,12 @@ import { useMyLeaveRequests, useCancelLeaveRequest } from '../../src/hooks/useLe
 import { format } from 'date-fns';
 import { id, enUS } from 'date-fns/locale';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { LeaveRequestStatus } from '@repo/types';
 import { useAlert } from '../../src/contexts/AlertContext';
 import { useCustomToast } from '../../src/hooks/useCustomToast';
+
+const PRIMARY_RED = '#FF3B30';
 
 export default function LeaveRequestsScreen() {
   const { t, i18n } = useTranslation();
@@ -27,6 +30,7 @@ export default function LeaveRequestsScreen() {
   const { showAlert } = useAlert();
   const toast = useCustomToast();
   const { data: requests, isLoading, refetch, isRefetching } = useMyLeaveRequests();
+
   const cancelMutation = useCancelLeaveRequest();
 
   const dateLocale = i18n.language === 'id' ? id : enUS;
@@ -107,7 +111,7 @@ export default function LeaveRequestsScreen() {
       {/* Background Ambient Glow */}
       <Box className="absolute top-0 left-0 right-0 h-[300px] opacity-20">
         <LinearGradient
-          colors={['rgba(52, 199, 89, 0.2)', 'transparent']}
+          colors={['rgba(255, 59, 48, 0.2)', 'transparent']}
           style={{ flex: 1 }}
         />
       </Box>
@@ -131,16 +135,16 @@ export default function LeaveRequestsScreen() {
         
         <TouchableOpacity 
           onPress={() => router.push('/leave-requests/new')}
-          className="w-10 h-10 rounded-full bg-[#34C759] items-center justify-center"
-          style={{
-            shadowColor: '#34C759',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-            elevation: 5,
-          }}
+          activeOpacity={0.8}
         >
-          <Plus size={24} color="white" />
+          <LinearGradient
+            colors={[PRIMARY_RED, '#A00000']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.addButton}
+          >
+            <Plus size={24} color="white" />
+          </LinearGradient>
         </TouchableOpacity>
       </Box>
 
@@ -150,29 +154,31 @@ export default function LeaveRequestsScreen() {
           <RefreshControl
             refreshing={isRefetching}
             onRefresh={refetch}
-            tintColor="#34C759"
+            tintColor={PRIMARY_RED}
           />
         }
       >
         {isLoading ? (
           <Center className="py-20">
-            <Spinner size="large" color="#34C759" />
+            <Spinner size="large" className="text-brand-500" />
           </Center>
         ) : !requests || requests.length === 0 ? (
           <Center className="py-20 px-10">
-            <Box className="w-20 h-20 rounded-full bg-white/5 items-center justify-center mb-4 border border-white/5">
-              <Calendar size={40} color="#333" />
-            </Box>
-            <Text className="text-center text-[#666] font-medium">
-              {t('leave.noRequests')}
-            </Text>
-            <Button 
-              action="primary" 
-              className="mt-6 bg-[#34C759] h-12 rounded-xl px-6"
-              onPress={() => router.push('/leave-requests/new')}
-            >
-              <ButtonText className="font-bold">{t('leave.requestLeave')}</ButtonText>
-            </Button>
+            <BlurView intensity={15} tint="dark" style={styles.emptyCard}>
+              <Box className="w-20 h-20 rounded-full bg-white/5 items-center justify-center mb-4 border border-white/5">
+                <Calendar size={40} color="#333" />
+              </Box>
+              <Text className="text-center text-[#666] font-medium mb-6">
+                {t('leave.noRequests')}
+              </Text>
+              <Button 
+                action="primary" 
+                className="bg-[#FF3B30] h-12 rounded-xl px-6"
+                onPress={() => router.push('/leave-requests/new')}
+              >
+                <ButtonText className="font-bold">{t('leave.requestLeave')}</ButtonText>
+              </Button>
+            </BlurView>
           </Center>
         ) : (
           <VStack space="md" className="mt-4">
@@ -181,9 +187,11 @@ export default function LeaveRequestsScreen() {
               const StatusIcon = config.icon;
               
               return (
-                <Box 
+                <BlurView 
                   key={request.id}
-                  className="bg-[#121212] border border-white/5 rounded-3xl p-5 overflow-hidden"
+                  intensity={20}
+                  tint="dark"
+                  style={styles.requestCard}
                 >
                   <HStack className="justify-between items-start mb-4">
                     <VStack space="xs">
@@ -216,7 +224,7 @@ export default function LeaveRequestsScreen() {
                     <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
                       {t('leave.reason')}
                     </Text>
-                    <Text className="text-[#D1D1D1]" size="sm">
+                    <Text className="text-[#D1D1D1] font-medium" size="sm">
                       {getReasonLabel(request.reason)}
                     </Text>
                   </VStack>
@@ -226,7 +234,7 @@ export default function LeaveRequestsScreen() {
                       <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
                         {t('leave.employeeNote', 'Employee Note')}
                       </Text>
-                      <Text className="text-[#D1D1D1]" size="sm">
+                      <Text className="text-[#D1D1D1] opacity-80" size="sm">
                         {request.employeeNote}
                       </Text>
                     </VStack>
@@ -237,7 +245,7 @@ export default function LeaveRequestsScreen() {
                       <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
                         {t('leave.adminNote', 'Admin Note')}
                       </Text>
-                      <Text className="text-[#D1D1D1]" size="sm">
+                      <Text className="text-[#D1D1D1] opacity-80" size="sm">
                         {request.adminNote}
                       </Text>
                     </VStack>
@@ -248,18 +256,18 @@ export default function LeaveRequestsScreen() {
                       <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
                         {t('leave.attachments', 'Attachments')}
                       </Text>
-                      <Text className="text-[#D1D1D1]" size="sm">
+                      <Text className="text-[#D1D1D1] opacity-80" size="sm">
                         {t('leave.attachmentCount', '{{count}} file(s)', { count: request.attachments.length })}
                       </Text>
                     </VStack>
                   )}
 
-                  <HStack className="justify-between items-center">
+                  <HStack className="justify-between items-center mt-2">
                     <Box 
                       style={{ backgroundColor: config.bgColor }}
-                      className="flex-row items-center px-3 py-1.5 rounded-full border border-white/5"
+                      className="flex-row items-center px-4 py-2 rounded-full border border-white/5"
                     >
-                      <StatusIcon size={14} color={config.color} className="mr-1.5" />
+                      <StatusIcon size={14} color={config.color} className="mr-2" />
                       <Text style={{ color: config.color }} className="font-bold uppercase tracking-[0.5px]" size="2xs">
                         {config.label}
                       </Text>
@@ -269,7 +277,7 @@ export default function LeaveRequestsScreen() {
                       <TouchableOpacity
                         onPress={() => handleCancel(request.id)}
                         disabled={cancelMutation.isPending}
-                        className="rounded-full bg-white/5 border border-white/10 px-3 py-1.5"
+                        className="rounded-full bg-white/5 border border-white/10 px-4 py-2"
                       >
                         <Text className="text-[#EF4444] font-bold uppercase tracking-[0.5px]" size="2xs">
                           {t('leave.cancel')}
@@ -278,7 +286,7 @@ export default function LeaveRequestsScreen() {
                     )}
                   </HStack>
 
-                </Box>
+                </BlurView>
               );
             })}
           </VStack>
@@ -287,3 +295,36 @@ export default function LeaveRequestsScreen() {
     </Box>
   );
 }
+
+const styles = StyleSheet.create({
+  addButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: PRIMARY_RED,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  requestCard: {
+    borderRadius: 32,
+    overflow: 'hidden',
+    padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(25, 25, 27, 0.6)',
+  },
+  emptyCard: {
+    borderRadius: 32,
+    overflow: 'hidden',
+    padding: 32,
+    width: '100%',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(25, 25, 27, 0.4)',
+  },
+});

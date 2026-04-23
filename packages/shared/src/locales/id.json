@@ -226,6 +226,24 @@
     "in": "Masuk",
     "out": "Keluar",
     "noAttendance": "Belum ada presensi",
+    "holiday": {
+      "headlineHoliday": "Libur hari ini",
+      "headlineWeekOff": "Hari libur hari ini",
+      "headlineEmergency": "Perubahan jadwal darurat",
+      "headlineSpecialWorkingDay": "Hari kerja khusus",
+      "impactNoAttendanceRequired": "Tidak perlu melakukan presensi hari ini.",
+      "impactAttendanceRequired": "Presensi tetap wajib hari ini.",
+      "impactOfficeOpenNormal": "Presensi kantor tetap berjalan seperti biasa.",
+      "compensation": "Kompensasi",
+      "paid": "Dibayar",
+      "unpaid": "Tidak dibayar",
+      "type": {
+        "holiday": "Libur",
+        "weekOff": "Hari Libur",
+        "emergency": "Darurat",
+        "specialWorkingDay": "Hari Kerja Khusus"
+      }
+    },
     "errors": {
       "generic": "Gagal merekam kehadiran kantor.",
       "unauthorized": "Anda tidak memiliki izin untuk melakukan tindakan ini.",
