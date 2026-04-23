@@ -36,8 +36,6 @@ export async function POST(req: Request) {
 
     // Check revocation
     if (storedToken.revokedAt) {
-      // Security: if using a revoked token, we might want to alert or revoke all tokens?
-      // For now, just deny.
       return NextResponse.json({ message: 'Token revoked' }, { status: 401 });
     }
 

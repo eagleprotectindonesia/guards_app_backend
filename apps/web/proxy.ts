@@ -18,7 +18,8 @@ export async function proxy(request: NextRequest) {
     pathname === '/admin/login/verify' ||
     pathname === '/api/admin/auth/login' ||
     pathname === '/api/admin/auth/verify-2fa' ||
-    pathname === '/api/employee/auth/login';
+    pathname === '/api/employee/auth/login' ||
+    pathname === '/api/employee/auth/biometric/login';
 
   const isExternalApiPath = pathname.startsWith('/api/external/v1') && pathname !== '/api/external/v1/openapi.json';
   const isExternalDocsPath = pathname === '/api/external/docs';
