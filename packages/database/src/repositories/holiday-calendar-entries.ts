@@ -278,5 +278,55 @@ export async function resolveHolidayPolicyForEmployeeDate(
     marksAsWorkingDay: selected.type === 'special_working_day',
   };
 }
+
+export type HolidayAnnouncementItem = {
+  id: string;
+  title: string;
+  type: HolidayCalendarType;
+  isPaid: boolean;
+  affectsAttendance: boolean;
+  notificationRequired: boolean;
+  scope: HolidayCalendarScope;
+  departmentKeys: string[];
+  note: string | null;
+  startDate: Date;
+  endDate: Date;
+  createdAt: Date;
+};
+
+export async function listFutureHolidayAnnouncementsForEmployee(
+  params: {
+    department?: string | null;
+    fromDate: Date;
+    toDate: Date;
+  },
+  tx: TxLike = prisma
+): Promise<HolidayAnnouncementItem[]> {
+  const fromDateStart = new Date(`${params.fromDate.toISOString().slice(0, 10)}T00:00:00Z`);
+  const toDateStart = new Date(`${params.toDate.toISOString().slice(0, 10)}T00:00:00Z`);
+  const departmentKey = params.department ? normalizeDepartmentKey(params.department) : null;
+
+  return (tx as any).holidayCalendarEntry.findMany({
+    where: {
+      startDate: { gt: fromDateStart, lte: toDateStart },
+      OR: [{ scope: 'all' }, ...(departmentKey ? [{ scope: 'department', departmentKeys: { has: departmentKey } }] : [])],
+    },
+    orderBy: [{ startDate: 'asc' }, { createdAt: 'desc' }],
+    select: {
+      id: true,
+      title: true,
+      type: true,
+      isPaid: true,
+      affectsAttendance: true,
+      notificationRequired: true,
+      scope: true,
+      departmentKeys: true,
+      note: true,
+      startDate: true,
+      endDate: true,
+      createdAt: true,
+    },
+  });
+}
 export type HolidayCalendarType = 'holiday' | 'week_off' | 'emergency' | 'special_working_day';
 export type HolidayCalendarScope = 'all' | 'department';

@@ -17,4 +17,7 @@ export const queryKeys = {
   leaveRequests: {
     list: ['leave-requests'] as const,
   },
+  announcements: {
+    list: ['announcements'] as const,
+  },
 };

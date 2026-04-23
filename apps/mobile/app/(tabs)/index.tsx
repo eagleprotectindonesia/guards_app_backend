@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, RefreshControl, Image } from 'react-native';
+import { ScrollView, RefreshControl, Image, TouchableOpacity } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
 import { Heading } from '@/components/ui/heading';
@@ -24,6 +24,9 @@ import { useProfile } from '../../src/hooks/useProfile';
 import { queryKeys } from '../../src/api/queryKeys';
 import { usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
 import type { WeeklyOfficeAttendanceResponse } from '../../src/hooks/useOfficeAttendance';
+import { useAnnouncements } from '../../src/hooks/useAnnouncements';
+import { useRouter } from 'expo-router';
+import { Bell } from 'lucide-react-native';
 
 type ActiveShiftData = {
   activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;
@@ -32,10 +35,12 @@ type ActiveShiftData = {
 
 export default function HomeScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const { isOpen: isPasswordChangeModalOpen } = usePasswordChangeModal();
+  const { unreadCount: unreadAnnouncementCount } = useAnnouncements();
 
   const { data: profile, isLoading: isProfileLoading } = useProfile();
   const employeeRole = profile?.employee?.role;
@@ -129,9 +134,21 @@ export default function HomeScreen() {
                   </Heading>
                 </VStack>
               </HStack>
-              <Box className="shrink-0">
+              <HStack space="sm" className="items-center shrink-0">
+                <TouchableOpacity
+                  onPress={() => router.push('/announcements')}
+                  activeOpacity={0.7}
+                  accessibilityLabel={t('announcements.title', 'Announcements')}
+                >
+                  <Box className="w-10 h-10 rounded-full bg-white/5 border border-white/10 items-center justify-center relative">
+                    <Bell size={18} color="#FFFFFF" />
+                    {unreadAnnouncementCount > 0 ? (
+                      <Box className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#EF4444] border border-black" />
+                    ) : null}
+                  </Box>
+                </TouchableOpacity>
                 <GlassLanguageToggle />
-              </Box>
+              </HStack>
             </HStack>
           </Box>
 

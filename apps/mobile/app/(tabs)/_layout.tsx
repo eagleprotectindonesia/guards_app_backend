@@ -9,6 +9,7 @@ import PasswordChangeModal from '../../src/components/PasswordChangeModal';
 import { PasswordChangeModalProvider, usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
 import SessionMonitor from '../../src/components/SessionMonitor';
 import { useProfile } from '../../src/hooks/useProfile';
+import { useAnnouncements } from '../../src/hooks/useAnnouncements';
 
 export default function TabsLayout() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -50,6 +51,7 @@ function PasswordChangeManager() {
 function TabsContent({ isAuthenticated }: { isAuthenticated: boolean }) {
   const { t } = useTranslation();
   const { unreadCount } = useChatUnread();
+  const { unreadCount: unreadAnnouncementCount } = useAnnouncements();
 
   return (
     <View style={{ flex: 1 }}>
@@ -93,6 +95,13 @@ function TabsContent({ isAuthenticated }: { isAuthenticated: boolean }) {
             options={{
               title: t('tabs.account', 'Account'),
               tabBarIcon: ({ color, size }) => <User stroke={color} size={size} />,
+              tabBarBadge: unreadAnnouncementCount > 0 ? '' : undefined,
+              tabBarBadgeStyle: {
+                backgroundColor: '#EF4444',
+                minWidth: 10,
+                height: 10,
+                borderRadius: 999,
+              },
             }}
           />
         </Tabs.Protected>

@@ -184,6 +184,14 @@
     "title": "Akun",
     "settings": "Pengaturan"
   },
+  "announcements": {
+    "title": "Pengumuman",
+    "empty": "Belum ada pengumuman",
+    "newCount": "{{count}} baru",
+    "kindHoliday": "Hari Libur",
+    "period": "Periode",
+    "holidaySummary": "Akan ada hari libur"
+  },
   "biometric": {
     "loginButton": "Masuk dengan Biometrik",
     "enableTitle": "Aktifkan Login Biometrik",

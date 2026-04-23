@@ -184,6 +184,14 @@
     "title": "Account",
     "settings": "Settings"
   },
+  "announcements": {
+    "title": "Announcements",
+    "empty": "No announcements",
+    "newCount": "{{count}} new",
+    "kindHoliday": "Holiday",
+    "period": "Period",
+    "holidaySummary": "Upcoming holiday."
+  },
   "biometric": {
     "loginButton": "Login with Biometric",
     "enableTitle": "Enable Biometric Login",
