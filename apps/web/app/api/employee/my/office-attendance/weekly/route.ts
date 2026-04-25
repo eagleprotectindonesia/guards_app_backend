@@ -98,7 +98,7 @@ export async function GET() {
     // Fetch for the next 7 days (including today)
     for (let i = 0; i < 7; i++) {
       const targetDate = i === 0 ? now : startOfDay(addDays(now, i));
-      
+
       const [attendances, scheduleContext, latestAttendanceForDay] = await Promise.all([
         getTodayOfficeAttendance(employee.id, targetDate),
         resolveOfficeAttendanceContextForEmployee(employee.id, targetDate),
@@ -123,23 +123,6 @@ export async function GET() {
         latestTodayAttendance: attendances[0] ?? null,
       });
 
-      console.info('[OfficeAttendanceWeeklyAPI] Day summary holiday policy', {
-        employeeId: employee.id,
-        targetDate: targetDate.toISOString(),
-        dateKey: scheduleContext.businessDay?.dateKey ?? null,
-        isWorkingDay: scheduleContext.isWorkingDay,
-        holidayPolicy: scheduleContext.holidayPolicy
-          ? {
-              entryId: scheduleContext.holidayPolicy.entry.id,
-              title: scheduleContext.holidayPolicy.entry.title,
-              type: scheduleContext.holidayPolicy.entry.type,
-              affectsAttendance: scheduleContext.holidayPolicy.entry.affectsAttendance,
-              notificationRequired: scheduleContext.holidayPolicy.entry.notificationRequired,
-              marksAsWorkingDay: scheduleContext.holidayPolicy.marksAsWorkingDay,
-            }
-          : null,
-      });
-
       days.push({
         date: targetDate.toISOString(),
         dateKey: scheduleContext.businessDay?.dateKey ?? null,
@@ -147,25 +130,15 @@ export async function GET() {
         scheduledStartStr: formatMinutesAsTime(scheduleContext.startMinutes),
         scheduledEndStr: formatMinutesAsTime(scheduleContext.endMinutes),
         holidayPolicy: scheduleContext.holidayPolicy ?? null,
-        effectiveAttendanceMode: scheduleContext.effectiveAttendanceMode ?? (employee.officeId ? (employee.fieldModeEnabled ? 'non_office' : 'office_required') : 'non_office'),
-        attendancePolicySource: scheduleContext.attendancePolicySource ?? (!employee.officeId ? 'no_office_employee' : 'employee_default'),
+        effectiveAttendanceMode:
+          scheduleContext.effectiveAttendanceMode ??
+          (employee.officeId ? (employee.fieldModeEnabled ? 'non_office' : 'office_required') : 'non_office'),
+        attendancePolicySource:
+          scheduleContext.attendancePolicySource ?? (!employee.officeId ? 'no_office_employee' : 'employee_default'),
         attendances,
         attendanceState,
       });
     }
-
-    console.info('[OfficeAttendanceWeeklyAPI] Weekly response complete', {
-      employeeId: employee.id,
-      dayCount: days.length,
-      holidayDays: days
-        .filter(day => day.holidayPolicy)
-        .map(day => ({
-          date: day.date,
-          dateKey: day.dateKey,
-          title: day.holidayPolicy?.entry.title,
-          type: day.holidayPolicy?.entry.type,
-        })),
-    });
 
     return NextResponse.json({ days });
   } catch (error: unknown) {

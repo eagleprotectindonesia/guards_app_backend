@@ -35,7 +35,7 @@
     "loading": "Memuat...",
     "processing": "Memproses...",
     "today": "Hari Ini",
-    "success": "Berhasil"
+    "successTitle": "Berhasil"
   },
   "attendance": {
     "success": "Kehadiran Berhasil Direkam!",

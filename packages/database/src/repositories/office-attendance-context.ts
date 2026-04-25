@@ -60,24 +60,7 @@ export async function resolveOfficeAttendanceContextForEmployee(employeeId: stri
     date: new Date(`${overrideAnchors.currentDateKey}T00:00:00Z`),
     department: employee.department ?? null,
   });
-  console.info('[OfficeAttendanceContext] Holiday policy resolved', {
-    employeeId,
-    at: at.toISOString(),
-    currentDateKey: overrideAnchors.currentDateKey,
-    department: employee.department ?? null,
-    holidayPolicy: holidayPolicy
-      ? {
-          entryId: holidayPolicy.entry.id,
-          title: holidayPolicy.entry.title,
-          type: holidayPolicy.entry.type,
-          affectsAttendance: holidayPolicy.entry.affectsAttendance,
-          notificationRequired: holidayPolicy.entry.notificationRequired,
-          scope: holidayPolicy.entry.scope,
-          departmentKeys: holidayPolicy.entry.departmentKeys,
-          marksAsWorkingDay: holidayPolicy.marksAsWorkingDay,
-        }
-      : null,
-  });
+
   if (
     holidayPolicy &&
     holidayPolicy.entry.affectsAttendance &&

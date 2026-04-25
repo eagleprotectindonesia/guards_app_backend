@@ -148,6 +148,7 @@ async function resolveOwnershipAccessContext(
       : domain === 'leave'
         ? !!admin?.includeFallbackLeaveQueue
         : false;
+  const allowAnyMatchingAssignment = domain === 'leave';
 
   return {
     mode: 'ownership_scope',
@@ -159,6 +160,18 @@ async function resolveOwnershipAccessContext(
       }
 
       const ownerAdminId = resolveEmployeeOwnerAdminIdFromSortedAssignments(allAssignments, employee);
+      const matchingAssignments = allAssignments.filter(assignment =>
+        doesAssignmentMatchEmployee(assignment, {
+          department: employee.department,
+          officeId: employee.officeId,
+        })
+      );
+      const currentAdminHasMatchingAssignment = matchingAssignments.some(assignment => assignment.adminId === session.id);
+
+      if (currentAdminHasMatchingAssignment && allowAnyMatchingAssignment) {
+        return true;
+      }
+
       if (ownerAdminId === session.id) {
         return true;
       }
@@ -166,7 +179,6 @@ async function resolveOwnershipAccessContext(
       if (ownerAdminId === null && includeFallbackQueue) {
         return true;
       }
-
       return false;
     },
   };
