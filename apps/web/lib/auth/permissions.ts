@@ -25,6 +25,7 @@ export const RESOURCES = [
   'chat',
   'leave-requests',
   'holiday-calendars',
+  'office-memos',
 ] as const;
 
 export const ACTIONS = ['view', 'create', 'edit', 'delete'] as const;
@@ -147,6 +148,12 @@ export const PERMISSIONS = {
     CREATE: 'holiday-calendars:create',
     EDIT: 'holiday-calendars:edit',
     DELETE: 'holiday-calendars:delete',
+  },
+  OFFICE_MEMOS: {
+    VIEW: 'office-memos:view',
+    CREATE: 'office-memos:create',
+    EDIT: 'office-memos:edit',
+    DELETE: 'office-memos:delete',
   },
 } satisfies Record<string, Record<string, PermissionCode>>;
 
