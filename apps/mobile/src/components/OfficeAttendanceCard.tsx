@@ -22,7 +22,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCustomToast } from '../hooks/useCustomToast';
 import { useOfficeAttendance, useRecordOfficeAttendance } from '../hooks/useOfficeAttendance';
 import { useProfile } from '../hooks/useProfile';
-import { useSettings } from '../hooks/useSettings';
 import { uploadToS3 } from '../api/upload';
 import {
   getOfficeHolidayDisplayContent,
@@ -65,7 +64,6 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
   const [statusMessage, setStatusMessage] = useState('');
 
   const { data, refetch, isRefetching } = useOfficeAttendance(enabled);
-  const { data: settings } = useSettings();
   const { data: profileData } = useProfile();
   const recordMutation = useRecordOfficeAttendance();
   const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
@@ -82,7 +80,6 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
   const isClockedIn = scheduleDisplay.isClockedIn;
   const hasClockedOut = scheduleDisplay.isCompleted;
   const hasAssignedOffice = Boolean(resolvedOffice?.id);
-  const requirePhoto = settings?.OFFICE_ATTENDANCE_REQUIRE_PHOTO ?? false;
 
   const requestLocation = async () => {
     const permission = await Location.requestForegroundPermissionsAsync();
@@ -209,7 +206,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
 
     try {
       let photoUpload: AttendancePhotoUpload | null = null;
-      if (nextStatus === 'present' && requirePhoto) {
+      if (nextStatus === 'present') {
         setIsPhotoProcessing(true);
         photoUpload = await captureAndUploadAttendancePhoto();
         setIsPhotoProcessing(false);
