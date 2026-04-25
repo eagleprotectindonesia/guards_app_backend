@@ -1,6 +1,6 @@
 import { AdminNotificationType, Prisma } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
-import { getAllActiveAdminOwnershipAssignments, normalizeDepartmentScopeKey } from './admin-ownership';
+import { getAllActiveAdminOwnershipAssignments, getMatchingAdminIdsForEmployeeScope } from './admin-ownership';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 
@@ -10,67 +10,10 @@ type LeaveRecipientEmployeeScope = {
 };
 
 type ActiveOwnershipAssignment = {
-  id: string;
   adminId: string;
   departmentKey: string | null;
   officeId: string | null;
-  priority: number;
-  createdAt: Date;
 };
-
-function getAssignmentSpecificity(assignment: Pick<ActiveOwnershipAssignment, 'departmentKey' | 'officeId'>) {
-  let score = 0;
-  if (assignment.departmentKey) score += 1;
-  if (assignment.officeId) score += 1;
-  return score;
-}
-
-function compareOwnershipAssignments(a: ActiveOwnershipAssignment, b: ActiveOwnershipAssignment) {
-  const priorityDiff = a.priority - b.priority;
-  if (priorityDiff !== 0) return priorityDiff;
-
-  const specificityDiff = getAssignmentSpecificity(b) - getAssignmentSpecificity(a);
-  if (specificityDiff !== 0) return specificityDiff;
-
-  const createdAtDiff = a.createdAt.getTime() - b.createdAt.getTime();
-  if (createdAtDiff !== 0) return createdAtDiff;
-
-  const adminIdDiff = a.adminId.localeCompare(b.adminId);
-  if (adminIdDiff !== 0) return adminIdDiff;
-
-  return a.id.localeCompare(b.id);
-}
-
-function doesAssignmentMatchEmployee(
-  assignment: Pick<ActiveOwnershipAssignment, 'departmentKey' | 'officeId'>,
-  employee: LeaveRecipientEmployeeScope
-) {
-  if (assignment.departmentKey) {
-    const employeeDepartmentKey = normalizeDepartmentScopeKey(employee.department);
-    if (!employeeDepartmentKey || employeeDepartmentKey !== assignment.departmentKey) {
-      return false;
-    }
-  }
-
-  if (assignment.officeId && assignment.officeId !== employee.officeId) {
-    return false;
-  }
-
-  return true;
-}
-
-function resolveEmployeeOwnerAdminId(
-  assignments: ActiveOwnershipAssignment[],
-  employee: LeaveRecipientEmployeeScope
-): string | null {
-  const sortedAssignments = [...assignments].sort(compareOwnershipAssignments);
-  for (const assignment of sortedAssignments) {
-    if (doesAssignmentMatchEmployee(assignment, employee)) {
-      return assignment.adminId;
-    }
-  }
-  return null;
-}
 
 export async function resolveAdminRecipientsForLeaveRequestCreated(employeeId: string, tx: TxLike = prisma) {
   const targetTx = tx as TxLike;
@@ -101,21 +44,18 @@ export async function resolveAdminRecipientsForLeaveRequestCreated(employeeId: s
   }
 
   const assignments: ActiveOwnershipAssignment[] = assignmentsRaw.map(assignment => ({
-    id: assignment.id,
     adminId: assignment.adminId,
     departmentKey: assignment.departmentKey,
     officeId: assignment.officeId,
-    priority: assignment.priority,
-    createdAt: assignment.createdAt,
   }));
 
-  const ownerAdminId = resolveEmployeeOwnerAdminId(assignments, {
+  const matchingAdminIds = getMatchingAdminIdsForEmployeeScope(assignments, {
     department: employee.department,
     officeId: employee.officeId,
   });
 
-  if (ownerAdminId) {
-    return [ownerAdminId];
+  if (matchingAdminIds.length > 0) {
+    return matchingAdminIds;
   }
 
   return fallbackAdmins.map(admin => admin.id);

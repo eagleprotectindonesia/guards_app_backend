@@ -67,8 +67,8 @@ export function useAnnouncements() {
     refetchInterval: 60000,
   });
 
-  const announcements = data?.announcements ?? [];
-  const seenQueryKey = ['announcements', 'seen', user?.id] as const;
+  const announcements = useMemo(() => data?.announcements ?? [], [data?.announcements]);
+  const seenQueryKey = useMemo(() => ['announcements', 'seen', user?.id] as const, [user?.id]);
 
   const { data: seenIds = [] } = useQuery<string[]>({
     queryKey: seenQueryKey,

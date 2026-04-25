@@ -1,8 +1,8 @@
 import { AdminOwnershipDomain, EmployeeRole } from '@prisma/client';
 import {
+  doesAdminOwnershipAssignmentMatchEmployeeScope,
   getAdminOwnershipSummaryByAdminId,
   getAllActiveAdminOwnershipAssignments,
-  normalizeDepartmentScopeKey,
 } from '@repo/database';
 import type { AdminSession } from '@/lib/admin-auth';
 import { getEmployeeRoleFilter } from './admin-visibility';
@@ -70,30 +70,12 @@ function compareOwnershipAssignments(a: ActiveOwnershipAssignment, b: ActiveOwne
   return a.id.localeCompare(b.id);
 }
 
-function doesAssignmentMatchEmployee(
-  assignment: Pick<ActiveOwnershipAssignment, 'departmentKey' | 'officeId'>,
-  employee: Pick<OwnershipEmployeeScope, 'department' | 'officeId'>
-) {
-  if (assignment.departmentKey) {
-    const employeeDepartmentKey = normalizeDepartmentScopeKey(employee.department);
-    if (!employeeDepartmentKey || employeeDepartmentKey !== assignment.departmentKey) {
-      return false;
-    }
-  }
-
-  if (assignment.officeId && assignment.officeId !== employee.officeId) {
-    return false;
-  }
-
-  return true;
-}
-
 function resolveEmployeeOwnerAdminIdFromSortedAssignments(
   assignments: ActiveOwnershipAssignment[],
   employee: Pick<OwnershipEmployeeScope, 'department' | 'officeId'>
 ) {
   for (const assignment of assignments) {
-    if (doesAssignmentMatchEmployee(assignment, employee)) {
+    if (doesAdminOwnershipAssignmentMatchEmployeeScope(assignment, employee)) {
       return assignment.adminId;
     }
   }
@@ -161,7 +143,7 @@ async function resolveOwnershipAccessContext(
 
       const ownerAdminId = resolveEmployeeOwnerAdminIdFromSortedAssignments(allAssignments, employee);
       const matchingAssignments = allAssignments.filter(assignment =>
-        doesAssignmentMatchEmployee(assignment, {
+        doesAdminOwnershipAssignmentMatchEmployeeScope(assignment, {
           department: employee.department,
           officeId: employee.officeId,
         })

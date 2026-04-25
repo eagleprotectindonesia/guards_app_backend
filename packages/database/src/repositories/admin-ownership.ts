@@ -26,6 +26,16 @@ export type AdminOwnershipSelectionInput = {
   officeIds: string[];
 };
 
+type EmployeeScope = {
+  department?: string | null;
+  officeId?: string | null;
+};
+
+type AssignmentScope = {
+  departmentKey: string | null;
+  officeId: string | null;
+};
+
 export function normalizeDepartmentScopeKey(value: NullableString) {
   if (!value) {
     return null;
@@ -143,6 +153,32 @@ export async function getAllActiveAdminOwnershipAssignments(domain: AdminOwnersh
       isActive: true,
     },
   });
+}
+
+export function doesAdminOwnershipAssignmentMatchEmployeeScope(assignment: AssignmentScope, employee: EmployeeScope) {
+  if (assignment.departmentKey) {
+    const employeeDepartmentKey = normalizeDepartmentScopeKey(employee.department);
+    if (!employeeDepartmentKey || employeeDepartmentKey !== assignment.departmentKey) {
+      return false;
+    }
+  }
+
+  if (assignment.officeId && assignment.officeId !== employee.officeId) {
+    return false;
+  }
+
+  return true;
+}
+
+export function getMatchingAdminIdsForEmployeeScope<T extends { adminId: string } & AssignmentScope>(
+  assignments: T[],
+  employee: EmployeeScope
+) {
+  const matchingAdminIds = assignments
+    .filter(assignment => doesAdminOwnershipAssignmentMatchEmployeeScope(assignment, employee))
+    .map(assignment => assignment.adminId);
+
+  return Array.from(new Set(matchingAdminIds));
 }
 
 export async function replaceAdminOwnershipAssignments(input: ReplaceAdminOwnershipAssignmentsInput) {

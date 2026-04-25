@@ -66,6 +66,10 @@ An assignment matches an employee when all provided assignment dimensions match:
 
 ## Conflict Resolution (Deterministic)
 
+Note:
+- `leave` domain supports shared visibility for overlapping scopes. If multiple admins match the same employee scope, each matching admin can view/review that leave request.
+- `employees` domain remains exclusive/deterministic using the precedence below.
+
 When multiple assignments could match an employee, owner is selected by ordered precedence:
 
 1. `priority` ascending

@@ -116,6 +116,7 @@ Usage:
 
 - For ownership data model, matching rules, conflict resolution, fallback queue, and rollout:
   - `docs/ADMIN_OWNERSHIP_LEAVE_REQUESTS.md`
+- Overlapping ownership note (`leave` domain): when multiple admins have matching scope (same department/office), all matching admins can view and review the leave request.
 
 ## Business Rules
 
