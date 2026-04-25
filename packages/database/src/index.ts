@@ -27,6 +27,7 @@ export type {
 // ============================================================================
 export * from './password';
 export * from './queues';
+export * from './email-events';
 
 // ============================================================================
 // Integrations Layer - External service clients

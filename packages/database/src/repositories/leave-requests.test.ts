@@ -6,6 +6,9 @@ import {
 } from './leave-requests';
 import { db as prisma } from '../prisma/client';
 import { Prisma } from '@prisma/client';
+import { createLeaveRequestCreatedAdminNotifications } from './admin-notifications';
+import { enqueueEmailEvent } from '../email-events';
+import { redis } from '../redis/client';
 
 jest.mock('../prisma/client', () => ({
   db: {
@@ -18,6 +21,23 @@ jest.mock('../prisma/client', () => ({
     changelog: {
       create: jest.fn(),
     },
+    admin: {
+      findMany: jest.fn(),
+    },
+  },
+}));
+
+jest.mock('./admin-notifications', () => ({
+  createLeaveRequestCreatedAdminNotifications: jest.fn(),
+}));
+
+jest.mock('../email-events', () => ({
+  enqueueEmailEvent: jest.fn(),
+}));
+
+jest.mock('../redis/client', () => ({
+  redis: {
+    publish: jest.fn(),
   },
 }));
 
@@ -115,6 +135,20 @@ describe('leave-requests repository admin queries', () => {
       status: 'pending',
     });
     (prisma.changelog.create as jest.Mock).mockResolvedValue({ id: 'log-1' });
+    (createLeaveRequestCreatedAdminNotifications as jest.Mock).mockResolvedValue([
+      {
+        id: 'notif-1',
+        adminId: 'admin-1',
+        title: 'New leave request submitted',
+        body: 'Employee requested leave.',
+        payload: { targetPath: '/admin/leave-requests' },
+      },
+    ]);
+    (prisma.admin.findMany as jest.Mock).mockResolvedValue([
+      { id: 'admin-1', name: 'Admin One', email: 'admin1@example.com' },
+    ]);
+    (redis.publish as jest.Mock).mockResolvedValue(1);
+    (enqueueEmailEvent as jest.Mock).mockResolvedValue({ id: 'email-job-1' });
 
     const created = await createEmployeeLeaveRequest({
       employeeId: 'employee-1',
@@ -126,6 +160,14 @@ describe('leave-requests repository admin queries', () => {
     expect(created.id).toBe('leave-created');
     expect(prisma.employeeLeaveRequest.create).toHaveBeenCalled();
     expect(prisma.changelog.create).toHaveBeenCalled();
+    expect(redis.publish).toHaveBeenCalledTimes(1);
+    expect(enqueueEmailEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateId: 'admin.leave_request_created',
+        to: [{ email: 'admin1@example.com', name: 'Admin One' }],
+        idempotencyKey: 'leave_request_created:leave-created:admin-1',
+      })
+    );
   });
 
   test('createEmployeeLeaveRequest maps exclusion-constraint conflict to overlap error', async () => {

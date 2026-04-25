@@ -15,6 +15,20 @@ export type EmployeeRole = 'on_site' | 'office';
 export type OfficeJobTitleCategory = 'staff' | 'management';
 export type OfficeShiftAttendanceMode = 'office_required' | 'non_office';
 export type OfficeAttendancePolicySource = 'employee_default' | 'shift_override' | 'no_office_employee';
+export type EmailTemplateId = 'admin.leave_request_created';
+
+export interface EmailRecipient {
+  email: string;
+  name?: string | null;
+}
+
+export interface EmailEventPayload {
+  templateId: EmailTemplateId;
+  to: EmailRecipient[];
+  context: Record<string, string>;
+  metadata?: Record<string, string>;
+  idempotencyKey: string;
+}
 
 export interface Department {
   id: string;

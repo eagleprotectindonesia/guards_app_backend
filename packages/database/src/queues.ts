@@ -15,3 +15,6 @@ export const GUARD_STATUS_QUEUE_NAME = EMPLOYEE_STATUS_QUEUE_NAME;
 
 export const EMPLOYEE_SYNC_QUEUE_NAME = 'employee-sync';
 export const EMPLOYEE_SYNC_JOB_NAME = 'employee-sync-from-external';
+
+export const EMAIL_QUEUE_NAME = 'email';
+export const SEND_EMAIL_JOB_NAME = 'send-email';

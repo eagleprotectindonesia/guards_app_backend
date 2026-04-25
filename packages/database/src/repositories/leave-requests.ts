@@ -3,6 +3,7 @@ import { db as prisma } from '../prisma/client';
 import { upsertEmployeeOfficeDayOverride } from './office-day-overrides';
 import { redis } from '../redis/client';
 import { createLeaveRequestCreatedAdminNotifications } from './admin-notifications';
+import { enqueueEmailEvent } from '../email-events';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 export const OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR = 'Overlapping pending leave request already exists';
@@ -79,8 +80,7 @@ function isOverlapConflictError(error: unknown) {
     return false;
   }
 
-  const databaseError =
-    typeof error.meta?.database_error === 'string' ? error.meta.database_error : error.message;
+  const databaseError = typeof error.meta?.database_error === 'string' ? error.meta.database_error : error.message;
   return databaseError.includes('employee_leave_requests_pending_no_overlap');
 }
 
@@ -176,6 +176,67 @@ export async function createEmployeeLeaveRequest(
     )
   );
 
+  const sendNotif = 0;
+
+  if (sendNotif) {
+    const adminIds = Array.from(new Set(createdNotifications.map(notification => notification.adminId)));
+    if (adminIds.length > 0) {
+      const targetPathByAdminId = new Map<string, string>();
+      for (const notification of createdNotifications) {
+        const payload = (notification.payload ?? {}) as Record<string, unknown>;
+        const targetPath = typeof payload.targetPath === 'string' ? payload.targetPath : '/admin/leave-requests';
+        targetPathByAdminId.set(notification.adminId, targetPath);
+      }
+
+      const admins = await targetTx.admin.findMany({
+        where: {
+          id: { in: adminIds },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      });
+
+      const webAppUrl = process.env.WEB_APP_URL || 'http://localhost:3000';
+      await Promise.all(
+        admins.map(admin => {
+          const notification = createdNotifications.find(item => item.adminId === admin.id);
+          if (!notification || !admin.email) {
+            return Promise.resolve();
+          }
+
+          const targetPath = targetPathByAdminId.get(admin.id) || '/admin/leave-requests';
+          const targetUrl = `${webAppUrl}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}`;
+
+          return enqueueEmailEvent({
+            templateId: 'admin.leave_request_created',
+            to: [
+              {
+                email: admin.email,
+                name: admin.name,
+              },
+            ],
+            context: {
+              adminName: admin.name,
+              notificationTitle: notification.title,
+              notificationBody: notification.body,
+              targetUrl,
+            },
+            metadata: {
+              source: 'leave_request_created',
+              leaveRequestId: created.id,
+              adminId: admin.id,
+            },
+            idempotencyKey: `leave_request_created:${created.id}:${admin.id}`,
+          });
+        })
+      );
+    }
+  }
+
   return created;
 }
 
@@ -186,10 +247,7 @@ export async function listEmployeeLeaveRequestsByEmployee(employeeId: string, tx
   });
 }
 
-export async function listEmployeeLeaveRequestsForAdmin(
-  params: AdminLeaveRequestFilterParams,
-  tx: TxLike = prisma
-) {
+export async function listEmployeeLeaveRequestsForAdmin(params: AdminLeaveRequestFilterParams, tx: TxLike = prisma) {
   const where = buildAdminLeaveRequestWhere(params);
   const orderBy = buildAdminLeaveRequestOrderBy(params);
 
@@ -460,12 +518,12 @@ export async function rejectEmployeeLeaveRequest(
 
   const updated = await (tx as TxLike).employeeLeaveRequest.update({
     where: { id: request.id },
-      data: {
-        status: 'rejected',
-        reviewedById: params.adminId,
-        reviewedAt: new Date(),
-        adminNote: params.adminNote ?? null,
-      },
+    data: {
+      status: 'rejected',
+      reviewedById: params.adminId,
+      reviewedAt: new Date(),
+      adminNote: params.adminNote ?? null,
+    },
   });
 
   await tx.changelog.create({
