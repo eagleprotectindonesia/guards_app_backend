@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { ModeToggle } from '@/components/mode-toggle';
 import AlertNotifications from './alert-notifications';
+import AdminNotificationInbox from './admin-notification-inbox';
 import { AdminSession } from '@/lib/admin-auth';
 import AdminProfileDropdown from './admin-profile-dropdown';
 
@@ -55,6 +56,7 @@ export default function Header({ currentAdmin }: { currentAdmin: AdminSession })
       </div>
       
       <div className="flex items-center gap-4">
+        <AdminNotificationInbox />
         <AlertNotifications />
         <ModeToggle />
         <AdminProfileDropdown currentAdmin={currentAdmin} />

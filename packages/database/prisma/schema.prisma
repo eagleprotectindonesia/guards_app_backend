@@ -45,6 +45,10 @@ enum AdminOwnershipDomain {
   employees
 }
 
+enum AdminNotificationType {
+  leave_request_created
+}
+
 enum HolidayCalendarType {
   holiday
   week_off
@@ -135,9 +139,27 @@ model Admin {
   changelogs                                   Changelog[]
   sentMessages                                 ChatMessage[]
   chatConversationStates                       AdminChatConversationState[]
+  notifications                                AdminNotification[]
 
   @@index([deletedAt])
   @@map("admins")
+}
+
+model AdminNotification {
+  id        String                @id @default(uuid())
+  adminId   String                @map("admin_id")
+  type      AdminNotificationType
+  title     String
+  body      String                @db.Text
+  payload   Json?
+  readAt    DateTime?             @map("read_at")
+  createdAt DateTime              @default(now()) @map("created_at")
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId, readAt, createdAt])
+  @@index([adminId, createdAt(sort: Desc)])
+  @@map("admin_notifications")
 }
 
 model AdminOwnershipAssignment {

@@ -2,6 +2,7 @@ import { EmployeeRole, LeaveRequestReason, LeaveRequestStatus, Prisma } from '@p
 import { db as prisma } from '../prisma/client';
 import { upsertEmployeeOfficeDayOverride } from './office-day-overrides';
 import { redis } from '../redis/client';
+import { createLeaveRequestCreatedAdminNotifications } from './admin-notifications';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 export const OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR = 'Overlapping pending leave request already exists';
@@ -134,7 +135,7 @@ export async function createEmployeeLeaveRequest(
     }
   })();
 
-  await tx.changelog.create({
+  await targetTx.changelog.create({
     data: {
       action: 'CREATE',
       entityType: 'EmployeeLeaveRequest',
@@ -151,6 +152,29 @@ export async function createEmployeeLeaveRequest(
       },
     },
   });
+
+  const createdNotifications = await createLeaveRequestCreatedAdminNotifications(
+    {
+      leaveRequestId: created.id,
+      employeeId: created.employeeId,
+      startDate: created.startDate,
+      endDate: created.endDate,
+      reason: created.reason,
+    },
+    targetTx
+  );
+
+  await Promise.all(
+    createdNotifications.map(notification =>
+      redis.publish(
+        `admin-notifications:admin:${notification.adminId}`,
+        JSON.stringify({
+          type: 'admin_notification_created',
+          notification,
+        })
+      )
+    )
+  );
 
   return created;
 }

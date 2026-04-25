@@ -4,6 +4,17 @@ import { ChatMessage } from './index';
  * Shared Socket.io Event Definitions
  */
 
+export type AdminNotificationEventItem = {
+  id: string;
+  adminId: string;
+  type: 'leave_request_created';
+  title: string;
+  body: string;
+  payload: any;
+  readAt: string | null;
+  createdAt: string;
+};
+
 export interface ServerToClientEvents {
   // Chat events
   new_message: (message: ChatMessage) => void;
@@ -16,6 +27,9 @@ export interface ServerToClientEvents {
   active_shifts: (payload: any) => void;
   upcoming_shifts: (payload: any) => void;
   'dashboard:backfill': (payload: { alerts: any[] }) => void;
+  admin_notification_created: (payload: { notification: AdminNotificationEventItem; unreadCount: number }) => void;
+  admin_notifications_backfill: (payload: { notifications: AdminNotificationEventItem[]; unreadCount: number }) => void;
+  admin_notifications_read: (payload: { readIds: string[]; unreadCount: number }) => void;
 
   // Auth/System events
   'auth:force_logout': (data: { reason: string }) => void;
@@ -42,6 +56,8 @@ export interface ClientToServerEvents {
   // Dashboard events
   subscribe_site: (siteId: string) => void;
   request_dashboard_backfill: (data: { siteId?: string }) => void;
+  request_admin_notifications_backfill: (data: { limit?: number }) => void;
+  mark_admin_notifications_read: (data: { notificationIds: string[] }) => void;
 }
 
 export interface InterServerEvents {

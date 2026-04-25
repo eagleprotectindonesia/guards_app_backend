@@ -1,6 +1,7 @@
 // Repositories Layer - Domain-oriented query and mutation helpers
 export * from './admins';
 export * from './admin-ownership';
+export * from './admin-notifications';
 export * from './alerts';
 export * from './attendance';
 export * from './attendance-with-checkins';

@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import { getAdminSession } from '@/lib/admin-auth';
 import { AlertProvider } from './context/alert-context';
 import { SessionProvider } from './context/session-context';
+import { AdminNotificationProvider } from './context/admin-notification-context';
 import { Metadata } from 'next';
 import { AdminBreadcrumb } from './components/admin-breadcrumb';
 import { SocketProvider } from '@/components/socket-provider';
@@ -41,22 +42,24 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     >
       <SocketProvider role="admin">
         <AlertProvider>
-          <div className="flex min-h-screen bg-background">
-            <Toaster
-              position="top-right"
-              containerStyle={{ zIndex: 99999 }}
-              toastOptions={{ style: { zIndex: 99999 } }}
-            />
-            <Sidebar officeWorkSchedulesEnabled={officeWorkSchedulesEnabled} />
-            <div className="flex-1 flex flex-col">
-              <Header currentAdmin={session} />
-              <div className="px-8 pt-4">
-                <AdminBreadcrumb />
+          <AdminNotificationProvider>
+            <div className="flex min-h-screen bg-background">
+              <Toaster
+                position="top-right"
+                containerStyle={{ zIndex: 99999 }}
+                toastOptions={{ style: { zIndex: 99999 } }}
+              />
+              <Sidebar officeWorkSchedulesEnabled={officeWorkSchedulesEnabled} />
+              <div className="flex-1 flex flex-col">
+                <Header currentAdmin={session} />
+                <div className="px-8 pt-4">
+                  <AdminBreadcrumb />
+                </div>
+                <main className="flex-1 p-8 overflow-y-auto">{children}</main>
               </div>
-              <main className="flex-1 p-8 overflow-y-auto">{children}</main>
+              {hasChatPermission && <FloatingChatWidget />}
             </div>
-            {hasChatPermission && <FloatingChatWidget />}
-          </div>
+          </AdminNotificationProvider>
         </AlertProvider>
       </SocketProvider>
     </SessionProvider>
