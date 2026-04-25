@@ -76,7 +76,9 @@ export default function AnnouncementsScreen() {
                 <VStack space="sm">
                   <HStack className="items-center justify-between">
                     <Text className="text-[#F97316] font-bold uppercase tracking-[1.2px]" size="2xs">
-                      {t('announcements.kindHoliday', 'Holiday')}
+                      {item.kind === 'holiday'
+                        ? t('announcements.kindHoliday', 'Holiday')
+                        : t('announcements.kindOfficeMemo', 'Office Memo')}
                     </Text>
                     <HStack space="xs" className="items-center">
                       <CalendarDays size={14} color="#9CA3AF" />
@@ -92,7 +94,9 @@ export default function AnnouncementsScreen() {
 
                   <Text className="text-[#D1D1D1] opacity-90" size="sm">
                     {item.message?.trim() ||
-                      t('announcements.holidaySummary', 'Upcoming holiday. Check attendance policy for this date.')}
+                      (item.kind === 'holiday'
+                        ? t('announcements.holidaySummary', 'Upcoming holiday. Check attendance policy for this date.')
+                        : t('announcements.officeMemoSummary', 'Office memo update. Please review the details.'))}
                   </Text>
 
                   <HStack className="justify-between items-center pt-1">

@@ -57,6 +57,11 @@ enum HolidayCalendarScope {
   department
 }
 
+enum OfficeMemoScope {
+  all
+  department
+}
+
 model Permission {
   id          String   @id @default(uuid())
   action      String // e.g., "view", "create", "edit", "delete"
@@ -119,6 +124,8 @@ model Admin {
   updatedEmployeeOfficeDayOverrides            EmployeeOfficeDayOverride[]            @relation("EmployeeOfficeDayOverrideLastUpdatedBy")
   createdHolidayCalendarEntries                HolidayCalendarEntry[]                 @relation("HolidayCalendarEntryCreatedBy")
   updatedHolidayCalendarEntries                HolidayCalendarEntry[]                 @relation("HolidayCalendarEntryLastUpdatedBy")
+  createdOfficeMemos                           OfficeMemo[]                           @relation("OfficeMemoCreatedBy")
+  updatedOfficeMemos                           OfficeMemo[]                           @relation("OfficeMemoLastUpdatedBy")
   createdOfficeWorkSchedules                   OfficeWorkSchedule[]                   @relation("OfficeWorkScheduleCreatedBy")
   updatedOfficeWorkSchedules                   OfficeWorkSchedule[]                   @relation("OfficeWorkScheduleLastUpdatedBy")
   createdEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentCreatedBy")
@@ -640,6 +647,30 @@ model HolidayCalendarEntry {
   @@index([type])
   @@index([scope])
   @@map("holiday_calendar_entries")
+}
+
+model OfficeMemo {
+  id              String          @id @default(uuid())
+  title           String
+  message         String?         @db.Text
+  startDate       DateTime        @map("start_date") @db.Date
+  endDate         DateTime        @map("end_date") @db.Date
+  isActive        Boolean         @default(true) @map("is_active")
+  scope           OfficeMemoScope
+  departmentKeys  String[]        @default([]) @map("department_keys")
+  createdById     String?         @map("created_by_id")
+  lastUpdatedById String?         @map("last_updated_by_id")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  createdBy     Admin? @relation("OfficeMemoCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy Admin? @relation("OfficeMemoLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+
+  @@index([isActive])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([scope])
+  @@map("office_memos")
 }
 
 model SystemSetting {

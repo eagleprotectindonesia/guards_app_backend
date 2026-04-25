@@ -190,8 +190,10 @@
     "empty": "Belum ada pengumuman",
     "newCount": "{{count}} baru",
     "kindHoliday": "Hari Libur",
+    "kindOfficeMemo": "Memo Kantor",
     "period": "Periode",
-    "holidaySummary": "Akan ada hari libur"
+    "holidaySummary": "Akan ada hari libur",
+    "officeMemoSummary": "Ada pembaruan memo kantor."
   },
   "biometric": {
     "loginButton": "Masuk dengan Biometrik",

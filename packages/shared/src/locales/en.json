@@ -190,8 +190,10 @@
     "empty": "No announcements",
     "newCount": "{{count}} new",
     "kindHoliday": "Holiday",
+    "kindOfficeMemo": "Office Memo",
     "period": "Period",
-    "holidaySummary": "Upcoming holiday."
+    "holidaySummary": "Upcoming holiday.",
+    "officeMemoSummary": "Office memo update."
   },
   "biometric": {
     "loginButton": "Login with Biometric",

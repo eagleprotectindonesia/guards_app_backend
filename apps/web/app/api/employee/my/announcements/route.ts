@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { addDays, startOfDay } from 'date-fns';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { listFutureHolidayAnnouncementsForEmployee } from '@repo/database';
+import { listActiveOfficeMemosForEmployee, listFutureHolidayAnnouncementsForEmployee } from '@repo/database';
 
 export async function GET() {
   const employee = await getAuthenticatedEmployee();
@@ -18,31 +18,47 @@ export async function GET() {
       fromDate,
       toDate,
     });
-
-    const announcements = holidayAnnouncements.map(item => ({
-      id: `holiday:${item.id}`,
-      kind: 'holiday' as const,
-      title: item.title,
-      message: item.note,
-      startsAt: item.startDate.toISOString(),
-      endsAt: item.endDate.toISOString(),
-      createdAt: item.createdAt.toISOString(),
-      meta: {
-        holidayEntryId: item.id,
-        holidayType: item.type,
-        isPaid: item.isPaid,
-        affectsAttendance: item.affectsAttendance,
-        notificationRequired: item.notificationRequired,
-        scope: item.scope,
-      },
-    }));
-
-    console.info('[EmployeeAnnouncementsAPI] Response complete', {
-      employeeId: employee.id,
+    const officeMemos = await listActiveOfficeMemosForEmployee({
       department: employee.department ?? null,
-      fromDate: fromDate.toISOString(),
-      toDate: toDate.toISOString(),
-      count: announcements.length,
+      fromDate,
+      toDate,
+    });
+
+    const announcements = [
+      ...holidayAnnouncements.map(item => ({
+        id: `holiday:${item.id}`,
+        kind: 'holiday' as const,
+        title: item.title,
+        message: item.note,
+        startsAt: item.startDate.toISOString(),
+        endsAt: item.endDate.toISOString(),
+        createdAt: item.createdAt.toISOString(),
+        meta: {
+          holidayEntryId: item.id,
+          holidayType: item.type,
+          isPaid: item.isPaid,
+          affectsAttendance: item.affectsAttendance,
+          notificationRequired: item.notificationRequired,
+          scope: item.scope,
+        },
+      })),
+      ...officeMemos.map(item => ({
+        id: `office_memo:${item.id}`,
+        kind: 'office_memo' as const,
+        title: item.title,
+        message: item.message,
+        startsAt: item.startDate.toISOString(),
+        endsAt: item.endDate.toISOString(),
+        createdAt: item.createdAt.toISOString(),
+        meta: {
+          officeMemoId: item.id,
+          scope: item.scope,
+        },
+      })),
+    ].sort((a, b) => {
+      const byStart = new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime();
+      if (byStart !== 0) return byStart;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
     return NextResponse.json({ announcements });

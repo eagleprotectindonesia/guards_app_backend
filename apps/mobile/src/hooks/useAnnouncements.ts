@@ -4,13 +4,14 @@ import { client } from '../api/client';
 import { queryKeys } from '../api/queryKeys';
 import { storage } from '../utils/storage';
 import { useAuth } from '../contexts/AuthContext';
+import { calculateUnreadAnnouncementCount, mergeSeenAnnouncementIds } from './announcements-utils';
 
-type AnnouncementKind = 'holiday';
 type AnnouncementHolidayType = 'holiday' | 'week_off' | 'emergency' | 'special_working_day';
+type AnnouncementMemoScope = 'all' | 'department';
 
-export type MobileAnnouncement = {
+type MobileHolidayAnnouncement = {
   id: string;
-  kind: AnnouncementKind;
+  kind: 'holiday';
   title: string;
   message: string | null;
   startsAt: string;
@@ -25,6 +26,22 @@ export type MobileAnnouncement = {
     scope: 'all' | 'department';
   };
 };
+
+type MobileOfficeMemoAnnouncement = {
+  id: string;
+  kind: 'office_memo';
+  title: string;
+  message: string | null;
+  startsAt: string;
+  endsAt: string;
+  createdAt: string;
+  meta: {
+    officeMemoId: string;
+    scope: AnnouncementMemoScope;
+  };
+};
+
+export type MobileAnnouncement = MobileHolidayAnnouncement | MobileOfficeMemoAnnouncement;
 
 type AnnouncementsResponse = {
   announcements: MobileAnnouncement[];
@@ -65,17 +82,13 @@ export function useAnnouncements() {
   });
 
   const unreadCount = useMemo(() => {
-    if (announcements.length === 0) return 0;
-
-    const seenIdSet = new Set(seenIds);
-    return announcements.reduce((count, item) => count + (seenIdSet.has(item.id) ? 0 : 1), 0);
+    return calculateUnreadAnnouncementCount(announcements, seenIds);
   }, [announcements, seenIds]);
 
   const markCurrentAsSeen = useCallback(async () => {
     if (!user?.id || announcements.length === 0) return;
 
-    const currentIds = announcements.map(item => item.id);
-    const merged = Array.from(new Set([...seenIds, ...currentIds]));
+    const merged = mergeSeenAnnouncementIds(seenIds, announcements);
     if (merged.length === seenIds.length) return;
 
     await storage.setItem(getAnnouncementSeenStorageKey(user.id), merged);
