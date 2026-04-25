@@ -184,46 +184,9 @@ export default function OfficeAttendanceCarousel({ weeklyDays, isLoading }: Offi
             </VStack>
           ) : (
             <VStack space="md">
-              {holidayDisplay ? (
-                <Box
-                  className={`rounded-2xl p-4 border ${
-                    holidayType === 'emergency'
-                      ? 'bg-warning-500/10 border-warning-500/20'
-                      : 'bg-success-500/10 border-success-500/20'
-                  }`}
-                >
-                  <VStack space="xs">
-                    <HStack className="justify-between items-center">
-                      <Text size="xs" className="text-typography-400 uppercase tracking-[1.2px] font-bold">
-                        {holidayDisplay.headline}
-                      </Text>
-                      <Text size="2xs" className="text-typography-400">
-                        {holidayDisplay.typeLabel}
-                      </Text>
-                    </HStack>
-                    <Text size="sm" className="text-white font-semibold">
-                      {holidayDisplay.title}
-                    </Text>
-                    <Text size="sm" className={holidayType === 'emergency' ? 'text-warning-200' : 'text-success-200'}>
-                      {holidayDisplay.impact}
-                    </Text>
-                    {/* <HStack className="justify-between items-center pt-1">
-                      <Text size="sm" className="text-typography-400">
-                        {t('officeAttendance.holiday.compensation')}
-                      </Text>
-                      <Text size="sm" className="text-white">
-                        {holidayDisplay.paidStatus}
-                      </Text>
-                    </HStack> */}
-                  </VStack>
-                </Box>
-              ) : null}
-
-              {!holidayDisplay ? (
-                <Box>
-                  <Text className="text-typography-400 text-center">{t('officeAttendance.nonWorkingDay')}</Text>
-                </Box>
-              ) : null}
+              <Box>
+                <Text className="text-typography-400 text-center">{t('officeAttendance.nonWorkingDay')}</Text>
+              </Box>
             </VStack>
           )}
         </Box>

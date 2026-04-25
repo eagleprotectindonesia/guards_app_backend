@@ -23,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
 import { useProfile } from '../../src/hooks/useProfile';
 import { useAnnouncements } from '../../src/hooks/useAnnouncements';
+import AnnouncementBell from '../../src/components/AnnouncementBell';
 
 const DEFAULT_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuDzcxM7B2Plj0M6rLwD5-jwCeXCJ-VxTGp8XT8dffCo7Cjv4BQ3_fM-MkOicyMU8jJxMw9Q81kjfqVm_zD_yfF92pmxUsZDY_fB7by9N3_LAOMNfdJlNjEUudjhqq7Cm5LUPTk9aKNVSgT9A4rsOYqHKU5vKRmjMZknp_AFtbKxzLh1PX2V_AKy5bez2tThvg_swnSuuvc4uRhd_JO8vfyGxuCUlrrS_Gt_LXaPHMHfgxPWTz6nvJqDPVw3QneYlTqVGg46xTuvrQDq';
@@ -120,18 +121,10 @@ export default function AccountScreen() {
           {/* Top Navigation / Language Toggle */}
           <Box className="px-6 flex-row justify-end">
             <HStack space="sm" className="items-center">
-              <TouchableOpacity
-                onPress={() => router.push('/announcements')}
-                activeOpacity={0.7}
+              <AnnouncementBell
+                count={unreadAnnouncementCount}
                 accessibilityLabel={t('announcements.title', 'Announcements')}
-              >
-                <Box className="w-10 h-10 rounded-full bg-white/5 border border-white/10 items-center justify-center relative">
-                  <Bell size={18} color="#FFFFFF" />
-                  {unreadAnnouncementCount > 0 ? (
-                    <Box className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#EF4444] border border-black" />
-                  ) : null}
-                </Box>
-              </TouchableOpacity>
+              />
               <GlassLanguageToggle />
             </HStack>
           </Box>
