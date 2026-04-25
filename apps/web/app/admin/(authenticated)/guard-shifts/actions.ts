@@ -3,8 +3,9 @@
 import { prisma } from '@repo/database';
 import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
-import { parse, addDays, isBefore } from 'date-fns';
+import { isBefore } from 'date-fns';
 import { Prisma, ShiftStatus } from '@prisma/client';
+import { parseShiftTypeTimeOnDate } from '@repo/shared';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { getActiveSites } from '@repo/database';
 import { getActiveEmployeesSummary } from '@repo/database';
@@ -76,12 +77,12 @@ export async function createShift(
     // date is YYYY-MM-DD
     // startTime/endTime is HH:mm
     const dateObj = new Date(`${date}T00:00:00Z`);
-    const startDateTime = parse(`${date} ${shiftType.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
-    let endDateTime = parse(`${date} ${shiftType.endTime}`, 'yyyy-MM-dd HH:mm', new Date());
+    const startDateTime = parseShiftTypeTimeOnDate(date, shiftType.startTime);
+    let endDateTime = parseShiftTypeTimeOnDate(date, shiftType.endTime);
 
     // Handle overnight shift
     if (isBefore(endDateTime, startDateTime)) {
-      endDateTime = addDays(endDateTime, 1);
+      endDateTime = new Date(endDateTime.getTime() + 24 * 60 * 60 * 1000);
     }
 
     if (isBefore(startDateTime, new Date())) {
@@ -186,11 +187,11 @@ export async function updateShift(
     }
 
     const dateObj = new Date(`${date}T00:00:00Z`);
-    const startDateTime = parse(`${date} ${shiftType.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
-    let endDateTime = parse(`${date} ${shiftType.endTime}`, 'yyyy-MM-dd HH:mm', new Date());
+    const startDateTime = parseShiftTypeTimeOnDate(date, shiftType.startTime);
+    let endDateTime = parseShiftTypeTimeOnDate(date, shiftType.endTime);
 
     if (isBefore(endDateTime, startDateTime)) {
-      endDateTime = addDays(endDateTime, 1);
+      endDateTime = new Date(endDateTime.getTime() + 24 * 60 * 60 * 1000);
     }
 
     // Check for overlapping shifts
@@ -398,11 +399,11 @@ export async function bulkCreateShifts(
       }
 
       const dateObj = new Date(`${dateStr}T00:00:00Z`);
-      const startDateTime = parse(`${dateStr} ${shiftType.startTime}`, 'yyyy-MM-dd HH:mm', new Date());
-      let endDateTime = parse(`${dateStr} ${shiftType.endTime}`, 'yyyy-MM-dd HH:mm', new Date());
+      const startDateTime = parseShiftTypeTimeOnDate(dateStr, shiftType.startTime);
+      let endDateTime = parseShiftTypeTimeOnDate(dateStr, shiftType.endTime);
 
       if (isBefore(endDateTime, startDateTime)) {
-        endDateTime = addDays(endDateTime, 1);
+        endDateTime = new Date(endDateTime.getTime() + 24 * 60 * 60 * 1000);
       }
 
       if (isBefore(startDateTime, new Date())) {

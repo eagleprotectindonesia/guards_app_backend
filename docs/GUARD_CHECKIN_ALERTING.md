@@ -103,6 +103,12 @@ Admins monitor operations via a unified Socket.io connection.
 
 ## 3. API Reference
 
+## 4. Guard Shift Type Time Semantics
+
+- Guard Shift Types now accept `24:00` in addition to `00:00`-`23:59`.
+- `24:00` is normalized as next-day `00:00` when creating/updating concrete `Shift.startsAt` and `Shift.endsAt` timestamps.
+- Alerting logic does not need a separate `24:00` branch because monitoring uses the normalized `startsAt`/`endsAt` datetimes.
+
 ### `POST /api/employee/shifts/[id]/attendance`
 records the initial presence for a shift.
 -   **Body**: `{ "location": { "lat": number, "lng": number } }`

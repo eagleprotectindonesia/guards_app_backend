@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js';
+import { isValidShiftTypeTime } from '@repo/shared';
 
 export const ShiftStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 'missed', 'cancelled']);
 
@@ -124,14 +125,21 @@ export const updateGuardPasswordSchema = updateEmployeePasswordSchema;
 
 // --- Shift Type ---
 const timeFormat = z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:mm format');
+const guardShiftTypeTimeFormat = z
+  .string()
+  .refine(value => isValidShiftTypeTime(value), 'Time must be in HH:mm format or 24:00');
 
 export const createShiftTypeSchema = z.object({
+  name: z.string().min(1),
+  startTime: guardShiftTypeTimeFormat,
+  endTime: guardShiftTypeTimeFormat,
+});
+
+export const createOfficeShiftTypeSchema = z.object({
   name: z.string().min(1),
   startTime: timeFormat,
   endTime: timeFormat,
 });
-
-export const createOfficeShiftTypeSchema = createShiftTypeSchema;
 
 // --- Shift ---
 export const createShiftSchema = z

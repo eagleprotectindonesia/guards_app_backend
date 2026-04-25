@@ -4,6 +4,7 @@
 export * from './scheduling';
 export * from './geo';
 export * from './office-config';
+export * from './shift-time';
 
 // ============================================================================
 // Localization (i18n messages and types)

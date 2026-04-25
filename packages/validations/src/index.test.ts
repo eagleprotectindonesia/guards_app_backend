@@ -1,4 +1,9 @@
-import { updateDefaultOfficeWorkScheduleSchema, updateOfficeWorkScheduleSchema } from './index';
+import {
+  createOfficeShiftTypeSchema,
+  createShiftTypeSchema,
+  updateDefaultOfficeWorkScheduleSchema,
+  updateOfficeWorkScheduleSchema,
+} from './index';
 
 const overnightDays = [
   { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
@@ -44,5 +49,39 @@ describe('office work schedule validation', () => {
     if (!result.success) {
       expect(result.error.issues[0]?.message).toBe('End time must be different from start time');
     }
+  });
+});
+
+describe('guard shift type validation', () => {
+  test('accepts 24:00 for guard shift type times', () => {
+    const result = createShiftTypeSchema.safeParse({
+      name: 'Night',
+      startTime: '16:00',
+      endTime: '24:00',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  test('rejects invalid 24:xx values for guard shift type times', () => {
+    const result = createShiftTypeSchema.safeParse({
+      name: 'Broken',
+      startTime: '24:01',
+      endTime: '08:00',
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('office shift type validation', () => {
+  test('rejects 24:00 for office shift type times', () => {
+    const result = createOfficeShiftTypeSchema.safeParse({
+      name: 'Office Night',
+      startTime: '16:00',
+      endTime: '24:00',
+    });
+
+    expect(result.success).toBe(false);
   });
 });

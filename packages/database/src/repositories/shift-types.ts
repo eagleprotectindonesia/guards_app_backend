@@ -1,18 +1,17 @@
 import { db as prisma } from "../prisma/client";
 import { Prisma } from '@prisma/client';
-import { parse, addDays, isBefore, differenceInMinutes } from 'date-fns';
 import { getUserFriendlyPrismaError } from '../utils/prisma-errors';
+import { getShiftTypeTimeMinutes, parseShiftTypeTimeOnDate } from '@repo/shared';
 
 export function getShiftTypeDurationInMins(startTime: string, endTime: string) {
-  const dummyDate = '2024-01-01';
-  const start = parse(`${dummyDate} ${startTime}`, 'yyyy-MM-dd HH:mm', new Date());
-  let end = parse(`${dummyDate} ${endTime}`, 'yyyy-MM-dd HH:mm', new Date());
+  const start = getShiftTypeTimeMinutes(startTime);
+  let end = getShiftTypeTimeMinutes(endTime);
 
-  if (isBefore(end, start)) {
-    end = addDays(end, 1);
+  if (end < start) {
+    end += 24 * 60;
   }
 
-  return differenceInMinutes(end, start);
+  return end - start;
 }
 
 export async function getShiftTypeSummaries(orderBy: Prisma.ShiftTypeOrderByWithRelationInput = { name: 'asc' }) {
@@ -272,11 +271,11 @@ export async function updateFutureShifts(shiftTypeId: string, startTime: string,
       futureShifts.map(async shift => {
         const dateStr = shift.date.toISOString().split('T')[0];
 
-        const startDateTime = parse(`${dateStr} ${startTime}`, 'yyyy-MM-dd HH:mm', new Date());
-        let endDateTime = parse(`${dateStr} ${endTime}`, 'yyyy-MM-dd HH:mm', new Date());
+        const startDateTime = parseShiftTypeTimeOnDate(dateStr, startTime);
+        let endDateTime = parseShiftTypeTimeOnDate(dateStr, endTime);
 
-        if (isBefore(endDateTime, startDateTime)) {
-          endDateTime = addDays(endDateTime, 1);
+        if (endDateTime < startDateTime) {
+          endDateTime = new Date(endDateTime.getTime() + 24 * 60 * 60 * 1000);
         }
 
         await prisma.shift.update({

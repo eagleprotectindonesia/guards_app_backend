@@ -663,6 +663,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      date-fns:
+        specifier: ^4.1.0
+        version: 4.1.0
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.5.0
@@ -693,6 +696,9 @@ importers:
 
   packages/validations:
     dependencies:
+      '@repo/shared':
+        specifier: workspace:*
+        version: link:../shared
       libphonenumber-js:
         specifier: ^1.12.31
         version: 1.12.39

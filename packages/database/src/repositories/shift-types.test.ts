@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { createShiftTypeWithChangelog, updateShiftTypeWithChangelog } from './shift-types';
+import { createShiftTypeWithChangelog, getShiftTypeDurationInMins, updateShiftTypeWithChangelog } from './shift-types';
 import { db as prisma } from '../prisma/client';
 
 jest.mock('../prisma/client', () => ({
@@ -112,5 +112,19 @@ describe('shift types repository', () => {
     await expect(updateShiftTypeWithChangelog('shift-type-1', { name: 'Morning' }, 'admin-1')).rejects.toThrow(
       'A Shift Type with this name already exists. Please use a different name.'
     );
+  });
+});
+
+describe('getShiftTypeDurationInMins', () => {
+  test('calculates duration for end time 24:00', () => {
+    expect(getShiftTypeDurationInMins('16:00', '24:00')).toBe(480);
+  });
+
+  test('calculates overnight duration when start is 24:00', () => {
+    expect(getShiftTypeDurationInMins('24:00', '06:00')).toBe(360);
+  });
+
+  test('calculates duration for regular overnight shifts', () => {
+    expect(getShiftTypeDurationInMins('22:00', '06:00')).toBe(480);
   });
 });
