@@ -23,6 +23,11 @@ export interface NavItem {
   requiredPermission?: PermissionCode;
 }
 
+export interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
 export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
   return [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -76,6 +81,49 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
     { name: 'Guard Checkins', href: '/admin/guard-checkins', icon: ClipboardCheck, requiredPermission: 'checkins:view' },
     { name: 'Alerts', href: '/admin/alerts', icon: Bell, requiredPermission: 'alerts:view' },
   ];
+}
+
+export function getAdminNavGroups(officeWorkSchedulesEnabled = true): NavGroup[] {
+  const allItems = getAdminNavItems(officeWorkSchedulesEnabled);
+  const byName = new Map(allItems.map(item => [item.name, item]));
+
+  return [
+    {
+      label: 'Dashboard',
+      items: [byName.get('Dashboard')].filter(Boolean) as NavItem[],
+    },
+    {
+      label: 'Office',
+      items: [
+        byName.get('Offices'),
+        byName.get('Office Schedules'),
+        byName.get('Office Shift Types'),
+        byName.get('Office Shifts'),
+        byName.get('Office Memos'),
+      ].filter(Boolean) as NavItem[],
+    },
+    {
+      label: 'Guard',
+      items: [
+        byName.get('Sites'),
+        byName.get('Guard Shift Types'),
+        byName.get('Guard Shifts'),
+        byName.get('Guard Checkins'),
+        byName.get('Alerts'),
+        byName.get('Chat'),
+      ].filter(Boolean) as NavItem[],
+    },
+    {
+      label: 'Employee Management',
+      items: [byName.get('Employees'), byName.get('Attendance'), byName.get('Holiday Calendar'), byName.get('Leave Requests')].filter(
+        Boolean
+      ) as NavItem[],
+    },
+    {
+      label: 'System',
+      items: [byName.get('Admins'), byName.get('Roles'), byName.get('Settings')].filter(Boolean) as NavItem[],
+    },
+  ].filter(group => group.items.length > 0);
 }
 
 export const ADMIN_SECONDARY_NAV_ITEMS: NavItem[] = [
