@@ -5,6 +5,7 @@ import {
   OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING,
   OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING,
 } from '@repo/database';
+import { OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING } from '@repo/shared';
 
 jest.mock('@/lib/admin-auth', () => ({
   checkSuperAdmin: jest.fn(),
@@ -13,6 +14,7 @@ jest.mock('@/lib/admin-auth', () => ({
 jest.mock('@repo/database', () => ({
   updateSystemSettingWithChangelog: jest.fn(),
   OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING: 'OFFICE_ATTENDANCE_MAX_DISTANCE_METERS',
+  OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING: 'OFFICE_ATTENDANCE_REQUIRE_PHOTO',
   OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING: 'OFFICE_JOB_TITLE_CATEGORY_MAP',
   getDefaultOfficeWorkSchedule: jest.fn(),
   updateOfficeWorkSchedule: jest.fn(),
@@ -71,6 +73,7 @@ describe('updateSettings Action', () => {
     formData.append('officeJobTitles:staff', 'Receptionist\nSupport Officer');
     formData.append('officeJobTitles:management', 'Branch Manager');
     formData.append('officeAttendanceMaxDistance', '15');
+    formData.append('officeAttendanceRequirePhoto', '1');
 
     const result = await updateSettings({ success: false }, formData);
 
@@ -87,6 +90,12 @@ describe('updateSettings Action', () => {
       'admin-1',
       expect.any(String)
     );
-    expect(updateSystemSettingWithChangelog).toHaveBeenCalledTimes(4);
+    expect(updateSystemSettingWithChangelog).toHaveBeenCalledWith(
+      OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING,
+      '1',
+      'admin-1',
+      expect.any(String)
+    );
+    expect(updateSystemSettingWithChangelog).toHaveBeenCalledTimes(5);
   });
 });

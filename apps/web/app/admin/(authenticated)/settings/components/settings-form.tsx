@@ -1,7 +1,6 @@
 'use client';
 
 import { useActionState, useEffect } from 'react';
-import Link from 'next/link';
 import { updateSettings } from '../actions';
 import { ActionState } from '@/types/actions';
 import { UpdateSettingsInput } from '@repo/validations';
@@ -10,6 +9,7 @@ import { SystemSetting } from '@prisma/client';
 import type { Serialized } from '@/lib/server-utils';
 import {
   OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING,
+  OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING,
   OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING,
   parseOfficeJobTitleCategoryMap,
 } from '@repo/shared';
@@ -32,11 +32,15 @@ export default function SettingsForm({ settings, defaultOfficeSchedule, showDefa
   const officeAttendanceDistanceSetting = settings.find(
     setting => setting.name === OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING
   );
+  const officeAttendanceRequirePhotoSetting = settings.find(
+    setting => setting.name === OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING
+  );
   const officeJobTitleMap = parseOfficeJobTitleCategoryMap(officeJobTitleMapSetting?.value);
   const generalSettings = settings.filter(
     setting =>
       setting.name !== OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING &&
-      setting.name !== OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING
+      setting.name !== OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING &&
+      setting.name !== OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING
   );
 
   const [state, formAction, isPending] = useActionState<ActionState<UpdateSettingsInput>, FormData>(updateSettings, {
@@ -158,6 +162,29 @@ export default function SettingsForm({ settings, defaultOfficeSchedule, showDefa
               This is stored now for the later office-attendance enforcement phase.
             </p>
           </div>
+
+          <div className="mt-6">
+            <label htmlFor="officeAttendanceRequirePhoto" className="block font-medium text-foreground mb-1">
+              Require Office Attendance Photo
+            </label>
+            <label className="inline-flex items-center gap-3">
+              <input
+                type="checkbox"
+                name="officeAttendanceRequirePhoto"
+                id="officeAttendanceRequirePhoto"
+                value="1"
+                defaultChecked={officeAttendanceRequirePhotoSetting?.value === '1'}
+                disabled={!isSuperAdmin}
+                className="h-4 w-4 rounded border-border"
+              />
+              <span className={isSuperAdmin ? 'text-sm text-foreground' : 'text-sm text-muted-foreground'}>
+                Require camera photo for office clock-in
+              </span>
+            </label>
+            <p className="text-xs text-muted-foreground mt-2">
+              When disabled, employees can clock in without taking or uploading a photo.
+            </p>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6">
@@ -177,7 +204,7 @@ export default function SettingsForm({ settings, defaultOfficeSchedule, showDefa
                     </label>
                     <p className="text-xs text-muted-foreground font-mono mt-0.5">{setting.name}</p>
                   </div>
-                  <div className="flex-[2]">
+                  <div className="flex-2">
                     <input
                       type="text"
                       name={`value:${setting.name}`}

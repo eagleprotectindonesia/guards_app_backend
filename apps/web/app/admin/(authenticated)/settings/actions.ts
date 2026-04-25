@@ -4,6 +4,7 @@ import { checkSuperAdmin } from '@/lib/admin-auth';
 import {
   assertNoDuplicateOfficeJobTitles,
   OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING,
+  OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING,
   OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING,
   serializeOfficeJobTitleCategoryMap,
 } from '@repo/shared';
@@ -21,6 +22,8 @@ const OFFICE_JOB_TITLE_CATEGORY_MAP_NOTE =
   'Maps external office employee job titles into the staff and management categories.';
 const OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_NOTE =
   'Maximum allowed distance (in meters) between an office employee and office coordinates for future office attendance enforcement.';
+const OFFICE_ATTENDANCE_REQUIRE_PHOTO_NOTE =
+  'Require office attendance photo capture during clock-in (1=enabled, 0=disabled).';
 
 function parseTitleList(rawValue: FormDataEntryValue | null) {
   if (typeof rawValue !== 'string') return [];
@@ -50,10 +53,11 @@ export async function updateSettings(
     management: parseTitleList(formData.get('officeJobTitles:management')),
   };
   const officeAttendanceMaxDistance = formData.get('officeAttendanceMaxDistance');
+  const officeAttendanceRequirePhoto = formData.get('officeAttendanceRequirePhoto');
   
   formData.forEach((val, key) => {
     if (typeof val !== 'string' || key.startsWith('$')) return;
-    if (key.startsWith('officeJobTitles:') || key === 'officeAttendanceMaxDistance') return;
+    if (key.startsWith('officeJobTitles:') || key === 'officeAttendanceMaxDistance' || key === 'officeAttendanceRequirePhoto') return;
     
     const [field, name] = key.split(':');
     if (!name) return;
@@ -103,6 +107,10 @@ export async function updateSettings(
   settingsMap[OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING] = {
     value: typeof officeAttendanceMaxDistance === 'string' && officeAttendanceMaxDistance.trim() ? officeAttendanceMaxDistance.trim() : '10',
     note: OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_NOTE,
+  };
+  settingsMap[OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING] = {
+    value: officeAttendanceRequirePhoto === '1' ? '1' : '0',
+    note: OFFICE_ATTENDANCE_REQUIRE_PHOTO_NOTE,
   };
 
   try {

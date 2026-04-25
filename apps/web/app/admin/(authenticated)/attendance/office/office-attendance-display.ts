@@ -74,6 +74,7 @@ function toUnifiedRow(
     businessDate: formatBusinessDate(clockInAt, BUSINESS_TIMEZONE),
     clockInAt: clockIn.recordedAt,
     clockOutAt,
+    clockInPicture: clockIn.picture ?? null,
     paidHours: formatPaidHours(paidMinutes),
     clockInMetadata: clockIn.metadata,
     clockOutMetadata: clockOut?.metadata ?? null,

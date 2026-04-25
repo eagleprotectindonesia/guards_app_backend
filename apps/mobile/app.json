@@ -22,7 +22,7 @@
         "UIDeviceFamily": [1],
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "The app needs access to your photo library to let you attach photos and videos to chat messages.",
-        "NSCameraUsageDescription": "The app needs access to your camera to let you take photos and videos to attach to chat messages.",
+        "NSCameraUsageDescription": "The app needs access to your camera to take attendance photos and attach photos or videos to chat messages.",
         "NSLocationWhenInUseUsageDescription": "We use your location to record attendance, perform shift check-in, and let you manually share your location in chat.",
         "NSFaceIDUsageDescription": "We use Face ID to let you sign in securely with biometric authentication.",
         "UIBackgroundModes": ["fetch", "remote-notification"]

@@ -410,6 +410,11 @@ async function main() {
         value: defaultOfficeSchedule.id,
         note: 'Default office work schedule template used when an office employee has no assigned custom office schedule.',
       },
+      {
+        name: 'OFFICE_ATTENDANCE_REQUIRE_PHOTO',
+        value: '0',
+        note: 'Require office attendance photo capture for clock-in (1=ON, 0=OFF).',
+      },
     ];
 
     await Promise.all(

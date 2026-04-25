@@ -8,6 +8,7 @@ export interface SystemSettings {
   GEOFENCE_GRACE_MINUTES: number;
   LOCATION_DISABLED_GRACE_MINUTES: number;
   ENABLE_LOCATION_MONITORING: boolean;
+  OFFICE_ATTENDANCE_REQUIRE_PHOTO: boolean;
 }
 
 export const useSettings = () => {

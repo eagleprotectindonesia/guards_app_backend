@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS: SystemSettings = {
   GEOFENCE_GRACE_MINUTES: 5,
   LOCATION_DISABLED_GRACE_MINUTES: 2,
   ENABLE_LOCATION_MONITORING: false,
+  OFFICE_ATTENDANCE_REQUIRE_PHOTO: false,
 };
 
 export function getSettings(): SystemSettings {

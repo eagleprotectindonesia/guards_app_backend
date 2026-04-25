@@ -133,6 +133,7 @@ const OFFICE_ATTENDANCE_ERROR_KEY_MAP: Record<string, string> = {
   office_location_not_configured: 'officeAttendance.errors.officeLocationNotConfigured',
   not_working_day: 'officeAttendance.errors.notWorkingDay',
   office_hours_ended: 'officeAttendance.errors.officeHoursEnded',
+  photo_required: 'officeAttendance.errors.photoRequired',
   clock_in_required: 'officeAttendance.errors.clockInRequired',
   office_attendance_already_clocked_in: 'officeAttendance.errors.alreadyClockedIn',
   office_attendance_completed: 'officeAttendance.errors.attendanceCompleted',

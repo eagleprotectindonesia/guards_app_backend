@@ -16,6 +16,7 @@ import {
   SerializedOfficeAttendanceWithRelationsDto,
 } from '@/types/attendance';
 import { forbidden } from 'next/navigation';
+import { getCachedPresignedDownloadUrl } from '@/lib/s3';
 import {
   buildOfficeAttendanceDisplayRows,
   paginateOfficeAttendanceDisplayRows,
@@ -72,6 +73,7 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
     status: att.status,
     employeeId: att.employeeId,
     officeId: att.officeId,
+    picture: att.picture ?? null,
     metadata: att.metadata as OfficeAttendanceMetadataDto | null,
     office: att.office
       ? {
@@ -87,6 +89,13 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
         }
       : null,
   }));
+
+  await Promise.all(
+    serializedAttendances.map(async attendance => {
+      if (!attendance.picture || attendance.picture.startsWith('http')) return;
+      attendance.picture = await getCachedPresignedDownloadUrl(attendance.picture);
+    })
+  );
 
   const unifiedAttendances = await buildOfficeAttendanceDisplayRows(
     serializedAttendances,

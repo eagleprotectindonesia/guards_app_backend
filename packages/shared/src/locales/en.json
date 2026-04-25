@@ -34,7 +34,8 @@
     "seconds": "seconds",
     "loading": "Loading...",
     "processing": "Processing...",
-    "today": "Today"
+    "today": "Today",
+    "success": "Success"
   },
   "attendance": {
     "success": "Attendance Recorded Successfully!",
@@ -234,6 +235,9 @@
     "in": "In",
     "out": "Out",
     "noAttendance": "No attendance recorded",
+    "takingPhoto": "Taking attendance photo...",
+    "optimizingPhoto": "Optimizing attendance photo...",
+    "uploadingPhoto": "Uploading attendance photo...",
     "holiday": {
       "headlineHoliday": "Holiday today",
       "headlineWeekOff": "Day off today",
@@ -261,6 +265,8 @@
       "officeLocationNotConfigured": "The assigned office does not have a configured location.",
       "notWorkingDay": "Office attendance is only available on configured working days.",
       "officeHoursEnded": "Clock-in is no longer allowed after the configured office end time.",
+      "cameraRequired": "Camera permission is required to clock in.",
+      "photoRequired": "Attendance photo is required to clock in.",
       "clockInRequired": "Clock-in is required before clock-out.",
       "alreadyClockedIn": "Clock-in has already been recorded for this schedule window.",
       "attendanceCompleted": "Office attendance has already been completed for this schedule window.",

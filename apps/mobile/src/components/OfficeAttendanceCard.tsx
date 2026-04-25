@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { format } from 'date-fns';
+import { File } from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
+import * as ImageManipulator from 'expo-image-manipulator';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { CalendarDays, CheckCircle2, Clock3, LogOut, MapPin } from 'lucide-react-native';
@@ -19,6 +22,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCustomToast } from '../hooks/useCustomToast';
 import { useOfficeAttendance, useRecordOfficeAttendance } from '../hooks/useOfficeAttendance';
 import { useProfile } from '../hooks/useProfile';
+import { useSettings } from '../hooks/useSettings';
+import { uploadToS3 } from '../api/upload';
 import {
   getOfficeHolidayDisplayContent,
   getOfficeScheduleDisplayState,
@@ -30,6 +35,28 @@ type Props = {
   enabled?: boolean;
 };
 
+const ATTENDANCE_PHOTO_MAX_DIMENSION = 1280;
+const ATTENDANCE_PHOTO_QUALITY = 0.8;
+const ATTENDANCE_PHOTO_CONTENT_TYPE = 'image/webp';
+
+type AttendancePhotoUpload = {
+  key: string;
+  metadata: {
+    pictureOriginal?: {
+      width?: number;
+      height?: number;
+      fileSize?: number;
+      contentType?: string;
+    };
+    pictureOptimized: {
+      width?: number;
+      height?: number;
+      fileSize: number;
+      contentType: string;
+    };
+  };
+};
+
 export default function OfficeAttendanceCard({ office, enabled = true }: Props) {
   const { t } = useTranslation();
   const { showAlert } = useAlert();
@@ -38,8 +65,10 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
   const [statusMessage, setStatusMessage] = useState('');
 
   const { data, refetch, isRefetching } = useOfficeAttendance(enabled);
+  const { data: settings } = useSettings();
   const { data: profileData } = useProfile();
   const recordMutation = useRecordOfficeAttendance();
+  const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
 
   const attendances = data?.attendances ?? [];
   const scheduleContext = data?.scheduleContext;
@@ -47,28 +76,13 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
   const scheduleDisplay = getOfficeScheduleDisplayState(scheduleContext, attendanceState);
   const holidayDisplay = getOfficeHolidayDisplayContent(t, scheduleDisplay.holidayPolicy);
 
-  console.log('[OfficeAttendanceCard] Render state', {
-    hasScheduleContext: Boolean(scheduleContext),
-    isWorkingDay: scheduleDisplay.isWorkingDay,
-    businessDate: scheduleDisplay.businessDate,
-    holidayPolicy: scheduleDisplay.holidayPolicy
-      ? {
-          entryId: scheduleDisplay.holidayPolicy.entry?.id,
-          title: scheduleDisplay.holidayPolicy.entry?.title,
-          type: scheduleDisplay.holidayPolicy.entry?.type,
-          affectsAttendance: scheduleDisplay.holidayPolicy.entry?.affectsAttendance,
-          marksAsWorkingDay: scheduleDisplay.holidayPolicy.marksAsWorkingDay,
-        }
-      : null,
-    holidayDisplay,
-  });
-
   const latestAttendance = scheduleDisplay.latestAttendance ?? attendances[0];
 
   const resolvedOffice = office ?? profileData?.employee.office ?? user?.office ?? latestAttendance?.office ?? null;
   const isClockedIn = scheduleDisplay.isClockedIn;
   const hasClockedOut = scheduleDisplay.isCompleted;
   const hasAssignedOffice = Boolean(resolvedOffice?.id);
+  const requirePhoto = settings?.OFFICE_ATTENDANCE_REQUIRE_PHOTO ?? false;
 
   const requestLocation = async () => {
     const permission = await Location.requestForegroundPermissionsAsync();
@@ -96,6 +110,91 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
     }
   };
 
+  const buildResizeAction = (width?: number, height?: number) => {
+    if (!width || !height) return null;
+
+    const longestSide = Math.max(width, height);
+    if (longestSide <= ATTENDANCE_PHOTO_MAX_DIMENSION) return null;
+
+    if (width >= height) {
+      return { resize: { width: ATTENDANCE_PHOTO_MAX_DIMENSION } };
+    }
+
+    return { resize: { height: ATTENDANCE_PHOTO_MAX_DIMENSION } };
+  };
+
+  const captureAndUploadAttendancePhoto = async (): Promise<AttendancePhotoUpload | null> => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (permission.status !== 'granted') {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      toast.error(
+        t('attendance.permissionDeniedTitle'),
+        t('officeAttendance.errors.cameraRequired', 'Camera permission is required to clock in.')
+      );
+      return null;
+    }
+
+    setStatusMessage(t('officeAttendance.takingPhoto', 'Taking attendance photo'));
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: false,
+      mediaTypes: ['images'],
+      quality: 1,
+    });
+
+    if (result.canceled || !result.assets[0]?.uri) {
+      setStatusMessage(t('officeAttendance.errors.photoRequired', 'Attendance photo is required to clock in.'));
+      return null;
+    }
+
+    const asset = result.assets[0];
+    const resizeAction = buildResizeAction(asset.width, asset.height);
+
+    setStatusMessage(t('officeAttendance.optimizingPhoto', 'Optimizing attendance photo'));
+
+    const optimized = await ImageManipulator.manipulateAsync(asset.uri, resizeAction ? [resizeAction] : [], {
+      compress: ATTENDANCE_PHOTO_QUALITY,
+      format: ImageManipulator.SaveFormat.WEBP,
+    });
+    const optimizedFile = new File(optimized.uri);
+
+    if (!optimizedFile.exists || optimizedFile.size == null || optimizedFile.size <= 0) {
+      throw new Error('Optimized attendance photo is empty');
+    }
+
+    setStatusMessage(t('officeAttendance.uploadingPhoto', 'Uploading attendance photo'));
+
+    const upload = await uploadToS3(
+      optimized.uri,
+      `office-attendance-${Date.now()}.webp`,
+      ATTENDANCE_PHOTO_CONTENT_TYPE,
+      optimizedFile.size,
+      {
+        folder: 'office-attendance',
+        fileType: 'image',
+      }
+    );
+
+    return {
+      key: upload.key,
+      metadata: {
+        pictureOriginal: {
+          width: asset.width,
+          height: asset.height,
+          fileSize: asset.fileSize,
+          contentType: asset.mimeType,
+        },
+        pictureOptimized: {
+          width: optimized.width,
+          height: optimized.height,
+          fileSize: upload.size,
+          contentType: upload.contentType,
+        },
+      },
+    };
+  };
+
   const handleRecordAttendance = async (nextStatus: 'present' | 'clocked_out') => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setStatusMessage(nextStatus === 'present' ? t('attendance.gettingLocation') : t('common.processing'));
@@ -109,8 +208,23 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
     setStatusMessage(nextStatus === 'present' ? t('attendance.recording') : t('common.processing'));
 
     try {
+      let photoUpload: AttendancePhotoUpload | null = null;
+      if (nextStatus === 'present' && requirePhoto) {
+        setIsPhotoProcessing(true);
+        photoUpload = await captureAndUploadAttendancePhoto();
+        setIsPhotoProcessing(false);
+
+        if (!photoUpload) {
+          return;
+        }
+
+        setStatusMessage(t('attendance.recording'));
+      }
+
       await recordMutation.mutateAsync({
         location: location ?? undefined,
+        metadata: photoUpload?.metadata,
+        picture: photoUpload?.key,
         status: nextStatus,
       });
 
@@ -130,6 +244,8 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setStatusMessage(message);
       toast.error(t('officeAttendance.title'), message);
+    } finally {
+      setIsPhotoProcessing(false);
     }
   };
 
@@ -300,7 +416,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
               </HStack>
             </Box>
 
-            <Pressable onPress={handleClockOutPress} disabled={recordMutation.isPending}>
+            <Pressable onPress={handleClockOutPress} disabled={recordMutation.isPending || isPhotoProcessing}>
               {({ pressed }: { pressed: boolean }) => (
                 <LinearGradient
                   colors={['#DC2626', '#991B1B']}
@@ -314,7 +430,11 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
                   }}
                 >
                   <HStack space="sm" className="justify-center items-center">
-                    {recordMutation.isPending ? <Spinner className="text-white" /> : <LogOut size={18} color="white" />}
+                    {recordMutation.isPending || isPhotoProcessing ? (
+                      <Spinner className="text-white" />
+                    ) : (
+                      <LogOut size={18} color="white" />
+                    )}
                     <Text className="text-white font-bold uppercase tracking-[1px]">
                       {t('officeAttendance.clockOut')}
                     </Text>
@@ -356,7 +476,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
           <VStack space="sm">
             <Pressable
               onPress={scheduleDisplay.canClockIn ? () => handleRecordAttendance('present') : undefined}
-              disabled={!scheduleDisplay.canClockIn || recordMutation.isPending}
+              disabled={!scheduleDisplay.canClockIn || recordMutation.isPending || isPhotoProcessing}
             >
               {({ pressed }: { pressed: boolean }) => (
                 <LinearGradient
@@ -371,7 +491,11 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
                   }}
                 >
                   <HStack space="sm" className="justify-center items-center">
-                    {recordMutation.isPending ? <Spinner className="text-white" /> : <Clock3 size={18} color="white" />}
+                    {recordMutation.isPending || isPhotoProcessing ? (
+                      <Spinner className="text-white" />
+                    ) : (
+                      <Clock3 size={18} color="white" />
+                    )}
                     <Text className="text-white font-bold uppercase tracking-[1px]">
                       {t('officeAttendance.clockIn')}
                     </Text>

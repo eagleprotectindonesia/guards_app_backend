@@ -51,22 +51,6 @@ export default function OfficeAttendanceCarousel({ weeklyDays, isLoading }: Offi
     const holidayDisplay = getOfficeHolidayDisplayContent(t, day.holidayPolicy);
     const holidayType = day.holidayPolicy?.entry?.type;
 
-    console.log('[OfficeAttendanceCarousel] Day render', {
-      date: day.date,
-      dateKey: day.dateKey,
-      isWorkingDay: day.isWorkingDay,
-      holidayPolicy: day.holidayPolicy
-        ? {
-            entryId: day.holidayPolicy.entry.id,
-            title: day.holidayPolicy.entry.title,
-            type: day.holidayPolicy.entry.type,
-            affectsAttendance: day.holidayPolicy.entry.affectsAttendance,
-            marksAsWorkingDay: day.holidayPolicy.marksAsWorkingDay,
-          }
-        : null,
-      holidayDisplay,
-    });
-
     return (
       <Box
         key={day.date}
@@ -106,7 +90,7 @@ export default function OfficeAttendanceCarousel({ weeklyDays, isLoading }: Offi
             <VStack space="md">
               {holidayDisplay ? (
                 <Box
-                  className={`rounded-2xl p-4 border ${
+                  className={`rounded-2xl border ${
                     holidayType === 'emergency'
                       ? 'bg-warning-500/10 border-warning-500/20'
                       : holidayType === 'special_working_day'
@@ -138,14 +122,6 @@ export default function OfficeAttendanceCarousel({ weeklyDays, isLoading }: Offi
                     >
                       {holidayDisplay.impact}
                     </Text>
-                    <HStack className="justify-between items-center pt-1">
-                      <Text size="sm" className="text-typography-400">
-                        {t('officeAttendance.holiday.compensation')}
-                      </Text>
-                      <Text size="sm" className="text-white">
-                        {holidayDisplay.paidStatus}
-                      </Text>
-                    </HStack>
                   </VStack>
                 </Box>
               ) : null}
@@ -207,7 +183,7 @@ export default function OfficeAttendanceCarousel({ weeklyDays, isLoading }: Offi
               )}
             </VStack>
           ) : (
-            <VStack space="md" className="py-4">
+            <VStack space="md">
               {holidayDisplay ? (
                 <Box
                   className={`rounded-2xl p-4 border ${
@@ -280,7 +256,6 @@ export default function OfficeAttendanceCarousel({ weeklyDays, isLoading }: Offi
               key={i}
               className={`w-1.5 h-1.5 rounded-full ${i === activeIndex ? 'bg-blue-500' : 'bg-white/10'}`}
               style={{
-                // @ts-ignore
                 boxShadow: i === activeIndex ? '0 0 8px rgba(59, 130, 246, 0.4)' : 'none',
               }}
             />

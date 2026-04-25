@@ -136,8 +136,8 @@ export const createOfficeShiftTypeSchema = createShiftTypeSchema;
 // --- Shift ---
 export const createShiftSchema = z
   .object({
-    siteId: z.string().uuid(),
-    shiftTypeId: z.string().uuid(),
+    siteId: z.uuid(),
+    shiftTypeId: z.uuid(),
     employeeId: z.string().min(1).optional(),
     // For backward compatibility
     guardId: z.string().min(1).optional(),
@@ -152,7 +152,7 @@ export const createShiftSchema = z
   });
 
 export const createOfficeShiftSchema = z.object({
-  officeShiftTypeId: z.string().uuid(),
+  officeShiftTypeId: z.uuid(),
   employeeId: z.string().min(1),
   date: z.string().min(1),
   note: z.string().optional(),
@@ -203,7 +203,7 @@ export const updateDepartmentSchema = createDepartmentSchema;
 export const createDesignationSchema = z.object({
   name: z.string().min(1, 'Designation name is required'),
   role: EmployeeRoleEnum,
-  departmentId: z.string().uuid('Invalid department ID'),
+  departmentId: z.uuid('Invalid department ID'),
   note: z.string().optional(),
 });
 
@@ -257,7 +257,7 @@ export const updateDefaultOfficeWorkScheduleSchema = z.object({
 });
 
 export const createEmployeeOfficeWorkScheduleAssignmentSchema = z.object({
-  officeWorkScheduleId: z.string().uuid('Schedule template is required'),
+  officeWorkScheduleId: z.uuid('Schedule template is required'),
   effectiveFrom: z.string().min(1, 'Effective date is required'),
 });
 
@@ -275,6 +275,7 @@ export const updateOfficeSchema = z.object({
 export const createOfficeAttendanceSchema = z.object({
   employeeId: z.string().min(1).optional(),
   status: z.enum(['present', 'clocked_out']).default('present'),
+  picture: z.string().min(1).optional(),
   location: z
     .object({
       lat: z.number(),
@@ -349,7 +350,7 @@ export const holidayCalendarEntrySchema = z
 
 // --- Alert Reporting ---
 export const reportAlertSchema = z.object({
-  shiftId: z.string().uuid(),
+  shiftId: z.uuid(),
   reason: z.enum(['geofence_breach', 'location_services_disabled']),
   location: z
     .object({
@@ -361,7 +362,7 @@ export const reportAlertSchema = z.object({
 });
 
 export const resolveAlertSchema = z.object({
-  shiftId: z.string().uuid(),
+  shiftId: z.uuid(),
   reason: z.enum(['geofence_breach', 'location_services_disabled']),
 });
 

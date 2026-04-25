@@ -1,18 +1,14 @@
 import { GET } from '../app/api/employee/settings/route';
 import { verifyEmployeeSession } from '@/lib/employee-auth';
-import { prisma } from '@repo/database';
+import { getSystemSettingsByName } from '@repo/database';
 
 // Mock dependencies
 jest.mock('@/lib/employee-auth', () => ({
   verifyEmployeeSession: jest.fn(),
 }));
 
-jest.mock('@/lib/prisma', () => ({
-  prisma: {
-    systemSetting: {
-      findMany: jest.fn(),
-    },
-  },
+jest.mock('@repo/database', () => ({
+  getSystemSettingsByName: jest.fn(),
 }));
 
 // Helper to mock NextResponse.json
@@ -37,20 +33,22 @@ describe('Settings API', () => {
 
   test('returns default values if settings are missing', async () => {
     (verifyEmployeeSession as jest.Mock).mockResolvedValue(true);
-    (prisma.systemSetting.findMany as jest.Mock).mockResolvedValue([]);
+    (getSystemSettingsByName as jest.Mock).mockResolvedValue([]);
 
     const response = await GET();
     const data = await response.json();
 
     expect(data.GEOFENCE_GRACE_MINUTES).toBe(5);
     expect(data.LOCATION_DISABLED_GRACE_MINUTES).toBe(2);
+    expect(data.OFFICE_ATTENDANCE_REQUIRE_PHOTO).toBe(false);
   });
 
   test('returns sanitized values if DB contains invalid data', async () => {
     (verifyEmployeeSession as jest.Mock).mockResolvedValue(true);
-    (prisma.systemSetting.findMany as jest.Mock).mockResolvedValue([
+    (getSystemSettingsByName as jest.Mock).mockResolvedValue([
       { name: 'GEOFENCE_GRACE_MINUTES', value: 'not-a-number' },
       { name: 'LOCATION_DISABLED_GRACE_MINUTES', value: '-10' },
+      { name: 'OFFICE_ATTENDANCE_REQUIRE_PHOTO', value: 'invalid' },
     ]);
 
     const response = await GET();
@@ -60,5 +58,6 @@ describe('Settings API', () => {
     // We want it to be robust and return defaults if invalid
     expect(data.GEOFENCE_GRACE_MINUTES).toBe(5);
     expect(data.LOCATION_DISABLED_GRACE_MINUTES).toBe(2);
+    expect(data.OFFICE_ATTENDANCE_REQUIRE_PHOTO).toBe(false);
   });
 });

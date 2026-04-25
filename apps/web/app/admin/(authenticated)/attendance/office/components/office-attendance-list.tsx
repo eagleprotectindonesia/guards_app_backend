@@ -1,6 +1,7 @@
 'use client';
 
-import { Clock, Hotel } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, Eye, Hotel } from 'lucide-react';
 import { format } from 'date-fns';
 import {
   AttendanceOfficeSummary,
@@ -8,6 +9,7 @@ import {
   OfficeAttendanceMetadataDto,
   SerializedOfficeAttendanceDisplayDto,
 } from '@/types/attendance';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PaginationNav from '../../../components/pagination-nav';
 import OfficeAttendanceExport from './office-attendance-export';
 
@@ -36,6 +38,14 @@ type OfficeAttendanceListProps = {
 };
 
 export default function OfficeAttendanceList({ attendances, page, perPage, totalCount, offices }: OfficeAttendanceListProps) {
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewLabel, setPreviewLabel] = useState<string>('Attendance Photo');
+
+  const openPreview = (url: string, label: string) => {
+    setPreviewImageUrl(url);
+    setPreviewLabel(label);
+  };
+
   return (
     <div>
       {/* Header Section */}
@@ -65,13 +75,14 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Clock Out</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Paid hours</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Photo</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Location</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {attendances.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={10} className="py-8 text-center text-muted-foreground">
                     No office attendance records found.
                   </td>
                 </tr>
@@ -138,6 +149,26 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                       )}
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(() => {
+                          const clockInPicture = attendance.clockInPicture;
+                          if (!clockInPicture) return null;
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => openPreview(clockInPicture, 'Clock In Photo')}
+                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-muted transition-colors"
+                              title="View clock-in photo"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              In
+                            </button>
+                          );
+                        })()}
+                        {!attendance.clockInPicture ? <span>-</span> : null}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground">
                       <div className="flex flex-col text-xs gap-1">
                         <div>In: {buildLocationSummary(attendance.clockInMetadata)}</div>
                         <div>Out: {buildLocationSummary(attendance.clockOutMetadata)}</div>
@@ -155,6 +186,19 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
       </div>
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
+
+      <Dialog open={Boolean(previewImageUrl)} onOpenChange={open => !open && setPreviewImageUrl(null)}>
+        <DialogContent className="sm:max-w-4xl p-4">
+          <DialogHeader>
+            <DialogTitle>{previewLabel}</DialogTitle>
+          </DialogHeader>
+          {previewImageUrl ? (
+            <div className="w-full flex items-center justify-center overflow-auto">
+              <img src={previewImageUrl} alt={previewLabel} className="max-h-[75vh] w-auto max-w-full rounded-md" />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

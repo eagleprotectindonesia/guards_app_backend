@@ -9,6 +9,7 @@ import {
   recordOfficeAttendance,
   resolveOfficeAttendanceContextForEmployee,
 } from '@repo/database';
+import { OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING } from '@repo/shared';
 
 jest.mock('@/lib/employee-auth', () => ({
   getAuthenticatedEmployee: jest.fn(),
@@ -19,6 +20,7 @@ jest.mock('@repo/database', () => ({
   getLatestOfficeAttendanceForDay: jest.fn(),
   getOfficeById: jest.fn(),
   OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING: 'OFFICE_ATTENDANCE_MAX_DISTANCE_METERS',
+  OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING: 'OFFICE_ATTENDANCE_REQUIRE_PHOTO',
   getSystemSetting: jest.fn(),
   recordOfficeAttendance: jest.fn(),
   resolveOfficeAttendanceContextForEmployee: jest.fn(),
@@ -41,6 +43,7 @@ jest.mock('next/server', () => {
 describe('POST /api/employee/my/office-attendance', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '0' });
   });
 
   test('rejects office attendance on a non-working day', async () => {
@@ -118,6 +121,46 @@ describe('POST /api/employee/my/office-attendance', () => {
         }),
       })
     );
+  });
+
+  test('requires picture when OFFICE_ATTENDANCE_REQUIRE_PHOTO is enabled', async () => {
+    (getSystemSetting as jest.Mock).mockImplementation((name: string) => {
+      if (name === OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING) return Promise.resolve({ value: '1' });
+      return Promise.resolve({ value: '1000' });
+    });
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-photo-required',
+      role: 'office',
+      officeId: null,
+      fieldModeEnabled: true,
+    });
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: false,
+      startMinutes: 8 * 60,
+      businessDay: {
+        minutesSinceMidnight: 8 * 60 + 5,
+      },
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        status: 'present',
+      }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toMatchObject({
+      code: 'photo_required',
+    });
+    expect(recordOfficeAttendance).not.toHaveBeenCalled();
   });
 
   test('returns 200 when duplicate attendance resolves to an existing record', async () => {
@@ -659,7 +702,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       officeId: null,
     });
     expect(getOfficeById).not.toHaveBeenCalled();
-    expect(getSystemSetting).not.toHaveBeenCalled();
+    expect(getSystemSetting).not.toHaveBeenCalledWith(OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING);
     expect(recordOfficeAttendance).toHaveBeenCalledWith(
       expect.objectContaining({
         officeId: null,

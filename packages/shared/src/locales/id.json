@@ -34,7 +34,8 @@
     "seconds": "detik",
     "loading": "Memuat...",
     "processing": "Memproses...",
-    "today": "Hari Ini"
+    "today": "Hari Ini",
+    "success": "Berhasil"
   },
   "attendance": {
     "success": "Kehadiran Berhasil Direkam!",
@@ -234,6 +235,9 @@
     "in": "Masuk",
     "out": "Keluar",
     "noAttendance": "Belum ada presensi",
+    "takingPhoto": "Mengambil foto presensi...",
+    "optimizingPhoto": "Mengoptimalkan foto presensi...",
+    "uploadingPhoto": "Mengunggah foto presensi...",
     "holiday": {
       "headlineHoliday": "Libur hari ini",
       "headlineWeekOff": "Hari libur hari ini",
@@ -261,6 +265,8 @@
       "officeLocationNotConfigured": "Lokasi kantor yang ditugaskan belum dikonfigurasi.",
       "notWorkingDay": "Kehadiran kantor hanya tersedia pada hari kerja yang dikonfigurasi.",
       "officeHoursEnded": "Clock-in tidak lagi diizinkan setelah jam kerja kantor berakhir.",
+      "cameraRequired": "Izin kamera diperlukan untuk clock in.",
+      "photoRequired": "Foto presensi diperlukan untuk clock in.",
       "clockInRequired": "Clock-in wajib dilakukan sebelum clock-out.",
       "alreadyClockedIn": "Clock-in sudah tercatat untuk jendela jadwal ini.",
       "attendanceCompleted": "Kehadiran kantor sudah selesai untuk jendela jadwal ini.",

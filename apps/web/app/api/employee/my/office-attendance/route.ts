@@ -9,6 +9,7 @@ import { getLatestOfficeAttendanceInRange } from '@repo/database';
 import { getLatestOfficeAttendanceForDay } from '@repo/database';
 import { OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING } from '@repo/database';
 import { resolveOfficeAttendanceContextForEmployee } from '@repo/database';
+import { OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING } from '@repo/shared';
 import { ZodError } from 'zod';
 
 function getFallbackAttendanceMode(employee: { officeId?: string | null; fieldModeEnabled?: boolean | null }) {
@@ -32,6 +33,8 @@ export async function POST(req: Request) {
     const json = await req.json();
     const body = createOfficeAttendanceSchema.parse(json);
     const requestedStatus = body.status ?? 'present';
+    const requirePhotoSetting = await getSystemSetting(OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING);
+    const requirePhotoForClockIn = requirePhotoSetting?.value === '1';
     const scheduleContext = await resolveOfficeAttendanceContextForEmployee(employee.id, now);
 
     if (!scheduleContext.isWorkingDay) {
@@ -44,7 +47,12 @@ export async function POST(req: Request) {
       );
     }
 
-    if (requestedStatus === 'present' && scheduleContext.isAfterEnd && scheduleContext.windowStart && scheduleContext.windowEnd) {
+    if (
+      requestedStatus === 'present' &&
+      scheduleContext.isAfterEnd &&
+      scheduleContext.windowStart &&
+      scheduleContext.windowEnd
+    ) {
       return NextResponse.json(
         {
           code: 'office_hours_ended',
@@ -65,7 +73,7 @@ export async function POST(req: Request) {
           ? latestAttendanceInWindow
           : latestAttendanceForDay?.status === 'present'
             ? latestAttendanceForDay
-            : latestAttendanceInWindow ?? latestAttendanceForDay
+            : (latestAttendanceInWindow ?? latestAttendanceForDay)
         : latestAttendanceInWindow;
 
     if (!latestAttendance && requestedStatus === 'clocked_out') {
@@ -93,6 +101,16 @@ export async function POST(req: Request) {
         {
           code: 'office_attendance_completed',
           error: 'Office attendance has already been completed for this schedule window.',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (requestedStatus === 'present' && requirePhotoForClockIn && !body.picture) {
+      return NextResponse.json(
+        {
+          code: 'photo_required',
+          error: 'Attendance photo is required to clock in.',
         },
         { status: 400 }
       );
@@ -182,6 +200,7 @@ export async function POST(req: Request) {
       officeShiftId: scheduleContext.shift?.id ?? null,
       employeeId: employee.id,
       status: requestedStatus,
+      picture: body.picture,
       metadata,
     });
     const attendance = 'attendance' in recordResult ? recordResult.attendance : recordResult;

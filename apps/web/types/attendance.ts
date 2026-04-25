@@ -66,6 +66,7 @@ export type OfficeAttendanceWithRelationsDto = {
   status: string;
   employeeId: string;
   officeId: string | null;
+  picture?: string | null;
   metadata: OfficeAttendanceMetadataDto | null;
   office: {
     id: string;
@@ -98,6 +99,7 @@ export type OfficeAttendanceDisplayDto = {
   businessDate: string;
   clockInAt: string;
   clockOutAt: string | null;
+  clockInPicture: string | null;
   paidHours: string | null;
   clockInMetadata: OfficeAttendanceMetadataDto | null;
   clockOutMetadata: OfficeAttendanceMetadataDto | null;
