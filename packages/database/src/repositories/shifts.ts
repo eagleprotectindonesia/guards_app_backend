@@ -582,7 +582,18 @@ export async function processGuardShiftBulkImport(
   const seenKeys = new Set<string>();
   const now = options?.now ?? new Date();
   const createInputs: Prisma.ShiftCreateManyInput[] = [];
-  const updates: Array<{ id: string; data: Prisma.ShiftUpdateManyMutationInput; employeeId: string }> = [];
+  const updates: Array<{
+    id: string;
+    employeeId: string;
+    siteId: string;
+    shiftTypeId: string;
+    date: Date;
+    startsAt: Date;
+    endsAt: Date;
+    requiredCheckinIntervalMins: number;
+    graceMinutes: number;
+    note: string | null;
+  }> = [];
   const deleteIds = new Set<string>();
   let rowsProcessed = 0;
   let pastDatesSkipped = 0;
@@ -689,17 +700,14 @@ export async function processGuardShiftBulkImport(
     updates.push({
       id: existingShift.id,
       employeeId,
-      data: {
-        siteId,
-        shiftTypeId: shiftType.id,
-        date: new Date(`${row.date}T00:00:00Z`),
-        startsAt,
-        endsAt,
-        status: 'scheduled',
-        note: row.note ?? null,
-        requiredCheckinIntervalMins: existingShift.requiredCheckinIntervalMins,
-        graceMinutes: existingShift.graceMinutes,
-      },
+      siteId,
+      shiftTypeId: shiftType.id,
+      date: new Date(`${row.date}T00:00:00Z`),
+      startsAt,
+      endsAt,
+      note: row.note ?? null,
+      requiredCheckinIntervalMins: existingShift.requiredCheckinIntervalMins,
+      graceMinutes: existingShift.graceMinutes,
     });
     rowsProcessed++;
   }
@@ -734,15 +742,15 @@ export async function processGuardShiftBulkImport(
       await updateShiftWithChangelog(
         update.id,
         {
-          site: { connect: { id: update.data.siteId as string } },
-          shiftType: { connect: { id: update.data.shiftTypeId as string } },
+          site: { connect: { id: update.siteId } },
+          shiftType: { connect: { id: update.shiftTypeId } },
           employee: { connect: { id: update.employeeId } },
-          date: update.data.date as Date,
-          startsAt: update.data.startsAt as Date,
-          endsAt: update.data.endsAt as Date,
-          requiredCheckinIntervalMins: update.data.requiredCheckinIntervalMins as number,
-          graceMinutes: update.data.graceMinutes as number,
-          note: (update.data.note as string | null | undefined) ?? null,
+          date: update.date,
+          startsAt: update.startsAt,
+          endsAt: update.endsAt,
+          requiredCheckinIntervalMins: update.requiredCheckinIntervalMins,
+          graceMinutes: update.graceMinutes,
+          note: update.note,
           status: 'scheduled',
         },
         adminId
@@ -766,11 +774,22 @@ export async function processGuardShiftBulkImport(
       }
 
       for (const update of updates) {
-        const updateResult = await tx.shift.updateMany({
-          where: { id: update.id, deletedAt: null },
-          data: update.data,
+        await tx.shift.update({
+          where: { id: update.id },
+          data: {
+            site: { connect: { id: update.siteId } },
+            shiftType: { connect: { id: update.shiftTypeId } },
+            employee: { connect: { id: update.employeeId } },
+            date: update.date,
+            startsAt: update.startsAt,
+            endsAt: update.endsAt,
+            status: 'scheduled',
+            note: update.note,
+            requiredCheckinIntervalMins: update.requiredCheckinIntervalMins,
+            graceMinutes: update.graceMinutes,
+          },
         });
-        updated += updateResult.count;
+        updated++;
       }
 
       if (createInputs.length > 0) {
