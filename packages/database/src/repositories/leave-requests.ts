@@ -12,6 +12,7 @@ export const ANNUAL_LEAVE_INSUFFICIENT_ERROR = 'Insufficient annual leave balanc
 type AdminLeaveRequestSortField = 'startDate' | 'status' | 'createdAt';
 type AdminLeaveRequestFilterParams = {
   statuses?: LeaveRequestStatus[];
+  reasons?: LeaveRequestReason[];
   employeeId?: string;
   startDate?: string;
   endDate?: string;
@@ -33,6 +34,13 @@ const adminLeaveRequestInclude = {
     },
   },
   reviewedBy: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+  documentVerifiedBy: {
     select: {
       id: true,
       name: true,
@@ -389,6 +397,7 @@ function buildAdminLeaveRequestWhere(params: AdminLeaveRequestFilterParams): Pri
 
   return {
     status: params.statuses && params.statuses.length > 0 ? { in: params.statuses } : undefined,
+    reason: params.reasons && params.reasons.length > 0 ? { in: params.reasons } : undefined,
     employeeId: params.employeeId,
     ...(startDate || endDate
       ? {
@@ -697,13 +706,15 @@ export async function approveEmployeeLeaveRequest(params: {
       policySnapshot = { ...policySnapshot, emergencyDeductedDays: deductedAnnualDays };
     } else if (request.reason === 'sick') {
       const cycleBuckets = groupWorkingDateKeysBySickCycle(workingDateKeys);
+      const cycleStartKeys = Array.from(cycleBuckets.keys()).sort((a, b) => a.localeCompare(b));
+      const cycleStartDates = cycleStartKeys.map(cycleStartKey => dateKeyToDate(cycleStartKey));
       const approvedSickRequests = await trx.employeeLeaveRequest.findMany({
         where: {
           employeeId: request.employeeId,
           status: 'approved',
           reason: 'sick',
-          endDate: { gte: request.startDate },
-          startDate: { lte: request.endDate },
+          id: { not: request.id },
+          cycleKey: { in: cycleStartDates },
         },
         select: {
           attachments: true,
@@ -726,7 +737,6 @@ export async function approveEmployeeLeaveRequest(params: {
         unpaidDays: number;
       }> = [];
 
-      const cycleStartKeys = Array.from(cycleBuckets.keys()).sort((a, b) => a.localeCompare(b));
       for (const cycleStartKey of cycleStartKeys) {
         const cycleWorkingKeys = cycleBuckets.get(cycleStartKey) ?? [];
         const cycleStart = dateKeyToDate(cycleStartKey);

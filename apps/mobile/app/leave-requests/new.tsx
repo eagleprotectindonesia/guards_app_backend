@@ -24,6 +24,7 @@ import type { LeaveRequestReason } from '@repo/types';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
 import { uploadToS3 } from '../../src/api/upload';
+import { AxiosError } from 'axios';
 
 const MAX_ATTACHMENTS = 4;
 const PRIMARY_RED = '#FF3B30';
@@ -136,6 +137,17 @@ const LEAVE_CATEGORY_OPTIONS: Record<LeaveMainCategory, LeaveSubtypeOption[]> = 
   ],
 };
 
+const FIXED_DURATION_DAYS_BY_REASON: Partial<Record<LeaveRequestReason, number>> = {
+  family_marriage: 3,
+  family_child_marriage: 2,
+  family_child_circumcision_baptism: 2,
+  family_death: 2,
+  family_spouse_death: 2,
+  special_paternity: 2,
+  special_miscarriage: 45,
+  special_maternity: 90,
+};
+
 function getMainCategoryLabelKey(category: LeaveMainCategory) {
   return `leave.category.${category}`;
 }
@@ -165,6 +177,9 @@ export default function NewLeaveRequestScreen() {
     () => subtypeOptions.find(option => option.reason === reason) ?? subtypeOptions[0],
     [reason, subtypeOptions]
   );
+  const fixedDurationDays = FIXED_DURATION_DAYS_BY_REASON[reason];
+  const isFixedDurationLeave = typeof fixedDurationDays === 'number';
+  const computedEndDate = isFixedDurationLeave ? addDays(startDate, fixedDurationDays - 1) : endDate;
 
   const handleSelectMainCategory = (category: LeaveMainCategory) => {
     setMainCategory(category);
@@ -192,6 +207,10 @@ export default function NewLeaveRequestScreen() {
     setShowStartPicker(Platform.OS === 'ios');
     if (selectedDate) {
       setStartDate(selectedDate);
+      if (isFixedDurationLeave) {
+        setEndDate(addDays(selectedDate, fixedDurationDays - 1));
+        return;
+      }
       if (isBefore(endDate, selectedDate)) {
         setEndDate(addDays(selectedDate, 1));
       }
@@ -304,7 +323,7 @@ export default function NewLeaveRequestScreen() {
   };
 
   const handleSubmit = async () => {
-    if (isBefore(startOfDay(endDate), startOfDay(startDate))) {
+    if (isBefore(startOfDay(computedEndDate), startOfDay(startDate))) {
       toast.error(t('common.errorTitle'), t('leave.validation.invalidRange'));
       return;
     }
@@ -322,7 +341,7 @@ export default function NewLeaveRequestScreen() {
       createMutation.mutate(
         {
           startDate: format(startDate, 'yyyy-MM-dd'),
-          endDate: format(endDate, 'yyyy-MM-dd'),
+          endDate: format(computedEndDate, 'yyyy-MM-dd'),
           reason,
           employeeNote: employeeNote.trim() || undefined,
           attachments: attachmentKeys,
@@ -332,8 +351,23 @@ export default function NewLeaveRequestScreen() {
             toast.success(t('common.successTitle'), t('leave.success.created'));
             router.back();
           },
-          onError: () => {
-            toast.error(t('common.errorTitle'), t('leave.error.createFailed'));
+          onError: error => {
+            const fallbackMessage = t('leave.error.createFailed');
+            if (error instanceof AxiosError) {
+              const responseError = error.response?.data?.error;
+              const backendMessage =
+                typeof responseError === 'string'
+                  ? responseError
+                  : Array.isArray(responseError)
+                    ? responseError
+                        .map(item => (item && typeof item.message === 'string' ? item.message : null))
+                        .filter(Boolean)
+                        .join(', ')
+                    : null;
+              toast.error(t('common.errorTitle'), backendMessage || fallbackMessage);
+              return;
+            }
+            toast.error(t('common.errorTitle'), fallbackMessage);
           },
         }
       );
@@ -393,30 +427,47 @@ export default function NewLeaveRequestScreen() {
                 )}
               </FormControl>
 
-              <FormControl>
-                <FormControlLabel className="mb-2">
-                  <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
-                    {t('leave.endDate')}
-                  </FormControlLabelText>
-                </FormControlLabel>
-                <TouchableOpacity
-                  onPress={() => setShowEndPicker(true)}
-                  className="bg-black/40 border border-white/5 h-14 rounded-2xl px-4 flex-row items-center"
-                >
-                  <CalendarIcon size={20} color={PRIMARY_RED} className="mr-3" />
-                  <Text className="text-white font-semibold">{format(endDate, 'PPPP', { locale: dateLocale })}</Text>
-                </TouchableOpacity>
-                {showEndPicker && (
-                  <DateTimePicker
-                    value={endDate}
-                    mode="date"
-                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                    onChange={onEndChange}
-                    minimumDate={startDate}
-                    themeVariant="dark"
-                  />
-                )}
-              </FormControl>
+              {isFixedDurationLeave ? (
+                <FormControl>
+                  <FormControlLabel className="mb-2">
+                    <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
+                      {t('leave.endDate')}
+                    </FormControlLabelText>
+                  </FormControlLabel>
+                  <Box className="bg-black/40 border border-white/5 h-14 rounded-2xl px-4 flex-row items-center">
+                    <CalendarIcon size={20} color={PRIMARY_RED} className="mr-3" />
+                    <Text className="text-white font-semibold">{format(computedEndDate, 'PPPP', { locale: dateLocale })}</Text>
+                  </Box>
+                  <Text className="text-[#A1A1A1] mt-2" size="xs">
+                    {t('leave.fixedDurationInfo', `Automatically set by policy (${fixedDurationDays} days).`)}
+                  </Text>
+                </FormControl>
+              ) : (
+                <FormControl>
+                  <FormControlLabel className="mb-2">
+                    <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
+                      {t('leave.endDate')}
+                    </FormControlLabelText>
+                  </FormControlLabel>
+                  <TouchableOpacity
+                    onPress={() => setShowEndPicker(true)}
+                    className="bg-black/40 border border-white/5 h-14 rounded-2xl px-4 flex-row items-center"
+                  >
+                    <CalendarIcon size={20} color={PRIMARY_RED} className="mr-3" />
+                    <Text className="text-white font-semibold">{format(endDate, 'PPPP', { locale: dateLocale })}</Text>
+                  </TouchableOpacity>
+                  {showEndPicker && (
+                    <DateTimePicker
+                      value={endDate}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                      onChange={onEndChange}
+                      minimumDate={startDate}
+                      themeVariant="dark"
+                    />
+                  )}
+                </FormControl>
+              )}
             </VStack>
           </BlurView>
 

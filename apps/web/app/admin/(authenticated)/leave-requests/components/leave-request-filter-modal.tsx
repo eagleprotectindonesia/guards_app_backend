@@ -11,12 +11,16 @@ type LeaveRequestFilterModalProps = {
   onClose: () => void;
   onApply: (filters: {
     statuses: string[];
+    reasons: string[];
+    categories: string[];
     employeeId?: string;
     startDate?: Date;
     endDate?: Date;
   }) => void;
   initialFilters: {
     statuses: string[];
+    reasons: string[];
+    categories: string[];
     employeeId?: string;
     startDate?: string;
     endDate?: string;
@@ -40,6 +44,27 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
 ] satisfies SelectOption[];
 
+const CATEGORY_OPTIONS = [
+  { value: 'sick', label: 'Sick' },
+  { value: 'family', label: 'Family' },
+  { value: 'special', label: 'Special' },
+  { value: 'annual', label: 'Annual' },
+] satisfies SelectOption[];
+
+const REASON_OPTIONS = [
+  { value: 'sick', label: 'Sick Leave' },
+  { value: 'family_marriage', label: 'Marriage Leave' },
+  { value: 'family_child_marriage', label: 'Child Marriage' },
+  { value: 'family_child_circumcision_baptism', label: 'Child Circumcision/Baptism' },
+  { value: 'family_death', label: 'Death of Family Member' },
+  { value: 'family_spouse_death', label: 'Spouse Death' },
+  { value: 'special_maternity', label: 'Maternity Leave' },
+  { value: 'special_miscarriage', label: 'Miscarriage Leave' },
+  { value: 'special_paternity', label: 'Paternity Leave' },
+  { value: 'special_emergency', label: 'Emergency Leave' },
+  { value: 'annual', label: 'Annual Leave' },
+] satisfies SelectOption[];
+
 export default function LeaveRequestFilterModal({
   isOpen,
   onClose,
@@ -48,6 +73,8 @@ export default function LeaveRequestFilterModal({
   employees,
 }: LeaveRequestFilterModalProps) {
   const [statuses, setStatuses] = useState<string[]>(initialFilters.statuses);
+  const [reasons, setReasons] = useState<string[]>(initialFilters.reasons);
+  const [categories, setCategories] = useState<string[]>(initialFilters.categories);
   const [employeeId, setEmployeeId] = useState<string>(initialFilters.employeeId || '');
   const [startDate, setStartDate] = useState<Date | undefined>(
     initialFilters.startDate ? new Date(initialFilters.startDate) : undefined
@@ -93,6 +120,40 @@ export default function LeaveRequestFilterModal({
         </div>
 
         <div className="space-y-2">
+          <Label>Category</Label>
+          <Select
+            isMulti
+            options={CATEGORY_OPTIONS}
+            value={CATEGORY_OPTIONS.filter(option => categories.includes(option.value))}
+            onChange={selected => {
+              const selectedValues = Array.isArray(selected)
+                ? (selected as SelectOption[]).map(option => option.value)
+                : [];
+              setCategories(selectedValues);
+            }}
+            placeholder="All categories"
+            className="text-sm"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Leave Type</Label>
+          <Select
+            isMulti
+            options={REASON_OPTIONS}
+            value={REASON_OPTIONS.filter(option => reasons.includes(option.value))}
+            onChange={selected => {
+              const selectedValues = Array.isArray(selected)
+                ? (selected as SelectOption[]).map(option => option.value)
+                : [];
+              setReasons(selectedValues);
+            }}
+            placeholder="All leave types"
+            className="text-sm"
+          />
+        </div>
+
+        <div className="space-y-2">
           <Label>Employee</Label>
           <Select
             options={employeeOptions}
@@ -123,6 +184,8 @@ export default function LeaveRequestFilterModal({
             className="flex-1"
             onClick={() => {
               setStatuses(['pending']);
+              setReasons([]);
+              setCategories([]);
               setEmployeeId('');
               setStartDate(undefined);
               setEndDate(undefined);
@@ -136,6 +199,8 @@ export default function LeaveRequestFilterModal({
             onClick={() => {
               onApply({
                 statuses,
+                reasons,
+                categories,
                 employeeId: employeeId || undefined,
                 startDate,
                 endDate,

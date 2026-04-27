@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { approveLeaveRequestAction, rejectLeaveRequestAction } from '../actions';
 import { isImageFile, isVideoFile } from '@/lib/file';
 import { SerializedLeaveRequestAdminListItemDto } from '@/types/leave-requests';
+import { getLeaveReasonMeta } from '@/lib/leave-requests';
 
 type LeaveRequestDetailProps = {
   leaveRequest: SerializedLeaveRequestAdminListItemDto;
@@ -33,6 +34,10 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit }: LeaveReque
   const [rejectNote, setRejectNote] = useState('');
   const [isPending, startTransition] = useTransition();
   const isPendingStatus = leaveRequest.status === 'pending';
+  const reasonMeta = getLeaveReasonMeta(leaveRequest.reason);
+  const cycleBreakdown = Array.isArray(leaveRequest.policySnapshot?.cycleBreakdown)
+    ? leaveRequest.policySnapshot.cycleBreakdown
+    : [];
 
   const handleApprove = () => {
     if (!isPendingStatus || !canEdit) return;
@@ -111,7 +116,8 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit }: LeaveReque
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Reason</p>
-            <p className="text-sm font-medium text-foreground mt-1">{leaveRequest.reason}</p>
+            <p className="text-sm font-medium text-foreground mt-1">{reasonMeta.label}</p>
+            <p className="text-xs text-muted-foreground mt-1 uppercase">{reasonMeta.category}</p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Submitted At</p>
@@ -130,6 +136,43 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit }: LeaveReque
             <p className="text-sm text-foreground mt-1 whitespace-pre-wrap">{leaveRequest.adminNote || '-'}</p>
           </div>
         </div>
+      </div>
+
+      <div className="bg-card rounded-xl shadow-sm border border-border p-6">
+        <h2 className="text-lg font-semibold text-foreground">Policy Outcome</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Paid</p>
+            <p className="text-sm font-medium text-foreground mt-1">
+              {leaveRequest.isPaid === null ? '-' : leaveRequest.isPaid ? 'Yes' : 'No'}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Annual Deducted Days</p>
+            <p className="text-sm font-medium text-foreground mt-1">{leaveRequest.deductedAnnualDays}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Unpaid Days</p>
+            <p className="text-sm font-medium text-foreground mt-1">{leaveRequest.unpaidDays}</p>
+          </div>
+        </div>
+
+        {cycleBreakdown.length > 0 && (
+          <div className="mt-6 space-y-3">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Sick Cycle Breakdown</p>
+            {cycleBreakdown.map((cycle, index) => (
+              <div key={`${cycle.cycleStart}-${index}`} className="rounded-lg border border-border p-3">
+                <p className="text-sm font-medium text-foreground">
+                  {cycle.cycleStart} - {cycle.cycleEnd}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Requested: {cycle.requestedWorkingDays}, No-doc paid: {cycle.noDocPaidDaysCurrentRequest}, Annual deducted:{' '}
+                  {cycle.deductedAnnualDays}, Unpaid: {cycle.unpaidDays}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="bg-card rounded-xl shadow-sm border border-border p-6">
@@ -228,4 +271,3 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit }: LeaveReque
     </div>
   );
 }
-

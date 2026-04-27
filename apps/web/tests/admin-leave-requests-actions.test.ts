@@ -61,6 +61,14 @@ describe('admin leave request server actions', () => {
     });
   });
 
+  test('returns domain policy error from approval', async () => {
+    (approveEmployeeLeaveRequest as jest.Mock).mockRejectedValueOnce(new Error('Insufficient annual leave balance'));
+
+    const result = await approveLeaveRequestAction('leave-1', 'approved');
+
+    expect(result).toEqual({ success: false, message: 'Insufficient annual leave balance' });
+  });
+
   test('returns error for non-owned leave request', async () => {
     (resolveLeaveRequestAccessContext as jest.Mock).mockResolvedValue({
       isEmployeeVisible: () => false,
@@ -92,4 +100,3 @@ describe('admin leave request server actions', () => {
     });
   });
 });
-

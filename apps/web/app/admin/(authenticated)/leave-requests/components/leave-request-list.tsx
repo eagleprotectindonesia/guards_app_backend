@@ -9,6 +9,7 @@ import PaginationNav from '../../components/pagination-nav';
 import LeaveRequestFilterModal from './leave-request-filter-modal';
 import { SerializedLeaveRequestAdminListItemDto } from '@/types/leave-requests';
 import SortableHeader from '@/components/sortable-header';
+import { getLeaveReasonMeta } from '@/lib/leave-requests';
 
 type LeaveRequestListProps = {
   leaveRequests: SerializedLeaveRequestAdminListItemDto[];
@@ -22,6 +23,8 @@ type LeaveRequestListProps = {
   }>;
   initialFilters: {
     statuses: string[];
+    reasons: string[];
+    categories: string[];
     employeeId?: string;
     startDate?: string;
     endDate?: string;
@@ -61,6 +64,8 @@ export default function LeaveRequestList({
 
   const handleApplyFilters = (filters: {
     statuses: string[];
+    reasons: string[];
+    categories: string[];
     employeeId?: string;
     startDate?: Date;
     endDate?: Date;
@@ -69,6 +74,16 @@ export default function LeaveRequestList({
 
     params.set('page', '1');
     params.set('statuses', filters.statuses.join(','));
+    if (filters.reasons.length > 0) {
+      params.set('reasons', filters.reasons.join(','));
+    } else {
+      params.delete('reasons');
+    }
+    if (filters.categories.length > 0) {
+      params.set('categories', filters.categories.join(','));
+    } else {
+      params.delete('categories');
+    }
 
     if (filters.employeeId) {
       params.set('employeeId', filters.employeeId);
@@ -108,6 +123,8 @@ export default function LeaveRequestList({
     initialFilters.employeeId,
     initialFilters.startDate,
     initialFilters.endDate,
+    initialFilters.reasons.join(','),
+    initialFilters.categories.join(','),
     isDefaultStatusFilter ? '' : initialFilters.statuses.join(','),
   ].filter(Boolean).length;
 
@@ -173,14 +190,17 @@ export default function LeaveRequestList({
                   </td>
                 </tr>
               ) : (
-                leaveRequests.map(leaveRequest => (
+                leaveRequests.map(leaveRequest => {
+                  const reasonMeta = getLeaveReasonMeta(leaveRequest.reason);
+                  return (
                   <tr key={leaveRequest.id} className="hover:bg-muted/30 transition-colors">
                     <td className="py-4 px-6 text-sm">
                       <div className="font-medium text-foreground">{leaveRequest.employee.fullName}</div>
                       <div className="text-xs text-muted-foreground">{leaveRequest.employee.employeeNumber || '-'}</div>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
-                      <div className="capitalize">{leaveRequest.reason}</div>
+                      <div className="text-foreground">{reasonMeta.label}</div>
+                      <div className="text-xs uppercase text-muted-foreground mt-0.5">{reasonMeta.category}</div>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
                       {format(new Date(leaveRequest.startDate), 'yyyy/MM/dd')} -{' '}
@@ -207,7 +227,8 @@ export default function LeaveRequestList({
                       </Link>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

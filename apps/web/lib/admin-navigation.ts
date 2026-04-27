@@ -62,6 +62,12 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
       requiredPermission: 'leave-requests:view',
     },
     {
+      name: 'Leave Balances',
+      href: '/admin/leave-balances',
+      icon: CalendarCheck2,
+      requiredPermission: 'leave-requests:view',
+    },
+    {
       name: 'Holiday Calendar',
       href: '/admin/holiday-calendars',
       icon: CalendarCheck2,
@@ -115,7 +121,13 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true): NavGroup[]
     },
     {
       label: 'Employee Management',
-      items: [byName.get('Employees'), byName.get('Attendance'), byName.get('Holiday Calendar'), byName.get('Leave Requests')].filter(
+      items: [
+        byName.get('Employees'),
+        byName.get('Attendance'),
+        byName.get('Holiday Calendar'),
+        byName.get('Leave Requests'),
+        byName.get('Leave Balances'),
+      ].filter(
         Boolean
       ) as NavItem[],
     },
@@ -141,6 +153,7 @@ export const ADMIN_LABEL_MAP: Record<string, string> = {
   'office-shift-types': 'Office Shift Types',
   'office-shifts': 'Office Shifts',
   'leave-requests': 'Leave Requests',
+  'leave-balances': 'Leave Balances',
   'holiday-calendars': 'Holiday Calendar',
   'office-memos': 'Office Memos',
   'guard-shift-types': 'Guard Shift Types',

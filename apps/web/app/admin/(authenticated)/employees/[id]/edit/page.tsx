@@ -3,19 +3,25 @@ import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import EmployeeScheduleManager from '../../components/employee-schedule-manager';
 import EmployeeFieldModeCard from '../../components/employee-field-mode-card';
+import EmployeeLeaveBalanceCard from '../../components/employee-leave-balance-card';
+import { resolveLeaveRequestAccessContext } from '@/lib/auth/leave-ownership';
 import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 import {
+  getEmployeeAnnualLeaveBalanceWithLedger,
   getAllOfficeWorkSchedules,
   getEmployeeByIdWithRelations,
   listOfficeWorkScheduleAssignments,
 } from '@repo/database';
+import { serialize } from '@/lib/server-utils';
 
 export const dynamic = 'force-dynamic';
 
 export default async function EditEmployeePage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
+  const session = await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
   const { id } = await params;
   const officeWorkSchedulesEnabled = isOfficeWorkSchedulesEnabled();
+  const canViewLeaveBalance = session.isSuperAdmin || session.permissions.includes(PERMISSIONS.LEAVE_REQUESTS.VIEW);
+  const leaveBalanceYear = new Date().getFullYear();
 
   const [employee, officeWorkScheduleData] = await Promise.all([
     getEmployeeByIdWithRelations(id),
@@ -27,6 +33,22 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
   if (!employee) {
     notFound();
   }
+  const leaveAccessContext = canViewLeaveBalance ? await resolveLeaveRequestAccessContext(session) : null;
+  const canViewEmployeeLeaveBalance =
+    canViewLeaveBalance &&
+    !!leaveAccessContext?.isEmployeeVisible({
+      id: employee.id,
+      role: employee.role,
+      department: employee.department,
+      officeId: employee.officeId,
+    });
+  const leaveBalanceData = canViewEmployeeLeaveBalance
+    ? await getEmployeeAnnualLeaveBalanceWithLedger({
+        employeeId: id,
+        year: leaveBalanceYear,
+        ledgerTake: 10,
+      })
+    : null;
 
   const [schedules, assignments] = officeWorkScheduleData;
   const now = new Date();
@@ -66,6 +88,15 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
         isFieldModeEditable={employee.isFieldModeEditable}
         fieldModeReasonCode={employee.fieldModeReasonCode}
       />
+      {leaveBalanceData ? (
+        <EmployeeLeaveBalanceCard
+          employeeId={employee.id}
+          employeeName={employee.fullName}
+          year={leaveBalanceYear}
+          balance={serialize(leaveBalanceData.balance)}
+          ledger={serialize(leaveBalanceData.ledger)}
+        />
+      ) : null}
       {employee.role === 'office' && officeWorkSchedulesEnabled ? (
         <EmployeeScheduleManager
           employeeId={employee.id}

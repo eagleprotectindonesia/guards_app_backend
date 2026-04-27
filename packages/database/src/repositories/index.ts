@@ -10,6 +10,7 @@ export * from './chat';
 export * from './checkins';
 export * from './employees';
 export * from './employee-sessions';
+export * from './annual-leave-balances';
 export * from './leave-requests';
 export * from './holiday-calendar-entries';
 export * from './employee-office-config';

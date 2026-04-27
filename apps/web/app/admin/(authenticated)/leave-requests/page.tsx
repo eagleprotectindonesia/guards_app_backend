@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { Prisma, db, getPaginatedEmployeeLeaveRequestsForAdmin, listEmployeeLeaveRequestsForAdmin } from '@repo/database';
-import type { LeaveRequestStatus } from '@repo/types';
+import type { LeaveRequestReason, LeaveRequestStatus } from '@repo/types';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { resolveLeaveRequestAccessContext } from '@/lib/auth/leave-ownership';
 import { getPaginationParams, serialize } from '@/lib/server-utils';
 import LeaveRequestList from './components/leave-request-list';
 import { SerializedLeaveRequestAdminListItemDto } from '@/types/leave-requests';
+import { getLeaveReasonsByCategory } from '@/lib/leave-requests';
 
 export const metadata: Metadata = {
   title: 'Leave Requests Management',
@@ -16,6 +17,21 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 const ALLOWED_STATUSES: LeaveRequestStatus[] = ['pending', 'approved', 'rejected', 'cancelled'];
+const ALLOWED_REASONS: LeaveRequestReason[] = [
+  'sick',
+  'family_marriage',
+  'family_child_marriage',
+  'family_child_circumcision_baptism',
+  'family_death',
+  'family_spouse_death',
+  'special_maternity',
+  'special_miscarriage',
+  'special_paternity',
+  'special_emergency',
+  'annual',
+];
+const ALLOWED_CATEGORIES = ['sick', 'family', 'special', 'annual'] as const;
+type LeaveCategoryFilter = (typeof ALLOWED_CATEGORIES)[number];
 const ALLOWED_SORT_FIELDS = ['startDate', 'status'] as const;
 type LeaveRequestSortField = (typeof ALLOWED_SORT_FIELDS)[number];
 
@@ -31,6 +47,26 @@ function parseStatusesParam(rawStatuses: string | string[] | undefined): LeaveRe
   return parsed.length > 0 ? parsed : ALLOWED_STATUSES;
 }
 
+function parseReasonsParam(rawReasons: string | string[] | undefined): LeaveRequestReason[] {
+  const raw = Array.isArray(rawReasons) ? rawReasons[0] : rawReasons;
+  if (!raw) return [];
+
+  return raw
+    .split(',')
+    .map(value => value.trim())
+    .filter((reason): reason is LeaveRequestReason => ALLOWED_REASONS.includes(reason as LeaveRequestReason));
+}
+
+function parseCategoriesParam(rawCategories: string | string[] | undefined): LeaveCategoryFilter[] {
+  const raw = Array.isArray(rawCategories) ? rawCategories[0] : rawCategories;
+  if (!raw) return [];
+
+  return raw
+    .split(',')
+    .map(value => value.trim())
+    .filter((category): category is LeaveCategoryFilter => ALLOWED_CATEGORIES.includes(category as LeaveCategoryFilter));
+}
+
 type LeaveRequestsPageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
@@ -43,6 +79,14 @@ export default async function LeaveRequestsPage(props: LeaveRequestsPageProps) {
   const employeeId = typeof searchParams.employeeId === 'string' ? searchParams.employeeId : undefined;
   const startDate = typeof searchParams.startDate === 'string' ? searchParams.startDate : undefined;
   const endDate = typeof searchParams.endDate === 'string' ? searchParams.endDate : undefined;
+  const reasonFilters = parseReasonsParam(searchParams.reasons);
+  const categoryFilters = parseCategoriesParam(searchParams.categories);
+  const reasons = Array.from(
+    new Set<LeaveRequestReason>([
+      ...reasonFilters,
+      ...categoryFilters.flatMap(category => getLeaveReasonsByCategory(category)),
+    ])
+  );
   const sortByRaw = typeof searchParams.sortBy === 'string' ? searchParams.sortBy : undefined;
   const sortBy: LeaveRequestSortField = ALLOWED_SORT_FIELDS.includes(sortByRaw as LeaveRequestSortField)
     ? (sortByRaw as LeaveRequestSortField)
@@ -90,6 +134,7 @@ export default async function LeaveRequestsPage(props: LeaveRequestsPageProps) {
   const [{ leaveRequests, totalCount }, filterEmployeeResults] = await Promise.all([
     getPaginatedEmployeeLeaveRequestsForAdmin({
       statuses,
+      reasons,
       employeeId,
       startDate,
       endDate,
@@ -102,6 +147,7 @@ export default async function LeaveRequestsPage(props: LeaveRequestsPageProps) {
     }),
     listEmployeeLeaveRequestsForAdmin({
       statuses,
+      reasons,
       startDate,
       endDate,
       employeeRoleFilter: accessContext.employeeRoleFilter,
@@ -138,6 +184,8 @@ export default async function LeaveRequestsPage(props: LeaveRequestsPageProps) {
             employeeId,
             startDate,
             endDate,
+            reasons: reasonFilters,
+            categories: categoryFilters,
           }}
           sortBy={sortBy}
           sortOrder={sortOrder}
