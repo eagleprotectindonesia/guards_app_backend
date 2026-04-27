@@ -4,17 +4,15 @@ import { prisma } from '@repo/database';
 import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { isBefore } from 'date-fns';
-import { Prisma, ShiftStatus } from '@prisma/client';
+import { ShiftStatus } from '@prisma/client';
 import { parseShiftTypeTimeOnDate } from '@repo/shared';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
-import { getActiveSites } from '@repo/database';
-import { getActiveEmployeesSummary } from '@repo/database';
 import {
   checkOverlappingShift,
   createShiftWithChangelog,
   updateShiftWithChangelog,
   deleteShiftWithChangelog,
-  bulkCreateShiftsWithChangelog,
+  processGuardShiftBulkImport,
 } from '@repo/database';
 import { getShiftTypeDurationInMins } from '@repo/database';
 import { ActionState } from '@/types/actions';
@@ -288,8 +286,21 @@ export async function bulkCreateShifts(
   formData: FormData
 ): Promise<{ success: boolean; message?: string; errors?: string[] }> {
   const adminId = await getAdminIdFromToken();
-  const file = formData.get('file') as File;
-  if (!file) {
+  const file = formData.get('file');
+  const REQUIRED_HEADER_ALIASES: Record<string, string[]> = {
+    site: ['site'],
+    shift_type_name: ['shift_type_name'],
+    date: ['date'],
+    employee_code: ['employee_code'],
+    interval: ['interval', 'required_check-in_interval_(minutes)', 'required_checkin_interval_(minutes)'],
+    grace: ['grace', 'grace_minutes', 'grace_period_(minutes)'],
+    note: ['note'],
+  };
+
+  const parseCsvLine = (line: string) => line.split(',').map(value => value.trim().replace(/^"|"$/g, ''));
+  const normalizeHeader = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '_');
+
+  if (!(file instanceof File)) {
     return { success: false, message: 'No file provided.' };
   }
 
@@ -300,170 +311,101 @@ export async function bulkCreateShifts(
     return { success: false, message: 'CSV file is empty or missing data.' };
   }
 
-  // Fetch all reference data for lookups
-  const [sites, shiftTypes, employees] = await Promise.all([
-    getActiveSites(),
-    prisma.shiftType.findMany({ select: { id: true, name: true, startTime: true, endTime: true } }),
-    getActiveEmployeesSummary(),
-  ]);
+  const header = parseCsvLine(lines[0]).map(normalizeHeader);
+  const headerIndexByCanonical = new Map<string, number>();
+  for (const [canonical, aliases] of Object.entries(REQUIRED_HEADER_ALIASES)) {
+    const idx = header.findIndex(value => aliases.includes(value));
+    if (idx >= 0) headerIndexByCanonical.set(canonical, idx);
+  }
 
-  const siteMap = new Map(sites.map(s => [s.name.toLowerCase(), s.id]));
-  const shiftTypeMap = new Map(shiftTypes.map(st => [st.name.toLowerCase(), st]));
-  const employeeMap = new Map(employees.map(g => [g.fullName.toLowerCase(), g.id]));
+  const missingRequiredHeaders = ['site', 'shift_type_name', 'date', 'employee_code', 'interval', 'grace'].filter(
+    key => !headerIndexByCanonical.has(key)
+  );
+  if (missingRequiredHeaders.length > 0) {
+    return {
+      success: false,
+      message: `Invalid CSV header. Missing required column(s): ${missingRequiredHeaders.join(', ')}.`,
+    };
+  }
 
-  const errors: string[] = [];
-  const shiftsToCreate: Prisma.ShiftCreateManyInput[] = [];
+  const parsedRows: Array<{
+    rowNumber: number;
+    site: string;
+    shiftTypeName: string;
+    date: string;
+    employeeCode: string;
+    interval: string;
+    grace: string;
+    note?: string | null;
+  }> = [];
+  const parseErrors: string[] = [];
 
-  // Skip header row
-  const startRow = 1;
-
-  for (let i = startRow; i < lines.length; i++) {
-    const line = lines[i];
-    const cols = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-
-    if (cols.length < 6) {
-      errors.push(
-        `Row ${
-          i + 1
-        }: Insufficient columns. Expected at least 6 (Site Name, Shift Type Name, Date, Employee Name, Required Check-in Interval, Grace Period).`
-      );
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    const requiredIndexes = ['site', 'shift_type_name', 'date', 'employee_code', 'interval', 'grace'].map(
+      key => headerIndexByCanonical.get(key) ?? -1
+    );
+    if (requiredIndexes.some(index => index < 0 || index >= cols.length)) {
+      parseErrors.push(`Row ${i + 1}: missing required columns.`);
       continue;
     }
 
-    const [siteName, shiftTypeName, dateStr, employeeName, intervalStr, graceStr] = cols;
+    const site = cols[headerIndexByCanonical.get('site')!];
+    const shiftTypeName = cols[headerIndexByCanonical.get('shift_type_name')!];
+    const date = cols[headerIndexByCanonical.get('date')!];
+    const employeeCode = cols[headerIndexByCanonical.get('employee_code')!];
+    const interval = cols[headerIndexByCanonical.get('interval')!];
+    const grace = cols[headerIndexByCanonical.get('grace')!];
+    const noteIndex = headerIndexByCanonical.get('note');
+    const note = noteIndex != null && noteIndex < cols.length ? cols[noteIndex] : '';
 
-    if (!siteName || !shiftTypeName || !dateStr || !employeeName || !intervalStr || !graceStr) {
-      errors.push(
-        `Row ${
-          i + 1
-        }: Missing required fields. Ensure Site Name, Shift Type Name, Date, Employee Name, Required Check-in Interval, and Grace Period are provided.`
-      );
+    // Skip placeholder/empty employee rows from spreadsheet exports.
+    if (!employeeCode || employeeCode.trim() === '' || employeeCode.trim().toUpperCase() === '#N/A') {
       continue;
     }
 
-    const siteId = siteMap.get(siteName.toLowerCase());
-    if (!siteId) {
-      errors.push(`Row ${i + 1}: Site '${siteName}' not found.`);
+    if (!site || !shiftTypeName || !date || !employeeCode || !interval || !grace) {
+      parseErrors.push(`Row ${i + 1}: site, shift_type_name, date, employee_code, interval, and grace are required.`);
+      continue;
     }
 
-    const shiftType = shiftTypeMap.get(shiftTypeName.toLowerCase());
-    if (!shiftType) {
-      errors.push(`Row ${i + 1}: Guard Shift Type '${shiftTypeName}' not found.`);
-    }
-
-    const employeeId = employeeName ? employeeMap.get(employeeName.toLowerCase()) || null : null;
-    if (!employeeId && employeeName) {
-      errors.push(`Row ${i + 1}: Employee with name '${employeeName}' not found or inactive.`);
-    }
-
-    // Validate Date
-    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!dateRegex.test(dateStr)) {
-      errors.push(`Row ${i + 1}: Invalid date format '${dateStr}'. Expected YYYY-MM-DD.`);
-    }
-
-    const interval = parseInt(intervalStr, 10);
-    const grace = parseInt(graceStr, 10);
-
-    if (isNaN(interval) || interval <= 0) {
-      errors.push(`Row ${i + 1}: Invalid Required Check-in Interval '${intervalStr}'. Must be a positive integer.`);
-    }
-
-    if (isNaN(grace) || grace < 0) {
-      errors.push(`Row ${i + 1}: Invalid Grace Period '${graceStr}'. Must be a non-negative integer.`);
-    }
-
-    if (
-      siteId &&
-      shiftType &&
-      dateRegex.test(dateStr) &&
-      (employeeId || employeeName === '') &&
-      !isNaN(interval) &&
-      interval > 0 &&
-      !isNaN(grace) &&
-      grace >= 0
-    ) {
-      const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
-      if (durationInMins % interval !== 0) {
-        errors.push(
-          `Row ${i + 1}: Guard shift duration (${durationInMins} mins) must be a multiple of the check-in interval (${interval} mins).`
-        );
-        continue;
-      }
-
-      if (durationInMins < 2 * interval) {
-        errors.push(
-          `Row ${i + 1}: Guard shift duration (${durationInMins} mins) must allow for at least 2 check-in slots. Please reduce the check-in interval.`
-        );
-        continue;
-      }
-
-      const dateObj = new Date(`${dateStr}T00:00:00Z`);
-      const startDateTime = parseShiftTypeTimeOnDate(dateStr, shiftType.startTime);
-      let endDateTime = parseShiftTypeTimeOnDate(dateStr, shiftType.endTime);
-
-      if (isBefore(endDateTime, startDateTime)) {
-        endDateTime = new Date(endDateTime.getTime() + 24 * 60 * 60 * 1000);
-      }
-
-      if (isBefore(startDateTime, new Date())) {
-        errors.push(`Row ${i + 1}: Cannot schedule a guard shift in the past.`);
-        continue;
-      }
-
-      if (employeeId) {
-        const overlapInBatch = shiftsToCreate.find(
-          s => s.employeeId === employeeId && s.startsAt < endDateTime && s.endsAt > startDateTime
-        );
-
-        if (overlapInBatch) {
-          errors.push(`Row ${i + 1}: Overlaps with another guard shift in this batch for employee ${employeeName}.`);
-          continue;
-        }
-
-        const existingShift = await prisma.shift.findFirst({
-          where: {
-            employeeId,
-            startsAt: { lt: endDateTime },
-            endsAt: { gt: startDateTime },
-          },
-        });
-
-        if (existingShift) {
-          errors.push(`Row ${i + 1}: Employee ${employeeName} already has a guard shift overlapping with this time.`);
-          continue;
-        }
-      }
-
-      shiftsToCreate.push({
-        siteId,
-        shiftTypeId: shiftType.id,
-        employeeId: employeeId || null,
-        date: dateObj,
-        startsAt: startDateTime,
-        endsAt: endDateTime,
-        status: 'scheduled',
-        requiredCheckinIntervalMins: interval,
-        graceMinutes: grace,
-        createdById: adminId || null,
-      });
-    }
+    parsedRows.push({
+      rowNumber: i + 1,
+      site,
+      shiftTypeName,
+      date,
+      employeeCode,
+      interval,
+      grace,
+      note: note || null,
+    });
   }
 
-  if (errors.length > 0) {
-    return { success: false, message: 'Validation failed.', errors };
+  if (parseErrors.length > 0) {
+    return { success: false, message: 'Validation failed.', errors: parseErrors };
   }
 
-  if (shiftsToCreate.length === 0) {
-    return { success: false, message: 'No valid guard shifts found to create.' };
+  const result = await processGuardShiftBulkImport(parsedRows, { adminId });
+  if (!result.success) {
+    return { success: false, message: 'Validation failed.', errors: result.errors };
   }
 
-  try {
-    await bulkCreateShiftsWithChangelog(shiftsToCreate, adminId);
-    revalidatePath('/admin/guard-shifts');
-    return { success: true, message: `Successfully created ${shiftsToCreate.length} guard shifts.` };
-  } catch (error) {
-    console.error('Bulk Create Error:', error);
-    return { success: false, message: 'Database error during bulk creation.' };
+  if (result.summary.rows_processed === 0 && result.summary.past_dates_skipped > 0) {
+    return {
+      success: true,
+      message: `${result.summary.past_dates_skipped} past date(s) skipped; no shifts created, updated, or deleted.`,
+    };
   }
+
+  const messages = [];
+  if (result.summary.deleted_off > 0) messages.push(`Deleted ${result.summary.deleted_off} OFF-day shift(s)`);
+  if (result.summary.created > 0) messages.push(`Created ${result.summary.created} shift(s)`);
+  if (result.summary.updated > 0) messages.push(`Updated ${result.summary.updated} shift(s)`);
+  if (result.summary.past_dates_skipped > 0) messages.push(`${result.summary.past_dates_skipped} past date(s) skipped`);
+
+  revalidatePath('/admin/guard-shifts');
+  return {
+    success: true,
+    message: messages.join('; ') || 'No changes made.',
+  };
 }
