@@ -2,12 +2,14 @@
 
 import { useState } from 'react';
 import { Alert, Shift, Site, ShiftType, Admin } from '@prisma/client';
-import { EmployeeWithRelations } from '@repo/database';
-import { Serialized } from '@/lib/utils';
+import type { EmployeeWithRelations } from '@repo/database';
+import type { Serialized } from '@/lib/server-utils';
 import AlertItem from './alert-item';
 import { Check } from 'lucide-react';
 import { useSession } from '../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import Modal from './modal';
+import EmployeeDetail from '../employees/components/employee-detail';
 
 type EmployeeWithOptionalRelations = Serialized<EmployeeWithRelations>;
 type ShiftTypeWithOptionalRelations = Serialized<ShiftType>;
@@ -51,6 +53,7 @@ export default function AlertFeed({
   totalCounts,
 }: AlertFeedProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'attendance' | 'checkin' | 'security'>('all');
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeWithOptionalRelations | null>(null);
   const { hasPermission } = useSession();
 
   if (!hasPermission(PERMISSIONS.ALERTS.VIEW)) {
@@ -170,10 +173,22 @@ export default function AlertFeed({
               key={alert.id}
               alert={alert}
               onAcknowledge={handleAcknowledge}
+              onEmployeeClick={setSelectedEmployee}
               showResolutionDetails={showResolutionDetails}
             />
           ))}
         </div>
+      )}
+
+      {selectedEmployee && (
+        <Modal
+          isOpen={!!selectedEmployee}
+          onClose={() => setSelectedEmployee(null)}
+          title={selectedEmployee.fullName}
+          maxWidthClassName="max-w-4xl"
+        >
+          <EmployeeDetail employee={selectedEmployee} />
+        </Modal>
       )}
     </>
   );

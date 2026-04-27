@@ -1,17 +1,47 @@
 'use server';
 
 import {
+  buildOwnershipAssignmentsFromSelection,
   createAdminWithChangelog,
   deleteAdminWithChangelog,
   findAdminByEmail,
   getAdminById,
+  hashPassword,
+  replaceAdminOwnershipAssignments,
   updateAdminWithChangelog,
 } from '@repo/database';
 import { checkSuperAdmin } from '@/lib/admin-auth';
-import { createAdminSchema, updateAdminSchema, CreateAdminInput, UpdateAdminInput } from '@repo/validations';
+import {
+  adminOwnershipFormSchema,
+  createAdminSchema,
+  updateAdminSchema,
+  CreateAdminInput,
+  UpdateAdminInput,
+} from '@repo/validations';
 import { revalidatePath } from 'next/cache';
-import bcrypt from 'bcryptjs';
 import { ActionState } from '@/types/actions';
+
+function parseAdminOwnershipForm(formData: FormData) {
+  return adminOwnershipFormSchema.safeParse({
+    leave: {
+      departmentKeys: formData
+        .getAll('leaveOwnershipDepartmentKeys')
+        .map(value => (typeof value === 'string' ? value : String(value))),
+      officeIds: formData
+        .getAll('leaveOwnershipOfficeIds')
+        .map(value => (typeof value === 'string' ? value : String(value))),
+    },
+    employees: {
+      departmentKeys: formData
+        .getAll('employeeVisibilityDepartmentKeys')
+        .map(value => (typeof value === 'string' ? value : String(value))),
+      officeIds: formData
+        .getAll('employeeVisibilityOfficeIds')
+        .map(value => (typeof value === 'string' ? value : String(value))),
+    },
+    includeFallbackLeaveQueue: formData.get('includeFallbackLeaveQueue') === 'on',
+  });
+}
 
 export async function createAdmin(
   prevState: ActionState<CreateAdminInput>,
@@ -42,6 +72,14 @@ export async function createAdmin(
   }
 
   const { name, email, password, roleId, note } = validatedFields.data;
+  const ownershipForm = parseAdminOwnershipForm(formData);
+
+  if (!ownershipForm.success) {
+    return {
+      message: 'Invalid ownership selection. Failed to Create Admin.',
+      success: false,
+    };
+  }
 
   try {
     const existingAdmin = await findAdminByEmail(email);
@@ -54,18 +92,40 @@ export async function createAdmin(
       };
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hashPassword(password);
 
-    await createAdminWithChangelog(
+    const createdAdmin = await createAdminWithChangelog(
       {
         name,
         email,
         hashedPassword,
         roleRef: { connect: { id: roleId } },
         note: note || null,
+        includeFallbackLeaveQueue: ownershipForm.data.includeFallbackLeaveQueue,
       },
       currentAdmin.id
     );
+
+    await replaceAdminOwnershipAssignments({
+      adminId: createdAdmin.id,
+      domain: 'leave',
+      assignments: buildOwnershipAssignmentsFromSelection({
+        departmentKeys: ownershipForm.data.leave.departmentKeys,
+        officeIds: ownershipForm.data.leave.officeIds,
+      }),
+      includeFallbackLeaveQueue: ownershipForm.data.includeFallbackLeaveQueue,
+      actorId: currentAdmin.id,
+    });
+
+    await replaceAdminOwnershipAssignments({
+      adminId: createdAdmin.id,
+      domain: 'employees',
+      assignments: buildOwnershipAssignmentsFromSelection({
+        departmentKeys: ownershipForm.data.employees.departmentKeys,
+        officeIds: ownershipForm.data.employees.officeIds,
+      }),
+      actorId: currentAdmin.id,
+    });
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -112,6 +172,14 @@ export async function updateAdmin(
   }
 
   const { name, email, roleId, note, password: newPassword } = validatedFields.data;
+  const ownershipForm = parseAdminOwnershipForm(formData);
+
+  if (!ownershipForm.success) {
+    return {
+      message: 'Invalid ownership selection. Failed to Update Admin.',
+      success: false,
+    };
+  }
 
   try {
     // Check if email is taken by another admin
@@ -130,13 +198,35 @@ export async function updateAdmin(
       email,
       roleRef: { connect: { id: roleId } },
       note: note || null,
+      includeFallbackLeaveQueue: ownershipForm.data.includeFallbackLeaveQueue,
       ...(newPassword && {
-        hashedPassword: await bcrypt.hash(newPassword, 10),
+        hashedPassword: await hashPassword(newPassword),
         tokenVersion: { increment: 1 },
       }),
     };
 
     await updateAdminWithChangelog(id, data, currentAdmin.id);
+
+    await replaceAdminOwnershipAssignments({
+      adminId: id,
+      domain: 'leave',
+      assignments: buildOwnershipAssignmentsFromSelection({
+        departmentKeys: ownershipForm.data.leave.departmentKeys,
+        officeIds: ownershipForm.data.leave.officeIds,
+      }),
+      includeFallbackLeaveQueue: ownershipForm.data.includeFallbackLeaveQueue,
+      actorId: currentAdmin.id,
+    });
+
+    await replaceAdminOwnershipAssignments({
+      adminId: id,
+      domain: 'employees',
+      assignments: buildOwnershipAssignmentsFromSelection({
+        departmentKeys: ownershipForm.data.employees.departmentKeys,
+        officeIds: ownershipForm.data.employees.officeIds,
+      }),
+      actorId: currentAdmin.id,
+    });
   } catch (error) {
     console.error('Database Error:', error);
     return {

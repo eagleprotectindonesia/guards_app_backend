@@ -33,7 +33,9 @@
     "minutes": "minutes",
     "seconds": "seconds",
     "loading": "Loading...",
-    "processing": "Processing..."
+    "processing": "Processing...",
+    "today": "Today",
+    "successTitle": "Success"
   },
   "attendance": {
     "success": "Attendance Recorded Successfully!",
@@ -58,7 +60,17 @@
     "requiredMessage": "Please record your attendance to start the shift.",
     "submitButton": "Record Attendance",
     "submitLateButton": "Record Late Attendance",
-    "alreadyRecorded": "Attendance already recorded for this shift."
+    "alreadyRecorded": "Attendance already recorded for this shift.",
+    "errors": {
+      "unauthorized": "You are not authorized to perform this action.",
+      "shiftNotFound": "Shift not found.",
+      "shiftNotAssigned": "You are not assigned to this shift.",
+      "attendanceAlreadyRecorded": "Attendance has already been recorded for this shift.",
+      "shiftNotActive": "This shift is not active yet.",
+      "locationRequired": "Location permission is required for this site.",
+      "tooFarFromSite": "You are too far from the assigned site. Current distance: {{currentDistanceMeters}}m (Maximum: {{maxDistanceMeters}}m). Please move to the required location.",
+      "internalServerError": "Internal server error."
+    }
   },
   "checkin": {
     "success": "Check-in Successful!",
@@ -86,7 +98,18 @@
     "urgent": "Urgent",
     "responseRequired": "Response Required",
     "checkInNow": "Check-in Now",
-    "lateStatus": "You are late for this check-in"
+    "lateStatus": "You are late for this check-in",
+    "errors": {
+      "unauthorized": "You are not authorized to perform this action.",
+      "shiftNotFound": "Shift not found.",
+      "shiftNotAssigned": "You are not assigned to this shift.",
+      "shiftNotActive": "This shift is not active yet.",
+      "locationRequired": "Location permission is required for this site.",
+      "tooFarFromSite": "You are too far from the assigned site. Current distance: {{currentDistanceMeters}}m (Maximum: {{maxDistanceMeters}}m). Please move to the required location.",
+      "checkinIntervalCompleted": "You have already checked in for this interval.",
+      "checkinTooEarly": "It is too early to check in.",
+      "internalServerError": "Internal server error."
+    }
   },
   "passwordChange": {
     "successTitle": "Success",
@@ -162,6 +185,16 @@
     "title": "Account",
     "settings": "Settings"
   },
+  "announcements": {
+    "title": "Announcements",
+    "empty": "No announcements",
+    "newCount": "{{count}} new",
+    "kindHoliday": "Holiday",
+    "kindOfficeMemo": "Office Memo",
+    "period": "Period",
+    "holidaySummary": "Upcoming holiday.",
+    "officeMemoSummary": "Office memo update."
+  },
   "biometric": {
     "loginButton": "Login with Biometric",
     "enableTitle": "Enable Biometric Login",
@@ -183,13 +216,158 @@
   "officeAttendance": {
     "title": "Office Attendance",
     "notRecorded": "You haven't recorded your attendance today.",
-    "clockedIn": "Clocked In ({{time}})",
+    "noOfficeAssigned": "Remote / No Office Assigned",
+    "workingDay": "Working Day",
+    "nonWorkingDay": "No active schedule for today. It is marked as a day off.",
+    "dateLabel": "Date",
+    "windowLabel": "Window",
+    "clockedIn": "Clocked In At",
     "clockIn": "Clock In",
     "clockOut": "Clock Out",
+    "clockOutConfirmTitle": "End working hours?",
+    "clockOutConfirmMessage": "Are you sure you want to end working hours for today?",
+    "clockOutConfirmAction": "End working hours",
+    "dayCompleted": "Day Completed",
+    "missedTitle": "Attendance Window Missed",
+    "missedMessage": "The configured office attendance window has ended without a clock-in record.",
+    "clockOutTime": "Clock Out:",
     "clockOutSuccess": "Successfully clocked out",
+    "cannotClockInNonWorkingDay": "You can only clock in on a working day.",
     "history": "Today's History",
     "in": "In",
-    "out": "Out"
+    "out": "Out",
+    "noAttendance": "No attendance recorded",
+    "takingPhoto": "Taking attendance photo...",
+    "optimizingPhoto": "Optimizing attendance photo...",
+    "uploadingPhoto": "Uploading attendance photo...",
+    "holiday": {
+      "headlineHoliday": "Holiday today",
+      "headlineWeekOff": "Day off today",
+      "headlineEmergency": "Emergency schedule change",
+      "headlineSpecialWorkingDay": "Special working day",
+      "impactNoAttendanceRequired": "No attendance required.",
+      "impactAttendanceRequired": "Attendance is still required today.",
+      "impactOfficeOpenNormal": "Office attendance remains active as normal.",
+      "compensation": "Compensation",
+      "paid": "Paid",
+      "unpaid": "Unpaid",
+      "type": {
+        "holiday": "Holiday",
+        "weekOff": "Week Off",
+        "emergency": "Emergency",
+        "specialWorkingDay": "Special Working Day"
+      }
+    },
+    "errors": {
+      "generic": "Failed to record office attendance.",
+      "unauthorized": "You are not authorized to perform this action.",
+      "locationRequired": "Location permission is required.",
+      "tooFarFromOffice": "You are too far from the assigned office. Current distance: {{currentDistanceMeters}}m (Maximum: {{maxDistanceMeters}}m). Please move to the required location.",
+      "assignedOfficeNotFound": "The assigned office could not be found.",
+      "officeLocationNotConfigured": "The assigned office does not have a configured location.",
+      "notWorkingDay": "Office attendance is only available on configured working days.",
+      "officeHoursEnded": "Clock-in is no longer allowed after the configured office end time.",
+      "cameraRequired": "Camera permission is required to clock in.",
+      "photoRequired": "Attendance photo is required to clock in.",
+      "clockInRequired": "Clock-in is required before clock-out.",
+      "alreadyClockedIn": "Clock-in has already been recorded for this schedule window.",
+      "attendanceCompleted": "Office attendance has already been completed for this schedule window.",
+      "internalServerError": "Internal server error."
+    }
+  },
+  "leave": {
+    "title": "Leave Requests",
+    "requestLeave": "Request Leave",
+    "newRequest": "New Leave Request",
+    "history": "Leave History",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "reason": "Reason",
+    "reasonPlaceholder": "Reason for leave (optional)",
+    "reasonType": {
+      "sick": "Sick Leave",
+      "casual": "Casual",
+      "emergency": "Emergency",
+      "family_marriage": "Marriage Leave",
+      "family_child_marriage": "Child Marriage",
+      "family_child_circumcision_baptism": "Child Circumcision/Baptism",
+      "family_death": "Death of Family Member",
+      "family_spouse_death": "Spouse Death",
+      "special_maternity": "Maternity Leave",
+      "special_miscarriage": "Miscarriage Leave",
+      "special_paternity": "Paternity Leave",
+      "special_emergency": "Emergency Leave",
+      "annual": "Annual Leave"
+    },
+    "category": {
+      "title": "Category",
+      "sick": "Sick",
+      "family": "Family",
+      "special": "Special",
+      "annual": "Annual"
+    },
+    "subcategory": {
+      "title": "Leave Type",
+      "change": "Change"
+    },
+    "selectSubtypeTitle": "Select Leave Type",
+    "selectSubtypeMessage": "Choose one leave type below",
+    "policyDescription": "Policy Description",
+    "reasonDescription": {
+      "sick": "Allowed: 1 day per cycle (21st-20th). More than 1 day requires a valid doctor certificate. Without documentation, additional days will be unpaid or deducted from Annual Leave. Cycle example: 21 June-20 July.",
+      "family_marriage": "3 days paid leave for employee's marriage.",
+      "family_child_marriage": "2 days paid leave for child's marriage.",
+      "family_child_circumcision_baptism": "2 days paid leave for child's ceremony.",
+      "family_death": "2 days paid leave for death of immediate family (parent, in-law, or child).",
+      "family_spouse_death": "2 days paid leave starting from date of death. Leave must be taken consecutively.",
+      "special_maternity": "3 months paid leave: 1.5 months before childbirth and 1.5 months after childbirth.",
+      "special_miscarriage": "1.5 months paid leave for recovery after miscarriage. Medical documentation required.",
+      "special_paternity": "2 days paid leave for husband during childbirth or miscarriage of spouse.",
+      "special_emergency": "For urgent or unexpected situations. This leave is deducted from Annual Leave and requires HOD approval.",
+      "annual": "12 working days per year after completing 12 months of service. Used for personal purposes such as vacation or rest. Leave balance is deducted based on working days taken."
+    },
+    "employeeNote": "Employee Note",
+    "adminNote": "Admin Note",
+    "notePlaceholder": "Add optional note",
+    "attachments": "Attachments",
+    "addAttachment": "Add",
+    "attachmentHint": "You can attach up to 4 files.",
+    "attachmentType": {
+      "title": "Select attachment type",
+      "message": "Choose the file type to attach",
+      "image": "Image",
+      "pdf": "PDF"
+    },
+    "attachmentCount": "{{count}} file(s)",
+    "submit": "Submit Request",
+    "cancel": "Cancel Request",
+    "cancelConfirmTitle": "Cancel Leave Request",
+    "cancelConfirmMessage": "Are you sure you want to cancel this leave request?",
+    "noRequests": "No leave requests found",
+    "status": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "validation": {
+      "startDateRequired": "Start date is required",
+      "endDateRequired": "End date is required",
+      "invalidRange": "End date must be after or equal to start date",
+      "attachmentRequiredForSick": "At least 1 attachment is required for sick leave"
+    },
+    "attachmentRequiredForSickHint": "At least 1 attachment is required for sick leave.",
+    "attachmentRequiredForMiscarriageHint": "Medical documentation is required for miscarriage leave.",
+    "success": {
+      "created": "Leave request submitted successfully",
+      "cancelled": "Leave request cancelled successfully"
+    },
+    "error": {
+      "createFailed": "Failed to submit leave request",
+      "cancelFailed": "Failed to cancel leave request",
+      "attachmentPickFailed": "Failed to pick attachments",
+      "attachmentUploadFailed": "Failed to upload attachments"
+    }
   },
   "notifications": {
     "permission_title": "Enable Notifications",

@@ -8,6 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
+        "npm_config_engine_strict": "false",
         "APP_VARIANT": "development"
       }
     },
@@ -18,6 +19,7 @@
         "buildType": "apk"
       },
       "env": {
+        "npm_config_engine_strict": "false",
         "EXPO_PUBLIC_API_URL": "https://crm.eagleprotect.id",
         "APP_VARIANT": "preview"
       }
@@ -26,6 +28,7 @@
       "channel": "production",
       "autoIncrement": true,
       "env": {
+        "npm_config_engine_strict": "false",
         "EXPO_PUBLIC_API_URL": "https://crm.eagleprotect.id",
         "APP_VARIANT": "production"
       }

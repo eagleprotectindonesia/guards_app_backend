@@ -1,6 +1,6 @@
 'use client';
 
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { createSite, updateSite } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateSiteInput } from '@repo/validations';

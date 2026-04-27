@@ -8,7 +8,11 @@ import { Card } from '@/components/ui/card';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { Clock, CheckCircle, AlertTriangle, Fingerprint, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import {
+  cn,
+  getEmployeeAttendanceCheckinErrorPayload,
+  resolveEmployeeAttendanceCheckinErrorMessage,
+} from '@repo/shared';
 
 type ActiveShiftWithWindow = ShiftWithRelationsDto & {
   checkInWindow?: CheckInWindowResult;
@@ -162,8 +166,8 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
       }
       setStatus('');
     } catch (err: unknown) {
-      const errorData = err as { error?: string; message?: string };
-      if (errorData.error === 'Already checked in for this interval') {
+      const errorData = getEmployeeAttendanceCheckinErrorPayload(err);
+      if (errorData.code === 'checkin_interval_completed') {
         if (activeShift.checkInWindow?.isLastSlot) {
           toast.success(t('checkin.shiftCompletedTitle'));
         }
@@ -171,7 +175,17 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
         setStatus('');
         return;
       }
-      setStatus(`${t('checkin.fail')}: ${errorData.message || errorData.error}`);
+      const localizedError = resolveEmployeeAttendanceCheckinErrorMessage(
+        t,
+        {
+          code: errorData.code,
+          fallbackMessage: errorData.message || errorData.error,
+          details: errorData.details,
+        },
+        t('checkin.fail'),
+        'checkin'
+      );
+      setStatus(`${t('checkin.fail')}: ${localizedError}`);
     }
   };
 

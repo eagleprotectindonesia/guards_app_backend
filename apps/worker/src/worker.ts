@@ -13,7 +13,9 @@ import {
   EMPLOYEE_STATUS_CHECK_JOB_NAME,
   EMPLOYEE_SYNC_QUEUE_NAME,
   EMPLOYEE_SYNC_JOB_NAME,
-} from '@repo/shared';
+  EMAIL_QUEUE_NAME,
+  SEND_EMAIL_JOB_NAME,
+} from '@repo/database';
 
 import { createQueue, createWorker } from './infrastructure/bullmq';
 import { closeRedisConnections } from './infrastructure/redis';
@@ -21,6 +23,7 @@ import { SchedulingProcessor } from './processors/scheduling.processor';
 import { MaintenanceProcessor } from './processors/maintenance.processor';
 import { EmployeeStatusProcessor } from './processors/employee-status.processor';
 import { EmployeeSyncProcessor } from './processors/employee-sync.processor';
+import { EmailProcessor } from './processors/email.processor';
 
 // Configuration
 const TICK_INTERVAL_MS = 5 * 1000; // 5 seconds
@@ -35,12 +38,14 @@ async function start() {
   const maintenanceProcessor = new MaintenanceProcessor();
   const employeeStatusProcessor = new EmployeeStatusProcessor();
   const employeeSyncProcessor = new EmployeeSyncProcessor();
+  const emailProcessor = new EmailProcessor();
 
   // 2. Initialize Queues and Add Repeatable Jobs
   const schedulingQueue = createQueue(SCHEDULING_QUEUE_NAME);
   const maintenanceQueue = createQueue(MAINTENANCE_QUEUE_NAME);
   const employeeStatusQueue = createQueue(EMPLOYEE_STATUS_QUEUE_NAME);
   const employeeSyncQueue = createQueue(EMPLOYEE_SYNC_QUEUE_NAME);
+  const emailQueue = createQueue(EMAIL_QUEUE_NAME);
 
   console.log('Registering repeatable jobs...');
 
@@ -90,6 +95,7 @@ async function start() {
     createWorker(MAINTENANCE_QUEUE_NAME, job => maintenanceProcessor.process(job)),
     createWorker(EMPLOYEE_STATUS_QUEUE_NAME, job => employeeStatusProcessor.process(job)),
     createWorker(EMPLOYEE_SYNC_QUEUE_NAME, job => employeeSyncProcessor.process(job)),
+    createWorker(EMAIL_QUEUE_NAME, job => emailProcessor.process(job)),
   ];
 
   console.log('All workers started.');
@@ -103,6 +109,7 @@ async function start() {
     await maintenanceQueue.close();
     await employeeStatusQueue.close();
     await employeeSyncQueue.close();
+    await emailQueue.close();
     await closeRedisConnections();
 
     console.log('Graceful shutdown complete.');

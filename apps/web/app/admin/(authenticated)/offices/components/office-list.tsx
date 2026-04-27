@@ -3,7 +3,7 @@
 import { getAllOfficesForExport } from '../actions';
 import { EditButton } from '../../components/action-buttons';
 import { Office } from '@prisma/client';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';

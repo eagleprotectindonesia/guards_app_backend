@@ -1,6 +1,8 @@
 import { prisma } from '../src';
 import bcrypt from 'bcryptjs';
 
+const DEFAULT_OFFICE_WORK_SCHEDULE_ID = '6e3be3df-698b-4d5c-aa42-2ddf01fb9d80';
+
 async function main() {
   console.log('Seeding database...');
 
@@ -11,6 +13,58 @@ async function main() {
     { action: 'create', resource: 'employees', code: 'employees:create', description: 'Can create employees' },
     { action: 'edit', resource: 'employees', code: 'employees:edit', description: 'Can edit employees' },
     { action: 'delete', resource: 'employees', code: 'employees:delete', description: 'Can delete employees' },
+    {
+      action: 'view',
+      resource: 'office-work-schedules',
+      code: 'office-work-schedules:view',
+      description: 'Can view office work schedules',
+    },
+    {
+      action: 'create',
+      resource: 'office-work-schedules',
+      code: 'office-work-schedules:create',
+      description: 'Can create office work schedules',
+    },
+    {
+      action: 'edit',
+      resource: 'office-work-schedules',
+      code: 'office-work-schedules:edit',
+      description: 'Can edit office work schedules',
+    },
+    {
+      action: 'delete',
+      resource: 'office-work-schedules',
+      code: 'office-work-schedules:delete',
+      description: 'Can delete office work schedules',
+    },
+    { action: 'view', resource: 'office-shifts', code: 'office-shifts:view', description: 'Can view office shifts' },
+    { action: 'create', resource: 'office-shifts', code: 'office-shifts:create', description: 'Can create office shifts' },
+    { action: 'edit', resource: 'office-shifts', code: 'office-shifts:edit', description: 'Can edit office shifts' },
+    { action: 'delete', resource: 'office-shifts', code: 'office-shifts:delete', description: 'Can delete office shifts' },
+    {
+      action: 'view',
+      resource: 'office-shift-types',
+      code: 'office-shift-types:view',
+      description: 'Can view office shift types',
+    },
+    {
+      action: 'create',
+      resource: 'office-shift-types',
+      code: 'office-shift-types:create',
+      description: 'Can create office shift types',
+    },
+    {
+      action: 'edit',
+      resource: 'office-shift-types',
+      code: 'office-shift-types:edit',
+      description: 'Can edit office shift types',
+    },
+    {
+      action: 'delete',
+      resource: 'office-shift-types',
+      code: 'office-shift-types:delete',
+      description: 'Can delete office shift types',
+    },
     { action: 'view', resource: 'sites', code: 'sites:view', description: 'Can view sites' },
     { action: 'create', resource: 'sites', code: 'sites:create', description: 'Can create sites' },
     { action: 'edit', resource: 'sites', code: 'sites:edit', description: 'Can edit sites' },
@@ -44,11 +98,19 @@ async function main() {
   console.log('Creating roles...');
   const superadminRole = await prisma.role.upsert({
     where: { name: 'superadmin' },
-    update: {},
+    update: {
+      permissions: {
+        connect: createdPermissions.map(p => ({ id: p.id })),
+      },
+    },
     create: {
       name: 'superadmin',
       description: 'Full system access',
       isSystem: true,
+      policy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+      },
       permissions: {
         connect: createdPermissions.map(p => ({ id: p.id })),
       },
@@ -57,11 +119,19 @@ async function main() {
 
   await prisma.role.upsert({
     where: { name: 'admin' },
-    update: {},
+    update: {
+      permissions: {
+        connect: createdPermissions.filter(p => !p.code.startsWith('roles:')).map(p => ({ id: p.id })),
+      },
+    },
     create: {
       name: 'admin',
       description: 'Standard administrative access',
       isSystem: true,
+      policy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+      },
       permissions: {
         connect: createdPermissions.filter(p => !p.code.startsWith('roles:')).map(p => ({ id: p.id })),
       },
@@ -272,7 +342,56 @@ async function main() {
     //   console.log('Created Overnight Shift:', overnightShift.id);
     // }
 
-    // 8. Create System Settings
+    // 8. Create Default Office Work Schedule
+    console.log('Creating default office work schedule...');
+    const defaultOfficeSchedule = await prisma.officeWorkSchedule.upsert({
+      where: { code: 'default-office-work-schedule' },
+      update: {
+        name: 'Default Office Schedule',
+      },
+      create: {
+        id: DEFAULT_OFFICE_WORK_SCHEDULE_ID,
+        code: 'default-office-work-schedule',
+        name: 'Default Office Schedule',
+      },
+    });
+
+    const defaultOfficeScheduleDays = [
+      { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
+      { weekday: 1, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+      { weekday: 2, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+      { weekday: 3, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+      { weekday: 4, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+      { weekday: 5, isWorkingDay: true, startTime: '08:00', endTime: '17:00' },
+      { weekday: 6, isWorkingDay: false, startTime: null, endTime: null },
+    ] as const;
+
+    await Promise.all(
+      defaultOfficeScheduleDays.map(day =>
+        prisma.officeWorkScheduleDay.upsert({
+          where: {
+            scheduleId_weekday: {
+              scheduleId: defaultOfficeSchedule.id,
+              weekday: day.weekday,
+            },
+          },
+          update: {
+            isWorkingDay: day.isWorkingDay,
+            startTime: day.startTime,
+            endTime: day.endTime,
+          },
+          create: {
+            scheduleId: defaultOfficeSchedule.id,
+            weekday: day.weekday,
+            isWorkingDay: day.isWorkingDay,
+            startTime: day.startTime,
+            endTime: day.endTime,
+          },
+        })
+      )
+    );
+
+    // 9. Create System Settings
     console.log('Creating system settings...');
     const systemSettings = [
       { name: 'GEOFENCE_GRACE_MINUTES', value: '5', note: 'Grace period for returning to the geofence (minutes)' },
@@ -285,6 +404,16 @@ async function main() {
         name: 'ENABLE_LOCATION_MONITORING',
         value: '0',
         note: 'Feature toggle to enable/disable geofencing and location monitoring (1=ON, 0=OFF)',
+      },
+      {
+        name: 'DEFAULT_OFFICE_WORK_SCHEDULE_ID',
+        value: defaultOfficeSchedule.id,
+        note: 'Default office work schedule template used when an office employee has no assigned custom office schedule.',
+      },
+      {
+        name: 'OFFICE_ATTENDANCE_REQUIRE_PHOTO',
+        value: '0',
+        note: 'Require office attendance photo capture for clock-in (1=ON, 0=OFF).',
       },
     ];
 
@@ -299,7 +428,7 @@ async function main() {
     );
   }
 
-  // 9. Seed Chat Messages
+  // 10. Seed Chat Messages
   const existingChatMessages = await prisma.chatMessage.count();
   if (existingChatMessages === 0) {
     console.log('Seeding chat messages...');

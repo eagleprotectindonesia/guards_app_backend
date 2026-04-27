@@ -20,6 +20,23 @@ const include = {
 
 type ChangelogWithAdmin = Prisma.ChangelogGetPayload<{ include: typeof include }>;
 
+const OFFICE_WORK_SCHEDULE_DAY_COLUMNS = [
+  { key: 'day_0', label: 'Sun' },
+  { key: 'day_1', label: 'Mon' },
+  { key: 'day_2', label: 'Tue' },
+  { key: 'day_3', label: 'Wed' },
+  { key: 'day_4', label: 'Thu' },
+  { key: 'day_5', label: 'Fri' },
+  { key: 'day_6', label: 'Sat' },
+] as const;
+
+type OfficeWorkScheduleDay = {
+  weekday: number;
+  isWorkingDay: boolean;
+  startTime: string | null;
+  endTime: string | null;
+};
+
 const getTrackedFields = (entityType: string | null) => {
   switch (entityType) {
     case 'Shift':
@@ -32,6 +49,8 @@ const getTrackedFields = (entityType: string | null) => {
       return [...OFFICE_TRACKED_FIELDS];
     case 'ShiftType':
       return [...SHIFT_TYPE_TRACKED_FIELDS];
+    case 'OfficeWorkSchedule':
+      return ['name', 'code', ...OFFICE_WORK_SCHEDULE_DAY_COLUMNS.map(column => column.key)];
     default:
       // Union of all tracked fields if type is unknown or mixed
       return Array.from(
@@ -47,6 +66,9 @@ const getTrackedFields = (entityType: string | null) => {
 };
 
 const labelize = (key: string) => {
+  const officeWorkScheduleDayColumn = OFFICE_WORK_SCHEDULE_DAY_COLUMNS.find(column => column.key === key);
+  if (officeWorkScheduleDayColumn) return officeWorkScheduleDayColumn.label;
+
   const specialCases: Record<string, string> = {
     requiredCheckinIntervalMins: 'Check-in Interval',
     graceMinutes: 'Grace Period',
@@ -70,7 +92,16 @@ const labelize = (key: string) => {
     .trim();
 };
 
-const formatCSVValue = (key: string, value: string | boolean) => {
+function isOfficeWorkScheduleDay(value: unknown): value is OfficeWorkScheduleDay {
+  return !!value && typeof value === 'object' && 'weekday' in value && 'isWorkingDay' in value;
+}
+
+function formatOfficeWorkScheduleDay(day: OfficeWorkScheduleDay | null | undefined) {
+  if (!day) return '';
+  return day.isWorkingDay ? `${day.startTime ?? '-'} - ${day.endTime ?? '-'}` : 'Off';
+}
+
+const formatCSVValue = (key: string, value: string | boolean | null | undefined) => {
   if (value === null || value === undefined) return '';
   if (typeof value === 'boolean') return value ? 'Active' : 'Inactive';
 
@@ -118,6 +149,12 @@ export async function GET(request: NextRequest) {
     if (endDateStr) {
       where.createdAt.lte = endOfDay(new Date(endDateStr));
     }
+  }
+
+  const totalCount = await prisma.changelog.count({ where });
+
+  if (totalCount === 0) {
+    return NextResponse.json({ message: 'No changelog data found for export.' }, { status: 404 });
   }
 
   const trackedFields = getTrackedFields(entityType);
@@ -175,12 +212,33 @@ export async function GET(request: NextRequest) {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const details = (log.details as any) || {};
             type keys = ReturnType<typeof getTrackedFields>[number];
-            const changes = details.changes as { [key in keys]: { from: string | boolean; to: string | boolean } };
+            const changes = details.changes as {
+              [key in keys]:
+                | { from: string | boolean; to: string | boolean }
+                | { from: OfficeWorkScheduleDay | null; to: OfficeWorkScheduleDay | null };
+            };
 
             const fieldValues = trackedFields.map(field => {
+              if (entityType === 'OfficeWorkSchedule' && field.startsWith('day_')) {
+                const weekday = Number(field.replace('day_', ''));
+                const dayChange = changes?.[field] as
+                  | { from: OfficeWorkScheduleDay | null; to: OfficeWorkScheduleDay | null }
+                  | undefined;
+                if (dayChange) {
+                  return `${formatOfficeWorkScheduleDay(dayChange.from)} -> ${formatOfficeWorkScheduleDay(dayChange.to)}`;
+                }
+
+                const day = Array.isArray(details.days)
+                  ? details.days.find((entry: unknown) => isOfficeWorkScheduleDay(entry) && entry.weekday === weekday)
+                  : null;
+
+                return formatOfficeWorkScheduleDay(isOfficeWorkScheduleDay(day) ? day : null);
+              }
+
               if (changes?.[field]) {
-                const from = formatCSVValue(field, changes[field].from);
-                const to = formatCSVValue(field, changes[field].to);
+                const genericChange = changes[field] as { from: string | boolean | null; to: string | boolean | null };
+                const from = formatCSVValue(field, genericChange.from);
+                const to = formatCSVValue(field, genericChange.to);
                 return `${from} -> ${to}`;
               }
               return formatCSVValue(field, details[field]);

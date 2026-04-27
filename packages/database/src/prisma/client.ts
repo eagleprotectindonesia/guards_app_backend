@@ -49,3 +49,21 @@ export type EmployeeSummary = {
 export type EmployeeWithRelations = NonNullable<
   Prisma.Result<typeof db.employee, { include: { office: { select: { name: true } } } }, 'findUnique'>
 >;
+
+export type EmployeeWithDerivedOfficeMetadata = {
+  jobTitleCategory: 'staff' | 'management' | null;
+  fieldModeEnabled: boolean;
+  isFieldModeEditable: boolean;
+  fieldModeReasonCode:
+    | 'non_office'
+    | 'missing_office'
+    | 'staff_with_office'
+    | 'management_with_office'
+    | 'uncategorized_with_office';
+};
+
+export type EmployeeWithRelationsAndDerived = EmployeeWithRelations & EmployeeWithDerivedOfficeMetadata;
+
+export type EmployeeWithRelationsAndSchedule = EmployeeWithRelationsAndDerived & {
+  activeOfficeWorkScheduleName: string | null;
+};

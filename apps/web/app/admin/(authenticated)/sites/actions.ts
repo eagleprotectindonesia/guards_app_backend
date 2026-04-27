@@ -12,7 +12,8 @@ import {
 } from '@repo/database';
 import { ActionState } from '@/types/actions';
 import { Site } from '@prisma/client';
-import { serialize, Serialized } from '@/lib/utils';
+import { serialize } from '@/lib/server-utils';
+import type { Serialized } from '@/lib/server-utils';
 
 export async function getAllSitesForExport(): Promise<
   Serialized<Site & { lastUpdatedBy?: { name: string } | null; createdBy?: { name: string } | null }>[]
@@ -55,7 +56,7 @@ export async function createSite(
   }
 
   revalidatePath('/admin/sites');
-  revalidatePath('/admin/shifts', 'layout');
+  revalidatePath('/admin/guard-shifts', 'layout');
   revalidatePath('/admin/dashboard');
   return { success: true, message: 'Site created successfully' };
 }
@@ -95,7 +96,7 @@ export async function updateSite(
   }
 
   revalidatePath('/admin/sites');
-  revalidatePath('/admin/shifts', 'layout');
+  revalidatePath('/admin/guard-shifts', 'layout');
   revalidatePath('/admin/dashboard');
   return { success: true, message: 'Site updated successfully' };
 }
@@ -116,7 +117,7 @@ export async function deleteSite(id: string) {
     await deleteSiteWithChangelog(id, adminId!);
 
     revalidatePath('/admin/sites');
-    revalidatePath('/admin/shifts', 'layout');
+    revalidatePath('/admin/guard-shifts', 'layout');
     revalidatePath('/admin/dashboard');
     return { success: true };
   } catch (error) {

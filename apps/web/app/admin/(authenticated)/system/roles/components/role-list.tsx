@@ -1,7 +1,7 @@
 'use client';
 
 import { Role } from '@prisma/client';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { deleteRole } from '../actions';
 import { useTransition } from 'react';
 import toast from 'react-hot-toast';

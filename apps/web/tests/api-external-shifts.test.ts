@@ -2,8 +2,7 @@ import { GET } from '../app/api/external/v1/shifts/route';
 import { prisma } from '@repo/database';
 import { NextRequest } from 'next/server';
 
-// Mock prisma
-jest.mock('@/lib/prisma', () => ({
+jest.mock('@repo/database', () => ({
   prisma: {
     shift: {
       findMany: jest.fn(),
@@ -12,7 +11,7 @@ jest.mock('@/lib/prisma', () => ({
   },
 }));
 
-describe('GET /api/external/v1/shifts', () => {
+describe('/api/external/v1/shifts', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });

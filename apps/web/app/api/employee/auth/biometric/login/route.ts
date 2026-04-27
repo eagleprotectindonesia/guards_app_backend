@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
-import { prisma, getEmployeeSessionExpiry, redis } from '@repo/database';
+import { prisma, getEmployeeSessionExpiry } from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
 import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
@@ -35,8 +36,6 @@ export async function POST(req: Request) {
 
     // Check revocation
     if (storedToken.revokedAt) {
-      // Security: if using a revoked token, we might want to alert or revoke all tokens?
-      // For now, just deny.
       return NextResponse.json({ message: 'Token revoked' }, { status: 401 });
     }
 

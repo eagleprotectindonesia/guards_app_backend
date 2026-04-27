@@ -1,28 +1,22 @@
 import { POST } from '../app/api/employee/shifts/[id]/checkin/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { getShiftById } from '@repo/database';
-import { recordCheckin, recordBulkCheckins } from '@repo/database';
-import { getSystemSetting } from '@repo/database';
+import { getShiftById, getSystemSetting, recordBulkCheckins, recordCheckin } from '@repo/database';
+import { redis } from '@repo/database/redis';
 
-// Mock the dependencies
 jest.mock('@/lib/employee-auth', () => ({
   getAuthenticatedEmployee: jest.fn(),
 }));
 
-jest.mock('@/lib/data-access/shifts', () => ({
+jest.mock('@repo/database', () => ({
   getShiftById: jest.fn(),
-}));
-
-jest.mock('@/lib/data-access/checkins', () => ({
+  getSystemSetting: jest.fn(),
   recordCheckin: jest.fn(),
   recordBulkCheckins: jest.fn(),
+  redis: {
+    publish: jest.fn(),
+  },
 }));
 
-jest.mock('@/lib/data-access/settings', () => ({
-  getSystemSetting: jest.fn(),
-}));
-
-// Helper to mock NextResponse.json
 jest.mock('next/server', () => {
   const actual = jest.requireActual('next/server');
   return {
@@ -37,7 +31,7 @@ jest.mock('next/server', () => {
   };
 });
 
-describe('POST /api/employee/shifts/[id]/checkin - Last Slot Case', () => {
+describe('POST /api/employee/shifts/[id]/checkin', () => {
   const shiftId = 'shift-123';
   const employeeId = 'employee-456';
 
@@ -49,27 +43,21 @@ describe('POST /api/employee/shifts/[id]/checkin - Last Slot Case', () => {
     const now = new Date('2025-12-20T10:00:00Z');
     jest.useFakeTimers().setSystemTime(now);
 
-    const mockEmployee = { id: employeeId };
-    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue(mockEmployee);
-
-    const mockShift = {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({ id: employeeId });
+    (getShiftById as jest.Mock).mockResolvedValue({
       id: shiftId,
-      employeeId: employeeId,
+      employeeId,
       startsAt: new Date('2025-12-20T08:00:00Z'),
       endsAt: new Date('2025-12-20T10:00:00Z'),
       requiredCheckinIntervalMins: 60,
       graceMinutes: 15,
-      // Setting lastHeartbeatAt to 09:00 ensures we only record the current 10:00 check-in
       lastHeartbeatAt: new Date('2025-12-20T09:00:00Z'),
       status: 'in_progress',
+      siteId: 'site-1',
       site: { latitude: null, longitude: null },
-      shiftType: {},
-      employee: mockEmployee,
-    };
-
-    (getShiftById as jest.Mock).mockResolvedValue(mockShift);
+    });
     (getSystemSetting as jest.Mock).mockResolvedValue(null);
-    (recordCheckin as jest.Mock).mockResolvedValue({ id: 'checkin-1' });
+    (recordCheckin as jest.Mock).mockResolvedValue({ checkin: { id: 'checkin-1', status: 'on_time' } });
     (recordBulkCheckins as jest.Mock).mockResolvedValue({ count: 1, resolvedAlerts: [] });
 
     const req = new Request(`http://localhost/api/employee/shifts/${shiftId}/checkin`, {
@@ -77,46 +65,38 @@ describe('POST /api/employee/shifts/[id]/checkin - Last Slot Case', () => {
       body: JSON.stringify({ source: 'web' }),
     });
 
-    const params = Promise.resolve({ id: shiftId });
-    const response = await POST(req, { params });
+    const response = await POST(req, { params: Promise.resolve({ id: shiftId }) });
     const data = await response.json();
 
     expect(data.isLastSlot).toBe(true);
-    
-    // Verify recordCheckin call includes status: 'completed' in shiftUpdateData
-    expect(recordCheckin).toHaveBeenCalledWith(expect.objectContaining({
-      shiftUpdateData: expect.objectContaining({
-        status: 'completed',
-      }),
-    }));
+    expect(recordCheckin).toHaveBeenCalledWith(
+      expect.objectContaining({
+        shiftUpdateData: expect.objectContaining({
+          status: 'completed',
+        }),
+      })
+    );
 
     jest.useRealTimers();
   });
 
-  test('returns 400 when already checked in for the last slot (duplicate prevention)', async () => {
-    // Current time is 09:50 (within early window for 10:00 slot)
+  test('returns code when already checked in for the interval', async () => {
     const now = new Date('2025-12-20T09:50:00Z');
     jest.useFakeTimers().setSystemTime(now);
 
-    const mockEmployee = { id: employeeId };
-    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue(mockEmployee);
-
-    const mockShift = {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({ id: employeeId });
+    (getShiftById as jest.Mock).mockResolvedValue({
       id: shiftId,
-      employeeId: employeeId,
+      employeeId,
       startsAt: new Date('2025-12-20T08:00:00Z'),
       endsAt: new Date('2025-12-20T10:00:00Z'),
       requiredCheckinIntervalMins: 60,
       graceMinutes: 15,
-      // lastHeartbeatAt is 09:48 (already checked in for the last slot early)
       lastHeartbeatAt: new Date('2025-12-20T09:48:00Z'),
       status: 'in_progress',
+      siteId: 'site-1',
       site: { latitude: null, longitude: null },
-      shiftType: {},
-      employee: mockEmployee,
-    };
-
-    (getShiftById as jest.Mock).mockResolvedValue(mockShift);
+    });
     (getSystemSetting as jest.Mock).mockResolvedValue(null);
 
     const req = new Request(`http://localhost/api/employee/shifts/${shiftId}/checkin`, {
@@ -124,62 +104,53 @@ describe('POST /api/employee/shifts/[id]/checkin - Last Slot Case', () => {
       body: JSON.stringify({ source: 'web' }),
     });
 
-    const params = Promise.resolve({ id: shiftId });
-    const response = await POST(req, { params });
+    const response = await POST(req, { params: Promise.resolve({ id: shiftId }) });
     const data = await response.json();
 
     expect(response.status).toBe(400);
-    expect(data.error).toBe('Already checked in for this interval');
+    expect(data).toMatchObject({
+      code: 'checkin_interval_completed',
+      error: 'Already checked in for this interval',
+    });
 
     jest.useRealTimers();
   });
 
-  test('successfully allows late check-in for the last slot (past grace period)', async () => {
-    // Current time is 10:20 (past the 10:15 grace period for the 10:00 slot)
-    const now = new Date('2025-12-20T10:20:00Z');
-    jest.useFakeTimers().setSystemTime(now);
+  test('returns distance details when employee is too far from the site', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2025-12-20T08:30:00Z'));
 
-    const mockEmployee = { id: employeeId };
-    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue(mockEmployee);
-
-    const mockShift = {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({ id: employeeId });
+    (getShiftById as jest.Mock).mockResolvedValue({
       id: shiftId,
-      employeeId: employeeId,
+      employeeId,
       startsAt: new Date('2025-12-20T08:00:00Z'),
       endsAt: new Date('2025-12-20T10:00:00Z'),
       requiredCheckinIntervalMins: 60,
       graceMinutes: 15,
-      lastHeartbeatAt: new Date('2025-12-20T09:00:00Z'),
+      lastHeartbeatAt: null,
       status: 'in_progress',
-      site: { latitude: null, longitude: null },
-      shiftType: {},
-      employee: mockEmployee,
-    };
-
-    (getShiftById as jest.Mock).mockResolvedValue(mockShift);
-    (getSystemSetting as jest.Mock).mockResolvedValue(null);
-    (recordCheckin as jest.Mock).mockResolvedValue({ id: 'checkin-1' });
+      siteId: 'site-1',
+      site: { latitude: 0, longitude: 0 },
+    });
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '100' });
 
     const req = new Request(`http://localhost/api/employee/shifts/${shiftId}/checkin`, {
       method: 'POST',
-      body: JSON.stringify({ source: 'web' }),
+      body: JSON.stringify({
+        source: 'web',
+        location: { lat: 0, lng: 0.002 },
+      }),
     });
 
-    const params = Promise.resolve({ id: shiftId });
-    const response = await POST(req, { params });
+    const response = await POST(req, { params: Promise.resolve({ id: shiftId }) });
     const data = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(data.status).toBe('late');
-    expect(data.isLastSlot).toBe(true);
-    
-    // Verify recordCheckin call includes status: 'completed' in shiftUpdateData
-    expect(recordCheckin).toHaveBeenCalledWith(expect.objectContaining({
-      status: 'late',
-      shiftUpdateData: expect.objectContaining({
-        status: 'completed',
-      }),
-    }));
+    expect(response.status).toBe(400);
+    expect(data.code).toBe('too_far_from_site');
+    expect(data.details).toMatchObject({
+      maxDistanceMeters: 100,
+    });
+    expect(typeof data.details.currentDistanceMeters).toBe('number');
 
     jest.useRealTimers();
   });

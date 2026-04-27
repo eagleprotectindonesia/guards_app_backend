@@ -1,4 +1,12 @@
-import { getOpenAlertsForDashboard, getActiveShiftsForDashboard, getUpcomingShiftsForDashboard, redis } from '@repo/database';
+import {
+  countUnreadAdminNotifications,
+  getActiveShiftsForDashboard,
+  getOpenAlertsForDashboard,
+  getUpcomingShiftsForDashboard,
+  listRecentAdminNotifications,
+  markAdminNotificationsAsRead,
+} from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { Shift, Site } from '@repo/types';
 import { UnifiedServer, UnifiedSocket } from '../socket';
 
@@ -6,7 +14,9 @@ import { UnifiedServer, UnifiedSocket } from '../socket';
  * Handlers for Administrative users.
  */
 export function registerAdminHandlers(io: UnifiedServer, socket: UnifiedSocket) {
+  const auth = socket.data.auth!;
   socket.join('admin');
+  socket.join(`admin:${auth.id}`);
 
   socket.on('subscribe_site', (siteId: string) => {
     socket.rooms.forEach(r => {
@@ -56,6 +66,46 @@ export function registerAdminHandlers(io: UnifiedServer, socket: UnifiedSocket) 
       }
     } catch (err) {
       console.error('Backfill Error:', err);
+    }
+  });
+
+  socket.on('request_admin_notifications_backfill', async data => {
+    try {
+      const limit = data?.limit ?? 20;
+      const [notifications, unreadCount] = await Promise.all([
+        listRecentAdminNotifications(auth.id, limit),
+        countUnreadAdminNotifications(auth.id),
+      ]);
+
+      socket.emit('admin_notifications_backfill', {
+        notifications: notifications.map(notification => ({
+          ...notification,
+          readAt: notification.readAt ? notification.readAt.toISOString() : null,
+          createdAt: notification.createdAt.toISOString(),
+        })),
+        unreadCount,
+      });
+    } catch (err) {
+      console.error('Admin notification backfill error:', err);
+    }
+  });
+
+  socket.on('mark_admin_notifications_read', async data => {
+    try {
+      const ids = Array.isArray(data?.notificationIds) ? data.notificationIds.filter(Boolean) : [];
+      if (ids.length === 0) {
+        return;
+      }
+
+      await markAdminNotificationsAsRead(auth.id, ids);
+      const unreadCount = await countUnreadAdminNotifications(auth.id);
+
+      socket.emit('admin_notifications_read', {
+        readIds: ids,
+        unreadCount,
+      });
+    } catch (err) {
+      console.error('Mark admin notifications read error:', err);
     }
   });
 }

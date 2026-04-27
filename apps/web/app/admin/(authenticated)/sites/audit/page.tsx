@@ -1,5 +1,5 @@
 import { prisma } from '@repo/database';
-import { getPaginationParams } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
 import SiteChangelogFilterModal from '../../changelogs/components/site-changelog-filter-modal';
 import { Suspense } from 'react';

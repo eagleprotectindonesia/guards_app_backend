@@ -2,9 +2,27 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEmployeeApi } from './use-employee-api';
 import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { CheckInWindowResult } from '@/lib/scheduling';
-import { OfficeAttendance } from '@repo/types';
+import type { OfficeAttendance, OfficeAttendanceState } from '@repo/types';
+import type { EmployeeAttendanceCheckinErrorPayload } from '@repo/shared';
 
 export type ShiftWithCheckInWindow = ShiftWithRelationsDto & { checkInWindow?: CheckInWindowResult };
+
+type OfficeAttendanceScheduleContext = {
+  isWorkingDay: boolean;
+  isLate?: boolean;
+  isAfterEnd?: boolean;
+  scheduledStartStr?: string | null;
+  scheduledEndStr?: string | null;
+  businessDateStr?: string | null;
+  schedule?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
+  businessDay?: {
+    dateKey?: string;
+  } | null;
+};
 
 const parseShiftDates = (shift: ShiftWithCheckInWindow) => {
   if (!shift) return null;
@@ -125,7 +143,7 @@ export function useCheckIn() {
       });
       const data = await res.json();
       if (!res.ok) {
-        throw data;
+        throw data as EmployeeAttendanceCheckinErrorPayload;
       }
       return data;
     },
@@ -151,7 +169,7 @@ export function useRecordAttendance() {
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || data.message || 'Gagal merekam kehadiran');
+        throw data as EmployeeAttendanceCheckinErrorPayload;
       }
       return data;
     },
@@ -170,7 +188,11 @@ export function useOfficeAttendance() {
       const res = await fetchWithAuth('/api/employee/my/office-attendance/today');
       if (!res.ok) throw new Error('Failed to fetch today office attendance');
       const data = await res.json();
-      return data.attendances as OfficeAttendance[];
+      return data as {
+        attendances: OfficeAttendance[];
+        attendanceState?: OfficeAttendanceState;
+        scheduleContext?: OfficeAttendanceScheduleContext;
+      };
     },
   });
 }
@@ -181,11 +203,9 @@ export function useRecordOfficeAttendance() {
 
   return useMutation({
     mutationFn: async ({
-      officeId,
       location,
       status = 'present',
     }: {
-      officeId: string;
       location?: { lat: number; lng: number };
       status?: 'present' | 'clocked_out';
     }) => {
@@ -194,7 +214,7 @@ export function useRecordOfficeAttendance() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ officeId, location, status }),
+        body: JSON.stringify({ location, status }),
       });
 
       const data = await res.json();

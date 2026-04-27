@@ -8,6 +8,7 @@ The sync process fetches employee records from an external API and synchronizes 
 - **Adding** new employees not present in the local database
 - **Updating** existing employee profile information
 - **Deactivating** employees that no longer exist in the external system
+- **Resolving duplicate `employee_number` records** from external data by keeping a single canonical record
 
 ## Architecture
 
@@ -70,15 +71,22 @@ export async function syncEmployeesFromExternal() {
   // Step 1: Fetch from external API
   const externalEmployees = await fetchExternalEmployees();
 
-  // Step 2: Get existing employee IDs
+  // Step 2: Get existing employee IDs for canonical duplicate resolution
   const existingEmployees = await prisma.employee.findMany({
     where: { id: { in: externalIds } },
     select: { id: true },
   });
   const existingIds = new Set(existingEmployees.map(e => e.id));
 
-  // Step 3: Process each external employee
-  for (const ext of externalEmployees) {
+  // Step 3: Resolve duplicate employee_number rows
+  // Rule:
+  // - Prefer an external id that already exists locally
+  // - If none exist locally, keep lexicographically smallest id
+  const canonicalEmployees = resolveCanonicalExternalEmployees(externalEmployees, existingIds);
+  const activeIds = canonicalEmployees.map(e => e.id);
+
+  // Step 4: Process each canonical employee
+  for (const ext of canonicalEmployees) {
     const role: EmployeeRole = ext.office_id ? 'office' : 'on_site';
 
     if (!existingIds.has(ext.id)) {
@@ -94,8 +102,9 @@ export async function syncEmployeesFromExternal() {
     }
   }
 
-  // Step 4: Deactivate employees not in external list
-  const { deactivatedCount } = await deactivateEmployeesNotIn(externalIds);
+  // Step 5: Deactivate employees not in canonical active list
+  // This includes duplicate employee_number losers.
+  const { deactivatedCount } = await deactivateEmployeesNotIn(activeIds);
 
   return { added: addedCount, updated: updatedCount, deactivated: deactivatedCount };
 }
@@ -176,12 +185,12 @@ The password is hashed using bcrypt before storage.
 
 ### Deactivation Logic
 
-When an employee is **not present** in the external API response but exists locally with `status: true`, they are **deactivated**. This triggers a comprehensive cleanup:
+When an employee is **not present** in the canonical active external list (missing externally or duplicate loser) but exists locally with `status: true` and `deletedAt: null`, they are **deactivated**. This triggers a comprehensive cleanup:
 
 1. **Employee Record**
    - `status` set to `false`
-   - `tokenVersion` incremented (invalidates active sessions)
    - `deletedAt` timestamp set
+   - Active sessions revoked (`employee_sessions.revoked_at` set)
 
 2. **Future Shifts** (status: `scheduled`, starts after current time)
    - Soft-deleted (`deletedAt` set)
@@ -227,6 +236,7 @@ The sync process outputs console logs for monitoring:
 
 ```
 [SyncEmployees] Fetched 150 employees from external API
+[SyncEmployees] Duplicate employee_number "EMP001" detected. Keeping id=employee-2; soft-deactivating duplicate ids=[employee-9]
 [SyncEmployees] Sync completed: 5 added, 120 updated, 2 deactivated
 ```
 
@@ -289,4 +299,5 @@ curl -X POST http://localhost:3000/api/admin/employees/sync \
 
 ### Database constraint errors
 - Check for duplicate employee IDs in external system
+- Check for duplicate `employee_number` rows in external system and verify canonical winner behavior in logs
 - Verify Prisma schema matches database structure

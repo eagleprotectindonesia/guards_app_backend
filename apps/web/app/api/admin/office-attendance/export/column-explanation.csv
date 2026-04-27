@@ -1,0 +1,990 @@
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record
+COLIMN NAME,EXPLAINATION
+Employee ID , Unique key to link attendance with employee master record
+Employee ," Employee name (fetched from master, not manually entered)"
+Department , Employee’s department for filtering and reporting
+Designation , Employee role/title for hierarchy-based analysis
+Office , Site/Client location where employee is assigned/worked
+Business Date , Primary attendance date used for reporting and payroll
+Day Name ," Auto-derived day (e.g., Monday) from Business Date"
+Month , Auto-derived month for aggregation and reporting
+Assigned Shift , Shift assigned to employee for that day (reference to shift rules)
+Shift Start Time , Expected check-in time from shift definition
+Shift End Time , Expected check-out time from shift definition
+Grace Minutes , Allowed delay before marking lateness
+Clock In Date , Actual system date of check-in (for audit/overnight shifts)
+Clock In Time , Actual check-in time used for lateness calculation
+Clock In Distance (m) , Distance from allowed location to validate attendance authenticity
+Clock Out Date , Actual system date of check-out
+Clock Out Time , Actual check-out time used for work duration
+Clock Out Distance (m) , Distance from allowed location at check-out
+Paid Hours , Final payable time (formatted output derived from work minutes)
+Work Minutes , Total worked duration in minutes (system-calculated)
+Overtime Minutes , Extra time beyond shift end (system-calculated)
+Status , Final attendance result (Present / Late / Absent / Leave / Completed)
+Lateness (mins) , Minutes late based on shift start + grace
+Late Flag , Yes/No indicator if employee is late
+Early Leave Minutes , Minutes left before shift end
+Missed Punch Flag , Indicates missing clock-in or clock-out
+Manual Edit Flag , Indicates if record was modified manually
+Edited By , User/admin who made manual changes
+Edit Reason , Justification for manual modification of record

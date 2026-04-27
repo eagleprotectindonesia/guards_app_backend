@@ -2,7 +2,7 @@
 
 import { useTransition } from 'react';
 import { Site } from '@prisma/client';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { deleteSite, getAllSitesForExport } from '../actions';
 import { EditButton, DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';

@@ -1,0 +1,711 @@
+import React, { useMemo, useState } from 'react';
+import { ScrollView, TouchableOpacity, Platform, StyleSheet } from 'react-native';
+import { Box } from '@/components/ui/box';
+import { VStack } from '@/components/ui/vstack';
+import { HStack } from '@/components/ui/hstack';
+import { Heading } from '@/components/ui/heading';
+import { Text } from '@/components/ui/text';
+import { ButtonSpinner } from '@/components/ui/button';
+import { Input, InputField, InputSlot, InputIcon } from '@/components/ui/input';
+import { FormControl, FormControlLabel, FormControlLabelText } from '@/components/ui/form-control';
+import {
+  Actionsheet,
+  ActionsheetBackdrop,
+  ActionsheetContent,
+  ActionsheetDragIndicatorWrapper,
+  ActionsheetDragIndicator,
+  ActionsheetItem,
+  ActionsheetItemText,
+  ActionsheetScrollView,
+} from '@/components/ui/actionsheet';
+import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
+import { ChevronLeft, Calendar as CalendarIcon, Send, MessageSquare, Paperclip, X } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useCreateLeaveRequest } from '../../src/hooks/useLeaveRequests';
+import { format, addDays, isBefore, startOfDay } from 'date-fns';
+import { id, enUS } from 'date-fns/locale';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { useCustomToast } from '../../src/hooks/useCustomToast';
+import { useAlert } from '../../src/contexts/AlertContext';
+import type { LeaveRequestReason } from '@repo/types';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { uploadToS3 } from '../../src/api/upload';
+import { AxiosError } from 'axios';
+
+const MAX_ATTACHMENTS = 4;
+const PRIMARY_RED = '#FF3B30';
+const DARK_RED = '#A00000';
+
+type LeaveAttachment = {
+  uri: string;
+  name: string;
+  mimeType: string;
+  fileSize?: number;
+};
+
+type LeaveMainCategory = 'sick' | 'family' | 'special' | 'annual';
+
+type LeaveSubtypeOption = {
+  reason: LeaveRequestReason;
+  labelKey: string;
+  fallbackLabel: string;
+  descriptionKey: string;
+  fallbackDescription: string;
+};
+
+const LEAVE_CATEGORY_OPTIONS: Record<LeaveMainCategory, LeaveSubtypeOption[]> = {
+  sick: [
+    {
+      reason: 'sick',
+      labelKey: 'leave.reasonType.sick',
+      fallbackLabel: 'Sick Leave',
+      descriptionKey: 'leave.reasonDescription.sick',
+      fallbackDescription:
+        'Allowed: 1 day per cycle (21st-20th). More than 1 day requires doctor certificate. Without document, additional days are unpaid or deducted from annual leave.',
+    },
+  ],
+  family: [
+    {
+      reason: 'family_marriage',
+      labelKey: 'leave.reasonType.family_marriage',
+      fallbackLabel: 'Marriage Leave',
+      descriptionKey: 'leave.reasonDescription.family_marriage',
+      fallbackDescription: "3 days paid leave for employee's marriage.",
+    },
+    {
+      reason: 'family_child_marriage',
+      labelKey: 'leave.reasonType.family_child_marriage',
+      fallbackLabel: 'Child Marriage',
+      descriptionKey: 'leave.reasonDescription.family_child_marriage',
+      fallbackDescription: "2 days paid leave for child's marriage.",
+    },
+    {
+      reason: 'family_child_circumcision_baptism',
+      labelKey: 'leave.reasonType.family_child_circumcision_baptism',
+      fallbackLabel: 'Child Circumcision/Baptism',
+      descriptionKey: 'leave.reasonDescription.family_child_circumcision_baptism',
+      fallbackDescription: "2 days paid leave for child's ceremony.",
+    },
+    {
+      reason: 'family_death',
+      labelKey: 'leave.reasonType.family_death',
+      fallbackLabel: 'Death of Family Member',
+      descriptionKey: 'leave.reasonDescription.family_death',
+      fallbackDescription: '2 days paid leave for death of immediate family (parent, in-law, or child).',
+    },
+    {
+      reason: 'family_spouse_death',
+      labelKey: 'leave.reasonType.family_spouse_death',
+      fallbackLabel: 'Spouse Death',
+      descriptionKey: 'leave.reasonDescription.family_spouse_death',
+      fallbackDescription: '2 days paid leave from date of death and must be taken consecutively.',
+    },
+  ],
+  special: [
+    {
+      reason: 'special_maternity',
+      labelKey: 'leave.reasonType.special_maternity',
+      fallbackLabel: 'Maternity Leave',
+      descriptionKey: 'leave.reasonDescription.special_maternity',
+      fallbackDescription: '3 months paid leave: 1.5 months before and 1.5 months after childbirth.',
+    },
+    {
+      reason: 'special_miscarriage',
+      labelKey: 'leave.reasonType.special_miscarriage',
+      fallbackLabel: 'Miscarriage Leave',
+      descriptionKey: 'leave.reasonDescription.special_miscarriage',
+      fallbackDescription: '1.5 months paid leave for miscarriage recovery. Medical document required.',
+    },
+    {
+      reason: 'special_paternity',
+      labelKey: 'leave.reasonType.special_paternity',
+      fallbackLabel: 'Paternity Leave',
+      descriptionKey: 'leave.reasonDescription.special_paternity',
+      fallbackDescription: '2 days paid leave for husband during childbirth or miscarriage of spouse.',
+    },
+    {
+      reason: 'special_emergency',
+      labelKey: 'leave.reasonType.special_emergency',
+      fallbackLabel: 'Emergency Leave',
+      descriptionKey: 'leave.reasonDescription.special_emergency',
+      fallbackDescription: 'For urgent situations. Deducted from annual leave and requires HOD approval.',
+    },
+  ],
+  annual: [
+    {
+      reason: 'annual',
+      labelKey: 'leave.reasonType.annual',
+      fallbackLabel: 'Annual Leave',
+      descriptionKey: 'leave.reasonDescription.annual',
+      fallbackDescription:
+        '12 working days per year after 12 months of service. Leave balance is deducted by working days taken.',
+    },
+  ],
+};
+
+const FIXED_DURATION_DAYS_BY_REASON: Partial<Record<LeaveRequestReason, number>> = {
+  family_marriage: 3,
+  family_child_marriage: 2,
+  family_child_circumcision_baptism: 2,
+  family_death: 2,
+  family_spouse_death: 2,
+  special_paternity: 2,
+  special_miscarriage: 45,
+  special_maternity: 90,
+};
+
+function getMainCategoryLabelKey(category: LeaveMainCategory) {
+  return `leave.category.${category}`;
+}
+
+export default function NewLeaveRequestScreen() {
+  const { t, i18n } = useTranslation();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const toast = useCustomToast();
+  const { showAlert } = useAlert();
+  const createMutation = useCreateLeaveRequest();
+
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(addDays(new Date(), 1));
+  const [reason, setReason] = useState<LeaveRequestReason>('annual');
+  const [mainCategory, setMainCategory] = useState<LeaveMainCategory>('annual');
+  const [employeeNote, setEmployeeNote] = useState('');
+  const [attachments, setAttachments] = useState<LeaveAttachment[]>([]);
+
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+  const [showSubtypeActionsheet, setShowSubtypeActionsheet] = useState(false);
+
+  const dateLocale = i18n.language === 'id' ? id : enUS;
+
+  const subtypeOptions = useMemo(() => LEAVE_CATEGORY_OPTIONS[mainCategory], [mainCategory]);
+  const selectedSubtype = useMemo(
+    () => subtypeOptions.find(option => option.reason === reason) ?? subtypeOptions[0],
+    [reason, subtypeOptions]
+  );
+  const fixedDurationDays = FIXED_DURATION_DAYS_BY_REASON[reason];
+  const isFixedDurationLeave = typeof fixedDurationDays === 'number';
+  const computedEndDate = isFixedDurationLeave ? addDays(startDate, fixedDurationDays - 1) : endDate;
+
+  const handleSelectMainCategory = (category: LeaveMainCategory) => {
+    setMainCategory(category);
+    const firstSubtype = LEAVE_CATEGORY_OPTIONS[category][0];
+    if (firstSubtype) {
+      setReason(firstSubtype.reason);
+    }
+  };
+
+  const openSubtypePicker = () => {
+    setShowSubtypeActionsheet(true);
+  };
+
+  const onStartChange = (_event: unknown, selectedDate?: Date) => {
+    setShowStartPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setStartDate(selectedDate);
+      if (isFixedDurationLeave) {
+        setEndDate(addDays(selectedDate, fixedDurationDays - 1));
+        return;
+      }
+      if (isBefore(endDate, selectedDate)) {
+        setEndDate(addDays(selectedDate, 1));
+      }
+    }
+  };
+
+  const onEndChange = (_event: unknown, selectedDate?: Date) => {
+    setShowEndPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setEndDate(selectedDate);
+    }
+  };
+
+  const normalizeFileName = (name: string | null | undefined, fallbackExt: string) => {
+    const base = name?.trim() || `leave-${Date.now()}.${fallbackExt}`;
+    return base.includes('.') ? base : `${base}.${fallbackExt}`;
+  };
+
+  const appendAttachments = (newAttachments: LeaveAttachment[]) => {
+    setAttachments(prev => [...prev, ...newAttachments].slice(0, MAX_ATTACHMENTS));
+  };
+
+  const pickImages = async () => {
+    if (attachments.length >= MAX_ATTACHMENTS) {
+      toast.warning(t('chat.limit_reached', 'Limit reached'), t('chat.limit_reached_desc', 'Maximum attachments reached'));
+      return;
+    }
+
+    try {
+      const remainingSlots = MAX_ATTACHMENTS - attachments.length;
+      const imageResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        selectionLimit: remainingSlots,
+        quality: 0.7,
+      });
+
+      const imageAttachments = imageResult.canceled
+        ? []
+        : imageResult.assets.map(asset => ({
+            uri: asset.uri,
+            name: normalizeFileName(asset.fileName, 'jpg'),
+            mimeType: asset.mimeType || 'image/jpeg',
+            fileSize: asset.fileSize,
+          }));
+
+      appendAttachments(imageAttachments);
+    } catch (error) {
+      console.error('Error picking leave image attachments:', error);
+      toast.error(t('common.errorTitle'), t('leave.error.attachmentPickFailed', 'Failed to pick attachments'));
+    }
+  };
+
+  const pickPdfs = async () => {
+    if (attachments.length >= MAX_ATTACHMENTS) {
+      toast.warning(t('chat.limit_reached', 'Limit reached'), t('chat.limit_reached_desc', 'Maximum attachments reached'));
+      return;
+    }
+
+    try {
+      const remainingSlots = MAX_ATTACHMENTS - attachments.length;
+      const pdfResult = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+
+      const pdfAttachments =
+        pdfResult.canceled || !pdfResult.assets
+          ? []
+          : pdfResult.assets.map((asset: { uri: string; name?: string | null; mimeType?: string | null; size?: number | null }) => ({
+              uri: asset.uri,
+              name: normalizeFileName(asset.name, 'pdf'),
+              mimeType: asset.mimeType || 'application/pdf',
+              fileSize: asset.size ?? undefined,
+            }));
+
+      appendAttachments(pdfAttachments.slice(0, remainingSlots));
+    } catch (error) {
+      console.error('Error picking leave pdf attachments:', error);
+      toast.error(t('common.errorTitle'), t('leave.error.attachmentPickFailed', 'Failed to pick attachments'));
+    }
+  };
+
+  const pickAttachments = () => {
+    if (attachments.length >= MAX_ATTACHMENTS) {
+      toast.warning(t('chat.limit_reached', 'Limit reached'), t('chat.limit_reached_desc', 'Maximum attachments reached'));
+      return;
+    }
+
+    const imageLabel = t('leave.attachmentType.image', 'Image');
+    const pdfLabel = t('leave.attachmentType.pdf', 'PDF');
+    const cancelLabel = t('common.cancel', 'Cancel');
+    const title = t('leave.attachmentType.title', 'Select attachment type');
+
+    showAlert(
+      title,
+      t('leave.attachmentType.message', 'Choose the file type to attach'),
+      [
+        { text: cancelLabel, style: 'cancel' },
+        { text: imageLabel, onPress: () => void pickImages() },
+        { text: pdfLabel, onPress: () => void pickPdfs() },
+      ],
+      { icon: 'info' }
+    );
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    if (isBefore(startOfDay(computedEndDate), startOfDay(startDate))) {
+      toast.error(t('common.errorTitle'), t('leave.validation.invalidRange'));
+      return;
+    }
+
+    try {
+      const attachmentKeys = await Promise.all(
+        attachments.map(async (asset, index) => {
+          const uploaded = await uploadToS3(asset.uri, asset.name || `leave_${Date.now()}_${index}`, asset.mimeType, asset.fileSize || 0, {
+            folder: 'leave-requests',
+          });
+          return uploaded.key;
+        })
+      );
+
+      createMutation.mutate(
+        {
+          startDate: format(startDate, 'yyyy-MM-dd'),
+          endDate: format(computedEndDate, 'yyyy-MM-dd'),
+          reason,
+          employeeNote: employeeNote.trim() || undefined,
+          attachments: attachmentKeys,
+        },
+        {
+          onSuccess: () => {
+            toast.success(t('common.successTitle'), t('leave.success.created'));
+            router.back();
+          },
+          onError: error => {
+            const fallbackMessage = t('leave.error.createFailed');
+            if (error instanceof AxiosError) {
+              const responseError = error.response?.data?.error;
+              const backendMessage =
+                typeof responseError === 'string'
+                  ? responseError
+                  : Array.isArray(responseError)
+                    ? responseError
+                        .map(item => (item && typeof item.message === 'string' ? item.message : null))
+                        .filter(Boolean)
+                        .join(', ')
+                    : null;
+              toast.error(t('common.errorTitle'), backendMessage || fallbackMessage);
+              return;
+            }
+            toast.error(t('common.errorTitle'), fallbackMessage);
+          },
+        }
+      );
+    } catch (error) {
+      console.error('Error uploading leave attachments:', error);
+      toast.error(t('common.errorTitle'), t('leave.error.attachmentUploadFailed', 'Failed to upload attachments'));
+    }
+  };
+
+  return (
+    <Box className="flex-1 bg-black">
+      {/* Background Effects */}
+      <Box className="absolute top-0 left-0 right-0 h-[300px] opacity-20">
+        <LinearGradient colors={['rgba(255, 59, 48, 0.2)', 'transparent']} style={{ flex: 1 }} />
+      </Box>
+
+      {/* Header */}
+      <Box style={{ paddingTop: insets.top + 10 }} className="px-6 pb-4 flex-row items-center">
+        <TouchableOpacity
+          onPress={() => router.back()}
+          className="w-10 h-10 rounded-full bg-white/5 items-center justify-center border border-white/10 mr-4"
+        >
+          <ChevronLeft size={24} color="white" />
+        </TouchableOpacity>
+        <Heading size="xl" className="text-white font-bold">
+          {t('leave.newRequest')}
+        </Heading>
+      </Box>
+
+      <ScrollView className="flex-1 px-6 mt-4" contentContainerStyle={{ paddingBottom: 100 }} keyboardShouldPersistTaps="handled">
+        <VStack space="xl">
+          {/* Date Selection Card */}
+          <BlurView intensity={20} tint="dark" style={styles.glassCard}>
+            <VStack space="lg" className="p-6">
+              <FormControl>
+                <FormControlLabel className="mb-2">
+                  <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
+                    {t('leave.startDate')}
+                  </FormControlLabelText>
+                </FormControlLabel>
+                <TouchableOpacity
+                  onPress={() => setShowStartPicker(true)}
+                  className="bg-black/40 border border-white/5 h-14 rounded-2xl px-4 flex-row items-center"
+                >
+                  <CalendarIcon size={20} color={PRIMARY_RED} className="mr-3" />
+                  <Text className="text-white font-semibold">{format(startDate, 'PPPP', { locale: dateLocale })}</Text>
+                </TouchableOpacity>
+                {showStartPicker && (
+                  <DateTimePicker
+                    value={startDate}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                    onChange={onStartChange}
+                    minimumDate={new Date()}
+                    themeVariant="dark"
+                  />
+                )}
+              </FormControl>
+
+              {isFixedDurationLeave ? (
+                <FormControl>
+                  <FormControlLabel className="mb-2">
+                    <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
+                      {t('leave.endDate')}
+                    </FormControlLabelText>
+                  </FormControlLabel>
+                  <Box className="bg-black/40 border border-white/5 h-14 rounded-2xl px-4 flex-row items-center">
+                    <CalendarIcon size={20} color={PRIMARY_RED} className="mr-3" />
+                    <Text className="text-white font-semibold">{format(computedEndDate, 'PPPP', { locale: dateLocale })}</Text>
+                  </Box>
+                  <Text className="text-[#A1A1A1] mt-2" size="xs">
+                    {t('leave.fixedDurationInfo', `Automatically set by policy (${fixedDurationDays} days).`)}
+                  </Text>
+                </FormControl>
+              ) : (
+                <FormControl>
+                  <FormControlLabel className="mb-2">
+                    <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
+                      {t('leave.endDate')}
+                    </FormControlLabelText>
+                  </FormControlLabel>
+                  <TouchableOpacity
+                    onPress={() => setShowEndPicker(true)}
+                    className="bg-black/40 border border-white/5 h-14 rounded-2xl px-4 flex-row items-center"
+                  >
+                    <CalendarIcon size={20} color={PRIMARY_RED} className="mr-3" />
+                    <Text className="text-white font-semibold">{format(endDate, 'PPPP', { locale: dateLocale })}</Text>
+                  </TouchableOpacity>
+                  {showEndPicker && (
+                    <DateTimePicker
+                      value={endDate}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                      onChange={onEndChange}
+                      minimumDate={startDate}
+                      themeVariant="dark"
+                    />
+                  )}
+                </FormControl>
+              )}
+            </VStack>
+          </BlurView>
+
+          {/* Category and Type Card */}
+          <BlurView intensity={15} tint="dark" style={styles.glassCard}>
+            <VStack space="md" className="p-6">
+              <FormControl>
+                <FormControlLabel className="mb-3">
+                  <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
+                    {t('leave.category.title', 'Category')}
+                  </FormControlLabelText>
+                </FormControlLabel>
+                <HStack space="sm" className="flex-wrap">
+                  {(Object.keys(LEAVE_CATEGORY_OPTIONS) as LeaveMainCategory[]).map(category => {
+                    const active = category === mainCategory;
+                    return (
+                      <TouchableOpacity
+                        key={category}
+                        onPress={() => handleSelectMainCategory(category)}
+                        className="px-4 py-2.5 rounded-full border"
+                        style={{
+                          borderColor: active ? PRIMARY_RED : 'rgba(255,255,255,0.1)',
+                          backgroundColor: active ? 'rgba(255, 59, 48, 0.15)' : 'rgba(255,255,255,0.03)',
+                        }}
+                      >
+                        <Text className="font-bold" style={{ color: active ? 'white' : '#A0A0A0', fontSize: 13 }}>
+                          {t(getMainCategoryLabelKey(category), category)}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </HStack>
+              </FormControl>
+
+              <FormControl>
+                <FormControlLabel className="mb-2">
+                  <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
+                    {t('leave.subcategory.title', 'Leave Type')}
+                  </FormControlLabelText>
+                </FormControlLabel>
+                <TouchableOpacity
+                  onPress={openSubtypePicker}
+                  className="bg-black/40 border border-white/10 rounded-2xl px-4 py-3 flex-row items-center justify-between"
+                >
+                  <Text className="text-white font-semibold" numberOfLines={1}>
+                    {t(selectedSubtype?.labelKey ?? 'leave.reasonType.annual', selectedSubtype?.fallbackLabel ?? 'Annual Leave')}
+                  </Text>
+                  <Text className="text-[#A1A1A1]" size="xs">
+                    {t('leave.subcategory.change', 'Change')}
+                  </Text>
+                </TouchableOpacity>
+              </FormControl>
+
+              <Box className="rounded-2xl border border-white/5 bg-black/30 px-4 py-3">
+                <Text className="text-[#A1A1A1] uppercase font-bold tracking-[1.2px]" size="2xs">
+                  {t('leave.policyDescription', 'Policy Description')}
+                </Text>
+                <Text className="text-[#D1D1D1] mt-2 leading-5" size="sm">
+                  {t(
+                    selectedSubtype?.descriptionKey ?? 'leave.reasonDescription.annual',
+                    selectedSubtype?.fallbackDescription ?? 'Annual leave policy'
+                  )}
+                </Text>
+              </Box>
+            </VStack>
+          </BlurView>
+
+          {/* Note Card */}
+          <BlurView intensity={15} tint="dark" style={styles.glassCard}>
+            <VStack space="md" className="p-6">
+              <FormControl>
+                <FormControlLabel className="mb-3">
+                  <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
+                    {t('leave.note', 'Note')}
+                  </FormControlLabelText>
+                </FormControlLabel>
+                <Input className="bg-black/40 border border-white/5 rounded-2xl min-h-[120px]">
+                  <HStack space="sm" className="px-3 pt-3 items-start">
+                    <InputSlot className="pl-1 pt-1 self-start">
+                      <InputIcon as={MessageSquare} className="text-[#636366]" size="sm" />
+                    </InputSlot>
+                    <InputField
+                      multiline
+                      numberOfLines={4}
+                      value={employeeNote}
+                      onChangeText={setEmployeeNote}
+                      placeholder={t('leave.notePlaceholder', 'Add optional note')}
+                      placeholderTextColor="rgba(255,255,255,0.15)"
+                      className="text-white text-md flex-1 text-left"
+                      style={{ textAlignVertical: 'top', height: 100 }}
+                    />
+                  </HStack>
+                </Input>
+              </FormControl>
+            </VStack>
+          </BlurView>
+
+          {/* Attachments Card */}
+          <BlurView intensity={15} tint="dark" style={styles.glassCard}>
+            <VStack space="md" className="p-6">
+              <HStack className="justify-between items-center mb-2">
+                <Text className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
+                  {t('leave.attachments', 'Attachments')}
+                </Text>
+                <TouchableOpacity onPress={pickAttachments} disabled={attachments.length >= MAX_ATTACHMENTS}>
+                  <HStack space="xs" className="items-center bg-white/5 px-3 py-1.5 rounded-full border border-white/10">
+                    <Paperclip size={14} color={attachments.length >= MAX_ATTACHMENTS ? '#666' : PRIMARY_RED} />
+                    <Text className="font-bold" style={{ color: attachments.length >= MAX_ATTACHMENTS ? '#666' : PRIMARY_RED, fontSize: 12 }}>
+                      {t('leave.addAttachment', 'Add')}
+                    </Text>
+                  </HStack>
+                </TouchableOpacity>
+              </HStack>
+
+              {attachments.length === 0 ? (
+                <VStack space="xs">
+                  <Text className="text-[#636366]" size="sm">
+                    {t('leave.attachmentHint', 'You can attach up to 4 files.')}
+                  </Text>
+                  {reason === 'special_miscarriage' && (
+                    <Text className="text-[#FF3B30] opacity-80" size="xs" style={{ fontWeight: '500' }}>
+                      {t('leave.attachmentRequiredForMiscarriageHint', 'Medical document is required for miscarriage leave.')}
+                    </Text>
+                  )}
+                </VStack>
+              ) : (
+                <VStack space="xs">
+                  {attachments.map((asset, index) => (
+                    <HStack
+                      key={`${asset.uri}-${index}`}
+                      className="justify-between items-center bg-black/40 border border-white/5 rounded-xl px-4 py-3"
+                    >
+                      <HStack space="sm" className="flex-1 items-center">
+                        <Paperclip size={14} color="#A1A1A1" />
+                        <Text className="text-[#D1D1D1] flex-1" size="sm" numberOfLines={1}>
+                          {asset.name || `attachment-${index + 1}`}
+                        </Text>
+                      </HStack>
+                      <TouchableOpacity onPress={() => removeAttachment(index)} className="p-1">
+                        <X size={16} color="#FF3B30" />
+                      </TouchableOpacity>
+                    </HStack>
+                  ))}
+                </VStack>
+              )}
+            </VStack>
+          </BlurView>
+
+          {/* Submit Button */}
+          <Box className="mt-4">
+            <TouchableOpacity
+              onPress={handleSubmit}
+              disabled={createMutation.isPending}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={[PRIMARY_RED, DARK_RED]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.submitButton}
+              >
+                {createMutation.isPending ? (
+                  <ButtonSpinner color="white" />
+                ) : (
+                  <HStack space="sm" className="items-center justify-center">
+                    <Send size={20} color="white" />
+                    <Text className="text-white font-bold text-lg uppercase tracking-[2px]">{t('leave.submit')}</Text>
+                  </HStack>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          </Box>
+
+          <TouchableOpacity onPress={() => router.back()} disabled={createMutation.isPending} className="items-center py-4">
+            <Text className="text-[#636366] font-bold tracking-[2px] uppercase" size="2xs">
+              {t('common.cancel')}
+            </Text>
+          </TouchableOpacity>
+        </VStack>
+      </ScrollView>
+
+      {/* Subtype Actionsheet */}
+      <Actionsheet isOpen={showSubtypeActionsheet} onClose={() => setShowSubtypeActionsheet(false)}>
+        <ActionsheetBackdrop />
+        <ActionsheetContent className="bg-[#1C1C1E] border-t border-white/10">
+          <ActionsheetDragIndicatorWrapper>
+            <ActionsheetDragIndicator className="bg-white/20" />
+          </ActionsheetDragIndicatorWrapper>
+          <VStack className="w-full px-4 pt-4 pb-8" space="md">
+            <Heading size="md" className="text-white mb-2">
+              {t('leave.selectSubtypeTitle', 'Select Leave Type')}
+            </Heading>
+            <ActionsheetScrollView>
+              {subtypeOptions.map(option => (
+                <ActionsheetItem
+                  key={option.reason}
+                  onPress={() => {
+                    setReason(option.reason);
+                    setShowSubtypeActionsheet(false);
+                  }}
+                  className="rounded-xl mb-2 py-3 px-4 bg-white/5 active:bg-white/10"
+                >
+                  <VStack space="xs" className="flex-1">
+                    <ActionsheetItemText className="text-white font-bold text-md">
+                      {t(option.labelKey, option.fallbackLabel)}
+                    </ActionsheetItemText>
+                    <Text className="text-[#A1A1A1] text-xs leading-4">
+                      {t(option.descriptionKey, option.fallbackDescription)}
+                    </Text>
+                  </VStack>
+                </ActionsheetItem>
+              ))}
+            </ActionsheetScrollView>
+          </VStack>
+        </ActionsheetContent>
+      </Actionsheet>
+    </Box>
+  );
+}
+
+const styles = StyleSheet.create({
+  glassCard: {
+    borderRadius: 32,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(25, 25, 27, 0.6)',
+  },
+  submitButton: {
+    height: 64,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: PRIMARY_RED,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 15,
+    elevation: 8,
+  },
+});

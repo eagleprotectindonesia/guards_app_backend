@@ -9,6 +9,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@repo/shared": "workspace:*",
     "zod": "^4.1.13",
     "libphonenumber-js": "^1.12.31"
   },

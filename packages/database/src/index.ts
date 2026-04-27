@@ -13,12 +13,21 @@
 // ============================================================================
 export { PrismaClient, Prisma, createPrismaClient } from './prisma';
 export { db, db as prisma } from './prisma';
-export type { ExtendedPrismaClient, EmployeeWithRelations, EmployeeSummary } from './prisma';
+export type {
+  ExtendedPrismaClient,
+  EmployeeWithDerivedOfficeMetadata,
+  EmployeeWithRelations,
+  EmployeeWithRelationsAndDerived,
+  EmployeeWithRelationsAndSchedule,
+  EmployeeSummary,
+} from './prisma';
 
 // ============================================================================
-// Redis Layer - Cache and session storage
+// Server Helpers - Passwords and queue constants
 // ============================================================================
-export { redis } from './redis';
+export * from './password';
+export * from './queues';
+export * from './email-events';
 
 // ============================================================================
 // Integrations Layer - External service clients
@@ -29,3 +38,8 @@ export * from './integrations';
 // Repositories Layer - Domain-oriented query and mutation helpers
 // ============================================================================
 export * from './repositories';
+
+// ============================================================================
+// Utils Layer - Shared utility functions
+// ============================================================================
+export { getUserFriendlyPrismaError } from './utils/prisma-errors';

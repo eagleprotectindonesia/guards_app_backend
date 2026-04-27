@@ -2,7 +2,7 @@
 import { initSocket } from '@/lib/socket';
 import { Server as SocketIOServer } from 'socket.io';
 import { createServer } from 'http';
-import { redis } from '@repo/database';
+import { redis } from '@repo/database/redis';
 
 jest.mock('socket.io');
 jest.mock('@socket.io/redis-adapter');

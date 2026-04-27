@@ -1,4 +1,5 @@
-import { serialize, getPaginationParams, Serialized } from '@/lib/utils';
+import { serialize, getPaginationParams } from '@/lib/server-utils';
+import type { Serialized } from '@/lib/server-utils';
 import OfficeList from './components/office-list';
 import { Suspense } from 'react';
 import { getPaginatedOffices } from '@repo/database';

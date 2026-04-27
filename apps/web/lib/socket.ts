@@ -2,7 +2,7 @@ import { Server as SocketIOServer, Socket } from 'socket.io';
 import { Server as HttpServer } from 'http';
 import { Server as HttpsServer } from 'https';
 import { createAdapter } from '@socket.io/redis-adapter';
-import { redis } from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { authenticateSocket } from './socket-auth';
 import { registerChatHandlers } from './socket/chat';
 import { registerAdminHandlers } from './socket/admin';
@@ -54,13 +54,13 @@ export function initSocket(server: HttpServer | HttpsServer) {
   // 4. Connection Handler
   io.on('connection', (socket: UnifiedSocket) => {
     const auth = socket.data.auth!;
-    console.log('[SocketServer] Connected', {
-      type: auth.type,
-      id: auth.id,
-      clientType: auth.clientType ?? null,
-      sessionId: auth.sessionId ?? null,
-      socketId: socket.id,
-    });
+    // console.log('[SocketServer] Connected', {
+    //   type: auth.type,
+    //   id: auth.id,
+    //   clientType: auth.clientType ?? null,
+    //   sessionId: auth.sessionId ?? null,
+    //   socketId: socket.id,
+    // });
 
     // Register Handlers
     if (auth.type === 'admin') {
@@ -73,15 +73,15 @@ export function initSocket(server: HttpServer | HttpsServer) {
       registerChatHandlers(io, socket);
     }
 
-    socket.on('disconnect', () => {
-      console.log('[SocketServer] Disconnected', {
-        type: auth.type,
-        id: auth.id,
-        clientType: auth.clientType ?? null,
-        sessionId: auth.sessionId ?? null,
-        socketId: socket.id,
-      });
-    });
+    // socket.on('disconnect', () => {
+    //   console.log('[SocketServer] Disconnected', {
+    //     type: auth.type,
+    //     id: auth.id,
+    //     clientType: auth.clientType ?? null,
+    //     sessionId: auth.sessionId ?? null,
+    //     socketId: socket.id,
+    //   });
+    // });
   });
 
   return io;

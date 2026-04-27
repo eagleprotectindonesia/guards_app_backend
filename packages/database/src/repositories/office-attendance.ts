@@ -1,5 +1,6 @@
 import { db as prisma } from '../prisma/client';
 import { Prisma, AttendanceStatus } from '@prisma/client';
+import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
 
 export async function getOfficeAttendanceById(id: string) {
   return prisma.officeAttendance.findUnique({
@@ -18,48 +19,112 @@ export async function getOfficeAttendanceById(id: string) {
           address: true,
         },
       },
+      officeShift: {
+        include: {
+          officeShiftType: true,
+        },
+      },
     },
   });
 }
 
 export async function recordOfficeAttendance(params: {
-  officeId: string;
+  officeId?: string | null;
+  officeShiftId?: string | null;
   employeeId: string;
   status: AttendanceStatus;
   picture?: string;
   metadata?: any;
+  recordedAt?: Date;
 }) {
-  const { officeId, employeeId, status, picture, metadata } = params;
+  const { officeId, officeShiftId, employeeId, status, picture, metadata, recordedAt } = params;
+  const normalizedRecordedAt = recordedAt || new Date();
 
-  return prisma.officeAttendance.create({
-    data: {
-      officeId,
-      employeeId,
-      recordedAt: new Date(),
-      status,
-      picture,
-      metadata,
-    },
-  });
+  try {
+    const attendance = await prisma.officeAttendance.create({
+      data: {
+        officeId,
+        officeShiftId,
+        employeeId,
+        recordedAt: normalizedRecordedAt,
+        status,
+        picture,
+        metadata,
+      },
+    });
+
+    return { attendance, created: true as const };
+  } catch (error) {
+    if (
+      officeShiftId &&
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      const existingAttendance = await prisma.officeAttendance.findFirst({
+        where: {
+          officeShiftId,
+          status,
+        },
+        orderBy: {
+          recordedAt: 'asc',
+        },
+      });
+
+      if (existingAttendance) {
+        return { attendance: existingAttendance, created: false as const };
+      }
+    }
+
+    throw error;
+  }
 }
 
-export async function getTodayOfficeAttendance(employeeId: string) {
-  const startOfDay = new Date();
-  startOfDay.setHours(0, 0, 0, 0);
-
-  const endOfDay = new Date();
-  endOfDay.setHours(23, 59, 59, 999);
+export async function getTodayOfficeAttendance(employeeId: string, now = new Date(), timeZone = BUSINESS_TIMEZONE) {
+  const { start, end } = getBusinessDayRange(now, timeZone);
 
   return prisma.officeAttendance.findMany({
     where: {
       employeeId,
       recordedAt: {
-        gte: startOfDay,
-        lte: endOfDay,
+        gte: start,
+        lt: end,
       },
     },
     include: {
       office: true,
+      officeShift: true,
+    },
+    orderBy: {
+      recordedAt: 'desc',
+    },
+  });
+}
+
+export async function getLatestOfficeAttendanceForDay(employeeId: string, now = new Date(), timeZone = BUSINESS_TIMEZONE) {
+  const { start, end } = getBusinessDayRange(now, timeZone);
+
+  return prisma.officeAttendance.findFirst({
+    where: {
+      employeeId,
+      recordedAt: {
+        gte: start,
+        lt: end,
+      },
+    },
+    orderBy: {
+      recordedAt: 'desc',
+    },
+  });
+}
+
+export async function getLatestOfficeAttendanceInRange(employeeId: string, start: Date, end: Date) {
+  return prisma.officeAttendance.findFirst({
+    where: {
+      employeeId,
+      recordedAt: {
+        gte: start,
+        lt: end,
+      },
     },
     orderBy: {
       recordedAt: 'desc',
@@ -85,6 +150,7 @@ export async function getPaginatedOfficeAttendance(params: {
         include: {
           employee: true,
           office: true,
+          officeShift: true,
         },
       }),
       tx.officeAttendance.count({ where }),
@@ -92,6 +158,23 @@ export async function getPaginatedOfficeAttendance(params: {
   });
 
   return { attendances, totalCount };
+}
+
+export async function listOfficeAttendance(params: {
+  where: Prisma.OfficeAttendanceWhereInput;
+  orderBy: Prisma.OfficeAttendanceOrderByWithRelationInput;
+}) {
+  const { where, orderBy } = params;
+
+  return prisma.officeAttendance.findMany({
+    where,
+    orderBy,
+    include: {
+      employee: true,
+      office: true,
+      officeShift: true,
+    },
+  });
 }
 
 export async function getOfficeAttendanceExportBatch(params: {
@@ -107,6 +190,11 @@ export async function getOfficeAttendanceExportBatch(params: {
     include: {
       office: true,
       employee: true,
+      officeShift: {
+        include: {
+          officeShiftType: true,
+        },
+      },
     },
     ...(cursor && { skip: 1, cursor: { id: cursor } }),
   });

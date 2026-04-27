@@ -9,7 +9,39 @@ export type ActionState<T = Record<string, unknown>> = {
 export type ShiftStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' | 'cancelled';
 export type CheckInStatus = 'on_time' | 'late' | 'invalid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification' | 'clocked_out';
+export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type LeaveRequestReason =
+  | 'sick'
+  | 'family_marriage'
+  | 'family_child_marriage'
+  | 'family_child_circumcision_baptism'
+  | 'family_death'
+  | 'family_spouse_death'
+  | 'special_maternity'
+  | 'special_miscarriage'
+  | 'special_paternity'
+  | 'special_emergency'
+  | 'annual';
+export type LeaveMainCategory = 'sick' | 'family' | 'special' | 'annual';
 export type EmployeeRole = 'on_site' | 'office';
+export type EmployeeGender = 'male' | 'female';
+export type OfficeJobTitleCategory = 'staff' | 'management';
+export type OfficeShiftAttendanceMode = 'office_required' | 'non_office';
+export type OfficeAttendancePolicySource = 'employee_default' | 'shift_override' | 'no_office_employee';
+export type EmailTemplateId = 'admin.leave_request_created';
+
+export interface EmailRecipient {
+  email: string;
+  name?: string | null;
+}
+
+export interface EmailEventPayload {
+  templateId: EmailTemplateId;
+  to: EmailRecipient[];
+  context: Record<string, string>;
+  metadata?: Record<string, string>;
+  idempotencyKey: string;
+}
 
 export interface Department {
   id: string;
@@ -21,6 +53,7 @@ export interface Designation {
   id: string;
   name: string;
   role: EmployeeRole;
+  gender?: EmployeeGender | null;
   departmentId: string;
   note?: string | null;
 }
@@ -47,12 +80,47 @@ export interface Employee {
   jobTitle?: string | null;
   department?: string | null;
   officeId?: string | null;
+  fieldModeEnabled?: boolean;
+  jobTitleCategory?: OfficeJobTitleCategory | null;
+  isFieldModeEditable?: boolean;
+  fieldModeReasonCode?:
+    | 'non_office'
+    | 'missing_office'
+    | 'staff_with_office'
+    | 'management_with_office'
+    | 'uncategorized_with_office';
   office?: Office | null;
   joinDate?: string | Date | null;
   leftDate?: string | Date | null;
   note?: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
+  leaveRequests?: EmployeeLeaveRequest[];
+}
+
+export interface EmployeeLeaveRequest {
+  id: string;
+  employeeId: string;
+  startDate: string | Date;
+  endDate: string | Date;
+  reason: LeaveRequestReason;
+  employeeNote?: string | null;
+  adminNote?: string | null;
+  attachments: string[];
+  cycleKey?: string | Date | null;
+  requiresDocument?: boolean;
+  isPaid?: boolean | null;
+  deductedAnnualDays?: number;
+  unpaidDays?: number;
+  policySnapshot?: Record<string, unknown> | null;
+  documentVerifiedAt?: string | Date | null;
+  documentVerifiedById?: string | null;
+  status: LeaveRequestStatus;
+  reviewedById?: string | null;
+  reviewedAt?: string | Date | null;
+  cancelledAt?: string | Date | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
 }
 
 export interface Site {
@@ -73,6 +141,13 @@ export interface ShiftType {
   endTime: string;
 }
 
+export interface OfficeShiftType {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+}
+
 export interface Attendance {
   id: string;
   shiftId: string;
@@ -85,7 +160,8 @@ export interface Attendance {
 
 export interface OfficeAttendance {
   id: string;
-  officeId: string;
+  officeId?: string | null;
+  officeShiftId?: string | null;
   employeeId: string;
   recordedAt: string | Date;
   picture?: string | null;
@@ -93,6 +169,61 @@ export interface OfficeAttendance {
   metadata?: any;
   office?: Office | null;
   employee?: Employee | null;
+}
+
+export interface OfficeShift {
+  id: string;
+  officeShiftTypeId: string;
+  employeeId: string;
+  date: string | Date;
+  startsAt: string | Date;
+  endsAt: string | Date;
+  attendanceMode?: OfficeShiftAttendanceMode | null;
+  status: ShiftStatus;
+  note?: string | null;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+}
+
+export type OfficeAttendanceWindowStatus =
+  | 'non_working_day'
+  | 'available'
+  | 'missed'
+  | 'clocked_in'
+  | 'completed';
+
+export interface OfficeAttendanceState {
+  status: OfficeAttendanceWindowStatus;
+  canClockIn: boolean;
+  canClockOut: boolean;
+  windowClosed: boolean;
+  messageCode?: string | null;
+  latestAttendance?: OfficeAttendance | null;
+}
+
+export interface OfficeWorkScheduleDay {
+  id: string;
+  scheduleId: string;
+  weekday: number;
+  isWorkingDay: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+}
+
+export interface OfficeWorkSchedule {
+  id: string;
+  code: string;
+  name: string;
+  days?: OfficeWorkScheduleDay[];
+}
+
+export interface EmployeeOfficeWorkScheduleAssignment {
+  id: string;
+  employeeId: string;
+  officeWorkScheduleId: string;
+  effectiveFrom: string | Date;
+  effectiveUntil?: string | Date | null;
+  officeWorkSchedule?: OfficeWorkSchedule | null;
 }
 
 // Deprecated: Use Attendance with employeeId

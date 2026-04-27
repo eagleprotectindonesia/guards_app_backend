@@ -1,27 +1,34 @@
 'use client';
 
-import { Clock, Hotel } from 'lucide-react';
+import { useState } from 'react';
+import { Clock, Eye, Hotel } from 'lucide-react';
 import { format } from 'date-fns';
 import {
+  AttendanceOfficeSummary,
   AttendanceEmployeeSummary,
   OfficeAttendanceMetadataDto,
-  SerializedOfficeAttendanceWithRelationsDto,
+  SerializedOfficeAttendanceDisplayDto,
 } from '@/types/attendance';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PaginationNav from '../../../components/pagination-nav';
+import OfficeAttendanceExport from './office-attendance-export';
 
-function hasValidLocation(metadata: OfficeAttendanceMetadataDto | null): metadata is OfficeAttendanceMetadataDto & { location: { lat: number; lng: number } } {
-  return (
-    !!metadata?.location &&
-    typeof metadata.location.lat === 'number' &&
-    typeof metadata.location.lng === 'number'
-  );
+function buildLocationSummary(metadata: OfficeAttendanceMetadataDto | null) {
+  if (!metadata?.location) return '-';
+  return `Lat: ${metadata.location.lat.toFixed(3)}, Lng: ${metadata.location.lng.toFixed(3)}`;
+}
+
+function buildDistanceSummary(metadata: OfficeAttendanceMetadataDto | null) {
+  if (metadata?.distanceMeters == null) return '-';
+  return `${metadata.distanceMeters} m`;
 }
 
 type OfficeAttendanceListProps = {
-  attendances: SerializedOfficeAttendanceWithRelationsDto[];
+  attendances: SerializedOfficeAttendanceDisplayDto[];
   page: number;
   perPage: number;
   totalCount: number;
+  offices: AttendanceOfficeSummary[];
   employees: AttendanceEmployeeSummary[];
   initialFilters: {
     startDate?: string;
@@ -30,14 +37,25 @@ type OfficeAttendanceListProps = {
   };
 };
 
-export default function OfficeAttendanceList({ attendances, page, perPage, totalCount }: OfficeAttendanceListProps) {
+export default function OfficeAttendanceList({ attendances, page, perPage, totalCount, offices }: OfficeAttendanceListProps) {
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewLabel, setPreviewLabel] = useState<string>('Attendance Photo');
+
+  const openPreview = (url: string, label: string) => {
+    setPreviewImageUrl(url);
+    setPreviewLabel(label);
+  };
+
   return (
     <div>
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Office Attendance</h1>
-          <p className="text-sm text-muted-foreground mt-1">View office clock-in and clock-out records.</p>
+          <p className="text-sm text-muted-foreground mt-1">View unified office attendance sessions.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <OfficeAttendanceExport offices={offices} />
         </div>
       </div>
 
@@ -52,17 +70,19 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                 </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Office</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Date & Time
-                </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Type</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Business Date</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Clock In</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Clock Out</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Paid hours</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Photo</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Location</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {attendances.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={10} className="py-8 text-center text-muted-foreground">
                     No office attendance records found.
                   </td>
                 </tr>
@@ -70,7 +90,7 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                 attendances.map(attendance => (
                   <tr key={attendance.id} className="hover:bg-muted/50 transition-colors group">
                     <td className="py-4 px-6 text-sm font-medium text-muted-foreground">
-                      {attendance.employee?.id || '-'}
+                      {attendance.employee?.employeeNumber || '-'}
                     </td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       <div className="flex items-center gap-3">
@@ -87,47 +107,75 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-foreground font-medium">
-                      <div className="flex items-center gap-2">
-                        <Clock className="w-3 h-3 text-muted-foreground/60" />
-                        {format(new Date(attendance.recordedAt), 'yyyy/MM/dd HH:mm')}
+                      {attendance.businessDate}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-foreground font-medium">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2">
+                          <Clock className="w-3 h-3 text-muted-foreground/60" />
+                          {format(new Date(attendance.clockInAt), 'HH:mm')}
+                        </div>
+                        <div className="text-xs font-normal text-muted-foreground">
+                          {buildDistanceSummary(attendance.clockInMetadata)}
+                        </div>
                       </div>
                     </td>
+                    <td className="py-4 px-6 text-sm text-foreground font-medium">
+                      <div className="flex flex-col gap-1">
+                        <div>{attendance.clockOutAt ? format(new Date(attendance.clockOutAt), 'HH:mm') : '-'}</div>
+                        <div className="text-xs font-normal text-muted-foreground">
+                          {attendance.clockOutAt ? buildDistanceSummary(attendance.clockOutMetadata) : '-'}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-sm text-foreground font-medium">
+                      {attendance.paidHours ?? '-'}
+                    </td>
                     <td className="py-4 px-6 text-sm">
-                      {attendance.status === 'present' && (
+                      {attendance.displayStatus === 'clocked_in' && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
-                          Clock In
+                          Clocked In
                         </span>
                       )}
-                      {attendance.status === 'clocked_out' && (
+                      {attendance.displayStatus === 'completed' && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                          Clock Out
+                          Completed
                         </span>
                       )}
-                      {attendance.status === 'late' && (
+                      {attendance.displayStatus === 'late' && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
                           Late
                         </span>
                       )}
-                      {attendance.status === 'absent' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
-                          Absent
-                        </span>
-                      )}
-                      {attendance.status === 'pending_verification' && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
-                          Pending
-                        </span>
-                      )}
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {hasValidLocation(attendance.metadata) ? (
-                        <div className="flex flex-col text-xs">
-                          <div>Lat: {attendance.metadata.location!.lat.toFixed(3)}</div>
-                          <div>Lng: {attendance.metadata.location!.lng.toFixed(3)}</div>
-                        </div>
-                      ) : (
-                        '-'
-                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {(() => {
+                          const clockInPicture = attendance.clockInPicture;
+                          if (!clockInPicture) return null;
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => openPreview(clockInPicture, 'Clock In Photo')}
+                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-muted transition-colors"
+                              title="View clock-in photo"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              In
+                            </button>
+                          );
+                        })()}
+                        {!attendance.clockInPicture ? <span>-</span> : null}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground">
+                      <div className="flex flex-col text-xs gap-1">
+                        <div>In: {buildLocationSummary(attendance.clockInMetadata)}</div>
+                        <div>Out: {buildLocationSummary(attendance.clockOutMetadata)}</div>
+                        {attendance.latenessMins != null && attendance.latenessMins > 0 ? (
+                          <div>Late: {attendance.latenessMins} mins</div>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -138,6 +186,19 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
       </div>
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
+
+      <Dialog open={Boolean(previewImageUrl)} onOpenChange={open => !open && setPreviewImageUrl(null)}>
+        <DialogContent className="sm:max-w-4xl p-4">
+          <DialogHeader>
+            <DialogTitle>{previewLabel}</DialogTitle>
+          </DialogHeader>
+          {previewImageUrl ? (
+            <div className="w-full flex items-center justify-center overflow-auto">
+              <img src={previewImageUrl} alt={previewLabel} className="max-h-[75vh] w-auto max-w-full rounded-md" />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

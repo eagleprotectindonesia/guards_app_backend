@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
-import bcrypt from 'bcryptjs';
+import { hashPassword } from '@repo/database';
 
 const INITIAL_PERMISSIONS = [
   { action: 'view', resource: 'employees', code: 'employees:view', description: 'Can view employees' },
@@ -117,7 +117,7 @@ export async function POST() {
       }
 
       // 5. Create the initial admin if it doesn't exist
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await hashPassword(password);
       const newAdmin = await tx.admin.create({
         data: {
           name: 'System Admin',

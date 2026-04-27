@@ -7,6 +7,7 @@ async function main() {
     'employees',
     'sites',
     'offices',
+    'office-work-schedules',
     'shifts',
     'shift-types',
     'attendance',
@@ -19,6 +20,8 @@ async function main() {
     'dashboard',
     'departments',
     'designations',
+    'leave-requests',
+    'holiday-calendars',
   ];
 
   const actions = ['view', 'create', 'edit', 'delete'];
@@ -56,6 +59,10 @@ async function main() {
     where: { name: 'Super Admin' },
     update: {
       isSystem: true,
+      policy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+      },
       permissions: {
         set: allPermissions.map((p: any) => ({ id: p.id })),
       },
@@ -64,6 +71,10 @@ async function main() {
       name: 'Super Admin',
       isSystem: true,
       description: 'Full access to all system features. Bypasses all permission checks.',
+      policy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+      },
       permissions: {
         connect: allPermissions.map((p: any) => ({ id: p.id })),
       },
@@ -80,6 +91,9 @@ async function main() {
           'employees:view',
           'employees:create',
           'employees:edit',
+          'office-work-schedules:view',
+          'office-work-schedules:create',
+          'office-work-schedules:edit',
           'sites:view',
           'sites:create',
           'sites:edit',
@@ -89,6 +103,12 @@ async function main() {
           'attendance:view',
           'checkins:view',
           'alerts:view',
+          'leave-requests:view',
+          'leave-requests:create',
+          'leave-requests:edit',
+          'holiday-calendars:view',
+          'holiday-calendars:create',
+          'holiday-calendars:edit',
         ],
       },
     },
@@ -98,6 +118,10 @@ async function main() {
     where: { name: 'Admin' },
     update: {
       isSystem: true,
+      policy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+      },
       permissions: {
         set: adminPermissions.map((p: any) => ({ id: p.id })),
       },
@@ -106,6 +130,10 @@ async function main() {
       name: 'Admin',
       isSystem: true,
       description: 'Standard administrative access.',
+      policy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+      },
       permissions: {
         connect: adminPermissions.map((p: any) => ({ id: p.id })),
       },

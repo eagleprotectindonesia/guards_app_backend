@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ApiKey } from '@prisma/client';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { 
   Table, 
   TableBody, 

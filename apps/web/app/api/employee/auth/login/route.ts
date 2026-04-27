@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { cookies, headers } from 'next/headers';
-import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { redis, prisma, getEmployeeSessionExpiry } from '@repo/database';
+import { prisma, getEmployeeSessionExpiry } from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { z } from 'zod';
-import { DEFAULT_PASSWORD } from '@repo/shared';
+import { DEFAULT_PASSWORD, verifyPassword } from '@repo/database';
 import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
 
 type EmployeeClientType = 'mobile' | 'pwa';
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Karyawan tidak valid', data: employee }, { status: 401 });
     }
 
-    const passwordMatch = await bcrypt.compare(password, employee.hashedPassword);
+    const passwordMatch = await verifyPassword(password, employee.hashedPassword);
 
     if (!passwordMatch) {
       return NextResponse.json({ message: 'Kredensial tidak valid' }, { status: 401 });

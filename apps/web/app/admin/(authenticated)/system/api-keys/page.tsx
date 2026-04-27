@@ -2,7 +2,7 @@ import { prisma } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import ApiKeyList from './components/api-key-list';
-import { serialize } from '@/lib/utils';
+import { serialize } from '@/lib/server-utils';
 
 export const dynamic = 'force-dynamic';
 

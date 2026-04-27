@@ -1,5 +1,5 @@
 import { getPaginatedAdmins } from '@repo/database';
-import { getPaginationParams } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/server-utils';
 import AdminList from './components/admin-list';
 import { Suspense } from 'react';
 import { requirePermission } from '@/lib/admin-auth';
@@ -34,6 +34,7 @@ export default async function AdminsPage(props: AdminsPageProps) {
     name: admin.name,
     email: admin.email,
     twoFactorEnabled: admin.twoFactorEnabled,
+    includeFallbackLeaveQueue: admin.includeFallbackLeaveQueue,
     note: admin.note,
     roleRef: admin.roleRef ? { id: admin.roleRef.id, name: admin.roleRef.name } : null,
     createdAt: admin.createdAt.toISOString(),
@@ -43,12 +44,7 @@ export default async function AdminsPage(props: AdminsPageProps) {
   return (
     <div className="max-w-7xl mx-auto">
       <Suspense fallback={<div>Loading admins...</div>}>
-        <AdminList
-          admins={serializedAdmins}
-          page={page}
-          perPage={perPage}
-          totalCount={totalCount}
-        />
+        <AdminList admins={serializedAdmins} page={page} perPage={perPage} totalCount={totalCount} />
       </Suspense>
     </div>
   );

@@ -1,4 +1,5 @@
-import { redis, isEmployeeSessionActive } from '@repo/database';
+import { isEmployeeSessionActive } from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { UnifiedServer, UnifiedSocket } from '../socket';
 
 /**

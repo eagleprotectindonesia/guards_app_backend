@@ -7,6 +7,9 @@ export const RESOURCES = [
   'employees',
   'sites',
   'offices',
+  'office-work-schedules',
+  'office-shifts',
+  'office-shift-types',
   'shifts',
   'shift-types',
   'attendance',
@@ -19,7 +22,10 @@ export const RESOURCES = [
   'dashboard',
   'departments',
   'designations',
-  'chat'
+  'chat',
+  'leave-requests',
+  'holiday-calendars',
+  'office-memos',
 ] as const;
 
 export const ACTIONS = ['view', 'create', 'edit', 'delete'] as const;
@@ -54,6 +60,24 @@ export const PERMISSIONS = {
     CREATE: 'offices:create',
     EDIT: 'offices:edit',
     DELETE: 'offices:delete',
+  },
+  OFFICE_WORK_SCHEDULES: {
+    VIEW: 'office-work-schedules:view',
+    CREATE: 'office-work-schedules:create',
+    EDIT: 'office-work-schedules:edit',
+    DELETE: 'office-work-schedules:delete',
+  },
+  OFFICE_SHIFTS: {
+    VIEW: 'office-shifts:view',
+    CREATE: 'office-shifts:create',
+    EDIT: 'office-shifts:edit',
+    DELETE: 'office-shifts:delete',
+  },
+  OFFICE_SHIFT_TYPES: {
+    VIEW: 'office-shift-types:view',
+    CREATE: 'office-shift-types:create',
+    EDIT: 'office-shift-types:edit',
+    DELETE: 'office-shift-types:delete',
   },
   SHIFTS: {
     VIEW: 'shifts:view',
@@ -112,6 +136,24 @@ export const PERMISSIONS = {
   CHAT: {
     VIEW: 'chat:view',
     CREATE: 'chat:create',
+  },
+  LEAVE_REQUESTS: {
+    VIEW: 'leave-requests:view',
+    CREATE: 'leave-requests:create',
+    EDIT: 'leave-requests:edit',
+    DELETE: 'leave-requests:delete',
+  },
+  HOLIDAY_CALENDARS: {
+    VIEW: 'holiday-calendars:view',
+    CREATE: 'holiday-calendars:create',
+    EDIT: 'holiday-calendars:edit',
+    DELETE: 'holiday-calendars:delete',
+  },
+  OFFICE_MEMOS: {
+    VIEW: 'office-memos:view',
+    CREATE: 'office-memos:create',
+    EDIT: 'office-memos:edit',
+    DELETE: 'office-memos:delete',
   },
 } satisfies Record<string, Record<string, PermissionCode>>;
 

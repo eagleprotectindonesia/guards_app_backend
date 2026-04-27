@@ -1,6 +1,8 @@
 import { db as prisma } from '../prisma/client';
 import { Prisma } from '@prisma/client';
 import { redis } from '../redis/client';
+import { parseShiftTypeTimeOnDate } from '@repo/shared';
+import { getShiftTypeDurationInMins } from './shift-types';
 
 export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
   return prisma.shift.findUnique({
@@ -406,7 +408,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
   const createdShifts = await prisma.$transaction(
     async tx => {
       const results = await tx.shift.createManyAndReturn({
-        data: shiftsToCreate.map(s => ({ ...s, lastUpdatedById: adminId })),
+        data: shiftsToCreate.map(s => ({ ...s, createdById: adminId, lastUpdatedById: adminId })),
         include: {
           site: { select: { name: true } },
           shiftType: { select: { name: true } },
@@ -454,6 +456,361 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
   }
 
   return createdShifts;
+}
+
+export type GuardShiftBulkImportRowInput = {
+  rowNumber: number;
+  site: string;
+  shiftTypeName: string;
+  date: string;
+  employeeCode: string;
+  interval: string;
+  grace: string;
+  note?: string | null;
+};
+
+export type GuardShiftBulkImportSummary = {
+  rows_processed: number;
+  rows_failed: number;
+  created: number;
+  updated: number;
+  deleted_off: number;
+  past_dates_skipped: number;
+};
+
+export type GuardShiftBulkImportResult = {
+  success: boolean;
+  errors: string[];
+  summary: GuardShiftBulkImportSummary;
+};
+
+function getShiftBulkDateKey(employeeId: string, date: string) {
+  return `${employeeId}:${date}`;
+}
+
+export async function processGuardShiftBulkImport(
+  rows: GuardShiftBulkImportRowInput[],
+  options?: { adminId?: string; now?: Date }
+): Promise<GuardShiftBulkImportResult> {
+  const errors: string[] = [];
+
+  if (rows.length === 0) {
+    return {
+      success: false,
+      errors: ['No data rows provided.'],
+      summary: {
+        rows_processed: 0,
+        rows_failed: 1,
+        created: 0,
+        updated: 0,
+        deleted_off: 0,
+        past_dates_skipped: 0,
+      },
+    };
+  }
+
+  const uniqueSites = Array.from(new Set(rows.map(row => row.site.toLowerCase())));
+  const uniqueShiftTypes = Array.from(
+    new Set(rows.filter(row => row.shiftTypeName.toLowerCase() !== 'off').map(row => row.shiftTypeName.toLowerCase()))
+  );
+  const uniqueEmployeeCodes = Array.from(new Set(rows.map(row => row.employeeCode.toUpperCase())));
+  const uniqueDates = Array.from(new Set(rows.map(row => row.date)));
+
+  const [sites, shiftTypes, employees] = await Promise.all([
+    prisma.site.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true },
+    }),
+    prisma.shiftType.findMany({
+      where: { deletedAt: null },
+      select: { id: true, name: true, startTime: true, endTime: true },
+    }),
+    prisma.employee.findMany({
+      where: {
+        deletedAt: null,
+        status: true,
+        role: 'on_site',
+        employeeNumber: { in: uniqueEmployeeCodes },
+      },
+      select: { id: true, employeeNumber: true },
+    }),
+  ]);
+
+  const siteByName = new Map(
+    sites
+      .map(site => [site.name.toLowerCase(), site.id] as const)
+      .filter(([name]) => uniqueSites.includes(name))
+  );
+  const shiftTypeByName = new Map(
+    shiftTypes
+      .map(shiftType => [shiftType.name.toLowerCase(), shiftType] as const)
+      .filter(([name]) => uniqueShiftTypes.includes(name))
+  );
+  const employeeByCode = new Map(
+    employees
+      .filter(employee => employee.employeeNumber)
+      .map(employee => [employee.employeeNumber!.toUpperCase(), employee.id] as const)
+  );
+
+  const datesAsDate = uniqueDates
+    .filter(value => /^\d{4}-\d{2}-\d{2}$/.test(value))
+    .map(value => new Date(`${value}T00:00:00Z`));
+
+  const existingShifts = await prisma.shift.findMany({
+    where: {
+      deletedAt: null,
+      employeeId: { in: Array.from(employeeByCode.values()) },
+      date: { in: datesAsDate },
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      date: true,
+      requiredCheckinIntervalMins: true,
+      graceMinutes: true,
+    },
+  });
+
+  const existingByKey = new Map<string, typeof existingShifts>();
+  for (const shift of existingShifts) {
+    const key = getShiftBulkDateKey(shift.employeeId!, shift.date.toISOString().slice(0, 10));
+    const current = existingByKey.get(key) ?? [];
+    current.push(shift);
+    existingByKey.set(key, current);
+  }
+
+  const seenKeys = new Set<string>();
+  const now = options?.now ?? new Date();
+  const createInputs: Prisma.ShiftCreateManyInput[] = [];
+  const updates: Array<{
+    id: string;
+    employeeId: string;
+    siteId: string;
+    shiftTypeId: string;
+    date: Date;
+    startsAt: Date;
+    endsAt: Date;
+    requiredCheckinIntervalMins: number;
+    graceMinutes: number;
+    note: string | null;
+  }> = [];
+  const deleteIds = new Set<string>();
+  let rowsProcessed = 0;
+  let pastDatesSkipped = 0;
+
+  for (const row of rows) {
+    const siteId = siteByName.get(row.site.toLowerCase());
+    if (!siteId) {
+      errors.push(`Row ${row.rowNumber}: site '${row.site}' not found.`);
+      continue;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date)) {
+      errors.push(`Row ${row.rowNumber}: invalid date '${row.date}'. Expected YYYY-MM-DD.`);
+      continue;
+    }
+
+    const employeeId = employeeByCode.get(row.employeeCode.toUpperCase());
+    if (!employeeId) {
+      errors.push(`Row ${row.rowNumber}: employee_code '${row.employeeCode}' not found.`);
+      continue;
+    }
+
+    const rowKey = getShiftBulkDateKey(employeeId, row.date);
+    if (seenKeys.has(rowKey)) {
+      errors.push(`Row ${row.rowNumber}: duplicate employee/date pair in CSV (${row.employeeCode}, ${row.date}).`);
+      continue;
+    }
+    seenKeys.add(rowKey);
+
+    const existingForKey = existingByKey.get(rowKey) ?? [];
+    if (row.shiftTypeName.toLowerCase() === 'off') {
+      existingForKey.forEach(shift => deleteIds.add(shift.id));
+      rowsProcessed++;
+      continue;
+    }
+
+    const shiftType = shiftTypeByName.get(row.shiftTypeName.toLowerCase());
+    if (!shiftType) {
+      errors.push(`Row ${row.rowNumber}: shift_type_name '${row.shiftTypeName}' not found.`);
+      continue;
+    }
+
+    const interval = Number.parseInt(row.interval, 10);
+    const grace = Number.parseInt(row.grace, 10);
+    if (Number.isNaN(interval) || interval <= 0) {
+      errors.push(`Row ${row.rowNumber}: interval '${row.interval}' must be a positive integer.`);
+      continue;
+    }
+    if (Number.isNaN(grace) || grace < 0) {
+      errors.push(`Row ${row.rowNumber}: grace '${row.grace}' must be a non-negative integer.`);
+      continue;
+    }
+
+    const startsAt = parseShiftTypeTimeOnDate(row.date, shiftType.startTime);
+    let endsAt = parseShiftTypeTimeOnDate(row.date, shiftType.endTime);
+    if (endsAt.getTime() < startsAt.getTime()) {
+      endsAt = new Date(endsAt.getTime() + 24 * 60 * 60 * 1000);
+    }
+
+    if (startsAt.getTime() < now.getTime()) {
+      pastDatesSkipped++;
+      continue;
+    }
+
+    if (existingForKey.length > 1) {
+      errors.push(
+        `Row ${row.rowNumber}: multiple existing shifts found for employee '${row.employeeCode}' on ${row.date}; cannot upsert safely.`
+      );
+      continue;
+    }
+
+    if (existingForKey.length === 0) {
+      const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
+      if (durationInMins % interval !== 0) {
+        errors.push(
+          `Row ${row.rowNumber}: shift duration (${durationInMins} mins) must be a multiple of interval (${interval} mins).`
+        );
+        continue;
+      }
+      if (durationInMins < 2 * interval) {
+        errors.push(
+          `Row ${row.rowNumber}: shift duration (${durationInMins} mins) must allow at least 2 check-in slots for interval ${interval}.`
+        );
+        continue;
+      }
+
+      createInputs.push({
+        siteId,
+        shiftTypeId: shiftType.id,
+        employeeId,
+        date: new Date(`${row.date}T00:00:00Z`),
+        startsAt,
+        endsAt,
+        requiredCheckinIntervalMins: interval,
+        graceMinutes: grace,
+        status: 'scheduled',
+        note: row.note ?? null,
+      });
+      rowsProcessed++;
+      continue;
+    }
+
+    const existingShift = existingForKey[0];
+    updates.push({
+      id: existingShift.id,
+      employeeId,
+      siteId,
+      shiftTypeId: shiftType.id,
+      date: new Date(`${row.date}T00:00:00Z`),
+      startsAt,
+      endsAt,
+      note: row.note ?? null,
+      requiredCheckinIntervalMins: existingShift.requiredCheckinIntervalMins,
+      graceMinutes: existingShift.graceMinutes,
+    });
+    rowsProcessed++;
+  }
+
+  if (errors.length > 0) {
+    return {
+      success: false,
+      errors,
+      summary: {
+        rows_processed: rowsProcessed,
+        rows_failed: errors.length,
+        created: 0,
+        updated: 0,
+        deleted_off: 0,
+        past_dates_skipped: pastDatesSkipped,
+      },
+    };
+  }
+
+  let created = 0;
+  let updated = 0;
+  let deletedOff = 0;
+  const adminId = options?.adminId;
+
+  if (adminId) {
+    for (const shiftId of deleteIds) {
+      const deleted = await deleteShiftWithChangelog(shiftId, adminId);
+      if (deleted) deletedOff++;
+    }
+
+    for (const update of updates) {
+      await updateShiftWithChangelog(
+        update.id,
+        {
+          site: { connect: { id: update.siteId } },
+          shiftType: { connect: { id: update.shiftTypeId } },
+          employee: { connect: { id: update.employeeId } },
+          date: update.date,
+          startsAt: update.startsAt,
+          endsAt: update.endsAt,
+          requiredCheckinIntervalMins: update.requiredCheckinIntervalMins,
+          graceMinutes: update.graceMinutes,
+          note: update.note,
+          status: 'scheduled',
+        },
+        adminId
+      );
+      updated++;
+    }
+
+    if (createInputs.length > 0) {
+      const createdRows = await bulkCreateShiftsWithChangelog(createInputs, adminId);
+      created = createdRows.length;
+    }
+  } else {
+    const nowDeletedAt = new Date();
+    await prisma.$transaction(async tx => {
+      if (deleteIds.size > 0) {
+        const deletedResult = await tx.shift.updateMany({
+          where: { id: { in: Array.from(deleteIds) }, deletedAt: null },
+          data: { deletedAt: nowDeletedAt, status: 'cancelled' },
+        });
+        deletedOff = deletedResult.count;
+      }
+
+      for (const update of updates) {
+        await tx.shift.update({
+          where: { id: update.id },
+          data: {
+            site: { connect: { id: update.siteId } },
+            shiftType: { connect: { id: update.shiftTypeId } },
+            employee: { connect: { id: update.employeeId } },
+            date: update.date,
+            startsAt: update.startsAt,
+            endsAt: update.endsAt,
+            status: 'scheduled',
+            note: update.note,
+            requiredCheckinIntervalMins: update.requiredCheckinIntervalMins,
+            graceMinutes: update.graceMinutes,
+          },
+        });
+        updated++;
+      }
+
+      if (createInputs.length > 0) {
+        const createdResult = await tx.shift.createMany({ data: createInputs });
+        created = createdResult.count;
+      }
+    });
+  }
+
+  return {
+    success: true,
+    errors: [],
+    summary: {
+      rows_processed: rowsProcessed,
+      rows_failed: 0,
+      created,
+      updated,
+      deleted_off: deletedOff,
+      past_dates_skipped: pastDatesSkipped,
+    },
+  };
 }
 
 export async function getExportShiftsBatch(params: { where: Prisma.ShiftWhereInput; take: number; cursor?: string }) {

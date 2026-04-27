@@ -1,4 +1,4 @@
-import { getPaginationParams } from '@/lib/utils';
+import { getPaginationParams } from '@/lib/server-utils';
 import AttendanceList from './components/attendance-list';
 import AttendanceTabs from './components/attendance-tabs';
 import { Suspense } from 'react';
@@ -8,6 +8,7 @@ import { getActiveEmployeesSummary } from '@repo/database';
 import { getPaginatedAttendance } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { applyAttendanceVisibilityScope, getEmployeeRoleFilter } from '@/lib/auth/admin-visibility';
 import {
   AttendanceEmployeeSummary,
   AttendanceMetadataDto,
@@ -21,7 +22,7 @@ type AttendancePageProps = {
 };
 
 export default async function AttendancePage(props: AttendancePageProps) {
-  await requirePermission(PERMISSIONS.ATTENDANCE.VIEW);
+  const session = await requirePermission(PERMISSIONS.ATTENDANCE.VIEW);
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
 
@@ -31,21 +32,24 @@ export default async function AttendancePage(props: AttendancePageProps) {
   const to = typeof searchParams.to === 'string' ? searchParams.to : undefined;
 
   // Build where clause for attendance records
-  const where: Prisma.AttendanceWhereInput = {};
+  const baseWhere: Prisma.AttendanceWhereInput = {};
 
   if (employeeId) {
-    where.employeeId = employeeId;
+    baseWhere.employeeId = employeeId;
   }
 
   if (from || to) {
-    where.recordedAt = {};
+    baseWhere.recordedAt = {};
     if (from) {
-      where.recordedAt.gte = startOfDay(new Date(from));
+      baseWhere.recordedAt.gte = startOfDay(new Date(from));
     }
     if (to) {
-      where.recordedAt.lte = endOfDay(new Date(to));
+      baseWhere.recordedAt.lte = endOfDay(new Date(to));
     }
   }
+
+  const where = applyAttendanceVisibilityScope(baseWhere, session);
+  const employeeRoleFilter = getEmployeeRoleFilter(session.rolePolicy);
 
   const [{ attendances, totalCount }, employees] = await Promise.all([
     getPaginatedAttendance({
@@ -54,7 +58,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
       skip,
       take: perPage,
     }),
-    getActiveEmployeesSummary(),
+    getActiveEmployeesSummary(employeeRoleFilter),
   ]);
 
   const serializedAttendances: SerializedAttendanceWithRelationsDto[] = attendances.map(att => ({

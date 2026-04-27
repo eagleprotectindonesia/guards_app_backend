@@ -1,6 +1,6 @@
 'use client';
 
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { updateOffice } from '../actions';
 import { ActionState } from '@/types/actions';
 import { UpdateOfficeInput } from '@repo/validations';

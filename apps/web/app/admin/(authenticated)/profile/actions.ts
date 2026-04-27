@@ -3,8 +3,8 @@
 import { cookies } from 'next/headers';
 import { z } from 'zod';
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 import { getAdminById, updateAdminWithChangelog } from '@repo/database';
+import { hashPassword, verifyPassword } from '@repo/database';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
@@ -65,7 +65,7 @@ export async function changePassword(prevState: ChangePasswordState, formData: F
       return { error: 'Admin not found' };
     }
 
-    const passwordMatch = await bcrypt.compare(currentPassword, admin.hashedPassword);
+    const passwordMatch = await verifyPassword(currentPassword, admin.hashedPassword);
 
     if (!passwordMatch) {
       return { error: 'Incorrect current password' };
@@ -73,7 +73,7 @@ export async function changePassword(prevState: ChangePasswordState, formData: F
 
     // 4. Update Password and increment version
     // We increment tokenVersion to invalidate sessions on all other devices/browsers
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const hashedPassword = await hashPassword(newPassword);
 
     const updatedAdmin = await updateAdminWithChangelog(
       adminId,

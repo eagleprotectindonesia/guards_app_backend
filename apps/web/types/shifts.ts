@@ -1,5 +1,5 @@
 import type { Attendance, Shift, ShiftType, Site } from '@repo/types';
-import type { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import type { EmployeeSummary } from '@repo/database';
 
 export type ShiftWithRelationsDto = Shift & {

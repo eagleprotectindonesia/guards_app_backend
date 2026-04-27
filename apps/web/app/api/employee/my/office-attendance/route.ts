@@ -1,11 +1,21 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { createOfficeAttendanceSchema } from '@repo/validations';
-import { calculateDistance } from '@/lib/utils';
+import { calculateDistance } from '@/lib/server-utils';
 import { getSystemSetting } from '@repo/database';
 import { getOfficeById } from '@repo/database';
 import { recordOfficeAttendance } from '@repo/database';
+import { getLatestOfficeAttendanceInRange } from '@repo/database';
+import { getLatestOfficeAttendanceForDay } from '@repo/database';
+import { OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING } from '@repo/database';
+import { resolveOfficeAttendanceContextForEmployee } from '@repo/database';
+import { OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING } from '@repo/shared';
 import { ZodError } from 'zod';
+
+function getFallbackAttendanceMode(employee: { officeId?: string | null; fieldModeEnabled?: boolean | null }) {
+  if (!employee.officeId) return 'non_office';
+  return employee.fieldModeEnabled ? 'non_office' : 'office_required';
+}
 
 export async function POST(req: Request) {
   const employee = await getAuthenticatedEmployee();
@@ -19,41 +29,148 @@ export async function POST(req: Request) {
   }
 
   try {
+    const now = new Date();
     const json = await req.json();
     const body = createOfficeAttendanceSchema.parse(json);
+    const requestedStatus = body.status ?? 'present';
+    const requirePhotoSetting = await getSystemSetting(OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING);
+    const requirePhotoForClockIn = requirePhotoSetting?.value === '1';
+    const scheduleContext = await resolveOfficeAttendanceContextForEmployee(employee.id, now);
 
-    // 1. Fetch Office
-    const office = await getOfficeById(body.officeId);
-
-    if (!office) {
-      return NextResponse.json({ error: 'Office not found' }, { status: 404 });
+    if (!scheduleContext.isWorkingDay) {
+      return NextResponse.json(
+        {
+          code: 'not_working_day',
+          error: 'Office attendance is only available on configured working days.',
+        },
+        { status: 400 }
+      );
     }
 
-    // 2. Distance Check
-    const setting = await getSystemSetting('MAX_CHECKIN_DISTANCE_METERS');
-    const maxDistanceStr = setting?.value || process.env.MAX_CHECKIN_DISTANCE_METERS;
+    if (
+      requestedStatus === 'present' &&
+      scheduleContext.isAfterEnd &&
+      scheduleContext.windowStart &&
+      scheduleContext.windowEnd
+    ) {
+      return NextResponse.json(
+        {
+          code: 'office_hours_ended',
+          error: 'Clock-in is no longer allowed after the configured office end time.',
+        },
+        { status: 400 }
+      );
+    }
 
-    if (maxDistanceStr) {
-      const maxDistance = parseInt(maxDistanceStr, 10);
-      if (!isNaN(maxDistance) && maxDistance > 0) {
-        if (!body.location || typeof body.location.lat !== 'number' || typeof body.location.lng !== 'number') {
-          return NextResponse.json({ error: 'Location permission is required.' }, { status: 400 });
-        }
+    const latestAttendanceInWindow =
+      scheduleContext.windowStart && scheduleContext.windowEnd
+        ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
+        : null;
+    const latestAttendanceForDay = await getLatestOfficeAttendanceForDay(employee.id, now);
+    const latestAttendance =
+      requestedStatus === 'clocked_out'
+        ? latestAttendanceInWindow?.status === 'present'
+          ? latestAttendanceInWindow
+          : latestAttendanceForDay?.status === 'present'
+            ? latestAttendanceForDay
+            : (latestAttendanceInWindow ?? latestAttendanceForDay)
+        : latestAttendanceInWindow;
 
-        if (office.latitude != null && office.longitude != null) {
-          const distance = calculateDistance(
-            body.location.lat,
-            body.location.lng,
-            office.latitude,
-            office.longitude
-          );
+    if (!latestAttendance && requestedStatus === 'clocked_out') {
+      return NextResponse.json(
+        {
+          code: 'clock_in_required',
+          error: 'Clock-in is required before clock-out.',
+        },
+        { status: 400 }
+      );
+    }
 
+    if (latestAttendance?.status === 'present' && requestedStatus === 'present') {
+      return NextResponse.json(
+        {
+          code: 'office_attendance_already_clocked_in',
+          error: 'Clock-in has already been recorded for this schedule window.',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (latestAttendance?.status === 'clocked_out') {
+      return NextResponse.json(
+        {
+          code: 'office_attendance_completed',
+          error: 'Office attendance has already been completed for this schedule window.',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (requestedStatus === 'present' && requirePhotoForClockIn && !body.picture) {
+      return NextResponse.json(
+        {
+          code: 'photo_required',
+          error: 'Attendance photo is required to clock in.',
+        },
+        { status: 400 }
+      );
+    }
+
+    const effectiveAttendanceMode = scheduleContext.effectiveAttendanceMode ?? getFallbackAttendanceMode(employee);
+
+    let office = null;
+    let roundedDistanceMeters: number | null = null;
+    if (effectiveAttendanceMode === 'office_required' && employee.officeId) {
+      office = await getOfficeById(employee.officeId);
+      if (!office) {
+        return NextResponse.json(
+          {
+            code: 'assigned_office_not_found',
+            error: 'The assigned office could not be found.',
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (office) {
+      if (!body.location || typeof body.location.lat !== 'number' || typeof body.location.lng !== 'number') {
+        return NextResponse.json(
+          {
+            code: 'location_required',
+            error: 'Location permission is required.',
+          },
+          { status: 400 }
+        );
+      }
+
+      if (office.latitude == null || office.longitude == null) {
+        return NextResponse.json(
+          {
+            code: 'office_location_not_configured',
+            error: 'The assigned office does not have a configured location.',
+          },
+          { status: 400 }
+        );
+      }
+
+      const setting = await getSystemSetting(OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING);
+      const maxDistanceStr = setting?.value || process.env.OFFICE_ATTENDANCE_MAX_DISTANCE_METERS;
+      const distance = calculateDistance(body.location.lat, body.location.lng, office.latitude, office.longitude);
+      roundedDistanceMeters = Math.round(distance);
+
+      if (maxDistanceStr) {
+        const maxDistance = parseInt(maxDistanceStr, 10);
+        if (!isNaN(maxDistance) && maxDistance > 0) {
           if (distance > maxDistance) {
             return NextResponse.json(
               {
-                error: `Anda berada terlalu jauh dari kantor. Jarak saat ini: ${Math.round(
-                  distance
-                )}m (Maksimal: ${maxDistance}m).`,
+                code: 'too_far_from_office',
+                error: `Anda berada terlalu jauh dari kantor. Jarak saat ini: ${roundedDistanceMeters}m (Maksimal: ${maxDistance}m).`,
+                details: {
+                  currentDistanceMeters: roundedDistanceMeters,
+                  maxDistanceMeters: maxDistance,
+                },
               },
               { status: 400 }
             );
@@ -62,15 +179,34 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Record Attendance
-    const attendance = await recordOfficeAttendance({
-      officeId: office.id,
-      employeeId: employee.id,
-      status: 'present',
-      metadata: body.location ? { location: body.location, ...body.metadata } : body.metadata,
-    });
+    const latenessMins =
+      requestedStatus === 'present' && scheduleContext.isLate
+        ? scheduleContext.windowStart && Number.isFinite(scheduleContext.windowStart.getTime())
+          ? Math.floor((now.getTime() - scheduleContext.windowStart.getTime()) / 60_000)
+          : scheduleContext.startMinutes != null
+            ? scheduleContext.businessDay.minutesSinceMidnight - scheduleContext.startMinutes
+            : null
+        : null;
 
-    return NextResponse.json({ attendance }, { status: 201 });
+    const metadata = {
+      ...(body.metadata || {}),
+      ...(body.location ? { location: body.location } : {}),
+      ...(roundedDistanceMeters != null ? { distanceMeters: roundedDistanceMeters } : {}),
+      ...(latenessMins != null ? { latenessMins } : {}),
+    };
+
+    const recordResult = await recordOfficeAttendance({
+      officeId: office?.id ?? null,
+      officeShiftId: scheduleContext.shift?.id ?? null,
+      employeeId: employee.id,
+      status: requestedStatus,
+      picture: body.picture,
+      metadata,
+    });
+    const attendance = 'attendance' in recordResult ? recordResult.attendance : recordResult;
+    const statusCode = 'created' in recordResult ? (recordResult.created ? 201 : 200) : 201;
+
+    return NextResponse.json({ attendance }, { status: statusCode });
   } catch (error: unknown) {
     console.error('Error recording office attendance:', error);
     if (error instanceof ZodError) {

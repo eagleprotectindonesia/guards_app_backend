@@ -33,7 +33,9 @@
     "minutes": "menit",
     "seconds": "detik",
     "loading": "Memuat...",
-    "processing": "Memproses..."
+    "processing": "Memproses...",
+    "today": "Hari Ini",
+    "successTitle": "Berhasil"
   },
   "attendance": {
     "success": "Kehadiran Berhasil Direkam!",
@@ -58,7 +60,17 @@
     "requiredMessage": "Harap rekam kehadiran Anda untuk memulai shift.",
     "submitButton": "Rekam Kehadiran",
     "submitLateButton": "Rekam Kehadiran Terlambat",
-    "alreadyRecorded": "Kehadiran sudah direkam untuk Shift ini."
+    "alreadyRecorded": "Kehadiran sudah direkam untuk Shift ini.",
+    "errors": {
+      "unauthorized": "Anda tidak memiliki izin untuk melakukan tindakan ini.",
+      "shiftNotFound": "Shift tidak ditemukan.",
+      "shiftNotAssigned": "Anda tidak ditugaskan pada shift ini.",
+      "attendanceAlreadyRecorded": "Kehadiran sudah direkam untuk shift ini.",
+      "shiftNotActive": "Shift ini belum aktif.",
+      "locationRequired": "Izin lokasi diperlukan untuk lokasi ini.",
+      "tooFarFromSite": "Anda berada terlalu jauh dari lokasi penugasan. Jarak saat ini: {{currentDistanceMeters}}m (Maksimal: {{maxDistanceMeters}}m). Silakan pindah ke lokasi yang ditentukan.",
+      "internalServerError": "Terjadi kesalahan pada server."
+    }
   },
   "checkin": {
     "success": "Check-in Berhasil!",
@@ -86,7 +98,18 @@
     "urgent": "Mendesak",
     "responseRequired": "Respon Diperlukan",
     "checkInNow": "Check-in Sekarang",
-    "lateStatus": "Anda terlambat untuk check-in ini"
+    "lateStatus": "Anda terlambat untuk check-in ini",
+    "errors": {
+      "unauthorized": "Anda tidak memiliki izin untuk melakukan tindakan ini.",
+      "shiftNotFound": "Shift tidak ditemukan.",
+      "shiftNotAssigned": "Anda tidak ditugaskan pada shift ini.",
+      "shiftNotActive": "Shift ini belum aktif.",
+      "locationRequired": "Izin lokasi diperlukan untuk lokasi ini.",
+      "tooFarFromSite": "Anda berada terlalu jauh dari lokasi penugasan. Jarak saat ini: {{currentDistanceMeters}}m (Maksimal: {{maxDistanceMeters}}m). Silakan pindah ke lokasi yang ditentukan.",
+      "checkinIntervalCompleted": "Anda sudah check-in untuk interval ini.",
+      "checkinTooEarly": "Terlalu awal untuk check-in.",
+      "internalServerError": "Terjadi kesalahan pada server."
+    }
   },
   "passwordChange": {
     "successTitle": "Sukses",
@@ -162,6 +185,16 @@
     "title": "Akun",
     "settings": "Pengaturan"
   },
+  "announcements": {
+    "title": "Pengumuman",
+    "empty": "Belum ada pengumuman",
+    "newCount": "{{count}} baru",
+    "kindHoliday": "Hari Libur",
+    "kindOfficeMemo": "Memo Kantor",
+    "period": "Periode",
+    "holidaySummary": "Akan ada hari libur",
+    "officeMemoSummary": "Ada pembaruan memo kantor."
+  },
   "biometric": {
     "loginButton": "Masuk dengan Biometrik",
     "enableTitle": "Aktifkan Login Biometrik",
@@ -183,13 +216,158 @@
   "officeAttendance": {
     "title": "Kehadiran Kantor",
     "notRecorded": "Anda belum melakukan presensi hari ini.",
-    "clockedIn": "Sudah Masuk ({{time}})",
+    "noOfficeAssigned": "Remote / Tidak Ada Kantor Terdaftar",
+    "workingDay": "Hari Kerja",
+    "nonWorkingDay": "Tidak ada jadwal aktif untuk hari ini. Hari ini ditandai sebagai hari libur.",
+    "dateLabel": "Tanggal",
+    "windowLabel": "Jadwal",
+    "clockedIn": "Sudah Clock In Pada",
     "clockIn": "Clock In (Masuk)",
     "clockOut": "Clock Out (Keluar)",
+    "clockOutConfirmTitle": "Akhiri jam kerja?",
+    "clockOutConfirmMessage": "Apakah Anda yakin ingin mengakhiri jam kerja untuk hari ini?",
+    "clockOutConfirmAction": "Akhiri jam kerja",
+    "dayCompleted": "Hari Selesai",
+    "missedTitle": "Jendela Kehadiran Terlewat",
+    "missedMessage": "Jendela kehadiran kantor yang dijadwalkan telah berakhir tanpa catatan clock-in.",
+    "clockOutTime": "Clock Out:",
     "clockOutSuccess": "Berhasil keluar",
+    "cannotClockInNonWorkingDay": "Anda hanya bisa clock in pada hari kerja.",
     "history": "Riwayat Hari Ini",
     "in": "Masuk",
-    "out": "Keluar"
+    "out": "Keluar",
+    "noAttendance": "Belum ada presensi",
+    "takingPhoto": "Mengambil foto presensi...",
+    "optimizingPhoto": "Mengoptimalkan foto presensi...",
+    "uploadingPhoto": "Mengunggah foto presensi...",
+    "holiday": {
+      "headlineHoliday": "Libur hari ini",
+      "headlineWeekOff": "Hari libur hari ini",
+      "headlineEmergency": "Perubahan jadwal darurat",
+      "headlineSpecialWorkingDay": "Hari kerja khusus",
+      "impactNoAttendanceRequired": "Tidak perlu melakukan presensi hari ini.",
+      "impactAttendanceRequired": "Presensi tetap wajib hari ini.",
+      "impactOfficeOpenNormal": "Presensi kantor tetap berjalan seperti biasa.",
+      "compensation": "Kompensasi",
+      "paid": "Dibayar",
+      "unpaid": "Tidak dibayar",
+      "type": {
+        "holiday": "Libur",
+        "weekOff": "Hari Libur",
+        "emergency": "Darurat",
+        "specialWorkingDay": "Hari Kerja Khusus"
+      }
+    },
+    "errors": {
+      "generic": "Gagal merekam kehadiran kantor.",
+      "unauthorized": "Anda tidak memiliki izin untuk melakukan tindakan ini.",
+      "locationRequired": "Izin lokasi diperlukan.",
+      "tooFarFromOffice": "Anda berada terlalu jauh dari kantor yang ditugaskan. Jarak saat ini: {{currentDistanceMeters}}m (Maksimal: {{maxDistanceMeters}}m). Silakan pindah ke lokasi yang ditentukan.",
+      "assignedOfficeNotFound": "Kantor yang ditugaskan tidak ditemukan.",
+      "officeLocationNotConfigured": "Lokasi kantor yang ditugaskan belum dikonfigurasi.",
+      "notWorkingDay": "Kehadiran kantor hanya tersedia pada hari kerja yang dikonfigurasi.",
+      "officeHoursEnded": "Clock-in tidak lagi diizinkan setelah jam kerja kantor berakhir.",
+      "cameraRequired": "Izin kamera diperlukan untuk clock in.",
+      "photoRequired": "Foto presensi diperlukan untuk clock in.",
+      "clockInRequired": "Clock-in wajib dilakukan sebelum clock-out.",
+      "alreadyClockedIn": "Clock-in sudah tercatat untuk jendela jadwal ini.",
+      "attendanceCompleted": "Kehadiran kantor sudah selesai untuk jendela jadwal ini.",
+      "internalServerError": "Terjadi kesalahan pada server."
+    }
+  },
+  "leave": {
+    "title": "Pengajuan Izin/Cuti",
+    "requestLeave": "Ajukan Izin/Cuti",
+    "newRequest": "Pengajuan Baru",
+    "history": "Riwayat Izin/Cuti",
+    "startDate": "Tanggal Mulai",
+    "endDate": "Tanggal Berakhir",
+    "reason": "Alasan",
+    "reasonPlaceholder": "Alasan izin (opsional)",
+    "reasonType": {
+      "sick": "Sakit",
+      "casual": "Biasa",
+      "emergency": "Darurat",
+      "family_marriage": "Cuti Menikah",
+      "family_child_marriage": "Pernikahan Anak",
+      "family_child_circumcision_baptism": "Khitan/Baptis Anak",
+      "family_death": "Kematian Anggota Keluarga",
+      "family_spouse_death": "Kematian Pasangan",
+      "special_maternity": "Cuti Melahirkan",
+      "special_miscarriage": "Cuti Keguguran",
+      "special_paternity": "Cuti Ayah",
+      "special_emergency": "Cuti Darurat",
+      "annual": "Cuti Tahunan"
+    },
+    "category": {
+      "title": "Kategori",
+      "sick": "Sakit",
+      "family": "Keluarga",
+      "special": "Khusus",
+      "annual": "Tahunan"
+    },
+    "subcategory": {
+      "title": "Jenis Izin/Cuti",
+      "change": "Ubah"
+    },
+    "selectSubtypeTitle": "Pilih Jenis Izin/Cuti",
+    "selectSubtypeMessage": "Pilih salah satu jenis izin/cuti di bawah",
+    "policyDescription": "Deskripsi Kebijakan",
+    "reasonDescription": {
+      "sick": "Diizinkan: 1 hari per siklus (tanggal 21-20). Lebih dari 1 hari memerlukan surat dokter yang valid. Tanpa dokumen, hari tambahan akan tidak dibayar atau dipotong dari Cuti Tahunan. Contoh siklus: 21 Juni-20 Juli.",
+      "family_marriage": "3 hari cuti berbayar untuk pernikahan karyawan.",
+      "family_child_marriage": "2 hari cuti berbayar untuk pernikahan anak.",
+      "family_child_circumcision_baptism": "2 hari cuti berbayar untuk acara anak.",
+      "family_death": "2 hari cuti berbayar untuk kematian keluarga inti (orang tua, mertua, atau anak).",
+      "family_spouse_death": "2 hari cuti berbayar mulai dari tanggal meninggal. Cuti harus diambil berturut-turut.",
+      "special_maternity": "3 bulan cuti berbayar: 1,5 bulan sebelum melahirkan dan 1,5 bulan setelah melahirkan.",
+      "special_miscarriage": "1,5 bulan cuti berbayar untuk pemulihan setelah keguguran. Dokumen medis wajib.",
+      "special_paternity": "2 hari cuti berbayar untuk suami saat persalinan atau keguguran pasangan.",
+      "special_emergency": "Untuk situasi mendesak atau tak terduga. Cuti ini dipotong dari Cuti Tahunan dan memerlukan persetujuan HOD.",
+      "annual": "12 hari kerja per tahun setelah menyelesaikan 12 bulan masa kerja. Digunakan untuk kebutuhan pribadi seperti liburan atau istirahat. Saldo cuti dipotong berdasarkan hari kerja yang diambil."
+    },
+    "employeeNote": "Catatan Karyawan",
+    "adminNote": "Catatan Admin",
+    "notePlaceholder": "Tambahkan catatan opsional",
+    "attachments": "Lampiran",
+    "addAttachment": "Tambah",
+    "attachmentHint": "Anda dapat melampirkan hingga 4 file.",
+    "attachmentType": {
+      "title": "Pilih jenis lampiran",
+      "message": "Pilih jenis file yang ingin dilampirkan",
+      "image": "Gambar",
+      "pdf": "PDF"
+    },
+    "attachmentCount": "{{count}} file",
+    "submit": "Ajukan Pengajuan",
+    "cancel": "Batalkan Pengajuan",
+    "cancelConfirmTitle": "Batalkan Pengajuan Izin",
+    "cancelConfirmMessage": "Apakah Anda yakin ingin membatalkan pengajuan izin ini?",
+    "noRequests": "Tidak ada pengajuan izin ditemukan",
+    "status": {
+      "pending": "Menunggu Konfirmasi",
+      "approved": "Disetujui",
+      "rejected": "Ditolak",
+      "cancelled": "Dibatalkan"
+    },
+    "validation": {
+      "startDateRequired": "Tanggal mulai wajib diisi",
+      "endDateRequired": "Tanggal berakhir wajib diisi",
+      "invalidRange": "Tanggal berakhir harus setelah atau sama dengan tanggal mulai",
+      "attachmentRequiredForSick": "Minimal 1 lampiran wajib untuk izin sakit"
+    },
+    "attachmentRequiredForSickHint": "Minimal 1 lampiran wajib untuk izin sakit.",
+    "attachmentRequiredForMiscarriageHint": "Dokumen medis wajib untuk cuti keguguran.",
+    "success": {
+      "created": "Pengajuan izin berhasil dikirim",
+      "cancelled": "Pengajuan izin berhasil dibatalkan"
+    },
+    "error": {
+      "createFailed": "Gagal mengirim pengajuan izin",
+      "cancelFailed": "Gagal membatalkan pengajuan izin",
+      "attachmentPickFailed": "Gagal memilih lampiran",
+      "attachmentUploadFailed": "Gagal mengunggah lampiran"
+    }
   },
   "notifications": {
     "permission_title": "Aktifkan Notifikasi",

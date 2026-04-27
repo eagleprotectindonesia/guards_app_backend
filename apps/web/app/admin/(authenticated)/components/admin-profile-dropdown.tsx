@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { AdminSession } from '@/lib/admin-auth';
 import Image from 'next/image';
+import { getInitials } from '@repo/shared';
 
 interface AdminProfileDropdownProps {
   currentAdmin: AdminSession;
@@ -34,7 +35,7 @@ export default function AdminProfileDropdown({ currentAdmin }: AdminProfileDropd
     }
   };
 
-  const initials = currentAdmin?.name?.substring(0, 2).toUpperCase() || 'AD';
+  const initials = getInitials(currentAdmin?.name);
 
   return (
     <DropdownMenu>

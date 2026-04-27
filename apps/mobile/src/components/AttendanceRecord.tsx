@@ -14,6 +14,10 @@ import { ShiftWithRelations } from '@repo/types';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { queryKeys } from '../api/queryKeys';
+import {
+  getEmployeeAttendanceCheckinErrorPayload,
+  resolveEmployeeAttendanceCheckinErrorMessage,
+} from '@repo/shared';
 
 type AttendanceRecordProps = {
   shift: ShiftWithRelations;
@@ -40,7 +44,17 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
       if (onAttendanceRecorded) onAttendanceRecorded();
     },
     onError: (error: any) => {
-      const msg = error.response?.data?.error || error.message || t('attendance.fail');
+      const errorData = getEmployeeAttendanceCheckinErrorPayload(error);
+      const msg = resolveEmployeeAttendanceCheckinErrorMessage(
+        t,
+        {
+          code: errorData.code,
+          fallbackMessage: errorData.error || errorData.message || error.message,
+          details: errorData.details,
+        },
+        t('attendance.fail'),
+        'attendance'
+      );
       setStatus(t('attendance.failPrefix') + msg);
       toast.error('Error', msg);
     },

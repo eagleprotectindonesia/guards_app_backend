@@ -17,7 +17,8 @@ const getBaseUrl = () => {
   }
 
   if (!__DEV__) {
-    throw new Error('EXPO_PUBLIC_API_URL is required for non-development builds');
+    // Fallback for production-like builds when the env var is unavailable.
+    return 'https://crm.eagleprotect.id';
   }
 
   // For development (Expo Go / Emulator)
@@ -46,7 +47,7 @@ export const setCachedAuthToken = (token: string | null) => {
 
 // Request Interceptor to inject token
 client.interceptors.request.use(
-  async (config) => {
+  async config => {
     const token = authTokenCache ?? (await storage.getItem(STORAGE_KEYS.USER_TOKEN));
     if (token && !authTokenCache) {
       authTokenCache = token;
@@ -56,7 +57,7 @@ client.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  error => Promise.reject(error)
 );
 
 export const queryClient = new QueryClient({
@@ -71,13 +72,13 @@ export const queryClient = new QueryClient({
 // Add interceptor to handle 401s (Global Logout)
 export const setupInterceptors = (onUnauthorized: () => Promise<void> | void) => {
   const interceptorId = client.interceptors.response.use(
-    (response) => response,
-    async (error) => {
+    response => response,
+    async error => {
       if (error.response?.status === 401) {
         // Only trigger if not on the login page or checking auth
         const isAuthCheck = error.config.url?.includes('/api/employee/auth/check');
         const isLogin = error.config.url?.includes('/api/employee/auth/login');
-        
+
         if (!isAuthCheck && !isLogin) {
           await onUnauthorized();
         }

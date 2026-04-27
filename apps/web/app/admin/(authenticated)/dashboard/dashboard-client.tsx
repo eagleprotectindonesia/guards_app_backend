@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Site } from '@prisma/client';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import AlarmInterface from './components/alarm-interface';
 import AlertFeed from '../components/alert-feed';
 import Select from '../components/select';

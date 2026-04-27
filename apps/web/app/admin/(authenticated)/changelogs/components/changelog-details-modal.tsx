@@ -7,18 +7,78 @@ import { ArrowRight, Info, History } from 'lucide-react';
 type ChangelogDetailsModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  details: Record<string, string> | { changes: Record<string, { from: string; to: string }> } | null;
+  entityType?: string | null;
+  details: Record<string, unknown> | { changes: Record<string, { from: string | null; to: string | null }> } | null;
 };
 
-export default function ChangelogDetailsModal({ isOpen, onClose, details }: ChangelogDetailsModalProps) {
+type OfficeWorkScheduleDay = {
+  weekday: number;
+  isWorkingDay: boolean;
+  startTime: string | null;
+  endTime: string | null;
+};
+
+function isOfficeWorkScheduleDay(value: unknown): value is OfficeWorkScheduleDay {
+  return !!value && typeof value === 'object' && 'weekday' in value && 'isWorkingDay' in value;
+}
+
+function formatOfficeWorkScheduleDay(day: OfficeWorkScheduleDay) {
+  const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return `${weekdayLabels[day.weekday] ?? `Day ${day.weekday}`}: ${
+    day.isWorkingDay ? `${day.startTime ?? '-'} - ${day.endTime ?? '-'}` : 'Off'
+  }`;
+}
+
+function officeWorkScheduleDayLabel(key: string) {
+  const weekday = Number(key.replace('day_', ''));
+  const weekdayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  return weekdayLabels[weekday] ? `${weekdayLabels[weekday]} Schedule` : `Day ${weekday}`;
+}
+
+function renderOfficeWorkScheduleDays(value: unknown) {
+  if (!Array.isArray(value)) return null;
+  const days = value.filter(isOfficeWorkScheduleDay);
+  if (days.length === 0) return null;
+
+  return (
+    <div className="space-y-1">
+      {days
+        .slice()
+        .sort((left, right) => left.weekday - right.weekday)
+        .map(day => (
+          <div key={day.weekday} className="text-sm font-medium text-foreground">
+            {formatOfficeWorkScheduleDay(day)}
+          </div>
+        ))}
+    </div>
+  );
+}
+
+export default function ChangelogDetailsModal({ isOpen, onClose, entityType, details }: ChangelogDetailsModalProps) {
   if (!details) return null;
 
-  const { changes, ...snapshot } = details;
+  const { changes, ...snapshot } = details as Record<string, unknown> & {
+    changes?: Record<string, { from: string | null; to: string | null }>;
+  };
 
-  const formatValue = (key: string, value: boolean | string) => {
+  const formatValue = (key: string, value: unknown) => {
+    if (entityType === 'OfficeWorkSchedule') {
+      if (key === 'days') {
+        const renderedDays = renderOfficeWorkScheduleDays(value);
+        if (renderedDays) return renderedDays;
+      }
+
+      if (key.startsWith('day_')) {
+        if (isOfficeWorkScheduleDay(value)) {
+          return formatOfficeWorkScheduleDay(value);
+        }
+      }
+    }
+
     if (value === null || value === undefined)
       return <span className="text-muted-foreground italic text-xs">None</span>;
     if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    if (typeof value === 'object') return JSON.stringify(value);
 
     // Check if it's a date string (ISO format usually stored in JSON)
     if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
@@ -48,9 +108,24 @@ export default function ChangelogDetailsModal({ isOpen, onClose, details }: Chan
       siteId: 'Site ID',
       shiftTypeId: 'Shift Type ID',
       employeeName: 'Employee',
+      employeeNumber: 'Employee Number',
       siteName: 'Site',
       shiftTypeName: 'Shift Type',
+      previousScheduleId: 'Previous Schedule ID',
+      previousScheduleName: 'Previous Schedule',
+      nextScheduleId: 'New Schedule ID',
+      nextScheduleName: 'New Schedule',
+      officeWorkScheduleId: 'Office Schedule ID',
+      officeWorkScheduleName: 'Office Schedule',
+      changeCategory: 'Change Category',
+      operationType: 'Operation',
+      effectiveFrom: 'Effective From',
+      effectiveUntil: 'Effective Until',
+      source: 'Source',
+      days: 'Working Days',
     };
+
+    if (key.startsWith('day_')) return officeWorkScheduleDayLabel(key);
 
     if (specialCases[key]) return specialCases[key];
 
@@ -75,7 +150,7 @@ export default function ChangelogDetailsModal({ isOpen, onClose, details }: Chan
               Modified Fields
             </div>
             <div className="grid gap-3">
-              {Object.entries(changes).map(([key, change]: [string, { from: string; to: string }]) => (
+              {Object.entries(changes).map(([key, change]: [string, { from: string | null; to: string | null }]) => (
                 <div key={key} className="bg-muted/30 border border-border rounded-xl p-4 flex flex-col gap-2">
                   <span className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">
                     {labelize(key)}
@@ -107,7 +182,7 @@ export default function ChangelogDetailsModal({ isOpen, onClose, details }: Chan
                 <span className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-tighter">
                   {labelize(key)}
                 </span>
-                <span className="text-sm font-medium text-foreground truncate" title={String(value)}>
+                <span className="text-sm font-medium text-foreground" title={typeof value === 'string' ? value : undefined}>
                   {formatValue(key, value)}
                 </span>
               </div>

@@ -2,13 +2,17 @@
 
 import React, { createContext, useContext, useMemo } from 'react';
 import { PermissionCode, isValidPermissionCode } from '@/lib/auth/permissions';
+import { RolePolicy } from '@repo/validations';
+import { canAccessOfficeAttendance } from '@/lib/auth/admin-visibility';
 
 interface SessionContextType {
   userId: string | null;
   roleName: string | null;
   permissions: string[];
+  rolePolicy: RolePolicy;
   hasPermission: (permission: PermissionCode) => boolean;
   isSuperAdmin: boolean;
+  canAccessOfficeAttendance: boolean;
 }
 
 const SessionContext = createContext<SessionContextType | undefined>(undefined);
@@ -22,9 +26,14 @@ export function SessionProvider({
     userId: string | null;
     roleName: string | null;
     permissions: string[];
+    rolePolicy: RolePolicy;
   };
 }) {
-  const isSuperAdmin = session.roleName === 'superadmin';
+  const isSuperAdmin = session.roleName === 'Super Admin' || session.roleName === 'superadmin';
+  const canAccessOfficeAttendanceValue = canAccessOfficeAttendance({
+    isSuperAdmin,
+    rolePolicy: session.rolePolicy,
+  });
 
   const hasPermission = useMemo(() => {
     return (permission: PermissionCode) => {
@@ -38,8 +47,9 @@ export function SessionProvider({
       ...session,
       hasPermission,
       isSuperAdmin,
+      canAccessOfficeAttendance: canAccessOfficeAttendanceValue,
     }),
-    [session, hasPermission, isSuperAdmin]
+    [session, hasPermission, isSuperAdmin, canAccessOfficeAttendanceValue]
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;

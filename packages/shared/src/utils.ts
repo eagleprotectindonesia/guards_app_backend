@@ -1,47 +1,25 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { z } from 'zod';
-import bcrypt from 'bcryptjs';
-import { JsonValue } from '@prisma/client/runtime/client';
-
-export const DEFAULT_PASSWORD = '12345678';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export type Serialized<T> = T extends Date
-  ? string
-  : [T] extends [JsonValue]
-    ? T
-    : T extends (infer U)[]
-      ? Serialized<U>[]
-      : T extends object
-        ? { [K in keyof T]: Serialized<T[K]> }
-        : T;
+export function getInitials(name: string | null | undefined, maxChars = 2): string {
+  if (!name) return '';
 
-export function serialize<T>(data: T): Serialized<T> {
-  return JSON.parse(JSON.stringify(data));
-}
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0].substring(0, maxChars).toUpperCase();
+  }
 
-export function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
-}
+  let initials = '';
+  for (const part of parts) {
+    if (part.length > 0) {
+      initials += part[0].toUpperCase();
+      if (initials.length >= maxChars) break;
+    }
+  }
 
-export function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
-  return bcrypt.compare(password, hashedPassword);
-}
-
-export function getPaginationParams(
-  searchParams: { [key: string]: string | string[] | undefined },
-  defaultPerPage = 10
-) {
-  const pageSchema = z.coerce.number().int().min(1).default(1);
-  const perPageSchema = z.coerce.number().int().min(1).max(100).default(defaultPerPage);
-
-  const page = pageSchema.parse(searchParams.page);
-  const perPage = perPageSchema.parse(searchParams.per_page);
-  const skip = (page - 1) * perPage;
-
-  return { page, perPage, skip };
+  return initials;
 }

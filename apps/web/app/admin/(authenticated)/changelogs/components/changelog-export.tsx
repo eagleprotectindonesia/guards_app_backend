@@ -1,10 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Download } from 'lucide-react';
 import toast from 'react-hot-toast';
-import ChangelogExportModal from './changelog-export-modal';
-import { format } from 'date-fns';
 
 type ChangelogExportProps = {
   entityType?: string;
@@ -12,27 +10,56 @@ type ChangelogExportProps = {
 };
 
 export default function ChangelogExport({ entityType, entityId }: ChangelogExportProps) {
-  const [isExportOpen, setIsExportOpen] = useState(false);
+  const searchParams = useSearchParams();
 
-  const performExport = async (startDate: Date, endDate: Date) => {
+  const performExport = async () => {
     try {
       const params = new URLSearchParams();
-      
-      params.set('startDate', format(startDate, 'yyyy-MM-dd'));
-      params.set('endDate', format(endDate, 'yyyy-MM-dd'));
-      
-      if (entityType) params.set('entityType', entityType);
-      if (entityId) params.set('entityId', entityId);
+
+      const filterKeys = ['startDate', 'endDate', 'action', 'entityType', 'entityId'];
+
+      for (const key of filterKeys) {
+        const value = searchParams.get(key);
+        if (value) {
+          params.set(key, value);
+        }
+      }
+
+      if (entityType) {
+        params.set('entityType', entityType);
+      }
+
+      if (entityId) {
+        params.set('entityId', entityId);
+      }
 
       const downloadUrl = `/api/admin/changelogs/export?${params.toString()}`;
-      
-      // Trigger download
-      window.location.href = downloadUrl;
-      
-      // Close modal
-      setIsExportOpen(false);
-      toast.success('Export started');
+      const response = await fetch(downloadUrl);
 
+      if (!response.ok) {
+        if (response.status === 404) {
+          toast.error('Data is empty.');
+          return;
+        }
+
+        throw new Error(`Export failed with status ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('Content-Disposition');
+      const filenameMatch = contentDisposition?.match(/filename="([^"]+)"/);
+      const filename = filenameMatch?.[1] || 'changelog_export.csv';
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(objectUrl);
+
+      toast.success('Export started');
     } catch (error) {
       console.error('Failed to start export:', error);
       toast.error('Failed to start export.');
@@ -42,18 +69,12 @@ export default function ChangelogExport({ entityType, entityId }: ChangelogExpor
   return (
     <>
       <button
-        onClick={() => setIsExportOpen(true)}
+        onClick={performExport}
         className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm w-full md:w-auto"
       >
         <Download className="w-4 h-4 mr-2" />
         Download CSV
       </button>
-
-      <ChangelogExportModal
-        isOpen={isExportOpen}
-        onClose={() => setIsExportOpen(false)}
-        onExport={performExport}
-      />
     </>
   );
 }

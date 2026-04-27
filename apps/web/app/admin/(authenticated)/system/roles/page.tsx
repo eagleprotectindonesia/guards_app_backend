@@ -1,5 +1,5 @@
 import { getAllRoles } from '@repo/database';
-import { serialize } from '@/lib/utils';
+import { serialize } from '@/lib/server-utils';
 import RoleList from './components/role-list';
 import Link from 'next/link';
 import { requirePermission } from '@/lib/admin-auth';

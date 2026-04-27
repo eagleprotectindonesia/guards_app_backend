@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server';
 import { resolveAlertSchema } from '@repo/validations';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { ZodError } from 'zod';
-import { getShiftById, resolveAlertsByShiftAndReason, redis } from '@repo/database';
+import { getShiftById, resolveAlertsByShiftAndReason } from '@repo/database';
+import { redis } from '@repo/database/redis';
 
 export async function POST(req: Request) {
   const employee = await getAuthenticatedEmployee();

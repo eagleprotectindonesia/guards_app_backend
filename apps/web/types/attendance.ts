@@ -10,6 +10,13 @@ export type AttendanceEmployeeSummary = {
   id: string;
   fullName: string;
   employeeNumber: string | null;
+  department?: string | null;
+  jobTitle?: string | null;
+};
+
+export type AttendanceOfficeSummary = {
+  id: string;
+  name: string;
 };
 
 export type AttendanceWithRelationsDto = {
@@ -49,6 +56,8 @@ export type OfficeAttendanceMetadataDto = {
     lat: number;
     lng: number;
   };
+  distanceMeters?: number;
+  latenessMins?: number;
 };
 
 export type OfficeAttendanceWithRelationsDto = {
@@ -56,11 +65,20 @@ export type OfficeAttendanceWithRelationsDto = {
   recordedAt: Date;
   status: string;
   employeeId: string;
-  officeId: string;
+  officeId: string | null;
+  picture?: string | null;
   metadata: OfficeAttendanceMetadataDto | null;
   office: {
     id: string;
     name: string;
+  } | null;
+  officeShift?: {
+    id: string;
+    officeShiftType: {
+      name: string;
+      startTime: string;
+      endTime: string;
+    } | null;
   } | null;
   employee: AttendanceEmployeeSummary | null;
 };
@@ -71,3 +89,35 @@ export type SerializedOfficeAttendanceWithRelationsDto = Omit<
 > & {
   recordedAt: string;
 };
+
+export type OfficeAttendanceDisplayStatus = 'clocked_in' | 'completed' | 'late';
+
+export type OfficeAttendanceDisplayDto = {
+  id: string;
+  employeeId: string;
+  officeId: string | null;
+  businessDate: string;
+  clockInAt: string;
+  clockOutAt: string | null;
+  clockInPicture: string | null;
+  paidHours: string | null;
+  clockInMetadata: OfficeAttendanceMetadataDto | null;
+  clockOutMetadata: OfficeAttendanceMetadataDto | null;
+  latenessMins: number | null;
+  displayStatus: OfficeAttendanceDisplayStatus;
+  office: {
+    id: string;
+    name: string;
+  } | null;
+  officeShift?: {
+    id: string;
+    officeShiftType: {
+      name: string;
+      startTime: string;
+      endTime: string;
+    } | null;
+  } | null;
+  employee: AttendanceEmployeeSummary | null;
+};
+
+export type SerializedOfficeAttendanceDisplayDto = OfficeAttendanceDisplayDto;

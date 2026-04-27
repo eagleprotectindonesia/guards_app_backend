@@ -33,6 +33,7 @@ type FilterModalProps = {
   sites?: EntitySummary[];
   shiftTypes?: EntitySummary[];
   offices?: EntitySummary[];
+  officeWorkSchedules?: EntitySummary[];
 };
 
 type ChangelogListProps = {
@@ -44,12 +45,14 @@ type ChangelogListProps = {
   sortOrder?: 'asc' | 'desc';
   hideEntityType?: boolean;
   fixedEntityType?: string;
+  exportEntityType?: string;
   showEntityName?: boolean;
   FilterModal: ComponentType<FilterModalProps>;
   employees?: EntitySummary[];
   sites?: EntitySummary[];
   shiftTypes?: EntitySummary[];
   offices?: EntitySummary[];
+  officeWorkSchedules?: EntitySummary[];
 };
 
 export default function ChangelogList({
@@ -61,17 +64,19 @@ export default function ChangelogList({
   sortOrder = 'desc',
   hideEntityType = false,
   fixedEntityType,
+  exportEntityType,
   showEntityName = false,
   FilterModal,
   employees,
   sites,
   shiftTypes,
   offices,
+  officeWorkSchedules,
 }: ChangelogListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
-  const [selectedDetails, setSelectedDetails] = useState<Prisma.JsonValue | null>(null);
+  const [selectedLog, setSelectedLog] = useState<{ entityType: string; details: Prisma.JsonValue } | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const handleSort = (field: string) => {
@@ -150,7 +155,7 @@ export default function ChangelogList({
           </p>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
-          <ChangelogExport entityType={fixedEntityType} />
+          <ChangelogExport entityType={exportEntityType ?? fixedEntityType} />
           <button
             onClick={() => setIsFilterOpen(true)}
             className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm w-full md:w-auto ${
@@ -257,7 +262,7 @@ export default function ChangelogList({
                     )}
                     <td className="py-4 px-6 text-right">
                       <button
-                        onClick={() => setSelectedDetails(log.details)}
+                        onClick={() => setSelectedLog({ entityType: log.entityType, details: log.details })}
                         className="p-2 text-muted-foreground hover:text-primary hover:bg-muted rounded-lg transition-colors cursor-pointer"
                         title="View Details"
                       >
@@ -275,10 +280,11 @@ export default function ChangelogList({
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
 
       <ChangelogDetailsModal
-        isOpen={!!selectedDetails}
-        onClose={() => setSelectedDetails(null)}
+        isOpen={!!selectedLog}
+        onClose={() => setSelectedLog(null)}
+        entityType={selectedLog?.entityType ?? null}
         details={
-          selectedDetails as Record<string, string> | { changes: Record<string, { from: string; to: string }> } | null
+          selectedLog?.details as Record<string, string> | { changes: Record<string, { from: string; to: string }> } | null
         }
       />
 
@@ -298,6 +304,7 @@ export default function ChangelogList({
         sites={sites}
         shiftTypes={shiftTypes}
         offices={offices}
+        officeWorkSchedules={officeWorkSchedules}
       />
     </div>
   );

@@ -12,7 +12,8 @@ export async function GET() {
   const settings = await getSystemSettingsByName([
     'GEOFENCE_GRACE_MINUTES',
     'LOCATION_DISABLED_GRACE_MINUTES',
-    'ENABLE_LOCATION_MONITORING'
+    'ENABLE_LOCATION_MONITORING',
+    'OFFICE_ATTENDANCE_REQUIRE_PHOTO',
   ]);
 
   const settingsMap = settings.reduce((acc, setting) => {
@@ -29,5 +30,6 @@ export async function GET() {
     GEOFENCE_GRACE_MINUTES: parseSetting('GEOFENCE_GRACE_MINUTES', 5),
     LOCATION_DISABLED_GRACE_MINUTES: parseSetting('LOCATION_DISABLED_GRACE_MINUTES', 2),
     ENABLE_LOCATION_MONITORING: settingsMap['ENABLE_LOCATION_MONITORING'] === '1',
+    OFFICE_ATTENDANCE_REQUIRE_PHOTO: settingsMap['OFFICE_ATTENDANCE_REQUIRE_PHOTO'] === '1',
   });
 }

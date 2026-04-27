@@ -3,6 +3,11 @@ import { verifySession } from './auth/session';
 import { AUTH_COOKIES } from './auth/constants';
 import { PermissionCode } from './auth/permissions';
 import { forbidden } from 'next/navigation';
+import { RolePolicy } from '@repo/validations';
+
+function isSuperAdminRole(roleName: string | null) {
+  return roleName === 'Super Admin' || roleName === 'superadmin';
+}
 
 export async function getAdminIdFromToken(): Promise<string> {
   const cookieStore = await cookies();
@@ -21,6 +26,7 @@ export interface AdminSession {
   profileImage: string | null;
   roleName: string | null;
   permissions: string[];
+  rolePolicy: RolePolicy;
   isSuperAdmin: boolean;
 }
 
@@ -30,7 +36,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 
   if (!token) return null;
 
-  const { isValid, userId, roleName, permissions } = await verifySession(token, 'admin');
+  const { isValid, userId, roleName, permissions, rolePolicy } = await verifySession(token, 'admin');
 
   if (!isValid || !userId) return null;
 
@@ -49,8 +55,13 @@ export async function getAdminSession(): Promise<AdminSession | null> {
     profileImage: admin.profileImage,
     roleName,
     permissions,
-    isSuperAdmin: roleName === 'superadmin',
+    rolePolicy,
+    isSuperAdmin: isSuperAdminRole(roleName),
   };
+}
+
+export function adminHasPermission(session: Pick<AdminSession, 'permissions' | 'isSuperAdmin'>, permission: PermissionCode) {
+  return session.isSuperAdmin || session.permissions.includes(permission);
 }
 
 /**
@@ -107,7 +118,7 @@ export async function requirePermission(permission: PermissionCode | PermissionC
     return session;
   }
 
-  const hasAllPermissions = permissionCodes.every(p => session.permissions.includes(p));
+  const hasAllPermissions = permissionCodes.every(p => adminHasPermission(session, p));
 
   if (!hasAllPermissions) {
     forbidden();

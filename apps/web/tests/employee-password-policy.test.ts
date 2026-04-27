@@ -3,7 +3,7 @@ import {
   EmployeePasswordPolicyError,
 } from '@repo/database';
 import { db as prisma } from '@repo/database';
-import { hashPassword, verifyPassword } from '@repo/shared';
+import { hashPassword, verifyPassword } from '@repo/database';
 
 jest.mock('@repo/database', () => ({
   db: {
@@ -11,8 +11,8 @@ jest.mock('@repo/database', () => ({
   },
 }));
 
-jest.mock('@repo/shared', () => ({
-  ...jest.requireActual('@repo/shared'),
+jest.mock('@repo/database', () => ({
+  ...jest.requireActual('@repo/database'),
   hashPassword: jest.fn(),
   verifyPassword: jest.fn(),
 }));

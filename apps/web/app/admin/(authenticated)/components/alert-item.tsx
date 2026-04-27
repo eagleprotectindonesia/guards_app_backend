@@ -1,10 +1,9 @@
 'use client';
 
 import { Alert, Shift, Site, ShiftType, Admin } from '@prisma/client';
-import { EmployeeWithRelations } from '@repo/database';
-import { Serialized } from '@/lib/utils';
+import type { EmployeeWithRelations } from '@repo/database';
+import type { Serialized } from '@/lib/server-utils';
 import { Check, CheckCircle, Clock, Eye, User } from 'lucide-react';
-import Link from 'next/link';
 import { format } from 'date-fns';
 
 // Define types locally or import if shared (duplicating for now to ensure self-containment)
@@ -29,14 +28,16 @@ type AlertWithRelations = Serialized<Alert> & {
 interface AlertItemProps {
   alert: AlertWithRelations;
   onAcknowledge: (id: string) => void;
+  onEmployeeClick?: (employee: EmployeeWithOptionalRelations) => void;
   showResolutionDetails?: boolean;
 }
 
-export default function AlertItem({ alert, onAcknowledge, showResolutionDetails = false }: AlertItemProps) {
+export default function AlertItem({ alert, onAcknowledge, onEmployeeClick, showResolutionDetails = false }: AlertItemProps) {
   const isResolved = !!alert.resolvedAt;
   const isAcknowledged = !!alert.acknowledgedAt;
   const isCritical = alert.severity === 'critical';
   const isNeedAttention = alert.status === 'need_attention';
+  const employee = alert.shift?.employee;
 
   return (
     <div
@@ -44,10 +45,10 @@ export default function AlertItem({ alert, onAcknowledge, showResolutionDetails 
         isResolved
           ? 'border-border opacity-60 bg-muted/30'
           : isCritical
-          ? 'border-l-4 border-l-red-500 border-y-red-100 border-r-red-100 dark:border-y-red-900/20 dark:border-r-red-900/20'
-          : isNeedAttention
-          ? 'border-l-4 border-l-yellow-400 border-y-yellow-100 border-r-yellow-100 dark:border-y-yellow-900/20 dark:border-r-yellow-900/20'
-          : 'border-l-4 border-l-orange-400 border-y-orange-100 border-r-orange-100 dark:border-y-orange-900/20 dark:border-r-orange-900/20'
+            ? 'border-l-4 border-l-red-500 border-y-red-100 border-r-red-100 dark:border-y-red-900/20 dark:border-r-red-900/20'
+            : isNeedAttention
+              ? 'border-l-4 border-l-yellow-400 border-y-yellow-100 border-r-yellow-100 dark:border-y-yellow-900/20 dark:border-r-yellow-900/20'
+              : 'border-l-4 border-l-orange-400 border-y-orange-100 border-r-orange-100 dark:border-y-orange-900/20 dark:border-r-orange-900/20'
       }`}
     >
       <div className="p-5">
@@ -59,8 +60,8 @@ export default function AlertItem({ alert, onAcknowledge, showResolutionDetails 
                   isCritical
                     ? 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
                     : isNeedAttention
-                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300'
-                    : 'bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300'
+                      ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300'
+                      : 'bg-orange-100 text-orange-800 dark:bg-orange-950/40 dark:text-orange-300'
                 }`}
               >
                 {isNeedAttention ? 'ATTENTION NEEDED' : alert.reason.replace('_', ' ')}
@@ -74,13 +75,14 @@ export default function AlertItem({ alert, onAcknowledge, showResolutionDetails 
             <div className="text-sm text-muted-foreground flex flex-wrap gap-x-4 gap-y-1">
               <span className="flex items-center gap-1">
                 <User className="w-4 h-4 text-muted-foreground/60" />
-                {alert.shift?.employee ? (
-                  <Link
-                    href={`/admin/employees/${alert.shift.employee.id}`}
+                {employee ? (
+                  <button
+                    type="button"
+                    onClick={() => onEmployeeClick?.(employee)}
                     className="text-blue-600 dark:text-blue-400 hover:underline"
                   >
-                    {alert.shift.employee.fullName}
-                  </Link>
+                    {employee.fullName}
+                  </button>
                 ) : (
                   'Unassigned Employee'
                 )}
@@ -100,7 +102,8 @@ export default function AlertItem({ alert, onAcknowledge, showResolutionDetails 
                 <div className="text-sm text-blue-600 dark:text-blue-400 space-y-1">
                   {alert.ackAdmin && (
                     <p>
-                      <span className="font-medium text-blue-700 dark:text-blue-300">Acknowledged by:</span> {alert.ackAdmin.name}
+                      <span className="font-medium text-blue-700 dark:text-blue-300">Acknowledged by:</span>{' '}
+                      {alert.ackAdmin.name}
                     </p>
                   )}
                   <p className="text-xs text-blue-600/60 dark:text-blue-400/60 mt-2 pt-2 border-t border-blue-100 dark:border-blue-900/40">
@@ -123,12 +126,14 @@ export default function AlertItem({ alert, onAcknowledge, showResolutionDetails 
                   </p>
                   {alert.resolutionNote && (
                     <p>
-                      <span className="font-medium text-green-700 dark:text-green-300">Note:</span> {alert.resolutionNote}
+                      <span className="font-medium text-green-700 dark:text-green-300">Note:</span>{' '}
+                      {alert.resolutionNote}
                     </p>
                   )}
                   {alert.resolverAdmin && (
                     <p>
-                      <span className="font-medium text-green-700 dark:text-green-300">Resolved by:</span> {alert.resolverAdmin.name}
+                      <span className="font-medium text-green-700 dark:text-green-300">Resolved by:</span>{' '}
+                      {alert.resolverAdmin.name}
                     </p>
                   )}
                   <p className="text-xs text-green-600/60 dark:text-green-400/60 mt-2 pt-2 border-t border-green-100 dark:border-green-900/40">

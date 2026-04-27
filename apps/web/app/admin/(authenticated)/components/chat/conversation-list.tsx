@@ -3,7 +3,7 @@
 import React, { useMemo } from 'react';
 import { ArchiveRestore, ArchiveX, Loader2, Search, User, X } from 'lucide-react';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn } from '@repo/shared';
 import { Conversation } from '@/types/chat';
 import ChatExport from './chat-export';
 

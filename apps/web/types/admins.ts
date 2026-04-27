@@ -3,6 +3,7 @@ export type AdminWithRoleDto = {
   name: string;
   email: string;
   twoFactorEnabled: boolean;
+  includeFallbackLeaveQueue: boolean;
   note: string | null;
   roleRef: {
     id: string;
@@ -23,3 +24,22 @@ export type RoleDto = {
 };
 
 export type SerializedRoleDto = RoleDto;
+
+export type AdminOwnershipAssignmentDto = {
+  id: string;
+  domain: 'leave' | 'employees';
+  departmentKey: string | null;
+  officeId: string | null;
+  officeName: string | null;
+  priority: number;
+  isActive: boolean;
+};
+
+export type SerializedAdminOwnershipAssignmentDto = AdminOwnershipAssignmentDto;
+
+export type AdminOwnershipOptionDto = {
+  id: string;
+  label: string;
+};
+
+export type SerializedAdminOwnershipOptionDto = AdminOwnershipOptionDto;

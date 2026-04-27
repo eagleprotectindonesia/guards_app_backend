@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { EmployeeWithRelations } from '@repo/database';
-import { Serialized } from '@/lib/utils';
+import type { EmployeeSyncDuplicateWarning, EmployeeWithRelationsAndSchedule } from '@repo/database';
+import type { Serialized } from '@/lib/server-utils';
 import ChangePasswordModal from './change-password-modal';
+import BulkScheduleUploadModal from './bulk-schedule-upload-modal';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { Key, Download, History, MessageSquare, RefreshCw } from 'lucide-react';
+import { Key, Download, History, MessageSquare, RefreshCw, Pencil, Upload } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
 import Search from '../../components/search';
@@ -18,32 +19,39 @@ import { format } from 'date-fns';
 import { enUS } from 'date-fns/locale';
 
 type EmployeeListProps = {
-  employees: Serialized<EmployeeWithRelations>[];
+  employees: Serialized<EmployeeWithRelationsAndSchedule>[];
+  showOfficeWorkSchedules: boolean;
   page: number;
   perPage: number;
   totalCount: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   lastSyncTimestamp?: string | null;
+  lastSyncDuplicateWarning?: EmployeeSyncDuplicateWarning | null;
 };
 
 export default function EmployeeList({
   employees,
+  showOfficeWorkSchedules,
   page,
   perPage,
   totalCount,
   sortBy = 'fullName',
   sortOrder = 'asc',
   lastSyncTimestamp,
+  lastSyncDuplicateWarning,
 }: EmployeeListProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = useSession();
   const [passwordModalData, setPasswordModalData] = useState<{ id: string; name: string } | null>(null);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const canEdit = hasPermission(PERMISSIONS.EMPLOYEES.EDIT);
+  const canDelete = hasPermission(PERMISSIONS.EMPLOYEES.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+  const canCreateChat = hasPermission(PERMISSIONS.CHAT.CREATE);
 
   const handleSort = (field: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -99,7 +107,7 @@ export default function EmployeeList({
       ];
       const csvContent = [
         headers.join(','),
-        ...allEmployees.map((e: Serialized<EmployeeWithRelations>, index) =>
+        ...allEmployees.map((e: Serialized<EmployeeWithRelationsAndSchedule>, index) =>
           [
             `${index + 1}`,
             `"${e.employeeNumber || ''}"`,
@@ -151,14 +159,16 @@ export default function EmployeeList({
             <Search placeholder="Search employees..." />
           </div>
 
-          <button
-            onClick={handleSync}
-            disabled={isPending}
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 w-full md:w-auto"
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
-            Sync Now
-          </button>
+          {canEdit && (
+            <button
+              onClick={handleSync}
+              disabled={isPending}
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm disabled:opacity-50 w-full md:w-auto"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${isPending ? 'animate-spin' : ''}`} />
+              Sync Now
+            </button>
+          )}
 
           <button
             onClick={handleExportCSV}
@@ -167,6 +177,16 @@ export default function EmployeeList({
             <Download className="mr-2 h-4 w-4" />
             Export
           </button>
+
+          {canEdit && showOfficeWorkSchedules && (
+            <button
+              onClick={() => setIsBulkUploadOpen(true)}
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted/50 transition-colors shadow-sm w-full md:w-auto"
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Schedule CSV
+            </button>
+          )}
 
           {canViewAudit && (
             <Link
@@ -180,14 +200,32 @@ export default function EmployeeList({
         </div>
       </div>
 
+      {lastSyncDuplicateWarning && (
+        <div className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">
+          <p className="text-sm font-semibold">
+            Duplicate employee numbers detected in last sync ({lastSyncDuplicateWarning.duplicateCount} group
+            {lastSyncDuplicateWarning.duplicateCount > 1 ? 's' : ''}).
+          </p>
+          <p className="text-xs mt-1">
+            Detected at: {format(new Date(lastSyncDuplicateWarning.detectedAt), 'PPP p', { locale: enUS })}
+          </p>
+          <div className="mt-2 space-y-1">
+            {lastSyncDuplicateWarning.entries.map(entry => (
+              <p key={`${entry.employeeNumber}-${entry.winnerId}`} className="text-xs">
+                <span className="font-semibold">{entry.employeeNumber}</span>: kept <code>{entry.winnerId}</code>,
+                deactivated <code>{entry.loserIds.join(', ')}</code>
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-20">
-                  No.
-                </th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-20">No.</th>
                 <SortableHeader
                   label="Employee ID"
                   field="employeeNumber"
@@ -208,7 +246,16 @@ export default function EmployeeList({
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-left">
                   Department / Job Title
                 </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Office</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  {showOfficeWorkSchedules ? (
+                    <>
+                      Office /<br />
+                      Work Schedule
+                    </>
+                  ) : (
+                    'Office'
+                  )}
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
                   Status
                 </th>
@@ -240,7 +287,14 @@ export default function EmployeeList({
                       <div className="font-semibold text-foreground">{employee.department || '-'}</div>
                       <div className="text-xs text-muted-foreground">{employee.jobTitle || '-'}</div>
                     </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">{employee.office?.name || '-'}</td>
+                    <td className="py-4 px-6 text-sm">
+                      <div className="font-semibold text-foreground">{employee.office?.name || '-'}</div>
+                      {showOfficeWorkSchedules ? (
+                        <div className="text-xs text-muted-foreground">
+                          {employee.activeOfficeWorkScheduleName || ''}
+                        </div>
+                      ) : null}
+                    </td>
                     <td className="py-4 px-6 text-sm text-center">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -257,30 +311,41 @@ export default function EmployeeList({
                         <button
                           type="button"
                           onClick={() => setPasswordModalData({ id: employee.id, name: employee.fullName })}
-                          disabled={!canEdit}
+                          disabled={!canDelete}
                           className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors cursor-pointer disabled:opacity-30"
                           title="Change Password"
                         >
                           <Key className="w-4 h-4" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            window.dispatchEvent(
-                              new CustomEvent('open-admin-chat', {
-                                detail: {
-                                  employeeId: employee.id,
-                                  employeeName: employee.fullName,
-                                  employeeNumber: employee.employeeNumber,
-                                },
-                              })
-                            )
-                          }
-                          className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-900/10 rounded-lg transition-colors cursor-pointer"
-                          title="Chat"
-                        >
-                          <MessageSquare className="w-4 h-4" />
-                        </button>
+                        {canEdit && employee.role === 'office' && (
+                          <Link
+                            href={`/admin/employees/${employee.id}/edit`}
+                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                            title="Edit Employee"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Link>
+                        )}
+                        {canCreateChat && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              window.dispatchEvent(
+                                new CustomEvent('open-admin-chat', {
+                                  detail: {
+                                    employeeId: employee.id,
+                                    employeeName: employee.fullName,
+                                    employeeNumber: employee.employeeNumber,
+                                  },
+                                })
+                              )
+                            }
+                            className="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-900/10 rounded-lg transition-colors cursor-pointer"
+                            title="Chat"
+                          >
+                            <MessageSquare className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -301,6 +366,10 @@ export default function EmployeeList({
           employeeName={passwordModalData.name}
         />
       )}
+
+      {showOfficeWorkSchedules ? (
+        <BulkScheduleUploadModal isOpen={isBulkUploadOpen} onClose={() => setIsBulkUploadOpen(false)} />
+      ) : null}
     </div>
   );
 }

@@ -39,12 +39,6 @@ export function usePushNotifications() {
       const { enabled, denied, blocked } = permissionState;
 
       if (permissionLoggedForUserRef.current !== user.id) {
-        console.log('[Push] Notification permission state for authenticated session', {
-          userId: user.id,
-          enabled,
-          denied,
-          blocked,
-        });
         permissionLoggedForUserRef.current = user.id;
       }
 

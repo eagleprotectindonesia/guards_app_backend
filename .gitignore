@@ -56,3 +56,8 @@ packages/database/src/generated
 certificates
 
 conductor
+
+*apk
+
+.codex
+.qwen

@@ -1,4 +1,4 @@
-import { serialize, getPaginationParams } from '@/lib/utils';
+import { serialize, getPaginationParams } from '@/lib/server-utils';
 import SiteList from './components/site-list';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';

@@ -3,7 +3,8 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { MapPin } from 'lucide-react';
-import { cn, isVideoFile } from '@/lib/utils';
+import { cn } from '@repo/shared';
+import { isVideoFile } from '@/lib/file';
 import { ChatMessage } from '@/types/chat';
 
 interface ChatMessageBubbleProps {

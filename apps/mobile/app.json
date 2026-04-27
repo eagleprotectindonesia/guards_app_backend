@@ -3,7 +3,6 @@
     "name": "EP Employee",
     "slug": "mobile",
     "scheme": "ep-employee",
-    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icons/android-launchericon-512-512.png",
     "userInterfaceStyle": "automatic",
@@ -15,15 +14,17 @@
     },
     "ios": {
       "googleServicesFile": "./GoogleService-Info.plist",
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.eagleprotect.employee",
       "icon": "./assets/icons/180.png",
       "userInterfaceStyle": "light",
       "infoPlist": {
+        "UIDeviceFamily": [1],
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "The app needs access to your photo library to let you attach photos and videos to chat messages.",
-        "NSCameraUsageDescription": "The app needs access to your camera to let you take photos and videos to attach to chat messages.",
-        "NSLocationWhenInUseUsageDescription": "We need your location to support attendance and location sharing features.",
+        "NSCameraUsageDescription": "The app needs access to your camera to take attendance photos and attach photos or videos to chat messages.",
+        "NSLocationWhenInUseUsageDescription": "We use your location to record attendance, perform shift check-in, and let you manually share your location in chat.",
+        "NSFaceIDUsageDescription": "We use Face ID to let you sign in securely with biometric authentication.",
         "UIBackgroundModes": ["fetch", "remote-notification"]
       }
     },
@@ -47,6 +48,7 @@
       ]
     },
     "plugins": [
+      "expo-updates",
       [
         "expo-build-properties",
         {
@@ -87,7 +89,6 @@
     "updates": {
       "url": "https://u.expo.dev/aa42139c-be53-41d6-8761-ae35510a83ca"
     },
-    "runtimeVersion": "1.1.0",
     "owner": "eagleprotect",
     "extra": {
       "eas": {

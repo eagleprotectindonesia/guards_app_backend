@@ -12,7 +12,11 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
-import { CheckInWindowResult } from '@repo/shared';
+import {
+  CheckInWindowResult,
+  getEmployeeAttendanceCheckinErrorPayload,
+  resolveEmployeeAttendanceCheckinErrorMessage,
+} from '@repo/shared';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { stopGeofencing } from '../utils/geofence';
@@ -58,9 +62,19 @@ export default function CheckInCard({ activeShift, refetchShift }: CheckInCardPr
       }
     },
     onError: (error: any) => {
-      const msg = error.response?.data?.error || error.message || t('checkin.fail');
+      const errorData = getEmployeeAttendanceCheckinErrorPayload(error);
+      const msg = resolveEmployeeAttendanceCheckinErrorMessage(
+        t,
+        {
+          code: errorData.code,
+          fallbackMessage: errorData.error || errorData.message || error.message,
+          details: errorData.details,
+        },
+        t('checkin.fail'),
+        'checkin'
+      );
       setStatus('Error: ' + msg);
-      if (msg.includes('Already checked in')) {
+      if (errorData.code === 'checkin_interval_completed') {
         refetchShift();
       }
     },

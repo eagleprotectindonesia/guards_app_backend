@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { EMPLOYEE_SYNC_JOB_NAME } from '@repo/shared';
+import { EMPLOYEE_SYNC_JOB_NAME } from '@repo/database';
 import { employeeSyncQueue } from '@/lib/queues';
 
 export async function POST() {

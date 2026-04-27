@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
-import { redis } from '@repo/database';
+import { redis } from '@repo/database/redis';
 
 export const dynamic = 'force-dynamic';
 

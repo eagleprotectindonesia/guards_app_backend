@@ -1,5 +1,7 @@
 // Repositories Layer - Domain-oriented query and mutation helpers
 export * from './admins';
+export * from './admin-ownership';
+export * from './admin-notifications';
 export * from './alerts';
 export * from './attendance';
 export * from './attendance-with-checkins';
@@ -8,6 +10,10 @@ export * from './chat';
 export * from './checkins';
 export * from './employees';
 export * from './employee-sessions';
+export * from './annual-leave-balances';
+export * from './leave-requests';
+export * from './holiday-calendar-entries';
+export * from './employee-office-config';
 export * from './fcm-tokens';
 export * from './settings';
 export * from './shift-types';
@@ -16,3 +22,9 @@ export * from './sites';
 export * from './roles';
 export * from './offices';
 export * from './office-attendance';
+export * from './office-attendance-context';
+export * from './office-memos';
+export * from './office-day-overrides';
+export * from './office-shift-types';
+export * from './office-shifts';
+export * from './office-work-schedules';

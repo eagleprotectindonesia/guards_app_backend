@@ -1,10 +1,11 @@
 'use client';
 
 import { Role, Permission } from '@prisma/client';
-import { Serialized } from '@/lib/utils';
+import type { Serialized } from '@/lib/server-utils';
 import { createRole, updateRole } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateRoleInput } from '@repo/validations';
+import { normalizeRolePolicy } from '@/lib/auth/admin-visibility';
 import { useActionState, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -18,12 +19,21 @@ type Props = {
 export default function RoleForm({ role, allPermissions }: Props) {
   const router = useRouter();
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>(role?.permissions.map(p => p.id) || []);
+  const rolePolicy = normalizeRolePolicy(role?.policy);
 
   const [state, formAction, isPending] = useActionState<ActionState<CreateRoleInput>, FormData>(
     async (prevState, formData) => {
       const data: CreateRoleInput = {
         name: (formData.get('name') as string) || role?.name || 'Default Role',
         description: (formData.get('description') as string) || undefined,
+        policy: {
+          employees: {
+            scope: (formData.get('employeesScope') as CreateRoleInput['policy']['employees']['scope']) || 'all',
+          },
+          attendance: {
+            scope: (formData.get('attendanceScope') as CreateRoleInput['policy']['attendance']['scope']) || 'all',
+          },
+        },
         permissionIds: selectedPermissions,
       };
 
@@ -95,6 +105,40 @@ export default function RoleForm({ role, allPermissions }: Props) {
               className="w-full h-11 px-4 bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
               placeholder="e.g. Can manage employees and shifts but not system settings"
             />
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="employeesScope"
+              className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
+            >
+              Employee Visibility
+            </label>
+            <select
+              id="employeesScope"
+              name="employeesScope"
+              defaultValue={rolePolicy.employees.scope}
+              className="w-full h-11 px-4 bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            >
+              <option value="all">All Employees</option>
+              <option value="on_site_only">On-site Employees Only</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="attendanceScope"
+              className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
+            >
+              Attendance Visibility
+            </label>
+            <select
+              id="attendanceScope"
+              name="attendanceScope"
+              defaultValue={rolePolicy.attendance.scope}
+              className="w-full h-11 px-4 bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            >
+              <option value="all">Shift + Office Attendance</option>
+              <option value="shift_only">Shift Attendance Only</option>
+            </select>
           </div>
         </div>
       </div>
