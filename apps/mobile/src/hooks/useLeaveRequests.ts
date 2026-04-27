@@ -3,16 +3,25 @@ import { client } from '../api/client';
 import { EmployeeLeaveRequest, LeaveRequestReason } from '@repo/types';
 import { queryKeys } from '../api/queryKeys';
 
+export type AnnualLeaveBalanceSummary = {
+  year: number;
+  entitledDays: number;
+  adjustedDays: number;
+  consumedDays: number;
+  availableDays: number;
+};
+
 type LeaveRequestsResponse = {
   leaveRequests: EmployeeLeaveRequest[];
+  annualLeaveBalance?: AnnualLeaveBalanceSummary;
 };
 
 export function useMyLeaveRequests() {
-  return useQuery<EmployeeLeaveRequest[]>({
+  return useQuery<LeaveRequestsResponse>({
     queryKey: queryKeys.leaveRequests.list,
     queryFn: async () => {
       const res = await client.get('/api/employee/my/leave-requests');
-      return (res.data as LeaveRequestsResponse).leaveRequests;
+      return res.data as LeaveRequestsResponse;
     },
   });
 }

@@ -8,6 +8,16 @@ import { Text } from '@/components/ui/text';
 import { ButtonSpinner } from '@/components/ui/button';
 import { Input, InputField, InputSlot, InputIcon } from '@/components/ui/input';
 import { FormControl, FormControlLabel, FormControlLabelText } from '@/components/ui/form-control';
+import {
+  Actionsheet,
+  ActionsheetBackdrop,
+  ActionsheetContent,
+  ActionsheetDragIndicatorWrapper,
+  ActionsheetDragIndicator,
+  ActionsheetItem,
+  ActionsheetItemText,
+  ActionsheetScrollView,
+} from '@/components/ui/actionsheet';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, Calendar as CalendarIcon, Send, MessageSquare, Paperclip, X } from 'lucide-react-native';
@@ -169,6 +179,7 @@ export default function NewLeaveRequestScreen() {
 
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [showSubtypeActionsheet, setShowSubtypeActionsheet] = useState(false);
 
   const dateLocale = i18n.language === 'id' ? id : enUS;
 
@@ -190,17 +201,7 @@ export default function NewLeaveRequestScreen() {
   };
 
   const openSubtypePicker = () => {
-    const buttons = subtypeOptions.map(option => ({
-      text: t(option.labelKey, option.fallbackLabel),
-      onPress: () => setReason(option.reason),
-    }));
-
-    showAlert(
-      t('leave.selectSubtypeTitle', 'Select Leave Type'),
-      t('leave.selectSubtypeMessage', 'Choose one leave type below'),
-      [{ text: t('common.cancel', 'Cancel'), style: 'cancel' }, ...buttons],
-      { icon: 'info' }
-    );
+    setShowSubtypeActionsheet(true);
   };
 
   const onStartChange = (_event: unknown, selectedDate?: Date) => {
@@ -648,6 +649,42 @@ export default function NewLeaveRequestScreen() {
           </TouchableOpacity>
         </VStack>
       </ScrollView>
+
+      {/* Subtype Actionsheet */}
+      <Actionsheet isOpen={showSubtypeActionsheet} onClose={() => setShowSubtypeActionsheet(false)}>
+        <ActionsheetBackdrop />
+        <ActionsheetContent className="bg-[#1C1C1E] border-t border-white/10">
+          <ActionsheetDragIndicatorWrapper>
+            <ActionsheetDragIndicator className="bg-white/20" />
+          </ActionsheetDragIndicatorWrapper>
+          <VStack className="w-full px-4 pt-4 pb-8" space="md">
+            <Heading size="md" className="text-white mb-2">
+              {t('leave.selectSubtypeTitle', 'Select Leave Type')}
+            </Heading>
+            <ActionsheetScrollView>
+              {subtypeOptions.map(option => (
+                <ActionsheetItem
+                  key={option.reason}
+                  onPress={() => {
+                    setReason(option.reason);
+                    setShowSubtypeActionsheet(false);
+                  }}
+                  className="rounded-xl mb-2 py-3 px-4 bg-white/5 active:bg-white/10"
+                >
+                  <VStack space="xs" className="flex-1">
+                    <ActionsheetItemText className="text-white font-bold text-md">
+                      {t(option.labelKey, option.fallbackLabel)}
+                    </ActionsheetItemText>
+                    <Text className="text-[#A1A1A1] text-xs leading-4">
+                      {t(option.descriptionKey, option.fallbackDescription)}
+                    </Text>
+                  </VStack>
+                </ActionsheetItem>
+              ))}
+            </ActionsheetScrollView>
+          </VStack>
+        </ActionsheetContent>
+      </Actionsheet>
     </Box>
   );
 }

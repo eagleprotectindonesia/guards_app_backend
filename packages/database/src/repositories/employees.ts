@@ -6,6 +6,7 @@ import { hashPassword, verifyPassword, DEFAULT_PASSWORD } from '../password';
 import { fetchExternalEmployees, ExternalEmployee } from '../integrations/external-employee-api';
 import { syncOfficesFromExternalEmployees } from './offices';
 import {
+  BUSINESS_TIMEZONE,
   getCurrentOfficeWorkScheduleAssignment,
   getDefaultOfficeWorkSchedule,
 } from './office-work-schedules';
@@ -23,6 +24,38 @@ const LAST_EMPLOYEE_SYNC_KEY = 'employee:sync:last_timestamp';
 const LAST_EMPLOYEE_SYNC_DUPLICATE_WARNING_KEY = 'employee:sync:last_duplicate_warning';
 const EMPLOYEE_PASSWORD_HISTORY_LIMIT = 3;
 type ChangelogSyncActor = { type: 'admin' | 'system' | 'unknown'; id?: string };
+
+function getCurrentBusinessYear(now = new Date()) {
+  return Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: BUSINESS_TIMEZONE,
+      year: 'numeric',
+    }).format(now)
+  );
+}
+
+async function ensureDefaultAnnualLeaveBalance(
+  tx: Prisma.TransactionClient,
+  employeeId: string,
+  year: number
+) {
+  await tx.employeeAnnualLeaveBalance.upsert({
+    where: {
+      employeeId_year: {
+        employeeId,
+        year,
+      },
+    },
+    update: {},
+    create: {
+      employeeId,
+      year,
+      entitledDays: 12,
+      adjustedDays: -12,
+      consumedDays: 0,
+    },
+  });
+}
 
 export type EmployeeSyncDuplicateWarningEntry = {
   employeeNumber: string;
@@ -897,6 +930,7 @@ export async function syncEmployeesFromExternal(
 
   let addedCount = 0;
   let updatedCount = 0;
+  const currentBusinessYear = getCurrentBusinessYear();
 
   for (const ext of canonicalEmployees) {
     const isSecurityDepartment = ext.department?.toLowerCase().includes('security') ?? false;
@@ -940,6 +974,7 @@ export async function syncEmployeesFromExternal(
             hashedPassword,
           },
         });
+        await ensureDefaultAnnualLeaveBalance(tx, newEmployee.id, currentBusinessYear);
 
         await tx.changelog.create({
           data: {
@@ -1032,6 +1067,7 @@ export async function syncEmployeesFromExternal(
             where: { id: ext.id },
             data: updateData,
           });
+          await ensureDefaultAnnualLeaveBalance(tx, ext.id, currentBusinessYear);
 
           await tx.changelog.create({
             data: {
@@ -1057,6 +1093,10 @@ export async function syncEmployeesFromExternal(
           });
         });
         updatedCount++;
+      } else {
+        await prisma.$transaction(async tx => {
+          await ensureDefaultAnnualLeaveBalance(tx, ext.id, currentBusinessYear);
+        });
       }
     }
   }

@@ -29,7 +29,9 @@ export default function LeaveRequestsScreen() {
   const insets = useSafeAreaInsets();
   const { showAlert } = useAlert();
   const toast = useCustomToast();
-  const { data: requests, isLoading, refetch, isRefetching } = useMyLeaveRequests();
+  const { data, isLoading, refetch, isRefetching } = useMyLeaveRequests();
+  const requests = data?.leaveRequests ?? [];
+  const annualLeaveBalance = data?.annualLeaveBalance;
 
   const cancelMutation = useCancelLeaveRequest();
 
@@ -166,11 +168,37 @@ export default function LeaveRequestsScreen() {
           />
         }
       >
+        {annualLeaveBalance ? (
+          <BlurView intensity={20} tint="dark" style={styles.balanceCard}>
+            <Text className="text-[#A0A0A0] font-bold uppercase tracking-[1px]" size="2xs">
+              {t('leave.reasonType.annual', 'Annual Leave')} {annualLeaveBalance.year}
+            </Text>
+            <HStack className="justify-between items-end mt-1">
+              <VStack space="xs">
+                <Text className="text-[#666] uppercase tracking-[1px]" size="2xs">
+                  {t('leave.balanceAvailable', 'Available')}
+                </Text>
+                <Text className="text-white font-bold" size="2xl">
+                  {annualLeaveBalance.availableDays}
+                </Text>
+              </VStack>
+              <VStack space="xs" className="items-end">
+                <Text className="text-[#666] uppercase tracking-[1px]" size="2xs">
+                  {t('leave.balanceUsed', 'Used')}
+                </Text>
+                <Text className="text-[#D1D1D1] font-semibold" size="sm">
+                  {annualLeaveBalance.consumedDays} / {annualLeaveBalance.entitledDays}
+                </Text>
+              </VStack>
+            </HStack>
+          </BlurView>
+        ) : null}
+
         {isLoading ? (
           <Center className="py-20">
             <Spinner size="large" className="text-brand-500" />
           </Center>
-        ) : !requests || requests.length === 0 ? (
+        ) : requests.length === 0 ? (
           <Center className="py-20 px-10">
             <BlurView intensity={15} tint="dark" style={styles.emptyCard}>
               <Box className="w-20 h-20 rounded-full bg-white/5 items-center justify-center mb-4 border border-white/5">
@@ -321,6 +349,16 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     overflow: 'hidden',
     padding: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.05)',
+    backgroundColor: 'rgba(25, 25, 27, 0.6)',
+  },
+  balanceCard: {
+    marginTop: 8,
+    marginBottom: 14,
+    borderRadius: 24,
+    overflow: 'hidden',
+    padding: 16,
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.05)',
     backgroundColor: 'rgba(25, 25, 27, 0.6)',

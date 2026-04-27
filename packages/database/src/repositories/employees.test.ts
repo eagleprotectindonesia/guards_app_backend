@@ -26,6 +26,9 @@ jest.mock('../prisma/client', () => ({
     employeePasswordHistory: {
       create: jest.fn(),
     },
+    employeeAnnualLeaveBalance: {
+      upsert: jest.fn(),
+    },
     employeeSession: {
       updateMany: jest.fn(),
     },
@@ -113,6 +116,7 @@ describe('employees repository', () => {
     (prisma.employeeSession.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
     (prisma.alert.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
     (prisma.changelog.create as jest.Mock).mockResolvedValue({});
+    (prisma.employeeAnnualLeaveBalance.upsert as jest.Mock).mockResolvedValue({});
     (redis.del as jest.Mock).mockResolvedValue(1);
     (redis.get as jest.Mock).mockResolvedValue(null);
   });
@@ -378,6 +382,22 @@ describe('employees repository', () => {
       { type: 'system' },
       expect.stringContaining('Auto-seeded')
     );
+    expect(prisma.employeeAnnualLeaveBalance.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          employeeId_year: {
+            employeeId: 'employee-1',
+            year: expect.any(Number),
+          },
+        },
+        create: expect.objectContaining({
+          employeeId: 'employee-1',
+          entitledDays: 12,
+          adjustedDays: -12,
+          consumedDays: 0,
+        }),
+      })
+    );
     expect(prisma.employee.create).toHaveBeenCalled();
     expect(redis.set).toHaveBeenCalled();
   });
@@ -485,6 +505,64 @@ describe('employees repository', () => {
         data: expect.objectContaining({
           actor: 'system',
           actorId: null,
+        }),
+      })
+    );
+  });
+
+  test('sync initializes annual leave balance for existing employee when row does not exist', async () => {
+    (prisma.employee.findMany as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'employee-1',
+          employeeNumber: 'EMP001',
+          fullName: 'Office User',
+          personnelId: 'P1',
+          nickname: 'Office',
+          jobTitle: 'Analyst',
+          department: 'Operations',
+          phone: '+62123',
+          role: 'office',
+          officeId: 'office-1',
+          fieldModeEnabled: false,
+          status: true,
+          deletedAt: null,
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await syncEmployeesFromExternal(
+      { type: 'system' },
+      [
+        {
+          id: 'employee-1',
+          employee_number: 'EMP001',
+          personnel_id: 'P1',
+          nickname: 'Office',
+          full_name: 'Office User',
+          job_title: 'Analyst',
+          department: 'Operations',
+          office_id: 'office-1',
+          office_name: 'HQ',
+          phone: '+62123',
+        },
+      ]
+    );
+
+    expect(prisma.employee.update).not.toHaveBeenCalled();
+    expect(prisma.employeeAnnualLeaveBalance.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          employeeId_year: {
+            employeeId: 'employee-1',
+            year: expect.any(Number),
+          },
+        },
+        create: expect.objectContaining({
+          employeeId: 'employee-1',
+          entitledDays: 12,
+          adjustedDays: -12,
+          consumedDays: 0,
         }),
       })
     );

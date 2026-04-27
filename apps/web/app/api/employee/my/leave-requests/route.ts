@@ -2,11 +2,22 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { createEmployeeLeaveRequestSchema } from '@repo/validations';
 import {
+  BUSINESS_TIMEZONE,
   createEmployeeLeaveRequest,
+  getEmployeeAnnualLeaveBalanceForYear,
   listEmployeeLeaveRequestsByEmployee,
   OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR,
 } from '@repo/database';
 import { ZodError } from 'zod';
+
+function getCurrentBusinessYear(now = new Date()) {
+  return Number(
+    new Intl.DateTimeFormat('en-US', {
+      timeZone: BUSINESS_TIMEZONE,
+      year: 'numeric',
+    }).format(now)
+  );
+}
 
 export async function GET() {
   const employee = await getAuthenticatedEmployee();
@@ -15,8 +26,12 @@ export async function GET() {
   }
 
   try {
-    const leaveRequests = await listEmployeeLeaveRequestsByEmployee(employee.id);
-    return NextResponse.json({ leaveRequests });
+    const year = getCurrentBusinessYear();
+    const [leaveRequests, annualLeaveBalance] = await Promise.all([
+      listEmployeeLeaveRequestsByEmployee(employee.id),
+      getEmployeeAnnualLeaveBalanceForYear(employee.id, year),
+    ]);
+    return NextResponse.json({ leaveRequests, annualLeaveBalance });
   } catch (error) {
     console.error('Error fetching employee leave requests:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
