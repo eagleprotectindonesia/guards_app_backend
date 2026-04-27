@@ -285,9 +285,46 @@
     "reason": "Reason",
     "reasonPlaceholder": "Reason for leave (optional)",
     "reasonType": {
-      "sick": "Sick",
+      "sick": "Sick Leave",
       "casual": "Casual",
-      "emergency": "Emergency"
+      "emergency": "Emergency",
+      "family_marriage": "Marriage Leave",
+      "family_child_marriage": "Child Marriage",
+      "family_child_circumcision_baptism": "Child Circumcision/Baptism",
+      "family_death": "Death of Family Member",
+      "family_spouse_death": "Spouse Death",
+      "special_maternity": "Maternity Leave",
+      "special_miscarriage": "Miscarriage Leave",
+      "special_paternity": "Paternity Leave",
+      "special_emergency": "Emergency Leave",
+      "annual": "Annual Leave"
+    },
+    "category": {
+      "title": "Category",
+      "sick": "Sick",
+      "family": "Family",
+      "special": "Special",
+      "annual": "Annual"
+    },
+    "subcategory": {
+      "title": "Leave Type",
+      "change": "Change"
+    },
+    "selectSubtypeTitle": "Select Leave Type",
+    "selectSubtypeMessage": "Choose one leave type below",
+    "policyDescription": "Policy Description",
+    "reasonDescription": {
+      "sick": "Allowed: 1 day per cycle (21st-20th). More than 1 day requires a valid doctor certificate. Without documentation, additional days will be unpaid or deducted from Annual Leave. Cycle example: 21 June-20 July.",
+      "family_marriage": "3 days paid leave for employee's marriage.",
+      "family_child_marriage": "2 days paid leave for child's marriage.",
+      "family_child_circumcision_baptism": "2 days paid leave for child's ceremony.",
+      "family_death": "2 days paid leave for death of immediate family (parent, in-law, or child).",
+      "family_spouse_death": "2 days paid leave starting from date of death. Leave must be taken consecutively.",
+      "special_maternity": "3 months paid leave: 1.5 months before childbirth and 1.5 months after childbirth.",
+      "special_miscarriage": "1.5 months paid leave for recovery after miscarriage. Medical documentation required.",
+      "special_paternity": "2 days paid leave for husband during childbirth or miscarriage of spouse.",
+      "special_emergency": "For urgent or unexpected situations. This leave is deducted from Annual Leave and requires HOD approval.",
+      "annual": "12 working days per year after completing 12 months of service. Used for personal purposes such as vacation or rest. Leave balance is deducted based on working days taken."
     },
     "employeeNote": "Employee Note",
     "adminNote": "Admin Note",
@@ -320,6 +357,7 @@
       "attachmentRequiredForSick": "At least 1 attachment is required for sick leave"
     },
     "attachmentRequiredForSickHint": "At least 1 attachment is required for sick leave.",
+    "attachmentRequiredForMiscarriageHint": "Medical documentation is required for miscarriage leave.",
     "success": {
       "created": "Leave request submitted successfully",
       "cancelled": "Leave request cancelled successfully"

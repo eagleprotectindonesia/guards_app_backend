@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, RefreshControl, TouchableOpacity, View, StyleSheet } from 'react-native';
+import { ScrollView, RefreshControl, TouchableOpacity, StyleSheet } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 import { id, enUS } from 'date-fns/locale';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { LeaveRequestStatus } from '@repo/types';
+import { LeaveRequestReason, LeaveRequestStatus } from '@repo/types';
 import { useAlert } from '../../src/contexts/AlertContext';
 import { useCustomToast } from '../../src/hooks/useCustomToast';
 
@@ -69,16 +69,24 @@ export default function LeaveRequestsScreen() {
     }
   };
 
-  const getReasonLabel = (reason: 'sick' | 'casual' | 'emergency') => {
-    switch (reason) {
-      case 'sick':
-        return t('leave.reasonType.sick', 'Sick');
-      case 'emergency':
-        return t('leave.reasonType.emergency', 'Emergency');
-      case 'casual':
-      default:
-        return t('leave.reasonType.casual', 'Casual');
-    }
+  const getReasonLabel = (reason: LeaveRequestReason) => {
+    const reasonLabels: Record<LeaveRequestReason, string> = {
+      sick: t('leave.reasonType.sick', 'Sick Leave'),
+      family_marriage: t('leave.reasonType.family_marriage', 'Marriage Leave'),
+      family_child_marriage: t('leave.reasonType.family_child_marriage', 'Child Marriage'),
+      family_child_circumcision_baptism: t(
+        'leave.reasonType.family_child_circumcision_baptism',
+        'Child Circumcision/Baptism'
+      ),
+      family_death: t('leave.reasonType.family_death', 'Death of Family Member'),
+      family_spouse_death: t('leave.reasonType.family_spouse_death', 'Spouse Death'),
+      special_maternity: t('leave.reasonType.special_maternity', 'Maternity Leave'),
+      special_miscarriage: t('leave.reasonType.special_miscarriage', 'Miscarriage Leave'),
+      special_paternity: t('leave.reasonType.special_paternity', 'Paternity Leave'),
+      special_emergency: t('leave.reasonType.special_emergency', 'Emergency Leave'),
+      annual: t('leave.reasonType.annual', 'Annual Leave'),
+    };
+    return reasonLabels[reason] ?? reason;
   };
 
   const handleCancel = (id: string) => {

@@ -300,13 +300,39 @@ export const createEmployeeLeaveRequestSchema = z
   .object({
     startDate: isoDateKeySchema,
     endDate: isoDateKeySchema,
-    reason: z.enum(['sick', 'casual', 'emergency']),
+    reason: z.enum([
+      'sick',
+      'family_marriage',
+      'family_child_marriage',
+      'family_child_circumcision_baptism',
+      'family_death',
+      'family_spouse_death',
+      'special_maternity',
+      'special_miscarriage',
+      'special_paternity',
+      'special_emergency',
+      'annual',
+    ]),
     employeeNote: z.string().max(2000).optional(),
     attachments: z.array(z.string().min(1)).max(4).optional(),
   })
-  .refine(data => data.startDate <= data.endDate, {
-    message: 'startDate must be before or equal to endDate',
-    path: ['endDate'],
+  .superRefine((data, ctx) => {
+    if (data.startDate > data.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'startDate must be before or equal to endDate',
+      });
+    }
+
+    const attachments = data.attachments ?? [];
+    if (data.reason === 'special_miscarriage' && attachments.length === 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['attachments'],
+        message: 'Attachment is required for miscarriage leave',
+      });
+    }
   });
 
 export const reviewEmployeeLeaveRequestSchema = z.object({

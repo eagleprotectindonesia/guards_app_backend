@@ -17,6 +17,11 @@ enum EmployeeRole {
   office
 }
 
+enum EmployeeGender {
+  male
+  female
+}
+
 enum OfficeDayOverrideType {
   off
   shift_override
@@ -36,8 +41,23 @@ enum LeaveRequestStatus {
 
 enum LeaveRequestReason {
   sick
-  casual
-  emergency
+  family_marriage
+  family_child_marriage
+  family_child_circumcision_baptism
+  family_death
+  family_spouse_death
+  special_maternity
+  special_miscarriage
+  special_paternity
+  special_emergency
+  annual
+}
+
+enum EmployeeLeaveLedgerEntryType {
+  entitlement
+  adjustment
+  deduction
+  reversal
 }
 
 enum AdminOwnershipDomain {
@@ -135,6 +155,8 @@ model Admin {
   createdEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentCreatedBy")
   updatedEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentLastUpdatedBy")
   reviewedLeaveRequests                        EmployeeLeaveRequest[]                 @relation("EmployeeLeaveRequestReviewedBy")
+  verifiedLeaveRequestDocuments                EmployeeLeaveRequest[]                 @relation("EmployeeLeaveRequestDocumentVerifiedBy")
+  leaveLedgerEntries                           EmployeeLeaveLedgerEntry[]
   ownershipAssignments                         AdminOwnershipAssignment[]
   changelogs                                   Changelog[]
   sentMessages                                 ChatMessage[]
@@ -283,6 +305,7 @@ model Employee {
   jobTitle                      String?                                @map("job_title")
   department                    String?
   phone                         String?
+  gender                        EmployeeGender?
   hashedPassword                String                                 @map("password")
   mustChangePassword            Boolean                                @default(true) @map("must_change_password")
   role                          EmployeeRole?
@@ -308,6 +331,8 @@ model Employee {
   sessions                      EmployeeSession[]
   passwordHistories             EmployeePasswordHistory[]
   leaveRequests                 EmployeeLeaveRequest[]
+  annualLeaveBalances           EmployeeAnnualLeaveBalance[]
+  leaveLedgerEntries            EmployeeLeaveLedgerEntry[]
 
   @@index([status])
   @@index([deletedAt])
@@ -628,6 +653,14 @@ model EmployeeLeaveRequest {
   employeeNote String?            @map("employee_note") @db.Text
   adminNote    String?            @map("admin_note") @db.Text
   attachments  String[]           @default([])
+  cycleKey     DateTime?          @map("cycle_key") @db.Date
+  requiresDocument Boolean        @default(false) @map("requires_document")
+  isPaid       Boolean?           @map("is_paid")
+  deductedAnnualDays Int          @default(0) @map("deducted_annual_days")
+  unpaidDays   Int                @default(0) @map("unpaid_days")
+  policySnapshot Json?            @map("policy_snapshot")
+  documentVerifiedAt DateTime?    @map("document_verified_at")
+  documentVerifiedById String?    @map("document_verified_by_id")
   status       LeaveRequestStatus @default(pending)
   reviewedById String?            @map("reviewed_by_id")
   reviewedAt   DateTime?          @map("reviewed_at")
@@ -637,11 +670,51 @@ model EmployeeLeaveRequest {
 
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   reviewedBy Admin?   @relation("EmployeeLeaveRequestReviewedBy", fields: [reviewedById], references: [id])
+  documentVerifiedBy Admin? @relation("EmployeeLeaveRequestDocumentVerifiedBy", fields: [documentVerifiedById], references: [id])
+  ledgerEntries EmployeeLeaveLedgerEntry[]
 
   @@index([employeeId, startDate])
+  @@index([employeeId, cycleKey])
   @@index([status, createdAt])
   @@index([startDate, endDate])
   @@map("employee_leave_requests")
+}
+
+model EmployeeAnnualLeaveBalance {
+  id                String   @id @default(uuid())
+  employeeId        String   @map("employee_id")
+  year              Int
+  entitledDays      Int      @default(12) @map("entitled_days")
+  adjustedDays      Int      @default(0) @map("adjusted_days")
+  consumedDays      Int      @default(0) @map("consumed_days")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, year])
+  @@index([year])
+  @@map("employee_annual_leave_balances")
+}
+
+model EmployeeLeaveLedgerEntry {
+  id                String                      @id @default(uuid())
+  employeeId        String                      @map("employee_id")
+  leaveRequestId    String?                     @map("leave_request_id")
+  year              Int
+  entryType         EmployeeLeaveLedgerEntryType @map("entry_type")
+  days              Int
+  note              String?                     @db.Text
+  createdById       String?                     @map("created_by_id")
+  createdAt         DateTime                    @default(now()) @map("created_at")
+
+  employee      Employee             @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveRequest  EmployeeLeaveRequest? @relation(fields: [leaveRequestId], references: [id], onDelete: SetNull)
+  createdBy     Admin?               @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([employeeId, year, createdAt])
+  @@index([leaveRequestId])
+  @@map("employee_leave_ledger_entries")
 }
 
 model HolidayCalendarEntry {

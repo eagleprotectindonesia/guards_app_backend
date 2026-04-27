@@ -4,7 +4,7 @@
 
 This document is the source of truth for employee leave-request backend behavior and should be used as the baseline for future leave-related tasks.
 
-## Scope (v1)
+## Scope (v2)
 
 - Employee can submit leave request.
 - Authorized admin can approve/reject leave request.
@@ -16,7 +16,6 @@ This document is the source of truth for employee leave-request backend behavior
 
 Out of scope in v1:
 
-- Leave balance/accrual/quota.
 - Partial-day leave.
 - Multi-step approval chains.
 
@@ -31,8 +30,16 @@ Out of scope in v1:
   - `cancelled`
 - `LeaveRequestReason`
   - `sick`
-  - `casual`
-  - `emergency`
+  - `family_marriage`
+  - `family_child_marriage`
+  - `family_child_circumcision_baptism`
+  - `family_death`
+  - `family_spouse_death`
+  - `special_maternity`
+  - `special_miscarriage`
+  - `special_paternity`
+  - `special_emergency`
+  - `annual`
 
 ### Prisma Model
 
@@ -44,6 +51,14 @@ Out of scope in v1:
   - `reason` (`LeaveRequestReason`)
   - `note` (optional text)
   - `attachments` (`string[]`, S3 keys)
+  - `cycleKey` (`DATE`, sick cycle start 21st anchor)
+  - `requiresDocument` (`boolean`)
+  - `isPaid` (`boolean?`)
+  - `deductedAnnualDays` (`int`)
+  - `unpaidDays` (`int`)
+  - `policySnapshot` (`json`)
+  - `documentVerifiedAt`
+  - `documentVerifiedById`
   - `status`
   - `reviewedById`
   - `reviewedAt`
@@ -87,7 +102,7 @@ Usage:
   - Body:
     - `startDate` (YYYY-MM-DD)
     - `endDate` (YYYY-MM-DD)
-    - `reason` (`sick` | `casual` | `emergency`)
+    - `reason` (leave subtype enum, e.g. `sick`, `family_marriage`, `special_emergency`, `annual`)
     - `note` (optional)
     - `attachments` (optional, max 4 S3 keys)
   - Creates request with status `pending`.
@@ -122,6 +137,20 @@ Usage:
 
 - Date range is inclusive (`startDate` and `endDate` included).
 - Validation requires `startDate <= endDate`.
+- Fixed-duration leave types are strict exact length:
+  - `family_marriage` = 3 days
+  - `family_child_marriage` = 2 days
+  - `family_child_circumcision_baptism` = 2 days
+  - `family_death` = 2 days
+  - `family_spouse_death` = 2 days
+  - `special_paternity` = 2 days
+  - `special_miscarriage` = 45 days
+  - `special_maternity` = 90 days
+- Gender rules:
+  - `special_maternity` allowed for `female` only
+  - `special_paternity` allowed for `male` only
+- Document-required rules:
+  - `special_miscarriage` requires attachment/document.
 - State transitions:
   - `pending -> approved`
   - `pending -> rejected`
@@ -129,6 +158,21 @@ Usage:
 - Any non-pending request cannot be approved/rejected/cancelled.
 
 ## Approval Side Effects
+
+### Policy evaluation outcome
+
+- Working day mode for deductions: Monday-Friday only.
+- Sick cycle is anchored by period `21st -> 20th`:
+  - date `21..end-of-month` => cycle start = current month day 21
+  - date `1..20` => cycle start = previous month day 21
+- Multi-cycle sick requests are evaluated per cycle bucket (not only request start cycle).
+- Sick policy:
+  - first no-document sick day in cycle is paid
+  - extra no-document sick days deduct annual leave
+  - if annual balance is insufficient, remaining days are marked unpaid
+- `special_emergency` always deducts annual leave and rejects if balance is insufficient.
+- `annual` leave deducts annual leave and rejects if balance is insufficient.
+- Policy outcome is persisted (`isPaid`, `deductedAnnualDays`, `unpaidDays`, `policySnapshot`).
 
 ### Office employees
 
@@ -155,6 +199,7 @@ For each approved date key in `[startDate..endDate]`:
 ## Files Implemented
 
 - `packages/database/prisma/schema.prisma`
+- `packages/database/prisma/migrations/20260427143000_leave_requests_v2_policy/migration.sql`
 - `packages/database/prisma/migrations/20260421090000_add_employee_leave_requests/migration.sql`
 - `packages/database/prisma/migrations/20260421120000_add_admin_leave_ownership/migration.sql`
 - `packages/database/src/repositories/leave-requests.ts`
@@ -199,3 +244,11 @@ For each approved date key in `[startDate..endDate]`:
 - If full monorepo lint fails due to unrelated workspace issues, validate at least:
   - `pnpm --filter @repo/database type-check`
   - `pnpm --filter web type-check`
+### Annual Leave Ledger Models
+
+- `EmployeeAnnualLeaveBalance`
+  - unique by `(employeeId, year)`
+  - `entitledDays`, `adjustedDays`, `consumedDays`
+- `EmployeeLeaveLedgerEntry`
+  - immutable ledger rows (`entitlement|adjustment|deduction|reversal`)
+  - optional `leaveRequestId` linkage for audit traceability

@@ -10,8 +10,21 @@ export type ShiftStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' |
 export type CheckInStatus = 'on_time' | 'late' | 'invalid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification' | 'clocked_out';
 export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
-export type LeaveRequestReason = 'sick' | 'casual' | 'emergency';
+export type LeaveRequestReason =
+  | 'sick'
+  | 'family_marriage'
+  | 'family_child_marriage'
+  | 'family_child_circumcision_baptism'
+  | 'family_death'
+  | 'family_spouse_death'
+  | 'special_maternity'
+  | 'special_miscarriage'
+  | 'special_paternity'
+  | 'special_emergency'
+  | 'annual';
+export type LeaveMainCategory = 'sick' | 'family' | 'special' | 'annual';
 export type EmployeeRole = 'on_site' | 'office';
+export type EmployeeGender = 'male' | 'female';
 export type OfficeJobTitleCategory = 'staff' | 'management';
 export type OfficeShiftAttendanceMode = 'office_required' | 'non_office';
 export type OfficeAttendancePolicySource = 'employee_default' | 'shift_override' | 'no_office_employee';
@@ -40,6 +53,7 @@ export interface Designation {
   id: string;
   name: string;
   role: EmployeeRole;
+  gender?: EmployeeGender | null;
   departmentId: string;
   note?: string | null;
 }
@@ -93,6 +107,14 @@ export interface EmployeeLeaveRequest {
   employeeNote?: string | null;
   adminNote?: string | null;
   attachments: string[];
+  cycleKey?: string | Date | null;
+  requiresDocument?: boolean;
+  isPaid?: boolean | null;
+  deductedAnnualDays?: number;
+  unpaidDays?: number;
+  policySnapshot?: Record<string, unknown> | null;
+  documentVerifiedAt?: string | Date | null;
+  documentVerifiedById?: string | null;
   status: LeaveRequestStatus;
   reviewedById?: string | null;
   reviewedAt?: string | Date | null;

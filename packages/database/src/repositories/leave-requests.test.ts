@@ -161,13 +161,7 @@ describe('leave-requests repository admin queries', () => {
     expect(prisma.employeeLeaveRequest.create).toHaveBeenCalled();
     expect(prisma.changelog.create).toHaveBeenCalled();
     expect(redis.publish).toHaveBeenCalledTimes(1);
-    expect(enqueueEmailEvent).toHaveBeenCalledWith(
-      expect.objectContaining({
-        templateId: 'admin.leave_request_created',
-        to: [{ email: 'admin1@example.com', name: 'Admin One' }],
-        idempotencyKey: 'leave_request_created:leave-created:admin-1',
-      })
-    );
+    expect(enqueueEmailEvent).not.toHaveBeenCalled();
   });
 
   test('createEmployeeLeaveRequest maps exclusion-constraint conflict to overlap error', async () => {

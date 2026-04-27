@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { ScrollView, TouchableOpacity, Platform, View, StyleSheet } from 'react-native';
+import { ScrollView, TouchableOpacity, Platform, StyleSheet } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
 import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
-import { Button, ButtonText, ButtonSpinner } from '@/components/ui/button';
+import { ButtonSpinner } from '@/components/ui/button';
 import { Input, InputField, InputSlot, InputIcon } from '@/components/ui/input';
 import { FormControl, FormControlLabel, FormControlLabelText } from '@/components/ui/form-control';
 import { useTranslation } from 'react-i18next';
@@ -36,6 +36,110 @@ type LeaveAttachment = {
   fileSize?: number;
 };
 
+type LeaveMainCategory = 'sick' | 'family' | 'special' | 'annual';
+
+type LeaveSubtypeOption = {
+  reason: LeaveRequestReason;
+  labelKey: string;
+  fallbackLabel: string;
+  descriptionKey: string;
+  fallbackDescription: string;
+};
+
+const LEAVE_CATEGORY_OPTIONS: Record<LeaveMainCategory, LeaveSubtypeOption[]> = {
+  sick: [
+    {
+      reason: 'sick',
+      labelKey: 'leave.reasonType.sick',
+      fallbackLabel: 'Sick Leave',
+      descriptionKey: 'leave.reasonDescription.sick',
+      fallbackDescription:
+        'Allowed: 1 day per cycle (21st-20th). More than 1 day requires doctor certificate. Without document, additional days are unpaid or deducted from annual leave.',
+    },
+  ],
+  family: [
+    {
+      reason: 'family_marriage',
+      labelKey: 'leave.reasonType.family_marriage',
+      fallbackLabel: 'Marriage Leave',
+      descriptionKey: 'leave.reasonDescription.family_marriage',
+      fallbackDescription: "3 days paid leave for employee's marriage.",
+    },
+    {
+      reason: 'family_child_marriage',
+      labelKey: 'leave.reasonType.family_child_marriage',
+      fallbackLabel: 'Child Marriage',
+      descriptionKey: 'leave.reasonDescription.family_child_marriage',
+      fallbackDescription: "2 days paid leave for child's marriage.",
+    },
+    {
+      reason: 'family_child_circumcision_baptism',
+      labelKey: 'leave.reasonType.family_child_circumcision_baptism',
+      fallbackLabel: 'Child Circumcision/Baptism',
+      descriptionKey: 'leave.reasonDescription.family_child_circumcision_baptism',
+      fallbackDescription: "2 days paid leave for child's ceremony.",
+    },
+    {
+      reason: 'family_death',
+      labelKey: 'leave.reasonType.family_death',
+      fallbackLabel: 'Death of Family Member',
+      descriptionKey: 'leave.reasonDescription.family_death',
+      fallbackDescription: '2 days paid leave for death of immediate family (parent, in-law, or child).',
+    },
+    {
+      reason: 'family_spouse_death',
+      labelKey: 'leave.reasonType.family_spouse_death',
+      fallbackLabel: 'Spouse Death',
+      descriptionKey: 'leave.reasonDescription.family_spouse_death',
+      fallbackDescription: '2 days paid leave from date of death and must be taken consecutively.',
+    },
+  ],
+  special: [
+    {
+      reason: 'special_maternity',
+      labelKey: 'leave.reasonType.special_maternity',
+      fallbackLabel: 'Maternity Leave',
+      descriptionKey: 'leave.reasonDescription.special_maternity',
+      fallbackDescription: '3 months paid leave: 1.5 months before and 1.5 months after childbirth.',
+    },
+    {
+      reason: 'special_miscarriage',
+      labelKey: 'leave.reasonType.special_miscarriage',
+      fallbackLabel: 'Miscarriage Leave',
+      descriptionKey: 'leave.reasonDescription.special_miscarriage',
+      fallbackDescription: '1.5 months paid leave for miscarriage recovery. Medical document required.',
+    },
+    {
+      reason: 'special_paternity',
+      labelKey: 'leave.reasonType.special_paternity',
+      fallbackLabel: 'Paternity Leave',
+      descriptionKey: 'leave.reasonDescription.special_paternity',
+      fallbackDescription: '2 days paid leave for husband during childbirth or miscarriage of spouse.',
+    },
+    {
+      reason: 'special_emergency',
+      labelKey: 'leave.reasonType.special_emergency',
+      fallbackLabel: 'Emergency Leave',
+      descriptionKey: 'leave.reasonDescription.special_emergency',
+      fallbackDescription: 'For urgent situations. Deducted from annual leave and requires HOD approval.',
+    },
+  ],
+  annual: [
+    {
+      reason: 'annual',
+      labelKey: 'leave.reasonType.annual',
+      fallbackLabel: 'Annual Leave',
+      descriptionKey: 'leave.reasonDescription.annual',
+      fallbackDescription:
+        '12 working days per year after 12 months of service. Leave balance is deducted by working days taken.',
+    },
+  ],
+};
+
+function getMainCategoryLabelKey(category: LeaveMainCategory) {
+  return `leave.category.${category}`;
+}
+
 export default function NewLeaveRequestScreen() {
   const { t, i18n } = useTranslation();
   const router = useRouter();
@@ -46,7 +150,8 @@ export default function NewLeaveRequestScreen() {
 
   const [startDate, setStartDate] = useState(new Date());
   const [endDate, setEndDate] = useState(addDays(new Date(), 1));
-  const [reason, setReason] = useState<LeaveRequestReason>('casual');
+  const [reason, setReason] = useState<LeaveRequestReason>('annual');
+  const [mainCategory, setMainCategory] = useState<LeaveMainCategory>('annual');
   const [employeeNote, setEmployeeNote] = useState('');
   const [attachments, setAttachments] = useState<LeaveAttachment[]>([]);
 
@@ -55,14 +160,33 @@ export default function NewLeaveRequestScreen() {
 
   const dateLocale = i18n.language === 'id' ? id : enUS;
 
-  const reasonOptions = useMemo(
-    () => [
-      { value: 'sick' as const, label: t('leave.reasonType.sick', 'Sick') },
-      { value: 'casual' as const, label: t('leave.reasonType.casual', 'Casual') },
-      { value: 'emergency' as const, label: t('leave.reasonType.emergency', 'Emergency') },
-    ],
-    [t]
+  const subtypeOptions = useMemo(() => LEAVE_CATEGORY_OPTIONS[mainCategory], [mainCategory]);
+  const selectedSubtype = useMemo(
+    () => subtypeOptions.find(option => option.reason === reason) ?? subtypeOptions[0],
+    [reason, subtypeOptions]
   );
+
+  const handleSelectMainCategory = (category: LeaveMainCategory) => {
+    setMainCategory(category);
+    const firstSubtype = LEAVE_CATEGORY_OPTIONS[category][0];
+    if (firstSubtype) {
+      setReason(firstSubtype.reason);
+    }
+  };
+
+  const openSubtypePicker = () => {
+    const buttons = subtypeOptions.map(option => ({
+      text: t(option.labelKey, option.fallbackLabel),
+      onPress: () => setReason(option.reason),
+    }));
+
+    showAlert(
+      t('leave.selectSubtypeTitle', 'Select Leave Type'),
+      t('leave.selectSubtypeMessage', 'Choose one leave type below'),
+      [{ text: t('common.cancel', 'Cancel'), style: 'cancel' }, ...buttons],
+      { icon: 'info' }
+    );
+  };
 
   const onStartChange = (_event: unknown, selectedDate?: Date) => {
     setShowStartPicker(Platform.OS === 'ios');
@@ -185,11 +309,6 @@ export default function NewLeaveRequestScreen() {
       return;
     }
 
-    if (reason === 'sick' && attachments.length === 0) {
-      toast.error(t('common.errorTitle'), t('leave.validation.attachmentRequiredForSick'));
-      return;
-    }
-
     try {
       const attachmentKeys = await Promise.all(
         attachments.map(async (asset, index) => {
@@ -301,22 +420,22 @@ export default function NewLeaveRequestScreen() {
             </VStack>
           </BlurView>
 
-          {/* Reason Card */}
+          {/* Category and Type Card */}
           <BlurView intensity={15} tint="dark" style={styles.glassCard}>
             <VStack space="md" className="p-6">
               <FormControl>
                 <FormControlLabel className="mb-3">
                   <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
-                    {t('leave.reason')}
+                    {t('leave.category.title', 'Category')}
                   </FormControlLabelText>
                 </FormControlLabel>
                 <HStack space="sm" className="flex-wrap">
-                  {reasonOptions.map(option => {
-                    const active = option.value === reason;
+                  {(Object.keys(LEAVE_CATEGORY_OPTIONS) as LeaveMainCategory[]).map(category => {
+                    const active = category === mainCategory;
                     return (
                       <TouchableOpacity
-                        key={option.value}
-                        onPress={() => setReason(option.value)}
+                        key={category}
+                        onPress={() => handleSelectMainCategory(category)}
                         className="px-4 py-2.5 rounded-full border"
                         style={{
                           borderColor: active ? PRIMARY_RED : 'rgba(255,255,255,0.1)',
@@ -324,13 +443,44 @@ export default function NewLeaveRequestScreen() {
                         }}
                       >
                         <Text className="font-bold" style={{ color: active ? 'white' : '#A0A0A0', fontSize: 13 }}>
-                          {option.label}
+                          {t(getMainCategoryLabelKey(category), category)}
                         </Text>
                       </TouchableOpacity>
                     );
                   })}
                 </HStack>
               </FormControl>
+
+              <FormControl>
+                <FormControlLabel className="mb-2">
+                  <FormControlLabelText className="text-[#A1A1A1] uppercase font-bold tracking-[1.5px]" size="2xs">
+                    {t('leave.subcategory.title', 'Leave Type')}
+                  </FormControlLabelText>
+                </FormControlLabel>
+                <TouchableOpacity
+                  onPress={openSubtypePicker}
+                  className="bg-black/40 border border-white/10 rounded-2xl px-4 py-3 flex-row items-center justify-between"
+                >
+                  <Text className="text-white font-semibold" numberOfLines={1}>
+                    {t(selectedSubtype?.labelKey ?? 'leave.reasonType.annual', selectedSubtype?.fallbackLabel ?? 'Annual Leave')}
+                  </Text>
+                  <Text className="text-[#A1A1A1]" size="xs">
+                    {t('leave.subcategory.change', 'Change')}
+                  </Text>
+                </TouchableOpacity>
+              </FormControl>
+
+              <Box className="rounded-2xl border border-white/5 bg-black/30 px-4 py-3">
+                <Text className="text-[#A1A1A1] uppercase font-bold tracking-[1.2px]" size="2xs">
+                  {t('leave.policyDescription', 'Policy Description')}
+                </Text>
+                <Text className="text-[#D1D1D1] mt-2 leading-5" size="sm">
+                  {t(
+                    selectedSubtype?.descriptionKey ?? 'leave.reasonDescription.annual',
+                    selectedSubtype?.fallbackDescription ?? 'Annual leave policy'
+                  )}
+                </Text>
+              </Box>
             </VStack>
           </BlurView>
 
@@ -386,9 +536,9 @@ export default function NewLeaveRequestScreen() {
                   <Text className="text-[#636366]" size="sm">
                     {t('leave.attachmentHint', 'You can attach up to 4 files.')}
                   </Text>
-                  {reason === 'sick' && (
+                  {reason === 'special_miscarriage' && (
                     <Text className="text-[#FF3B30] opacity-80" size="xs" style={{ fontWeight: '500' }}>
-                      {t('leave.attachmentRequiredForSickHint')}
+                      {t('leave.attachmentRequiredForMiscarriageHint', 'Medical document is required for miscarriage leave.')}
                     </Text>
                   )}
                 </VStack>
