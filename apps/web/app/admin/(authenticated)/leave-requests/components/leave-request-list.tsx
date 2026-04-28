@@ -36,6 +36,8 @@ type LeaveRequestListProps = {
 function getStatusBadgeClass(status: string) {
   switch (status) {
     case 'pending':
+    case 'pending_hr':
+    case 'pending_manager':
       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
     case 'approved':
       return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
@@ -45,6 +47,17 @@ function getStatusBadgeClass(status: string) {
       return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
     default:
       return 'bg-muted text-muted-foreground';
+  }
+}
+
+function formatStatusLabel(status: string) {
+  switch (status) {
+    case 'pending_hr':
+      return 'PENDING HR';
+    case 'pending_manager':
+      return 'PENDING MANAGER';
+    default:
+      return status.toUpperCase();
   }
 }
 
@@ -212,7 +225,7 @@ export default function LeaveRequestList({
                           leaveRequest.status
                         )}`}
                       >
-                        {leaveRequest.status.toUpperCase()}
+                        {formatStatusLabel(leaveRequest.status)}
                       </span>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">

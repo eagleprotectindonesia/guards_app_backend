@@ -9,6 +9,7 @@ type SessionVisibility = {
 export const DEFAULT_ROLE_POLICY: RolePolicy = {
   employees: { scope: 'all' },
   attendance: { scope: 'all' },
+  leaveRequests: { annualApprover: 'manager' },
 };
 
 export function normalizeRolePolicy(
@@ -32,6 +33,10 @@ export function getEmployeeRoleFilter(policy: RolePolicy): EmployeeRole | undefi
 
 export function canAccessOfficeAttendance(session: SessionVisibility) {
   return session.isSuperAdmin || session.rolePolicy.attendance.scope === 'all';
+}
+
+export function isHrAnnualApprover(policy: RolePolicy) {
+  return policy.leaveRequests.annualApprover === 'hr';
 }
 
 export function applyEmployeeVisibilityScope(

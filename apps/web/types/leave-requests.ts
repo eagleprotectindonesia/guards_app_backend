@@ -57,6 +57,12 @@ export type LeaveRequestAdminListItemDto = {
   status: LeaveRequestStatus;
   reviewedById: string | null;
   reviewedAt: Date | null;
+  managerApprovedById: string | null;
+  managerApprovedAt: Date | null;
+  managerApprovalNote: string | null;
+  hrApprovedById: string | null;
+  hrApprovedAt: Date | null;
+  hrApprovalNote: string | null;
   documentVerifiedAt: Date | null;
   documentVerifiedById: string | null;
   cancelledAt: Date | null;
@@ -64,6 +70,8 @@ export type LeaveRequestAdminListItemDto = {
   updatedAt: Date;
   employee: LeaveRequestEmployeeSummaryDto;
   reviewedBy: LeaveRequestReviewedByDto;
+  managerApprovedBy: LeaveRequestReviewedByDto;
+  hrApprovedBy: LeaveRequestReviewedByDto;
   documentVerifiedBy: LeaveRequestReviewedByDto;
 };
 

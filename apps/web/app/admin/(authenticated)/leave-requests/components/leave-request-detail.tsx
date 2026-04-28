@@ -17,6 +17,8 @@ type LeaveRequestDetailProps = {
 function getStatusBadgeClass(status: string) {
   switch (status) {
     case 'pending':
+    case 'pending_hr':
+    case 'pending_manager':
       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
     case 'approved':
       return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
@@ -29,11 +31,22 @@ function getStatusBadgeClass(status: string) {
   }
 }
 
+function formatStatusLabel(status: string) {
+  switch (status) {
+    case 'pending_hr':
+      return 'PENDING HR';
+    case 'pending_manager':
+      return 'PENDING MANAGER';
+    default:
+      return status.toUpperCase();
+  }
+}
+
 export default function LeaveRequestDetail({ leaveRequest, canEdit }: LeaveRequestDetailProps) {
   const [approveNote, setApproveNote] = useState(leaveRequest.adminNote || '');
   const [rejectNote, setRejectNote] = useState('');
   const [isPending, startTransition] = useTransition();
-  const isPendingStatus = leaveRequest.status === 'pending';
+  const isPendingStatus = ['pending', 'pending_hr', 'pending_manager'].includes(leaveRequest.status);
   const reasonMeta = getLeaveReasonMeta(leaveRequest.reason);
   const cycleBreakdown = Array.isArray(leaveRequest.policySnapshot?.cycleBreakdown)
     ? leaveRequest.policySnapshot.cycleBreakdown
@@ -104,7 +117,7 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit }: LeaveReque
                 leaveRequest.status
               )}`}
             >
-              {leaveRequest.status.toUpperCase()}
+              {formatStatusLabel(leaveRequest.status)}
             </span>
           </div>
           <div>
@@ -126,6 +139,22 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit }: LeaveReque
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Reviewed By</p>
             <p className="text-sm text-foreground mt-1">{leaveRequest.reviewedBy?.name || '-'}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">Manager Approval</p>
+            <p className="text-sm text-foreground mt-1">
+              {leaveRequest.managerApprovedAt
+                ? `${leaveRequest.managerApprovedBy?.name || '-'} at ${format(new Date(leaveRequest.managerApprovedAt), 'yyyy/MM/dd HH:mm')}`
+                : '-'}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">HR Approval</p>
+            <p className="text-sm text-foreground mt-1">
+              {leaveRequest.hrApprovedAt
+                ? `${leaveRequest.hrApprovedBy?.name || '-'} at ${format(new Date(leaveRequest.hrApprovedAt), 'yyyy/MM/dd HH:mm')}`
+                : '-'}
+            </p>
           </div>
           <div className="md:col-span-2">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Employee Note</p>
@@ -239,7 +268,7 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit }: LeaveReque
                 disabled={isPending}
                 className="inline-flex items-center justify-center h-10 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {isPending ? 'Processing...' : 'Approve Request'}
+                {isPending ? 'Processing...' : 'Approve / Continue Approval'}
               </button>
             </div>
 

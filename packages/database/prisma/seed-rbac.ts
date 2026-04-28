@@ -62,6 +62,7 @@ async function main() {
       policy: {
         employees: { scope: 'all' },
         attendance: { scope: 'all' },
+        leaveRequests: { annualApprover: 'manager' },
       },
       permissions: {
         set: allPermissions.map((p: any) => ({ id: p.id })),
@@ -74,6 +75,7 @@ async function main() {
       policy: {
         employees: { scope: 'all' },
         attendance: { scope: 'all' },
+        leaveRequests: { annualApprover: 'manager' },
       },
       permissions: {
         connect: allPermissions.map((p: any) => ({ id: p.id })),
@@ -121,6 +123,7 @@ async function main() {
       policy: {
         employees: { scope: 'all' },
         attendance: { scope: 'all' },
+        leaveRequests: { annualApprover: 'manager' },
       },
       permissions: {
         set: adminPermissions.map((p: any) => ({ id: p.id })),
@@ -133,6 +136,7 @@ async function main() {
       policy: {
         employees: { scope: 'all' },
         attendance: { scope: 'all' },
+        leaveRequests: { annualApprover: 'manager' },
       },
       permissions: {
         connect: adminPermissions.map((p: any) => ({ id: p.id })),

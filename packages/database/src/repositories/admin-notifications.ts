@@ -61,6 +61,34 @@ export async function resolveAdminRecipientsForLeaveRequestCreated(employeeId: s
   return fallbackAdmins.map(admin => admin.id);
 }
 
+async function getHrAnnualApproverAdminIds(tx: TxLike = prisma) {
+  const targetTx = tx as TxLike;
+  const admins = await targetTx.admin.findMany({
+    where: {
+      deletedAt: null,
+      roleRef: {
+        isNot: null,
+      },
+    },
+    select: {
+      id: true,
+      roleRef: {
+        select: {
+          policy: true,
+        },
+      },
+    },
+  });
+
+  return admins
+    .filter(admin => {
+      const policy = (admin.roleRef?.policy ?? {}) as Record<string, unknown>;
+      const leaveRequests = (policy.leaveRequests ?? {}) as Record<string, unknown>;
+      return leaveRequests.annualApprover === 'hr';
+    })
+    .map(admin => admin.id);
+}
+
 export async function createAdminNotifications(
   input: {
     adminIds: string[];
@@ -104,7 +132,7 @@ export async function createLeaveRequestCreatedAdminNotifications(
 ) {
   const targetTx = tx as TxLike;
 
-  const [employee, recipientAdminIds] = await Promise.all([
+  const [employee, recipientAdminIds, hrAdminIds] = await Promise.all([
     targetTx.employee.findUnique({
       where: { id: input.employeeId },
       select: {
@@ -113,9 +141,12 @@ export async function createLeaveRequestCreatedAdminNotifications(
       },
     }),
     resolveAdminRecipientsForLeaveRequestCreated(input.employeeId, targetTx),
+    input.reason === 'annual' ? getHrAnnualApproverAdminIds(targetTx) : Promise.resolve<string[]>([]),
   ]);
 
-  if (!employee || recipientAdminIds.length === 0) {
+  const finalRecipients = Array.from(new Set([...recipientAdminIds, ...hrAdminIds]));
+
+  if (!employee || finalRecipients.length === 0) {
     return [];
   }
 
@@ -124,7 +155,7 @@ export async function createLeaveRequestCreatedAdminNotifications(
 
   return createAdminNotifications(
     {
-      adminIds: recipientAdminIds,
+      adminIds: finalRecipients,
       type: 'leave_request_created',
       title: 'New leave request submitted',
       body: `${employeeLabel} requested leave for ${dateRangeLabel}.`,

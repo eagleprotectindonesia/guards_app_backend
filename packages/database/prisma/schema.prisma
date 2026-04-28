@@ -34,6 +34,8 @@ enum OfficeShiftAttendanceMode {
 
 enum LeaveRequestStatus {
   pending
+  pending_hr
+  pending_manager
   approved
   rejected
   cancelled
@@ -155,6 +157,8 @@ model Admin {
   createdEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentCreatedBy")
   updatedEmployeeOfficeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[] @relation("EmployeeOfficeWorkScheduleAssignmentLastUpdatedBy")
   reviewedLeaveRequests                        EmployeeLeaveRequest[]                 @relation("EmployeeLeaveRequestReviewedBy")
+  managerApprovedLeaveRequests                 EmployeeLeaveRequest[]                 @relation("EmployeeLeaveRequestManagerApprovedBy")
+  hrApprovedLeaveRequests                      EmployeeLeaveRequest[]                 @relation("EmployeeLeaveRequestHrApprovedBy")
   verifiedLeaveRequestDocuments                EmployeeLeaveRequest[]                 @relation("EmployeeLeaveRequestDocumentVerifiedBy")
   leaveLedgerEntries                           EmployeeLeaveLedgerEntry[]
   ownershipAssignments                         AdminOwnershipAssignment[]
@@ -664,12 +668,20 @@ model EmployeeLeaveRequest {
   status       LeaveRequestStatus @default(pending)
   reviewedById String?            @map("reviewed_by_id")
   reviewedAt   DateTime?          @map("reviewed_at")
+  managerApprovedById String?     @map("manager_approved_by_id")
+  managerApprovedAt   DateTime?   @map("manager_approved_at")
+  managerApprovalNote String?     @map("manager_approval_note") @db.Text
+  hrApprovedById      String?     @map("hr_approved_by_id")
+  hrApprovedAt        DateTime?   @map("hr_approved_at")
+  hrApprovalNote      String?     @map("hr_approval_note") @db.Text
   cancelledAt  DateTime?          @map("cancelled_at")
   createdAt    DateTime           @default(now()) @map("created_at")
   updatedAt    DateTime           @updatedAt @map("updated_at")
 
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   reviewedBy Admin?   @relation("EmployeeLeaveRequestReviewedBy", fields: [reviewedById], references: [id])
+  managerApprovedBy Admin? @relation("EmployeeLeaveRequestManagerApprovedBy", fields: [managerApprovedById], references: [id])
+  hrApprovedBy Admin? @relation("EmployeeLeaveRequestHrApprovedBy", fields: [hrApprovedById], references: [id])
   documentVerifiedBy Admin? @relation("EmployeeLeaveRequestDocumentVerifiedBy", fields: [documentVerifiedById], references: [id])
   ledgerEntries EmployeeLeaveLedgerEntry[]
 

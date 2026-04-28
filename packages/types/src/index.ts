@@ -9,7 +9,7 @@ export type ActionState<T = Record<string, unknown>> = {
 export type ShiftStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' | 'cancelled';
 export type CheckInStatus = 'on_time' | 'late' | 'invalid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification' | 'clocked_out';
-export type LeaveRequestStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type LeaveRequestStatus = 'pending' | 'pending_hr' | 'pending_manager' | 'approved' | 'rejected' | 'cancelled';
 export type LeaveRequestReason =
   | 'sick'
   | 'family_marriage'
@@ -118,6 +118,12 @@ export interface EmployeeLeaveRequest {
   status: LeaveRequestStatus;
   reviewedById?: string | null;
   reviewedAt?: string | Date | null;
+  managerApprovedById?: string | null;
+  managerApprovedAt?: string | Date | null;
+  managerApprovalNote?: string | null;
+  hrApprovedById?: string | null;
+  hrApprovedAt?: string | Date | null;
+  hrApprovalNote?: string | null;
   cancelledAt?: string | Date | null;
   createdAt: string | Date;
   updatedAt: string | Date;

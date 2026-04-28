@@ -33,6 +33,11 @@ describe('admin leave request server actions', () => {
       id: 'admin-1',
       isSuperAdmin: false,
       permissions: ['leave-requests:edit'],
+      rolePolicy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+        leaveRequests: { annualApprover: 'manager' },
+      },
     });
 
     (resolveLeaveRequestAccessContext as jest.Mock).mockResolvedValue({
@@ -58,6 +63,7 @@ describe('admin leave request server actions', () => {
       requestId: 'leave-1',
       adminId: 'admin-1',
       adminNote: 'approved',
+      approvalMode: 'manager',
     });
   });
 

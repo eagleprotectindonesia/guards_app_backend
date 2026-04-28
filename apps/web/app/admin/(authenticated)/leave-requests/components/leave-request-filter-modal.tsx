@@ -39,6 +39,8 @@ type SelectOption = {
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
+  { value: 'pending_hr', label: 'Pending HR Approval' },
+  { value: 'pending_manager', label: 'Pending Manager Approval' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
   { value: 'cancelled', label: 'Cancelled' },

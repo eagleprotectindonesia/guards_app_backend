@@ -16,7 +16,14 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic';
 
-const ALLOWED_STATUSES: LeaveRequestStatus[] = ['pending', 'approved', 'rejected', 'cancelled'];
+const ALLOWED_STATUSES: LeaveRequestStatus[] = [
+  'pending',
+  'pending_hr',
+  'pending_manager',
+  'approved',
+  'rejected',
+  'cancelled',
+];
 const ALLOWED_REASONS: LeaveRequestReason[] = [
   'sick',
   'family_marriage',
