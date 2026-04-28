@@ -1,0 +1,86 @@
+services:
+  app:
+    image: ${ECR_REGISTRY}/guards-backend:app-${IMAGE_TAG:-latest}
+    container_name: ep_guard_staging_app
+    restart: unless-stopped
+    env_file: .env.staging
+    ports:
+      - '127.0.0.1:3001:3000'
+    environment:
+      - NEXT_TELEMETRY_DISABLED=1
+      - TZ=Asia/Makassar
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - staging_network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  worker:
+    image: ${ECR_REGISTRY}/guards-backend:worker-${IMAGE_TAG:-latest}
+    container_name: ep_guard_staging_worker
+    restart: unless-stopped
+    env_file: .env.staging
+    environment:
+      - TZ=Asia/Makassar
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - staging_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  migration:
+    image: ${ECR_REGISTRY}/guards-backend:migration-${IMAGE_TAG:-latest}
+    container_name: ep_guard_staging_migration
+    env_file: .env.staging
+    networks:
+      - staging_network
+    restart: 'no'
+    profiles:
+      - migration
+
+  redis:
+    image: redis:8.4-alpine
+    container_name: ep_guard_staging_redis
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Makassar
+    volumes:
+      - redis_staging_data:/data
+    networks:
+      - staging_network
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+
+volumes:
+  redis_staging_data:
+    driver: local
+
+networks:
+  staging_network:
+    driver: bridge
