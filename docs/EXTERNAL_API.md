@@ -2,6 +2,11 @@
 
 The Eagle Protect application exposes an external API to allow third-party systems and services to access organization data such as employees, sites, shifts, and their respective attendances securely.
 
+## External Employee Sync Payload Note
+
+For external employee synchronization payloads, `date_of_joining` is now supported.  
+If `date_of_joining` is missing or invalid for a record, the system falls back to that employee's local `created_at` as the effective date of joining.
+
 ## 1. Viewing the API Documentation
 
 The full OpenAPI (Swagger) documentation is available directly within the application. It provides an interactive interface to explore all available endpoints, required parameters, and response schemas.

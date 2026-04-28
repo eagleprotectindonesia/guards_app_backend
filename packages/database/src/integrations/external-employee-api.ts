@@ -2,6 +2,7 @@ export interface ExternalEmployee {
   id: string;
   employee_number: string;
   personnel_id: string | null;
+  date_of_joining?: string | null;
   nickname: string | null;
   full_name: string;
   job_title: string | null;

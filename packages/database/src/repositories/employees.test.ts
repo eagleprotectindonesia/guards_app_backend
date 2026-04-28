@@ -349,6 +349,7 @@ describe('employees repository', () => {
       jobTitle: 'Operations Lead',
       department: 'Operations',
       phone: '+62123',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
       role: 'office',
       officeId: 'office-1',
       fieldModeEnabled: false,
@@ -372,6 +373,7 @@ describe('employees repository', () => {
           office_id: 'office-1',
           office_name: 'HQ',
           phone: '+62123',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
         },
       ]
     );
@@ -393,7 +395,7 @@ describe('employees repository', () => {
         create: expect.objectContaining({
           employeeId: 'employee-1',
           entitledDays: 12,
-          adjustedDays: -12,
+          adjustedDays: 0,
           consumedDays: 0,
         }),
       })
@@ -415,6 +417,7 @@ describe('employees repository', () => {
       jobTitle: null,
       department: 'Security',
       phone: '+62123',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
       role: 'on_site',
       officeId: null,
       fieldModeEnabled: false,
@@ -438,6 +441,7 @@ describe('employees repository', () => {
           office_id: null,
           office_name: null,
           phone: '+62123',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
         },
       ]
     );
@@ -458,6 +462,7 @@ describe('employees repository', () => {
           jobTitle: 'Analyst',
           department: 'Operations',
           phone: '+62123',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
           role: 'office',
           officeId: 'office-1',
           fieldModeEnabled: false,
@@ -475,6 +480,7 @@ describe('employees repository', () => {
       jobTitle: 'Analyst',
       department: 'Operations',
       phone: '+62123',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
       role: 'office',
       officeId: 'office-1',
       fieldModeEnabled: false,
@@ -496,6 +502,7 @@ describe('employees repository', () => {
           office_id: 'office-1',
           office_name: 'HQ',
           phone: '+62123',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
         },
       ]
     );
@@ -522,6 +529,7 @@ describe('employees repository', () => {
           jobTitle: 'Analyst',
           department: 'Operations',
           phone: '+62123',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
           role: 'office',
           officeId: 'office-1',
           fieldModeEnabled: false,
@@ -545,6 +553,7 @@ describe('employees repository', () => {
           office_id: 'office-1',
           office_name: 'HQ',
           phone: '+62123',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
         },
       ]
     );
@@ -561,7 +570,7 @@ describe('employees repository', () => {
         create: expect.objectContaining({
           employeeId: 'employee-1',
           entitledDays: 12,
-          adjustedDays: -12,
+          adjustedDays: 0,
           consumedDays: 0,
         }),
       })
@@ -580,6 +589,7 @@ describe('employees repository', () => {
           jobTitle: 'Analyst',
           department: 'Operations',
           phone: '+62002',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
           role: 'office',
           officeId: 'office-1',
           fieldModeEnabled: false,
@@ -598,6 +608,7 @@ describe('employees repository', () => {
           department: 'Operations',
           role: 'office',
           phone: '+62001',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
         },
       ]);
     (prisma.employee.update as jest.Mock).mockResolvedValue({
@@ -609,6 +620,7 @@ describe('employees repository', () => {
       jobTitle: 'Analyst',
       department: 'Operations',
       phone: '+62022',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
       role: 'office',
       officeId: 'office-1',
       fieldModeEnabled: false,
@@ -630,6 +642,7 @@ describe('employees repository', () => {
           office_id: 'office-1',
           office_name: 'HQ',
           phone: '+62001',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
         },
         {
           id: 'employee-2',
@@ -642,6 +655,7 @@ describe('employees repository', () => {
           office_id: 'office-1',
           office_name: 'HQ',
           phone: '+62022',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
         },
       ]
     );
@@ -689,6 +703,7 @@ describe('employees repository', () => {
           department: 'Security',
           role: 'on_site',
           phone: '+62002',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
         },
       ]);
     (prisma.employee.create as jest.Mock).mockResolvedValue({
@@ -701,6 +716,7 @@ describe('employees repository', () => {
       department: 'Security',
       role: 'on_site',
       phone: '+62001',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
       fieldModeEnabled: false,
       status: true,
       mustChangePassword: true,
@@ -722,6 +738,7 @@ describe('employees repository', () => {
           office_id: null,
           office_name: null,
           phone: '+62002',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
         },
         {
           id: 'employee-a',
@@ -734,6 +751,7 @@ describe('employees repository', () => {
           office_id: null,
           office_name: null,
           phone: '+62001',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
         },
       ]
     );
@@ -771,6 +789,7 @@ describe('employees repository', () => {
           jobTitle: 'Analyst',
           department: 'Operations',
           phone: '+62002',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
           role: 'office',
           officeId: 'office-1',
           fieldModeEnabled: false,
@@ -789,6 +808,7 @@ describe('employees repository', () => {
           department: 'Operations',
           role: 'office',
           phone: '+62001',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
           status: false,
         },
       ]);
@@ -801,6 +821,7 @@ describe('employees repository', () => {
       jobTitle: 'Analyst',
       department: 'Operations',
       phone: '+62022',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
       role: 'office',
       officeId: 'office-1',
       fieldModeEnabled: false,
@@ -822,6 +843,7 @@ describe('employees repository', () => {
           office_id: 'office-1',
           office_name: 'HQ',
           phone: '+62001',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
         },
         {
           id: 'employee-2',
@@ -834,6 +856,7 @@ describe('employees repository', () => {
           office_id: 'office-1',
           office_name: 'HQ',
           phone: '+62022',
+          dateOfJoining: '2024-01-01T00:00:00.000Z',
         },
       ]
     );
