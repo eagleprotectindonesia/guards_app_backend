@@ -5,7 +5,7 @@ import { prisma, getEmployeeSessionExpiry } from '@repo/database';
 import { redis } from '@repo/database/redis';
 import { z } from 'zod';
 import { DEFAULT_PASSWORD, verifyPassword } from '@repo/database';
-import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
+import { AUTH_COOKIES, AUTH_COOKIE_SECURE, JWT_SECRET } from '@/lib/auth/constants';
 
 type EmployeeClientType = 'mobile' | 'pwa';
 
@@ -136,7 +136,7 @@ export async function POST(req: Request) {
     // Set HTTP-only cookie
     (await cookies()).set(AUTH_COOKIES.EMPLOYEE, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: AUTH_COOKIE_SECURE,
       maxAge: 60 * 60 * 24, // 1 day
       path: '/',
     });

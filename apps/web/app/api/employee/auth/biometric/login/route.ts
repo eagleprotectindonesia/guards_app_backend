@@ -5,7 +5,7 @@ import { prisma, getEmployeeSessionExpiry } from '@repo/database';
 import { redis } from '@repo/database/redis';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
-import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
+import { AUTH_COOKIES, AUTH_COOKIE_SECURE, JWT_SECRET } from '@/lib/auth/constants';
 
 const loginSchema = z.object({
   biometricToken: z.string().min(1),
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
     // Set cookie if needed (for hybrid apps), but primarily return JSON for mobile
     (await cookies()).set(AUTH_COOKIES.EMPLOYEE, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: AUTH_COOKIE_SECURE,
       maxAge: 60 * 60 * 24,
       path: '/',
     });
