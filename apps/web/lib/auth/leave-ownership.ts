@@ -130,7 +130,6 @@ async function resolveOwnershipAccessContext(
       : domain === 'leave'
         ? !!admin?.includeFallbackLeaveQueue
         : false;
-  const allowAnyMatchingAssignment = domain === 'leave';
 
   return {
     mode: 'ownership_scope',
@@ -150,7 +149,7 @@ async function resolveOwnershipAccessContext(
       );
       const currentAdminHasMatchingAssignment = matchingAssignments.some(assignment => assignment.adminId === session.id);
 
-      if (currentAdminHasMatchingAssignment && allowAnyMatchingAssignment) {
+      if (currentAdminHasMatchingAssignment) {
         return true;
       }
 

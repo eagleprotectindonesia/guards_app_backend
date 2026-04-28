@@ -6,6 +6,29 @@ import {
 import { getAdminOwnershipSummaryByAdminId, getAllActiveAdminOwnershipAssignments } from '@repo/database';
 
 jest.mock('@repo/database', () => ({
+  doesAdminOwnershipAssignmentMatchEmployeeScope: (
+    assignment: { departmentKey?: string | null; officeId?: string | null },
+    employee: { department?: string | null; officeId?: string | null }
+  ) => {
+    const normalizeDepartmentScopeKey = (value?: string | null) => {
+      if (!value) return null;
+      const normalized = value.trim().toLocaleLowerCase('en-US').replace(/\s+/g, ' ');
+      return normalized.length > 0 ? normalized : null;
+    };
+
+    if (assignment.departmentKey) {
+      const employeeDepartmentKey = normalizeDepartmentScopeKey(employee.department);
+      if (!employeeDepartmentKey || employeeDepartmentKey !== assignment.departmentKey) {
+        return false;
+      }
+    }
+
+    if (assignment.officeId && assignment.officeId !== employee.officeId) {
+      return false;
+    }
+
+    return true;
+  },
   getAdminOwnershipSummaryByAdminId: jest.fn(),
   getAllActiveAdminOwnershipAssignments: jest.fn(),
   normalizeDepartmentScopeKey: (value?: string | null) => {
@@ -167,5 +190,100 @@ describe('ownership resolver', () => {
     expect(getAllActiveAdminOwnershipAssignments).toHaveBeenCalledWith('employees');
     expect(context.isEmployeeVisible({ id: 'employee-1', role: 'office', department: 'Operations' })).toBe(true);
     expect(context.isEmployeeVisible({ id: 'employee-2', role: 'office', department: 'Finance' })).toBe(false);
+  });
+
+  test('employee visibility domain allows overlapping ownership assignments', async () => {
+    (getAllActiveAdminOwnershipAssignments as jest.Mock).mockResolvedValue([
+      {
+        id: 'assign-1',
+        adminId: 'admin-1',
+        domain: 'employees',
+        departmentKey: 'operations',
+        officeId: null,
+        priority: 50,
+        isActive: true,
+        createdAt: new Date('2026-04-21T00:00:00.000Z'),
+      },
+      {
+        id: 'assign-2',
+        adminId: 'admin-2',
+        domain: 'employees',
+        departmentKey: 'operations',
+        officeId: null,
+        priority: 100,
+        isActive: true,
+        createdAt: new Date('2026-04-22T00:00:00.000Z'),
+      },
+    ]);
+    (getAdminOwnershipSummaryByAdminId as jest.Mock).mockResolvedValue({
+      admin: { id: 'admin-2', includeFallbackLeaveQueue: false },
+      assignments: [],
+    });
+
+    const context = await resolveEmployeeVisibilityAccessContext({
+      id: 'admin-2',
+      isSuperAdmin: false,
+      rolePolicy: defaultRolePolicy,
+    });
+
+    expect(context.isEmployeeVisible({ id: 'employee-1', role: 'office', department: 'Operations' })).toBe(true);
+  });
+
+  test('employee visibility domain still hides unmatched employees when fallback is enabled', async () => {
+    (getAllActiveAdminOwnershipAssignments as jest.Mock).mockResolvedValue([
+      {
+        id: 'assign-1',
+        adminId: 'admin-owner',
+        domain: 'employees',
+        departmentKey: 'operations',
+        officeId: null,
+        priority: 100,
+        isActive: true,
+        createdAt: new Date('2026-04-21T00:00:00.000Z'),
+      },
+    ]);
+    (getAdminOwnershipSummaryByAdminId as jest.Mock).mockResolvedValue({
+      admin: { id: 'admin-fallback', includeFallbackLeaveQueue: true },
+      assignments: [],
+    });
+
+    const context = await resolveEmployeeVisibilityAccessContext({
+      id: 'admin-fallback',
+      isSuperAdmin: false,
+      rolePolicy: defaultRolePolicy,
+    });
+
+    expect(context.isEmployeeVisible({ id: 'employee-1', role: 'office', department: 'Finance' })).toBe(false);
+  });
+
+  test('role policy still limits employee visibility before shared ownership', async () => {
+    (getAllActiveAdminOwnershipAssignments as jest.Mock).mockResolvedValue([
+      {
+        id: 'assign-1',
+        adminId: 'admin-1',
+        domain: 'employees',
+        departmentKey: 'operations',
+        officeId: null,
+        priority: 100,
+        isActive: true,
+        createdAt: new Date('2026-04-21T00:00:00.000Z'),
+      },
+    ]);
+    (getAdminOwnershipSummaryByAdminId as jest.Mock).mockResolvedValue({
+      admin: { id: 'admin-1', includeFallbackLeaveQueue: false },
+      assignments: [],
+    });
+
+    const context = await resolveEmployeeVisibilityAccessContext({
+      id: 'admin-1',
+      isSuperAdmin: false,
+      rolePolicy: {
+        employees: { scope: 'on_site_only' },
+        attendance: { scope: 'all' },
+      },
+    });
+
+    expect(context.isEmployeeVisible({ id: 'employee-1', role: 'office', department: 'Operations' })).toBe(false);
+    expect(context.isEmployeeVisible({ id: 'employee-2', role: 'on_site', department: 'Operations' })).toBe(true);
   });
 });
