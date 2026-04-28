@@ -83,7 +83,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           source: 'docker-compose.staging.yml'
-          target: '/opt/guards-staging'
+          target: '/home/${{ secrets.EC2_USER }}/staging-deploy'
 
       - name: Deploy staging on EC2
         uses: appleboy/ssh-action@v1.0.3
@@ -93,8 +93,9 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -e
-            mkdir -p /opt/guards-staging
-            cd /opt/guards-staging
+            mkdir -p /opt/guards/staging
+            cp /home/${{ secrets.EC2_USER }}/staging-deploy/docker-compose.staging.yml /opt/guards/staging/docker-compose.staging.yml
+            cd /opt/guards/staging
 
             aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
             | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
