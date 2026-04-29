@@ -485,6 +485,7 @@ export async function upsertEmployeeFromExternal(data: {
       id: data.id,
       employeeNumber: data.employeeNumber,
       personnelId: data.personnelId,
+      dateOfJoining: new Date(),
       nickname: data.nickname,
       fullName: data.fullName,
       jobTitle: data.jobTitle,

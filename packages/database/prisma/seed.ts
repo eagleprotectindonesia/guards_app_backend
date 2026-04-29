@@ -196,6 +196,7 @@ async function main() {
       phone: '+62551234567',
       hashedPassword: hashedEmployeePassword,
       role: 'on_site',
+      dateOfJoining: new Date(),
     },
   });
   console.log('Created Employee 1:', employee1.id);
@@ -214,6 +215,7 @@ async function main() {
       phone: '+625551234568',
       hashedPassword: hashedEmployeePassword,
       role: 'office',
+      dateOfJoining: new Date(),
     },
   });
   console.log('Created Employee 2:', employee2.id);
