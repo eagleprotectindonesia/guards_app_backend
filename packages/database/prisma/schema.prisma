@@ -850,6 +850,16 @@ enum AttendanceStatus {
   clocked_out
 }
 
+enum OfficeAttendanceStatus {
+  present
+  absent
+  late
+  pending_verification
+  clocked_out
+  pending_leave
+  leave
+}
+
 model OfficeAttendance {
   id            String           @id @default(uuid())
   officeId      String?          @map("office_id")
@@ -857,7 +867,7 @@ model OfficeAttendance {
   employeeId    String           @map("employee_id")
   recordedAt    DateTime         @default(now()) @map("recorded_at") @db.Timestamptz(6)
   picture       String?
-  status        AttendanceStatus
+  status        OfficeAttendanceStatus
   metadata      Json?
   createdAt     DateTime         @default(now()) @map("created_at")
   updatedAt     DateTime         @updatedAt

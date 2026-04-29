@@ -1,6 +1,11 @@
 import { EmployeeRole, LeaveRequestReason, LeaveRequestStatus, Prisma } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { upsertEmployeeOfficeDayOverride } from './office-day-overrides';
+import {
+  ensureNoOfficeAttendanceConflictForLeaveRange,
+  resolveRejectedPendingLeaveStatuses,
+  upsertOfficeLeaveStatusesForDateKeys,
+} from './office-attendance';
 import { redis } from '../redis/client';
 import { createLeaveRequestCreatedAdminNotifications } from './admin-notifications';
 import { enqueueEmailEvent } from '../email-events';
@@ -195,6 +200,16 @@ export async function createEmployeeLeaveRequest(
   const targetTx = tx as TxLike;
   const startCycleKey = params.reason === 'sick' ? getSickCycleStart(startDate) : null;
   const requiresDocument = params.reason === 'special_miscarriage';
+  const employee = await targetTx.employee.findUnique({
+    where: { id: params.employeeId },
+    select: { id: true, role: true },
+  });
+  if (!employee) {
+    throw new Error('Employee not found');
+  }
+  if (employee.role === 'office') {
+    await ensureNoOfficeAttendanceConflictForLeaveRange(employee.id, params.startDate, params.endDate);
+  }
 
   const overlappingPendingRequest = await targetTx.employeeLeaveRequest.findFirst({
     where: {
@@ -234,6 +249,15 @@ export async function createEmployeeLeaveRequest(
       throw error;
     }
   })();
+
+  if (employee.role === 'office') {
+    await upsertOfficeLeaveStatusesForDateKeys({
+      employeeId: employee.id,
+      dateKeys: listDateKeysInclusive(params.startDate, params.endDate),
+      status: 'pending_leave',
+      note: `Pending leave request (${created.id})`,
+    });
+  }
 
   await targetTx.changelog.create({
     data: {
@@ -823,6 +847,7 @@ async function finalizeApprovedLeaveRequest(
   let affectedOnsiteShiftCount = 0;
 
   if (request.employee.role === 'office') {
+    await ensureNoOfficeAttendanceConflictForLeaveRange(request.employee.id, startDateKey, endDateKey);
     for (const dateKey of dateKeys) {
       await upsertEmployeeOfficeDayOverride(
         {
@@ -835,6 +860,12 @@ async function finalizeApprovedLeaveRequest(
         trx
       );
     }
+    await upsertOfficeLeaveStatusesForDateKeys({
+      employeeId: request.employee.id,
+      dateKeys,
+      status: 'leave',
+      note: `Approved leave request (${updated.id})`,
+    });
     affectedOfficeOverrideCount = dateKeys.length;
   }
 
@@ -1053,6 +1084,18 @@ export async function rejectEmployeeLeaveRequest(
       adminNote: params.adminNote ?? null,
     },
   });
+
+  const employee = await (tx as TxLike).employee.findUnique({
+    where: { id: updated.employeeId },
+    select: { id: true, role: true },
+  });
+  if (employee?.role === 'office') {
+    await resolveRejectedPendingLeaveStatuses({
+      employeeId: employee.id,
+      dateKeys: listDateKeysInclusive(dateToDateKey(updated.startDate), dateToDateKey(updated.endDate)),
+      now: new Date(),
+    });
+  }
 
   await tx.changelog.create({
     data: {

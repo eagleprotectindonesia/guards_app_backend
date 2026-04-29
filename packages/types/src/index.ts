@@ -9,6 +9,14 @@ export type ActionState<T = Record<string, unknown>> = {
 export type ShiftStatus = 'scheduled' | 'in_progress' | 'completed' | 'missed' | 'cancelled';
 export type CheckInStatus = 'on_time' | 'late' | 'invalid';
 export type AttendanceStatus = 'present' | 'absent' | 'late' | 'pending_verification' | 'clocked_out';
+export type OfficeAttendanceStatus =
+  | 'present'
+  | 'absent'
+  | 'late'
+  | 'pending_verification'
+  | 'clocked_out'
+  | 'pending_leave'
+  | 'leave';
 export type LeaveRequestStatus = 'pending' | 'pending_hr' | 'pending_manager' | 'approved' | 'rejected' | 'cancelled';
 export type LeaveRequestReason =
   | 'sick'
@@ -171,7 +179,7 @@ export interface OfficeAttendance {
   employeeId: string;
   recordedAt: string | Date;
   picture?: string | null;
-  status: AttendanceStatus;
+  status: OfficeAttendanceStatus;
   metadata?: any;
   office?: Office | null;
   employee?: Employee | null;
@@ -196,7 +204,10 @@ export type OfficeAttendanceWindowStatus =
   | 'available'
   | 'missed'
   | 'clocked_in'
-  | 'completed';
+  | 'completed'
+  | 'pending_leave'
+  | 'leave'
+  | 'absent';
 
 export interface OfficeAttendanceState {
   status: OfficeAttendanceWindowStatus;

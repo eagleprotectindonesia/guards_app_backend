@@ -106,6 +106,16 @@ export async function POST(req: Request) {
       );
     }
 
+    if (latestAttendance?.status === 'pending_leave' || latestAttendance?.status === 'leave') {
+      return NextResponse.json(
+        {
+          code: 'office_attendance_leave_blocked',
+          error: 'Attendance is blocked because this date is marked as leave.',
+        },
+        { status: 400 }
+      );
+    }
+
     if (requestedStatus === 'present' && requirePhotoForClockIn && !body.picture) {
       return NextResponse.json(
         {

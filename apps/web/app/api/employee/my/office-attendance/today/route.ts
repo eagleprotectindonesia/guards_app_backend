@@ -37,6 +37,39 @@ function getOfficeAttendanceState(params: {
     };
   }
 
+  if (effectiveLatestAttendance?.status === 'leave') {
+    return {
+      status: 'leave',
+      canClockIn: false,
+      canClockOut: false,
+      windowClosed: true,
+      messageCode: 'leave_marked',
+      latestAttendance: effectiveLatestAttendance,
+    };
+  }
+
+  if (effectiveLatestAttendance?.status === 'pending_leave') {
+    return {
+      status: 'pending_leave',
+      canClockIn: false,
+      canClockOut: false,
+      windowClosed: true,
+      messageCode: 'pending_leave_marked',
+      latestAttendance: effectiveLatestAttendance,
+    };
+  }
+
+  if (effectiveLatestAttendance?.status === 'absent') {
+    return {
+      status: 'absent',
+      canClockIn: false,
+      canClockOut: false,
+      windowClosed: true,
+      messageCode: 'absent_marked',
+      latestAttendance: effectiveLatestAttendance,
+    };
+  }
+
   if (effectiveLatestAttendance?.status === 'clocked_out') {
     return {
       status: 'completed',

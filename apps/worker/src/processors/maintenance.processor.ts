@@ -1,6 +1,7 @@
 import { Job } from 'bullmq';
 import { DATA_CLEAN_JOB_NAME } from '@repo/database';
 import { db as prisma } from '@repo/database';
+import { finalizeOfficeDailyAbsences } from '@repo/database';
 import { ChatMessageStatus } from '@prisma/client';
 
 export class MaintenanceProcessor {
@@ -27,6 +28,11 @@ export class MaintenanceProcessor {
 
       if (result.count > 0) {
         console.log(`[MaintenanceProcessor] Expired ${result.count} stale chat drafts.`);
+      }
+
+      const absenceResult = await finalizeOfficeDailyAbsences(new Date());
+      if (absenceResult.created > 0) {
+        console.log(`[MaintenanceProcessor] Auto-finalized ${absenceResult.created} office absences.`);
       }
     } catch (error) {
       console.error(`[MaintenanceProcessor] Data clean error:`, error);
