@@ -17,7 +17,6 @@ This document is the source of truth for employee leave-request backend behavior
 Out of scope in v1:
 
 - Partial-day leave.
-- Multi-step approval chains.
 
 ## Data Model
 
@@ -25,6 +24,8 @@ Out of scope in v1:
 
 - `LeaveRequestStatus`
   - `pending`
+  - `pending_hr`
+  - `pending_manager`
   - `approved`
   - `rejected`
   - `cancelled`
@@ -155,6 +156,9 @@ Usage:
   - `pending -> approved`
   - `pending -> rejected`
   - `pending -> cancelled` (employee action)
+  - Annual dual approval:
+    - manager-first flow: `pending -> pending_hr -> approved`
+    - hr-first flow: `pending -> pending_manager -> approved`
 - Any non-pending request cannot be approved/rejected/cancelled.
 
 ## Approval Side Effects
@@ -196,6 +200,13 @@ For each approved date key in `[startDate..endDate]`:
 - Create/update actions are logged to `Changelog` with entity type `EmployeeLeaveRequest`.
 - Approval changelog includes effect counts (office overrides, on-site shifts cancelled).
 
+## Admin Notifications (New Request Created)
+
+- Notification type: `leave_request_created`.
+- Base recipients: all matching admins from leave ownership scope (`leave` domain). If no ownership match exists, fallback admins with `includeFallbackLeaveQueue = true` are used.
+- Additional recipients for annual leave only: admins whose role policy has `leaveRequests.annualApprover = 'hr'`.
+- Final recipient list is deduplicated by `adminId`.
+
 ## Files Implemented
 
 - `packages/database/prisma/schema.prisma`
@@ -222,9 +233,8 @@ For each approved date key in `[startDate..endDate]`:
 
 ## Future Task Backlog
 
-1. Add notifications:
+1. Add employee-facing notifications:
    - notify employee when approved/rejected.
-   - notify approvers when new request is created.
 2. Add assignment analytics dashboard:
    - unmatched employee count
    - ownership coverage per department/office
@@ -236,6 +246,12 @@ For each approved date key in `[startDate..endDate]`:
 4. Add reporting/export endpoint for leave analytics.
 5. Add leave type taxonomy (`annual`, `sick`, etc.) if business requires.
 6. Add idempotency keys for approval/rejection action safety under retries.
+
+## Operational Role-Policy Backfill
+
+- Existing environments should ensure HR roles use `leaveRequests.annualApprover = 'hr'` so annual leave notifications include HR recipients.
+- Use the backfill script:
+  - `pnpm tsx packages/database/prisma/backfill-hr-annual-approver.ts`
 
 ## Operational Notes
 

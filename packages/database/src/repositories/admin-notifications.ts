@@ -141,6 +141,8 @@ export async function createLeaveRequestCreatedAdminNotifications(
       },
     }),
     resolveAdminRecipientsForLeaveRequestCreated(input.employeeId, targetTx),
+    // HR approvers are notified only for annual leave requests because annual leave
+    // uses the dual-approval flow (manager + HR).
     input.reason === 'annual' ? getHrAnnualApproverAdminIds(targetTx) : Promise.resolve<string[]>([]),
   ]);
 
