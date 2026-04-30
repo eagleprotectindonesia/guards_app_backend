@@ -12,6 +12,7 @@ import { enqueueEmailEvent } from '../email-events';
 import { getSystemSetting } from './settings';
 import { resolveHolidayPolicyForEmployeeDate } from './holiday-calendar-entries';
 import { listEmployeeOnsiteDayOffDateKeysInRange } from './onsite-day-offs';
+import { listEmployeeOfficeDayOverridesForDates } from './office-day-overrides';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 export const OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR = 'Overlapping pending leave request already exists';
@@ -138,6 +139,14 @@ async function listWorkingDateKeysInclusiveForEmployee(
     employee.role === 'on_site'
       ? new Set(await listEmployeeOnsiteDayOffDateKeysInRange(employee.id, startDateKey, endDateKey, tx))
       : new Set<string>();
+  const officeOverridesByDate =
+    employee.role === 'office'
+      ? new Map(
+          (
+            await listEmployeeOfficeDayOverridesForDates(employee.id, dateKeys, tx)
+          ).map(override => [override.date.toISOString().slice(0, 10), override.overrideType] as const)
+        )
+      : new Map<string, 'off' | 'shift_override'>();
   const scheduleByDate = await Promise.all(
     dateKeys.map(async dateKey => {
       const at = dateKeyToDate(dateKey);
@@ -149,9 +158,14 @@ async function listWorkingDateKeysInclusiveForEmployee(
         (holidayPolicy.entry.type === 'holiday' || holidayPolicy.entry.type === 'week_off') &&
         !holidayPolicy.marksAsWorkingDay;
       const isOnsiteOff = employee.role === 'on_site' && onsiteOffDateKeys.has(dateKey);
+      const officeOverrideType = employee.role === 'office' ? officeOverridesByDate.get(dateKey) : null;
+      const isOfficeOff = officeOverrideType === 'off';
+      const isOfficeShiftOverride = officeOverrideType === 'shift_override';
+      const isWorkingDayByRole =
+        employee.role === 'office' ? (isOfficeShiftOverride ? true : isWeekday && !isOfficeOff) : isWeekday && !isOnsiteOff;
       return {
         dateKey,
-        isWorkingDay: isWeekday && !isHolidayOff && !isOnsiteOff,
+        isWorkingDay: isWorkingDayByRole && !isHolidayOff,
       };
     })
   );
@@ -1022,7 +1036,7 @@ export async function approveEmployeeLeaveRequest(params: {
       tx: trx,
     });
 
-    if (!requiresHrApproval || approvalMode === 'superadmin') {
+    if (!requiresHrApproval) {
       return finalizeApprovedLeaveRequest(
         {
           request,

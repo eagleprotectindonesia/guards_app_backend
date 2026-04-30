@@ -90,7 +90,12 @@ Usage:
 - Admin leave-requests page data loading requires `leave-requests:view`.
 - Admin approve/reject server actions require `leave-requests:edit`.
 - Super admin bypasses ownership and role-scope filters.
+- Super admin review staging follows manager path (does not bypass HR-required dual approval).
 - Leave visibility/edit is constrained by ownership resolver using ownership domain `leave` (details in `docs/ADMIN_OWNERSHIP_LEAVE_REQUESTS.md`).
+- HR/non-HR review split:
+  - HR approver can approve/reject globally only for requests that require HR approval.
+  - HR approver is blocked from approving/rejecting non-HR-required requests, even if ownership matches.
+  - Non-HR-required requests must be reviewed through manager ownership scope.
 
 ## API Contracts
 
@@ -159,9 +164,14 @@ Usage:
   - Dual approval (manager + HR) only when:
     - `reason` is included in system setting `LEAVE_REASONS_REQUIRE_HR_APPROVAL`, and
     - leave duration is more than 1 calendar day (inclusive range length > 1).
-  - Dual approval transitions:
-    - manager-first flow: `pending -> pending_hr -> approved`
-    - hr-first flow: `pending -> pending_manager -> approved`
+- Dual approval transitions:
+  - manager-first flow: `pending -> pending_hr -> approved`
+  - hr-first flow: `pending -> pending_manager -> approved`
+- Authorization guardrails for review actions:
+  - Super admin keeps global visibility/action access, but approval mode is treated as manager.
+  - If request requires HR and actor is HR approver: allow without ownership match.
+  - If request does not require HR and actor is HR approver: deny action (`Non-HR leave must be reviewed by manager ownership`).
+  - Otherwise: ownership/fallback visibility check is required before approve/reject.
 - Any non-pending request cannot be approved/rejected/cancelled.
 
 ## Approval Side Effects

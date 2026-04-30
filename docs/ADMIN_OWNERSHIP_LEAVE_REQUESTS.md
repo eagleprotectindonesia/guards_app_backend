@@ -87,6 +87,7 @@ If no assignment matches an employee:
 - in `leave` domain: employee is visible only to admins with `includeFallbackLeaveQueue = true`
 - in `employees` domain: unmatched employees are hidden for non-super-admins
 - super admin can always view and act regardless of ownership/fallback
+- super admin review actions use manager-stage approval semantics for HR-required leave (no HR-stage bypass)
 
 ## Enforcement Surface
 
@@ -100,6 +101,11 @@ Ownership is enforced in:
   - admin employee export query
 
 For approve/reject, ownership is checked before mutation and non-owned requests return not found.
+
+HR exception for leave review:
+- For leave requests that require HR approval, HR approvers can approve/reject without ownership match.
+- For leave requests that do not require HR approval, HR approvers are explicitly blocked from approve/reject even if they have matching ownership.
+- This keeps HR approval capability separate from manager ownership review capability.
 
 ## Admin Management UX
 

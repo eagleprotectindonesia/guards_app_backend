@@ -73,6 +73,78 @@ describe('admin leave request server actions', () => {
     });
   });
 
+  test('allows HR approver to approve HR-required leave without ownership', async () => {
+    (requirePermission as jest.Mock).mockResolvedValueOnce({
+      id: 'admin-hr',
+      isSuperAdmin: false,
+      permissions: ['leave-requests:edit'],
+      rolePolicy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+        leaveRequests: { annualApprover: 'hr' },
+      },
+    });
+    (resolveLeaveRequestAccessContext as jest.Mock).mockResolvedValueOnce({
+      isEmployeeVisible: () => false,
+    });
+    (isHrApprovalRequiredForLeaveRequest as jest.Mock).mockResolvedValueOnce(true);
+
+    const result = await approveLeaveRequestAction('leave-1', 'hr approved');
+
+    expect(result).toEqual({ success: true });
+    expect(approveEmployeeLeaveRequest).toHaveBeenCalledWith({
+      requestId: 'leave-1',
+      adminId: 'admin-hr',
+      adminNote: 'hr approved',
+      approvalMode: 'hr',
+    });
+  });
+
+  test('blocks HR approver from approving non-HR-required leave', async () => {
+    (requirePermission as jest.Mock).mockResolvedValueOnce({
+      id: 'admin-hr',
+      isSuperAdmin: false,
+      permissions: ['leave-requests:edit'],
+      rolePolicy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+        leaveRequests: { annualApprover: 'hr' },
+      },
+    });
+    (isHrApprovalRequiredForLeaveRequest as jest.Mock).mockResolvedValueOnce(false);
+
+    const result = await approveLeaveRequestAction('leave-1', 'hr attempt');
+
+    expect(result).toEqual({
+      success: false,
+      message: 'Non-HR leave must be reviewed by manager ownership',
+    });
+    expect(approveEmployeeLeaveRequest).not.toHaveBeenCalled();
+  });
+
+  test('superadmin uses manager approval mode', async () => {
+    (requirePermission as jest.Mock).mockResolvedValueOnce({
+      id: 'super-admin-1',
+      isSuperAdmin: true,
+      permissions: ['leave-requests:edit'],
+      rolePolicy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+        leaveRequests: { annualApprover: 'manager' },
+      },
+    });
+
+    const result = await approveLeaveRequestAction('leave-1', 'superadmin approves');
+
+    expect(result).toEqual({ success: true });
+    expect(approveEmployeeLeaveRequest).toHaveBeenCalledWith({
+      requestId: 'leave-1',
+      adminId: 'super-admin-1',
+      adminNote: 'superadmin approves',
+      approvalMode: 'manager',
+    });
+  });
+
   test('returns domain policy error from approval', async () => {
     (approveEmployeeLeaveRequest as jest.Mock).mockRejectedValueOnce(new Error('Insufficient annual leave balance'));
 
@@ -110,5 +182,27 @@ describe('admin leave request server actions', () => {
       adminId: 'admin-1',
       adminNote: 'not eligible',
     });
+  });
+
+  test('blocks HR approver from rejecting non-HR-required leave', async () => {
+    (requirePermission as jest.Mock).mockResolvedValueOnce({
+      id: 'admin-hr',
+      isSuperAdmin: false,
+      permissions: ['leave-requests:edit'],
+      rolePolicy: {
+        employees: { scope: 'all' },
+        attendance: { scope: 'all' },
+        leaveRequests: { annualApprover: 'hr' },
+      },
+    });
+    (isHrApprovalRequiredForLeaveRequest as jest.Mock).mockResolvedValueOnce(false);
+
+    const result = await rejectLeaveRequestAction('leave-1', 'hr reject attempt');
+
+    expect(result).toEqual({
+      success: false,
+      message: 'Non-HR leave must be reviewed by manager ownership',
+    });
+    expect(rejectEmployeeLeaveRequest).not.toHaveBeenCalled();
   });
 });

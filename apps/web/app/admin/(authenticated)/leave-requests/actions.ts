@@ -27,7 +27,7 @@ async function assertOwnedLeaveRequestOrThrow(requestId: string) {
   }
 
   if (session.isSuperAdmin) {
-    return { session, leaveRequest, approvalMode: 'superadmin' as const };
+    return { session, leaveRequest, approvalMode: 'manager' as const };
   }
 
   const requiresHrApproval = await isHrApprovalRequiredForLeaveRequest({
@@ -38,6 +38,10 @@ async function assertOwnedLeaveRequestOrThrow(requestId: string) {
 
   if (requiresHrApproval && isHrApprover) {
     return { session, leaveRequest, approvalMode: 'hr' as const };
+  }
+
+  if (!requiresHrApproval && isHrApprover) {
+    throw new Error('Non-HR leave must be reviewed by manager ownership');
   }
 
   const accessContext = await resolveLeaveRequestAccessContext(session);
