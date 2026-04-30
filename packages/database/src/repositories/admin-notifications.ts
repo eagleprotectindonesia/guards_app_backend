@@ -1,6 +1,7 @@
-import { AdminNotificationType, Prisma } from '@prisma/client';
+import { AdminNotificationType, LeaveRequestReason, Prisma } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { getAllActiveAdminOwnershipAssignments, getMatchingAdminIdsForEmployeeScope } from './admin-ownership';
+import { isHrApprovalRequiredForLeaveRequest } from './leave-requests';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 
@@ -126,7 +127,7 @@ export async function createLeaveRequestCreatedAdminNotifications(
     employeeId: string;
     startDate: Date;
     endDate: Date;
-    reason: string;
+    reason: LeaveRequestReason;
   },
   tx: TxLike = prisma
 ) {
@@ -141,9 +142,15 @@ export async function createLeaveRequestCreatedAdminNotifications(
       },
     }),
     resolveAdminRecipientsForLeaveRequestCreated(input.employeeId, targetTx),
-    // HR approvers are notified only for annual leave requests because annual leave
-    // uses the dual-approval flow (manager + HR).
-    input.reason === 'annual' ? getHrAnnualApproverAdminIds(targetTx) : Promise.resolve<string[]>([]),
+    (async () => {
+      const requiresHrApproval = await isHrApprovalRequiredForLeaveRequest({
+        reason: input.reason,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        tx: targetTx,
+      });
+      return requiresHrApproval ? getHrAnnualApproverAdminIds(targetTx) : [];
+    })(),
   ]);
 
   const finalRecipients = Array.from(new Set([...recipientAdminIds, ...hrAdminIds]));

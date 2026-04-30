@@ -2,6 +2,7 @@ import { approveLeaveRequestAction, rejectLeaveRequestAction } from '../app/admi
 import {
   approveEmployeeLeaveRequest,
   getEmployeeLeaveRequestByIdForAdmin,
+  isHrApprovalRequiredForLeaveRequest,
   rejectEmployeeLeaveRequest,
 } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
@@ -11,6 +12,7 @@ jest.mock('@repo/database', () => ({
   approveEmployeeLeaveRequest: jest.fn(),
   rejectEmployeeLeaveRequest: jest.fn(),
   getEmployeeLeaveRequestByIdForAdmin: jest.fn(),
+  isHrApprovalRequiredForLeaveRequest: jest.fn(),
 }));
 
 jest.mock('@/lib/admin-auth', () => ({
@@ -46,6 +48,9 @@ describe('admin leave request server actions', () => {
 
     (getEmployeeLeaveRequestByIdForAdmin as jest.Mock).mockResolvedValue({
       id: 'leave-1',
+      reason: 'annual',
+      startDate: new Date('2026-04-10T00:00:00Z'),
+      endDate: new Date('2026-04-12T00:00:00Z'),
       employee: {
         id: 'employee-1',
         role: 'office',
@@ -53,6 +58,7 @@ describe('admin leave request server actions', () => {
         officeId: 'office-1',
       },
     });
+    (isHrApprovalRequiredForLeaveRequest as jest.Mock).mockResolvedValue(true);
   });
 
   test('approves leave request when owned', async () => {

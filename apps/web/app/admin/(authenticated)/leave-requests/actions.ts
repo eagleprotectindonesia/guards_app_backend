@@ -1,6 +1,11 @@
 'use server';
 
-import { approveEmployeeLeaveRequest, getEmployeeLeaveRequestByIdForAdmin, rejectEmployeeLeaveRequest } from '@repo/database';
+import {
+  approveEmployeeLeaveRequest,
+  getEmployeeLeaveRequestByIdForAdmin,
+  isHrApprovalRequiredForLeaveRequest,
+  rejectEmployeeLeaveRequest,
+} from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { resolveLeaveRequestAccessContext } from '@/lib/auth/leave-ownership';
@@ -25,7 +30,13 @@ async function assertOwnedLeaveRequestOrThrow(requestId: string) {
     return { session, leaveRequest, approvalMode: 'superadmin' as const };
   }
 
-  if (leaveRequest.reason === 'annual' && isHrApprover) {
+  const requiresHrApproval = await isHrApprovalRequiredForLeaveRequest({
+    reason: leaveRequest.reason,
+    startDate: leaveRequest.startDate,
+    endDate: leaveRequest.endDate,
+  });
+
+  if (requiresHrApproval && isHrApprover) {
     return { session, leaveRequest, approvalMode: 'hr' as const };
   }
 

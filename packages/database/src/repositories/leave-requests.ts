@@ -9,11 +9,13 @@ import {
 import { redis } from '../redis/client';
 import { createLeaveRequestCreatedAdminNotifications } from './admin-notifications';
 import { enqueueEmailEvent } from '../email-events';
+import { getSystemSetting } from './settings';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 export const OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR = 'Overlapping pending leave request already exists';
 export const FIXED_LEAVE_DURATION_ERROR = 'Selected leave type requires an exact policy duration';
 export const ANNUAL_LEAVE_INSUFFICIENT_ERROR = 'Insufficient annual leave balance';
+export const LEAVE_REASONS_REQUIRE_HR_APPROVAL_SETTING = 'LEAVE_REASONS_REQUIRE_HR_APPROVAL';
 type AdminLeaveRequestSortField = 'startDate' | 'status' | 'createdAt';
 const IN_PROGRESS_PENDING_STATUSES: LeaveRequestStatus[] = ['pending', 'pending_hr', 'pending_manager'];
 type AdminLeaveRequestFilterParams = {
@@ -147,6 +149,38 @@ function groupWorkingDateKeysBySickCycle(dateKeys: string[]) {
 
 function countCalendarDaysInclusive(startDateKey: string, endDateKey: string) {
   return listDateKeysInclusive(startDateKey, endDateKey).length;
+}
+
+function parseHrApprovalReasons(rawValue: string | null | undefined) {
+  if (!rawValue) return new Set<LeaveRequestReason>();
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) return new Set<LeaveRequestReason>();
+    const validReasons = new Set(Object.values(LeaveRequestReason));
+    return new Set(
+      parsed.filter((reason): reason is LeaveRequestReason => typeof reason === 'string' && validReasons.has(reason as LeaveRequestReason))
+    );
+  } catch {
+    return new Set<LeaveRequestReason>();
+  }
+}
+
+async function getHrApprovalReasons(tx: TxLike = prisma) {
+  const setting = await getSystemSetting(LEAVE_REASONS_REQUIRE_HR_APPROVAL_SETTING);
+  return parseHrApprovalReasons(setting?.value);
+}
+
+export async function isHrApprovalRequiredForLeaveRequest(params: {
+  reason: LeaveRequestReason;
+  startDate: Date;
+  endDate: Date;
+  tx?: TxLike;
+}) {
+  const hrReasons = await getHrApprovalReasons(params.tx);
+  const startDateKey = dateToDateKey(params.startDate);
+  const endDateKey = dateToDateKey(params.endDate);
+  const durationDays = countCalendarDaysInclusive(startDateKey, endDateKey);
+  return hrReasons.has(params.reason) && durationDays > 1;
 }
 
 function normalizeDateRange(startDateKey: string, endDateKey: string) {
@@ -949,7 +983,14 @@ export async function approveEmployeeLeaveRequest(params: {
       throw new Error('Only pending leave requests can be approved');
     }
 
-    if (request.reason !== 'annual' || approvalMode === 'superadmin') {
+    const requiresHrApproval = await isHrApprovalRequiredForLeaveRequest({
+      reason: request.reason,
+      startDate: request.startDate,
+      endDate: request.endDate,
+      tx: trx,
+    });
+
+    if (!requiresHrApproval || approvalMode === 'superadmin') {
       return finalizeApprovedLeaveRequest(
         {
           request,

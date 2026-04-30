@@ -4,6 +4,7 @@ import {
 } from './admin-notifications';
 import { db as prisma } from '../prisma/client';
 import { getAllActiveAdminOwnershipAssignments } from './admin-ownership';
+import { isHrApprovalRequiredForLeaveRequest } from './leave-requests';
 
 jest.mock('../prisma/client', () => ({
   db: {
@@ -24,9 +25,14 @@ jest.mock('./admin-ownership', () => ({
   getMatchingAdminIdsForEmployeeScope: jest.requireActual('./admin-ownership').getMatchingAdminIdsForEmployeeScope,
 }));
 
+jest.mock('./leave-requests', () => ({
+  isHrApprovalRequiredForLeaveRequest: jest.fn(),
+}));
+
 describe('admin-notifications recipient resolution', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    (isHrApprovalRequiredForLeaveRequest as jest.Mock).mockResolvedValue(false);
   });
 
   test('returns all matching admins for leave ownership', async () => {
@@ -135,6 +141,7 @@ describe('admin-notifications recipient resolution', () => {
   });
 
   test('annual leave includes ownership recipients plus HR annual approvers', async () => {
+    (isHrApprovalRequiredForLeaveRequest as jest.Mock).mockResolvedValue(true);
     (prisma.employee.findUnique as jest.Mock)
       .mockResolvedValueOnce({
         fullName: 'Employee One',
@@ -186,6 +193,7 @@ describe('admin-notifications recipient resolution', () => {
   });
 
   test('non-annual leave does not include HR annual approvers', async () => {
+    (isHrApprovalRequiredForLeaveRequest as jest.Mock).mockResolvedValue(false);
     (prisma.employee.findUnique as jest.Mock)
       .mockResolvedValueOnce({
         fullName: 'Employee One',
