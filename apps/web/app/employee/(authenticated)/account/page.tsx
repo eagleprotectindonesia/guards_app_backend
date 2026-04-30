@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { PasswordChangeForm } from '@/app/employee/components/password-change/password-change-form';
-import { LogOut, Key, ChevronRight } from 'lucide-react';
-import { useProfile, useLogout, useChangePassword } from '../hooks/use-employee-queries';
+import { LogOut, Key, ChevronRight, Calendar, Bell } from 'lucide-react';
+import { useProfile, useLogout, useChangePassword, useAnnouncements } from '../hooks/use-employee-queries';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 
@@ -15,6 +16,7 @@ export default function AccountPage() {
   const { t } = useTranslation();
   const router = useRouter();
   const { data: employeeDetails } = useProfile();
+  const { unreadCount: unreadAnnouncementCount } = useAnnouncements();
   const logoutMutation = useLogout();
   const changePasswordMutation = useChangePassword();
   const [showPasswordChange, setShowPasswordChange] = useState(false);
@@ -77,6 +79,20 @@ export default function AccountPage() {
           <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest ml-2">{t('account.settings')}</p>
 
           <div className="bg-[#1e1e1e]/40 border border-white/10 rounded-[2rem] p-2 space-y-2 overflow-hidden backdrop-blur-md">
+            {/* Leave Requests */}
+            <Link
+              href="/employee/leave-requests"
+              className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors active:scale-[0.98]"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
+                  <Calendar size={20} className="text-emerald-500" />
+                </div>
+                <span className="text-sm font-semibold text-neutral-200">{t('leave.title', 'Leave Requests')}</span>
+              </div>
+              <ChevronRight size={16} className="text-gray-600" />
+            </Link>
+
             {/* Change Password */}
             <button
               onClick={() => setShowPasswordChange(true)}
@@ -90,6 +106,27 @@ export default function AccountPage() {
               </div>
               <ChevronRight size={16} className="text-gray-600" />
             </button>
+
+            {/* Announcements */}
+            <Link
+              href="/employee/announcements"
+              className="w-full flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors active:scale-[0.98]"
+            >
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center border border-orange-500/20">
+                  <Bell size={20} className="text-orange-500" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-semibold text-neutral-200">{t('announcements.title', 'Announcements')}</span>
+                  {unreadAnnouncementCount > 0 && (
+                    <span className="text-[10px] font-bold text-orange-500 uppercase tracking-wider">
+                      {t('announcements.newCount', '{{count}} new', { count: unreadAnnouncementCount })}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <ChevronRight size={16} className="text-gray-600" />
+            </Link>
           </div>
         </div>
 

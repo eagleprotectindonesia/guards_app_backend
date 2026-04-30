@@ -2,8 +2,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEmployeeApi } from './use-employee-api';
 import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { CheckInWindowResult } from '@/lib/scheduling';
-import type { OfficeAttendance, OfficeAttendanceState } from '@repo/types';
+import type { OfficeAttendance, OfficeAttendanceState, EmployeeLeaveRequest, LeaveRequestReason } from '@repo/types';
 import type { EmployeeAttendanceCheckinErrorPayload } from '@repo/shared';
+import { useCallback, useMemo } from 'react';
 
 export type ShiftWithCheckInWindow = ShiftWithRelationsDto & { checkInWindow?: CheckInWindowResult };
 
@@ -22,6 +23,17 @@ type OfficeAttendanceScheduleContext = {
   businessDay?: {
     dateKey?: string;
   } | null;
+};
+
+export type EmployeeAnnouncement = {
+  id: string;
+  kind: 'holiday' | 'office_memo';
+  title: string;
+  message: string | null;
+  startsAt: string;
+  endsAt: string;
+  createdAt: string;
+  meta: Record<string, unknown>;
 };
 
 const parseShiftDates = (shift: ShiftWithCheckInWindow) => {
@@ -249,4 +261,139 @@ export function useChangePassword() {
       return result;
     },
   });
+}
+
+export function useMyLeaveRequests() {
+  const { fetchWithAuth } = useEmployeeApi();
+
+  return useQuery({
+    queryKey: ['employee', 'leave-requests'],
+    queryFn: async () => {
+      const res = await fetchWithAuth('/api/employee/my/leave-requests');
+      if (!res.ok) throw new Error('Failed to fetch leave requests');
+      const data = await res.json();
+      return data as {
+        leaveRequests: EmployeeLeaveRequest[];
+        annualLeaveBalance: {
+          year: number;
+          entitledDays: number;
+          consumedDays: number;
+          availableDays: number;
+        } | null;
+      };
+    },
+  });
+}
+
+export function useCreateLeaveRequest() {
+  const { fetchWithAuth } = useEmployeeApi();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      startDate: string;
+      endDate: string;
+      reason: LeaveRequestReason;
+      employeeNote?: string;
+      attachments?: string[];
+    }) => {
+      const res = await fetchWithAuth('/api/employee/my/leave-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw error;
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee', 'leave-requests'] });
+    },
+  });
+}
+
+export function useCancelLeaveRequest() {
+  const { fetchWithAuth } = useEmployeeApi();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetchWithAuth(`/api/employee/my/leave-requests/${id}/cancel`, {
+        method: 'POST',
+      });
+      if (!res.ok) throw new Error('Failed to cancel leave request');
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['employee', 'leave-requests'] });
+    },
+  });
+}
+
+export function useAnnouncements() {
+  const { fetchWithAuth } = useEmployeeApi();
+  const { data: profile } = useProfile();
+  const queryClient = useQueryClient();
+
+  const userId = profile?.id;
+
+  const { data, isLoading, refetch, isRefetching } = useQuery({
+    queryKey: ['employee', 'announcements'],
+    queryFn: async () => {
+      const res = await fetchWithAuth('/api/employee/my/announcements');
+      if (!res.ok) throw new Error('Failed to fetch announcements');
+      const data = await res.json();
+      return data as { announcements: EmployeeAnnouncement[] };
+    },
+    refetchInterval: 60000,
+  });
+
+  const announcements = useMemo(() => data?.announcements ?? [], [data?.announcements]);
+  const seenQueryKey = useMemo(() => ['employee', 'announcements', 'seen', userId], [userId]);
+
+  const { data: seenIds = [] } = useQuery<string[]>({
+    queryKey: seenQueryKey,
+    enabled: Boolean(userId),
+    queryFn: () => {
+      if (typeof window === 'undefined' || !userId) return [];
+      const raw = localStorage.getItem(`announcements_seen_v1:${userId}`);
+      try {
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    },
+    staleTime: Infinity,
+  });
+
+  const unreadCount = useMemo(() => {
+    if (announcements.length === 0) return 0;
+    const seenIdSet = new Set(seenIds);
+    return announcements.reduce((count, item) => count + (seenIdSet.has(item.id) ? 0 : 1), 0);
+  }, [announcements, seenIds]);
+
+  const markCurrentAsSeen = useCallback(() => {
+    if (typeof window === 'undefined' || !userId || announcements.length === 0) return;
+
+    const currentIds = announcements.map(item => item.id);
+    const merged = Array.from(new Set([...seenIds, ...currentIds]));
+    
+    if (merged.length === seenIds.length) return;
+
+    localStorage.setItem(`announcements_seen_v1:${userId}`, JSON.stringify(merged));
+    queryClient.setQueryData(seenQueryKey, merged);
+  }, [announcements, queryClient, seenIds, seenQueryKey, userId]);
+
+  return {
+    announcements,
+    unreadCount,
+    isLoading,
+    refetch,
+    isRefetching,
+    markCurrentAsSeen,
+  };
 }
