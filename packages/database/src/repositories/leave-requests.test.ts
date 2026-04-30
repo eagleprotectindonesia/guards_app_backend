@@ -18,6 +18,9 @@ jest.mock('../prisma/client', () => ({
       findMany: jest.fn(),
       count: jest.fn(),
     },
+    employee: {
+      findUnique: jest.fn(),
+    },
     changelog: {
       create: jest.fn(),
     },
@@ -107,6 +110,7 @@ describe('leave-requests repository admin queries', () => {
   });
 
   test('createEmployeeLeaveRequest rejects overlapping pending request', async () => {
+    (prisma.employee.findUnique as jest.Mock).mockResolvedValue({ id: 'employee-1', role: 'on_site' });
     (prisma.employeeLeaveRequest.findFirst as jest.Mock).mockResolvedValue({ id: 'leave-existing' });
 
     await expect(
@@ -123,6 +127,7 @@ describe('leave-requests repository admin queries', () => {
   });
 
   test('createEmployeeLeaveRequest allows overlap when existing status is not pending', async () => {
+    (prisma.employee.findUnique as jest.Mock).mockResolvedValue({ id: 'employee-1', role: 'on_site' });
     (prisma.employeeLeaveRequest.findFirst as jest.Mock).mockResolvedValue(null);
     (prisma.employeeLeaveRequest.create as jest.Mock).mockResolvedValue({
       id: 'leave-created',
@@ -165,6 +170,7 @@ describe('leave-requests repository admin queries', () => {
   });
 
   test('createEmployeeLeaveRequest maps exclusion-constraint conflict to overlap error', async () => {
+    (prisma.employee.findUnique as jest.Mock).mockResolvedValue({ id: 'employee-1', role: 'on_site' });
     (prisma.employeeLeaveRequest.findFirst as jest.Mock).mockResolvedValue(null);
 
     const conflict = new Prisma.PrismaClientKnownRequestError('Constraint failed', {

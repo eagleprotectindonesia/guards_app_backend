@@ -148,6 +148,8 @@ model Admin {
   updatedOfficeShifts                          OfficeShift[]                          @relation("OfficeShiftLastUpdatedBy")
   createdEmployeeOfficeDayOverrides            EmployeeOfficeDayOverride[]            @relation("EmployeeOfficeDayOverrideCreatedBy")
   updatedEmployeeOfficeDayOverrides            EmployeeOfficeDayOverride[]            @relation("EmployeeOfficeDayOverrideLastUpdatedBy")
+  createdEmployeeOnsiteDayOffs                 EmployeeOnsiteDayOff[]                 @relation("EmployeeOnsiteDayOffCreatedBy")
+  updatedEmployeeOnsiteDayOffs                 EmployeeOnsiteDayOff[]                 @relation("EmployeeOnsiteDayOffLastUpdatedBy")
   createdHolidayCalendarEntries                HolidayCalendarEntry[]                 @relation("HolidayCalendarEntryCreatedBy")
   updatedHolidayCalendarEntries                HolidayCalendarEntry[]                 @relation("HolidayCalendarEntryLastUpdatedBy")
   createdOfficeMemos                           OfficeMemo[]                           @relation("OfficeMemoCreatedBy")
@@ -327,6 +329,7 @@ model Employee {
   office                        Office?                                @relation(fields: [officeId], references: [id])
   officeShifts                  OfficeShift[]
   officeDayOverrides            EmployeeOfficeDayOverride[]
+  onsiteDayOffs                EmployeeOnsiteDayOff[]
   officeWorkScheduleAssignments EmployeeOfficeWorkScheduleAssignment[]
   officeAttendances             OfficeAttendance[]
   chatMessages                  ChatMessage[]
@@ -647,6 +650,25 @@ model EmployeeOfficeDayOverride {
   @@unique([employeeId, date])
   @@index([employeeId, date])
   @@map("employee_office_day_overrides")
+}
+
+model EmployeeOnsiteDayOff {
+  id              String   @id @default(uuid())
+  employeeId      String   @map("employee_id")
+  date            DateTime @db.Date
+  note            String?  @db.Text
+  createdById     String?  @map("created_by_id")
+  lastUpdatedById String?  @map("last_updated_by_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  employee      Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  createdBy     Admin?   @relation("EmployeeOnsiteDayOffCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  lastUpdatedBy Admin?   @relation("EmployeeOnsiteDayOffLastUpdatedBy", fields: [lastUpdatedById], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, date])
+  @@index([employeeId, date])
+  @@map("employee_onsite_day_offs")
 }
 
 model EmployeeLeaveRequest {

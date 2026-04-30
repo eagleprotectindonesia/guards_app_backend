@@ -10,6 +10,8 @@ import { redis } from '../redis/client';
 import { createLeaveRequestCreatedAdminNotifications } from './admin-notifications';
 import { enqueueEmailEvent } from '../email-events';
 import { getSystemSetting } from './settings';
+import { resolveHolidayPolicyForEmployeeDate } from './holiday-calendar-entries';
+import { listEmployeeOnsiteDayOffDateKeysInRange } from './onsite-day-offs';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 export const OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR = 'Overlapping pending leave request already exists';
@@ -125,11 +127,36 @@ function getSickCycleEnd(cycleStart: Date) {
   return new Date(Date.UTC(cycleStart.getUTCFullYear(), cycleStart.getUTCMonth() + 1, 20));
 }
 
-function listWorkingDateKeysInclusive(startDateKey: string, endDateKey: string) {
-  return listDateKeysInclusive(startDateKey, endDateKey).filter(dateKey => {
-    const day = dateKeyToDate(dateKey).getUTCDay();
-    return day >= 1 && day <= 5;
-  });
+async function listWorkingDateKeysInclusiveForEmployee(
+  employee: { id: string; role: EmployeeRole | null; department?: string | null },
+  startDateKey: string,
+  endDateKey: string,
+  tx: TxLike = prisma
+) {
+  const dateKeys = listDateKeysInclusive(startDateKey, endDateKey);
+  const onsiteOffDateKeys =
+    employee.role === 'on_site'
+      ? new Set(await listEmployeeOnsiteDayOffDateKeysInRange(employee.id, startDateKey, endDateKey, tx))
+      : new Set<string>();
+  const scheduleByDate = await Promise.all(
+    dateKeys.map(async dateKey => {
+      const at = dateKeyToDate(dateKey);
+      const holidayPolicy = await resolveHolidayPolicyForEmployeeDate({ date: at, department: employee.department ?? null }, tx);
+      const weekday = at.getUTCDay();
+      const isWeekday = weekday >= 1 && weekday <= 5;
+      const isHolidayOff =
+        holidayPolicy?.entry.affectsAttendance === true &&
+        (holidayPolicy.entry.type === 'holiday' || holidayPolicy.entry.type === 'week_off') &&
+        !holidayPolicy.marksAsWorkingDay;
+      const isOnsiteOff = employee.role === 'on_site' && onsiteOffDateKeys.has(dateKey);
+      return {
+        dateKey,
+        isWorkingDay: isWeekday && !isHolidayOff && !isOnsiteOff,
+      };
+    })
+  );
+
+  return scheduleByDate.filter(item => item.isWorkingDay).map(item => item.dateKey);
 }
 
 function cycleStartKeyFromDateKey(dateKey: string) {
@@ -717,7 +744,12 @@ async function finalizeApprovedLeaveRequest(
   const startDateKey = dateToDateKey(request.startDate);
   const endDateKey = dateToDateKey(request.endDate);
   const dateKeys = listDateKeysInclusive(startDateKey, endDateKey);
-  const workingDateKeys = listWorkingDateKeysInclusive(startDateKey, endDateKey);
+  const workingDateKeys = await listWorkingDateKeysInclusiveForEmployee(
+    { id: request.employee.id, role: request.employee.role, department: request.employee.department ?? null },
+    startDateKey,
+    endDateKey,
+    trx
+  );
   const hasDocument = request.attachments.length > 0;
   assertFixedDurationRule(request.reason, startDateKey, endDateKey);
 
