@@ -35,12 +35,14 @@ export default function GuardAuthenticatedLayout({ children }: { children: React
 
   return (
     <SocketProvider role="employee">
-      <div className="min-h-screen bg-[#0a0a0a] flex flex-col">
-        <SessionMonitor />
-        <ForcePasswordChangeModal mustChange={profile.mustChangePassword} />
-        <TopNav />
-        <main className="grow pb-24 flex flex-col">{children}</main>
-        <BottomNav />
+      <div className="min-h-screen bg-black flex justify-center">
+        <div className="w-full max-w-md bg-[#121212] min-h-screen flex flex-col relative shadow-2xl shadow-black/50 overflow-x-hidden">
+          <SessionMonitor />
+          <ForcePasswordChangeModal mustChange={profile.mustChangePassword} />
+          <TopNav />
+          <main className="grow pb-24 flex flex-col">{children}</main>
+          <BottomNav />
+        </div>
       </div>
     </SocketProvider>
   );
