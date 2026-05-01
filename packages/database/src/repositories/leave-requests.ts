@@ -794,14 +794,14 @@ async function finalizeApprovedLeaveRequest(
         leaveRequestId: request.id,
         dayKeys: workingDateKeys,
         adminId: params.adminId,
-        allowShortfall: false,
+        allowShortfall: true,
         note: `Annual leave deduction (${request.id})`,
       },
       trx
     );
     deductedAnnualDays = annual.deductedDays;
-    unpaidDays = 0;
-    isPaid = true;
+    unpaidDays = annual.shortfallDays;
+    isPaid = unpaidDays === 0;
     policySnapshot = { ...policySnapshot, annualRequestedDays: workingDateKeys.length };
   } else if (request.reason === 'special_emergency') {
     const annual = await consumeAnnualLeaveDays(
@@ -810,13 +810,14 @@ async function finalizeApprovedLeaveRequest(
         leaveRequestId: request.id,
         dayKeys: workingDateKeys,
         adminId: params.adminId,
-        allowShortfall: false,
+        allowShortfall: true,
         note: `Emergency leave annual deduction (${request.id})`,
       },
       trx
     );
     deductedAnnualDays = annual.deductedDays;
-    isPaid = true;
+    unpaidDays = annual.shortfallDays;
+    isPaid = unpaidDays === 0;
     policySnapshot = { ...policySnapshot, emergencyDeductedDays: deductedAnnualDays };
   } else if (request.reason === 'sick') {
     const cycleBuckets = groupWorkingDateKeysBySickCycle(workingDateKeys);

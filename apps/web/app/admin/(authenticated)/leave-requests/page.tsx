@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { Prisma, db, getPaginatedEmployeeLeaveRequestsForAdmin, listEmployeeLeaveRequestsForAdmin } from '@repo/database';
+import { getPaginatedEmployeeLeaveRequestsForAdmin, listEmployeeLeaveRequestsForAdmin } from '@repo/database';
 import type { LeaveRequestReason, LeaveRequestStatus } from '@repo/types';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { resolveLeaveRequestAccessContext } from '@/lib/auth/leave-ownership';
+import { resolveLeaveRequestAccessContext, buildVisibleEmployeeWhereClause } from '@/lib/auth/leave-ownership';
 import { getPaginationParams, serialize } from '@/lib/server-utils';
 import LeaveRequestList from './components/leave-request-list';
 import { SerializedLeaveRequestAdminListItemDto } from '@/types/leave-requests';
@@ -104,39 +104,7 @@ export default async function LeaveRequestsPage(props: LeaveRequestsPageProps) {
       : 'desc';
 
   const accessContext = await resolveLeaveRequestAccessContext(session);
-  let employeeWhere: Prisma.EmployeeWhereInput | undefined;
-
-  if (!session.isSuperAdmin) {
-    const ownershipCandidates = await db.employee.findMany({
-      where: {
-        deletedAt: null,
-        role: accessContext.employeeRoleFilter,
-      },
-      select: {
-        id: true,
-        role: true,
-        department: true,
-        officeId: true,
-      },
-    });
-
-    const visibleEmployeeIds = ownershipCandidates
-      .filter(candidate =>
-        accessContext.isEmployeeVisible({
-          id: candidate.id,
-          role: candidate.role,
-          department: candidate.department,
-          officeId: candidate.officeId,
-        })
-      )
-      .map(candidate => candidate.id);
-
-    employeeWhere = {
-      id: {
-        in: visibleEmployeeIds.length > 0 ? visibleEmployeeIds : ['__none__'],
-      },
-    };
-  }
+  const employeeWhere = await buildVisibleEmployeeWhereClause(session, accessContext);
 
   const [{ leaveRequests, totalCount }, filterEmployeeResults] = await Promise.all([
     getPaginatedEmployeeLeaveRequestsForAdmin({

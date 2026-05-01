@@ -35,14 +35,22 @@ function assertValidAdjustmentNote(note: string) {
 }
 
 function buildEmployeeWhere(employeeId?: string, employeeRoleFilter?: EmployeeRole, employeeWhere?: EmployeeWhereFilter) {
-  const roleFilter = employeeRoleFilter ? { role: employeeRoleFilter } : {};
-  const idFilter = employeeId ? { id: employeeId } : {};
+  const conditions: Prisma.EmployeeWhereInput[] = [{ deletedAt: null }];
+
+  if (employeeRoleFilter) {
+    conditions.push({ role: employeeRoleFilter });
+  }
+
+  if (employeeId) {
+    conditions.push({ id: employeeId });
+  }
+
+  if (employeeWhere) {
+    conditions.push(employeeWhere);
+  }
 
   return {
-    deletedAt: null,
-    ...roleFilter,
-    ...idFilter,
-    ...(employeeWhere ?? {}),
+    AND: conditions,
   } satisfies Prisma.EmployeeWhereInput;
 }
 

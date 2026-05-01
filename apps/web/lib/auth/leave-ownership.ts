@@ -1,5 +1,6 @@
-import { AdminOwnershipDomain, EmployeeRole } from '@prisma/client';
+import { AdminOwnershipDomain, EmployeeRole, Prisma } from '@prisma/client';
 import {
+  db,
   doesAdminOwnershipAssignmentMatchEmployeeScope,
   getAdminOwnershipSummaryByAdminId,
   getAllActiveAdminOwnershipAssignments,
@@ -179,4 +180,43 @@ export async function resolveEmployeeVisibilityAccessContext(
   return resolveOwnershipAccessContext(session, 'employees', {
     includeFallbackForUnmatched: false,
   });
+}
+
+export async function buildVisibleEmployeeWhereClause(
+  session: Pick<AdminSession, 'id' | 'isSuperAdmin' | 'rolePolicy'>,
+  accessContext: OwnershipAccessContext
+): Promise<Prisma.EmployeeWhereInput | undefined> {
+  if (session.isSuperAdmin) {
+    return undefined;
+  }
+
+  const ownershipCandidates = await db.employee.findMany({
+    where: {
+      deletedAt: null,
+      role: accessContext.employeeRoleFilter,
+    },
+    select: {
+      id: true,
+      role: true,
+      department: true,
+      officeId: true,
+    },
+  });
+
+  const visibleEmployeeIds = ownershipCandidates
+    .filter(candidate =>
+      accessContext.isEmployeeVisible({
+        id: candidate.id,
+        role: candidate.role,
+        department: candidate.department,
+        officeId: candidate.officeId,
+      })
+    )
+    .map(candidate => candidate.id);
+
+  return {
+    id: {
+      in: visibleEmployeeIds.length > 0 ? visibleEmployeeIds : ['__none__'],
+    },
+  };
 }

@@ -107,8 +107,19 @@ export default function LeaveBalanceList({ rows, page, perPage, totalCount, year
   return (
     <div className="space-y-6">
       <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-        <h1 className="text-2xl font-bold text-foreground">Annual Leave Balances</h1>
-        <p className="text-sm text-muted-foreground mt-1">View yearly leave balances and apply manual adjustments with audit notes.</p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Annual Leave Balances</h1>
+            <p className="text-sm text-muted-foreground mt-1">View yearly leave balances and apply manual adjustments with audit notes.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => router.push('/admin/leave-requests')}
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
+          >
+            Leave Requests
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
           <div>

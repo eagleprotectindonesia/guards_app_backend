@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getEmployeeLeaveRequestByIdForAdmin } from '@repo/database';
+import { getEmployeeLeaveRequestByIdForAdmin, getEmployeeAnnualLeaveBalanceForYear } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { resolveLeaveRequestAccessContext } from '@/lib/auth/leave-ownership';
@@ -38,13 +38,20 @@ export default async function LeaveRequestDetailPage(props: LeaveRequestDetailPa
     notFound();
   }
 
+  let annualLeaveBalance: number | undefined;
+  if (leaveRequest.reason === 'annual') {
+    const year = new Date(leaveRequest.startDate).getFullYear();
+    const balance = await getEmployeeAnnualLeaveBalanceForYear(leaveRequest.employeeId, year);
+    annualLeaveBalance = balance.availableDays;
+  }
+
   const enriched = await enrichLeaveRequestAttachments(leaveRequest);
   const serialized = serialize(enriched) as SerializedLeaveRequestAdminListItemDto;
   const canEdit = session.isSuperAdmin || session.permissions.includes(PERMISSIONS.LEAVE_REQUESTS.EDIT);
 
   return (
     <div className="max-w-7xl mx-auto">
-      <LeaveRequestDetail leaveRequest={serialized} canEdit={canEdit} />
+      <LeaveRequestDetail leaveRequest={serialized} canEdit={canEdit} annualLeaveBalance={annualLeaveBalance} />
     </div>
   );
 }

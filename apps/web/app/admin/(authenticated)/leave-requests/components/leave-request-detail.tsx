@@ -12,6 +12,7 @@ import { getLeaveReasonMeta } from '@/lib/leave-requests';
 type LeaveRequestDetailProps = {
   leaveRequest: SerializedLeaveRequestAdminListItemDto;
   canEdit: boolean;
+  annualLeaveBalance?: number;
 };
 
 function getStatusBadgeClass(status: string) {
@@ -42,7 +43,7 @@ function formatStatusLabel(status: string) {
   }
 }
 
-export default function LeaveRequestDetail({ leaveRequest, canEdit }: LeaveRequestDetailProps) {
+export default function LeaveRequestDetail({ leaveRequest, canEdit, annualLeaveBalance }: LeaveRequestDetailProps) {
   const [approveNote, setApproveNote] = useState(leaveRequest.adminNote || '');
   const [rejectNote, setRejectNote] = useState('');
   const [isPending, startTransition] = useTransition();
@@ -169,7 +170,7 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit }: LeaveReque
 
       <div className="bg-card rounded-xl shadow-sm border border-border p-6">
         <h2 className="text-lg font-semibold text-foreground">Policy Outcome</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Paid</p>
             <p className="text-sm font-medium text-foreground mt-1">
@@ -184,6 +185,12 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit }: LeaveReque
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Unpaid Days</p>
             <p className="text-sm font-medium text-foreground mt-1">{leaveRequest.unpaidDays}</p>
           </div>
+          {annualLeaveBalance !== undefined && (
+            <div>
+              <p className="text-xs uppercase tracking-wide text-blue-600 dark:text-blue-400 font-bold">Annual Balance (Avail)</p>
+              <p className="text-sm font-bold text-blue-700 dark:text-blue-300 mt-1">{annualLeaveBalance} Days</p>
+            </div>
+          )}
         </div>
 
         {cycleBreakdown.length > 0 && (
