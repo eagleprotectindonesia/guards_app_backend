@@ -131,7 +131,7 @@ export default function LeaveRequestList({
     router.push(`?${params.toString()}`);
   };
 
-  const isDefaultStatusFilter = initialFilters.statuses.length === 1 && initialFilters.statuses[0] === 'pending';
+  const isDefaultStatusFilter = initialFilters.statuses.length === 6;
   const activeFiltersCount = [
     initialFilters.employeeId,
     initialFilters.startDate,

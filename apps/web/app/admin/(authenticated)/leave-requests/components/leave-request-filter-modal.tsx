@@ -114,9 +114,9 @@ export default function LeaveRequestFilterModal({
               const selectedValues = Array.isArray(selected)
                 ? (selected as SelectOption[]).map(option => option.value)
                 : [];
-              setStatuses(selectedValues.length > 0 ? selectedValues : ['pending']);
+              setStatuses(selectedValues);
             }}
-            placeholder="Select status"
+            placeholder="All statuses"
             className="text-sm"
           />
         </div>
@@ -185,7 +185,7 @@ export default function LeaveRequestFilterModal({
             variant="outline"
             className="flex-1"
             onClick={() => {
-              setStatuses(['pending']);
+              setStatuses([]);
               setReasons([]);
               setCategories([]);
               setEmployeeId('');
