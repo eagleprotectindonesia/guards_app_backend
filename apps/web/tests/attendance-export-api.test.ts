@@ -64,6 +64,8 @@ describe('GET /api/admin/attendance/export', () => {
           },
           shift: {
             date: new Date('2026-04-01T00:00:00.000Z'),
+            startsAt: new Date('2026-04-01T08:00:00.000Z'),
+            endsAt: new Date('2026-04-01T16:00:00.000Z'),
             status: 'completed',
             site: { name: 'HQ' },
             checkins: [{ at: new Date('2026-04-01T11:00:00.000Z') }, { at: new Date('2026-04-01T12:30:00.000Z') }],
@@ -77,14 +79,14 @@ describe('GET /api/admin/attendance/export', () => {
 
     expect(response.status).toBe(200);
     expect(csv).toContain(
-      'Employee,Department,Job Title,Employee ID,Site,Shift Date,Clock In Date,Clock In Time,Clock Out Date,Clock Out Time,Status,Clock In Latitude,Clock In Longitude'
+      'Employee,Department,Job Title,Employee ID,Site,Shift Date,Clock In Date,Clock In Time,Clock Out Date,Clock Out Time,Paid Hours,Work Minutes,Status,Clock In Latitude,Clock In Longitude'
     );
     expect(csv).toContain(
-      '"Jane Doe","Operations","Supervisor","EMP-001","HQ","2026/04/01","2026/04/01","16:05","2026/04/01","20:30",present,-5.100000,119.400000'
+      '"Jane Doe","Operations","Supervisor","EMP-001","HQ","2026/04/01","2026/04/01","16:05","2026/04/01","20:30","4 hrs 25 mins",265,present,-5.100000,119.400000'
     );
   });
 
-  test('does not set clock out when shift is not completed', async () => {
+  test('does not set clock out and paid/work fields when shift is not completed', async () => {
     (getAdminSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
     (adminHasPermission as jest.Mock).mockReturnValue(true);
     (getAttendanceExportBatch as jest.Mock)
@@ -97,6 +99,8 @@ describe('GET /api/admin/attendance/export', () => {
           employee: { id: 'emp-1', employeeNumber: null, fullName: 'Jane Doe', department: null, jobTitle: null },
           shift: {
             date: new Date('2026-04-01T00:00:00.000Z'),
+            startsAt: new Date('2026-04-01T08:00:00.000Z'),
+            endsAt: new Date('2026-04-01T16:00:00.000Z'),
             status: 'in_progress',
             site: { name: 'HQ' },
             checkins: [{ at: new Date('2026-04-01T12:30:00.000Z') }],
@@ -110,8 +114,68 @@ describe('GET /api/admin/attendance/export', () => {
 
     expect(response.status).toBe(200);
     expect(csv).toContain(
-      '"Jane Doe","","","emp-1","HQ","2026/04/01","2026/04/01","16:05","","",present,-5.100000,119.400000'
+      '"Jane Doe","","","emp-1","HQ","2026/04/01","2026/04/01","16:05","","","","",present,-5.100000,119.400000'
     );
+  });
+
+  test('caps work minutes by shift length', async () => {
+    (getAdminSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (adminHasPermission as jest.Mock).mockReturnValue(true);
+    (getAttendanceExportBatch as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'att-3',
+          recordedAt: new Date('2026-04-01T08:00:00.000Z'),
+          status: 'present',
+          metadata: { location: { lat: -5.1, lng: 119.4 } },
+          employee: { id: 'emp-3', employeeNumber: 'EMP-003', fullName: 'John Doe', department: 'Ops', jobTitle: 'Guard' },
+          shift: {
+            date: new Date('2026-04-01T00:00:00.000Z'),
+            startsAt: new Date('2026-04-01T08:00:00.000Z'),
+            endsAt: new Date('2026-04-01T16:00:00.000Z'),
+            status: 'completed',
+            site: { name: 'HQ' },
+            checkins: [{ at: new Date('2026-04-01T20:00:00.000Z') }],
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const response = await GET(new NextRequest('http://localhost/api/admin/attendance/export'));
+    const csv = await readResponseText(response);
+
+    expect(response.status).toBe(200);
+    expect(csv).toContain('"John Doe","Ops","Guard","EMP-003","HQ","2026/04/01","2026/04/01","16:00","2026/04/02","04:00","8 hrs 0 mins",480,present,-5.100000,119.400000');
+  });
+
+  test('keeps paid/work fields blank when completed shift has no checkins', async () => {
+    (getAdminSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (adminHasPermission as jest.Mock).mockReturnValue(true);
+    (getAttendanceExportBatch as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'att-4',
+          recordedAt: new Date('2026-04-01T08:05:00.000Z'),
+          status: 'present',
+          metadata: { location: { lat: -5.1, lng: 119.4 } },
+          employee: { id: 'emp-4', employeeNumber: 'EMP-004', fullName: 'No Checkin', department: 'Ops', jobTitle: 'Guard' },
+          shift: {
+            date: new Date('2026-04-01T00:00:00.000Z'),
+            startsAt: new Date('2026-04-01T08:00:00.000Z'),
+            endsAt: new Date('2026-04-01T16:00:00.000Z'),
+            status: 'completed',
+            site: { name: 'HQ' },
+            checkins: [],
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const response = await GET(new NextRequest('http://localhost/api/admin/attendance/export'));
+    const csv = await readResponseText(response);
+
+    expect(response.status).toBe(200);
+    expect(csv).toContain('"No Checkin","Ops","Guard","EMP-004","HQ","2026/04/01","2026/04/01","16:05","","","","",present,-5.100000,119.400000');
   });
 
   test('applies date and employee number filters to attendance export query', async () => {

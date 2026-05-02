@@ -10,6 +10,16 @@ function escapeCsv(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
+function formatPaidHours(minutes: number | null) {
+  if (minutes == null) {
+    return '';
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return `${hours} hrs ${remainingMinutes} mins`;
+}
+
 export async function GET(request: NextRequest) {
   const session = await getAdminSession();
   if (!session) {
@@ -64,6 +74,8 @@ export async function GET(request: NextRequest) {
         'Clock In Time',
         'Clock Out Date',
         'Clock Out Time',
+        'Paid Hours',
+        'Work Minutes',
         'Status',
         'Clock In Latitude',
         'Clock In Longitude',
@@ -103,6 +115,17 @@ export async function GET(request: NextRequest) {
                 : null;
             const clockOutDate = lastCheckinAt ? format(new Date(lastCheckinAt), 'yyyy/MM/dd') : '';
             const clockOutTime = lastCheckinAt ? format(new Date(lastCheckinAt), 'HH:mm') : '';
+            const workMinutes =
+              lastCheckinAt && att.shift.status === 'completed'
+                ? Math.min(
+                    Math.max(0, Math.floor((new Date(lastCheckinAt).getTime() - new Date(att.recordedAt).getTime()) / (1000 * 60))),
+                    Math.max(
+                      0,
+                      Math.floor((new Date(att.shift.endsAt).getTime() - new Date(att.shift.startsAt).getTime()) / (1000 * 60))
+                    )
+                  )
+                : null;
+            const paidHours = formatPaidHours(workMinutes);
 
             chunk +=
               [
@@ -116,6 +139,8 @@ export async function GET(request: NextRequest) {
                 escapeCsv(clockInTime),
                 escapeCsv(clockOutDate),
                 escapeCsv(clockOutTime),
+                escapeCsv(paidHours),
+                workMinutes == null ? '' : String(workMinutes),
                 att.status,
                 lat,
                 lng,
