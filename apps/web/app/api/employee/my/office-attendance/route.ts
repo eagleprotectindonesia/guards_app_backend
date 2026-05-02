@@ -37,7 +37,23 @@ export async function POST(req: Request) {
     const requirePhotoForClockIn = requirePhotoSetting?.value === '1';
     const scheduleContext = await resolveOfficeAttendanceContextForEmployee(employee.id, now);
 
-    if (!scheduleContext.isWorkingDay) {
+    const latestAttendanceInWindow =
+      scheduleContext.windowStart && scheduleContext.windowEnd
+        ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
+        : null;
+    const latestAttendanceForDay = await getLatestOfficeAttendanceForDay(employee.id, now);
+    const latestAttendance =
+      requestedStatus === 'clocked_out'
+        ? latestAttendanceInWindow?.status === 'present'
+          ? latestAttendanceInWindow
+          : latestAttendanceForDay?.status === 'present'
+            ? latestAttendanceForDay
+            : (latestAttendanceInWindow ?? latestAttendanceForDay)
+        : latestAttendanceInWindow;
+
+    const hasOpenClockIn = latestAttendance?.status === 'present';
+
+    if (!scheduleContext.isWorkingDay && !(requestedStatus === 'clocked_out' && hasOpenClockIn)) {
       return NextResponse.json(
         {
           code: 'not_working_day',
@@ -61,20 +77,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    const latestAttendanceInWindow =
-      scheduleContext.windowStart && scheduleContext.windowEnd
-        ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
-        : null;
-    const latestAttendanceForDay = await getLatestOfficeAttendanceForDay(employee.id, now);
-    const latestAttendance =
-      requestedStatus === 'clocked_out'
-        ? latestAttendanceInWindow?.status === 'present'
-          ? latestAttendanceInWindow
-          : latestAttendanceForDay?.status === 'present'
-            ? latestAttendanceForDay
-            : (latestAttendanceInWindow ?? latestAttendanceForDay)
-        : latestAttendanceInWindow;
 
     if (!latestAttendance && requestedStatus === 'clocked_out') {
       return NextResponse.json(

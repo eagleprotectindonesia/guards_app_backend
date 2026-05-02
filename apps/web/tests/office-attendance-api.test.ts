@@ -72,6 +72,51 @@ describe('POST /api/employee/my/office-attendance', () => {
     expect(recordOfficeAttendance).not.toHaveBeenCalled();
   });
 
+  test('allows late clock-out on non-working context when there is an open clock-in', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-late-clockout',
+      role: 'office',
+      officeId: null,
+      fieldModeEnabled: true,
+    });
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: false,
+      windowStart: null,
+      windowEnd: null,
+      shift: null,
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue({
+      id: 'attendance-open',
+      employeeId: 'employee-late-clockout',
+      status: 'present',
+      recordedAt: new Date('2026-05-01T23:00:00.000Z'),
+    });
+    (recordOfficeAttendance as jest.Mock).mockResolvedValue({
+      id: 'attendance-closed',
+      employeeId: 'employee-late-clockout',
+      officeId: null,
+      status: 'clocked_out',
+    });
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({ status: 'clocked_out' }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(data.attendance).toMatchObject({ id: 'attendance-closed', status: 'clocked_out' });
+    expect(recordOfficeAttendance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        employeeId: 'employee-late-clockout',
+        status: 'clocked_out',
+      })
+    );
+  });
+
   test('records a late clock-in using the employee schedule context', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-2',
