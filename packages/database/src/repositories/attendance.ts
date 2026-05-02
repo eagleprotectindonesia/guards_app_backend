@@ -114,9 +114,11 @@ export async function getAttendanceExportBatch(params: {
         include: {
           employee: true,
           site: true,
+          shiftType: true,
           checkins: {
             select: {
               at: true,
+              metadata: true,
             },
           },
         },

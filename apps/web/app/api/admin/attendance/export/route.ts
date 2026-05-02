@@ -20,6 +20,43 @@ function formatPaidHours(minutes: number | null) {
   return `${hours} hrs ${remainingMinutes} mins`;
 }
 
+function formatOptionalNumber(value?: number | null) {
+  return value == null ? '' : String(value);
+}
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
+}
+
+function getDistanceMeters(
+  fromLat?: number | null,
+  fromLng?: number | null,
+  toLat?: number | null,
+  toLng?: number | null
+) {
+  if (
+    fromLat == null ||
+    fromLng == null ||
+    toLat == null ||
+    toLng == null ||
+    Number.isNaN(fromLat) ||
+    Number.isNaN(fromLng) ||
+    Number.isNaN(toLat) ||
+    Number.isNaN(toLng)
+  ) {
+    return null;
+  }
+
+  const earthRadiusMeters = 6371000;
+  const dLat = toRadians(toLat - fromLat);
+  const dLng = toRadians(toLng - fromLng);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(earthRadiusMeters * c);
+}
+
 export async function GET(request: NextRequest) {
   const session = await getAdminSession();
   if (!session) {
@@ -64,21 +101,35 @@ export async function GET(request: NextRequest) {
 
       // Write Header
       const headers = [
+        'Employee ID',
         'Employee',
         'Department',
         'Job Title',
-        'Employee ID',
-        'Site',
-        'Shift Date',
+        'Office',
+        'Business Date',
+        'Day Name',
+        'Month',
+        'Assigned Shift',
+        'Shift Start Time',
+        'Shift End Time',
+        'Grace Minutes',
         'Clock In Date',
         'Clock In Time',
+        'Clock In Distance (m)',
         'Clock Out Date',
         'Clock Out Time',
+        'Clock Out Distance (m)',
         'Paid Hours',
         'Work Minutes',
+        'Overtime Minutes',
         'Status',
-        'Clock In Latitude',
-        'Clock In Longitude',
+        'Lateness (mins)',
+        'Late Flag',
+        'Early Leave Minutes',
+        'Missed Punch Flag',
+        'Manual Edit Flag',
+        'Edited By',
+        'Edit Reason',
       ];
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
@@ -98,23 +149,42 @@ export async function GET(request: NextRequest) {
 
           let chunk = '';
           for (const att of batch) {
-            const metadata = (att.metadata as { location: { lat?: number; lng?: number } })?.location;
-            const lat = metadata?.lat?.toFixed(6) || '';
-            const lng = metadata?.lng?.toFixed(6) || '';
+            const metadata = (att.metadata as { location?: { lat?: number; lng?: number } } | null)?.location;
             const employeeName = att.employee?.fullName || 'Unknown';
             const department = att.employee?.department || '';
             const jobTitle = att.employee?.jobTitle || '';
             const employeeIdentifier = att.employee?.employeeNumber?.trim() || att.employee?.id || 'N/A';
             const siteName = att.shift.site.name;
-            const shiftDate = format(new Date(att.shift.date), 'yyyy/MM/dd');
-            const clockInDate = format(new Date(att.recordedAt), 'yyyy/MM/dd');
+            const businessDateObj = new Date(att.shift.date);
+            const businessDate = format(businessDateObj, 'yyyy-MM-dd');
+            const clockInDate = format(new Date(att.recordedAt), 'yyyy-MM-dd');
             const clockInTime = format(new Date(att.recordedAt), 'HH:mm');
             const lastCheckinAt =
               att.shift.status === 'completed' && att.shift.checkins.length > 0
                 ? att.shift.checkins.reduce((latest, current) => (current.at > latest ? current.at : latest), att.shift.checkins[0].at)
                 : null;
-            const clockOutDate = lastCheckinAt ? format(new Date(lastCheckinAt), 'yyyy/MM/dd') : '';
+            const clockOutDate = lastCheckinAt ? format(new Date(lastCheckinAt), 'yyyy-MM-dd') : '';
             const clockOutTime = lastCheckinAt ? format(new Date(lastCheckinAt), 'HH:mm') : '';
+            const lastCheckin =
+              att.shift.status === 'completed' && att.shift.checkins.length > 0
+                ? att.shift.checkins.reduce((latest, current) => (current.at > latest.at ? current : latest), att.shift.checkins[0])
+                : null;
+            const clockOutLocation = (lastCheckin?.metadata as { lat?: number; lng?: number } | null) ?? null;
+            const clockInDistanceMeters = getDistanceMeters(
+              metadata?.lat,
+              metadata?.lng,
+              att.shift.site.latitude,
+              att.shift.site.longitude
+            );
+            const clockOutDistanceMeters =
+              att.shift.status === 'completed'
+                ? getDistanceMeters(
+                    clockOutLocation?.lat,
+                    clockOutLocation?.lng,
+                    att.shift.site.latitude,
+                    att.shift.site.longitude
+                  )
+                : null;
             const workMinutes =
               lastCheckinAt && att.shift.status === 'completed'
                 ? Math.min(
@@ -126,24 +196,45 @@ export async function GET(request: NextRequest) {
                   )
                 : null;
             const paidHours = formatPaidHours(workMinutes);
+            const shiftLengthMinutes = Math.max(
+              0,
+              Math.floor((new Date(att.shift.endsAt).getTime() - new Date(att.shift.startsAt).getTime()) / (1000 * 60))
+            );
+            const overtimeMinutes = workMinutes == null ? null : Math.max(0, workMinutes - shiftLengthMinutes);
+            const earlyLeaveMinutes = workMinutes == null ? null : Math.max(0, shiftLengthMinutes - workMinutes);
+            const latenessMins = (att.metadata as { latenessMins?: number } | null)?.latenessMins ?? null;
 
             chunk +=
               [
+                escapeCsv(employeeIdentifier),
                 escapeCsv(employeeName),
                 escapeCsv(department),
                 escapeCsv(jobTitle),
-                escapeCsv(employeeIdentifier),
                 escapeCsv(siteName),
-                escapeCsv(shiftDate),
+                businessDate,
+                escapeCsv(format(businessDateObj, 'EEEE')),
+                escapeCsv(format(businessDateObj, 'MMMM')),
+                escapeCsv(att.shift.shiftType?.name || ''),
+                escapeCsv(format(new Date(att.shift.startsAt), 'HH:mm')),
+                escapeCsv(format(new Date(att.shift.endsAt), 'HH:mm')),
+                String(att.shift.graceMinutes ?? ''),
                 escapeCsv(clockInDate),
                 escapeCsv(clockInTime),
+                formatOptionalNumber(clockInDistanceMeters),
                 escapeCsv(clockOutDate),
                 escapeCsv(clockOutTime),
+                formatOptionalNumber(clockOutDistanceMeters),
                 escapeCsv(paidHours),
                 workMinutes == null ? '' : String(workMinutes),
+                formatOptionalNumber(overtimeMinutes),
                 att.status,
-                lat,
-                lng,
+                formatOptionalNumber(latenessMins),
+                (latenessMins ?? 0) > 0 ? 'Yes' : 'No',
+                formatOptionalNumber(earlyLeaveMinutes),
+                lastCheckinAt ? 'No' : 'Yes',
+                '',
+                '',
+                '',
               ].join(',') + '\n';
           }
 
