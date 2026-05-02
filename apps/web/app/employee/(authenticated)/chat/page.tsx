@@ -333,7 +333,7 @@ export default function ChatPage() {
       </div>
 
       <div ref={scrollRef} className="flex-1 w-full z-10 bg-[#0e0e0e]">
-        <div className="flex flex-col space-y-6 p-6 pb-28 max-w-4xl mx-auto w-full">
+        <div className="flex flex-col space-y-6 p-6 pb-28 w-full">
           <div ref={observerTarget} className="h-4 w-full flex items-center justify-center">
             {isFetchingNextPage && <Loader2 className="h-4 w-4 animate-spin text-gray-500" />}
           </div>
@@ -378,7 +378,7 @@ export default function ChatPage() {
         </div>
       </div>
 
-      <div className="absolute bottom-6 left-4 right-4 z-20 flex flex-col gap-3 max-w-4xl mx-auto">
+      <div className="absolute bottom-6 left-4 right-4 z-20 flex flex-col gap-3">
         {previews.length > 0 && (
           <div className="flex gap-3 p-3 bg-[#1e1e1e]/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/5 overflow-x-auto">
             {previews.map((url, i) => (

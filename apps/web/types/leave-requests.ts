@@ -1,4 +1,5 @@
 import type { EmployeeRole, LeaveRequestReason, LeaveRequestStatus } from '@repo/types';
+import type { LeavePolicyOutcomeProjection, LeavePolicySnapshot } from '@repo/database';
 import type { Serialized } from '@/lib/server-utils';
 
 export type LeaveRequestEmployeeSummaryDto = {
@@ -16,29 +17,7 @@ export type LeaveRequestReviewedByDto = {
   email: string;
 } | null;
 
-export type LeavePolicyCycleBreakdownDto = {
-  cycleStart: string;
-  cycleEnd: string;
-  requestedWorkingDays: number;
-  noDocAllowanceRemainingBeforeRequest: number;
-  noDocPaidDaysCurrentRequest: number;
-  deductedAnnualDays: number;
-  unpaidDays: number;
-};
-
-export type LeavePolicySnapshotDto = {
-  mainCategory?: string;
-  workingDays?: number;
-  calendarDays?: number;
-  hasDocument?: boolean;
-  annualRequestedDays?: number;
-  emergencyDeductedDays?: number;
-  cycleStart?: string;
-  cycleEnd?: string;
-  noDocPaidDays?: number;
-  noDocPaidByCycle?: Record<string, number>;
-  cycleBreakdown?: LeavePolicyCycleBreakdownDto[];
-};
+export type LeavePolicySnapshotDto = LeavePolicySnapshot;
 
 export type LeaveRequestAdminListItemDto = {
   id: string;
@@ -57,6 +36,12 @@ export type LeaveRequestAdminListItemDto = {
   status: LeaveRequestStatus;
   reviewedById: string | null;
   reviewedAt: Date | null;
+  managerApprovedById: string | null;
+  managerApprovedAt: Date | null;
+  managerApprovalNote: string | null;
+  hrApprovedById: string | null;
+  hrApprovedAt: Date | null;
+  hrApprovalNote: string | null;
   documentVerifiedAt: Date | null;
   documentVerifiedById: string | null;
   cancelledAt: Date | null;
@@ -64,7 +49,17 @@ export type LeaveRequestAdminListItemDto = {
   updatedAt: Date;
   employee: LeaveRequestEmployeeSummaryDto;
   reviewedBy: LeaveRequestReviewedByDto;
+  managerApprovedBy: LeaveRequestReviewedByDto;
+  hrApprovedBy: LeaveRequestReviewedByDto;
   documentVerifiedBy: LeaveRequestReviewedByDto;
 };
 
+export type LeavePolicyOutcomeDto = {
+  isPaid: LeavePolicyOutcomeProjection['isPaid'];
+  deductedAnnualDays: LeavePolicyOutcomeProjection['deductedAnnualDays'];
+  unpaidDays: LeavePolicyOutcomeProjection['unpaidDays'];
+  policySnapshot: LeavePolicyOutcomeProjection['policySnapshot'];
+};
+
 export type SerializedLeaveRequestAdminListItemDto = Serialized<LeaveRequestAdminListItemDto>;
+export type SerializedLeavePolicyOutcomeDto = Serialized<LeavePolicyOutcomeDto>;

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { redis } from '../redis/client';
 import { parseShiftTypeTimeOnDate } from '@repo/shared';
 import { getShiftTypeDurationInMins } from './shift-types';
+import { deleteEmployeeOnsiteDayOffsByEmployeeAndDates, upsertEmployeeOnsiteDayOff } from './onsite-day-offs';
 
 export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
   return prisma.shift.findUnique({
@@ -595,6 +596,8 @@ export async function processGuardShiftBulkImport(
     note: string | null;
   }> = [];
   const deleteIds = new Set<string>();
+  const offDateKeysByEmployee = new Map<string, Set<string>>();
+  const workingDateKeysByEmployee = new Map<string, Set<string>>();
   let rowsProcessed = 0;
   let pastDatesSkipped = 0;
 
@@ -626,6 +629,9 @@ export async function processGuardShiftBulkImport(
     const existingForKey = existingByKey.get(rowKey) ?? [];
     if (row.shiftTypeName.toLowerCase() === 'off') {
       existingForKey.forEach(shift => deleteIds.add(shift.id));
+      const existing = offDateKeysByEmployee.get(employeeId) ?? new Set<string>();
+      existing.add(row.date);
+      offDateKeysByEmployee.set(employeeId, existing);
       rowsProcessed++;
       continue;
     }
@@ -709,6 +715,9 @@ export async function processGuardShiftBulkImport(
       requiredCheckinIntervalMins: existingShift.requiredCheckinIntervalMins,
       graceMinutes: existingShift.graceMinutes,
     });
+    const existing = workingDateKeysByEmployee.get(employeeId) ?? new Set<string>();
+    existing.add(row.date);
+    workingDateKeysByEmployee.set(employeeId, existing);
     rowsProcessed++;
   }
 
@@ -758,6 +767,24 @@ export async function processGuardShiftBulkImport(
       updated++;
     }
 
+    for (const [employeeId, dates] of offDateKeysByEmployee.entries()) {
+      for (const dateKey of dates) {
+        await upsertEmployeeOnsiteDayOff(
+          {
+            employeeId,
+            date: dateKey,
+            adminId,
+            note: 'OFF from guard bulk import',
+          },
+          prisma
+        );
+      }
+    }
+
+    for (const [employeeId, dates] of workingDateKeysByEmployee.entries()) {
+      await deleteEmployeeOnsiteDayOffsByEmployeeAndDates(employeeId, Array.from(dates), prisma);
+    }
+
     if (createInputs.length > 0) {
       const createdRows = await bulkCreateShiftsWithChangelog(createInputs, adminId);
       created = createdRows.length;
@@ -771,6 +798,19 @@ export async function processGuardShiftBulkImport(
           data: { deletedAt: nowDeletedAt, status: 'cancelled' },
         });
         deletedOff = deletedResult.count;
+      }
+
+      for (const [employeeId, dates] of offDateKeysByEmployee.entries()) {
+        for (const dateKey of dates) {
+          await upsertEmployeeOnsiteDayOff(
+            {
+              employeeId,
+              date: dateKey,
+              note: 'OFF from guard bulk import',
+            },
+            tx
+          );
+        }
       }
 
       for (const update of updates) {
@@ -790,6 +830,10 @@ export async function processGuardShiftBulkImport(
           },
         });
         updated++;
+      }
+
+      for (const [employeeId, dates] of workingDateKeysByEmployee.entries()) {
+        await deleteEmployeeOnsiteDayOffsByEmployeeAndDates(employeeId, Array.from(dates), tx);
       }
 
       if (createInputs.length > 0) {

@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
-import { Prisma, db, listPaginatedEmployeeAnnualLeaveBalancesForAdmin } from '@repo/database';
+import { db, listPaginatedEmployeeAnnualLeaveBalancesForAdmin } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { resolveLeaveRequestAccessContext } from '@/lib/auth/leave-ownership';
+import { resolveLeaveRequestAccessContext, buildVisibleEmployeeWhereClause } from '@/lib/auth/leave-ownership';
 import { getPaginationParams, serialize } from '@/lib/server-utils';
 import LeaveBalanceList from './components/leave-balance-list';
 
@@ -32,62 +32,39 @@ export default async function LeaveBalancesPage(props: PageProps) {
   const year = parseYear(searchParams.year);
   const employeeId = typeof searchParams.employeeId === 'string' ? searchParams.employeeId : undefined;
   const accessContext = await resolveLeaveRequestAccessContext(session);
+  const employeeWhere = await buildVisibleEmployeeWhereClause(session, accessContext);
 
-  let employeeWhere: Prisma.EmployeeWhereInput | undefined;
-
-  if (!session.isSuperAdmin) {
-    const ownershipCandidates = await db.employee.findMany({
+  const [{ rows, totalCount }, visibleEmployees] = await Promise.all([
+    listPaginatedEmployeeAnnualLeaveBalancesForAdmin({
+      year,
+      employeeId,
+      employeeRoleFilter: accessContext.employeeRoleFilter,
+      employeeWhere,
+      skip,
+      take: perPage,
+    }),
+    db.employee.findMany({
       where: {
         deletedAt: null,
         role: accessContext.employeeRoleFilter,
+        ...employeeWhere,
       },
       select: {
         id: true,
-        role: true,
-        department: true,
-        officeId: true,
+        fullName: true,
+        employeeNumber: true,
       },
-    });
-
-    const visibleEmployeeIds = ownershipCandidates
-      .filter(candidate =>
-        accessContext.isEmployeeVisible({
-          id: candidate.id,
-          role: candidate.role,
-          department: candidate.department,
-          officeId: candidate.officeId,
-        })
-      )
-      .map(candidate => candidate.id);
-
-    employeeWhere = {
-      id: {
-        in: visibleEmployeeIds.length > 0 ? visibleEmployeeIds : ['__none__'],
+      orderBy: {
+        fullName: 'asc',
       },
-    };
-  }
+    }),
+  ]);
 
-  const { rows, totalCount } = await listPaginatedEmployeeAnnualLeaveBalancesForAdmin({
-    year,
-    employeeId,
-    employeeRoleFilter: accessContext.employeeRoleFilter,
-    employeeWhere,
-    skip,
-    take: perPage,
-  });
-
-  const employees = Array.from(
-    new Map(
-      rows.map(row => [
-        row.employee.id,
-        {
-          id: row.employee.id,
-          fullName: row.employee.fullName,
-          employeeNumber: row.employee.employeeNumber,
-        },
-      ])
-    ).values()
-  ).sort((a, b) => a.fullName.localeCompare(b.fullName));
+  const employees = visibleEmployees.map(emp => ({
+    id: emp.id,
+    fullName: emp.fullName,
+    employeeNumber: emp.employeeNumber,
+  }));
 
   return (
     <div className="max-w-7xl mx-auto">

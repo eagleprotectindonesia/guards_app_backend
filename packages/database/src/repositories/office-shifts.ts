@@ -101,8 +101,7 @@ export async function findRelevantOfficeShiftForEmployee(
     return { shift: upcomingShift, businessDay };
   }
 
-  const pastShift = [...relevantShifts].reverse().find(shift => shift.endsAt.getTime() <= at.getTime()) ?? null;
-  return { shift: pastShift, businessDay };
+  return { shift: null, businessDay };
 }
 
 export async function getOfficeShiftById(id: string, include?: Prisma.OfficeShiftInclude) {
@@ -175,10 +174,12 @@ export async function resolveOfficeShiftContextForEmployee(
     };
   }
 
+  const shiftBusinessDay = getBusinessDayRange(shift.startsAt, BUSINESS_TIMEZONE);
+
   return {
     source: 'office_shift' as const,
     shift,
-    businessDay,
+    businessDay: shiftBusinessDay,
     startMinutes: getMinutesSinceMidnight(shift.startsAt, BUSINESS_TIMEZONE),
     endMinutes: getMinutesSinceMidnight(shift.endsAt, BUSINESS_TIMEZONE),
     windowStart: shift.startsAt,

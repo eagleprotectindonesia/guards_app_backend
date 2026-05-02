@@ -36,6 +36,8 @@ type LeaveRequestListProps = {
 function getStatusBadgeClass(status: string) {
   switch (status) {
     case 'pending':
+    case 'pending_hr':
+    case 'pending_manager':
       return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
     case 'approved':
       return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
@@ -45,6 +47,17 @@ function getStatusBadgeClass(status: string) {
       return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
     default:
       return 'bg-muted text-muted-foreground';
+  }
+}
+
+function formatStatusLabel(status: string) {
+  switch (status) {
+    case 'pending_hr':
+      return 'PENDING HR';
+    case 'pending_manager':
+      return 'PENDING MANAGER';
+    default:
+      return status.toUpperCase();
   }
 }
 
@@ -118,7 +131,7 @@ export default function LeaveRequestList({
     router.push(`?${params.toString()}`);
   };
 
-  const isDefaultStatusFilter = initialFilters.statuses.length === 1 && initialFilters.statuses[0] === 'pending';
+  const isDefaultStatusFilter = initialFilters.statuses.length === 6;
   const activeFiltersCount = [
     initialFilters.employeeId,
     initialFilters.startDate,
@@ -135,22 +148,30 @@ export default function LeaveRequestList({
           <h1 className="text-2xl font-bold text-foreground">Leave Requests</h1>
           <p className="text-sm text-muted-foreground mt-1">Review and manage employee leave requests.</p>
         </div>
-        <button
-          onClick={() => setIsFilterOpen(true)}
-          className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
-            activeFiltersCount > 0
-              ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400'
-              : ''
-          }`}
-        >
-          <Filter className="w-4 h-4 mr-2" />
-          Filters
-          {activeFiltersCount > 0 && (
-            <span className="ml-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full text-xs">
-              {activeFiltersCount}
-            </span>
-          )}
-        </button>
+        <div className="flex gap-2 items-center">
+          <Link
+            href="/admin/leave-balances"
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
+          >
+            Leave Balances
+          </Link>
+          <button
+            onClick={() => setIsFilterOpen(true)}
+            className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
+              activeFiltersCount > 0
+                ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400'
+                : ''
+            }`}
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            Filters
+            {activeFiltersCount > 0 && (
+              <span className="ml-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full text-xs">
+                {activeFiltersCount}
+              </span>
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
@@ -212,7 +233,7 @@ export default function LeaveRequestList({
                           leaveRequest.status
                         )}`}
                       >
-                        {leaveRequest.status.toUpperCase()}
+                        {formatStatusLabel(leaveRequest.status)}
                       </span>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">

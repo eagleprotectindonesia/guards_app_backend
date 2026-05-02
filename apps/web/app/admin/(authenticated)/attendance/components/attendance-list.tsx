@@ -31,7 +31,7 @@ type AttendanceListProps = {
   initialFilters: {
     startDate?: string;
     endDate?: string;
-    employeeId?: string;
+    employeeNumber?: string;
   };
 };
 
@@ -47,7 +47,7 @@ export default function AttendanceList({
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => {
+  const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeNumber: string }) => {
     const params = new URLSearchParams(searchParams.toString());
 
     // Reset pagination when filtering
@@ -65,10 +65,10 @@ export default function AttendanceList({
       params.delete('to');
     }
 
-    if (filters.employeeId) {
-      params.set('employeeId', filters.employeeId);
+    if (filters.employeeNumber) {
+      params.set('employeeNumber', filters.employeeNumber);
     } else {
-      params.delete('employeeId');
+      params.delete('employeeNumber');
     }
 
     router.push(`?${params.toString()}`);

@@ -58,12 +58,12 @@ export async function GET(request: NextRequest) {
   }
 
   if (startDateStr || endDateStr) {
-    where.recordedAt = {};
+    where.businessDate = {};
     if (startDateStr) {
-      where.recordedAt.gte = startOfDay(new Date(startDateStr));
+      where.businessDate.gte = startOfDay(new Date(startDateStr));
     }
     if (endDateStr) {
-      where.recordedAt.lte = endOfDay(new Date(endDateStr));
+      where.businessDate.lte = endOfDay(new Date(endDateStr));
     }
   }
 
@@ -85,6 +85,7 @@ export async function GET(request: NextRequest) {
     records.push(
       ...batch.map(att => ({
         id: att.id,
+        businessDate: att.businessDate ? att.businessDate.toISOString().slice(0, 10) : null,
         recordedAt: att.recordedAt.toISOString(),
         status: att.status,
         employeeId: att.employeeId,

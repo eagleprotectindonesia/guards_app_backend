@@ -1,9 +1,15 @@
 'use server';
 
-import { approveEmployeeLeaveRequest, getEmployeeLeaveRequestByIdForAdmin, rejectEmployeeLeaveRequest } from '@repo/database';
+import {
+  approveEmployeeLeaveRequest,
+  getEmployeeLeaveRequestByIdForAdmin,
+  isHrApprovalRequiredForLeaveRequest,
+  rejectEmployeeLeaveRequest,
+} from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { resolveLeaveRequestAccessContext } from '@/lib/auth/leave-ownership';
+import { isHrAnnualApprover } from '@/lib/auth/admin-visibility';
 import { revalidatePath } from 'next/cache';
 
 type LeaveReviewActionResult = {
@@ -13,11 +19,33 @@ type LeaveReviewActionResult = {
 
 async function assertOwnedLeaveRequestOrThrow(requestId: string) {
   const session = await requirePermission(PERMISSIONS.LEAVE_REQUESTS.EDIT);
-  const accessContext = await resolveLeaveRequestAccessContext(session);
   const leaveRequest = await getEmployeeLeaveRequestByIdForAdmin(requestId);
+  const isHrApprover = isHrAnnualApprover(session.rolePolicy);
 
+  if (!leaveRequest) {
+    throw new Error('Leave request not found');
+  }
+
+  if (session.isSuperAdmin) {
+    return { session, leaveRequest, approvalMode: 'manager' as const };
+  }
+
+  const requiresHrApproval = await isHrApprovalRequiredForLeaveRequest({
+    reason: leaveRequest.reason,
+    startDate: leaveRequest.startDate,
+    endDate: leaveRequest.endDate,
+  });
+
+  if (requiresHrApproval && isHrApprover) {
+    return { session, leaveRequest, approvalMode: 'hr' as const };
+  }
+
+  if (!requiresHrApproval && isHrApprover) {
+    throw new Error('Non-HR leave must be reviewed by manager ownership');
+  }
+
+  const accessContext = await resolveLeaveRequestAccessContext(session);
   if (
-    !leaveRequest ||
     !accessContext.isEmployeeVisible({
       id: leaveRequest.employee.id,
       role: leaveRequest.employee.role,
@@ -28,17 +56,18 @@ async function assertOwnedLeaveRequestOrThrow(requestId: string) {
     throw new Error('Leave request not found');
   }
 
-  return session;
+  return { session, leaveRequest, approvalMode: 'manager' as const };
 }
 
 export async function approveLeaveRequestAction(requestId: string, adminNote?: string): Promise<LeaveReviewActionResult> {
   try {
-    const session = await assertOwnedLeaveRequestOrThrow(requestId);
+    const { session, approvalMode } = await assertOwnedLeaveRequestOrThrow(requestId);
 
     await approveEmployeeLeaveRequest({
       requestId,
       adminId: session.id,
       adminNote: adminNote?.trim() || undefined,
+      approvalMode,
     });
 
     revalidatePath('/admin/leave-requests');
@@ -62,7 +91,7 @@ export async function rejectLeaveRequestAction(requestId: string, adminNote: str
   }
 
   try {
-    const session = await assertOwnedLeaveRequestOrThrow(requestId);
+    const { session } = await assertOwnedLeaveRequestOrThrow(requestId);
 
     await rejectEmployeeLeaveRequest({
       requestId,
@@ -82,4 +111,3 @@ export async function rejectLeaveRequestAction(requestId: string, adminNote: str
     return { success: false, message: 'Failed to reject leave request' };
   }
 }
-

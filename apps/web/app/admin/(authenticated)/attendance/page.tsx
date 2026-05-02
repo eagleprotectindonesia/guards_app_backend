@@ -27,15 +27,15 @@ export default async function AttendancePage(props: AttendancePageProps) {
   const { page, perPage, skip } = getPaginationParams(searchParams);
 
   // Extract filters from searchParams
-  const employeeId = typeof searchParams.employeeId === 'string' ? searchParams.employeeId : undefined;
+  const employeeNumber = typeof searchParams.employeeNumber === 'string' ? searchParams.employeeNumber : undefined;
   const from = typeof searchParams.from === 'string' ? searchParams.from : undefined;
   const to = typeof searchParams.to === 'string' ? searchParams.to : undefined;
 
   // Build where clause for attendance records
   const baseWhere: Prisma.AttendanceWhereInput = {};
 
-  if (employeeId) {
-    baseWhere.employeeId = employeeId;
+  if (employeeNumber) {
+    baseWhere.employee = { employeeNumber };
   }
 
   if (from || to) {
@@ -96,7 +96,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
   }));
 
   const initialFilters = {
-    employeeId,
+    employeeNumber,
     startDate: from,
     endDate: to,
   };

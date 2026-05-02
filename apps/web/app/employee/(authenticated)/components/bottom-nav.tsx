@@ -106,7 +106,7 @@ export function BottomNav() {
   ];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[#0F0F0F]/90 backdrop-blur-md border-t border-white/5 px-6 py-3 flex justify-between items-center z-50">
+    <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-[#0F0F0F]/90 backdrop-blur-md border-t border-white/5 px-6 py-3 flex justify-between items-center z-50">
       {navItems.map(item => (
         <Link
           key={item.href}

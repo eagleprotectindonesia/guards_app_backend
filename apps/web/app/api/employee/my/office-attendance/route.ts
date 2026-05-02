@@ -7,6 +7,7 @@ import { getOfficeById } from '@repo/database';
 import { recordOfficeAttendance } from '@repo/database';
 import { getLatestOfficeAttendanceInRange } from '@repo/database';
 import { getLatestOfficeAttendanceForDay } from '@repo/database';
+import { getLatestOfficeAttendanceForEmployee } from '@repo/database';
 import { OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING } from '@repo/database';
 import { resolveOfficeAttendanceContextForEmployee } from '@repo/database';
 import { OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING } from '@repo/shared';
@@ -15,6 +16,21 @@ import { ZodError } from 'zod';
 function getFallbackAttendanceMode(employee: { officeId?: string | null; fieldModeEnabled?: boolean | null }) {
   if (!employee.officeId) return 'non_office';
   return employee.fieldModeEnabled ? 'non_office' : 'office_required';
+}
+
+function dateKeyToDate(dateKey: string | null | undefined) {
+  if (!dateKey) return undefined;
+  return new Date(`${dateKey}T00:00:00Z`);
+}
+
+function normalizeAttendanceBusinessDate(value: unknown): Date | undefined {
+  if (!value) return undefined;
+  if (value instanceof Date) return value;
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return undefined;
 }
 
 export async function POST(req: Request) {
@@ -37,7 +53,26 @@ export async function POST(req: Request) {
     const requirePhotoForClockIn = requirePhotoSetting?.value === '1';
     const scheduleContext = await resolveOfficeAttendanceContextForEmployee(employee.id, now);
 
-    if (!scheduleContext.isWorkingDay) {
+    const latestAttendanceInWindow =
+      scheduleContext.windowStart && scheduleContext.windowEnd
+        ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
+        : null;
+    const latestAttendanceForDay = await getLatestOfficeAttendanceForDay(employee.id, now);
+    const latestAttendanceForEmployee = await getLatestOfficeAttendanceForEmployee(employee.id);
+    const latestAttendance =
+      requestedStatus === 'clocked_out'
+        ? latestAttendanceInWindow?.status === 'present'
+          ? latestAttendanceInWindow
+          : latestAttendanceForDay?.status === 'present'
+            ? latestAttendanceForDay
+            : latestAttendanceForEmployee?.status === 'present'
+              ? latestAttendanceForEmployee
+              : (latestAttendanceInWindow ?? latestAttendanceForDay)
+        : latestAttendanceInWindow;
+
+    const hasOpenClockIn = latestAttendance?.status === 'present';
+
+    if (!scheduleContext.isWorkingDay && !(requestedStatus === 'clocked_out' && hasOpenClockIn)) {
       return NextResponse.json(
         {
           code: 'not_working_day',
@@ -61,20 +96,6 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
-    const latestAttendanceInWindow =
-      scheduleContext.windowStart && scheduleContext.windowEnd
-        ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
-        : null;
-    const latestAttendanceForDay = await getLatestOfficeAttendanceForDay(employee.id, now);
-    const latestAttendance =
-      requestedStatus === 'clocked_out'
-        ? latestAttendanceInWindow?.status === 'present'
-          ? latestAttendanceInWindow
-          : latestAttendanceForDay?.status === 'present'
-            ? latestAttendanceForDay
-            : (latestAttendanceInWindow ?? latestAttendanceForDay)
-        : latestAttendanceInWindow;
 
     if (!latestAttendance && requestedStatus === 'clocked_out') {
       return NextResponse.json(
@@ -101,6 +122,16 @@ export async function POST(req: Request) {
         {
           code: 'office_attendance_completed',
           error: 'Office attendance has already been completed for this schedule window.',
+        },
+        { status: 400 }
+      );
+    }
+
+    if (latestAttendance?.status === 'pending_leave' || latestAttendance?.status === 'leave') {
+      return NextResponse.json(
+        {
+          code: 'office_attendance_leave_blocked',
+          error: 'Attendance is blocked because this date is marked as leave.',
         },
         { status: 400 }
       );
@@ -195,10 +226,20 @@ export async function POST(req: Request) {
       ...(latenessMins != null ? { latenessMins } : {}),
     };
 
+    const targetClockOutShiftId =
+      requestedStatus === 'clocked_out' && latestAttendance?.status === 'present'
+        ? latestAttendance.officeShiftId ?? scheduleContext.shift?.id ?? null
+        : scheduleContext.shift?.id ?? null;
+    const targetClockOutBusinessDate =
+      requestedStatus === 'clocked_out' && latestAttendance?.status === 'present'
+        ? normalizeAttendanceBusinessDate(latestAttendance.businessDate) ?? dateKeyToDate(scheduleContext.businessDay?.dateKey)
+        : dateKeyToDate(scheduleContext.businessDay?.dateKey);
+
     const recordResult = await recordOfficeAttendance({
       officeId: office?.id ?? null,
-      officeShiftId: scheduleContext.shift?.id ?? null,
+      officeShiftId: targetClockOutShiftId,
       employeeId: employee.id,
+      businessDate: targetClockOutBusinessDate,
       status: requestedStatus,
       picture: body.picture,
       metadata,

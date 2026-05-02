@@ -126,8 +126,8 @@ describe('GET /api/admin/office-attendance/export', () => {
     expect(firstCall.take).toBe(1000);
     expect(firstCall.cursor).toBeUndefined();
     expect(firstCall.where.officeId).toBe('office-1');
-    expect(firstCall.where.recordedAt.gte.getTime()).toBe(startOfDay(new Date('2026-04-01')).getTime());
-    expect(firstCall.where.recordedAt.lte.getTime()).toBe(endOfDay(new Date('2026-04-03')).getTime());
+    expect(firstCall.where.businessDate.gte.getTime()).toBe(startOfDay(new Date('2026-04-01')).getTime());
+    expect(firstCall.where.businessDate.lte.getTime()).toBe(endOfDay(new Date('2026-04-03')).getTime());
     expect(csv).toContain(
       'Employee ID,Employee,Department,Job Title,Office,Business Date,Day Name,Month,Assigned Shift,Shift Start Time,Shift End Time,Grace Minutes,Clock In Date,Clock In Time,Clock In Distance (m),Clock Out Date,Clock Out Time,Clock Out Distance (m),Paid Hours,Work Minutes,Overtime Minutes,Status,Lateness (mins),Late Flag,Early Leave Minutes,Missed Punch Flag,Manual Edit Flag,Edited By,Edit Reason'
     );

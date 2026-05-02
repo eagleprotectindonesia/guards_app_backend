@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { getAdminById } from '@repo/database';
 import { redis } from '@repo/database/redis';
 import { verify2FAToken } from '@/lib/auth/2fa';
-import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
+import { AUTH_COOKIES, AUTH_COOKIE_SECURE, JWT_SECRET } from '@/lib/auth/constants';
 
 export async function POST(req: Request) {
   try {
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
     // Set the final token
     response.cookies.set(AUTH_COOKIES.ADMIN, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: AUTH_COOKIE_SECURE,
       maxAge: 30 * 24 * 60 * 60,
       path: '/',
     });

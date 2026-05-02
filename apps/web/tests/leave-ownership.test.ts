@@ -6,31 +6,23 @@ import {
 import { getAdminOwnershipSummaryByAdminId, getAllActiveAdminOwnershipAssignments } from '@repo/database';
 
 jest.mock('@repo/database', () => ({
+  getAdminOwnershipSummaryByAdminId: jest.fn(),
+  getAllActiveAdminOwnershipAssignments: jest.fn(),
   doesAdminOwnershipAssignmentMatchEmployeeScope: (
     assignment: { departmentKey?: string | null; officeId?: string | null },
     employee: { department?: string | null; officeId?: string | null }
   ) => {
-    const normalizeDepartmentScopeKey = (value?: string | null) => {
-      if (!value) return null;
-      const normalized = value.trim().toLocaleLowerCase('en-US').replace(/\s+/g, ' ');
-      return normalized.length > 0 ? normalized : null;
-    };
-
-    if (assignment.departmentKey) {
-      const employeeDepartmentKey = normalizeDepartmentScopeKey(employee.department);
-      if (!employeeDepartmentKey || employeeDepartmentKey !== assignment.departmentKey) {
-        return false;
-      }
+    const normalizedDepartment = employee.department
+      ? employee.department.trim().toLocaleLowerCase('en-US').replace(/\s+/g, ' ')
+      : null;
+    if (assignment.departmentKey && assignment.departmentKey !== normalizedDepartment) {
+      return false;
     }
-
     if (assignment.officeId && assignment.officeId !== employee.officeId) {
       return false;
     }
-
     return true;
   },
-  getAdminOwnershipSummaryByAdminId: jest.fn(),
-  getAllActiveAdminOwnershipAssignments: jest.fn(),
   normalizeDepartmentScopeKey: (value?: string | null) => {
     if (!value) return null;
     const normalized = value.trim().toLocaleLowerCase('en-US').replace(/\s+/g, ' ');
@@ -41,6 +33,7 @@ jest.mock('@repo/database', () => ({
 const defaultRolePolicy = {
   employees: { scope: 'all' as const },
   attendance: { scope: 'all' as const },
+  leaveRequests: { annualApprover: 'manager' as const },
 };
 
 describe('ownership resolver', () => {
@@ -55,6 +48,7 @@ describe('ownership resolver', () => {
       rolePolicy: {
         employees: { scope: 'on_site_only' },
         attendance: { scope: 'shift_only' },
+        leaveRequests: { annualApprover: 'manager' },
       },
     });
 
@@ -280,6 +274,7 @@ describe('ownership resolver', () => {
       rolePolicy: {
         employees: { scope: 'on_site_only' },
         attendance: { scope: 'all' },
+        leaveRequests: { annualApprover: 'manager' },
       },
     });
 

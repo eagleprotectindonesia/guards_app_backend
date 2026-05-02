@@ -33,6 +33,11 @@ export default function RoleForm({ role, allPermissions }: Props) {
           attendance: {
             scope: (formData.get('attendanceScope') as CreateRoleInput['policy']['attendance']['scope']) || 'all',
           },
+          leaveRequests: {
+            annualApprover:
+              (formData.get('annualApprover') as CreateRoleInput['policy']['leaveRequests']['annualApprover']) ||
+              'manager',
+          },
         },
         permissionIds: selectedPermissions,
       };
@@ -138,6 +143,23 @@ export default function RoleForm({ role, allPermissions }: Props) {
             >
               <option value="all">Shift + Office Attendance</option>
               <option value="shift_only">Shift Attendance Only</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="annualApprover"
+              className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
+            >
+              Annual Leave Approval Role
+            </label>
+            <select
+              id="annualApprover"
+              name="annualApprover"
+              defaultValue={rolePolicy.leaveRequests.annualApprover}
+              className="w-full h-11 px-4 bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            >
+              <option value="manager">Manager Approver</option>
+              <option value="hr">HR Approver</option>
             </select>
           </div>
         </div>

@@ -17,7 +17,6 @@ This document is the source of truth for employee leave-request backend behavior
 Out of scope in v1:
 
 - Partial-day leave.
-- Multi-step approval chains.
 
 ## Data Model
 
@@ -25,6 +24,8 @@ Out of scope in v1:
 
 - `LeaveRequestStatus`
   - `pending`
+  - `pending_hr`
+  - `pending_manager`
   - `approved`
   - `rejected`
   - `cancelled`
@@ -89,7 +90,12 @@ Usage:
 - Admin leave-requests page data loading requires `leave-requests:view`.
 - Admin approve/reject server actions require `leave-requests:edit`.
 - Super admin bypasses ownership and role-scope filters.
+- Super admin review staging follows manager path (does not bypass HR-required dual approval).
 - Leave visibility/edit is constrained by ownership resolver using ownership domain `leave` (details in `docs/ADMIN_OWNERSHIP_LEAVE_REQUESTS.md`).
+- HR/non-HR review split:
+  - HR approver can approve/reject globally only for requests that require HR approval.
+  - HR approver is blocked from approving/rejecting non-HR-required requests, even if ownership matches.
+  - Non-HR-required requests must be reviewed through manager ownership scope.
 
 ## API Contracts
 
@@ -155,6 +161,17 @@ Usage:
   - `pending -> approved`
   - `pending -> rejected`
   - `pending -> cancelled` (employee action)
+  - Dual approval (manager + HR) only when:
+    - `reason` is included in system setting `LEAVE_REASONS_REQUIRE_HR_APPROVAL`, and
+    - leave duration is more than 1 calendar day (inclusive range length > 1).
+- Dual approval transitions:
+  - manager-first flow: `pending -> pending_hr -> approved`
+  - hr-first flow: `pending -> pending_manager -> approved`
+- Authorization guardrails for review actions:
+  - Super admin keeps global visibility/action access, but approval mode is treated as manager.
+  - If request requires HR and actor is HR approver: allow without ownership match.
+  - If request does not require HR and actor is HR approver: deny action (`Non-HR leave must be reviewed by manager ownership`).
+  - Otherwise: ownership/fallback visibility check is required before approve/reject.
 - Any non-pending request cannot be approved/rejected/cancelled.
 
 ## Approval Side Effects
@@ -196,6 +213,22 @@ For each approved date key in `[startDate..endDate]`:
 - Create/update actions are logged to `Changelog` with entity type `EmployeeLeaveRequest`.
 - Approval changelog includes effect counts (office overrides, on-site shifts cancelled).
 
+## Admin Notifications (New Request Created)
+
+- Notification type: `leave_request_created`.
+- Base recipients: all matching admins from leave ownership scope (`leave` domain). If no ownership match exists, fallback admins with `includeFallbackLeaveQueue = true` are used.
+- Additional recipients for HR-required leave requests: admins whose role policy has `leaveRequests.annualApprover = 'hr'`.
+  - HR-required condition matches approval rule above (reason in setting + duration > 1 day).
+- Final recipient list is deduplicated by `adminId`.
+
+## System Setting (DB-managed)
+
+- Setting name: `LEAVE_REASONS_REQUIRE_HR_APPROVAL`
+- Value format: JSON array string of `LeaveRequestReason` values.
+  - Example: `["annual","special_emergency"]`
+- Invalid/missing setting fallback: no reason requires HR approval.
+- This setting is intended for direct DB updates (no admin UI).
+
 ## Files Implemented
 
 - `packages/database/prisma/schema.prisma`
@@ -222,9 +255,8 @@ For each approved date key in `[startDate..endDate]`:
 
 ## Future Task Backlog
 
-1. Add notifications:
+1. Add employee-facing notifications:
    - notify employee when approved/rejected.
-   - notify approvers when new request is created.
 2. Add assignment analytics dashboard:
    - unmatched employee count
    - ownership coverage per department/office
@@ -237,10 +269,23 @@ For each approved date key in `[startDate..endDate]`:
 5. Add leave type taxonomy (`annual`, `sick`, etc.) if business requires.
 6. Add idempotency keys for approval/rejection action safety under retries.
 
+## Operational Role-Policy Backfill
+
+- Existing environments should ensure HR roles use `leaveRequests.annualApprover = 'hr'` so annual leave notifications include HR recipients.
+- Use the backfill script:
+  - `pnpm tsx packages/database/prisma/backfill-hr-annual-approver.ts`
+
 ## Operational Notes
 
 - Apply schema migration before using leave-request flows.
 - Re-seed RBAC permissions to ensure `leave-requests:*` exists for role assignment.
+- Direct DB update examples for HR-required reasons:
+  - Upsert setting:
+    - `INSERT INTO system_settings (name, value, note) VALUES ('LEAVE_REASONS_REQUIRE_HR_APPROVAL', '["annual"]', 'Leave reasons requiring HR approval when duration > 1 day') ON CONFLICT (name) DO UPDATE SET value = EXCLUDED.value, note = EXCLUDED.note;`
+  - Add another reason:
+    - `UPDATE system_settings SET value = '["annual","special_emergency"]' WHERE name = 'LEAVE_REASONS_REQUIRE_HR_APPROVAL';`
+  - Remove all reasons (manager-only for all):
+    - `UPDATE system_settings SET value = '[]' WHERE name = 'LEAVE_REASONS_REQUIRE_HR_APPROVAL';`
 - If full monorepo lint fails due to unrelated workspace issues, validate at least:
   - `pnpm --filter @repo/database type-check`
   - `pnpm --filter web type-check`

@@ -39,6 +39,8 @@ type SelectOption = {
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Pending' },
+  { value: 'pending_hr', label: 'Pending HR Approval' },
+  { value: 'pending_manager', label: 'Pending Manager Approval' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Rejected' },
   { value: 'cancelled', label: 'Cancelled' },
@@ -112,9 +114,9 @@ export default function LeaveRequestFilterModal({
               const selectedValues = Array.isArray(selected)
                 ? (selected as SelectOption[]).map(option => option.value)
                 : [];
-              setStatuses(selectedValues.length > 0 ? selectedValues : ['pending']);
+              setStatuses(selectedValues);
             }}
-            placeholder="Select status"
+            placeholder="All statuses"
             className="text-sm"
           />
         </div>
@@ -183,7 +185,7 @@ export default function LeaveRequestFilterModal({
             variant="outline"
             className="flex-1"
             onClick={() => {
-              setStatuses(['pending']);
+              setStatuses([]);
               setReasons([]);
               setCategories([]);
               setEmployeeId('');

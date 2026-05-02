@@ -1,15 +1,27 @@
-import { EmployeeRole, LeaveRequestReason, LeaveRequestStatus, Prisma } from '@prisma/client';
+import { EmployeeGender, EmployeeRole, LeaveRequestReason, LeaveRequestStatus, Prisma } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { upsertEmployeeOfficeDayOverride } from './office-day-overrides';
+import {
+  clearPendingOfficeLeaveStatusesForDateKeys,
+  ensureNoOfficeAttendanceConflictForLeaveRange,
+  resolveRejectedPendingLeaveStatuses,
+  upsertOfficeLeaveStatusesForDateKeys,
+} from './office-attendance';
 import { redis } from '../redis/client';
 import { createLeaveRequestCreatedAdminNotifications } from './admin-notifications';
 import { enqueueEmailEvent } from '../email-events';
+import { getSystemSetting } from './settings';
+import { resolveHolidayPolicyForEmployeeDate } from './holiday-calendar-entries';
+import { listEmployeeOnsiteDayOffDateKeysInRange } from './onsite-day-offs';
+import { listEmployeeOfficeDayOverridesForDates } from './office-day-overrides';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 export const OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR = 'Overlapping pending leave request already exists';
 export const FIXED_LEAVE_DURATION_ERROR = 'Selected leave type requires an exact policy duration';
 export const ANNUAL_LEAVE_INSUFFICIENT_ERROR = 'Insufficient annual leave balance';
+export const LEAVE_REASONS_REQUIRE_HR_APPROVAL_SETTING = 'LEAVE_REASONS_REQUIRE_HR_APPROVAL';
 type AdminLeaveRequestSortField = 'startDate' | 'status' | 'createdAt';
+const IN_PROGRESS_PENDING_STATUSES: LeaveRequestStatus[] = ['pending', 'pending_hr', 'pending_manager'];
 type AdminLeaveRequestFilterParams = {
   statuses?: LeaveRequestStatus[];
   reasons?: LeaveRequestReason[];
@@ -31,9 +43,24 @@ const adminLeaveRequestInclude = {
       role: true,
       department: true,
       officeId: true,
+      gender: true,
     },
   },
   reviewedBy: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+  managerApprovedBy: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+  hrApprovedBy: {
     select: {
       id: true,
       name: true,
@@ -103,11 +130,49 @@ function getSickCycleEnd(cycleStart: Date) {
   return new Date(Date.UTC(cycleStart.getUTCFullYear(), cycleStart.getUTCMonth() + 1, 20));
 }
 
-function listWorkingDateKeysInclusive(startDateKey: string, endDateKey: string) {
-  return listDateKeysInclusive(startDateKey, endDateKey).filter(dateKey => {
-    const day = dateKeyToDate(dateKey).getUTCDay();
-    return day >= 1 && day <= 5;
-  });
+async function listWorkingDateKeysInclusiveForEmployee(
+  employee: { id: string; role: EmployeeRole | null; department?: string | null },
+  startDateKey: string,
+  endDateKey: string,
+  tx: TxLike = prisma
+) {
+  const dateKeys = listDateKeysInclusive(startDateKey, endDateKey);
+  const onsiteOffDateKeys =
+    employee.role === 'on_site'
+      ? new Set(await listEmployeeOnsiteDayOffDateKeysInRange(employee.id, startDateKey, endDateKey, tx))
+      : new Set<string>();
+  const officeOverridesByDate =
+    employee.role === 'office'
+      ? new Map(
+          (
+            await listEmployeeOfficeDayOverridesForDates(employee.id, dateKeys, tx)
+          ).map(override => [override.date.toISOString().slice(0, 10), override.overrideType] as const)
+        )
+      : new Map<string, 'off' | 'shift_override'>();
+  const scheduleByDate = await Promise.all(
+    dateKeys.map(async dateKey => {
+      const at = dateKeyToDate(dateKey);
+      const holidayPolicy = await resolveHolidayPolicyForEmployeeDate({ date: at, department: employee.department ?? null }, tx);
+      const weekday = at.getUTCDay();
+      const isWeekday = weekday >= 1 && weekday <= 5;
+      const isHolidayOff =
+        holidayPolicy?.entry.affectsAttendance === true &&
+        (holidayPolicy.entry.type === 'holiday' || holidayPolicy.entry.type === 'week_off') &&
+        !holidayPolicy.marksAsWorkingDay;
+      const isOnsiteOff = employee.role === 'on_site' && onsiteOffDateKeys.has(dateKey);
+      const officeOverrideType = employee.role === 'office' ? officeOverridesByDate.get(dateKey) : null;
+      const isOfficeOff = officeOverrideType === 'off';
+      const isOfficeShiftOverride = officeOverrideType === 'shift_override';
+      const isWorkingDayByRole =
+        employee.role === 'office' ? (isOfficeShiftOverride ? true : isWeekday && !isOfficeOff) : isWeekday && !isOnsiteOff;
+      return {
+        dateKey,
+        isWorkingDay: isWorkingDayByRole && !isHolidayOff,
+      };
+    })
+  );
+
+  return scheduleByDate.filter(item => item.isWorkingDay).map(item => item.dateKey);
 }
 
 function cycleStartKeyFromDateKey(dateKey: string) {
@@ -127,6 +192,37 @@ function groupWorkingDateKeysBySickCycle(dateKeys: string[]) {
 
 function countCalendarDaysInclusive(startDateKey: string, endDateKey: string) {
   return listDateKeysInclusive(startDateKey, endDateKey).length;
+}
+
+function parseHrApprovalReasons(rawValue: string | null | undefined) {
+  if (!rawValue) return new Set<LeaveRequestReason>();
+  try {
+    const parsed = JSON.parse(rawValue);
+    if (!Array.isArray(parsed)) return new Set<LeaveRequestReason>();
+    const validReasons = new Set(Object.values(LeaveRequestReason));
+    return new Set(
+      parsed.filter((reason): reason is LeaveRequestReason => typeof reason === 'string' && validReasons.has(reason as LeaveRequestReason))
+    );
+  } catch {
+    return new Set<LeaveRequestReason>();
+  }
+}
+
+async function getHrApprovalReasons(tx: TxLike = prisma) {
+  const setting = await getSystemSetting(LEAVE_REASONS_REQUIRE_HR_APPROVAL_SETTING);
+  return parseHrApprovalReasons(setting?.value);
+}
+
+export async function isHrApprovalRequiredForLeaveRequest(params: {
+  reason: LeaveRequestReason;
+  startDate: Date;
+  endDate: Date;
+}) {
+  const hrReasons = await getHrApprovalReasons();
+  const startDateKey = dateToDateKey(params.startDate);
+  const endDateKey = dateToDateKey(params.endDate);
+  const durationDays = countCalendarDaysInclusive(startDateKey, endDateKey);
+  return hrReasons.has(params.reason) && durationDays > 1;
 }
 
 function normalizeDateRange(startDateKey: string, endDateKey: string) {
@@ -180,11 +276,21 @@ export async function createEmployeeLeaveRequest(
   const targetTx = tx as TxLike;
   const startCycleKey = params.reason === 'sick' ? getSickCycleStart(startDate) : null;
   const requiresDocument = params.reason === 'special_miscarriage';
+  const employee = await targetTx.employee.findUnique({
+    where: { id: params.employeeId },
+    select: { id: true, role: true },
+  });
+  if (!employee) {
+    throw new Error('Employee not found');
+  }
+  if (employee.role === 'office') {
+    await ensureNoOfficeAttendanceConflictForLeaveRange(employee.id, params.startDate, params.endDate);
+  }
 
   const overlappingPendingRequest = await targetTx.employeeLeaveRequest.findFirst({
     where: {
       employeeId: params.employeeId,
-      status: 'pending',
+      status: { in: IN_PROGRESS_PENDING_STATUSES },
       endDate: { gte: startDate },
       startDate: { lte: endDate },
     },
@@ -219,6 +325,28 @@ export async function createEmployeeLeaveRequest(
       throw error;
     }
   })();
+
+  if (employee.role === 'office') {
+    const officeEmployee = await targetTx.employee.findUnique({
+      where: { id: employee.id },
+      select: { id: true, role: true, department: true },
+    });
+    if (!officeEmployee) {
+      throw new Error('Employee not found');
+    }
+    const workingDateKeys = await listWorkingDateKeysInclusiveForEmployee(
+      officeEmployee,
+      params.startDate,
+      params.endDate,
+      targetTx
+    );
+    await upsertOfficeLeaveStatusesForDateKeys({
+      employeeId: employee.id,
+      dateKeys: workingDateKeys,
+      status: 'pending_leave',
+      note: `Pending leave request (${created.id})`,
+    }, targetTx);
+  }
 
   await targetTx.changelog.create({
     data: {
@@ -501,6 +629,58 @@ async function getOrCreateAnnualLeaveBalance(employeeId: string, year: number, t
   });
 }
 
+export async function calculateAnnualLeaveConsumption(
+  params: {
+    employeeId: string;
+    dayKeys: string[];
+  },
+  tx: TxLike = prisma
+): Promise<AnnualLeaveConsumptionResult> {
+  if (params.dayKeys.length === 0) {
+    return { deductedDays: 0, shortfallDays: 0 };
+  }
+
+  const daysByYear = new Map<number, number>();
+  for (const dayKey of params.dayKeys) {
+    const year = dateKeyToDate(dayKey).getUTCFullYear();
+    daysByYear.set(year, (daysByYear.get(year) ?? 0) + 1);
+  }
+
+  const sortedYears = Array.from(daysByYear.keys()).sort((a, b) => a - b);
+  let remainingToConsume = params.dayKeys.length;
+  let deductedDays = 0;
+
+  for (const year of sortedYears) {
+    if (remainingToConsume <= 0) {
+      break;
+    }
+
+    const balance = await (tx as TxLike).employeeAnnualLeaveBalance.findUnique({
+      where: {
+        employeeId_year: {
+          employeeId: params.employeeId,
+          year,
+        },
+      },
+    });
+
+    const available = balance
+      ? Math.max(0, balance.entitledDays + balance.adjustedDays - balance.consumedDays)
+      : 12; // Default entitlement if record doesn't exist yet
+
+    const requestedInYear = daysByYear.get(year) ?? 0;
+    const canConsume = Math.min(requestedInYear, remainingToConsume, available);
+
+    deductedDays += canConsume;
+    remainingToConsume -= canConsume;
+  }
+
+  return {
+    deductedDays,
+    shortfallDays: Math.max(0, remainingToConsume),
+  };
+}
+
 async function consumeAnnualLeaveDays(
   params: {
     employeeId: string;
@@ -588,7 +768,7 @@ export async function cancelEmployeeLeaveRequestByEmployee(
     throw new Error('Leave request not found');
   }
 
-  if (request.status !== 'pending') {
+  if (!IN_PROGRESS_PENDING_STATUSES.includes(request.status)) {
     throw new Error('Only pending leave requests can be cancelled');
   }
 
@@ -613,15 +793,455 @@ export async function cancelEmployeeLeaveRequestByEmployee(
     },
   });
 
+  const employee = await (tx as TxLike).employee.findUnique({
+    where: { id: updated.employeeId },
+    select: { id: true, role: true, department: true },
+  });
+  if (employee?.role === 'office') {
+    const workingDateKeys = await listWorkingDateKeysInclusiveForEmployee(
+      employee,
+      dateToDateKey(updated.startDate),
+      dateToDateKey(updated.endDate),
+      tx
+    );
+    await clearPendingOfficeLeaveStatusesForDateKeys(
+      {
+        employeeId: employee.id,
+        dateKeys: workingDateKeys,
+        now: new Date(),
+      },
+      tx
+    );
+  }
+
   return updated;
+}
+
+type LeaveApprovalMode = 'manager' | 'hr' | 'superadmin';
+type LeaveRequestWithEmployee = Prisma.EmployeeLeaveRequestGetPayload<{
+  include: {
+    employee: {
+      select: {
+        id: true;
+        role: true;
+        gender: true;
+        department: true;
+      };
+    };
+  };
+}>;
+
+export type LeavePolicyCycleBreakdown = {
+  cycleStart: string;
+  cycleEnd: string;
+  requestedWorkingDays: number;
+  noDocAllowanceRemainingBeforeRequest: number;
+  noDocPaidDaysCurrentRequest: number;
+  deductedAnnualDays: number;
+  unpaidDays: number;
+};
+
+export type LeavePolicySnapshot = {
+  mainCategory?: 'sick' | 'family' | 'special' | 'annual';
+  workingDays?: number;
+  calendarDays?: number;
+  hasDocument?: boolean;
+  annualRequestedDays?: number;
+  emergencyDeductedDays?: number;
+  cycleStart?: string;
+  cycleEnd?: string;
+  noDocPaidDays?: number;
+  noDocPaidByCycle?: Record<string, number>;
+  cycleBreakdown?: LeavePolicyCycleBreakdown[];
+};
+
+export type LeavePolicyOutcomeProjection = {
+  isPaid: boolean;
+  deductedAnnualDays: number;
+  unpaidDays: number;
+  policySnapshot: LeavePolicySnapshot;
+  dateKeys: string[];
+  workingDateKeys: string[];
+};
+
+export async function projectLeavePolicyOutcome(
+  params: {
+    request: {
+      id: string;
+      startDate: Date;
+      endDate: Date;
+      reason: LeaveRequestReason;
+      attachments: string[];
+      cycleKey?: Date | null;
+    };
+    employee: {
+      id: string;
+      role: EmployeeRole | null;
+      gender: EmployeeGender | null;
+      department?: string | null;
+    };
+  },
+  tx: TxLike = prisma
+): Promise<LeavePolicyOutcomeProjection> {
+  const { request, employee } = params;
+  const startDateKey = dateToDateKey(request.startDate);
+  const endDateKey = dateToDateKey(request.endDate);
+  const dateKeys = listDateKeysInclusive(startDateKey, endDateKey);
+  const workingDateKeys = await listWorkingDateKeysInclusiveForEmployee(
+    { id: employee.id, role: employee.role, department: employee.department ?? null },
+    startDateKey,
+    endDateKey,
+    tx
+  );
+  const hasDocument = request.attachments.length > 0;
+  assertFixedDurationRule(request.reason, startDateKey, endDateKey);
+
+  if (request.reason === 'special_maternity' && employee.gender !== 'female') {
+    throw new Error('Maternity leave is only allowed for female employees');
+  }
+  if (request.reason === 'special_paternity' && employee.gender !== 'male') {
+    throw new Error('Paternity leave is only allowed for male employees');
+  }
+  if (request.reason === 'special_miscarriage' && !hasDocument) {
+    throw new Error('Miscarriage leave requires supporting document');
+  }
+
+  let deductedAnnualDays = 0;
+  let unpaidDays = 0;
+  let isPaid = true;
+  let policySnapshot: LeavePolicySnapshot = {
+    mainCategory: getMainCategoryFromReason(request.reason),
+    workingDays: workingDateKeys.length,
+    calendarDays: dateKeys.length,
+    hasDocument,
+  };
+
+  if (request.reason === 'annual') {
+    const annual = await calculateAnnualLeaveConsumption(
+      {
+        employeeId: employee.id,
+        dayKeys: workingDateKeys,
+      },
+      tx
+    );
+    deductedAnnualDays = annual.deductedDays;
+    unpaidDays = annual.shortfallDays;
+    isPaid = unpaidDays === 0;
+    policySnapshot = { ...policySnapshot, annualRequestedDays: workingDateKeys.length };
+  } else if (request.reason === 'special_emergency') {
+    const annual = await calculateAnnualLeaveConsumption(
+      {
+        employeeId: employee.id,
+        dayKeys: workingDateKeys,
+      },
+      tx
+    );
+    deductedAnnualDays = annual.deductedDays;
+    unpaidDays = annual.shortfallDays;
+    isPaid = unpaidDays === 0;
+    policySnapshot = { ...policySnapshot, emergencyDeductedDays: deductedAnnualDays };
+  } else if (request.reason === 'sick') {
+    const cycleBuckets = groupWorkingDateKeysBySickCycle(workingDateKeys);
+    const cycleStartKeys = Array.from(cycleBuckets.keys()).sort((a, b) => a.localeCompare(b));
+    const cycleStartDates = cycleStartKeys.map(cycleStartKey => dateKeyToDate(cycleStartKey));
+    const approvedSickRequests = await (tx as TxLike).employeeLeaveRequest.findMany({
+      where: {
+        employeeId: employee.id,
+        status: 'approved',
+        reason: 'sick',
+        id: { not: request.id },
+        cycleKey: { in: cycleStartDates },
+      },
+      select: {
+        attachments: true,
+        policySnapshot: true,
+        deductedAnnualDays: true,
+        unpaidDays: true,
+        cycleKey: true,
+      },
+    });
+
+    const existingNoDocPaidByCycle = buildExistingNoDocPaidByCycleMap(approvedSickRequests);
+    const currentNoDocPaidByCycle: Record<string, number> = {};
+    const cycleBreakdown: Array<{
+      cycleStart: string;
+      cycleEnd: string;
+      requestedWorkingDays: number;
+      noDocAllowanceRemainingBeforeRequest: number;
+      noDocPaidDaysCurrentRequest: number;
+      deductedAnnualDays: number;
+      unpaidDays: number;
+    }> = [];
+
+    for (const cycleStartKey of cycleStartKeys) {
+      const cycleWorkingKeys = cycleBuckets.get(cycleStartKey) ?? [];
+      const cycleStart = dateKeyToDate(cycleStartKey);
+      const cycleEnd = getSickCycleEnd(cycleStart);
+      const noDocUsedBefore = existingNoDocPaidByCycle.get(cycleStartKey) ?? 0;
+      const noDocAllowanceRemainingBefore = Math.max(0, 1 - noDocUsedBefore);
+
+      let noDocPaidDaysCurrentRequest = 0;
+      let cycleDeducted = 0;
+      let cycleUnpaid = 0;
+
+      if (!hasDocument) {
+        noDocPaidDaysCurrentRequest = Math.min(cycleWorkingKeys.length, noDocAllowanceRemainingBefore);
+        const excessKeys = cycleWorkingKeys.slice(noDocPaidDaysCurrentRequest);
+        if (excessKeys.length > 0) {
+          const annual = await calculateAnnualLeaveConsumption(
+            {
+              employeeId: employee.id,
+              dayKeys: excessKeys,
+            },
+            tx
+          );
+          cycleDeducted = annual.deductedDays;
+          cycleUnpaid = excessKeys.length - annual.deductedDays;
+        }
+      }
+
+      deductedAnnualDays += cycleDeducted;
+      unpaidDays += cycleUnpaid;
+      currentNoDocPaidByCycle[cycleStartKey] = noDocPaidDaysCurrentRequest;
+      cycleBreakdown.push({
+        cycleStart: cycleStartKey,
+        cycleEnd: dateToDateKey(cycleEnd),
+        requestedWorkingDays: cycleWorkingKeys.length,
+        noDocAllowanceRemainingBeforeRequest: noDocAllowanceRemainingBefore,
+        noDocPaidDaysCurrentRequest,
+        deductedAnnualDays: cycleDeducted,
+        unpaidDays: cycleUnpaid,
+      });
+    }
+    isPaid = unpaidDays === 0;
+
+    policySnapshot = {
+      ...policySnapshot,
+      cycleStart: request.cycleKey ? dateToDateKey(request.cycleKey) : cycleStartKeyFromDateKey(startDateKey),
+      cycleEnd: dateToDateKey(getSickCycleEnd(request.cycleKey ?? getSickCycleStart(request.startDate))),
+      noDocPaidDays: hasDocument ? 0 : Object.values(currentNoDocPaidByCycle).reduce((sum, value) => sum + value, 0),
+      noDocPaidByCycle: currentNoDocPaidByCycle,
+      cycleBreakdown,
+    };
+  }
+
+  return {
+    isPaid,
+    deductedAnnualDays,
+    unpaidDays,
+    policySnapshot,
+    dateKeys,
+    workingDateKeys,
+  };
+}
+
+async function finalizeApprovedLeaveRequest(
+  params: {
+    request: LeaveRequestWithEmployee;
+    adminId: string;
+    adminNote?: string | null;
+    now: Date;
+  },
+  trx: Prisma.TransactionClient
+) {
+  const { request, now } = params;
+  const outcome = await projectLeavePolicyOutcome(
+    {
+      request: {
+        id: request.id,
+        startDate: request.startDate,
+        endDate: request.endDate,
+        reason: request.reason,
+        attachments: request.attachments,
+        cycleKey: request.cycleKey,
+      },
+      employee: {
+        id: request.employee.id,
+        role: request.employee.role,
+        gender: request.employee.gender,
+        department: request.employee.department,
+      },
+    },
+    trx
+  );
+
+  // Apply actual annual leave deductions if needed
+  if (outcome.deductedAnnualDays > 0) {
+    if (request.reason === 'annual') {
+      await consumeAnnualLeaveDays(
+        {
+          employeeId: request.employeeId,
+          leaveRequestId: request.id,
+          dayKeys: outcome.workingDateKeys,
+          adminId: params.adminId,
+          allowShortfall: true,
+          note: `Annual leave deduction (${request.id})`,
+        },
+        trx
+      );
+    } else if (request.reason === 'special_emergency') {
+      await consumeAnnualLeaveDays(
+        {
+          employeeId: request.employeeId,
+          leaveRequestId: request.id,
+          dayKeys: outcome.workingDateKeys,
+          adminId: params.adminId,
+          allowShortfall: true,
+          note: `Emergency leave annual deduction (${request.id})`,
+        },
+        trx
+      );
+    } else if (request.reason === 'sick') {
+      const cycleBuckets = groupWorkingDateKeysBySickCycle(outcome.workingDateKeys);
+      const cycleStartKeys = Array.from(cycleBuckets.keys()).sort((a, b) => a.localeCompare(b));
+      const hasDocument = request.attachments.length > 0;
+
+      if (!hasDocument) {
+        const approvedSickRequests = await trx.employeeLeaveRequest.findMany({
+          where: {
+            employeeId: request.employeeId,
+            status: 'approved',
+            reason: 'sick',
+            id: { not: request.id },
+            cycleKey: { in: cycleStartKeys.map(key => dateKeyToDate(key)) },
+          },
+          select: {
+            attachments: true,
+            policySnapshot: true,
+            deductedAnnualDays: true,
+            unpaidDays: true,
+            cycleKey: true,
+          },
+        });
+        const existingNoDocPaidByCycle = buildExistingNoDocPaidByCycleMap(approvedSickRequests);
+
+        for (const cycleStartKey of cycleStartKeys) {
+          const cycleWorkingKeys = cycleBuckets.get(cycleStartKey) ?? [];
+          const noDocUsedBefore = existingNoDocPaidByCycle.get(cycleStartKey) ?? 0;
+          const noDocAllowanceRemainingBefore = Math.max(0, 1 - noDocUsedBefore);
+          const noDocPaidDaysCurrentRequest = Math.min(cycleWorkingKeys.length, noDocAllowanceRemainingBefore);
+          const excessKeys = cycleWorkingKeys.slice(noDocPaidDaysCurrentRequest);
+
+          if (excessKeys.length > 0) {
+            await consumeAnnualLeaveDays(
+              {
+                employeeId: request.employeeId,
+                leaveRequestId: request.id,
+                dayKeys: excessKeys,
+                adminId: params.adminId,
+                allowShortfall: true,
+                note: `Sick leave no-document fallback deduction (${request.id})`,
+              },
+              trx
+            );
+          }
+        }
+      }
+    }
+  }
+
+  const updated = await trx.employeeLeaveRequest.update({
+    where: { id: request.id },
+    data: {
+      status: 'approved',
+      reviewedById: params.adminId,
+      reviewedAt: now,
+      adminNote: params.adminNote ?? null,
+      isPaid: outcome.isPaid,
+      deductedAnnualDays: outcome.deductedAnnualDays,
+      unpaidDays: outcome.unpaidDays,
+      policySnapshot: outcome.policySnapshot as Prisma.InputJsonValue,
+      documentVerifiedAt: request.attachments.length > 0 ? now : null,
+      documentVerifiedById: request.attachments.length > 0 ? params.adminId : null,
+    },
+  });
+
+  let affectedOfficeOverrideCount = 0;
+  let affectedOnsiteShiftCount = 0;
+
+  if (request.employee.role === 'office') {
+    const startDateKey = dateToDateKey(request.startDate);
+    const endDateKey = dateToDateKey(request.endDate);
+    await ensureNoOfficeAttendanceConflictForLeaveRange(request.employee.id, startDateKey, endDateKey);
+    for (const dateKey of outcome.dateKeys) {
+      await upsertEmployeeOfficeDayOverride(
+        {
+          employeeId: request.employee.id,
+          date: dateKey,
+          overrideType: 'off',
+          note: `Leave approved (${updated.id})`,
+          adminId: params.adminId,
+        },
+        trx
+      );
+    }
+    await upsertOfficeLeaveStatusesForDateKeys({
+      employeeId: request.employee.id,
+      dateKeys: outcome.workingDateKeys,
+      status: 'leave',
+      note: `Approved leave request (${updated.id})`,
+    }, trx);
+    affectedOfficeOverrideCount = outcome.dateKeys.length;
+  }
+
+  if (request.employee.role === 'on_site') {
+    const startDateKey = dateToDateKey(request.startDate);
+    const endDateKey = dateToDateKey(request.endDate);
+    const cancelled = await trx.shift.updateMany({
+      where: {
+        employeeId: request.employee.id,
+        status: 'scheduled',
+        deletedAt: null,
+        startsAt: { gte: now },
+        date: {
+          gte: dateKeyToDate(startDateKey),
+          lte: dateKeyToDate(endDateKey),
+        },
+      },
+      data: {
+        status: 'cancelled',
+        lastUpdatedById: params.adminId,
+        note: `Cancelled due to approved leave request ${updated.id}`,
+      },
+    });
+    affectedOnsiteShiftCount = cancelled.count;
+  }
+
+  await trx.changelog.create({
+    data: {
+      action: 'UPDATE',
+      entityType: 'EmployeeLeaveRequest',
+      entityId: updated.id,
+      actor: 'admin',
+      actorId: params.adminId,
+      details: {
+        employeeId: updated.employeeId,
+        status: 'approved',
+        reason: updated.reason,
+        employeeNote: updated.employeeNote,
+        adminNote: updated.adminNote,
+        attachments: updated.attachments,
+        deductedAnnualDays: updated.deductedAnnualDays,
+        unpaidDays: updated.unpaidDays,
+        isPaid: updated.isPaid,
+        policySnapshot: updated.policySnapshot,
+        affectedOfficeOverrideCount,
+        affectedOnsiteShiftCount,
+      },
+    },
+  });
+
+  return { updated, affectedOnsiteShiftCount };
 }
 
 export async function approveEmployeeLeaveRequest(params: {
   requestId: string;
   adminId: string;
   adminNote?: string | null;
+  approvalMode?: LeaveApprovalMode;
 }) {
   const now = new Date();
+  const approvalMode = params.approvalMode ?? 'manager';
 
   const result = await prisma.$transaction(async trx => {
     const request = await trx.employeeLeaveRequest.findUnique({
@@ -642,240 +1262,110 @@ export async function approveEmployeeLeaveRequest(params: {
       throw new Error('Leave request not found');
     }
 
-    if (request.status !== 'pending') {
+    if (!IN_PROGRESS_PENDING_STATUSES.includes(request.status)) {
       throw new Error('Only pending leave requests can be approved');
     }
 
-    const startDateKey = dateToDateKey(request.startDate);
-    const endDateKey = dateToDateKey(request.endDate);
-    const dateKeys = listDateKeysInclusive(startDateKey, endDateKey);
-    const workingDateKeys = listWorkingDateKeysInclusive(startDateKey, endDateKey);
-    const hasDocument = request.attachments.length > 0;
-    assertFixedDurationRule(request.reason, startDateKey, endDateKey);
-
-    if (request.reason === 'special_maternity' && request.employee.gender !== 'female') {
-      throw new Error('Maternity leave is only allowed for female employees');
-    }
-    if (request.reason === 'special_paternity' && request.employee.gender !== 'male') {
-      throw new Error('Paternity leave is only allowed for male employees');
-    }
-    if (request.reason === 'special_miscarriage' && !hasDocument) {
-      throw new Error('Miscarriage leave requires supporting document');
-    }
-
-    let deductedAnnualDays = 0;
-    let unpaidDays = 0;
-    let isPaid = true;
-    let policySnapshot: Record<string, unknown> = {
-      mainCategory: getMainCategoryFromReason(request.reason),
-      workingDays: workingDateKeys.length,
-      calendarDays: dateKeys.length,
-      hasDocument,
-    };
-
-    if (request.reason === 'annual') {
-      const annual = await consumeAnnualLeaveDays(
-        {
-          employeeId: request.employeeId,
-          leaveRequestId: request.id,
-          dayKeys: workingDateKeys,
-          adminId: params.adminId,
-          allowShortfall: false,
-          note: `Annual leave deduction (${request.id})`,
-        },
-        trx
-      );
-      deductedAnnualDays = annual.deductedDays;
-      unpaidDays = 0;
-      isPaid = true;
-      policySnapshot = { ...policySnapshot, annualRequestedDays: workingDateKeys.length };
-    } else if (request.reason === 'special_emergency') {
-      const annual = await consumeAnnualLeaveDays(
-        {
-          employeeId: request.employeeId,
-          leaveRequestId: request.id,
-          dayKeys: workingDateKeys,
-          adminId: params.adminId,
-          allowShortfall: false,
-          note: `Emergency leave annual deduction (${request.id})`,
-        },
-        trx
-      );
-      deductedAnnualDays = annual.deductedDays;
-      isPaid = true;
-      policySnapshot = { ...policySnapshot, emergencyDeductedDays: deductedAnnualDays };
-    } else if (request.reason === 'sick') {
-      const cycleBuckets = groupWorkingDateKeysBySickCycle(workingDateKeys);
-      const cycleStartKeys = Array.from(cycleBuckets.keys()).sort((a, b) => a.localeCompare(b));
-      const cycleStartDates = cycleStartKeys.map(cycleStartKey => dateKeyToDate(cycleStartKey));
-      const approvedSickRequests = await trx.employeeLeaveRequest.findMany({
-        where: {
-          employeeId: request.employeeId,
-          status: 'approved',
-          reason: 'sick',
-          id: { not: request.id },
-          cycleKey: { in: cycleStartDates },
-        },
-        select: {
-          attachments: true,
-          policySnapshot: true,
-          deductedAnnualDays: true,
-          unpaidDays: true,
-          cycleKey: true,
-        },
-      });
-
-      const existingNoDocPaidByCycle = buildExistingNoDocPaidByCycleMap(approvedSickRequests);
-      const currentNoDocPaidByCycle: Record<string, number> = {};
-      const cycleBreakdown: Array<{
-        cycleStart: string;
-        cycleEnd: string;
-        requestedWorkingDays: number;
-        noDocAllowanceRemainingBeforeRequest: number;
-        noDocPaidDaysCurrentRequest: number;
-        deductedAnnualDays: number;
-        unpaidDays: number;
-      }> = [];
-
-      for (const cycleStartKey of cycleStartKeys) {
-        const cycleWorkingKeys = cycleBuckets.get(cycleStartKey) ?? [];
-        const cycleStart = dateKeyToDate(cycleStartKey);
-        const cycleEnd = getSickCycleEnd(cycleStart);
-        const noDocUsedBefore = existingNoDocPaidByCycle.get(cycleStartKey) ?? 0;
-        const noDocAllowanceRemainingBefore = Math.max(0, 1 - noDocUsedBefore);
-
-        let noDocPaidDaysCurrentRequest = 0;
-        let cycleDeducted = 0;
-        let cycleUnpaid = 0;
-
-        if (!hasDocument) {
-          noDocPaidDaysCurrentRequest = Math.min(cycleWorkingKeys.length, noDocAllowanceRemainingBefore);
-          const excessKeys = cycleWorkingKeys.slice(noDocPaidDaysCurrentRequest);
-          if (excessKeys.length > 0) {
-            const annual = await consumeAnnualLeaveDays(
-              {
-                employeeId: request.employeeId,
-                leaveRequestId: request.id,
-                dayKeys: excessKeys,
-                adminId: params.adminId,
-                allowShortfall: true,
-                note: `Sick leave no-document fallback deduction (${request.id})`,
-              },
-              trx
-            );
-            cycleDeducted = annual.deductedDays;
-            cycleUnpaid = excessKeys.length - annual.deductedDays;
-          }
-        }
-
-        deductedAnnualDays += cycleDeducted;
-        unpaidDays += cycleUnpaid;
-        currentNoDocPaidByCycle[cycleStartKey] = noDocPaidDaysCurrentRequest;
-        cycleBreakdown.push({
-          cycleStart: cycleStartKey,
-          cycleEnd: dateToDateKey(cycleEnd),
-          requestedWorkingDays: cycleWorkingKeys.length,
-          noDocAllowanceRemainingBeforeRequest: noDocAllowanceRemainingBefore,
-          noDocPaidDaysCurrentRequest,
-          deductedAnnualDays: cycleDeducted,
-          unpaidDays: cycleUnpaid,
-        });
-      }
-      isPaid = unpaidDays === 0;
-
-      policySnapshot = {
-        ...policySnapshot,
-        cycleStart: request.cycleKey ? dateToDateKey(request.cycleKey) : cycleStartKeyFromDateKey(startDateKey),
-        cycleEnd: dateToDateKey(getSickCycleEnd(request.cycleKey ?? getSickCycleStart(request.startDate))),
-        noDocPaidDays: hasDocument
-          ? 0
-          : Object.values(currentNoDocPaidByCycle).reduce((sum, value) => sum + value, 0),
-        noDocPaidByCycle: currentNoDocPaidByCycle,
-        cycleBreakdown,
-      };
-    }
-
-    const updated = await trx.employeeLeaveRequest.update({
-      where: { id: request.id },
-      data: {
-        status: 'approved',
-        reviewedById: params.adminId,
-        reviewedAt: now,
-        adminNote: params.adminNote ?? null,
-        isPaid,
-        deductedAnnualDays,
-        unpaidDays,
-        policySnapshot: policySnapshot as Prisma.InputJsonValue,
-        documentVerifiedAt: hasDocument ? now : null,
-        documentVerifiedById: hasDocument ? params.adminId : null,
-      },
+    const requiresHrApproval = await isHrApprovalRequiredForLeaveRequest({
+      reason: request.reason,
+      startDate: request.startDate,
+      endDate: request.endDate,
     });
 
-    let affectedOfficeOverrideCount = 0;
-    let affectedOnsiteShiftCount = 0;
-
-    if (request.employee.role === 'office') {
-      for (const dateKey of dateKeys) {
-        await upsertEmployeeOfficeDayOverride(
-          {
-            employeeId: request.employee.id,
-            date: dateKey,
-            overrideType: 'off',
-            note: `Leave approved (${updated.id})`,
-            adminId: params.adminId,
-          },
-          trx
-        );
-      }
-      affectedOfficeOverrideCount = dateKeys.length;
+    if (!requiresHrApproval) {
+      return finalizeApprovedLeaveRequest(
+        {
+          request,
+          adminId: params.adminId,
+          adminNote: params.adminNote,
+          now,
+        },
+        trx
+      );
     }
 
-    if (request.employee.role === 'on_site') {
-      const cancelled = await trx.shift.updateMany({
+    if (approvalMode === 'manager') {
+      const managerUpdate = await trx.employeeLeaveRequest.updateMany({
         where: {
-          employeeId: request.employee.id,
-          status: 'scheduled',
-          deletedAt: null,
-          startsAt: { gte: now },
-          date: {
-            gte: dateKeyToDate(startDateKey),
-            lte: dateKeyToDate(endDateKey),
-          },
+          id: request.id,
+          status: { in: ['pending', 'pending_manager'] },
+          managerApprovedById: null,
         },
         data: {
-          status: 'cancelled',
-          lastUpdatedById: params.adminId,
-          note: `Cancelled due to approved leave request ${updated.id}`,
+          managerApprovedById: params.adminId,
+          managerApprovedAt: now,
+          managerApprovalNote: params.adminNote ?? null,
+          status: request.status === 'pending_manager' ? 'approved' : 'pending_hr',
         },
       });
-      affectedOnsiteShiftCount = cancelled.count;
+      if (managerUpdate.count === 0) {
+        throw new Error('Manager approval already recorded for this annual leave request');
+      }
+    } else {
+      const hrUpdate = await trx.employeeLeaveRequest.updateMany({
+        where: {
+          id: request.id,
+          status: { in: ['pending', 'pending_hr'] },
+          hrApprovedById: null,
+        },
+        data: {
+          hrApprovedById: params.adminId,
+          hrApprovedAt: now,
+          hrApprovalNote: params.adminNote ?? null,
+          status: request.status === 'pending_hr' ? 'approved' : 'pending_manager',
+        },
+      });
+      if (hrUpdate.count === 0) {
+        throw new Error('HR approval already recorded for this annual leave request');
+      }
     }
 
-    await trx.changelog.create({
-      data: {
-        action: 'UPDATE',
-        entityType: 'EmployeeLeaveRequest',
-        entityId: updated.id,
-        actor: 'admin',
-        actorId: params.adminId,
-        details: {
-          employeeId: updated.employeeId,
-          status: 'approved',
-          reason: updated.reason,
-          employeeNote: updated.employeeNote,
-          adminNote: updated.adminNote,
-          attachments: updated.attachments,
-          deductedAnnualDays: updated.deductedAnnualDays,
-          unpaidDays: updated.unpaidDays,
-          isPaid: updated.isPaid,
-          policySnapshot: updated.policySnapshot,
-          affectedOfficeOverrideCount,
-          affectedOnsiteShiftCount,
+    const afterStage = await trx.employeeLeaveRequest.findUniqueOrThrow({
+      where: { id: request.id },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            role: true,
+            gender: true,
+            department: true,
+          },
         },
       },
     });
 
-    return { updated, affectedOnsiteShiftCount };
+    if (afterStage.status !== 'approved') {
+      await trx.changelog.create({
+        data: {
+          action: 'UPDATE',
+          entityType: 'EmployeeLeaveRequest',
+          entityId: afterStage.id,
+          actor: 'admin',
+          actorId: params.adminId,
+          details: {
+            employeeId: afterStage.employeeId,
+            reason: afterStage.reason,
+            status: afterStage.status,
+            annualApprovalStage: approvalMode,
+            managerApprovedById: afterStage.managerApprovedById,
+            managerApprovedAt: afterStage.managerApprovedAt,
+            hrApprovedById: afterStage.hrApprovedById,
+            hrApprovedAt: afterStage.hrApprovedAt,
+          },
+        },
+      });
+      return { updated: afterStage, affectedOnsiteShiftCount: 0 };
+    }
+
+    return finalizeApprovedLeaveRequest(
+      {
+        request: afterStage,
+        adminId: params.adminId,
+        adminNote: params.adminNote,
+        now,
+      },
+      trx
+    );
   });
 
   if (result.affectedOnsiteShiftCount > 0) {
@@ -904,7 +1394,7 @@ export async function rejectEmployeeLeaveRequest(
     throw new Error('Leave request not found');
   }
 
-  if (request.status !== 'pending') {
+  if (!IN_PROGRESS_PENDING_STATUSES.includes(request.status)) {
     throw new Error('Only pending leave requests can be rejected');
   }
 
@@ -917,6 +1407,27 @@ export async function rejectEmployeeLeaveRequest(
       adminNote: params.adminNote ?? null,
     },
   });
+
+  const employee = await (tx as TxLike).employee.findUnique({
+    where: { id: updated.employeeId },
+    select: { id: true, role: true },
+  });
+  if (employee?.role === 'office') {
+    await resolveRejectedPendingLeaveStatuses({
+      employeeId: employee.id,
+      dateKeys: await listWorkingDateKeysInclusiveForEmployee(
+        {
+          id: employee.id,
+          role: employee.role,
+          department: null,
+        },
+        dateToDateKey(updated.startDate),
+        dateToDateKey(updated.endDate),
+        tx
+      ),
+      now: new Date(),
+    }, tx);
+  }
 
   await tx.changelog.create({
     data: {

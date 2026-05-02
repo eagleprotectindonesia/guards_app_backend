@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { findAdminByEmail } from '@repo/database';
-import { AUTH_COOKIES, JWT_SECRET } from '@/lib/auth/constants';
+import { AUTH_COOKIES, AUTH_COOKIE_SECURE, JWT_SECRET } from '@/lib/auth/constants';
 import { verifyPassword } from '@repo/database';
 import { redis } from '@repo/database/redis';
 
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
 
       response.cookies.set(AUTH_COOKIES.ADMIN_2FA_PENDING, tempToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: AUTH_COOKIE_SECURE,
         maxAge: 300, // 5 minutes
         path: '/',
       });
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
     });
     response.cookies.set(AUTH_COOKIES.ADMIN, token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: AUTH_COOKIE_SECURE,
       maxAge: 30 * 24 * 60 * 60, // 30 days
       path: '/',
     });

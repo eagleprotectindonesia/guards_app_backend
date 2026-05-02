@@ -12,14 +12,14 @@ import { AttendanceEmployeeSummary } from '@/types/attendance';
 type AttendanceExportModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onExport: (startDate: Date, endDate: Date, employeeId?: string) => void;
+  onExport: (startDate: Date, endDate: Date, employeeNumber?: string) => void;
   employees: AttendanceEmployeeSummary[];
 };
 
 export default function AttendanceExportModal({ isOpen, onClose, onExport, employees }: AttendanceExportModalProps) {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  const [selectedemployeeId, setSelectedemployeeId] = useState<string>('');
+  const [selectedEmployeeNumber, setSelectedEmployeeNumber] = useState<string>('');
 
   const handleExport = () => {
     if (!startDate || !endDate) {
@@ -38,7 +38,7 @@ export default function AttendanceExportModal({ isOpen, onClose, onExport, emplo
       return;
     }
 
-    onExport(startDate, endDate, selectedemployeeId || undefined);
+    onExport(startDate, endDate, selectedEmployeeNumber || undefined);
     onClose();
   };
 
@@ -64,13 +64,13 @@ export default function AttendanceExportModal({ isOpen, onClose, onExport, emplo
             <Label htmlFor="employee">Employee (Optional)</Label>
             <select
               id="employee"
-              value={selectedemployeeId}
-              onChange={e => setSelectedemployeeId(e.target.value)}
+              value={selectedEmployeeNumber}
+              onChange={e => setSelectedEmployeeNumber(e.target.value)}
               className="w-full mt-1 rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground"
             >
               <option value="" className="bg-card">All Employees</option>
               {employees.map(employee => (
-                <option key={employee.id} value={employee.id} className="bg-card">
+                <option key={employee.id} value={employee.employeeNumber || ''} className="bg-card">
                   {employee.fullName}
                 </option>
               ))}

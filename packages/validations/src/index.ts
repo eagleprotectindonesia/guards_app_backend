@@ -180,6 +180,7 @@ export const checkInSchema = z.object({
 // --- Role ---
 export const EmployeeAccessScopeEnum = z.enum(['all', 'on_site_only']);
 export const AttendanceAccessScopeEnum = z.enum(['all', 'shift_only']);
+export const LeaveAnnualApproverEnum = z.enum(['manager', 'hr']);
 
 export const rolePolicySchema = z.object({
   employees: z.object({
@@ -187,6 +188,9 @@ export const rolePolicySchema = z.object({
   }),
   attendance: z.object({
     scope: AttendanceAccessScopeEnum,
+  }),
+  leaveRequests: z.object({
+    annualApprover: LeaveAnnualApproverEnum,
   }),
 });
 

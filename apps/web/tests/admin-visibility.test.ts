@@ -13,9 +13,13 @@ describe('admin visibility policy', () => {
   });
 
   test('returns on-site role filter for restricted policy', () => {
-    expect(getEmployeeRoleFilter({ employees: { scope: 'on_site_only' }, attendance: { scope: 'shift_only' } })).toBe(
-      'on_site'
-    );
+    expect(
+      getEmployeeRoleFilter({
+        employees: { scope: 'on_site_only' },
+        attendance: { scope: 'shift_only' },
+        leaveRequests: { annualApprover: 'manager' },
+      })
+    ).toBe('on_site');
     expect(getEmployeeRoleFilter(DEFAULT_ROLE_POLICY)).toBeUndefined();
   });
 
@@ -25,7 +29,11 @@ describe('admin visibility policy', () => {
         { fullName: { contains: 'John', mode: 'insensitive' } },
         {
           isSuperAdmin: false,
-          rolePolicy: { employees: { scope: 'on_site_only' }, attendance: { scope: 'shift_only' } },
+          rolePolicy: {
+            employees: { scope: 'on_site_only' },
+            attendance: { scope: 'shift_only' },
+            leaveRequests: { annualApprover: 'manager' },
+          },
         }
       )
     ).toEqual({
@@ -39,7 +47,11 @@ describe('admin visibility policy', () => {
         { employeeId: 'emp-1' },
         {
           isSuperAdmin: false,
-          rolePolicy: { employees: { scope: 'on_site_only' }, attendance: { scope: 'shift_only' } },
+          rolePolicy: {
+            employees: { scope: 'on_site_only' },
+            attendance: { scope: 'shift_only' },
+            leaveRequests: { annualApprover: 'manager' },
+          },
         }
       )
     ).toEqual({
@@ -61,13 +73,21 @@ describe('admin visibility policy', () => {
     expect(
       canAccessOfficeAttendance({
         isSuperAdmin: false,
-        rolePolicy: { employees: { scope: 'on_site_only' }, attendance: { scope: 'shift_only' } },
+        rolePolicy: {
+          employees: { scope: 'on_site_only' },
+          attendance: { scope: 'shift_only' },
+          leaveRequests: { annualApprover: 'manager' },
+        },
       })
     ).toBe(false);
     expect(
       canAccessOfficeAttendance({
         isSuperAdmin: true,
-        rolePolicy: { employees: { scope: 'on_site_only' }, attendance: { scope: 'shift_only' } },
+        rolePolicy: {
+          employees: { scope: 'on_site_only' },
+          attendance: { scope: 'shift_only' },
+          leaveRequests: { annualApprover: 'manager' },
+        },
       })
     ).toBe(true);
   });

@@ -37,9 +37,10 @@ function getCurrentBusinessYear(now = new Date()) {
 async function ensureDefaultAnnualLeaveBalance(
   tx: Prisma.TransactionClient,
   employeeId: string,
-  year: number
+  year: number,
+  isEligibleForAnnualLeave: boolean
 ) {
-  await tx.employeeAnnualLeaveBalance.upsert({
+  const balance = await tx.employeeAnnualLeaveBalance.upsert({
     where: {
       employeeId_year: {
         employeeId,
@@ -51,10 +52,38 @@ async function ensureDefaultAnnualLeaveBalance(
       employeeId,
       year,
       entitledDays: 12,
-      adjustedDays: -12,
+      adjustedDays: isEligibleForAnnualLeave ? 0 : -12,
       consumedDays: 0,
     },
   });
+
+  if (isEligibleForAnnualLeave && balance.entitledDays === 12 && balance.adjustedDays === -12 && balance.consumedDays === 0) {
+      await tx.employeeAnnualLeaveBalance.update({
+        where: { id: balance.id },
+        data: { adjustedDays: 0 },
+      });
+  }
+}
+
+function parseExternalDateOfJoining(raw: string | null | undefined): Date | null {
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
+function isAnnualLeaveEligibleByDateOfJoining(dateOfJoining: Date, referenceDate = new Date()) {
+  const oneYearAfterJoining = new Date(dateOfJoining);
+  oneYearAfterJoining.setFullYear(oneYearAfterJoining.getFullYear() + 1);
+  return oneYearAfterJoining.getTime() <= referenceDate.getTime();
+}
+
+function normalizeToDate(value: Date | string | null | undefined): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
 }
 
 export type EmployeeSyncDuplicateWarningEntry = {
@@ -456,6 +485,7 @@ export async function upsertEmployeeFromExternal(data: {
       id: data.id,
       employeeNumber: data.employeeNumber,
       personnelId: data.personnelId,
+      dateOfJoining: new Date(),
       nickname: data.nickname,
       fullName: data.fullName,
       jobTitle: data.jobTitle,
@@ -949,11 +979,21 @@ export async function syncEmployeesFromExternal(
       });
 
       await prisma.$transaction(async tx => {
+        const parsedExternalDateOfJoining = parseExternalDateOfJoining(ext.date_of_joining);
+        if (!parsedExternalDateOfJoining && ext.date_of_joining) {
+          console.warn(
+            `[SyncEmployees] Invalid date_of_joining for employee id=${ext.id} value="${ext.date_of_joining}". Falling back to createdAt.`
+          );
+        }
+
+        const dateOfJoiningForCreate = parsedExternalDateOfJoining ?? new Date();
+
         const newEmployee = await tx.employee.create({
           data: {
             id: ext.id,
             employeeNumber: ext.employee_number,
             personnelId: ext.personnel_id,
+            dateOfJoining: dateOfJoiningForCreate,
             nickname: ext.nickname,
             fullName: ext.full_name,
             jobTitle: ext.job_title,
@@ -974,7 +1014,12 @@ export async function syncEmployeesFromExternal(
             hashedPassword,
           },
         });
-        await ensureDefaultAnnualLeaveBalance(tx, newEmployee.id, currentBusinessYear);
+        await ensureDefaultAnnualLeaveBalance(
+          tx,
+          newEmployee.id,
+          currentBusinessYear,
+          isAnnualLeaveEligibleByDateOfJoining(newEmployee.dateOfJoining)
+        );
 
         await tx.changelog.create({
           data: {
@@ -1016,6 +1061,21 @@ export async function syncEmployeesFromExternal(
         { key: 'department', extKey: 'department' },
         { key: 'phone', extKey: 'phone' },
       ] as const;
+
+      const parsedExternalDateOfJoining = parseExternalDateOfJoining(ext.date_of_joining);
+      if (!parsedExternalDateOfJoining && ext.date_of_joining) {
+        console.warn(
+          `[SyncEmployees] Invalid date_of_joining for employee id=${ext.id} value="${ext.date_of_joining}". Falling back to existing dateOfJoining/createdAt.`
+        );
+      }
+
+      const existingDateOfJoining = normalizeToDate(existing.dateOfJoining);
+      const existingCreatedAt = normalizeToDate(existing.createdAt) ?? new Date();
+      const resolvedDateOfJoining = parsedExternalDateOfJoining ?? existingDateOfJoining ?? existingCreatedAt;
+      if (!existingDateOfJoining || existingDateOfJoining.getTime() !== resolvedDateOfJoining.getTime()) {
+        updateData.dateOfJoining = resolvedDateOfJoining;
+        changes.dateOfJoining = { from: existingDateOfJoining, to: resolvedDateOfJoining };
+      }
 
       for (const field of fieldsToCompare) {
         const oldValue = (existing as any)[field.key];
@@ -1067,7 +1127,12 @@ export async function syncEmployeesFromExternal(
             where: { id: ext.id },
             data: updateData,
           });
-          await ensureDefaultAnnualLeaveBalance(tx, ext.id, currentBusinessYear);
+          await ensureDefaultAnnualLeaveBalance(
+            tx,
+            ext.id,
+            currentBusinessYear,
+            isAnnualLeaveEligibleByDateOfJoining(resolvedDateOfJoining)
+          );
 
           await tx.changelog.create({
             data: {
@@ -1095,7 +1160,12 @@ export async function syncEmployeesFromExternal(
         updatedCount++;
       } else {
         await prisma.$transaction(async tx => {
-          await ensureDefaultAnnualLeaveBalance(tx, ext.id, currentBusinessYear);
+          await ensureDefaultAnnualLeaveBalance(
+            tx,
+            ext.id,
+            currentBusinessYear,
+            isAnnualLeaveEligibleByDateOfJoining(resolvedDateOfJoining)
+          );
         });
       }
     }

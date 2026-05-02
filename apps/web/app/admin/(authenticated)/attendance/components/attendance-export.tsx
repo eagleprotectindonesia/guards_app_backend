@@ -13,7 +13,7 @@ type AttendanceExportProps = {
   initialFilters: {
     startDate?: string;
     endDate?: string;
-    employeeId?: string;
+    employeeNumber?: string;
   };
   employees: AttendanceEmployeeSummary[];
 };
@@ -26,13 +26,13 @@ export default function AttendanceExport({ initialFilters, employees }: Attendan
 
   if (!canExport) return null;
 
-  const performExport = async (startDate: Date, endDate: Date, selectedemployeeId?: string) => {
+  const performExport = async (startDate: Date, endDate: Date, selectedEmployeeNumber?: string) => {
     try {
       const params = new URLSearchParams();
       
-      const employeeIdToUse = selectedemployeeId || initialFilters.employeeId;
-      if (employeeIdToUse) {
-        params.set('employeeId', employeeIdToUse);
+      const employeeNumberToUse = selectedEmployeeNumber || initialFilters.employeeNumber;
+      if (employeeNumberToUse) {
+        params.set('employeeNumber', employeeNumberToUse);
       }
       
       params.set('startDate', format(startDate, 'yyyy-MM-dd'));

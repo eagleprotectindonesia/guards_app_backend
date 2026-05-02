@@ -61,6 +61,8 @@ export default function LeaveRequestsScreen() {
           label: t('leave.status.cancelled'),
         };
       case 'pending':
+      case 'pending_hr':
+      case 'pending_manager':
       default:
         return {
           color: '#EAB308',
@@ -309,7 +311,7 @@ export default function LeaveRequestsScreen() {
                       </Text>
                     </Box>
 
-                    {request.status === 'pending' && (
+                    {['pending', 'pending_hr', 'pending_manager'].includes(request.status) && (
                       <TouchableOpacity
                         onPress={() => handleCancel(request.id)}
                         disabled={cancelMutation.isPending}

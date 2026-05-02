@@ -6,6 +6,10 @@ import { adminHasPermission, getAdminSession } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { applyAttendanceVisibilityScope } from '@/lib/auth/admin-visibility';
 
+function escapeCsv(value: string) {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 export async function GET(request: NextRequest) {
   const session = await getAdminSession();
   if (!session) {
@@ -19,11 +23,14 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const startDateStr = searchParams.get('startDate');
   const endDateStr = searchParams.get('endDate');
+  const employeeNumber = searchParams.get('employeeNumber');
   const employeeId = searchParams.get('employeeId');
 
   const baseWhere: Prisma.AttendanceWhereInput = {};
 
-  if (employeeId) {
+  if (employeeNumber) {
+    baseWhere.employee = { employeeNumber };
+  } else if (employeeId) {
     baseWhere.employeeId = employeeId;
   }
 
@@ -46,7 +53,21 @@ export async function GET(request: NextRequest) {
       const encoder = new TextEncoder();
 
       // Write Header
-      const headers = ['Employee', 'Employee ID', 'Site', 'Shift Date', 'Record Date', 'Record Time', 'Status', 'Latitude', 'Longitude'];
+      const headers = [
+        'Employee',
+        'Department',
+        'Job Title',
+        'Employee ID',
+        'Site',
+        'Shift Date',
+        'Clock In Date',
+        'Clock In Time',
+        'Clock Out Date',
+        'Clock Out Time',
+        'Status',
+        'Clock In Latitude',
+        'Clock In Longitude',
+      ];
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
       let cursor: string | undefined = undefined;
@@ -69,23 +90,32 @@ export async function GET(request: NextRequest) {
             const lat = metadata?.lat?.toFixed(6) || '';
             const lng = metadata?.lng?.toFixed(6) || '';
             const employeeName = att.employee?.fullName || 'Unknown';
-            const employeeId = att.employee?.id || 'N/A';
+            const department = att.employee?.department || '';
+            const jobTitle = att.employee?.jobTitle || '';
+            const employeeIdentifier = att.employee?.employeeNumber?.trim() || att.employee?.id || 'N/A';
             const siteName = att.shift.site.name;
             const shiftDate = format(new Date(att.shift.date), 'yyyy/MM/dd');
-            const recordDate = format(new Date(att.recordedAt), 'yyyy/MM/dd');
-            const recordTime = format(new Date(att.recordedAt), 'HH:mm');
-
-            // Escape quotes in CSV fields: " -> ""
-            const escape = (str: string) => `"${str.replace(/"/g, '""')}"`;
+            const clockInDate = format(new Date(att.recordedAt), 'yyyy/MM/dd');
+            const clockInTime = format(new Date(att.recordedAt), 'HH:mm');
+            const lastCheckinAt =
+              att.shift.status === 'completed' && att.shift.checkins.length > 0
+                ? att.shift.checkins.reduce((latest, current) => (current.at > latest ? current.at : latest), att.shift.checkins[0].at)
+                : null;
+            const clockOutDate = lastCheckinAt ? format(new Date(lastCheckinAt), 'yyyy/MM/dd') : '';
+            const clockOutTime = lastCheckinAt ? format(new Date(lastCheckinAt), 'HH:mm') : '';
 
             chunk +=
               [
-                escape(employeeName),
-                escape(employeeId),
-                escape(siteName),
-                escape(shiftDate),
-                escape(recordDate),
-                escape(recordTime),
+                escapeCsv(employeeName),
+                escapeCsv(department),
+                escapeCsv(jobTitle),
+                escapeCsv(employeeIdentifier),
+                escapeCsv(siteName),
+                escapeCsv(shiftDate),
+                escapeCsv(clockInDate),
+                escapeCsv(clockInTime),
+                escapeCsv(clockOutDate),
+                escapeCsv(clockOutTime),
                 att.status,
                 lat,
                 lng,
