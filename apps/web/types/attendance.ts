@@ -62,6 +62,7 @@ export type OfficeAttendanceMetadataDto = {
 
 export type OfficeAttendanceWithRelationsDto = {
   id: string;
+  businessDate?: string | Date | null;
   recordedAt: Date;
   status: string;
   employeeId: string;
@@ -85,8 +86,9 @@ export type OfficeAttendanceWithRelationsDto = {
 
 export type SerializedOfficeAttendanceWithRelationsDto = Omit<
   OfficeAttendanceWithRelationsDto,
-  'recordedAt'
+  'recordedAt' | 'businessDate'
 > & {
+  businessDate?: string | null;
   recordedAt: string;
 };
 

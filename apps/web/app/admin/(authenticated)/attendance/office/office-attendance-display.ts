@@ -66,12 +66,13 @@ function toUnifiedRow(
 ): SerializedOfficeAttendanceDisplayDto {
   const clockInAt = new Date(clockIn.recordedAt);
   const clockOutAt = clockOut?.recordedAt ?? null;
+  const businessDate = clockIn.businessDate ?? formatBusinessDate(clockInAt, BUSINESS_TIMEZONE);
 
   return {
     id: clockIn.id,
     employeeId: clockIn.employeeId,
     officeId: clockIn.officeId,
-    businessDate: formatBusinessDate(clockInAt, BUSINESS_TIMEZONE),
+    businessDate,
     clockInAt: clockIn.recordedAt,
     clockOutAt,
     clockInPicture: clockIn.picture ?? null,

@@ -37,8 +37,9 @@ export async function recordOfficeAttendance(params: {
   picture?: string;
   metadata?: any;
   recordedAt?: Date;
+  businessDate?: Date;
 }) {
-  const { officeId, officeShiftId, employeeId, status, picture, metadata, recordedAt } = params;
+  const { officeId, officeShiftId, employeeId, status, picture, metadata, recordedAt, businessDate } = params;
   const normalizedRecordedAt = recordedAt || new Date();
 
   try {
@@ -47,6 +48,7 @@ export async function recordOfficeAttendance(params: {
         officeId,
         officeShiftId,
         employeeId,
+        businessDate,
         recordedAt: normalizedRecordedAt,
         status,
         picture,
@@ -109,26 +111,17 @@ export async function ensureNoOfficeAttendanceConflictForLeaveRange(
     where: {
       employeeId,
       status: { in: ['present', 'late', 'clocked_out'] },
-      recordedAt: {
+      businessDate: {
         gte: dateKeyToDate(startDateKey),
-        lt: new Date(`${endDateKey}T23:59:59.999Z`),
+        lte: dateKeyToDate(endDateKey),
       },
     },
-    select: { recordedAt: true },
+    select: { businessDate: true, recordedAt: true },
   });
 
   if (conflicts.length === 0) return;
 
-  const conflictDays = new Set(
-    conflicts.map(item =>
-      new Intl.DateTimeFormat('en-CA', {
-        timeZone: BUSINESS_TIMEZONE,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }).format(item.recordedAt)
-    )
-  );
+  const conflictDays = new Set(conflicts.map(item => dateToDateKey(item.businessDate ?? item.recordedAt)));
   const overlapping = dateKeys.filter(key => conflictDays.has(key));
   if (overlapping.length > 0) {
     throw new Error(`Cannot process leave: office attendance already exists for ${overlapping.join(', ')}`);
@@ -146,10 +139,7 @@ export async function upsertOfficeLeaveStatusesForDateKeys(params: {
     const existing = await prisma.officeAttendance.findFirst({
       where: {
         employeeId: params.employeeId,
-        recordedAt: {
-          gte: recordedAt,
-          lt: new Date(`${dateKey}T23:59:59.999Z`),
-        },
+        businessDate: recordedAt,
         status: { in: ['pending_leave', 'leave', 'absent'] },
       },
       orderBy: { recordedAt: 'asc' },
@@ -169,6 +159,7 @@ export async function upsertOfficeLeaveStatusesForDateKeys(params: {
     await prisma.officeAttendance.create({
       data: {
         employeeId: params.employeeId,
+        businessDate: recordedAt,
         recordedAt,
         status: params.status,
         metadata: { note: params.note },
@@ -187,10 +178,7 @@ export async function resolveRejectedPendingLeaveStatuses(params: {
     const row = await prisma.officeAttendance.findFirst({
       where: {
         employeeId: params.employeeId,
-        recordedAt: {
-          gte: dateKeyToDate(dateKey),
-          lt: new Date(`${dateKey}T23:59:59.999Z`),
-        },
+        businessDate: dateKeyToDate(dateKey),
         status: 'pending_leave',
       },
       orderBy: { recordedAt: 'asc' },
@@ -223,7 +211,7 @@ export async function finalizeOfficeDailyAbsences(now = new Date()) {
     const hasBlocking = await prisma.officeAttendance.findFirst({
       where: {
         employeeId: employee.id,
-        recordedAt: { gte: dateKeyToDate(dateKey), lt: new Date(`${dateKey}T23:59:59.999Z`) },
+        businessDate: dateKeyToDate(dateKey),
         status: { in: ['present', 'late', 'clocked_out', 'pending_leave', 'leave', 'absent'] },
       },
       select: { id: true },
@@ -233,6 +221,7 @@ export async function finalizeOfficeDailyAbsences(now = new Date()) {
     await prisma.officeAttendance.create({
       data: {
         employeeId: employee.id,
+        businessDate: dateKeyToDate(dateKey),
         recordedAt: dateKeyToDate(dateKey),
         status: 'absent',
         metadata: { note: 'Auto finalized absent (worker)' },
@@ -245,15 +234,13 @@ export async function finalizeOfficeDailyAbsences(now = new Date()) {
 }
 
 export async function getTodayOfficeAttendance(employeeId: string, now = new Date(), timeZone = BUSINESS_TIMEZONE) {
-  const { start, end } = getBusinessDayRange(now, timeZone);
+  const { dateKey } = getBusinessDayRange(now, timeZone);
+  const businessDate = dateKeyToDate(dateKey);
 
   return prisma.officeAttendance.findMany({
     where: {
       employeeId,
-      recordedAt: {
-        gte: start,
-        lt: end,
-      },
+      businessDate,
     },
     include: {
       office: true,
@@ -266,15 +253,13 @@ export async function getTodayOfficeAttendance(employeeId: string, now = new Dat
 }
 
 export async function getLatestOfficeAttendanceForDay(employeeId: string, now = new Date(), timeZone = BUSINESS_TIMEZONE) {
-  const { start, end } = getBusinessDayRange(now, timeZone);
+  const { dateKey } = getBusinessDayRange(now, timeZone);
+  const businessDate = dateKeyToDate(dateKey);
 
   return prisma.officeAttendance.findFirst({
     where: {
       employeeId,
-      recordedAt: {
-        gte: start,
-        lt: end,
-      },
+      businessDate,
     },
     orderBy: {
       recordedAt: 'desc',

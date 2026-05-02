@@ -17,6 +17,11 @@ function getFallbackAttendanceMode(employee: { officeId?: string | null; fieldMo
   return employee.fieldModeEnabled ? 'non_office' : 'office_required';
 }
 
+function dateKeyToDate(dateKey: string | null | undefined) {
+  if (!dateKey) return undefined;
+  return new Date(`${dateKey}T00:00:00Z`);
+}
+
 export async function POST(req: Request) {
   const employee = await getAuthenticatedEmployee();
   if (!employee) {
@@ -211,6 +216,7 @@ export async function POST(req: Request) {
       officeId: office?.id ?? null,
       officeShiftId: scheduleContext.shift?.id ?? null,
       employeeId: employee.id,
+      businessDate: dateKeyToDate(scheduleContext.businessDay?.dateKey),
       status: requestedStatus,
       picture: body.picture,
       metadata,

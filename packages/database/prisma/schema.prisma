@@ -887,6 +887,7 @@ model OfficeAttendance {
   officeId      String?          @map("office_id")
   officeShiftId String?          @map("office_shift_id")
   employeeId    String           @map("employee_id")
+  businessDate  DateTime?        @map("business_date") @db.Date
   recordedAt    DateTime         @default(now()) @map("recorded_at") @db.Timestamptz(6)
   picture       String?
   status        OfficeAttendanceStatus
@@ -900,6 +901,8 @@ model OfficeAttendance {
 
   @@unique([officeShiftId, status], map: "office_attendance_shift_status_key")
   @@index([recordedAt])
+  @@index([businessDate])
+  @@index([employeeId, businessDate])
   @@index([employeeId])
   @@index([officeId])
   @@index([officeShiftId])

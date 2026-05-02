@@ -49,12 +49,12 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
   }
 
   if (from || to) {
-    where.recordedAt = {};
+    where.businessDate = {};
     if (from) {
-      where.recordedAt.gte = startOfDay(new Date(from));
+      where.businessDate.gte = startOfDay(new Date(from));
     }
     if (to) {
-      where.recordedAt.lte = endOfDay(new Date(to));
+      where.businessDate.lte = endOfDay(new Date(to));
     }
   }
 
@@ -69,6 +69,7 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
 
   const serializedAttendances: SerializedOfficeAttendanceWithRelationsDto[] = attendances.map(att => ({
     id: att.id,
+    businessDate: att.businessDate ? att.businessDate.toISOString().slice(0, 10) : null,
     recordedAt: att.recordedAt.toISOString(),
     status: att.status,
     employeeId: att.employeeId,
