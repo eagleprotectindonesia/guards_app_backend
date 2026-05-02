@@ -147,8 +147,8 @@ export async function createLeaveRequestCreatedAdminNotifications(
         reason: input.reason,
         startDate: input.startDate,
         endDate: input.endDate,
-        tx: targetTx,
       });
+
       return requiresHrApproval ? getHrAnnualApproverAdminIds(targetTx) : [];
     })(),
   ]);

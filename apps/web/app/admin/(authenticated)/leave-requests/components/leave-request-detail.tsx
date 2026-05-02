@@ -6,13 +6,14 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { approveLeaveRequestAction, rejectLeaveRequestAction } from '../actions';
 import { isImageFile, isVideoFile } from '@/lib/file';
-import { SerializedLeaveRequestAdminListItemDto } from '@/types/leave-requests';
+import { SerializedLeavePolicyOutcomeDto, SerializedLeaveRequestAdminListItemDto } from '@/types/leave-requests';
 import { getLeaveReasonMeta } from '@/lib/leave-requests';
 
 type LeaveRequestDetailProps = {
   leaveRequest: SerializedLeaveRequestAdminListItemDto;
   canEdit: boolean;
   annualLeaveBalance?: number;
+  projectedOutcome?: SerializedLeavePolicyOutcomeDto | null;
 };
 
 function getStatusBadgeClass(status: string) {
@@ -43,14 +44,22 @@ function formatStatusLabel(status: string) {
   }
 }
 
-export default function LeaveRequestDetail({ leaveRequest, canEdit, annualLeaveBalance }: LeaveRequestDetailProps) {
+export default function LeaveRequestDetail({
+  leaveRequest,
+  canEdit,
+  annualLeaveBalance,
+  projectedOutcome,
+}: LeaveRequestDetailProps) {
   const [approveNote, setApproveNote] = useState(leaveRequest.adminNote || '');
   const [rejectNote, setRejectNote] = useState('');
   const [isPending, startTransition] = useTransition();
   const isPendingStatus = ['pending', 'pending_hr', 'pending_manager'].includes(leaveRequest.status);
   const reasonMeta = getLeaveReasonMeta(leaveRequest.reason);
-  const cycleBreakdown = Array.isArray(leaveRequest.policySnapshot?.cycleBreakdown)
-    ? leaveRequest.policySnapshot.cycleBreakdown
+
+  const displayOutcome = isPendingStatus && projectedOutcome ? projectedOutcome : leaveRequest;
+
+  const cycleBreakdown = Array.isArray(displayOutcome.policySnapshot?.cycleBreakdown)
+    ? displayOutcome.policySnapshot.cycleBreakdown
     : [];
 
   const handleApprove = () => {
@@ -135,7 +144,9 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit, annualLeaveB
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Submitted At</p>
-            <p className="text-sm text-foreground mt-1">{format(new Date(leaveRequest.createdAt), 'yyyy/MM/dd HH:mm')}</p>
+            <p className="text-sm text-foreground mt-1">
+              {format(new Date(leaveRequest.createdAt), 'yyyy/MM/dd HH:mm')}
+            </p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Reviewed By</p>
@@ -169,25 +180,30 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit, annualLeaveB
       </div>
 
       <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-        <h2 className="text-lg font-semibold text-foreground">Policy Outcome</h2>
+        <h2 className="text-lg font-semibold text-foreground">
+          Policy Outcome{' '}
+          {isPendingStatus && <span className="text-xs font-normal text-muted-foreground ml-2">(Projected)</span>}
+        </h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Paid</p>
             <p className="text-sm font-medium text-foreground mt-1">
-              {leaveRequest.isPaid === null ? '-' : leaveRequest.isPaid ? 'Yes' : 'No'}
+              {displayOutcome.isPaid === null ? '-' : displayOutcome.isPaid ? 'Yes' : 'No'}
             </p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Annual Deducted Days</p>
-            <p className="text-sm font-medium text-foreground mt-1">{leaveRequest.deductedAnnualDays}</p>
+            <p className="text-sm font-medium text-foreground mt-1">{displayOutcome.deductedAnnualDays}</p>
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Unpaid Days</p>
-            <p className="text-sm font-medium text-foreground mt-1">{leaveRequest.unpaidDays}</p>
+            <p className="text-sm font-medium text-foreground mt-1">{displayOutcome.unpaidDays}</p>
           </div>
           {annualLeaveBalance !== undefined && (
             <div>
-              <p className="text-xs uppercase tracking-wide text-blue-600 dark:text-blue-400 font-bold">Annual Balance (Avail)</p>
+              <p className="text-xs uppercase tracking-wide text-blue-600 dark:text-blue-400 font-bold">
+                Annual Balance (Avail)
+              </p>
               <p className="text-sm font-bold text-blue-700 dark:text-blue-300 mt-1">{annualLeaveBalance} Days</p>
             </div>
           )}
@@ -202,8 +218,8 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit, annualLeaveB
                   {cycle.cycleStart} - {cycle.cycleEnd}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Requested: {cycle.requestedWorkingDays}, No-doc paid: {cycle.noDocPaidDaysCurrentRequest}, Annual deducted:{' '}
-                  {cycle.deductedAnnualDays}, Unpaid: {cycle.unpaidDays}
+                  Requested: {cycle.requestedWorkingDays}, No-doc paid: {cycle.noDocPaidDaysCurrentRequest}, Annual
+                  deducted: {cycle.deductedAnnualDays}, Unpaid: {cycle.unpaidDays}
                 </p>
               </div>
             ))}
@@ -227,10 +243,18 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit, annualLeaveB
                   />
                 )}
                 {isVideoFile(attachmentUrl) && (
-                  <video src={attachmentUrl} controls className="w-full max-h-[420px] object-contain rounded-lg bg-muted/30" />
+                  <video
+                    src={attachmentUrl}
+                    controls
+                    className="w-full max-h-[420px] object-contain rounded-lg bg-muted/30"
+                  />
                 )}
                 {!isImageFile(attachmentUrl) && !isVideoFile(attachmentUrl) && (
-                  <iframe title={`Attachment ${index + 1}`} src={attachmentUrl} className="w-full h-80 rounded-lg border border-border" />
+                  <iframe
+                    title={`Attachment ${index + 1}`}
+                    src={attachmentUrl}
+                    className="w-full h-80 rounded-lg border border-border"
+                  />
                 )}
                 <a
                   href={attachmentUrl}
@@ -248,16 +272,22 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit, annualLeaveB
 
       <div className="bg-card rounded-xl shadow-sm border border-border p-6">
         <h2 className="text-lg font-semibold text-foreground">Review Actions</h2>
-        {!canEdit && <p className="text-sm text-muted-foreground mt-3">You do not have permission to review leave requests.</p>}
+        {!canEdit && (
+          <p className="text-sm text-muted-foreground mt-3">You do not have permission to review leave requests.</p>
+        )}
         {canEdit && !isPendingStatus && (
           <p className="text-sm text-muted-foreground mt-3">
-            This request is already <span className="font-medium">{leaveRequest.status}</span> and cannot be reviewed again.
+            This request is already <span className="font-medium">{leaveRequest.status}</span> and cannot be reviewed
+            again.
           </p>
         )}
         {canEdit && isPendingStatus && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <div className="space-y-2">
-              <label htmlFor="approveNote" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <label
+                htmlFor="approveNote"
+                className="text-xs font-semibold text-muted-foreground uppercase tracking-wider"
+              >
                 Approval Note (Optional)
               </label>
               <textarea
@@ -280,7 +310,10 @@ export default function LeaveRequestDetail({ leaveRequest, canEdit, annualLeaveB
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="rejectNote" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              <label
+                htmlFor="rejectNote"
+                className="text-xs font-semibold text-muted-foreground uppercase tracking-wider"
+              >
                 Rejection Note (Required)
               </label>
               <textarea
