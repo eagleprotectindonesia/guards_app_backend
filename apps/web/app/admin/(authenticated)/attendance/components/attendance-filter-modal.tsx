@@ -10,11 +10,11 @@ import { AttendanceEmployeeSummary } from '@/types/attendance';
 type AttendanceFilterModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onApply: (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => void;
+  onApply: (filters: { startDate?: Date; endDate?: Date; employeeNumber: string }) => void;
   initialFilters: {
     startDate?: string;
     endDate?: string;
-    employeeId?: string;
+    employeeNumber?: string;
   };
   employees: AttendanceEmployeeSummary[];
 };
@@ -32,13 +32,13 @@ export default function AttendanceFilterModal({
   const [endDate, setEndDate] = useState<Date | undefined>(
     initialFilters.endDate ? new Date(initialFilters.endDate) : undefined
   );
-  const [selectedemployeeId, setSelectedemployeeId] = useState<string>(initialFilters.employeeId || '');
+  const [selectedEmployeeNumber, setSelectedEmployeeNumber] = useState<string>(initialFilters.employeeNumber || '');
 
   const handleApply = () => {
     onApply({
       startDate,
       endDate,
-      employeeId: selectedemployeeId,
+      employeeNumber: selectedEmployeeNumber,
     });
     onClose();
   };
@@ -46,7 +46,7 @@ export default function AttendanceFilterModal({
   const handleClear = () => {
     setStartDate(undefined);
     setEndDate(undefined);
-    setSelectedemployeeId('');
+    setSelectedEmployeeNumber('');
   };
 
   if (!isOpen) return null;
@@ -67,13 +67,13 @@ export default function AttendanceFilterModal({
             <Label htmlFor="employee">Employee</Label>
             <select
               id="employee"
-              value={selectedemployeeId}
-              onChange={e => setSelectedemployeeId(e.target.value)}
+              value={selectedEmployeeNumber}
+              onChange={e => setSelectedEmployeeNumber(e.target.value)}
               className="w-full mt-1 rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground"
             >
               <option value="" className="bg-card">All Employees</option>
               {employees.map(employee => (
-                <option key={employee.id} value={employee.id} className="bg-card">
+                <option key={employee.id} value={employee.employeeNumber || ''} className="bg-card">
                   {employee.fullName}
                 </option>
               ))}
