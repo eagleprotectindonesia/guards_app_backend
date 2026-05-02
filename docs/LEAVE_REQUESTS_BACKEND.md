@@ -178,7 +178,9 @@ Usage:
 
 ### Policy evaluation outcome
 
-- Working day mode for deductions: Monday-Friday only.
+- Working day mode for deductions:
+  - `office`: office overrides only (`shift_override` counted as working day; no override means non-working), still filtered by holiday policy.
+  - `on_site`: provisional 7-day baseline (all calendar days except explicit OFF records) at approval time when future shift coverage is incomplete, then reconciled to finalized shift coverage.
 - Sick cycle is anchored by period `21st -> 20th`:
   - date `21..end-of-month` => cycle start = current month day 21
   - date `1..20` => cycle start = previous month day 21
@@ -190,6 +192,10 @@ Usage:
 - `special_emergency` always deducts annual leave and rejects if balance is insufficient.
 - `annual` leave deducts annual leave and rejects if balance is insufficient.
 - Policy outcome is persisted (`isPaid`, `deductedAnnualDays`, `unpaidDays`, `policySnapshot`).
+  - For `on_site`, `policySnapshot` also stores deduction confidence metadata:
+    - `deductionMode` (`provisional` or `final`)
+    - `coverageMissingDates` (future dates missing shift coverage at projection time)
+    - `reconciledAt` and `reconciliationDeltaDays` after shift-based reconciliation
 
 ### Office employees
 
@@ -207,6 +213,7 @@ For each approved date key in `[startDate..endDate]`:
   - shift starts in the future
 - Update them to `status = cancelled`.
 - Publish shift update event (`events:shifts`) for downstream schedulers/realtime consumers.
+- Shift import/update flows also trigger on-site leave reconciliation for overlapping approved leaves to finalize provisional deductions.
 
 ## Audit and Observability
 

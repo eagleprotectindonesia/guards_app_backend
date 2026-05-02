@@ -161,10 +161,8 @@ async function listWorkingDateKeysInclusiveForEmployee(
         !holidayPolicy.marksAsWorkingDay;
       const isOnsiteOff = employee.role === 'on_site' && onsiteOffDateKeys.has(dateKey);
       const officeOverrideType = employee.role === 'office' ? officeOverridesByDate.get(dateKey) : null;
-      const isOfficeOff = officeOverrideType === 'off';
       const isOfficeShiftOverride = officeOverrideType === 'shift_override';
-      const isWorkingDayByRole =
-        employee.role === 'office' ? (isOfficeShiftOverride ? true : isWeekday && !isOfficeOff) : isWeekday && !isOnsiteOff;
+      const isWorkingDayByRole = employee.role === 'office' ? isOfficeShiftOverride : !isOnsiteOff;
       return {
         dateKey,
         isWorkingDay: isWorkingDayByRole && !isHolidayOff,
@@ -173,6 +171,26 @@ async function listWorkingDateKeysInclusiveForEmployee(
   );
 
   return scheduleByDate.filter(item => item.isWorkingDay).map(item => item.dateKey);
+}
+
+async function listOnsiteScheduledShiftDateKeysInRange(
+  employeeId: string,
+  startDateKey: string,
+  endDateKey: string,
+  tx: TxLike = prisma
+) {
+  const rows = await (tx as TxLike).shift.findMany({
+    where: {
+      employeeId,
+      deletedAt: null,
+      date: {
+        gte: dateKeyToDate(startDateKey),
+        lte: dateKeyToDate(endDateKey),
+      },
+    },
+    select: { date: true },
+  });
+  return new Set(rows.map(row => row.date.toISOString().slice(0, 10)));
 }
 
 function cycleStartKeyFromDateKey(dateKey: string) {
@@ -846,6 +864,10 @@ export type LeavePolicySnapshot = {
   workingDays?: number;
   calendarDays?: number;
   hasDocument?: boolean;
+  deductionMode?: 'provisional' | 'final';
+  coverageMissingDates?: string[];
+  reconciledAt?: string;
+  reconciliationDeltaDays?: number;
   annualRequestedDays?: number;
   emergencyDeductedDays?: number;
   cycleStart?: string;
@@ -909,11 +931,26 @@ export async function projectLeavePolicyOutcome(
   let deductedAnnualDays = 0;
   let unpaidDays = 0;
   let isPaid = true;
+  let deductionMode: 'provisional' | 'final' = 'final';
+  let coverageMissingDates: string[] = [];
+  if (employee.role === 'on_site') {
+    const onsiteOffDateKeys = new Set(await listEmployeeOnsiteDayOffDateKeysInRange(employee.id, startDateKey, endDateKey, tx));
+    const onsiteShiftDateKeys = await listOnsiteScheduledShiftDateKeysInRange(employee.id, startDateKey, endDateKey, tx);
+    const todayKey = dateToDateKey(new Date());
+    coverageMissingDates = workingDateKeys.filter(
+      dateKey => dateKey >= todayKey && !onsiteOffDateKeys.has(dateKey) && !onsiteShiftDateKeys.has(dateKey)
+    );
+    if (coverageMissingDates.length > 0) {
+      deductionMode = 'provisional';
+    }
+  }
   let policySnapshot: LeavePolicySnapshot = {
     mainCategory: getMainCategoryFromReason(request.reason),
     workingDays: workingDateKeys.length,
     calendarDays: dateKeys.length,
     hasDocument,
+    deductionMode,
+    coverageMissingDates,
   };
 
   if (request.reason === 'annual') {
@@ -1232,6 +1269,94 @@ async function finalizeApprovedLeaveRequest(
   });
 
   return { updated, affectedOnsiteShiftCount };
+}
+
+export async function reconcileApprovedOnsiteLeavesForCoverage(params: {
+  employeeId: string;
+  startDateKey: string;
+  endDateKey: string;
+  adminId?: string;
+}) {
+  const now = new Date();
+  return prisma.$transaction(async trx => {
+    const requests = await trx.employeeLeaveRequest.findMany({
+      where: {
+        employeeId: params.employeeId,
+        status: 'approved',
+        employee: { role: 'on_site' },
+        endDate: { gte: dateKeyToDate(params.startDateKey) },
+        startDate: { lte: dateKeyToDate(params.endDateKey) },
+      },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            role: true,
+            gender: true,
+            department: true,
+          },
+        },
+      },
+    });
+
+    for (const request of requests) {
+      const projected = await projectLeavePolicyOutcome(
+        {
+          request: {
+            id: request.id,
+            startDate: request.startDate,
+            endDate: request.endDate,
+            reason: request.reason,
+            attachments: request.attachments,
+            cycleKey: request.cycleKey,
+          },
+          employee: request.employee,
+        },
+        trx
+      );
+
+      const delta = projected.deductedAnnualDays - request.deductedAnnualDays;
+      if (delta !== 0) {
+        const year = request.startDate.getUTCFullYear();
+        const balance = await getOrCreateAnnualLeaveBalance(request.employeeId, year, trx);
+        await trx.employeeAnnualLeaveBalance.update({
+          where: { id: balance.id },
+          data: {
+            consumedDays: {
+              increment: delta,
+            },
+          },
+        });
+        await trx.employeeLeaveLedgerEntry.create({
+          data: {
+            employeeId: request.employeeId,
+            leaveRequestId: request.id,
+            year,
+            entryType: delta > 0 ? 'deduction' : 'reversal',
+            days: Math.abs(delta),
+            note: `Leave reconciliation (${request.id})`,
+            createdById: params.adminId ?? null,
+          },
+        });
+      }
+
+      await trx.employeeLeaveRequest.update({
+        where: { id: request.id },
+        data: {
+          isPaid: projected.unpaidDays === 0,
+          deductedAnnualDays: projected.deductedAnnualDays,
+          unpaidDays: projected.unpaidDays,
+          policySnapshot: {
+            ...(projected.policySnapshot as Record<string, unknown>),
+            reconciledAt: dateToDateKey(now),
+            reconciliationDeltaDays: delta,
+            deductionMode: 'final',
+            coverageMissingDates: [],
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+  });
 }
 
 export async function approveEmployeeLeaveRequest(params: {

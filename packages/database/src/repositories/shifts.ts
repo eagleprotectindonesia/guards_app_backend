@@ -4,6 +4,7 @@ import { redis } from '../redis/client';
 import { parseShiftTypeTimeOnDate } from '@repo/shared';
 import { getShiftTypeDurationInMins } from './shift-types';
 import { deleteEmployeeOnsiteDayOffsByEmployeeAndDates, upsertEmployeeOnsiteDayOff } from './onsite-day-offs';
+import { reconcileApprovedOnsiteLeavesForCoverage } from './leave-requests';
 
 export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
   return prisma.shift.findUnique({
@@ -489,6 +490,15 @@ function getShiftBulkDateKey(employeeId: string, date: string) {
   return `${employeeId}:${date}`;
 }
 
+function minDateKey(keys: Set<string>) {
+  return Array.from(keys).sort((a, b) => a.localeCompare(b))[0];
+}
+
+function maxDateKey(keys: Set<string>) {
+  const sorted = Array.from(keys).sort((a, b) => a.localeCompare(b));
+  return sorted[sorted.length - 1];
+}
+
 export async function processGuardShiftBulkImport(
   rows: GuardShiftBulkImportRowInput[],
   options?: { adminId?: string; now?: Date }
@@ -840,6 +850,29 @@ export async function processGuardShiftBulkImport(
         const createdResult = await tx.shift.createMany({ data: createInputs });
         created = createdResult.count;
       }
+    });
+  }
+
+  const affectedDatesByEmployee = new Map<string, Set<string>>();
+  for (const [employeeId, dates] of offDateKeysByEmployee.entries()) {
+    const existing = affectedDatesByEmployee.get(employeeId) ?? new Set<string>();
+    for (const dateKey of dates) existing.add(dateKey);
+    affectedDatesByEmployee.set(employeeId, existing);
+  }
+  for (const [employeeId, dates] of workingDateKeysByEmployee.entries()) {
+    const existing = affectedDatesByEmployee.get(employeeId) ?? new Set<string>();
+    for (const dateKey of dates) existing.add(dateKey);
+    affectedDatesByEmployee.set(employeeId, existing);
+  }
+  for (const [employeeId, dates] of affectedDatesByEmployee.entries()) {
+    const startDateKey = minDateKey(dates);
+    const endDateKey = maxDateKey(dates);
+    if (!startDateKey || !endDateKey) continue;
+    await reconcileApprovedOnsiteLeavesForCoverage({
+      employeeId,
+      startDateKey,
+      endDateKey,
+      adminId,
     });
   }
 
