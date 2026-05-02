@@ -1,6 +1,7 @@
 import { POST } from '../app/api/employee/my/office-attendance/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import {
+  getLatestOfficeAttendanceForEmployee,
   getLatestOfficeAttendanceInRange,
   getLatestOfficeAttendanceForDay,
   getOfficeById,
@@ -16,6 +17,7 @@ jest.mock('@/lib/employee-auth', () => ({
 }));
 
 jest.mock('@repo/database', () => ({
+  getLatestOfficeAttendanceForEmployee: jest.fn(),
   getLatestOfficeAttendanceInRange: jest.fn(),
   getLatestOfficeAttendanceForDay: jest.fn(),
   getOfficeById: jest.fn(),
@@ -92,6 +94,12 @@ describe('POST /api/employee/my/office-attendance', () => {
       status: 'present',
       recordedAt: new Date('2026-05-01T23:00:00.000Z'),
     });
+    (getLatestOfficeAttendanceForEmployee as jest.Mock).mockResolvedValue({
+      id: 'attendance-open',
+      employeeId: 'employee-late-clockout',
+      status: 'present',
+      recordedAt: new Date('2026-05-01T23:00:00.000Z'),
+    });
     (recordOfficeAttendance as jest.Mock).mockResolvedValue({
       id: 'attendance-closed',
       employeeId: 'employee-late-clockout',
@@ -135,6 +143,7 @@ describe('POST /api/employee/my/office-attendance', () => {
     });
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
     (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForEmployee as jest.Mock).mockResolvedValue(null);
     (recordOfficeAttendance as jest.Mock).mockResolvedValue({
       id: 'attendance-1',
       employeeId: 'employee-2',
@@ -190,6 +199,7 @@ describe('POST /api/employee/my/office-attendance', () => {
     });
     (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
     (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForEmployee as jest.Mock).mockResolvedValue(null);
 
     const req = new Request('http://localhost/api/employee/my/office-attendance', {
       method: 'POST',
@@ -496,6 +506,68 @@ describe('POST /api/employee/my/office-attendance', () => {
     expect(recordOfficeAttendance).toHaveBeenCalledWith(
       expect.objectContaining({
         employeeId: 'employee-3b',
+        status: 'clocked_out',
+      })
+    );
+  });
+
+  test('records clock-out against previously open overnight shift when current context is a later shift', async () => {
+    const previousShiftOpenAttendance = {
+      id: 'attendance-overnight-open',
+      employeeId: 'employee-shift-handover',
+      officeId: null,
+      officeShiftId: 'office-shift-overnight',
+      businessDate: new Date('2026-04-01T00:00:00.000Z'),
+      status: 'present',
+      recordedAt: '2026-04-01T16:10:00.000Z',
+    };
+
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-shift-handover',
+      role: 'office',
+      officeId: null,
+      fieldModeEnabled: true,
+    });
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'office_shift',
+      shift: { id: 'office-shift-day' },
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: false,
+      startMinutes: 14 * 60,
+      endMinutes: 22 * 60,
+      windowStart: new Date('2026-04-02T06:00:00.000Z'),
+      windowEnd: new Date('2026-04-02T14:00:00.000Z'),
+      businessDay: {
+        dateKey: '2026-04-02',
+        minutesSinceMidnight: 15 * 60,
+      },
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(previousShiftOpenAttendance);
+    (recordOfficeAttendance as jest.Mock).mockResolvedValue({
+      id: 'attendance-overnight-close',
+      employeeId: 'employee-shift-handover',
+      officeId: null,
+      officeShiftId: 'office-shift-overnight',
+      status: 'clocked_out',
+    });
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({ status: 'clocked_out' }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(201);
+    expect(data.attendance).toMatchObject({ id: 'attendance-overnight-close', status: 'clocked_out' });
+    expect(recordOfficeAttendance).toHaveBeenCalledWith(
+      expect.objectContaining({
+        employeeId: 'employee-shift-handover',
+        officeShiftId: 'office-shift-overnight',
+        businessDate: new Date('2026-04-01T00:00:00.000Z'),
         status: 'clocked_out',
       })
     );

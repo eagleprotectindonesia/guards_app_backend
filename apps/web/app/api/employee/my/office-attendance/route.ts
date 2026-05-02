@@ -7,6 +7,7 @@ import { getOfficeById } from '@repo/database';
 import { recordOfficeAttendance } from '@repo/database';
 import { getLatestOfficeAttendanceInRange } from '@repo/database';
 import { getLatestOfficeAttendanceForDay } from '@repo/database';
+import { getLatestOfficeAttendanceForEmployee } from '@repo/database';
 import { OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING } from '@repo/database';
 import { resolveOfficeAttendanceContextForEmployee } from '@repo/database';
 import { OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING } from '@repo/shared';
@@ -20,6 +21,16 @@ function getFallbackAttendanceMode(employee: { officeId?: string | null; fieldMo
 function dateKeyToDate(dateKey: string | null | undefined) {
   if (!dateKey) return undefined;
   return new Date(`${dateKey}T00:00:00Z`);
+}
+
+function normalizeAttendanceBusinessDate(value: unknown): Date | undefined {
+  if (!value) return undefined;
+  if (value instanceof Date) return value;
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
+  return undefined;
 }
 
 export async function POST(req: Request) {
@@ -47,13 +58,16 @@ export async function POST(req: Request) {
         ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
         : null;
     const latestAttendanceForDay = await getLatestOfficeAttendanceForDay(employee.id, now);
+    const latestAttendanceForEmployee = await getLatestOfficeAttendanceForEmployee(employee.id);
     const latestAttendance =
       requestedStatus === 'clocked_out'
         ? latestAttendanceInWindow?.status === 'present'
           ? latestAttendanceInWindow
           : latestAttendanceForDay?.status === 'present'
             ? latestAttendanceForDay
-            : (latestAttendanceInWindow ?? latestAttendanceForDay)
+            : latestAttendanceForEmployee?.status === 'present'
+              ? latestAttendanceForEmployee
+              : (latestAttendanceInWindow ?? latestAttendanceForDay)
         : latestAttendanceInWindow;
 
     const hasOpenClockIn = latestAttendance?.status === 'present';
@@ -212,11 +226,20 @@ export async function POST(req: Request) {
       ...(latenessMins != null ? { latenessMins } : {}),
     };
 
+    const targetClockOutShiftId =
+      requestedStatus === 'clocked_out' && latestAttendance?.status === 'present'
+        ? latestAttendance.officeShiftId ?? scheduleContext.shift?.id ?? null
+        : scheduleContext.shift?.id ?? null;
+    const targetClockOutBusinessDate =
+      requestedStatus === 'clocked_out' && latestAttendance?.status === 'present'
+        ? normalizeAttendanceBusinessDate(latestAttendance.businessDate) ?? dateKeyToDate(scheduleContext.businessDay?.dateKey)
+        : dateKeyToDate(scheduleContext.businessDay?.dateKey);
+
     const recordResult = await recordOfficeAttendance({
       officeId: office?.id ?? null,
-      officeShiftId: scheduleContext.shift?.id ?? null,
+      officeShiftId: targetClockOutShiftId,
       employeeId: employee.id,
-      businessDate: dateKeyToDate(scheduleContext.businessDay?.dateKey),
+      businessDate: targetClockOutBusinessDate,
       status: requestedStatus,
       picture: body.picture,
       metadata,

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import {
+  getOfficeAttendanceInRange,
+  getLatestOfficeAttendanceForEmployee,
   getLatestOfficeAttendanceInRange,
   getLatestOfficeAttendanceForDay,
   getTodayOfficeAttendance,
@@ -113,6 +115,41 @@ function getOfficeAttendanceState(params: {
   };
 }
 
+function resolveLatestAttendanceForState(params: {
+  scheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>;
+  latestAttendanceInWindow: OfficeAttendance | null;
+  latestAttendanceForDay: OfficeAttendance | null;
+}): OfficeAttendance | null {
+  const { scheduleContext, latestAttendanceInWindow, latestAttendanceForDay } = params;
+
+  if (latestAttendanceInWindow?.status === 'present') {
+    return latestAttendanceInWindow;
+  }
+
+  if (latestAttendanceForDay?.status === 'present') {
+    return latestAttendanceForDay;
+  }
+
+  if (latestAttendanceInWindow) {
+    return latestAttendanceInWindow;
+  }
+
+  if (scheduleContext.source !== 'office_shift') {
+    return latestAttendanceForDay;
+  }
+
+  // For office shifts, ignore closed attendances from a different shift so card can move to upcoming shift.
+  if (!scheduleContext.shift) {
+    return null;
+  }
+
+  if (latestAttendanceForDay?.officeShiftId === scheduleContext.shift.id) {
+    return latestAttendanceForDay;
+  }
+
+  return null;
+}
+
 export async function GET() {
   const employee = await getAuthenticatedEmployee();
   if (!employee) {
@@ -125,29 +162,38 @@ export async function GET() {
 
   try {
     const now = new Date();
-    const [attendances, scheduleContext, latestAttendanceForDay] = await Promise.all([
+    const [attendances, scheduleContext, latestAttendanceForDay, latestAttendanceForEmployee] = await Promise.all([
       getTodayOfficeAttendance(employee.id),
       resolveOfficeAttendanceContextForEmployee(employee.id, now),
       getLatestOfficeAttendanceForDay(employee.id, now),
+      getLatestOfficeAttendanceForEmployee(employee.id),
     ]);
     const latestAttendanceInWindow =
       scheduleContext.windowStart && scheduleContext.windowEnd
         ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
         : null;
-    const latestAttendance =
-      latestAttendanceInWindow?.status === 'present'
-        ? latestAttendanceInWindow
-        : latestAttendanceForDay?.status === 'present'
-          ? latestAttendanceForDay
-          : latestAttendanceInWindow;
+    const windowAttendances =
+      scheduleContext.windowStart && scheduleContext.windowEnd
+        ? await getOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
+        : [];
+    const latestAttendance = resolveLatestAttendanceForState({
+      scheduleContext,
+      latestAttendanceInWindow,
+      latestAttendanceForDay,
+    });
+    const fallbackOpenAttendance =
+      !latestAttendance && scheduleContext.source === 'office_shift' && !scheduleContext.shift && latestAttendanceForEmployee?.status === 'present'
+        ? latestAttendanceForEmployee
+        : null;
     const attendanceState = getOfficeAttendanceState({
       scheduleContext,
-      latestAttendance,
+      latestAttendance: latestAttendance ?? fallbackOpenAttendance,
       latestTodayAttendance: attendances[0] ?? null,
     });
 
     return NextResponse.json({
       attendances,
+      displayAttendances: attendances.length > 0 ? attendances : fallbackOpenAttendance ? [fallbackOpenAttendance] : windowAttendances,
       attendanceState,
       scheduleContext: {
         ...scheduleContext,

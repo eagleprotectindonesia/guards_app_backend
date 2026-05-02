@@ -300,6 +300,21 @@ export async function getLatestOfficeAttendanceForDay(employeeId: string, now = 
   });
 }
 
+export async function getLatestOfficeAttendanceForEmployee(employeeId: string) {
+  return prisma.officeAttendance.findFirst({
+    where: {
+      employeeId,
+    },
+    include: {
+      office: true,
+      officeShift: true,
+    },
+    orderBy: {
+      recordedAt: 'desc',
+    },
+  });
+}
+
 export async function getLatestOfficeAttendanceInRange(employeeId: string, start: Date, end: Date) {
   return prisma.officeAttendance.findFirst({
     where: {
@@ -308,6 +323,25 @@ export async function getLatestOfficeAttendanceInRange(employeeId: string, start
         gte: start,
         lt: end,
       },
+    },
+    orderBy: {
+      recordedAt: 'desc',
+    },
+  });
+}
+
+export async function getOfficeAttendanceInRange(employeeId: string, start: Date, end: Date) {
+  return prisma.officeAttendance.findMany({
+    where: {
+      employeeId,
+      recordedAt: {
+        gte: start,
+        lt: end,
+      },
+    },
+    include: {
+      office: true,
+      officeShift: true,
     },
     orderBy: {
       recordedAt: 'desc',
