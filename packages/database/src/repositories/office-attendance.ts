@@ -133,10 +133,10 @@ export async function upsertOfficeLeaveStatusesForDateKeys(params: {
   dateKeys: string[];
   status: 'pending_leave' | 'leave';
   note: string;
-}) {
+}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
   for (const dateKey of params.dateKeys) {
     const recordedAt = dateKeyToDate(dateKey);
-    const existing = await prisma.officeAttendance.findFirst({
+    const existing = await tx.officeAttendance.findMany({
       where: {
         employeeId: params.employeeId,
         businessDate: recordedAt,
@@ -145,18 +145,25 @@ export async function upsertOfficeLeaveStatusesForDateKeys(params: {
       orderBy: { recordedAt: 'asc' },
     });
 
-    if (existing) {
-      await prisma.officeAttendance.update({
-        where: { id: existing.id },
+    if (existing.length > 0) {
+      await tx.officeAttendance.update({
+        where: { id: existing[0].id },
         data: {
           status: params.status,
           metadata: { note: params.note },
         },
       });
+      if (existing.length > 1) {
+        await tx.officeAttendance.deleteMany({
+          where: {
+            id: { in: existing.slice(1).map(row => row.id) },
+          },
+        });
+      }
       continue;
     }
 
-    await prisma.officeAttendance.create({
+    await tx.officeAttendance.create({
       data: {
         employeeId: params.employeeId,
         businessDate: recordedAt,
@@ -172,10 +179,10 @@ export async function resolveRejectedPendingLeaveStatuses(params: {
   employeeId: string;
   dateKeys: string[];
   now?: Date;
-}) {
+}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
   const now = params.now ?? new Date();
   for (const dateKey of params.dateKeys) {
-    const row = await prisma.officeAttendance.findFirst({
+    const rows = await tx.officeAttendance.findMany({
       where: {
         employeeId: params.employeeId,
         businessDate: dateKeyToDate(dateKey),
@@ -183,17 +190,43 @@ export async function resolveRejectedPendingLeaveStatuses(params: {
       },
       orderBy: { recordedAt: 'asc' },
     });
-    if (!row) continue;
+    if (rows.length === 0) continue;
     const targetDate = dateKeyToDate(dateKey);
     if (targetDate.getTime() <= now.getTime()) {
-      await prisma.officeAttendance.update({
-        where: { id: row.id },
+      await tx.officeAttendance.update({
+        where: { id: rows[0].id },
         data: { status: 'absent', metadata: { note: 'Rejected leave converted to absent' } },
       });
+      if (rows.length > 1) {
+        await tx.officeAttendance.deleteMany({
+          where: {
+            id: { in: rows.slice(1).map(row => row.id) },
+          },
+        });
+      }
     } else {
-      await prisma.officeAttendance.delete({ where: { id: row.id } });
+      await tx.officeAttendance.deleteMany({
+        where: {
+          id: { in: rows.map(row => row.id) },
+        },
+      });
     }
   }
+}
+
+export async function clearPendingOfficeLeaveStatusesForDateKeys(params: {
+  employeeId: string;
+  dateKeys: string[];
+  now?: Date;
+}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
+  await resolveRejectedPendingLeaveStatuses(
+    {
+      employeeId: params.employeeId,
+      dateKeys: params.dateKeys,
+      now: params.now,
+    },
+    tx
+  );
 }
 
 export async function finalizeOfficeDailyAbsences(now = new Date()) {

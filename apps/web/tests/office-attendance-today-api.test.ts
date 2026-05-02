@@ -273,6 +273,62 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
   });
 
+  test('keeps overnight shift visible after midnight for clock-out when today list is empty', async () => {
+    const windowPresentAttendance = {
+      id: 'attendance-overnight-in',
+      employeeId: 'employee-overnight',
+      officeId: null,
+      status: 'present',
+      recordedAt: '2026-04-01T16:10:00.000Z',
+    };
+
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-overnight',
+      role: 'office',
+    });
+
+    // After businessDate anchoring, today list can be empty right after midnight
+    // because the attendance belongs to previous shift-start business date.
+    (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(windowPresentAttendance);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'office_shift',
+      isWorkingDay: true,
+      isLate: true,
+      isAfterEnd: false,
+      shift: {
+        id: 'office-shift-overnight',
+      },
+      windowStart: new Date('2026-04-01T16:00:00.000Z'),
+      windowEnd: new Date('2026-04-01T20:00:00.000Z'),
+      startMinutes: 23 * 60,
+      endMinutes: 3 * 60,
+      businessDay: {
+        dateKey: '2026-04-02',
+      },
+    });
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.scheduleContext).toMatchObject({
+      isWorkingDay: true,
+      scheduledStartStr: '23:00',
+      scheduledEndStr: '03:00',
+    });
+    expect(data.attendanceState).toMatchObject({
+      status: 'clocked_in',
+      canClockIn: false,
+      canClockOut: true,
+      latestAttendance: expect.objectContaining({
+        id: 'attendance-overnight-in',
+        status: 'present',
+      }),
+    });
+  });
+
   test('falls back to a same-business-day present attendance and keeps clock-out available', async () => {
     const latestTodayAttendance = {
       id: 'attendance-fallback',

@@ -44,6 +44,13 @@ jest.mock('../redis/client', () => ({
   },
 }));
 
+jest.mock('./office-attendance', () => ({
+  ensureNoOfficeAttendanceConflictForLeaveRange: jest.fn(),
+  upsertOfficeLeaveStatusesForDateKeys: jest.fn(),
+  resolveRejectedPendingLeaveStatuses: jest.fn(),
+  clearPendingOfficeLeaveStatusesForDateKeys: jest.fn(),
+}));
+
 describe('leave-requests repository admin queries', () => {
   beforeEach(() => {
     jest.resetAllMocks();
