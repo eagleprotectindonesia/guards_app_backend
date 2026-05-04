@@ -20,6 +20,8 @@ type TxLike = Prisma.TransactionClient | typeof prisma;
 export const OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR = 'Overlapping pending leave request already exists';
 export const FIXED_LEAVE_DURATION_ERROR = 'Selected leave type requires an exact policy duration';
 export const ANNUAL_LEAVE_INSUFFICIENT_ERROR = 'Insufficient annual leave balance';
+export const SICK_NO_DOC_REQUIRES_MANAGER_CONVERSION_ERROR =
+  'Sick leave exceeding 1 working day per cycle without document must be converted by manager first';
 export const LEAVE_REASONS_REQUIRE_HR_APPROVAL_SETTING = 'LEAVE_REASONS_REQUIRE_HR_APPROVAL';
 async function isOfficeAttendanceLeaveEffectsEnabled() {
   const setting = await getSystemSetting(ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING);
@@ -149,15 +151,18 @@ async function listWorkingDateKeysInclusiveForEmployee(
   const officeOverridesByDate =
     employee.role === 'office'
       ? new Map(
-          (
-            await listEmployeeOfficeDayOverridesForDates(employee.id, dateKeys, tx)
-          ).map(override => [override.date.toISOString().slice(0, 10), override.overrideType] as const)
+          (await listEmployeeOfficeDayOverridesForDates(employee.id, dateKeys, tx)).map(
+            override => [override.date.toISOString().slice(0, 10), override.overrideType] as const
+          )
         )
       : new Map<string, 'off' | 'shift_override'>();
   const scheduleByDate = await Promise.all(
     dateKeys.map(async dateKey => {
       const at = dateKeyToDate(dateKey);
-      const holidayPolicy = await resolveHolidayPolicyForEmployeeDate({ date: at, department: employee.department ?? null }, tx);
+      const holidayPolicy = await resolveHolidayPolicyForEmployeeDate(
+        { date: at, department: employee.department ?? null },
+        tx
+      );
       const weekday = at.getUTCDay();
       const isWeekday = weekday >= 1 && weekday <= 5;
       const isHolidayOff =
@@ -217,6 +222,67 @@ function countCalendarDaysInclusive(startDateKey: string, endDateKey: string) {
   return listDateKeysInclusive(startDateKey, endDateKey).length;
 }
 
+async function shouldConvertNoDocSickLeaveToAnnual(params: {
+  request: {
+    startDate: Date;
+    endDate: Date;
+    reason: LeaveRequestReason;
+    attachments: string[];
+  };
+  employee: {
+    id: string;
+    role: EmployeeRole | null;
+    department?: string | null;
+  };
+  tx: TxLike;
+}) {
+  const { request, employee, tx } = params;
+  if (request.reason !== 'sick' || request.attachments.length > 0) {
+    return false;
+  }
+
+  const startDateKey = dateToDateKey(request.startDate);
+  const endDateKey = dateToDateKey(request.endDate);
+  const workingDateKeys = await listWorkingDateKeysInclusiveForEmployee(
+    { id: employee.id, role: employee.role, department: employee.department ?? null },
+    startDateKey,
+    endDateKey,
+    tx
+  );
+  const cycleBuckets = groupWorkingDateKeysBySickCycle(workingDateKeys);
+  const cycleStartKeys = Array.from(cycleBuckets.keys()).sort((a, b) => a.localeCompare(b));
+  if (cycleStartKeys.length === 0) {
+    return false;
+  }
+
+  const approvedSickRequests = await (tx as TxLike).employeeLeaveRequest.findMany({
+    where: {
+      employeeId: employee.id,
+      status: 'approved',
+      reason: 'sick',
+      cycleKey: { in: cycleStartKeys.map(key => dateKeyToDate(key)) },
+    },
+    select: {
+      attachments: true,
+      policySnapshot: true,
+      deductedAnnualDays: true,
+      unpaidDays: true,
+      cycleKey: true,
+    },
+  });
+  const existingNoDocPaidByCycle = buildExistingNoDocPaidByCycleMap(approvedSickRequests);
+
+  for (const cycleStartKey of cycleStartKeys) {
+    const cycleWorkingKeys = cycleBuckets.get(cycleStartKey) ?? [];
+    const noDocUsedBefore = existingNoDocPaidByCycle.get(cycleStartKey) ?? 0;
+    if (noDocUsedBefore + cycleWorkingKeys.length > 1) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 function parseHrApprovalReasons(rawValue: string | null | undefined) {
   if (!rawValue) return new Set<LeaveRequestReason>();
   try {
@@ -224,7 +290,10 @@ function parseHrApprovalReasons(rawValue: string | null | undefined) {
     if (!Array.isArray(parsed)) return new Set<LeaveRequestReason>();
     const validReasons = new Set(Object.values(LeaveRequestReason));
     return new Set(
-      parsed.filter((reason): reason is LeaveRequestReason => typeof reason === 'string' && validReasons.has(reason as LeaveRequestReason))
+      parsed.filter(
+        (reason): reason is LeaveRequestReason =>
+          typeof reason === 'string' && validReasons.has(reason as LeaveRequestReason)
+      )
     );
   } catch {
     return new Set<LeaveRequestReason>();
@@ -363,12 +432,15 @@ export async function createEmployeeLeaveRequest(
       params.endDate,
       targetTx
     );
-    await upsertOfficeLeaveStatusesForDateKeys({
-      employeeId: employee.id,
-      dateKeys: workingDateKeys,
-      status: 'pending_leave',
-      note: `Pending leave request (${created.id})`,
-    }, targetTx);
+    await upsertOfficeLeaveStatusesForDateKeys(
+      {
+        employeeId: employee.id,
+        dateKeys: workingDateKeys,
+        status: 'pending_leave',
+        note: `Pending leave request (${created.id})`,
+      },
+      targetTx
+    );
   }
 
   await targetTx.changelog.create({
@@ -687,9 +759,7 @@ export async function calculateAnnualLeaveConsumption(
       },
     });
 
-    const available = balance
-      ? Math.max(0, balance.entitledDays + balance.adjustedDays - balance.consumedDays)
-      : 12; // Default entitlement if record doesn't exist yet
+    const available = balance ? Math.max(0, balance.entitledDays + balance.adjustedDays - balance.consumedDays) : 12; // Default entitlement if record doesn't exist yet
 
     const requestedInYear = daysByYear.get(year) ?? 0;
     const canConsume = Math.min(requestedInYear, remainingToConsume, available);
@@ -939,8 +1009,15 @@ export async function projectLeavePolicyOutcome(
   let deductionMode: 'provisional' | 'final' = 'final';
   let coverageMissingDates: string[] = [];
   if (employee.role === 'on_site') {
-    const onsiteOffDateKeys = new Set(await listEmployeeOnsiteDayOffDateKeysInRange(employee.id, startDateKey, endDateKey, tx));
-    const onsiteShiftDateKeys = await listOnsiteScheduledShiftDateKeysInRange(employee.id, startDateKey, endDateKey, tx);
+    const onsiteOffDateKeys = new Set(
+      await listEmployeeOnsiteDayOffDateKeysInRange(employee.id, startDateKey, endDateKey, tx)
+    );
+    const onsiteShiftDateKeys = await listOnsiteScheduledShiftDateKeysInRange(
+      employee.id,
+      startDateKey,
+      endDateKey,
+      tx
+    );
     const todayKey = dateToDateKey(new Date());
     coverageMissingDates = workingDateKeys.filter(
       dateKey => dateKey >= todayKey && !onsiteOffDateKeys.has(dateKey) && !onsiteShiftDateKeys.has(dateKey)
@@ -1213,17 +1290,23 @@ async function finalizeApprovedLeaveRequest(
           overrideType: 'off',
           note: `Leave approved (${updated.id})`,
           adminId: params.adminId,
+          // Leave approval already computed and applied deductions; avoid same-tx
+          // reconciliation from immediately reversing it before coverage settles.
+          skipLeaveReconciliation: true,
         },
         trx
       );
     }
     if (await isOfficeAttendanceLeaveEffectsEnabled()) {
-      await upsertOfficeLeaveStatusesForDateKeys({
-        employeeId: request.employee.id,
-        dateKeys: outcome.workingDateKeys,
-        status: 'leave',
-        note: `Approved leave request (${updated.id})`,
-      }, trx);
+      await upsertOfficeLeaveStatusesForDateKeys(
+        {
+          employeeId: request.employee.id,
+          dateKeys: outcome.workingDateKeys,
+          status: 'leave',
+          note: `Approved leave request (${updated.id})`,
+        },
+        trx
+      );
     }
     affectedOfficeOverrideCount = outcome.dateKeys.length;
   }
@@ -1398,8 +1481,40 @@ export async function approveEmployeeLeaveRequest(params: {
       throw new Error('Only pending leave requests can be approved');
     }
 
+    const needsManagerConversion = await shouldConvertNoDocSickLeaveToAnnual({
+      request,
+      employee: request.employee,
+      tx: trx,
+    });
+
+    if (needsManagerConversion && approvalMode !== 'manager') {
+      throw new Error(SICK_NO_DOC_REQUIRES_MANAGER_CONVERSION_ERROR);
+    }
+
+    let effectiveRequest = request;
+    if (needsManagerConversion) {
+      effectiveRequest = await trx.employeeLeaveRequest.update({
+        where: { id: request.id },
+        data: {
+          reason: 'annual',
+          cycleKey: null,
+          requiresDocument: false,
+        },
+        include: {
+          employee: {
+            select: {
+              id: true,
+              role: true,
+              gender: true,
+              department: true,
+            },
+          },
+        },
+      });
+    }
+
     const requiresHrApproval = await isHrApprovalRequiredForLeaveRequest({
-      reason: request.reason,
+      reason: effectiveRequest.reason,
       startDate: request.startDate,
       endDate: request.endDate,
     });
@@ -1407,7 +1522,7 @@ export async function approveEmployeeLeaveRequest(params: {
     if (!requiresHrApproval) {
       return finalizeApprovedLeaveRequest(
         {
-          request,
+          request: effectiveRequest,
           adminId: params.adminId,
           adminNote: params.adminNote,
           now,
@@ -1419,7 +1534,7 @@ export async function approveEmployeeLeaveRequest(params: {
     if (approvalMode === 'manager') {
       const managerUpdate = await trx.employeeLeaveRequest.updateMany({
         where: {
-          id: request.id,
+          id: effectiveRequest.id,
           status: { in: ['pending', 'pending_manager'] },
           managerApprovedById: null,
         },
@@ -1427,7 +1542,7 @@ export async function approveEmployeeLeaveRequest(params: {
           managerApprovedById: params.adminId,
           managerApprovedAt: now,
           managerApprovalNote: params.adminNote ?? null,
-          status: request.status === 'pending_manager' ? 'approved' : 'pending_hr',
+          status: effectiveRequest.status === 'pending_manager' ? 'approved' : 'pending_hr',
         },
       });
       if (managerUpdate.count === 0) {
@@ -1436,7 +1551,7 @@ export async function approveEmployeeLeaveRequest(params: {
     } else {
       const hrUpdate = await trx.employeeLeaveRequest.updateMany({
         where: {
-          id: request.id,
+          id: effectiveRequest.id,
           status: { in: ['pending', 'pending_hr'] },
           hrApprovedById: null,
         },
@@ -1444,7 +1559,7 @@ export async function approveEmployeeLeaveRequest(params: {
           hrApprovedById: params.adminId,
           hrApprovedAt: now,
           hrApprovalNote: params.adminNote ?? null,
-          status: request.status === 'pending_hr' ? 'approved' : 'pending_manager',
+          status: effectiveRequest.status === 'pending_hr' ? 'approved' : 'pending_manager',
         },
       });
       if (hrUpdate.count === 0) {
@@ -1453,7 +1568,7 @@ export async function approveEmployeeLeaveRequest(params: {
     }
 
     const afterStage = await trx.employeeLeaveRequest.findUniqueOrThrow({
-      where: { id: request.id },
+      where: { id: effectiveRequest.id },
       include: {
         employee: {
           select: {
@@ -1545,20 +1660,23 @@ export async function rejectEmployeeLeaveRequest(
     select: { id: true, role: true },
   });
   if (employee?.role === 'office') {
-    await resolveRejectedPendingLeaveStatuses({
-      employeeId: employee.id,
-      dateKeys: await listWorkingDateKeysInclusiveForEmployee(
-        {
-          id: employee.id,
-          role: employee.role,
-          department: null,
-        },
-        dateToDateKey(updated.startDate),
-        dateToDateKey(updated.endDate),
-        tx
-      ),
-      now: new Date(),
-    }, tx);
+    await resolveRejectedPendingLeaveStatuses(
+      {
+        employeeId: employee.id,
+        dateKeys: await listWorkingDateKeysInclusiveForEmployee(
+          {
+            id: employee.id,
+            role: employee.role,
+            department: null,
+          },
+          dateToDateKey(updated.startDate),
+          dateToDateKey(updated.endDate),
+          tx
+        ),
+        now: new Date(),
+      },
+      tx
+    );
   }
 
   await tx.changelog.create({

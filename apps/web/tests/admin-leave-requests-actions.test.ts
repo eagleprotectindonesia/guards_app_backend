@@ -3,6 +3,7 @@ import {
   approveEmployeeLeaveRequest,
   getEmployeeLeaveRequestByIdForAdmin,
   isHrApprovalRequiredForLeaveRequest,
+  SICK_NO_DOC_REQUIRES_MANAGER_CONVERSION_ERROR,
   rejectEmployeeLeaveRequest,
 } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
@@ -13,6 +14,8 @@ jest.mock('@repo/database', () => ({
   rejectEmployeeLeaveRequest: jest.fn(),
   getEmployeeLeaveRequestByIdForAdmin: jest.fn(),
   isHrApprovalRequiredForLeaveRequest: jest.fn(),
+  SICK_NO_DOC_REQUIRES_MANAGER_CONVERSION_ERROR:
+    'Sick leave exceeding 1 working day per cycle without document must be converted by manager first',
 }));
 
 jest.mock('@/lib/admin-auth', () => ({
@@ -151,6 +154,16 @@ describe('admin leave request server actions', () => {
     const result = await approveLeaveRequestAction('leave-1', 'approved');
 
     expect(result).toEqual({ success: false, message: 'Insufficient annual leave balance' });
+  });
+
+  test('returns manager-first conversion error from approval', async () => {
+    (approveEmployeeLeaveRequest as jest.Mock).mockRejectedValueOnce(
+      new Error(SICK_NO_DOC_REQUIRES_MANAGER_CONVERSION_ERROR)
+    );
+
+    const result = await approveLeaveRequestAction('leave-1', 'approved');
+
+    expect(result).toEqual({ success: false, message: SICK_NO_DOC_REQUIRES_MANAGER_CONVERSION_ERROR });
   });
 
   test('returns error for non-owned leave request', async () => {

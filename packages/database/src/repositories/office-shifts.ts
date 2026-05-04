@@ -1,6 +1,7 @@
 import { Prisma, ShiftStatus } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange, OFFICE_PAID_BREAK_MINUTES } from './office-work-schedules';
+import { deleteEmployeeOfficeDayOverridesByEmployeeAndDates } from './office-day-overrides';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 
@@ -428,13 +429,14 @@ export async function deleteOfficeShiftWithChangelog(id: string, adminId: string
     },
   });
 
-  await client.employeeOfficeDayOverride.deleteMany({
-    where: {
-      employeeId: officeShift.employeeId,
-      date: dateObj,
-      overrideType: 'shift_override',
-    },
-  });
+  await deleteEmployeeOfficeDayOverridesByEmployeeAndDates(
+    officeShift.employeeId,
+    [dateObj.toISOString().slice(0, 10)],
+    adminId,
+    client,
+    false,
+    ['shift_override']
+  );
 
   await client.changelog.create({
     data: {
@@ -612,15 +614,16 @@ export async function deleteOfficeShiftsWithChangelog(ids: string[], adminId: st
     datesByEmployee.get(shift.employeeId)!.add(dateObj);
   }
 
-  // Delete day overrides for each employee
+  // Delete day overrides for each employee via repository helper so reconciliation is applied.
   for (const [employeeId, dates] of datesByEmployee.entries()) {
-    await client.employeeOfficeDayOverride.deleteMany({
-      where: {
-        employeeId,
-        date: { in: [...dates] },
-        overrideType: 'shift_override',
-      },
-    });
+    await deleteEmployeeOfficeDayOverridesByEmployeeAndDates(
+      employeeId,
+      [...dates].map(date => date.toISOString().slice(0, 10)),
+      adminId,
+      client,
+      false,
+      ['shift_override']
+    );
   }
 
   await client.changelog.createMany({

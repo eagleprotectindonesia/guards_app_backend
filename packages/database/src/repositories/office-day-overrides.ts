@@ -1,7 +1,11 @@
 import { db as prisma, Prisma } from '../prisma/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
+import { reconcileApprovedOfficeLeavesForCoverage } from './office-leave-reconciliation';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
+function supportsLeaveReconciliation(tx: TxLike) {
+  return typeof (tx as any).employeeLeaveRequest?.findMany === 'function';
+}
 type OfficeDayOverrideRow = {
   id: string;
   employeeId: string;
@@ -111,6 +115,7 @@ export async function upsertEmployeeOfficeDayOverride(
     overrideType: 'off' | 'shift_override';
     note?: string | null;
     adminId?: string | null;
+    skipLeaveReconciliation?: boolean;
   },
   tx: TxLike = prisma
 ) {
@@ -141,6 +146,18 @@ export async function upsertEmployeeOfficeDayOverride(
         },
       },
     });
+
+    if (!params.skipLeaveReconciliation && supportsLeaveReconciliation(tx)) {
+      await reconcileApprovedOfficeLeavesForCoverage(
+        {
+          employeeId: params.employeeId,
+          startDateKey: params.date,
+          endDateKey: params.date,
+          adminId: params.adminId ?? undefined,
+        },
+        tx
+      );
+    }
 
     return updated;
   }
@@ -176,6 +193,18 @@ export async function upsertEmployeeOfficeDayOverride(
     },
   });
 
+  if (!params.skipLeaveReconciliation && supportsLeaveReconciliation(tx)) {
+    await reconcileApprovedOfficeLeavesForCoverage(
+      {
+        employeeId: params.employeeId,
+        startDateKey: params.date,
+        endDateKey: params.date,
+        adminId: params.adminId ?? undefined,
+      },
+      tx
+    );
+  }
+
   return created;
 }
 
@@ -208,6 +237,18 @@ export async function deleteEmployeeOfficeDayOverride(
     },
   });
 
+  if (supportsLeaveReconciliation(tx)) {
+    await reconcileApprovedOfficeLeavesForCoverage(
+      {
+        employeeId,
+        startDateKey: dateKey,
+        endDateKey: dateKey,
+        adminId: adminId ?? undefined,
+      },
+      tx
+    );
+  }
+
   return existing;
 }
 
@@ -215,7 +256,9 @@ export async function deleteEmployeeOfficeDayOverridesByEmployeeAndDates(
   employeeId: string,
   dateKeys: string[],
   adminId?: string | null,
-  tx: TxLike = prisma
+  tx: TxLike = prisma,
+  skipLeaveReconciliation = false,
+  overrideTypes?: Array<'off' | 'shift_override'>
 ) {
   if (dateKeys.length === 0) return 0;
 
@@ -225,6 +268,7 @@ export async function deleteEmployeeOfficeDayOverridesByEmployeeAndDates(
   await (tx as any).employeeOfficeDayOverride.deleteMany({
     where: {
       employeeId,
+      overrideType: overrideTypes && overrideTypes.length > 0 ? { in: overrideTypes } : undefined,
       date: {
         in: dateKeys.map(dateKeyToDate),
       },
@@ -246,6 +290,19 @@ export async function deleteEmployeeOfficeDayOverridesByEmployeeAndDates(
       },
     })),
   });
+
+  if (!skipLeaveReconciliation && supportsLeaveReconciliation(tx)) {
+    const sortedDateKeys = [...dateKeys].sort((a, b) => a.localeCompare(b));
+    await reconcileApprovedOfficeLeavesForCoverage(
+      {
+        employeeId,
+        startDateKey: sortedDateKeys[0],
+        endDateKey: sortedDateKeys[sortedDateKeys.length - 1],
+        adminId: adminId ?? undefined,
+      },
+      tx
+    );
+  }
 
   return existing.length;
 }
