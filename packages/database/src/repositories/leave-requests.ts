@@ -1290,6 +1290,9 @@ async function finalizeApprovedLeaveRequest(
           overrideType: 'off',
           note: `Leave approved (${updated.id})`,
           adminId: params.adminId,
+          // Leave approval already computed and applied deductions; avoid same-tx
+          // reconciliation from immediately reversing it before coverage settles.
+          skipLeaveReconciliation: true,
         },
         trx
       );
@@ -1483,7 +1486,6 @@ export async function approveEmployeeLeaveRequest(params: {
       employee: request.employee,
       tx: trx,
     });
-    console.log(needsManagerConversion);
 
     if (needsManagerConversion && approvalMode !== 'manager') {
       throw new Error(SICK_NO_DOC_REQUIRES_MANAGER_CONVERSION_ERROR);
