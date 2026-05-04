@@ -1,7 +1,11 @@
 import { db as prisma, Prisma } from '../prisma/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
+import { reconcileApprovedOfficeLeavesForCoverage } from './office-leave-reconciliation';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
+function supportsLeaveReconciliation(tx: TxLike) {
+  return typeof (tx as any).employeeLeaveRequest?.findMany === 'function';
+}
 type OfficeDayOverrideRow = {
   id: string;
   employeeId: string;
@@ -111,6 +115,7 @@ export async function upsertEmployeeOfficeDayOverride(
     overrideType: 'off' | 'shift_override';
     note?: string | null;
     adminId?: string | null;
+    skipLeaveReconciliation?: boolean;
   },
   tx: TxLike = prisma
 ) {
@@ -141,6 +146,18 @@ export async function upsertEmployeeOfficeDayOverride(
         },
       },
     });
+
+    if (!params.skipLeaveReconciliation && supportsLeaveReconciliation(tx)) {
+      await reconcileApprovedOfficeLeavesForCoverage(
+        {
+          employeeId: params.employeeId,
+          startDateKey: params.date,
+          endDateKey: params.date,
+          adminId: params.adminId ?? undefined,
+        },
+        tx
+      );
+    }
 
     return updated;
   }
@@ -176,6 +193,18 @@ export async function upsertEmployeeOfficeDayOverride(
     },
   });
 
+  if (!params.skipLeaveReconciliation && supportsLeaveReconciliation(tx)) {
+    await reconcileApprovedOfficeLeavesForCoverage(
+      {
+        employeeId: params.employeeId,
+        startDateKey: params.date,
+        endDateKey: params.date,
+        adminId: params.adminId ?? undefined,
+      },
+      tx
+    );
+  }
+
   return created;
 }
 
@@ -207,6 +236,18 @@ export async function deleteEmployeeOfficeDayOverride(
       },
     },
   });
+
+  if (supportsLeaveReconciliation(tx)) {
+    await reconcileApprovedOfficeLeavesForCoverage(
+      {
+        employeeId,
+        startDateKey: dateKey,
+        endDateKey: dateKey,
+        adminId: adminId ?? undefined,
+      },
+      tx
+    );
+  }
 
   return existing;
 }

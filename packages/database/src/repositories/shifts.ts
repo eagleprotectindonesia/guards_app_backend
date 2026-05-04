@@ -77,6 +77,67 @@ export async function checkOverlappingShift(params: {
   });
 }
 
+async function cancelShiftIfOverlapsApprovedLeave(params: { shiftId: string; employeeId?: string | null; adminId: string }) {
+  const { shiftId, employeeId, adminId } = params;
+  if (!employeeId) return;
+
+  const shift = await prisma.shift.findUnique({
+    where: { id: shiftId, deletedAt: null },
+    select: {
+      id: true,
+      employeeId: true,
+      date: true,
+      status: true,
+      note: true,
+    },
+  });
+
+  if (!shift || shift.status !== 'scheduled') return;
+
+  const approvedLeave = await prisma.employeeLeaveRequest.findFirst({
+    where: {
+      employeeId,
+      status: 'approved',
+      startDate: { lte: shift.date },
+      endDate: { gte: shift.date },
+      employee: { role: 'on_site' },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!approvedLeave) return;
+
+  const cancellationNote = `Cancelled due to approved leave request ${approvedLeave.id}`;
+  await prisma.$transaction(async tx => {
+    const cancelled = await tx.shift.update({
+      where: { id: shift.id },
+      data: {
+        status: 'cancelled',
+        note: cancellationNote,
+        lastUpdatedBy: { connect: { id: adminId } },
+      },
+    });
+
+    await tx.changelog.create({
+      data: {
+        action: 'UPDATE',
+        entityType: 'Shift',
+        entityId: cancelled.id,
+        actor: 'admin',
+        actorId: adminId,
+        details: {
+          status: cancelled.status,
+          note: cancelled.note,
+          employeeId: cancelled.employeeId,
+          cancelledByApprovedLeaveRequestId: approvedLeave.id,
+        },
+      },
+    });
+  });
+}
+
 export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, adminId: string) {
   const result = await prisma.$transaction(
     async tx => {
@@ -125,6 +186,16 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
   );
 
   if (result.employeeId) {
+    await cancelShiftIfOverlapsApprovedLeave({ shiftId: result.id, employeeId: result.employeeId, adminId });
+
+    const dateKey = result.date.toISOString().slice(0, 10);
+    await reconcileApprovedOnsiteLeavesForCoverage({
+      employeeId: result.employeeId,
+      startDateKey: dateKey,
+      endDateKey: dateKey,
+      adminId,
+    });
+
     await redis.xadd(
       `employee:stream:${result.employeeId}`,
       'MAXLEN',
@@ -259,6 +330,16 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
   );
 
   if (result.employeeId) {
+    await cancelShiftIfOverlapsApprovedLeave({ shiftId: result.id, employeeId: result.employeeId, adminId });
+
+    const dateKey = result.date.toISOString().slice(0, 10);
+    await reconcileApprovedOnsiteLeavesForCoverage({
+      employeeId: result.employeeId,
+      startDateKey: dateKey,
+      endDateKey: dateKey,
+      adminId,
+    });
+
     await redis.xadd(
       `employee:stream:${result.employeeId}`,
       'MAXLEN',

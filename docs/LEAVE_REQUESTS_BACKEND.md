@@ -157,6 +157,7 @@ Usage:
   - `special_paternity` allowed for `male` only
 - Document-required rules:
   - `special_miscarriage` requires attachment/document.
+  - `sick` request exceeding 1 working day in any sick cycle (`21st -> 20th`) without attachment is auto-converted to `annual` during manager approval flow.
 - State transitions:
   - `pending -> approved`
   - `pending -> rejected`
@@ -186,9 +187,9 @@ Usage:
   - date `1..20` => cycle start = previous month day 21
 - Multi-cycle sick requests are evaluated per cycle bucket (not only request start cycle).
 - Sick policy:
-  - first no-document sick day in cycle is paid
-  - extra no-document sick days deduct annual leave
-  - if annual balance is insufficient, remaining days are marked unpaid
+  - no-document sick is allowed up to 1 working day per cycle
+  - if a pending no-document sick request exceeds 1 working day in a cycle, manager approval converts it to `annual`
+  - after conversion, annual policy is applied (including shortfall/unpaid behavior)
 - `special_emergency` always deducts annual leave and rejects if balance is insufficient.
 - `annual` leave deducts annual leave and rejects if balance is insufficient.
 - Policy outcome is persisted (`isPaid`, `deductedAnnualDays`, `unpaidDays`, `policySnapshot`).
