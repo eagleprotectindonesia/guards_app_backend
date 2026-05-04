@@ -11,6 +11,7 @@ import {
 } from '@repo/database';
 import type { OfficeAttendance, OfficeAttendanceState } from '@repo/types';
 import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
+import { startOfDay } from 'date-fns';
 
 function formatMinutesAsTime(minutes: number | null | undefined) {
   if (minutes == null || !Number.isFinite(minutes)) return null;
@@ -154,37 +155,39 @@ export async function GET() {
 
   try {
     const now = new Date();
-    const [attendances, scheduleContext, latestAttendanceForDay, latestAttendanceForEmployee, leaveEffectsSetting] =
+    const displayDate = startOfDay(now);
+    const [attendances, displayScheduleContext, stateScheduleContext, latestAttendanceForDay, latestAttendanceForEmployee, leaveEffectsSetting] =
       await Promise.all([
-      getTodayOfficeAttendance(employee.id),
+      getTodayOfficeAttendance(employee.id, displayDate),
+      resolveOfficeAttendanceContextForEmployee(employee.id, displayDate),
       resolveOfficeAttendanceContextForEmployee(employee.id, now),
-      getLatestOfficeAttendanceForDay(employee.id, now),
+      getLatestOfficeAttendanceForDay(employee.id, displayDate),
       getLatestOfficeAttendanceForEmployee(employee.id),
       getSystemSetting(ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING),
     ]);
     const leaveEffectsEnabled = leaveEffectsSetting?.value === '1';
     const latestAttendanceInWindow =
-      scheduleContext.windowStart && scheduleContext.windowEnd
-        ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
+      stateScheduleContext.windowStart && stateScheduleContext.windowEnd
+        ? await getLatestOfficeAttendanceInRange(employee.id, stateScheduleContext.windowStart, stateScheduleContext.windowEnd)
         : null;
     const windowAttendances =
-      scheduleContext.windowStart && scheduleContext.windowEnd
-        ? await getOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
+      stateScheduleContext.windowStart && stateScheduleContext.windowEnd
+        ? await getOfficeAttendanceInRange(employee.id, stateScheduleContext.windowStart, stateScheduleContext.windowEnd)
         : [];
     const latestAttendance = resolveLatestAttendanceForState({
-      scheduleContext,
+      scheduleContext: stateScheduleContext,
       latestAttendanceInWindow,
       latestAttendanceForDay,
     });
     const shouldUseOpenAttendanceFallback =
       !latestAttendance &&
-      scheduleContext.source === 'office_shift' &&
+      stateScheduleContext.source === 'office_shift' &&
       latestAttendanceForEmployee?.status === 'present' &&
-      (!scheduleContext.shift ||
-        (scheduleContext.windowStart instanceof Date && now.getTime() < scheduleContext.windowStart.getTime()));
+      (!stateScheduleContext.shift ||
+        (stateScheduleContext.windowStart instanceof Date && now.getTime() < stateScheduleContext.windowStart.getTime()));
     const fallbackOpenAttendance = shouldUseOpenAttendanceFallback ? latestAttendanceForEmployee : null;
     const attendanceState = getOfficeAttendanceState({
-      scheduleContext,
+      scheduleContext: stateScheduleContext,
       latestAttendance: latestAttendance ?? fallbackOpenAttendance,
       latestTodayAttendance: attendances[0] ?? null,
       leaveEffectsEnabled,
@@ -195,11 +198,11 @@ export async function GET() {
       displayAttendances: attendances.length > 0 ? attendances : fallbackOpenAttendance ? [fallbackOpenAttendance] : windowAttendances,
       attendanceState,
       scheduleContext: {
-        ...scheduleContext,
-        holidayPolicy: scheduleContext.holidayPolicy ?? null,
-        businessDateStr: scheduleContext.businessDay?.dateKey ?? null,
-        scheduledStartStr: formatMinutesAsTime(scheduleContext.startMinutes),
-        scheduledEndStr: formatMinutesAsTime(scheduleContext.endMinutes),
+        ...displayScheduleContext,
+        holidayPolicy: displayScheduleContext.holidayPolicy ?? null,
+        businessDateStr: displayScheduleContext.businessDay?.dateKey ?? null,
+        scheduledStartStr: formatMinutesAsTime(displayScheduleContext.startMinutes),
+        scheduledEndStr: formatMinutesAsTime(displayScheduleContext.endMinutes),
       },
     });
   } catch (error: unknown) {

@@ -98,6 +98,73 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
   });
 
+  test('keeps today schedule display anchored while attendanceState stays real-time', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-display-state-split',
+      role: 'office',
+    });
+    (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
+    (getOfficeAttendanceInRange as jest.Mock).mockResolvedValue([]);
+    (getLatestOfficeAttendanceForEmployee as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+
+    let contextCall = 0;
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockImplementation(async () => {
+      contextCall += 1;
+      if (contextCall === 1) {
+        return {
+          source: 'office_shift',
+          isWorkingDay: true,
+          isLate: false,
+          isAfterEnd: false,
+          windowStart: new Date('2099-01-01T00:00:00.000Z'),
+          windowEnd: new Date('2099-01-01T09:00:00.000Z'),
+          startMinutes: 8 * 60,
+          endMinutes: 17 * 60,
+          schedule: {
+            id: 'schedule-display',
+            code: 'display-schedule',
+            name: 'Display Schedule',
+          },
+          businessDay: {
+            dateKey: '2099-01-01',
+          },
+        };
+      }
+
+      return {
+        source: 'office_shift',
+        isWorkingDay: false,
+        isLate: false,
+        isAfterEnd: false,
+        windowStart: null,
+        windowEnd: null,
+        startMinutes: null,
+        endMinutes: null,
+        businessDay: {
+          dateKey: '2099-01-01',
+        },
+      };
+    });
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.scheduleContext).toMatchObject({
+      isWorkingDay: true,
+      businessDateStr: '2099-01-01',
+      scheduledStartStr: '08:00',
+      scheduledEndStr: '17:00',
+    });
+    expect(data.attendanceState).toMatchObject({
+      status: 'non_working_day',
+      canClockIn: false,
+      canClockOut: false,
+    });
+  });
+
   test('returns non-working-day state without inventing schedule window strings', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-2',

@@ -124,17 +124,19 @@ export async function GET() {
 
     // Fetch for the next 7 days (including today)
     for (let i = 0; i < 7; i++) {
-      const targetDate = i === 0 ? now : startOfDay(addDays(now, i));
+      const displayDate = startOfDay(addDays(now, i));
+      const stateDate = i === 0 ? now : displayDate;
 
-      const [attendances, scheduleContext, latestAttendanceForDay] = await Promise.all([
-        getTodayOfficeAttendance(employee.id, targetDate),
-        resolveOfficeAttendanceContextForEmployee(employee.id, targetDate),
-        getLatestOfficeAttendanceForDay(employee.id, targetDate),
+      const [attendances, displayScheduleContext, stateScheduleContext, latestAttendanceForDay] = await Promise.all([
+        getTodayOfficeAttendance(employee.id, displayDate),
+        resolveOfficeAttendanceContextForEmployee(employee.id, displayDate),
+        resolveOfficeAttendanceContextForEmployee(employee.id, stateDate),
+        getLatestOfficeAttendanceForDay(employee.id, displayDate),
       ]);
 
       const latestAttendanceInWindow =
-        scheduleContext.windowStart && scheduleContext.windowEnd
-          ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
+        stateScheduleContext.windowStart && stateScheduleContext.windowEnd
+          ? await getLatestOfficeAttendanceInRange(employee.id, stateScheduleContext.windowStart, stateScheduleContext.windowEnd)
           : null;
 
       const latestAttendance =
@@ -145,24 +147,24 @@ export async function GET() {
             : latestAttendanceInWindow;
 
       const attendanceState = getOfficeAttendanceState({
-        scheduleContext,
+        scheduleContext: stateScheduleContext,
         latestAttendance,
         latestTodayAttendance: attendances[0] ?? null,
         leaveEffectsEnabled,
       });
 
       days.push({
-        date: targetDate.toISOString(),
-        dateKey: scheduleContext.businessDay?.dateKey ?? null,
-        isWorkingDay: scheduleContext.isWorkingDay,
-        scheduledStartStr: formatMinutesAsTime(scheduleContext.startMinutes),
-        scheduledEndStr: formatMinutesAsTime(scheduleContext.endMinutes),
-        holidayPolicy: scheduleContext.holidayPolicy ?? null,
+        date: displayDate.toISOString(),
+        dateKey: displayScheduleContext.businessDay?.dateKey ?? null,
+        isWorkingDay: displayScheduleContext.isWorkingDay,
+        scheduledStartStr: formatMinutesAsTime(displayScheduleContext.startMinutes),
+        scheduledEndStr: formatMinutesAsTime(displayScheduleContext.endMinutes),
+        holidayPolicy: displayScheduleContext.holidayPolicy ?? null,
         effectiveAttendanceMode:
-          scheduleContext.effectiveAttendanceMode ??
+          displayScheduleContext.effectiveAttendanceMode ??
           (employee.officeId ? (employee.fieldModeEnabled ? 'non_office' : 'office_required') : 'non_office'),
         attendancePolicySource:
-          scheduleContext.attendancePolicySource ?? (!employee.officeId ? 'no_office_employee' : 'employee_default'),
+          displayScheduleContext.attendancePolicySource ?? (!employee.officeId ? 'no_office_employee' : 'employee_default'),
         attendances,
         attendanceState,
       });
