@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import {
   getOfficeAttendanceInRange,
+  getSystemSetting,
   getLatestOfficeAttendanceForEmployee,
   getLatestOfficeAttendanceInRange,
   getLatestOfficeAttendanceForDay,
@@ -9,6 +10,7 @@ import {
   resolveOfficeAttendanceContextForEmployee,
 } from '@repo/database';
 import type { OfficeAttendance, OfficeAttendanceState } from '@repo/types';
+import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
 
 function formatMinutesAsTime(minutes: number | null | undefined) {
   if (minutes == null || !Number.isFinite(minutes)) return null;
@@ -24,9 +26,21 @@ function getOfficeAttendanceState(params: {
   scheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>;
   latestAttendance: OfficeAttendance | null;
   latestTodayAttendance: OfficeAttendance | null;
+  leaveEffectsEnabled: boolean;
 }): OfficeAttendanceState {
-  const { scheduleContext, latestAttendance, latestTodayAttendance } = params;
+  const { scheduleContext, latestAttendance, latestTodayAttendance, leaveEffectsEnabled } = params;
   const effectiveLatestAttendance = latestAttendance ?? latestTodayAttendance;
+
+  if (effectiveLatestAttendance?.status === 'present') {
+    return {
+      status: 'clocked_in',
+      canClockIn: false,
+      canClockOut: true,
+      windowClosed: false,
+      messageCode: scheduleContext.isLate ? 'already_clocked_in' : null,
+      latestAttendance: effectiveLatestAttendance,
+    };
+  }
 
   if (!scheduleContext.isWorkingDay) {
     return {
@@ -39,24 +53,13 @@ function getOfficeAttendanceState(params: {
     };
   }
 
-  if (effectiveLatestAttendance?.status === 'leave') {
+  if (leaveEffectsEnabled && effectiveLatestAttendance?.status === 'leave') {
     return {
       status: 'leave',
       canClockIn: false,
       canClockOut: false,
       windowClosed: true,
       messageCode: 'leave_marked',
-      latestAttendance: effectiveLatestAttendance,
-    };
-  }
-
-  if (effectiveLatestAttendance?.status === 'pending_leave') {
-    return {
-      status: 'pending_leave',
-      canClockIn: false,
-      canClockOut: false,
-      windowClosed: true,
-      messageCode: 'pending_leave_marked',
       latestAttendance: effectiveLatestAttendance,
     };
   }
@@ -79,17 +82,6 @@ function getOfficeAttendanceState(params: {
       canClockOut: false,
       windowClosed: true,
       messageCode: 'attendance_completed',
-      latestAttendance: effectiveLatestAttendance,
-    };
-  }
-
-  if (effectiveLatestAttendance?.status === 'present') {
-    return {
-      status: 'clocked_in',
-      canClockIn: false,
-      canClockOut: true,
-      windowClosed: false,
-      messageCode: scheduleContext.isLate ? 'already_clocked_in' : null,
       latestAttendance: effectiveLatestAttendance,
     };
   }
@@ -162,12 +154,15 @@ export async function GET() {
 
   try {
     const now = new Date();
-    const [attendances, scheduleContext, latestAttendanceForDay, latestAttendanceForEmployee] = await Promise.all([
+    const [attendances, scheduleContext, latestAttendanceForDay, latestAttendanceForEmployee, leaveEffectsSetting] =
+      await Promise.all([
       getTodayOfficeAttendance(employee.id),
       resolveOfficeAttendanceContextForEmployee(employee.id, now),
       getLatestOfficeAttendanceForDay(employee.id, now),
       getLatestOfficeAttendanceForEmployee(employee.id),
+      getSystemSetting(ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING),
     ]);
+    const leaveEffectsEnabled = leaveEffectsSetting?.value === '1';
     const latestAttendanceInWindow =
       scheduleContext.windowStart && scheduleContext.windowEnd
         ? await getLatestOfficeAttendanceInRange(employee.id, scheduleContext.windowStart, scheduleContext.windowEnd)
@@ -181,14 +176,18 @@ export async function GET() {
       latestAttendanceInWindow,
       latestAttendanceForDay,
     });
-    const fallbackOpenAttendance =
-      !latestAttendance && scheduleContext.source === 'office_shift' && !scheduleContext.shift && latestAttendanceForEmployee?.status === 'present'
-        ? latestAttendanceForEmployee
-        : null;
+    const shouldUseOpenAttendanceFallback =
+      !latestAttendance &&
+      scheduleContext.source === 'office_shift' &&
+      latestAttendanceForEmployee?.status === 'present' &&
+      (!scheduleContext.shift ||
+        (scheduleContext.windowStart instanceof Date && now.getTime() < scheduleContext.windowStart.getTime()));
+    const fallbackOpenAttendance = shouldUseOpenAttendanceFallback ? latestAttendanceForEmployee : null;
     const attendanceState = getOfficeAttendanceState({
       scheduleContext,
       latestAttendance: latestAttendance ?? fallbackOpenAttendance,
       latestTodayAttendance: attendances[0] ?? null,
+      leaveEffectsEnabled,
     });
 
     return NextResponse.json({

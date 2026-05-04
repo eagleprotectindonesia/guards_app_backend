@@ -10,7 +10,11 @@ import { getLatestOfficeAttendanceForDay } from '@repo/database';
 import { getLatestOfficeAttendanceForEmployee } from '@repo/database';
 import { OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING } from '@repo/database';
 import { resolveOfficeAttendanceContextForEmployee } from '@repo/database';
-import { OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING } from '@repo/shared';
+import { cancelOverlappingPendingLeaveRequestsByAttendance } from '@repo/database';
+import {
+  ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING,
+  OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING,
+} from '@repo/shared';
 import { ZodError } from 'zod';
 
 function getFallbackAttendanceMode(employee: { officeId?: string | null; fieldModeEnabled?: boolean | null }) {
@@ -51,6 +55,8 @@ export async function POST(req: Request) {
     const requestedStatus = body.status ?? 'present';
     const requirePhotoSetting = await getSystemSetting(OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING);
     const requirePhotoForClockIn = requirePhotoSetting?.value === '1';
+    const leaveEffectsSetting = await getSystemSetting(ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING);
+    const leaveEffectsEnabled = leaveEffectsSetting?.value === '1';
     const scheduleContext = await resolveOfficeAttendanceContextForEmployee(employee.id, now);
 
     const latestAttendanceInWindow =
@@ -127,7 +133,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (latestAttendance?.status === 'pending_leave' || latestAttendance?.status === 'leave') {
+    if (leaveEffectsEnabled && latestAttendance?.status === 'leave') {
       return NextResponse.json(
         {
           code: 'office_attendance_leave_blocked',
@@ -246,6 +252,17 @@ export async function POST(req: Request) {
     });
     const attendance = 'attendance' in recordResult ? recordResult.attendance : recordResult;
     const statusCode = 'created' in recordResult ? (recordResult.created ? 201 : 200) : 201;
+
+    if (
+      (requestedStatus === 'present' || requestedStatus === 'clocked_out') &&
+      attendance?.businessDate instanceof Date
+    ) {
+      await cancelOverlappingPendingLeaveRequestsByAttendance({
+        employeeId: employee.id,
+        attendanceId: attendance.id,
+        businessDate: attendance.businessDate,
+      });
+    }
 
     return NextResponse.json({ attendance }, { status: statusCode });
   } catch (error: unknown) {

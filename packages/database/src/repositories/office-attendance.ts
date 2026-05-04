@@ -2,6 +2,8 @@ import { db as prisma } from '../prisma/client';
 import { Prisma, OfficeAttendanceStatus } from '@prisma/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
 import { resolveOfficeAttendanceContextForEmployee } from './office-attendance-context';
+import { getSystemSetting } from './settings';
+import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
 
 export async function getOfficeAttendanceById(id: string) {
   return prisma.officeAttendance.findUnique({
@@ -230,6 +232,12 @@ export async function clearPendingOfficeLeaveStatusesForDateKeys(params: {
 }
 
 export async function finalizeOfficeDailyAbsences(now = new Date()) {
+  const leaveEffectsSetting = await getSystemSetting(ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING);
+  const leaveEffectsEnabled = leaveEffectsSetting?.value === '1';
+  const blockingStatuses: OfficeAttendanceStatus[] = leaveEffectsEnabled
+    ? ['present', 'late', 'clocked_out', 'pending_leave', 'leave', 'absent']
+    : ['present', 'late', 'clocked_out', 'absent'];
+
   const employees = await prisma.employee.findMany({
     where: { role: 'office', status: true, deletedAt: null },
     select: { id: true },
@@ -245,7 +253,7 @@ export async function finalizeOfficeDailyAbsences(now = new Date()) {
       where: {
         employeeId: employee.id,
         businessDate: dateKeyToDate(dateKey),
-        status: { in: ['present', 'late', 'clocked_out', 'pending_leave', 'leave', 'absent'] },
+        status: { in: blockingStatuses },
       },
       select: { id: true },
     });

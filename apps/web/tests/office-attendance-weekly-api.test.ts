@@ -1,6 +1,7 @@
 import { GET } from '../app/api/employee/my/office-attendance/weekly/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import {
+  getSystemSetting,
   getLatestOfficeAttendanceInRange,
   getLatestOfficeAttendanceForDay,
   getTodayOfficeAttendance,
@@ -12,6 +13,7 @@ jest.mock('@/lib/employee-auth', () => ({
 }));
 
 jest.mock('@repo/database', () => ({
+  getSystemSetting: jest.fn(),
   getLatestOfficeAttendanceInRange: jest.fn(),
   getLatestOfficeAttendanceForDay: jest.fn(),
   getTodayOfficeAttendance: jest.fn(),
@@ -35,6 +37,7 @@ jest.mock('next/server', () => {
 describe('GET /api/employee/my/office-attendance/weekly', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '0' });
   });
 
   test('includes holiday policy for holiday override days', async () => {

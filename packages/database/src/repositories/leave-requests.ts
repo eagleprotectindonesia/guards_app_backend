@@ -11,6 +11,7 @@ import { redis } from '../redis/client';
 import { createLeaveRequestCreatedAdminNotifications } from './admin-notifications';
 import { enqueueEmailEvent } from '../email-events';
 import { getSystemSetting } from './settings';
+import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
 import { resolveHolidayPolicyForEmployeeDate } from './holiday-calendar-entries';
 import { listEmployeeOnsiteDayOffDateKeysInRange } from './onsite-day-offs';
 import { listEmployeeOfficeDayOverridesForDates } from './office-day-overrides';
@@ -20,6 +21,10 @@ export const OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR = 'Overlapping pending leav
 export const FIXED_LEAVE_DURATION_ERROR = 'Selected leave type requires an exact policy duration';
 export const ANNUAL_LEAVE_INSUFFICIENT_ERROR = 'Insufficient annual leave balance';
 export const LEAVE_REASONS_REQUIRE_HR_APPROVAL_SETTING = 'LEAVE_REASONS_REQUIRE_HR_APPROVAL';
+async function isOfficeAttendanceLeaveEffectsEnabled() {
+  const setting = await getSystemSetting(ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING);
+  return setting?.value === '1';
+}
 type AdminLeaveRequestSortField = 'startDate' | 'status' | 'createdAt';
 const IN_PROGRESS_PENDING_STATUSES: LeaveRequestStatus[] = ['pending', 'pending_hr', 'pending_manager'];
 type AdminLeaveRequestFilterParams = {
@@ -301,7 +306,7 @@ export async function createEmployeeLeaveRequest(
   if (!employee) {
     throw new Error('Employee not found');
   }
-  if (employee.role === 'office') {
+  if (employee.role === 'office' && (await isOfficeAttendanceLeaveEffectsEnabled())) {
     await ensureNoOfficeAttendanceConflictForLeaveRange(employee.id, params.startDate, params.endDate);
   }
 
@@ -344,7 +349,7 @@ export async function createEmployeeLeaveRequest(
     }
   })();
 
-  if (employee.role === 'office') {
+  if (employee.role === 'office' && (await isOfficeAttendanceLeaveEffectsEnabled())) {
     const officeEmployee = await targetTx.employee.findUnique({
       where: { id: employee.id },
       select: { id: true, role: true, department: true },
@@ -815,7 +820,7 @@ export async function cancelEmployeeLeaveRequestByEmployee(
     where: { id: updated.employeeId },
     select: { id: true, role: true, department: true },
   });
-  if (employee?.role === 'office') {
+  if (employee?.role === 'office' && (await isOfficeAttendanceLeaveEffectsEnabled())) {
     const workingDateKeys = await listWorkingDateKeysInclusiveForEmployee(
       employee,
       dateToDateKey(updated.startDate),
@@ -1212,12 +1217,14 @@ async function finalizeApprovedLeaveRequest(
         trx
       );
     }
-    await upsertOfficeLeaveStatusesForDateKeys({
-      employeeId: request.employee.id,
-      dateKeys: outcome.workingDateKeys,
-      status: 'leave',
-      note: `Approved leave request (${updated.id})`,
-    }, trx);
+    if (await isOfficeAttendanceLeaveEffectsEnabled()) {
+      await upsertOfficeLeaveStatusesForDateKeys({
+        employeeId: request.employee.id,
+        dateKeys: outcome.workingDateKeys,
+        status: 'leave',
+        note: `Approved leave request (${updated.id})`,
+      }, trx);
+    }
     affectedOfficeOverrideCount = outcome.dateKeys.length;
   }
 
@@ -1573,4 +1580,92 @@ export async function rejectEmployeeLeaveRequest(
   });
 
   return updated;
+}
+
+export async function cancelOverlappingPendingLeaveRequestsByAttendance(params: {
+  employeeId: string;
+  attendanceId: string;
+  businessDate: Date;
+}) {
+  const dateKey = dateToDateKey(params.businessDate);
+  const start = dateKeyToDate(dateKey);
+  const end = dateKeyToDate(dateKey);
+  const now = new Date();
+
+  const requests = await prisma.employeeLeaveRequest.findMany({
+    where: {
+      employeeId: params.employeeId,
+      status: { in: IN_PROGRESS_PENDING_STATUSES },
+      startDate: { lte: end },
+      endDate: { gte: start },
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      reason: true,
+      employeeNote: true,
+      attachments: true,
+      startDate: true,
+      endDate: true,
+    },
+  });
+
+  if (requests.length === 0) {
+    return { cancelledCount: 0 };
+  }
+
+  await prisma.$transaction(async tx => {
+    for (const request of requests) {
+      await tx.employeeLeaveRequest.update({
+        where: { id: request.id },
+        data: {
+          status: 'cancelled',
+          cancelledAt: now,
+        },
+      });
+
+      const employee = await tx.employee.findUnique({
+        where: { id: request.employeeId },
+        select: { id: true, role: true, department: true },
+      });
+
+      if (employee?.role === 'office') {
+        const workingDateKeys = await listWorkingDateKeysInclusiveForEmployee(
+          employee,
+          dateToDateKey(request.startDate),
+          dateToDateKey(request.endDate),
+          tx
+        );
+        await clearPendingOfficeLeaveStatusesForDateKeys(
+          {
+            employeeId: employee.id,
+            dateKeys: workingDateKeys,
+            now,
+          },
+          tx
+        );
+      }
+
+      await tx.changelog.create({
+        data: {
+          action: 'UPDATE',
+          entityType: 'EmployeeLeaveRequest',
+          entityId: request.id,
+          actor: 'system',
+          details: {
+            employeeId: request.employeeId,
+            status: 'cancelled',
+            reason: request.reason,
+            employeeNote: request.employeeNote,
+            attachments: request.attachments,
+            cancelledBy: 'attendance',
+            attendanceId: params.attendanceId,
+            attendanceDate: dateKey,
+          },
+        },
+      });
+    }
+  });
+
+  return { cancelledCount: requests.length };
 }

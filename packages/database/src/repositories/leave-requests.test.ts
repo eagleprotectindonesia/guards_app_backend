@@ -9,6 +9,8 @@ import { Prisma } from '@prisma/client';
 import { createLeaveRequestCreatedAdminNotifications } from './admin-notifications';
 import { enqueueEmailEvent } from '../email-events';
 import { redis } from '../redis/client';
+import { getSystemSetting } from './settings';
+import { upsertOfficeLeaveStatusesForDateKeys } from './office-attendance';
 
 jest.mock('../prisma/client', () => ({
   db: {
@@ -51,9 +53,14 @@ jest.mock('./office-attendance', () => ({
   clearPendingOfficeLeaveStatusesForDateKeys: jest.fn(),
 }));
 
+jest.mock('./settings', () => ({
+  getSystemSetting: jest.fn(),
+}));
+
 describe('leave-requests repository admin queries', () => {
   beforeEach(() => {
     jest.resetAllMocks();
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '0' });
   });
 
   test('listEmployeeLeaveRequestsForAdmin builds overlap and status filters', async () => {
@@ -198,4 +205,34 @@ describe('leave-requests repository admin queries', () => {
       })
     ).rejects.toThrow(OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR);
   });
+
+  test('createEmployeeLeaveRequest does not write pending_leave attendance when leave effects toggle is OFF', async () => {
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '0' });
+    (prisma.employee.findUnique as jest.Mock)
+      .mockResolvedValueOnce({ id: 'employee-office-1', role: 'office' })
+      .mockResolvedValueOnce({ id: 'employee-office-1', role: 'office', department: 'ops' });
+    (prisma.employeeLeaveRequest.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.employeeLeaveRequest.create as jest.Mock).mockResolvedValue({
+      id: 'leave-office-created',
+      employeeId: 'employee-office-1',
+      startDate: new Date('2026-04-10T00:00:00Z'),
+      endDate: new Date('2026-04-12T00:00:00Z'),
+      reason: 'sick',
+      employeeNote: null,
+      attachments: [],
+      status: 'pending',
+    });
+    (prisma.changelog.create as jest.Mock).mockResolvedValue({ id: 'log-1' });
+    (createLeaveRequestCreatedAdminNotifications as jest.Mock).mockResolvedValue([]);
+
+    await createEmployeeLeaveRequest({
+      employeeId: 'employee-office-1',
+      startDate: '2026-04-10',
+      endDate: '2026-04-12',
+      reason: 'sick',
+    });
+
+    expect(upsertOfficeLeaveStatusesForDateKeys).not.toHaveBeenCalled();
+  });
+
 });

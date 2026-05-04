@@ -1,6 +1,7 @@
 import { POST } from '../app/api/employee/my/office-attendance/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import {
+  cancelOverlappingPendingLeaveRequestsByAttendance,
   getLatestOfficeAttendanceForEmployee,
   getLatestOfficeAttendanceInRange,
   getLatestOfficeAttendanceForDay,
@@ -26,6 +27,7 @@ jest.mock('@repo/database', () => ({
   getSystemSetting: jest.fn(),
   recordOfficeAttendance: jest.fn(),
   resolveOfficeAttendanceContextForEmployee: jest.fn(),
+  cancelOverlappingPendingLeaveRequestsByAttendance: jest.fn(),
 }));
 
 jest.mock('next/server', () => {
@@ -922,4 +924,5 @@ describe('POST /api/employee/my/office-attendance', () => {
       })
     );
   });
+
 });
