@@ -578,14 +578,64 @@ describe('GET /api/employee/my/office-attendance/today', () => {
 
     expect(response.status).toBe(200);
     expect(data.attendanceState).toMatchObject({
-      status: 'non_working_day',
+      status: 'clocked_in',
       canClockIn: false,
-      canClockOut: false,
+      canClockOut: true,
       latestAttendance: expect.objectContaining({
         id: 'attendance-overnight-open-late',
         status: 'present',
       }),
     });
     expect(data.displayAttendances).toEqual([openOvernightAttendance]);
+  });
+
+  test('keeps clock-out available before upcoming shift starts when latest global attendance is still present', async () => {
+    const openPreviousShiftAttendance = {
+      id: 'attendance-previous-shift-open',
+      employeeId: 'employee-10',
+      officeId: null,
+      officeShiftId: 'office-shift-previous',
+      status: 'present',
+      recordedAt: '2026-04-02T03:10:00.000Z',
+    };
+
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-10',
+      role: 'office',
+    });
+    (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
+    (getOfficeAttendanceInRange as jest.Mock).mockResolvedValue([]);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForEmployee as jest.Mock).mockResolvedValue(openPreviousShiftAttendance);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'office_shift',
+      isWorkingDay: true,
+      isLate: false,
+      isAfterEnd: false,
+      shift: {
+        id: 'office-shift-upcoming',
+      },
+      windowStart: new Date('2099-04-02T10:00:00.000Z'),
+      windowEnd: new Date('2099-04-02T18:00:00.000Z'),
+      startMinutes: 18 * 60,
+      endMinutes: 2 * 60,
+      businessDay: { dateKey: '2099-04-02' },
+    });
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.attendanceState).toMatchObject({
+      status: 'clocked_in',
+      canClockIn: false,
+      canClockOut: true,
+      latestAttendance: expect.objectContaining({
+        id: 'attendance-previous-shift-open',
+        status: 'present',
+      }),
+    });
+    expect(data.displayAttendances).toEqual([openPreviousShiftAttendance]);
   });
 });

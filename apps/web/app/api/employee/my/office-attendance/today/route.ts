@@ -31,6 +31,17 @@ function getOfficeAttendanceState(params: {
   const { scheduleContext, latestAttendance, latestTodayAttendance, leaveEffectsEnabled } = params;
   const effectiveLatestAttendance = latestAttendance ?? latestTodayAttendance;
 
+  if (effectiveLatestAttendance?.status === 'present') {
+    return {
+      status: 'clocked_in',
+      canClockIn: false,
+      canClockOut: true,
+      windowClosed: false,
+      messageCode: scheduleContext.isLate ? 'already_clocked_in' : null,
+      latestAttendance: effectiveLatestAttendance,
+    };
+  }
+
   if (!scheduleContext.isWorkingDay) {
     return {
       status: 'non_working_day',
@@ -71,17 +82,6 @@ function getOfficeAttendanceState(params: {
       canClockOut: false,
       windowClosed: true,
       messageCode: 'attendance_completed',
-      latestAttendance: effectiveLatestAttendance,
-    };
-  }
-
-  if (effectiveLatestAttendance?.status === 'present') {
-    return {
-      status: 'clocked_in',
-      canClockIn: false,
-      canClockOut: true,
-      windowClosed: false,
-      messageCode: scheduleContext.isLate ? 'already_clocked_in' : null,
       latestAttendance: effectiveLatestAttendance,
     };
   }
@@ -176,10 +176,13 @@ export async function GET() {
       latestAttendanceInWindow,
       latestAttendanceForDay,
     });
-    const fallbackOpenAttendance =
-      !latestAttendance && scheduleContext.source === 'office_shift' && !scheduleContext.shift && latestAttendanceForEmployee?.status === 'present'
-        ? latestAttendanceForEmployee
-        : null;
+    const shouldUseOpenAttendanceFallback =
+      !latestAttendance &&
+      scheduleContext.source === 'office_shift' &&
+      latestAttendanceForEmployee?.status === 'present' &&
+      (!scheduleContext.shift ||
+        (scheduleContext.windowStart instanceof Date && now.getTime() < scheduleContext.windowStart.getTime()));
+    const fallbackOpenAttendance = shouldUseOpenAttendanceFallback ? latestAttendanceForEmployee : null;
     const attendanceState = getOfficeAttendanceState({
       scheduleContext,
       latestAttendance: latestAttendance ?? fallbackOpenAttendance,
