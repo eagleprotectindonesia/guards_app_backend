@@ -8,6 +8,7 @@ import {
 } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { resolveLeaveRequestAccessContext } from '@/lib/auth/leave-ownership';
+import { sendLeaveRequestStatusPushNotification } from '@/lib/fcm';
 
 jest.mock('@repo/database', () => ({
   approveEmployeeLeaveRequest: jest.fn(),
@@ -28,6 +29,10 @@ jest.mock('@/lib/auth/leave-ownership', () => ({
 
 jest.mock('next/cache', () => ({
   revalidatePath: jest.fn(),
+}));
+
+jest.mock('@/lib/fcm', () => ({
+  sendLeaveRequestStatusPushNotification: jest.fn(),
 }));
 
 describe('admin leave request server actions', () => {
@@ -65,6 +70,14 @@ describe('admin leave request server actions', () => {
   });
 
   test('approves leave request when owned', async () => {
+    (approveEmployeeLeaveRequest as jest.Mock).mockResolvedValueOnce({
+      id: 'leave-1',
+      employeeId: 'employee-1',
+      status: 'approved',
+      reason: 'annual',
+      startDate: new Date('2026-04-10T00:00:00Z'),
+      endDate: new Date('2026-04-12T00:00:00Z'),
+    });
     const result = await approveLeaveRequestAction('leave-1', 'approved');
 
     expect(result).toEqual({ success: true });
@@ -74,6 +87,25 @@ describe('admin leave request server actions', () => {
       adminNote: 'approved',
       approvalMode: 'manager',
     });
+    expect(sendLeaveRequestStatusPushNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        leaveRequestId: 'leave-1',
+        status: 'approved',
+      })
+    );
+  });
+
+  test('does not push for staged approval', async () => {
+    (approveEmployeeLeaveRequest as jest.Mock).mockResolvedValueOnce({
+      id: 'leave-1',
+      employeeId: 'employee-1',
+      status: 'pending_hr',
+      reason: 'annual',
+      startDate: new Date('2026-04-10T00:00:00Z'),
+      endDate: new Date('2026-04-12T00:00:00Z'),
+    });
+    await approveLeaveRequestAction('leave-1', 'approved');
+    expect(sendLeaveRequestStatusPushNotification).not.toHaveBeenCalled();
   });
 
   test('allows HR approver to approve HR-required leave without ownership', async () => {
@@ -187,6 +219,14 @@ describe('admin leave request server actions', () => {
   });
 
   test('rejects leave request when note is present', async () => {
+    (rejectEmployeeLeaveRequest as jest.Mock).mockResolvedValueOnce({
+      id: 'leave-1',
+      employeeId: 'employee-1',
+      status: 'rejected',
+      reason: 'annual',
+      startDate: new Date('2026-04-10T00:00:00Z'),
+      endDate: new Date('2026-04-12T00:00:00Z'),
+    });
     const result = await rejectLeaveRequestAction('leave-1', 'not eligible');
 
     expect(result.success).toBe(true);
@@ -195,6 +235,12 @@ describe('admin leave request server actions', () => {
       adminId: 'admin-1',
       adminNote: 'not eligible',
     });
+    expect(sendLeaveRequestStatusPushNotification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        leaveRequestId: 'leave-1',
+        status: 'rejected',
+      })
+    );
   });
 
   test('blocks HR approver from rejecting non-HR-required leave', async () => {

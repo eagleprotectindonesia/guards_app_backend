@@ -25,7 +25,7 @@ jest.mock('@/lib/data-access/chat', () => ({
   getUnreadCount: (...args: unknown[]) => mockGetUnreadCount(...args),
 }));
 
-import { sendChatPushNotification } from '@/lib/fcm';
+import { sendChatPushNotification, sendLeaveRequestStatusPushNotification } from '@/lib/fcm';
 
 describe('sendChatPushNotification', () => {
   let infoSpy: jest.SpyInstance;
@@ -184,5 +184,53 @@ describe('sendChatPushNotification', () => {
       staleTokenCount: 1,
       tokenSuffixes: ['oken-one'],
     });
+  });
+});
+
+describe('sendLeaveRequestStatusPushNotification', () => {
+  test('returns no_tokens when no FCM tokens are registered', async () => {
+    mockFindMany.mockResolvedValue([]);
+    const result = await sendLeaveRequestStatusPushNotification({
+      employeeId: 'emp-1',
+      leaveRequestId: 'leave-1',
+      status: 'approved',
+      reason: 'annual',
+      startDate: '2026-04-10',
+      endDate: '2026-04-12',
+    });
+    expect(result.reason).toBe('no_tokens');
+    expect(mockSendEachForMulticast).not.toHaveBeenCalled();
+  });
+
+  test('sends leave status payload with leave channel', async () => {
+    mockFindMany.mockResolvedValue([{ token: 'token-1' }]);
+    mockSendEachForMulticast.mockResolvedValue({
+      successCount: 1,
+      failureCount: 0,
+      responses: [{ success: true }],
+    });
+    await sendLeaveRequestStatusPushNotification({
+      employeeId: 'emp-1',
+      leaveRequestId: 'leave-1',
+      status: 'rejected',
+      reason: 'annual',
+      startDate: '2026-04-10',
+      endDate: '2026-04-12',
+    });
+    expect(mockSendEachForMulticast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        android: expect.objectContaining({
+          notification: expect.objectContaining({
+            channelId: 'leave_updates_v1',
+          }),
+        }),
+        data: expect.objectContaining({
+          type: 'leave_request_status_changed',
+          leaveRequestId: 'leave-1',
+          status: 'rejected',
+          targetPath: '/leave-requests',
+        }),
+      })
+    );
   });
 });
