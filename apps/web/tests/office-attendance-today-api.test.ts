@@ -1,6 +1,7 @@
 import { GET } from '../app/api/employee/my/office-attendance/today/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import {
+  getSystemSetting,
   getOfficeAttendanceInRange,
   getLatestOfficeAttendanceForEmployee,
   getLatestOfficeAttendanceInRange,
@@ -14,6 +15,7 @@ jest.mock('@/lib/employee-auth', () => ({
 }));
 
 jest.mock('@repo/database', () => ({
+  getSystemSetting: jest.fn(),
   getOfficeAttendanceInRange: jest.fn(),
   getLatestOfficeAttendanceForEmployee: jest.fn(),
   getLatestOfficeAttendanceInRange: jest.fn(),
@@ -39,6 +41,7 @@ jest.mock('next/server', () => {
 describe('GET /api/employee/my/office-attendance/today', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '0' });
   });
 
   test('returns backend-driven schedule context with display helpers for a working day', async () => {
@@ -485,10 +488,10 @@ describe('GET /api/employee/my/office-attendance/today', () => {
 
     expect(response.status).toBe(200);
     expect(data.attendanceState).toMatchObject({
-      status: 'available',
-      canClockIn: true,
+      status: 'completed',
+      canClockIn: false,
       canClockOut: false,
-      latestAttendance: null,
+      latestAttendance: previousShiftClockedOut,
     });
   });
 
@@ -534,7 +537,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
       status: 'non_working_day',
       canClockIn: false,
       canClockOut: false,
-      latestAttendance: null,
+      latestAttendance: previousShiftClockedOut,
     });
   });
 
@@ -575,9 +578,9 @@ describe('GET /api/employee/my/office-attendance/today', () => {
 
     expect(response.status).toBe(200);
     expect(data.attendanceState).toMatchObject({
-      status: 'clocked_in',
+      status: 'non_working_day',
       canClockIn: false,
-      canClockOut: true,
+      canClockOut: false,
       latestAttendance: expect.objectContaining({
         id: 'attendance-overnight-open-late',
         status: 'present',

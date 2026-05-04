@@ -417,6 +417,11 @@ async function main() {
         value: '0',
         note: 'Require office attendance photo capture for clock-in (1=ON, 0=OFF).',
       },
+      {
+        name: 'ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS',
+        value: '0',
+        note: 'Feature toggle for leave-based office attendance effects (1=ON, 0=OFF).',
+      },
     ];
 
     await Promise.all(

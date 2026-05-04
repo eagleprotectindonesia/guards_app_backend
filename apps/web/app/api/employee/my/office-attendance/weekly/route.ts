@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import {
+  getSystemSetting,
   getLatestOfficeAttendanceInRange,
   getLatestOfficeAttendanceForDay,
   getTodayOfficeAttendance,
   resolveOfficeAttendanceContextForEmployee,
 } from '@repo/database';
 import type { OfficeAttendance, OfficeAttendanceState } from '@repo/types';
+import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
 import { addDays, startOfDay } from 'date-fns';
 
 function formatMinutesAsTime(minutes: number | null | undefined) {
@@ -23,8 +25,9 @@ function getOfficeAttendanceState(params: {
   scheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>;
   latestAttendance: OfficeAttendance | null;
   latestTodayAttendance: OfficeAttendance | null;
+  leaveEffectsEnabled: boolean;
 }): OfficeAttendanceState {
-  const { scheduleContext, latestAttendance, latestTodayAttendance } = params;
+  const { scheduleContext, latestAttendance, latestTodayAttendance, leaveEffectsEnabled } = params;
   const effectiveLatestAttendance = latestAttendance ?? latestTodayAttendance;
 
   if (!scheduleContext.isWorkingDay) {
@@ -38,24 +41,13 @@ function getOfficeAttendanceState(params: {
     };
   }
 
-  if (effectiveLatestAttendance?.status === 'leave') {
+  if (leaveEffectsEnabled && effectiveLatestAttendance?.status === 'leave') {
     return {
       status: 'leave',
       canClockIn: false,
       canClockOut: false,
       windowClosed: true,
       messageCode: 'leave_marked',
-      latestAttendance: effectiveLatestAttendance,
-    };
-  }
-
-  if (effectiveLatestAttendance?.status === 'pending_leave') {
-    return {
-      status: 'pending_leave',
-      canClockIn: false,
-      canClockOut: false,
-      windowClosed: true,
-      messageCode: 'pending_leave_marked',
       latestAttendance: effectiveLatestAttendance,
     };
   }
@@ -126,6 +118,8 @@ export async function GET() {
 
   try {
     const now = new Date();
+    const leaveEffectsSetting = await getSystemSetting(ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING);
+    const leaveEffectsEnabled = leaveEffectsSetting?.value === '1';
     const days = [];
 
     // Fetch for the next 7 days (including today)
@@ -154,6 +148,7 @@ export async function GET() {
         scheduleContext,
         latestAttendance,
         latestTodayAttendance: attendances[0] ?? null,
+        leaveEffectsEnabled,
       });
 
       days.push({
