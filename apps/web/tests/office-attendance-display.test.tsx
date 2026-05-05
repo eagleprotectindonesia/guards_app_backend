@@ -193,6 +193,34 @@ describe('office attendance admin display', () => {
     });
   });
 
+  test('includes absent rows with minimal details', async () => {
+    const rows = await buildOfficeAttendanceDisplayRows(
+      [
+        buildAttendance({
+          id: 'absent-1',
+          recordedAt: '2026-03-28T00:00:00.000Z',
+          businessDate: '2026-03-28',
+          status: 'absent',
+          metadata: { note: 'Auto finalized absent (worker)' } as any,
+        }),
+      ],
+      async () => 8 * 60
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: 'absent-1',
+      displayStatus: 'absent',
+      businessDate: '2026-03-28',
+      clockOutAt: null,
+      clockInPicture: null,
+      paidHours: null,
+      clockInMetadata: null,
+      clockOutMetadata: null,
+      latenessMins: null,
+    });
+  });
+
   test('returns paginated unified rows with capped paid hours ready for rendering', async () => {
     const unifiedRows = paginateOfficeAttendanceDisplayRows(
       await buildOfficeAttendanceDisplayRows(

@@ -179,4 +179,46 @@ describe('GET /api/admin/office-attendance/export', () => {
       '"EMP-1","Jane Doe","Operations","Supervisor","HQ",2026-04-01,"Wednesday","April","Morning Shift","08:00","17:00",0,2026-04-01,16:05,12,,,,"",,,clocked_in,,No,,Yes,,,'
     );
   });
+
+  test('exports absent rows with session detail columns left blank', async () => {
+    (getAdminSession as jest.Mock).mockResolvedValue({
+      permissions: ['attendance:view'],
+      isSuperAdmin: false,
+      rolePolicy: { attendance: { scope: 'all' } },
+    });
+    (adminHasPermission as jest.Mock).mockReturnValue(true);
+    (canAccessOfficeAttendance as jest.Mock).mockReturnValue(true);
+    (getOfficeAttendanceExportBatch as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'absent-1',
+          businessDate: new Date('2026-04-01T00:00:00.000Z'),
+          recordedAt: new Date('2026-04-01T00:00:00.000Z'),
+          status: 'absent',
+          employeeId: 'employee-2',
+          officeId: 'office-1',
+          metadata: { note: 'Auto finalized absent (worker)' },
+          office: { id: 'office-1', name: 'HQ' },
+          officeShift: null,
+          employee: {
+            id: 'employee-2',
+            fullName: 'John Absent',
+            employeeNumber: 'EMP-2',
+            department: 'Operations',
+            jobTitle: 'Staff',
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/admin/office-attendance/export?startDate=2026-04-01&endDate=2026-04-01')
+    );
+    const csv = await readResponseText(response);
+
+    expect(response.status).toBe(200);
+    expect(csv).toContain(
+      '"EMP-2","John Absent","Operations","Staff","HQ",2026-04-01,"Wednesday","April","","","",0,,,,,,,\"\",,,absent,,,,,,,'
+    );
+  });
 });

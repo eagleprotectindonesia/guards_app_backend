@@ -111,13 +111,19 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                     </td>
                     <td className="py-4 px-6 text-sm text-foreground font-medium">
                       <div className="flex flex-col gap-1">
-                        <div className="flex items-center gap-2">
-                          <Clock className="w-3 h-3 text-muted-foreground/60" />
-                          {format(new Date(attendance.clockInAt), 'HH:mm')}
-                        </div>
-                        <div className="text-xs font-normal text-muted-foreground">
-                          {buildDistanceSummary(attendance.clockInMetadata)}
-                        </div>
+                        {attendance.displayStatus === 'absent' ? (
+                          <div>-</div>
+                        ) : (
+                          <>
+                            <div className="flex items-center gap-2">
+                              <Clock className="w-3 h-3 text-muted-foreground/60" />
+                              {format(new Date(attendance.clockInAt), 'HH:mm')}
+                            </div>
+                            <div className="text-xs font-normal text-muted-foreground">
+                              {buildDistanceSummary(attendance.clockInMetadata)}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-foreground font-medium">
@@ -147,6 +153,11 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                           Late
                         </span>
                       )}
+                      {attendance.displayStatus === 'absent' && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400">
+                          Absent
+                        </span>
+                      )}
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
                       <div className="flex flex-wrap items-center gap-2">
@@ -170,8 +181,8 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
                       <div className="flex flex-col text-xs gap-1">
-                        <div>In: {buildLocationSummary(attendance.clockInMetadata)}</div>
-                        <div>Out: {buildLocationSummary(attendance.clockOutMetadata)}</div>
+                        <div>In: {attendance.displayStatus === 'absent' ? '-' : buildLocationSummary(attendance.clockInMetadata)}</div>
+                        <div>Out: {attendance.displayStatus === 'absent' ? '-' : buildLocationSummary(attendance.clockOutMetadata)}</div>
                         {attendance.latenessMins != null && attendance.latenessMins > 0 ? (
                           <div>Late: {attendance.latenessMins} mins</div>
                         ) : null}

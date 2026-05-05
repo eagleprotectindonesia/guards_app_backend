@@ -183,8 +183,9 @@ export async function GET(request: NextRequest) {
 
       let chunk = '';
       for (const [index, row] of rows.entries()) {
+        const isAbsent = row.displayStatus === 'absent';
         const scheduledMinutes = scheduledMinutesByRow[index];
-        const workMinutes = getWorkMinutes(row.clockInAt, row.clockOutAt);
+        const workMinutes = isAbsent ? null : getWorkMinutes(row.clockInAt, row.clockOutAt);
         const overtimeMinutes = workMinutes == null ? null : Math.max(0, workMinutes - scheduledMinutes);
         const earlyLeaveMinutes = workMinutes == null ? null : Math.max(0, scheduledMinutes - workMinutes);
         const businessDate = new Date(`${row.businessDate}T00:00:00`);
@@ -203,20 +204,20 @@ export async function GET(request: NextRequest) {
             escapeCsv(row.officeShift?.officeShiftType?.startTime || ''),
             escapeCsv(row.officeShift?.officeShiftType?.endTime || ''),
             '0',
-            format(new Date(row.clockInAt), 'yyyy-MM-dd'),
-            format(new Date(row.clockInAt), 'HH:mm'),
-            formatOptionalNumber(row.clockInMetadata?.distanceMeters),
-            row.clockOutAt ? format(new Date(row.clockOutAt), 'yyyy-MM-dd') : '',
-            row.clockOutAt ? format(new Date(row.clockOutAt), 'HH:mm') : '',
-            formatOptionalNumber(row.clockOutMetadata?.distanceMeters),
-            escapeCsv(row.paidHours || ''),
+            isAbsent ? '' : format(new Date(row.clockInAt), 'yyyy-MM-dd'),
+            isAbsent ? '' : format(new Date(row.clockInAt), 'HH:mm'),
+            isAbsent ? '' : formatOptionalNumber(row.clockInMetadata?.distanceMeters),
+            !isAbsent && row.clockOutAt ? format(new Date(row.clockOutAt), 'yyyy-MM-dd') : '',
+            !isAbsent && row.clockOutAt ? format(new Date(row.clockOutAt), 'HH:mm') : '',
+            isAbsent ? '' : formatOptionalNumber(row.clockOutMetadata?.distanceMeters),
+            isAbsent ? '""' : escapeCsv(row.paidHours || ''),
             formatOptionalNumber(workMinutes),
             formatOptionalNumber(overtimeMinutes),
             row.displayStatus,
-            formatOptionalNumber(row.latenessMins),
-            (row.latenessMins ?? 0) > 0 ? 'Yes' : 'No',
+            isAbsent ? '' : formatOptionalNumber(row.latenessMins),
+            isAbsent ? '' : (row.latenessMins ?? 0) > 0 ? 'Yes' : 'No',
             formatOptionalNumber(earlyLeaveMinutes),
-            row.clockOutAt ? 'No' : 'Yes',
+            isAbsent ? '' : row.clockOutAt ? 'No' : 'Yes',
             '',
             '',
             '',

@@ -87,6 +87,29 @@ function toUnifiedRow(
   };
 }
 
+function toAbsentRow(attendance: SerializedOfficeAttendanceWithRelationsDto): SerializedOfficeAttendanceDisplayDto {
+  const recordedAt = new Date(attendance.recordedAt);
+  const businessDate = attendance.businessDate ?? formatBusinessDate(recordedAt, BUSINESS_TIMEZONE);
+
+  return {
+    id: attendance.id,
+    employeeId: attendance.employeeId,
+    officeId: attendance.officeId,
+    businessDate,
+    clockInAt: attendance.recordedAt,
+    clockOutAt: null,
+    clockInPicture: null,
+    paidHours: null,
+    clockInMetadata: null,
+    clockOutMetadata: null,
+    latenessMins: null,
+    displayStatus: 'absent',
+    office: attendance.office,
+    officeShift: attendance.officeShift ?? null,
+    employee: attendance.employee,
+  };
+}
+
 export function unifyOfficeAttendanceForAdminDisplay(
   attendances: SerializedOfficeAttendanceWithRelationsDto[]
 ): SerializedOfficeAttendanceDisplayDto[] {
@@ -104,6 +127,11 @@ export function unifyOfficeAttendanceForAdminDisplay(
     if (attendance.status === 'present' || attendance.status === 'late') {
       employeeOpenSessions.push(attendance);
       openSessionsByEmployee.set(employeeKey, employeeOpenSessions);
+      continue;
+    }
+
+    if (attendance.status === 'absent') {
+      unifiedRows.push(toAbsentRow(attendance));
       continue;
     }
 
@@ -154,6 +182,11 @@ export async function buildOfficeAttendanceDisplayRows(
     if (attendance.status === 'present' || attendance.status === 'late') {
       employeeOpenSessions.push(attendance);
       openSessionsByEmployee.set(employeeKey, employeeOpenSessions);
+      continue;
+    }
+
+    if (attendance.status === 'absent') {
+      unifiedRows.push(toAbsentRow(attendance));
       continue;
     }
 
