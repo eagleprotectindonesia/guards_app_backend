@@ -125,6 +125,7 @@ describe('POST /api/employee/my/office-attendance', () => {
         status: 'clocked_out',
       })
     );
+    expect(cancelOverlappingPendingLeaveRequestsByAttendance).not.toHaveBeenCalled();
   });
 
   test('records a late clock-in using the employee schedule context', async () => {
@@ -150,6 +151,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       id: 'attendance-1',
       employeeId: 'employee-2',
       officeId: null,
+      businessDate: new Date('2026-05-05T00:00:00.000Z'),
       status: 'present',
     });
 
@@ -177,6 +179,7 @@ describe('POST /api/employee/my/office-attendance', () => {
         }),
       })
     );
+    expect(cancelOverlappingPendingLeaveRequestsByAttendance).toHaveBeenCalled();
   });
 
   test('requires picture when OFFICE_ATTENDANCE_REQUIRE_PHOTO is enabled', async () => {

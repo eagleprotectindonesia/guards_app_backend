@@ -1754,10 +1754,18 @@ export async function cancelOverlappingPendingLeaveRequestsByAttendance(params: 
           dateToDateKey(request.endDate),
           tx
         );
+        await tx.officeAttendance.deleteMany({
+          where: {
+            employeeId: employee.id,
+            businessDate: dateKeyToDate(dateKey),
+            status: 'pending_leave',
+          },
+        });
+        const remainingDateKeys = workingDateKeys.filter(key => key !== dateKey);
         await clearPendingOfficeLeaveStatusesForDateKeys(
           {
             employeeId: employee.id,
-            dateKeys: workingDateKeys,
+            dateKeys: remainingDateKeys,
             now,
           },
           tx

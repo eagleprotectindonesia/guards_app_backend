@@ -4,6 +4,7 @@ import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules'
 import { resolveOfficeAttendanceContextForEmployee } from './office-attendance-context';
 import { getSystemSetting } from './settings';
 import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
+import { getOfficeDayOverrideAnchorDates, resolveOfficeDayOverrideAnchorsForEmployee } from './office-day-overrides';
 
 export async function getOfficeAttendanceById(id: string) {
   return prisma.officeAttendance.findUnique({
@@ -235,7 +236,7 @@ export async function finalizeOfficeDailyAbsences(now = new Date()) {
   const leaveEffectsSetting = await getSystemSetting(ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING);
   const leaveEffectsEnabled = leaveEffectsSetting?.value === '1';
   const blockingStatuses: OfficeAttendanceStatus[] = leaveEffectsEnabled
-    ? ['present', 'late', 'clocked_out', 'pending_leave', 'leave', 'absent']
+    ? ['present', 'late', 'clocked_out', 'leave', 'absent']
     : ['present', 'late', 'clocked_out', 'absent'];
 
   const employees = await prisma.employee.findMany({
@@ -246,28 +247,101 @@ export async function finalizeOfficeDailyAbsences(now = new Date()) {
   let created = 0;
   for (const employee of employees) {
     const context = await resolveOfficeAttendanceContextForEmployee(employee.id, now);
-    if (!context.isWorkingDay || !context.isAfterEnd || !context.businessDay?.dateKey) continue;
+    const anchorDates = getOfficeDayOverrideAnchorDates(now);
+    let dateKey: string | null = null;
 
-    const dateKey = context.businessDay.dateKey;
+    if (context.isWorkingDay && context.isAfterEnd && context.businessDay?.dateKey) {
+      dateKey = context.businessDay.dateKey;
+    } else {
+      const overrideAnchors = await resolveOfficeDayOverrideAnchorsForEmployee(employee.id, now);
+      if (overrideAnchors.currentOverride?.overrideType !== 'shift_override') continue;
+
+      const endedShift = await prisma.officeShift.findFirst({
+        where: {
+          employeeId: employee.id,
+          deletedAt: null,
+          status: {
+            not: 'cancelled',
+          },
+          date: dateKeyToDate(anchorDates.currentDateKey),
+          endsAt: {
+            lte: now,
+          },
+        },
+        select: {
+          id: true,
+        },
+        orderBy: {
+          endsAt: 'desc',
+        },
+      });
+      if (!endedShift) continue;
+      dateKey = anchorDates.currentDateKey;
+    }
+
+    if (!dateKey) continue;
+    const businessDate = dateKeyToDate(dateKey);
     const hasBlocking = await prisma.officeAttendance.findFirst({
       where: {
         employeeId: employee.id,
-        businessDate: dateKeyToDate(dateKey),
+        businessDate,
         status: { in: blockingStatuses },
       },
       select: { id: true },
     });
     if (hasBlocking) continue;
 
-    await prisma.officeAttendance.create({
-      data: {
+    const approvedLeave = await prisma.employeeLeaveRequest.findFirst({
+      where: {
         employeeId: employee.id,
-        businessDate: dateKeyToDate(dateKey),
-        recordedAt: dateKeyToDate(dateKey),
-        status: 'absent',
-        metadata: { note: 'Auto finalized absent (worker)' },
+        status: 'approved',
+        startDate: {
+          lte: businessDate,
+        },
+        endDate: {
+          gte: businessDate,
+        },
+      },
+      select: {
+        id: true,
       },
     });
+    if (approvedLeave) continue;
+
+    const pendingLeaveAttendance = leaveEffectsEnabled
+      ? await prisma.officeAttendance.findFirst({
+          where: {
+            employeeId: employee.id,
+            businessDate,
+            status: 'pending_leave',
+          },
+          orderBy: {
+            recordedAt: 'asc',
+          },
+        })
+      : null;
+
+    if (pendingLeaveAttendance) {
+      await prisma.officeAttendance.update({
+        where: {
+          id: pendingLeaveAttendance.id,
+        },
+        data: {
+          status: 'absent',
+          metadata: { note: 'Pending leave finalized to absent (worker)' },
+        },
+      });
+    } else {
+      await prisma.officeAttendance.create({
+        data: {
+          employeeId: employee.id,
+          businessDate,
+          recordedAt: businessDate,
+          status: 'absent',
+          metadata: { note: 'Auto finalized absent (worker)' },
+        },
+      });
+    }
     created += 1;
   }
 

@@ -253,10 +253,7 @@ export async function POST(req: Request) {
     const attendance = 'attendance' in recordResult ? recordResult.attendance : recordResult;
     const statusCode = 'created' in recordResult ? (recordResult.created ? 201 : 200) : 201;
 
-    if (
-      (requestedStatus === 'present' || requestedStatus === 'clocked_out') &&
-      attendance?.businessDate instanceof Date
-    ) {
+    if (requestedStatus === 'present' && attendance?.businessDate instanceof Date) {
       await cancelOverlappingPendingLeaveRequestsByAttendance({
         employeeId: employee.id,
         attendanceId: attendance.id,
