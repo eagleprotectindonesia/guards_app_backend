@@ -236,6 +236,7 @@
     "history": "Riwayat Hari Ini",
     "in": "Masuk",
     "out": "Keluar",
+    "absent": "Tidak Hadir",
     "noAttendance": "Belum ada presensi",
     "takingPhoto": "Mengambil foto presensi...",
     "optimizingPhoto": "Mengoptimalkan foto presensi...",

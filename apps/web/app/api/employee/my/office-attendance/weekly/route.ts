@@ -21,6 +21,10 @@ function formatMinutesAsTime(minutes: number | null | undefined) {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 }
 
+function isClockHistoryStatus(status: OfficeAttendance['status']) {
+  return status === 'present' || status === 'clocked_out';
+}
+
 function getOfficeAttendanceState(params: {
   scheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>;
   latestAttendance: OfficeAttendance | null;
@@ -152,6 +156,7 @@ export async function GET() {
         latestTodayAttendance: attendances[0] ?? null,
         leaveEffectsEnabled,
       });
+      const filteredAttendances = attendances.filter(attendance => isClockHistoryStatus(attendance.status));
 
       days.push({
         date: displayDate.toISOString(),
@@ -165,7 +170,7 @@ export async function GET() {
           (employee.officeId ? (employee.fieldModeEnabled ? 'non_office' : 'office_required') : 'non_office'),
         attendancePolicySource:
           displayScheduleContext.attendancePolicySource ?? (!employee.officeId ? 'no_office_employee' : 'employee_default'),
-        attendances,
+        attendances: filteredAttendances,
         attendanceState,
       });
     }

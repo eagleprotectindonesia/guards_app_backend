@@ -38,6 +38,7 @@ export type MobileOfficeAttendanceScheduleContext = {
 
 export type OfficeAttendanceTodayResponse = {
   attendances: OfficeAttendance[];
+  displayAttendances?: OfficeAttendance[];
   attendanceState?: OfficeAttendanceState;
   scheduleContext?: MobileOfficeAttendanceScheduleContext;
 };

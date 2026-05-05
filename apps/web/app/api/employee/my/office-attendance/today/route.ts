@@ -23,6 +23,10 @@ function formatMinutesAsTime(minutes: number | null | undefined) {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 }
 
+function isClockHistoryStatus(status: OfficeAttendance['status']) {
+  return status === 'present' || status === 'clocked_out';
+}
+
 function getOfficeAttendanceState(params: {
   scheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>;
   latestAttendance: OfficeAttendance | null;
@@ -192,9 +196,10 @@ export async function GET() {
       latestTodayAttendance: attendances[0] ?? null,
       leaveEffectsEnabled,
     });
+    const filteredAttendances = attendances.filter(attendance => isClockHistoryStatus(attendance.status));
 
     return NextResponse.json({
-      attendances,
+      attendances: filteredAttendances,
       displayAttendances: attendances.length > 0 ? attendances : fallbackOpenAttendance ? [fallbackOpenAttendance] : windowAttendances,
       attendanceState,
       scheduleContext: {

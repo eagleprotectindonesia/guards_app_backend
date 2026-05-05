@@ -69,6 +69,9 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
   const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
 
   const attendances = data?.attendances ?? [];
+  const historyAttendances = (data?.displayAttendances ?? attendances).filter(
+    attendance => attendance.status === 'present' || attendance.status === 'clocked_out' || attendance.status === 'absent'
+  );
   const scheduleContext = data?.scheduleContext;
   const attendanceState = data?.attendanceState;
   const scheduleDisplay = getOfficeScheduleDisplayState(scheduleContext, attendanceState);
@@ -526,13 +529,13 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
           </Text>
         ) : null}
 
-        {attendances.length > 0 ? (
+        {historyAttendances.length > 0 ? (
           <VStack space="sm" className="mt-6 pt-5 border-t border-white/10">
             <Text size="xs" className="text-typography-500 uppercase tracking-[1.5px] font-bold">
               {t('officeAttendance.history')}
             </Text>
 
-            {attendances
+            {historyAttendances
               .slice()
               .reverse()
               .map(attendance => (
@@ -543,16 +546,24 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
                   <HStack space="sm" className="items-center">
                     <Box
                       className={`w-2.5 h-2.5 rounded-full ${
-                        attendance.status === 'present' ? 'bg-success-500' : 'bg-error-500'
+                        attendance.status === 'present'
+                          ? 'bg-success-500'
+                          : attendance.status === 'absent'
+                            ? 'bg-warning-400'
+                            : 'bg-error-500'
                       }`}
                     />
                     <Text className="text-white">
-                      {attendance.status === 'present' ? t('officeAttendance.in') : t('officeAttendance.out')}
+                      {attendance.status === 'present'
+                        ? t('officeAttendance.in')
+                        : attendance.status === 'absent'
+                          ? t('officeAttendance.absent')
+                          : t('officeAttendance.out')}
                     </Text>
                   </HStack>
 
                   <Text className="text-typography-400 font-medium">
-                    {format(new Date(attendance.recordedAt), 'HH:mm:ss')}
+                    {attendance.status === 'absent' ? '-' : format(new Date(attendance.recordedAt), 'HH:mm:ss')}
                   </Text>
                 </HStack>
               ))}

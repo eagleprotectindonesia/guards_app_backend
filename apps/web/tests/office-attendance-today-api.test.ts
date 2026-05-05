@@ -98,6 +98,42 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
   });
 
+  test('filters attendances history to present and clocked_out only', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-filter-history',
+      role: 'office',
+    });
+    (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([
+      { id: 'a1', status: 'absent', recordedAt: '2026-05-05T08:00:00.000Z' },
+      { id: 'a2', status: 'present', recordedAt: '2026-05-05T09:00:00.000Z' },
+      { id: 'a3', status: 'pending_leave', recordedAt: '2026-05-05T10:00:00.000Z' },
+      { id: 'a4', status: 'clocked_out', recordedAt: '2026-05-05T17:00:00.000Z' },
+    ]);
+    (getOfficeAttendanceInRange as jest.Mock).mockResolvedValue([]);
+    (getLatestOfficeAttendanceForEmployee as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isLate: false,
+      isAfterEnd: false,
+      startMinutes: 8 * 60,
+      endMinutes: 17 * 60,
+      businessDay: {
+        dateKey: '2026-05-05',
+      },
+    });
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.attendances).toEqual([
+      expect.objectContaining({ id: 'a2', status: 'present' }),
+      expect.objectContaining({ id: 'a4', status: 'clocked_out' }),
+    ]);
+  });
+
   test('keeps today schedule display anchored while attendanceState stays real-time', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-display-state-split',
