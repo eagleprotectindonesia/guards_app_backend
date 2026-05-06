@@ -4,6 +4,7 @@ import { getUnreadCount } from './data-access/chat';
 
 const CHAT_NOTIFICATION_CHANNEL_ID = 'chat_messages_v2';
 const LEAVE_NOTIFICATION_CHANNEL_ID = 'leave_updates_v1';
+const WEB_APP_URL = process.env.WEB_APP_URL || 'http://localhost:3000';
 
 export type ChatPushNotificationReason = 'firebase_unavailable' | 'no_tokens' | 'sent' | 'send_error';
 export type LeavePushNotificationReason = 'firebase_unavailable' | 'no_tokens' | 'sent' | 'send_error';
@@ -112,6 +113,11 @@ export async function sendChatPushNotification(params: {
         // Passed to the app's background handler for localised notification display.
         senderName,
         messagePreview: preview || '',
+      },
+      webpush: {
+        fcmOptions: {
+          link: `${WEB_APP_URL}/employee/chat`,
+        },
       },
       tokens: tokenStrings,
     };
@@ -264,6 +270,11 @@ export async function sendLeaveRequestStatusPushNotification(params: {
         startDate,
         endDate,
         targetPath: '/leave-requests',
+      },
+      webpush: {
+        fcmOptions: {
+          link: `${WEB_APP_URL}/employee/leave-requests`,
+        },
       },
       tokens: tokenStrings,
     };

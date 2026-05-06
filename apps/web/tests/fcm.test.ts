@@ -129,6 +129,11 @@ describe('sendChatPushNotification', () => {
           }),
         }),
         tokens: ['token-1', 'token-2'],
+        webpush: {
+          fcmOptions: {
+            link: expect.stringContaining('/employee/chat'),
+          },
+        },
       })
     );
     expect(infoSpy).toHaveBeenCalledWith('[FCM] Chat push send result', {
@@ -230,6 +235,11 @@ describe('sendLeaveRequestStatusPushNotification', () => {
           status: 'rejected',
           targetPath: '/leave-requests',
         }),
+        webpush: {
+          fcmOptions: {
+            link: expect.stringContaining('/employee/leave-requests'),
+          },
+        },
       })
     );
   });

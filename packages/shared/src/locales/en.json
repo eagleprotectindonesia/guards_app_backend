@@ -185,6 +185,11 @@
     "title": "Account",
     "settings": "Settings"
   },
+  "notifications": {
+    "leave_approved": "Leave request approved",
+    "leave_rejected": "Leave request rejected",
+    "chat_default_body": "You have a new message"
+  },
   "announcements": {
     "title": "Announcements",
     "empty": "No announcements",

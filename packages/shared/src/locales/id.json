@@ -185,6 +185,11 @@
     "title": "Akun",
     "settings": "Pengaturan"
   },
+  "notifications": {
+    "leave_approved": "Pengajuan cuti disetujui",
+    "leave_rejected": "Pengajuan cuti ditolak",
+    "chat_default_body": "Anda memiliki pesan baru"
+  },
   "announcements": {
     "title": "Pengumuman",
     "empty": "Belum ada pengumuman",
