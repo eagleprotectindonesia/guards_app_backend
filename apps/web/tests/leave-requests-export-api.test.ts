@@ -63,6 +63,18 @@ describe('GET /api/admin/leave-requests/export', () => {
     expect(firstCall.sortOrder).toBe('asc');
   });
 
+  test('omits date bounds when startDate and endDate are not provided', async () => {
+    (getAdminSession as jest.Mock).mockResolvedValue({ id: 'admin-1', permissions: ['leave-requests:view'], rolePolicy: {} });
+    (adminHasPermission as jest.Mock).mockReturnValue(true);
+    (listEmployeeLeaveRequestsForAdmin as jest.Mock).mockResolvedValue([]);
+
+    await GET(new NextRequest('http://localhost/api/admin/leave-requests/export?statuses=approved'));
+
+    const firstCall = (listEmployeeLeaveRequestsForAdmin as jest.Mock).mock.calls[0][0];
+    expect(firstCall.startDate).toBeUndefined();
+    expect(firstCall.endDate).toBeUndefined();
+  });
+
   test('exports csv with requested headers and manager-first approval mapping', async () => {
     (getAdminSession as jest.Mock).mockResolvedValue({ id: 'admin-1', permissions: ['leave-requests:view'], rolePolicy: {} });
     (adminHasPermission as jest.Mock).mockReturnValue(true);
