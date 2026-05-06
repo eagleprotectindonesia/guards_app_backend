@@ -40,6 +40,7 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
   const employeeId = typeof searchParams.employeeId === 'string' ? searchParams.employeeId : undefined;
   const from = typeof searchParams.from === 'string' ? searchParams.from : undefined;
   const to = typeof searchParams.to === 'string' ? searchParams.to : undefined;
+  const todayEnd = endOfDay(new Date());
 
   // Build where clause for attendance records
   const where: Prisma.OfficeAttendanceWhereInput = {};
@@ -54,8 +55,13 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
       where.businessDate.gte = startOfDay(new Date(from));
     }
     if (to) {
-      where.businessDate.lte = endOfDay(new Date(to));
+      const requestedEnd = endOfDay(new Date(to));
+      where.businessDate.lte = requestedEnd < todayEnd ? requestedEnd : todayEnd;
+    } else {
+      where.businessDate.lte = todayEnd;
     }
+  } else {
+    where.businessDate = { lte: todayEnd };
   }
 
   const [attendances, employees, offices] = await Promise.all([

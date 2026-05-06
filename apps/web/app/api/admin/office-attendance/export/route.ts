@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
   const startDateStr = searchParams.get('startDate');
   const endDateStr = searchParams.get('endDate');
   const officeId = searchParams.get('officeId');
+  const todayEnd = endOfDay(new Date());
 
   const where: Prisma.OfficeAttendanceWhereInput = {};
 
@@ -63,8 +64,12 @@ export async function GET(request: NextRequest) {
       where.businessDate.gte = startOfDay(new Date(startDateStr));
     }
     if (endDateStr) {
-      where.businessDate.lte = endOfDay(new Date(endDateStr));
+      where.businessDate.lte = endOfDay(new Date(endDateStr)) < todayEnd ? endOfDay(new Date(endDateStr)) : todayEnd;
+    } else {
+      where.businessDate.lte = todayEnd;
     }
+  } else {
+    where.businessDate = { lte: todayEnd };
   }
 
   const BATCH_SIZE = 1000;
@@ -183,7 +188,8 @@ export async function GET(request: NextRequest) {
 
       let chunk = '';
       for (const [index, row] of rows.entries()) {
-        const isNonWorkingStatus = row.displayStatus === 'absent' || row.displayStatus === 'leave';
+        const isNonWorkingStatus =
+          row.displayStatus === 'absent' || row.displayStatus === 'leave' || row.displayStatus === 'pending_leave';
         const scheduledMinutes = scheduledMinutesByRow[index];
         const workMinutes = isNonWorkingStatus ? null : getWorkMinutes(row.clockInAt, row.clockOutAt);
         const overtimeMinutes = workMinutes == null ? null : Math.max(0, workMinutes - scheduledMinutes);

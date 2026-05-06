@@ -92,7 +92,7 @@ export type SerializedOfficeAttendanceWithRelationsDto = Omit<
   recordedAt: string;
 };
 
-export type OfficeAttendanceDisplayStatus = 'clocked_in' | 'completed' | 'late' | 'absent' | 'leave';
+export type OfficeAttendanceDisplayStatus = 'clocked_in' | 'completed' | 'late' | 'absent' | 'leave' | 'pending_leave';
 
 export type OfficeAttendanceDisplayDto = {
   id: string;
