@@ -120,8 +120,11 @@ export function usePushNotifications() {
         });
       } else if (data.type === 'shift_reminder') {
         showToast({
-          title: 'Shift reminder',
-          description: 'Your shift starts in less than 30 minutes.',
+          title: data.phase === 'end' ? 'Shift end reminder' : 'Shift reminder',
+          description:
+            data.phase === 'end'
+              ? 'Your shift has ended. Please complete your end-of-shift flow.'
+              : 'Your shift starts in less than 30 minutes.',
           status: 'info',
         });
       } else {

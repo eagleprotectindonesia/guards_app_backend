@@ -116,7 +116,11 @@ export function useEmployeePushNotifications(employeeId?: string) {
         }
 
         if (data.type === 'shift_reminder') {
-          toast(t('notifications.shift_reminder', 'Your shift starts in less than 30 minutes.'));
+          toast(
+            data.phase === 'end'
+              ? t('notifications.shift_end_reminder', 'Your shift has ended. Please complete your end-of-shift flow.')
+              : t('notifications.shift_reminder', 'Your shift starts in less than 30 minutes.')
+          );
           return;
         }
 

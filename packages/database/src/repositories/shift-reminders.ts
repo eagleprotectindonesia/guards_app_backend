@@ -86,3 +86,73 @@ export async function claimOfficeShiftReminder(officeShiftId: string, sentAt: Da
 
   return result.count > 0;
 }
+
+export async function getOnsiteShiftEndReminderCandidates(now: Date) {
+  return prisma.shift.findMany({
+    where: {
+      deletedAt: null,
+      employeeId: { not: null },
+      status: { in: [ShiftStatus.scheduled, ShiftStatus.in_progress] },
+      endReminderSentAt: null,
+      endsAt: { lte: now },
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      startsAt: true,
+      endsAt: true,
+      site: { select: { name: true } },
+      shiftType: { select: { name: true } },
+    },
+  });
+}
+
+export async function getOfficeShiftEndReminderCandidates(now: Date) {
+  return prisma.officeShift.findMany({
+    where: {
+      deletedAt: null,
+      status: { in: [ShiftStatus.scheduled, ShiftStatus.in_progress] },
+      endReminderSentAt: null,
+      endsAt: { lte: now },
+      officeAttendances: {
+        some: { status: 'present' },
+        none: { status: 'clocked_out' },
+      },
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      startsAt: true,
+      endsAt: true,
+      officeShiftType: { select: { name: true } },
+    },
+  });
+}
+
+export async function claimOnsiteShiftEndReminder(shiftId: string, sentAt: Date) {
+  const result = await prisma.shift.updateMany({
+    where: {
+      id: shiftId,
+      endReminderSentAt: null,
+      deletedAt: null,
+      status: { in: [ShiftStatus.scheduled, ShiftStatus.in_progress] },
+    },
+    data: { endReminderSentAt: sentAt },
+  });
+
+  return result.count > 0;
+}
+
+export async function claimOfficeShiftEndReminder(officeShiftId: string, sentAt: Date) {
+  const result = await prisma.officeShift.updateMany({
+    where: {
+      id: officeShiftId,
+      endReminderSentAt: null,
+      deletedAt: null,
+      status: { in: [ShiftStatus.scheduled, ShiftStatus.in_progress] },
+    },
+    data: { endReminderSentAt: sentAt },
+  });
+
+  return result.count > 0;
+}

@@ -65,7 +65,10 @@ Leave-status notifications follow the same token and stale-cleanup flow.
   - `reminderSentAt IS NULL`
   - soft-delete excluded
 - Before sending, worker atomically claims each row by setting `reminderSentAt` to prevent duplicate sends.
-- Payload type is `shift_reminder` and click target routes to employee dashboard (`/employee`).
+- It also sends end reminders at/after shift end:
+  - guard shift: status is `scheduled` or `in_progress`, and `endReminderSentAt IS NULL`
+  - office shift: employee has `present` attendance and no `clocked_out`, and `endReminderSentAt IS NULL`
+- Payload type is `shift_reminder` with `phase` (`start` or `end`) and click target routes to employee dashboard (`/employee`).
 
 ### 6. Required Environment Variables
 

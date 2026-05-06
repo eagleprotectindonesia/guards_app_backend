@@ -8,8 +8,12 @@ import {
   SHIFT_REMINDER_WINDOW_MINUTES,
   getOnsiteShiftReminderCandidates,
   getOfficeShiftReminderCandidates,
+  getOnsiteShiftEndReminderCandidates,
+  getOfficeShiftEndReminderCandidates,
   claimOnsiteShiftReminder,
   claimOfficeShiftReminder,
+  claimOnsiteShiftEndReminder,
+  claimOfficeShiftEndReminder,
 } from '@repo/database';
 
 const WEB_APP_URL = process.env.WEB_APP_URL || 'http://localhost:3000';
@@ -26,9 +30,11 @@ export class ShiftReminderProcessor {
   private async sendDueReminders() {
     const now = new Date();
 
-    const [onsiteCandidates, officeCandidates] = await Promise.all([
+    const [onsiteCandidates, officeCandidates, onsiteEndCandidates, officeEndCandidates] = await Promise.all([
       getOnsiteShiftReminderCandidates(now, SHIFT_REMINDER_WINDOW_MINUTES),
       getOfficeShiftReminderCandidates(now, SHIFT_REMINDER_WINDOW_MINUTES),
+      getOnsiteShiftEndReminderCandidates(now),
+      getOfficeShiftEndReminderCandidates(now),
     ]);
 
     for (const shift of onsiteCandidates) {
@@ -42,6 +48,7 @@ export class ShiftReminderProcessor {
         body: `Your ${shift.shiftType?.name ?? 'shift'} at ${shift.site?.name ?? 'assigned site'} starts in less than 30 minutes.`,
         data: {
           type: 'shift_reminder',
+          phase: 'start',
           shiftKind: 'onsite',
           shiftId: shift.id,
           startsAt: shift.startsAt.toISOString(),
@@ -59,6 +66,44 @@ export class ShiftReminderProcessor {
         body: `Your ${shift.officeShiftType?.name ?? 'office shift'} starts in less than 30 minutes.`,
         data: {
           type: 'shift_reminder',
+          phase: 'start',
+          shiftKind: 'office',
+          officeShiftId: shift.id,
+          startsAt: shift.startsAt.toISOString(),
+        },
+      });
+    }
+
+    for (const shift of onsiteEndCandidates) {
+      if (!shift.employeeId) continue;
+      const claimed = await claimOnsiteShiftEndReminder(shift.id, now);
+      if (!claimed) continue;
+
+      await this.sendReminderPush({
+        employeeId: shift.employeeId,
+        title: 'Shift end reminder',
+        body: `Your ${shift.shiftType?.name ?? 'shift'} at ${shift.site?.name ?? 'assigned site'} has ended. Please complete your shift flow.`,
+        data: {
+          type: 'shift_reminder',
+          phase: 'end',
+          shiftKind: 'onsite',
+          shiftId: shift.id,
+          startsAt: shift.startsAt.toISOString(),
+        },
+      });
+    }
+
+    for (const shift of officeEndCandidates) {
+      const claimed = await claimOfficeShiftEndReminder(shift.id, now);
+      if (!claimed) continue;
+
+      await this.sendReminderPush({
+        employeeId: shift.employeeId,
+        title: 'Office shift end reminder',
+        body: `Your ${shift.officeShiftType?.name ?? 'office shift'} has ended. Please clock out.`,
+        data: {
+          type: 'shift_reminder',
+          phase: 'end',
           shiftKind: 'office',
           officeShiftId: shift.id,
           startsAt: shift.startsAt.toISOString(),
