@@ -41,6 +41,36 @@ type AdminLeaveRequestFilterParams = {
   sortOrder?: Prisma.SortOrder;
 };
 
+export async function listLeaveRequestsOverlappingOfficeAttendance(params: {
+  employeeIds: string[];
+  startDate: Date;
+  endDate: Date;
+  tx?: TxLike;
+}) {
+  if (params.employeeIds.length === 0) {
+    return [];
+  }
+
+  const targetTx = (params.tx ?? prisma) as TxLike;
+  return targetTx.employeeLeaveRequest.findMany({
+    where: {
+      employeeId: { in: params.employeeIds },
+      startDate: { lte: params.endDate },
+      endDate: { gte: params.startDate },
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      startDate: true,
+      endDate: true,
+      reason: true,
+      status: true,
+      createdAt: true,
+    },
+    orderBy: [{ createdAt: 'desc' }],
+  });
+}
+
 const adminLeaveRequestInclude = {
   employee: {
     select: {
