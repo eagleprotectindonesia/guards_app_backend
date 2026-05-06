@@ -24,6 +24,17 @@
         "APP_VARIANT": "preview"
       }
     },
+    "preview-staging": {
+      "distribution": "internal",
+      "channel": "preview-staging",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "npm_config_engine_strict": "false",
+        "APP_VARIANT": "staging"
+      }
+    },
     "production": {
       "channel": "production",
       "autoIncrement": true,

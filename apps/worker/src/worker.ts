@@ -30,7 +30,7 @@ import { EmailProcessor } from './processors/email.processor';
 // Configuration
 const TICK_INTERVAL_MS = 5 * 1000; // 5 seconds
 const CLEAN_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
-const OFFICE_ABSENCE_FINALIZE_INTERVAL_MS = 1 * 60 * 1000;
+const OFFICE_ABSENCE_FINALIZE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const DAILY_CRON_PATTERN = '0 0 * * *'; // Every day at midnight
 
 async function start() {

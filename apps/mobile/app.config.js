@@ -21,6 +21,13 @@ const variants = {
     androidGoogleServicesFile: './google-services.preview.json',
     iosApsEnvironment: 'production',
   },
+  staging: {
+    appName: 'EP Employee Staging',
+    bundleSuffix: '.staging',
+    iosGoogleServicesFile: './GoogleService-Info.preview.plist',
+    androidGoogleServicesFile: './google-services.preview.json',
+    iosApsEnvironment: 'production',
+  },
   production: {
     appName: 'EP Employee',
     bundleSuffix: '',

@@ -201,7 +201,7 @@ describe('office attendance admin display', () => {
           recordedAt: '2026-03-28T00:00:00.000Z',
           businessDate: '2026-03-28',
           status: 'absent',
-          metadata: { note: 'Auto finalized absent (worker)' } as any,
+          metadata: { note: 'Auto finalized absent (worker)' },
         }),
       ],
       async () => 8 * 60

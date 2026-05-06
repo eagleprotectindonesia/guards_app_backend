@@ -1,21 +1,38 @@
 import type { OfficeAttendanceState, OfficeAttendanceWindowStatus } from '@repo/types';
+import { TranslationFunction } from '@repo/shared';
+import { OfficeAttendanceHolidayPolicy } from '@/app/employee/(authenticated)/hooks/use-employee-queries';
 
-type OfficeScheduleContextLike = {
-  isWorkingDay?: boolean;
-  isLate?: boolean;
-  isAfterEnd?: boolean;
-  scheduledStartStr?: string | null;
-  scheduledEndStr?: string | null;
-  businessDateStr?: string | null;
-  startMinutes?: number | null;
-  endMinutes?: number | null;
-  schedule?: {
-    name?: string | null;
-  } | null;
-  businessDay?: {
-    dateKey?: string | null;
-  } | null;
-} | null | undefined;
+type OfficeScheduleContextLike =
+  | {
+      isWorkingDay?: boolean;
+      isLate?: boolean;
+      isAfterEnd?: boolean;
+      scheduledStartStr?: string | null;
+      scheduledEndStr?: string | null;
+      businessDateStr?: string | null;
+      startMinutes?: number | null;
+      endMinutes?: number | null;
+      schedule?: {
+        name?: string | null;
+      } | null;
+      shift?: {
+        officeShiftType?: {
+          name?: string | null;
+        } | null;
+      } | null;
+      businessDay?: {
+        dateKey?: string | null;
+      } | null;
+      holidayPolicy?: OfficeAttendanceHolidayPolicy | null;
+    }
+  | null
+  | undefined;
+
+type OfficeAttendanceErrorInput = {
+  code?: string;
+  fallbackMessage?: string;
+  details?: Record<string, unknown>;
+};
 
 function formatMinutesAsTime(minutes: number | null | undefined) {
   if (minutes == null || !Number.isFinite(minutes)) return null;
@@ -33,14 +50,20 @@ export function getOfficeScheduleDisplayState(
 ) {
   const status = (attendanceState?.status ?? 'non_working_day') as OfficeAttendanceWindowStatus;
 
+  // When there's a shift override, use the shift type name instead of the schedule name
+  const shiftTypeName = scheduleContext?.shift?.officeShiftType?.name ?? null;
+  const scheduleName = scheduleContext?.schedule?.name ?? null;
+  const displayName = shiftTypeName || scheduleName;
+
   return {
     isWorkingDay: Boolean(scheduleContext?.isWorkingDay),
     isLate: Boolean(scheduleContext?.isLate),
     isAfterEnd: Boolean(scheduleContext?.isAfterEnd),
-    scheduleName: scheduleContext?.schedule?.name ?? null,
+    scheduleName: displayName,
     businessDate: scheduleContext?.businessDateStr ?? scheduleContext?.businessDay?.dateKey ?? null,
     scheduledStartStr: scheduleContext?.scheduledStartStr ?? formatMinutesAsTime(scheduleContext?.startMinutes),
     scheduledEndStr: scheduleContext?.scheduledEndStr ?? formatMinutesAsTime(scheduleContext?.endMinutes),
+    holidayPolicy: scheduleContext?.holidayPolicy ?? null,
     status,
     canClockIn: attendanceState?.canClockIn ?? false,
     canClockOut: attendanceState?.canClockOut ?? false,
@@ -52,4 +75,105 @@ export function getOfficeScheduleDisplayState(
     messageCode: attendanceState?.messageCode ?? null,
     latestAttendance: attendanceState?.latestAttendance ?? null,
   };
+}
+
+export function getOfficeHolidayDisplayContent(
+  t: TranslationFunction,
+  holidayPolicy: OfficeAttendanceHolidayPolicy | null | undefined
+) {
+  const entry = holidayPolicy?.entry;
+  if (!entry?.type) return null;
+
+  const typeKeyMap = {
+    holiday: 'holiday',
+    week_off: 'weekOff',
+    emergency: 'emergency',
+    special_working_day: 'specialWorkingDay',
+  } as const;
+
+  const headlineKeyMap = {
+    holiday: 'headlineHoliday',
+    week_off: 'headlineWeekOff',
+    emergency: 'headlineEmergency',
+    special_working_day: 'headlineSpecialWorkingDay',
+  } as const;
+
+  const impactKey =
+    entry.type === 'special_working_day'
+      ? 'impactAttendanceRequired'
+      : entry.affectsAttendance
+        ? 'impactNoAttendanceRequired'
+        : 'impactOfficeOpenNormal';
+
+  return {
+    title: entry.title,
+    typeLabel: t(`officeAttendance.holiday.type.${typeKeyMap[entry.type]}`),
+    headline: t(`officeAttendance.holiday.${headlineKeyMap[entry.type]}`),
+    impact: t(`officeAttendance.holiday.${impactKey}`),
+    paidStatus: entry.isPaid ? t('officeAttendance.holiday.paid') : t('officeAttendance.holiday.unpaid'),
+  };
+}
+
+const OFFICE_ATTENDANCE_ERROR_KEY_MAP: Record<string, string> = {
+  location_required: 'officeAttendance.errors.locationRequired',
+  too_far_from_office: 'officeAttendance.errors.tooFarFromOffice',
+  assigned_office_not_found: 'officeAttendance.errors.assignedOfficeNotFound',
+  office_location_not_configured: 'officeAttendance.errors.officeLocationNotConfigured',
+  not_working_day: 'officeAttendance.errors.notWorkingDay',
+  office_hours_ended: 'officeAttendance.errors.officeHoursEnded',
+  photo_required: 'officeAttendance.errors.photoRequired',
+  clock_in_required: 'officeAttendance.errors.clockInRequired',
+  office_attendance_already_clocked_in: 'officeAttendance.errors.alreadyClockedIn',
+  office_attendance_completed: 'officeAttendance.errors.attendanceCompleted',
+  unauthorized: 'officeAttendance.errors.unauthorized',
+  internal_server_error: 'officeAttendance.errors.internalServerError',
+};
+
+export function resolveOfficeAttendanceErrorMessage(
+  t: TranslationFunction,
+  { code, fallbackMessage, details }: OfficeAttendanceErrorInput
+) {
+  if (code && code in OFFICE_ATTENDANCE_ERROR_KEY_MAP) {
+    return t(OFFICE_ATTENDANCE_ERROR_KEY_MAP[code], details);
+  }
+
+  return fallbackMessage || t('officeAttendance.errors.generic');
+}
+
+export function parseOfficeAttendanceDayDate(dateKey: string | null | undefined, fallbackIsoDate: string): Date {
+  if (dateKey) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+
+      const localNoon = new Date(year, month - 1, day, 12, 0, 0, 0);
+
+      // Guard against invalid dateKey values (e.g. 2026-02-31) overflowing.
+      if (
+        localNoon.getFullYear() === year &&
+        localNoon.getMonth() === month - 1 &&
+        localNoon.getDate() === day
+      ) {
+        return localNoon;
+      }
+    }
+  }
+
+  return new Date(fallbackIsoDate);
+}
+
+export function resolveOfficeAttendanceIsToday(params: {
+  dayDateKey: string | null | undefined;
+  firstDayDateKey: string | null | undefined;
+  index: number;
+}) {
+  const { dayDateKey, firstDayDateKey, index } = params;
+
+  if (firstDayDateKey) {
+    return dayDateKey === firstDayDateKey;
+  }
+
+  return index === 0;
 }

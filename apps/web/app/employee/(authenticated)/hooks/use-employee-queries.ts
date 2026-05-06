@@ -202,8 +202,48 @@ export function useOfficeAttendance() {
       const data = await res.json();
       return data as {
         attendances: OfficeAttendance[];
+        displayAttendances?: OfficeAttendance[];
         attendanceState?: OfficeAttendanceState;
         scheduleContext?: OfficeAttendanceScheduleContext;
+      };
+    },
+  });
+}
+
+export type OfficeAttendanceHolidayPolicy = {
+  entry: {
+    id: string;
+    title: string;
+    type: 'holiday' | 'week_off' | 'emergency' | 'special_working_day';
+    isPaid: boolean;
+    affectsAttendance: boolean;
+    notificationRequired: boolean;
+    scope: 'all' | 'department';
+    departmentKeys: string[];
+  };
+  marksAsWorkingDay: boolean;
+};
+
+export function useWeeklyOfficeAttendance() {
+  const { fetchWithAuth } = useEmployeeApi();
+
+  return useQuery({
+    queryKey: ['employee', 'office-attendance', 'weekly'],
+    queryFn: async () => {
+      const res = await fetchWithAuth('/api/employee/my/office-attendance/weekly');
+      if (!res.ok) throw new Error('Failed to fetch weekly office attendance');
+      const data = await res.json();
+      return data as {
+        days: {
+          date: string;
+          dateKey: string | null;
+          isWorkingDay: boolean;
+          scheduledStartStr: string | null;
+          scheduledEndStr: string | null;
+          holidayPolicy?: OfficeAttendanceHolidayPolicy | null;
+          attendances: OfficeAttendance[];
+          attendanceState: OfficeAttendanceState;
+        }[];
       };
     },
   });
@@ -216,9 +256,13 @@ export function useRecordOfficeAttendance() {
   return useMutation({
     mutationFn: async ({
       location,
+      metadata,
+      picture,
       status = 'present',
     }: {
       location?: { lat: number; lng: number };
+      metadata?: Record<string, unknown>;
+      picture?: string;
       status?: 'present' | 'clocked_out';
     }) => {
       const res = await fetchWithAuth('/api/employee/my/office-attendance', {
@@ -226,12 +270,12 @@ export function useRecordOfficeAttendance() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ location, status }),
+        body: JSON.stringify({ location, metadata, picture, status }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || data.message || 'Gagal merekam kehadiran kantor');
+        throw data as EmployeeAttendanceCheckinErrorPayload;
       }
       return data;
     },
