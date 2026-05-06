@@ -188,6 +188,7 @@
   "notifications": {
     "leave_approved": "Leave request approved",
     "leave_rejected": "Leave request rejected",
+    "shift_reminder": "Your shift starts in less than 30 minutes.",
     "chat_default_body": "You have a new message"
   },
   "announcements": {

@@ -29,7 +29,7 @@
     "android:build:eas-local:preview": "eas build --local --profile preview --platform android",
     "android:build:eas-local:preview:staging": "eas build --local --profile preview-staging --platform android",
     "android:build:eas-local:production": "eas build --local --profile production --platform android",
-    "lint": "eslint .",
+    "lint": "eslint . && tsc --noEmit",
     "type-check": "tsc --noEmit",
     "build:development": "eas build --profile development --platform android",
     "build:preview": "eas build --profile preview --platform android",

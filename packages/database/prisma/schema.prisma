@@ -488,6 +488,7 @@ model Shift {
   createdAt       DateTime    @default(now()) @map("created_at")
   updatedAt       DateTime    @updatedAt
   deletedAt       DateTime?   @map("deleted_at")
+  reminderSentAt  DateTime?   @map("reminder_sent_at")
   note            String?     @db.Text
   alerts          Alert[]
   checkins        Checkin[]
@@ -504,6 +505,7 @@ model Shift {
   @@index([employeeId, status, startsAt])
   @@index([employeeId, status, endsAt])
   @@index([status, endsAt, deletedAt])
+  @@index([status, startsAt, reminderSentAt, deletedAt])
   @@index([deletedAt])
   @@map("shifts")
 }
@@ -616,6 +618,7 @@ model OfficeShift {
   createdAt         DateTime                   @default(now()) @map("created_at")
   updatedAt         DateTime                   @updatedAt
   deletedAt         DateTime?                  @map("deleted_at")
+  reminderSentAt    DateTime?                  @map("reminder_sent_at")
   note              String?                    @db.Text
 
   employee          Employee           @relation(fields: [employeeId], references: [id])
@@ -628,6 +631,7 @@ model OfficeShift {
   @@index([startsAt, endsAt])
   @@index([employeeId, status, startsAt])
   @@index([employeeId, status, endsAt])
+  @@index([status, startsAt, reminderSentAt, deletedAt])
   @@index([deletedAt])
   @@map("office_shifts")
 }

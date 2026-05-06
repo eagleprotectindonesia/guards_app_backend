@@ -14,3 +14,6 @@ export const EMPLOYEE_SYNC_JOB_NAME = 'employee-sync-from-external';
 
 export const EMAIL_QUEUE_NAME = 'email';
 export const SEND_EMAIL_JOB_NAME = 'send-email';
+
+export const SHIFT_REMINDER_QUEUE_NAME = 'shift-reminder';
+export const SHIFT_REMINDER_JOB_NAME = 'shift-reminder-send';

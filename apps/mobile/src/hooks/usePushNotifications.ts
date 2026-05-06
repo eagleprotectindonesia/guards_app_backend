@@ -95,6 +95,10 @@ export function usePushNotifications() {
     const messaging = getMessaging();
 
     void getInitialNotification(messaging).then(initialNotification => {
+      if (initialNotification?.data?.type === 'shift_reminder') {
+        router.push('/(tabs)');
+        return;
+      }
       if (initialNotification?.data?.type === 'chat' && !isChatRoute) {
         router.push('/(tabs)/chat');
         return;
@@ -114,6 +118,12 @@ export function usePushNotifications() {
           description: `Your leave request for ${data.startDate} to ${data.endDate} was ${status}.`,
           status: status === 'approved' ? 'success' : 'warning',
         });
+      } else if (data.type === 'shift_reminder') {
+        showToast({
+          title: 'Shift reminder',
+          description: 'Your shift starts in less than 30 minutes.',
+          status: 'info',
+        });
       } else {
         const senderName = typeof data.senderName === 'string' && data.senderName.trim() ? data.senderName : 'Eagle Protect';
         const messagePreview = typeof data.messagePreview === 'string' ? data.messagePreview.trim() : '';
@@ -128,6 +138,10 @@ export function usePushNotifications() {
 
     const unsubscribeNotificationOpened = onNotificationOpenedApp(messaging, remoteMessage => {
       console.log('[Push] Firebase notification opened from background', remoteMessage);
+      if (remoteMessage.data?.type === 'shift_reminder') {
+        router.push('/(tabs)');
+        return;
+      }
       if (remoteMessage.data?.type === 'chat' && !isChatRoute) {
         router.push('/(tabs)/chat');
         return;

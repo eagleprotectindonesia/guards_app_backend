@@ -56,6 +56,17 @@ Employee PWA (`apps/web/app/employee`) uses Firebase Web Messaging:
 
 Leave-status notifications follow the same token and stale-cleanup flow.
 
+### 5.1 Shift Reminder Flow (`apps/worker`)
+
+- Worker runs a repeatable reminder job every 5 minutes.
+- It selects `Shift` and `OfficeShift` rows with:
+  - `status = scheduled`
+  - `startsAt > now` and `startsAt <= now + 30 minutes`
+  - `reminderSentAt IS NULL`
+  - soft-delete excluded
+- Before sending, worker atomically claims each row by setting `reminderSentAt` to prevent duplicate sends.
+- Payload type is `shift_reminder` and click target routes to employee dashboard (`/employee`).
+
 ### 6. Required Environment Variables
 
 Backend:

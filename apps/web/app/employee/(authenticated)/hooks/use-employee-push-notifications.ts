@@ -115,6 +115,11 @@ export function useEmployeePushNotifications(employeeId?: string) {
           return;
         }
 
+        if (data.type === 'shift_reminder') {
+          toast(t('notifications.shift_reminder', 'Your shift starts in less than 30 minutes.'));
+          return;
+        }
+
         if (data.type === 'chat' && pathname !== '/employee/chat') {
           toast(data.messagePreview || t('notifications.chat_default_body', 'You have a new message'));
           if (audioRef.current) {

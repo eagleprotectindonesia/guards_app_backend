@@ -16,6 +16,8 @@ import {
   EMPLOYEE_SYNC_QUEUE_NAME,
   EMPLOYEE_SYNC_JOB_NAME,
   EMAIL_QUEUE_NAME,
+  SHIFT_REMINDER_QUEUE_NAME,
+  SHIFT_REMINDER_JOB_NAME,
 } from '@repo/database';
 
 import { createQueue, createWorker } from './infrastructure/bullmq';
@@ -26,12 +28,14 @@ import { OfficeAbsenceFinalizeProcessor } from './processors/office-absence-fina
 import { EmployeeStatusProcessor } from './processors/employee-status.processor';
 import { EmployeeSyncProcessor } from './processors/employee-sync.processor';
 import { EmailProcessor } from './processors/email.processor';
+import { ShiftReminderProcessor } from './processors/shift-reminder.processor';
 
 // Configuration
 const TICK_INTERVAL_MS = 5 * 1000; // 5 seconds
 const CLEAN_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
 const OFFICE_ABSENCE_FINALIZE_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const DAILY_CRON_PATTERN = '0 0 * * *'; // Every day at midnight
+const SHIFT_REMINDER_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 async function start() {
   console.log('Starting BullMQ workers...');
@@ -43,6 +47,7 @@ async function start() {
   const employeeStatusProcessor = new EmployeeStatusProcessor();
   const employeeSyncProcessor = new EmployeeSyncProcessor();
   const emailProcessor = new EmailProcessor();
+  const shiftReminderProcessor = new ShiftReminderProcessor();
 
   // 2. Initialize Queues and Add Repeatable Jobs
   const schedulingQueue = createQueue(SCHEDULING_QUEUE_NAME);
@@ -51,6 +56,7 @@ async function start() {
   const employeeStatusQueue = createQueue(EMPLOYEE_STATUS_QUEUE_NAME);
   const employeeSyncQueue = createQueue(EMPLOYEE_SYNC_QUEUE_NAME);
   const emailQueue = createQueue(EMAIL_QUEUE_NAME);
+  const shiftReminderQueue = createQueue(SHIFT_REMINDER_QUEUE_NAME);
 
   console.log('Registering repeatable jobs...');
 
@@ -104,6 +110,16 @@ async function start() {
     }
   );
 
+  await shiftReminderQueue.add(
+    SHIFT_REMINDER_JOB_NAME,
+    {},
+    {
+      repeat: { every: SHIFT_REMINDER_INTERVAL_MS },
+      removeOnComplete: true,
+      removeOnFail: true,
+    }
+  );
+
   // 3. Initialize Workers
   const workers = [
     createWorker(SCHEDULING_QUEUE_NAME, job => schedulingProcessor.process(job)),
@@ -112,6 +128,7 @@ async function start() {
     createWorker(EMPLOYEE_STATUS_QUEUE_NAME, job => employeeStatusProcessor.process(job)),
     createWorker(EMPLOYEE_SYNC_QUEUE_NAME, job => employeeSyncProcessor.process(job)),
     createWorker(EMAIL_QUEUE_NAME, job => emailProcessor.process(job)),
+    createWorker(SHIFT_REMINDER_QUEUE_NAME, job => shiftReminderProcessor.process(job)),
   ];
 
   console.log('All workers started.');
@@ -127,6 +144,7 @@ async function start() {
     await employeeStatusQueue.close();
     await employeeSyncQueue.close();
     await emailQueue.close();
+    await shiftReminderQueue.close();
     await closeRedisConnections();
 
     console.log('Graceful shutdown complete.');

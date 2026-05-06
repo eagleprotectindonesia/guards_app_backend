@@ -188,6 +188,7 @@
   "notifications": {
     "leave_approved": "Pengajuan cuti disetujui",
     "leave_rejected": "Pengajuan cuti ditolak",
+    "shift_reminder": "Shift Anda dimulai kurang dari 30 menit lagi.",
     "chat_default_body": "Anda memiliki pesan baru"
   },
   "announcements": {
