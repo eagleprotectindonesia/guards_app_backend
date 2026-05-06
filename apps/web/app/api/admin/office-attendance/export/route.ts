@@ -183,9 +183,9 @@ export async function GET(request: NextRequest) {
 
       let chunk = '';
       for (const [index, row] of rows.entries()) {
-        const isAbsent = row.displayStatus === 'absent';
+        const isNonWorkingStatus = row.displayStatus === 'absent' || row.displayStatus === 'leave';
         const scheduledMinutes = scheduledMinutesByRow[index];
-        const workMinutes = isAbsent ? null : getWorkMinutes(row.clockInAt, row.clockOutAt);
+        const workMinutes = isNonWorkingStatus ? null : getWorkMinutes(row.clockInAt, row.clockOutAt);
         const overtimeMinutes = workMinutes == null ? null : Math.max(0, workMinutes - scheduledMinutes);
         const earlyLeaveMinutes = workMinutes == null ? null : Math.max(0, scheduledMinutes - workMinutes);
         const businessDate = new Date(`${row.businessDate}T00:00:00`);
@@ -204,20 +204,20 @@ export async function GET(request: NextRequest) {
             escapeCsv(row.officeShift?.officeShiftType?.startTime || ''),
             escapeCsv(row.officeShift?.officeShiftType?.endTime || ''),
             '0',
-            isAbsent ? '' : format(new Date(row.clockInAt), 'yyyy-MM-dd'),
-            isAbsent ? '' : format(new Date(row.clockInAt), 'HH:mm'),
-            isAbsent ? '' : formatOptionalNumber(row.clockInMetadata?.distanceMeters),
-            !isAbsent && row.clockOutAt ? format(new Date(row.clockOutAt), 'yyyy-MM-dd') : '',
-            !isAbsent && row.clockOutAt ? format(new Date(row.clockOutAt), 'HH:mm') : '',
-            isAbsent ? '' : formatOptionalNumber(row.clockOutMetadata?.distanceMeters),
-            isAbsent ? '""' : escapeCsv(row.paidHours || ''),
+            isNonWorkingStatus ? '' : format(new Date(row.clockInAt), 'yyyy-MM-dd'),
+            isNonWorkingStatus ? '' : format(new Date(row.clockInAt), 'HH:mm'),
+            isNonWorkingStatus ? '' : formatOptionalNumber(row.clockInMetadata?.distanceMeters),
+            !isNonWorkingStatus && row.clockOutAt ? format(new Date(row.clockOutAt), 'yyyy-MM-dd') : '',
+            !isNonWorkingStatus && row.clockOutAt ? format(new Date(row.clockOutAt), 'HH:mm') : '',
+            isNonWorkingStatus ? '' : formatOptionalNumber(row.clockOutMetadata?.distanceMeters),
+            isNonWorkingStatus ? '""' : escapeCsv(row.paidHours || ''),
             formatOptionalNumber(workMinutes),
             formatOptionalNumber(overtimeMinutes),
             row.displayStatus,
-            isAbsent ? '' : formatOptionalNumber(row.latenessMins),
-            isAbsent ? '' : (row.latenessMins ?? 0) > 0 ? 'Yes' : 'No',
+            isNonWorkingStatus ? '' : formatOptionalNumber(row.latenessMins),
+            isNonWorkingStatus ? '' : (row.latenessMins ?? 0) > 0 ? 'Yes' : 'No',
             formatOptionalNumber(earlyLeaveMinutes),
-            isAbsent ? '' : row.clockOutAt ? 'No' : 'Yes',
+            isNonWorkingStatus ? '' : row.clockOutAt ? 'No' : 'Yes',
             '',
             '',
             '',

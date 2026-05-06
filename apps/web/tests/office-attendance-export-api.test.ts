@@ -221,4 +221,46 @@ describe('GET /api/admin/office-attendance/export', () => {
       '"EMP-2","John Absent","Operations","Staff","HQ",2026-04-01,"Wednesday","April","","","",0,,,,,,,\"\",,,absent,,,,,,,'
     );
   });
+
+  test('exports leave rows with session detail columns left blank and leave status', async () => {
+    (getAdminSession as jest.Mock).mockResolvedValue({
+      permissions: ['attendance:view'],
+      isSuperAdmin: false,
+      rolePolicy: { attendance: { scope: 'all' } },
+    });
+    (adminHasPermission as jest.Mock).mockReturnValue(true);
+    (canAccessOfficeAttendance as jest.Mock).mockReturnValue(true);
+    (getOfficeAttendanceExportBatch as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'leave-1',
+          businessDate: new Date('2026-04-01T00:00:00.000Z'),
+          recordedAt: new Date('2026-04-01T00:00:00.000Z'),
+          status: 'leave',
+          employeeId: 'employee-3',
+          officeId: 'office-1',
+          metadata: { note: 'Approved leave' },
+          office: { id: 'office-1', name: 'HQ' },
+          officeShift: null,
+          employee: {
+            id: 'employee-3',
+            fullName: 'Lia Leave',
+            employeeNumber: 'EMP-3',
+            department: 'Operations',
+            jobTitle: 'Staff',
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/admin/office-attendance/export?startDate=2026-04-01&endDate=2026-04-01')
+    );
+    const csv = await readResponseText(response);
+
+    expect(response.status).toBe(200);
+    expect(csv).toContain(
+      '"EMP-3","Lia Leave","Operations","Staff","HQ",2026-04-01,"Wednesday","April","","","",0,,,,,,,\"\",,,leave,,,,,,,'
+    );
+  });
 });

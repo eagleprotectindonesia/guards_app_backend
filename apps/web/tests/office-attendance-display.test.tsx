@@ -221,6 +221,34 @@ describe('office attendance admin display', () => {
     });
   });
 
+  test('includes leave rows with minimal details and leave display status', async () => {
+    const rows = await buildOfficeAttendanceDisplayRows(
+      [
+        buildAttendance({
+          id: 'leave-1',
+          recordedAt: '2026-03-29T00:00:00.000Z',
+          businessDate: '2026-03-29',
+          status: 'leave',
+          metadata: { note: 'Approved leave' },
+        }),
+      ],
+      async () => 8 * 60
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: 'leave-1',
+      displayStatus: 'leave',
+      businessDate: '2026-03-29',
+      clockOutAt: null,
+      clockInPicture: null,
+      paidHours: null,
+      clockInMetadata: null,
+      clockOutMetadata: null,
+      latenessMins: null,
+    });
+  });
+
   test('returns paginated unified rows with capped paid hours ready for rendering', async () => {
     const unifiedRows = paginateOfficeAttendanceDisplayRows(
       await buildOfficeAttendanceDisplayRows(
