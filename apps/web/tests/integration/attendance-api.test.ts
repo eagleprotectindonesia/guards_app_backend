@@ -1,4 +1,4 @@
-import { POST } from '../app/api/employee/shifts/[id]/attendance/route';
+import { POST } from '../../app/api/employee/shifts/[id]/attendance/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { getShiftById, getSystemSetting } from '@repo/database';
 

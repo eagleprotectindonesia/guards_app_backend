@@ -1,4 +1,4 @@
-import { POST } from '../app/api/employee/shifts/[id]/heartbeat/route';
+import { POST } from '../../app/api/employee/shifts/[id]/heartbeat/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { recordHeartbeat } from '@repo/database';
 import { redis } from '@repo/database/redis';
@@ -12,7 +12,7 @@ jest.mock('@repo/database', () => ({
   recordHeartbeat: jest.fn(),
 }));
 
-jest.mock('@/lib/redis', () => ({
+jest.mock('@repo/database/redis', () => ({
   redis: {
     publish: jest.fn(),
   },

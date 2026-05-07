@@ -1,6 +1,6 @@
-import { getTestPrisma } from './database';
-import { Prisma } from '@repo/database';
+import { Prisma } from '@repo/database/prisma';
 import bcrypt from 'bcryptjs';
+import { getTestPrisma } from './database';
 
 type Admin = Prisma.AdminGetPayload<{}>;
 type Employee = Prisma.EmployeeGetPayload<{}>;
@@ -9,10 +9,6 @@ type Shift = Prisma.ShiftGetPayload<{ include: { site: true; shiftType: true; em
 type ShiftType = Prisma.ShiftTypeGetPayload<{}>;
 type Office = Prisma.OfficeGetPayload<{}>;
 type Role = Prisma.RoleGetPayload<{}>;
-
-/**
- * Factory functions to create test data
- */
 
 export async function createRole(data?: Partial<Role>): Promise<Role> {
   const prisma = getTestPrisma();
@@ -72,6 +68,7 @@ export async function createEmployee(data?: Partial<Employee>): Promise<Employee
       hashedPassword,
       role: data?.role || 'on_site',
       status: data?.status ?? true,
+      dateOfJoining: data?.dateOfJoining || new Date('2026-01-01T00:00:00.000Z'),
       ...data,
     },
   });
@@ -150,13 +147,8 @@ export async function createShift(options: CreateShiftOptions): Promise<Shift> {
   });
 }
 
-/**
- * Create a complete test setup with all related entities
- */
 export async function createCompleteTestSetup() {
   const employee = await createEmployee({
-    departmentId: department.id,
-    designationId: designation.id,
     role: 'on_site',
   });
   const site = await createSite();

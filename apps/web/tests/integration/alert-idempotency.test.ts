@@ -1,31 +1,23 @@
-import { POST } from '../app/api/employee/alerts/report/route';
+import { POST } from '../../app/api/employee/alerts/report/route';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { prisma } from '@repo/database';
+import { getShiftById, findOpenAlertByShiftAndReason, createAlert } from '@repo/database';
 
-// Mock dependencies
 jest.mock('@/lib/employee-auth', () => ({
   getAuthenticatedEmployee: jest.fn(),
 }));
 
-jest.mock('@/lib/prisma', () => ({
-  prisma: {
-    shift: {
-      findUnique: jest.fn(),
-    },
-    alert: {
-      create: jest.fn(),
-      findFirst: jest.fn(),
-    },
-  },
+jest.mock('@repo/database', () => ({
+  getShiftById: jest.fn(),
+  findOpenAlertByShiftAndReason: jest.fn(),
+  createAlert: jest.fn(),
 }));
 
-jest.mock('@/lib/redis', () => ({
+jest.mock('@repo/database/redis', () => ({
   redis: {
     publish: jest.fn(),
   },
 }));
 
-// Helper to mock NextResponse
 jest.mock('next/server', () => {
   const actual = jest.requireActual('next/server');
   return {
@@ -51,10 +43,10 @@ describe('Alert Report Idempotency', () => {
 
   test('does not create duplicate alert if one is already active', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({ id: employeeId });
-    (prisma.shift.findUnique as jest.Mock).mockResolvedValue({
+    (getShiftById as jest.Mock).mockResolvedValue({
       id: shiftId,
-      employeeId: employeeId,
-      siteId: siteId,
+      employeeId,
+      siteId,
       site: { id: siteId, name: 'Test Site' },
     });
 
@@ -65,8 +57,7 @@ describe('Alert Report Idempotency', () => {
       resolvedAt: null,
     };
 
-    // Mock finding existing active alert
-    (prisma.alert.findFirst as jest.Mock).mockResolvedValue(existingAlert);
+    (findOpenAlertByShiftAndReason as jest.Mock).mockResolvedValue(existingAlert);
 
     const req = new Request('http://localhost/api/employee/alerts/report', {
       method: 'POST',
@@ -82,21 +73,20 @@ describe('Alert Report Idempotency', () => {
     expect(response.status).toBe(200);
     expect(data.alertId).toBe('existing-alert-id');
     expect(data.message).toContain('Alert already exists');
-    expect(prisma.alert.create).not.toHaveBeenCalled();
+    expect(createAlert as jest.Mock).not.toHaveBeenCalled();
   });
 
   test('creates new alert if none exist or previous are resolved', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({ id: employeeId });
-    (prisma.shift.findUnique as jest.Mock).mockResolvedValue({
+    (getShiftById as jest.Mock).mockResolvedValue({
       id: shiftId,
-      employeeId: employeeId,
-      siteId: siteId,
+      employeeId,
+      siteId,
       site: { id: siteId, name: 'Test Site' },
     });
 
-    // Mock no existing active alert
-    (prisma.alert.findFirst as jest.Mock).mockResolvedValue(null);
-    (prisma.alert.create as jest.Mock).mockResolvedValue({ id: 'new-alert-id', siteId });
+    (findOpenAlertByShiftAndReason as jest.Mock).mockResolvedValue(null);
+    (createAlert as jest.Mock).mockResolvedValue({ id: 'new-alert-id', siteId });
 
     const req = new Request('http://localhost/api/employee/alerts/report', {
       method: 'POST',
@@ -111,23 +101,23 @@ describe('Alert Report Idempotency', () => {
 
     expect(response.status).toBe(200);
     expect(data.alertId).toBe('new-alert-id');
-    expect(prisma.alert.create).toHaveBeenCalled();
+    expect(createAlert as jest.Mock).toHaveBeenCalled();
   });
 
   test('succeeds even if Redis publish fails', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({ id: employeeId });
-    (prisma.shift.findUnique as jest.Mock).mockResolvedValue({
+    (getShiftById as jest.Mock).mockResolvedValue({
       id: shiftId,
-      employeeId: employeeId,
-      siteId: siteId,
+      employeeId,
+      siteId,
       site: { id: siteId, name: 'Test Site' },
     });
 
-    (prisma.alert.findFirst as jest.Mock).mockResolvedValue(null);
-    (prisma.alert.create as jest.Mock).mockResolvedValue({ id: 'new-alert-id', siteId });
-    
+    (findOpenAlertByShiftAndReason as jest.Mock).mockResolvedValue(null);
+    (createAlert as jest.Mock).mockResolvedValue({ id: 'new-alert-id', siteId });
+
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { redis } = require('@/lib/redis');
+    const { redis } = require('@repo/database/redis');
     (redis.publish as jest.Mock).mockRejectedValue(new Error('Redis connection lost'));
 
     const req = new Request('http://localhost/api/employee/alerts/report', {
@@ -141,7 +131,6 @@ describe('Alert Report Idempotency', () => {
     const response = await POST(req);
     const data = await response.json();
 
-    // It should still return 200 because the alert WAS created in DB
     expect(response.status).toBe(200);
     expect(data.alertId).toBe('new-alert-id');
   });
