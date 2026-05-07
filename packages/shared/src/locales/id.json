@@ -280,6 +280,7 @@
       "clockInRequired": "Clock-in wajib dilakukan sebelum clock-out.",
       "alreadyClockedIn": "Clock-in sudah tercatat untuk jendela jadwal ini.",
       "attendanceCompleted": "Kehadiran kantor sudah selesai untuk jendela jadwal ini.",
+      "clockOutGraceExpired": "Clock-out hanya diizinkan hingga 4 jam setelah jam berakhir yang dijadwalkan.",
       "internalServerError": "Terjadi kesalahan pada server."
     }
   },

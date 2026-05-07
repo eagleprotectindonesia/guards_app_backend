@@ -13,6 +13,7 @@ import { resolveOfficeAttendanceContextForEmployee } from '@repo/database';
 import { cancelOverlappingPendingLeaveRequestsByAttendance } from '@repo/database';
 import {
   ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING,
+  OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS,
   OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING,
 } from '@repo/shared';
 import { ZodError } from 'zod';
@@ -35,6 +36,11 @@ function normalizeAttendanceBusinessDate(value: unknown): Date | undefined {
     if (!Number.isNaN(parsed.getTime())) return parsed;
   }
   return undefined;
+}
+
+function resolveClockOutGraceDeadline(windowEnd: Date | null | undefined) {
+  if (!(windowEnd instanceof Date) || Number.isNaN(windowEnd.getTime())) return null;
+  return new Date(windowEnd.getTime() + OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS * 60 * 60 * 1000);
 }
 
 export async function POST(req: Request) {
@@ -111,6 +117,19 @@ export async function POST(req: Request) {
         },
         { status: 400 }
       );
+    }
+
+    if (requestedStatus === 'clocked_out' && latestAttendance?.status === 'present') {
+      const graceDeadline = resolveClockOutGraceDeadline(scheduleContext.windowEnd);
+      if (!graceDeadline || now.getTime() > graceDeadline.getTime()) {
+        return NextResponse.json(
+          {
+            code: 'clock_out_grace_expired',
+            error: `Clock-out is only allowed up to ${OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS} hours after the scheduled end time.`,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     if (latestAttendance?.status === 'present' && requestedStatus === 'present') {

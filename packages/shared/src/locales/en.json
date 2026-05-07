@@ -280,6 +280,7 @@
       "clockInRequired": "Clock-in is required before clock-out.",
       "alreadyClockedIn": "Clock-in has already been recorded for this schedule window.",
       "attendanceCompleted": "Office attendance has already been completed for this schedule window.",
+      "clockOutGraceExpired": "Clock-out is only allowed up to 4 hours after the scheduled end time.",
       "internalServerError": "Internal server error."
     }
   },

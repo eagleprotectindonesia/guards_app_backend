@@ -394,6 +394,8 @@ describe('GET /api/employee/my/office-attendance/today', () => {
   });
 
   test('keeps overnight shift visible after midnight for clock-out when today list is empty', async () => {
+    const windowStart = new Date(Date.now() - 30 * 60_000);
+    const windowEnd = new Date(Date.now() + 30 * 60_000);
     const windowPresentAttendance = {
       id: 'attendance-overnight-in',
       employeeId: 'employee-overnight',
@@ -422,8 +424,8 @@ describe('GET /api/employee/my/office-attendance/today', () => {
       shift: {
         id: 'office-shift-overnight',
       },
-      windowStart: new Date('2026-04-01T16:00:00.000Z'),
-      windowEnd: new Date('2026-04-01T20:00:00.000Z'),
+      windowStart,
+      windowEnd,
       startMinutes: 23 * 60,
       endMinutes: 3 * 60,
       businessDay: {
@@ -453,6 +455,8 @@ describe('GET /api/employee/my/office-attendance/today', () => {
   });
 
   test('falls back to a same-business-day present attendance and keeps clock-out available', async () => {
+    const windowStart = new Date(Date.now() - 2 * 60 * 60_000);
+    const windowEnd = new Date(Date.now() + 2 * 60 * 60_000);
     const latestTodayAttendance = {
       id: 'attendance-fallback',
       employeeId: 'employee-5',
@@ -474,8 +478,8 @@ describe('GET /api/employee/my/office-attendance/today', () => {
       isWorkingDay: true,
       isLate: true,
       isAfterEnd: true,
-      windowStart: new Date('2026-04-01T00:00:00.000Z'),
-      windowEnd: new Date('2026-04-01T09:00:00.000Z'),
+      windowStart,
+      windowEnd,
       startMinutes: 8 * 60,
       endMinutes: 17 * 60,
       schedule: {
@@ -644,7 +648,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
   });
 
-  test('keeps clock-out available after overnight end when latest global attendance is still present', async () => {
+  test('does not allow fallback clock-out when grace anchor is unavailable after overnight end', async () => {
     const openOvernightAttendance = {
       id: 'attendance-overnight-open-late',
       employeeId: 'employee-9',
@@ -681,9 +685,9 @@ describe('GET /api/employee/my/office-attendance/today', () => {
 
     expect(response.status).toBe(200);
     expect(data.attendanceState).toMatchObject({
-      status: 'clocked_in',
+      status: 'non_working_day',
       canClockIn: false,
-      canClockOut: true,
+      canClockOut: false,
       latestAttendance: expect.objectContaining({
         id: 'attendance-overnight-open-late',
         status: 'present',
@@ -692,7 +696,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     expect(data.displayAttendances).toEqual([openOvernightAttendance]);
   });
 
-  test('keeps clock-out available before upcoming shift starts when latest global attendance is still present', async () => {
+  test('does not use previous-shift open attendance when an upcoming shift already exists', async () => {
     const openPreviousShiftAttendance = {
       id: 'attendance-previous-shift-open',
       employeeId: 'employee-10',
@@ -731,14 +735,10 @@ describe('GET /api/employee/my/office-attendance/today', () => {
 
     expect(response.status).toBe(200);
     expect(data.attendanceState).toMatchObject({
-      status: 'clocked_in',
-      canClockIn: false,
-      canClockOut: true,
-      latestAttendance: expect.objectContaining({
-        id: 'attendance-previous-shift-open',
-        status: 'present',
-      }),
+      status: 'available',
+      canClockIn: true,
+      canClockOut: false,
     });
-    expect(data.displayAttendances).toEqual([openPreviousShiftAttendance]);
+    expect(data.displayAttendances).toEqual([]);
   });
 });

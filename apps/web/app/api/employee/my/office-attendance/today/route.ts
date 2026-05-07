@@ -10,7 +10,7 @@ import {
   resolveOfficeAttendanceContextForEmployee,
 } from '@repo/database';
 import type { OfficeAttendance, OfficeAttendanceState } from '@repo/types';
-import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
+import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING, OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS } from '@repo/shared';
 import { startOfDay } from 'date-fns';
 
 function formatMinutesAsTime(minutes: number | null | undefined) {
@@ -27,16 +27,28 @@ function isClockHistoryStatus(status: OfficeAttendance['status']) {
   return status === 'present' || status === 'clocked_out';
 }
 
+function resolveClockOutGraceDeadline(windowEnd: Date | null | undefined) {
+  if (!(windowEnd instanceof Date) || Number.isNaN(windowEnd.getTime())) return null;
+  return new Date(windowEnd.getTime() + OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS * 60 * 60 * 1000);
+}
+
+function isWithinClockOutGrace(now: Date, windowEnd: Date | null | undefined) {
+  const deadline = resolveClockOutGraceDeadline(windowEnd);
+  if (!deadline) return false;
+  return now.getTime() <= deadline.getTime();
+}
+
 function getOfficeAttendanceState(params: {
   scheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>;
   latestAttendance: OfficeAttendance | null;
   latestTodayAttendance: OfficeAttendance | null;
   leaveEffectsEnabled: boolean;
+  canClockOutOpenAttendance: boolean;
 }): OfficeAttendanceState {
-  const { scheduleContext, latestAttendance, latestTodayAttendance, leaveEffectsEnabled } = params;
+  const { scheduleContext, latestAttendance, latestTodayAttendance, leaveEffectsEnabled, canClockOutOpenAttendance } = params;
   const effectiveLatestAttendance = latestAttendance ?? latestTodayAttendance;
 
-  if (effectiveLatestAttendance?.status === 'present') {
+  if (effectiveLatestAttendance?.status === 'present' && canClockOutOpenAttendance) {
     return {
       status: 'clocked_in',
       canClockIn: false,
@@ -124,7 +136,13 @@ function resolveLatestAttendanceForState(params: {
   }
 
   if (latestAttendanceForDay?.status === 'present') {
-    return latestAttendanceForDay;
+    if (scheduleContext.source !== 'office_shift') {
+      return latestAttendanceForDay;
+    }
+
+    if (scheduleContext.shift && latestAttendanceForDay.officeShiftId === scheduleContext.shift.id) {
+      return latestAttendanceForDay;
+    }
   }
 
   if (latestAttendanceInWindow) {
@@ -187,14 +205,17 @@ export async function GET() {
       !latestAttendance &&
       stateScheduleContext.source === 'office_shift' &&
       latestAttendanceForEmployee?.status === 'present' &&
-      (!stateScheduleContext.shift ||
-        (stateScheduleContext.windowStart instanceof Date && now.getTime() < stateScheduleContext.windowStart.getTime()));
+      !stateScheduleContext.shift;
     const fallbackOpenAttendance = shouldUseOpenAttendanceFallback ? latestAttendanceForEmployee : null;
+    const effectiveOpenAttendance = latestAttendance ?? fallbackOpenAttendance;
+    const canClockOutOpenAttendance =
+      effectiveOpenAttendance?.status === 'present' && isWithinClockOutGrace(now, stateScheduleContext.windowEnd);
     const attendanceState = getOfficeAttendanceState({
       scheduleContext: stateScheduleContext,
-      latestAttendance: latestAttendance ?? fallbackOpenAttendance,
+      latestAttendance: effectiveOpenAttendance,
       latestTodayAttendance: attendances[0] ?? null,
       leaveEffectsEnabled,
+      canClockOutOpenAttendance,
     });
     const filteredAttendances = attendances.filter(attendance => isClockHistoryStatus(attendance.status));
 
