@@ -183,6 +183,39 @@ export async function resolveRejectedPendingLeaveStatuses(params: {
   dateKeys: string[];
   now?: Date;
 }, tx: Prisma.TransactionClient | typeof prisma = prisma) {
+  await resolvePendingLeaveStatusesByAction(
+    {
+      employeeId: params.employeeId,
+      dateKeys: params.dateKeys,
+      now: params.now,
+      absentNote: 'Rejected leave converted to absent',
+    },
+    tx
+  );
+}
+
+export async function resolveCancelledPendingLeaveStatuses(params: {
+  employeeId: string;
+  dateKeys: string[];
+  now?: Date;
+}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
+  await resolvePendingLeaveStatusesByAction(
+    {
+      employeeId: params.employeeId,
+      dateKeys: params.dateKeys,
+      now: params.now,
+      absentNote: 'Cancelled leave converted to absent',
+    },
+    tx
+  );
+}
+
+async function resolvePendingLeaveStatusesByAction(params: {
+  employeeId: string;
+  dateKeys: string[];
+  now?: Date;
+  absentNote: string;
+}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
   const now = params.now ?? new Date();
   for (const dateKey of params.dateKeys) {
     const rows = await tx.officeAttendance.findMany({
@@ -198,7 +231,7 @@ export async function resolveRejectedPendingLeaveStatuses(params: {
     if (targetDate.getTime() <= now.getTime()) {
       await tx.officeAttendance.update({
         where: { id: rows[0].id },
-        data: { status: 'absent', metadata: { note: 'Rejected leave converted to absent' } },
+        data: { status: 'absent', metadata: { note: params.absentNote } },
       });
       if (rows.length > 1) {
         await tx.officeAttendance.deleteMany({
@@ -222,7 +255,7 @@ export async function clearPendingOfficeLeaveStatusesForDateKeys(params: {
   dateKeys: string[];
   now?: Date;
 }, tx: Prisma.TransactionClient | typeof prisma = prisma) {
-  await resolveRejectedPendingLeaveStatuses(
+  await resolveCancelledPendingLeaveStatuses(
     {
       employeeId: params.employeeId,
       dateKeys: params.dateKeys,
