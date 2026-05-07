@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { format } from 'date-fns';
 import { File } from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
-import * as ImageManipulator from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
@@ -37,6 +36,7 @@ type Props = {
 const ATTENDANCE_PHOTO_MAX_DIMENSION = 1280;
 const ATTENDANCE_PHOTO_QUALITY = 0.8;
 const ATTENDANCE_PHOTO_CONTENT_TYPE = 'image/webp';
+const TEMP_DISABLE_ATTENDANCE_PHOTO = true;
 
 type AttendancePhotoUpload = {
   key: string;
@@ -67,6 +67,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
   const { data: profileData } = useProfile();
   const recordMutation = useRecordOfficeAttendance();
   const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
+  const requirePhotoForClockIn = !TEMP_DISABLE_ATTENDANCE_PHOTO;
 
   const attendances = data?.attendances ?? [];
   const historyAttendances = (data?.displayAttendances ?? attendances).filter(
@@ -150,6 +151,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
 
     const asset = result.assets[0];
     const resizeAction = buildResizeAction(asset.width, asset.height);
+    const ImageManipulator = await import('expo-image-manipulator');
 
     setStatusMessage(t('officeAttendance.optimizingPhoto', 'Optimizing attendance photo'));
 
@@ -209,7 +211,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
 
     try {
       let photoUpload: AttendancePhotoUpload | null = null;
-      if (nextStatus === 'present') {
+      if (nextStatus === 'present' && requirePhotoForClockIn) {
         setIsPhotoProcessing(true);
         photoUpload = await captureAndUploadAttendancePhoto();
         setIsPhotoProcessing(false);
@@ -235,6 +237,49 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
       refetch();
     } catch (error: unknown) {
       const errorData = getEmployeeAttendanceCheckinErrorPayload(error);
+      if (nextStatus === 'present' && errorData.code === 'photo_required' && !requirePhotoForClockIn) {
+        try {
+          setIsPhotoProcessing(true);
+          const photoUpload = await captureAndUploadAttendancePhoto();
+          setIsPhotoProcessing(false);
+
+          if (!photoUpload) {
+            return;
+          }
+
+          setStatusMessage(t('attendance.recording'));
+          await recordMutation.mutateAsync({
+            location: location ?? undefined,
+            metadata: photoUpload.metadata,
+            picture: photoUpload.key,
+            status: nextStatus,
+          });
+
+          const successMessage = t('attendance.success');
+          setStatusMessage(successMessage);
+          toast.success(t('officeAttendance.title'), successMessage);
+          refetch();
+          return;
+        } catch (retryError: unknown) {
+          const retryErrorData = getEmployeeAttendanceCheckinErrorPayload(retryError);
+          const retryMessage = resolveOfficeAttendanceErrorMessage(t, {
+            code: retryErrorData.code,
+            fallbackMessage:
+              retryErrorData.error ||
+              retryErrorData.message ||
+              (retryError instanceof Error ? retryError.message : undefined),
+            details: retryErrorData.details,
+          });
+
+          await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+          setStatusMessage(retryMessage);
+          toast.error(t('officeAttendance.title'), retryMessage);
+          return;
+        } finally {
+          setIsPhotoProcessing(false);
+        }
+      }
+
       const message = resolveOfficeAttendanceErrorMessage(t, {
         code: errorData.code,
         fallbackMessage: errorData.error || errorData.message || (error instanceof Error ? error.message : undefined),
