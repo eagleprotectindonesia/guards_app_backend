@@ -240,12 +240,12 @@ describe('office attendance repository', () => {
   test('resolveRejectedPendingLeaveStatuses updates past pending leave to absent with rejected note', async () => {
     const now = new Date('2026-05-05T12:00:00.000Z');
     (prisma.officeAttendance.findMany as jest.Mock).mockResolvedValue([
-      { id: 'pending-1', recordedAt: new Date('2026-05-05T00:00:00.000Z') },
+      { id: 'pending-1', recordedAt: new Date('2026-05-04T00:00:00.000Z') },
     ]);
 
     await resolveRejectedPendingLeaveStatuses({
       employeeId: 'employee-1',
-      dateKeys: ['2026-05-05'],
+      dateKeys: ['2026-05-04'],
       now,
     });
 
@@ -258,12 +258,12 @@ describe('office attendance repository', () => {
   test('resolveCancelledPendingLeaveStatuses updates past pending leave to absent with cancelled note', async () => {
     const now = new Date('2026-05-05T12:00:00.000Z');
     (prisma.officeAttendance.findMany as jest.Mock).mockResolvedValue([
-      { id: 'pending-1', recordedAt: new Date('2026-05-05T00:00:00.000Z') },
+      { id: 'pending-1', recordedAt: new Date('2026-05-04T00:00:00.000Z') },
     ]);
 
     await resolveCancelledPendingLeaveStatuses({
       employeeId: 'employee-1',
-      dateKeys: ['2026-05-05'],
+      dateKeys: ['2026-05-04'],
       now,
     });
 
@@ -290,5 +290,39 @@ describe('office attendance repository', () => {
       where: { id: { in: ['pending-1', 'pending-2'] } },
     });
     expect(prisma.officeAttendance.update).not.toHaveBeenCalled();
+  });
+
+  test('resolveCancelledPendingLeaveStatuses deletes same-day pending leave before end of attendance window', async () => {
+    const now = new Date('2026-05-05T02:00:00.000Z');
+    (prisma.officeAttendance.findMany as jest.Mock).mockResolvedValue([{ id: 'pending-1' }]);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({ isAfterEnd: false });
+
+    await resolveCancelledPendingLeaveStatuses({
+      employeeId: 'employee-1',
+      dateKeys: ['2026-05-05'],
+      now,
+    });
+
+    expect(prisma.officeAttendance.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['pending-1'] } },
+    });
+    expect(prisma.officeAttendance.update).not.toHaveBeenCalled();
+  });
+
+  test('resolveRejectedPendingLeaveStatuses converts same-day pending leave after end of attendance window', async () => {
+    const now = new Date('2026-05-05T12:00:00.000Z');
+    (prisma.officeAttendance.findMany as jest.Mock).mockResolvedValue([{ id: 'pending-1' }]);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({ isAfterEnd: true });
+
+    await resolveRejectedPendingLeaveStatuses({
+      employeeId: 'employee-1',
+      dateKeys: ['2026-05-05'],
+      now,
+    });
+
+    expect(prisma.officeAttendance.update).toHaveBeenCalledWith({
+      where: { id: 'pending-1' },
+      data: { status: 'absent', metadata: { note: 'Rejected leave converted to absent' } },
+    });
   });
 });

@@ -217,6 +217,10 @@ async function resolvePendingLeaveStatusesByAction(params: {
   absentNote: string;
 }, tx: Prisma.TransactionClient | typeof prisma = prisma) {
   const now = params.now ?? new Date();
+  const todayDateKey = getBusinessDayRange(now, BUSINESS_TIMEZONE).dateKey;
+  const todayContext = params.dateKeys.includes(todayDateKey)
+    ? await resolveOfficeAttendanceContextForEmployee(params.employeeId, now)
+    : null;
   for (const dateKey of params.dateKeys) {
     const rows = await tx.officeAttendance.findMany({
       where: {
@@ -227,8 +231,9 @@ async function resolvePendingLeaveStatusesByAction(params: {
       orderBy: { recordedAt: 'asc' },
     });
     if (rows.length === 0) continue;
-    const targetDate = dateKeyToDate(dateKey);
-    if (targetDate.getTime() <= now.getTime()) {
+    const shouldConvertToAbsent =
+      dateKey < todayDateKey || (dateKey === todayDateKey && Boolean(todayContext?.isAfterEnd));
+    if (shouldConvertToAbsent) {
       await tx.officeAttendance.update({
         where: { id: rows[0].id },
         data: { status: 'absent', metadata: { note: params.absentNote } },
