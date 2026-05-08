@@ -9,7 +9,10 @@ import OfficeShiftExportModal from './office-shift-export-modal';
 type OfficeShiftExportProps = {
   initialStartDate?: string;
   initialEndDate?: string;
-  endpoint: '/api/admin/office-shifts/export' | '/api/admin/office-shifts/day-offs/export';
+  endpoint:
+    | '/api/admin/office-shifts/export'
+    | '/api/admin/office-shifts/day-offs/export'
+    | '/api/admin/shifts/day-offs/export';
   title: string;
 };
 

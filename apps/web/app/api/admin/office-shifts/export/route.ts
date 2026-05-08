@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
       const headers = [
         'Shift Type',
         'Employee Name',
-        'Employee Code',
+        'Employee ID',
         'Date',
         'Start Time',
         'End Time',
