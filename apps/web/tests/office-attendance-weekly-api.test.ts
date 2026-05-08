@@ -173,4 +173,41 @@ describe('GET /api/employee/my/office-attendance/weekly', () => {
       },
     });
   });
+
+  test('filters weekly day attendances to present and clocked_out only', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-weekly-filter',
+      role: 'office',
+    });
+    (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([
+      { id: 'w1', status: 'leave', recordedAt: '2026-05-05T08:00:00.000Z' },
+      { id: 'w2', status: 'present', recordedAt: '2026-05-05T09:00:00.000Z' },
+      { id: 'w3', status: 'pending_leave', recordedAt: '2026-05-05T10:00:00.000Z' },
+      { id: 'w4', status: 'clocked_out', recordedAt: '2026-05-05T17:00:00.000Z' },
+    ]);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'office_work_schedule',
+      isWorkingDay: true,
+      isLate: false,
+      isAfterEnd: false,
+      startMinutes: 8 * 60,
+      endMinutes: 17 * 60,
+      windowStart: null,
+      windowEnd: null,
+      businessDay: {
+        dateKey: '2026-05-05',
+      },
+    });
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.days[0].attendances).toEqual([
+      expect.objectContaining({ id: 'w2', status: 'present' }),
+      expect.objectContaining({ id: 'w4', status: 'clocked_out' }),
+    ]);
+  });
 });

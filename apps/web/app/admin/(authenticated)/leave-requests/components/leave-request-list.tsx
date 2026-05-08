@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Filter } from 'lucide-react';
+import { Download, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import PaginationNav from '../../components/pagination-nav';
 import LeaveRequestFilterModal from './leave-request-filter-modal';
+import LeaveExportModal from './leave-export-modal';
 import { SerializedLeaveRequestAdminListItemDto } from '@/types/leave-requests';
 import SortableHeader from '@/components/sortable-header';
 import { getLeaveReasonMeta } from '@/lib/leave-requests';
@@ -72,6 +73,7 @@ export default function LeaveRequestList({
   sortOrder = 'desc',
 }: LeaveRequestListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -131,6 +133,25 @@ export default function LeaveRequestList({
     router.push(`?${params.toString()}`);
   };
 
+  const handleExportCsv = (startDate?: Date, endDate?: Date) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('page');
+
+    if (startDate) {
+      params.set('startDate', format(startDate, 'yyyy-MM-dd'));
+    } else {
+      params.delete('startDate');
+    }
+
+    if (endDate) {
+      params.set('endDate', format(endDate, 'yyyy-MM-dd'));
+    } else {
+      params.delete('endDate');
+    }
+
+    window.location.href = '/api/admin/leave-requests/export?' + params.toString();
+  };
+
   const isDefaultStatusFilter = initialFilters.statuses.length === 6;
   const activeFiltersCount = [
     initialFilters.employeeId,
@@ -155,6 +176,13 @@ export default function LeaveRequestList({
           >
             Leave Balances
           </Link>
+          <button
+            onClick={() => setIsExportOpen(true)}
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </button>
           <button
             onClick={() => setIsFilterOpen(true)}
             className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
@@ -214,40 +242,40 @@ export default function LeaveRequestList({
                 leaveRequests.map(leaveRequest => {
                   const reasonMeta = getLeaveReasonMeta(leaveRequest.reason);
                   return (
-                  <tr key={leaveRequest.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="py-4 px-6 text-sm">
-                      <div className="font-medium text-foreground">{leaveRequest.employee.fullName}</div>
-                      <div className="text-xs text-muted-foreground">{leaveRequest.employee.employeeNumber || '-'}</div>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">
-                      <div className="text-foreground">{reasonMeta.label}</div>
-                      <div className="text-xs uppercase text-muted-foreground mt-0.5">{reasonMeta.category}</div>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {format(new Date(leaveRequest.startDate), 'yyyy/MM/dd')} -{' '}
-                      {format(new Date(leaveRequest.endDate), 'yyyy/MM/dd')}
-                    </td>
-                    <td className="py-4 px-6 text-sm">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(
-                          leaveRequest.status
-                        )}`}
-                      >
-                        {formatStatusLabel(leaveRequest.status)}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {format(new Date(leaveRequest.createdAt), 'yyyy/MM/dd HH:mm')}
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <Link
-                        href={`/admin/leave-requests/${leaveRequest.id}`}
-                        className="inline-flex items-center justify-center h-9 px-3 py-2 bg-card border border-border text-foreground text-xs font-semibold rounded-lg hover:bg-muted transition-colors"
-                      >
-                        View Detail
-                      </Link>
-                    </td>
-                  </tr>
+                    <tr key={leaveRequest.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-4 px-6 text-sm">
+                        <div className="font-medium text-foreground">{leaveRequest.employee.fullName}</div>
+                        <div className="text-xs text-muted-foreground">{leaveRequest.employee.employeeNumber || '-'}</div>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
+                        <div className="text-foreground">{reasonMeta.label}</div>
+                        <div className="text-xs uppercase text-muted-foreground mt-0.5">{reasonMeta.category}</div>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
+                        {format(new Date(leaveRequest.startDate), 'yyyy/MM/dd')} -{' '}
+                        {format(new Date(leaveRequest.endDate), 'yyyy/MM/dd')}
+                      </td>
+                      <td className="py-4 px-6 text-sm">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(
+                            leaveRequest.status
+                          )}`}
+                        >
+                          {formatStatusLabel(leaveRequest.status)}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
+                        {format(new Date(leaveRequest.createdAt), 'yyyy/MM/dd HH:mm')}
+                      </td>
+                      <td className="py-4 px-6 text-right">
+                        <Link
+                          href={`/admin/leave-requests/${leaveRequest.id}`}
+                          className="inline-flex items-center justify-center h-9 px-3 py-2 bg-card border border-border text-foreground text-xs font-semibold rounded-lg hover:bg-muted transition-colors"
+                        >
+                          View Detail
+                        </Link>
+                      </td>
+                    </tr>
                   );
                 })
               )}
@@ -258,12 +286,23 @@ export default function LeaveRequestList({
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
 
+      <LeaveExportModal
+        isOpen={isExportOpen}
+        onClose={() => setIsExportOpen(false)}
+        initialStartDate={initialFilters.startDate}
+        initialEndDate={initialFilters.endDate}
+        onExport={handleExportCsv}
+      />
+
       <LeaveRequestFilterModal
         isOpen={isFilterOpen}
         onClose={() => setIsFilterOpen(false)}
-        onApply={handleApplyFilters}
-        initialFilters={initialFilters}
+        onApply={filters => {
+          handleApplyFilters(filters);
+          setIsFilterOpen(false);
+        }}
         employees={employees}
+        initialFilters={initialFilters}
       />
     </div>
   );

@@ -193,6 +193,90 @@ describe('office attendance admin display', () => {
     });
   });
 
+  test('includes absent rows with minimal details', async () => {
+    const rows = await buildOfficeAttendanceDisplayRows(
+      [
+        buildAttendance({
+          id: 'absent-1',
+          recordedAt: '2026-03-28T00:00:00.000Z',
+          businessDate: '2026-03-28',
+          status: 'absent',
+          metadata: null,
+        }),
+      ],
+      async () => 8 * 60
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: 'absent-1',
+      displayStatus: 'absent',
+      businessDate: '2026-03-28',
+      clockOutAt: null,
+      clockInPicture: null,
+      paidHours: null,
+      clockInMetadata: null,
+      clockOutMetadata: null,
+      latenessMins: null,
+    });
+  });
+
+  test('includes leave rows with minimal details and leave display status', async () => {
+    const rows = await buildOfficeAttendanceDisplayRows(
+      [
+        buildAttendance({
+          id: 'leave-1',
+          recordedAt: '2026-03-29T00:00:00.000Z',
+          businessDate: '2026-03-29',
+          status: 'leave',
+          metadata: null,
+        }),
+      ],
+      async () => 8 * 60
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: 'leave-1',
+      displayStatus: 'leave',
+      businessDate: '2026-03-29',
+      clockOutAt: null,
+      clockInPicture: null,
+      paidHours: null,
+      clockInMetadata: null,
+      clockOutMetadata: null,
+      latenessMins: null,
+    });
+  });
+
+  test('includes pending leave rows with minimal details and pending_leave display status', async () => {
+    const rows = await buildOfficeAttendanceDisplayRows(
+      [
+        buildAttendance({
+          id: 'pending-leave-1',
+          recordedAt: '2026-03-30T00:00:00.000Z',
+          businessDate: '2026-03-30',
+          status: 'pending_leave',
+          metadata: null,
+        }),
+      ],
+      async () => 8 * 60
+    );
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: 'pending-leave-1',
+      displayStatus: 'pending_leave',
+      businessDate: '2026-03-30',
+      clockOutAt: null,
+      clockInPicture: null,
+      paidHours: null,
+      clockInMetadata: null,
+      clockOutMetadata: null,
+      latenessMins: null,
+    });
+  });
+
   test('returns paginated unified rows with capped paid hours ready for rendering', async () => {
     const unifiedRows = paginateOfficeAttendanceDisplayRows(
       await buildOfficeAttendanceDisplayRows(

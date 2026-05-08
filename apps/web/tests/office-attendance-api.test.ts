@@ -76,7 +76,7 @@ describe('POST /api/employee/my/office-attendance', () => {
     expect(recordOfficeAttendance).not.toHaveBeenCalled();
   });
 
-  test('allows late clock-out on non-working context when there is an open clock-in', async () => {
+  test('rejects late clock-out on non-working context when grace anchor is unavailable', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-late-clockout',
       role: 'office',
@@ -102,9 +102,61 @@ describe('POST /api/employee/my/office-attendance', () => {
       status: 'present',
       recordedAt: new Date('2026-05-01T23:00:00.000Z'),
     });
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({ status: 'clocked_out' }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(data).toMatchObject({
+      code: 'clock_out_grace_expired',
+    });
+    expect(recordOfficeAttendance).not.toHaveBeenCalled();
+    expect(cancelOverlappingPendingLeaveRequestsByAttendance).not.toHaveBeenCalled();
+  });
+
+  test('allows clock-out for previous-shift open attendance during grace when an upcoming shift is active in context', async () => {
+    const openPreviousShiftAttendance = {
+      id: 'attendance-open-previous-shift',
+      employeeId: 'employee-clockout-grace',
+      officeId: null,
+      officeShiftId: 'office-shift-previous',
+      status: 'present',
+      recordedAt: new Date(Date.now() - 3 * 60 * 60_000),
+      officeShift: {
+        id: 'office-shift-previous',
+        startsAt: new Date(Date.now() - 9 * 60 * 60_000),
+        endsAt: new Date(Date.now() + 30 * 60_000),
+      },
+    };
+
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-clockout-grace',
+      role: 'office',
+      officeId: null,
+      fieldModeEnabled: true,
+    });
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'office_shift',
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: false,
+      shift: { id: 'office-shift-upcoming' },
+      windowStart: new Date(Date.now() + 60 * 60_000),
+      windowEnd: new Date(Date.now() + 9 * 60 * 60_000),
+      businessDay: {
+        dateKey: '2026-05-08',
+      },
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForEmployee as jest.Mock).mockResolvedValue(openPreviousShiftAttendance);
     (recordOfficeAttendance as jest.Mock).mockResolvedValue({
-      id: 'attendance-closed',
-      employeeId: 'employee-late-clockout',
+      id: 'attendance-clocked-out',
+      employeeId: 'employee-clockout-grace',
       officeId: null,
       status: 'clocked_out',
     });
@@ -118,10 +170,10 @@ describe('POST /api/employee/my/office-attendance', () => {
     const data = await response.json();
 
     expect(response.status).toBe(201);
-    expect(data.attendance).toMatchObject({ id: 'attendance-closed', status: 'clocked_out' });
+    expect(data.attendance).toMatchObject({ id: 'attendance-clocked-out', status: 'clocked_out' });
     expect(recordOfficeAttendance).toHaveBeenCalledWith(
       expect.objectContaining({
-        employeeId: 'employee-late-clockout',
+        officeShiftId: 'office-shift-previous',
         status: 'clocked_out',
       })
     );
@@ -150,6 +202,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       id: 'attendance-1',
       employeeId: 'employee-2',
       officeId: null,
+      businessDate: new Date('2026-05-05T00:00:00.000Z'),
       status: 'present',
     });
 
@@ -177,6 +230,7 @@ describe('POST /api/employee/my/office-attendance', () => {
         }),
       })
     );
+    expect(cancelOverlappingPendingLeaveRequestsByAttendance).toHaveBeenCalled();
   });
 
   test('requires picture when OFFICE_ATTENDANCE_REQUIRE_PHOTO is enabled', async () => {
@@ -462,6 +516,7 @@ describe('POST /api/employee/my/office-attendance', () => {
   });
 
   test('allows late clock-out when a same-business-day present exists outside the active window', async () => {
+    const windowEnd = new Date(Date.now() + 2 * 60 * 60_000);
     const latestTodayAttendance = {
       id: 'attendance-open-day',
       employeeId: 'employee-3b',
@@ -482,6 +537,7 @@ describe('POST /api/employee/my/office-attendance', () => {
       isLate: true,
       startMinutes: 8 * 60,
       endMinutes: 17 * 60,
+      windowEnd,
       businessDay: {
         minutesSinceMidnight: 18 * 60,
       },
@@ -514,6 +570,8 @@ describe('POST /api/employee/my/office-attendance', () => {
   });
 
   test('records clock-out against previously open overnight shift when current context is a later shift', async () => {
+    const windowStart = new Date(Date.now() - 60 * 60_000);
+    const windowEnd = new Date(Date.now() + 2 * 60 * 60_000);
     const previousShiftOpenAttendance = {
       id: 'attendance-overnight-open',
       employeeId: 'employee-shift-handover',
@@ -522,6 +580,11 @@ describe('POST /api/employee/my/office-attendance', () => {
       businessDate: new Date('2026-04-01T00:00:00.000Z'),
       status: 'present',
       recordedAt: '2026-04-01T16:10:00.000Z',
+      officeShift: {
+        id: 'office-shift-overnight',
+        startsAt: new Date(Date.now() - 9 * 60 * 60_000),
+        endsAt: new Date(Date.now() + 30 * 60 * 1000),
+      },
     };
 
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
@@ -538,8 +601,8 @@ describe('POST /api/employee/my/office-attendance', () => {
       isLate: false,
       startMinutes: 14 * 60,
       endMinutes: 22 * 60,
-      windowStart: new Date('2026-04-02T06:00:00.000Z'),
-      windowEnd: new Date('2026-04-02T14:00:00.000Z'),
+      windowStart,
+      windowEnd,
       businessDay: {
         dateKey: '2026-04-02',
         minutesSinceMidnight: 15 * 60,
@@ -576,8 +639,8 @@ describe('POST /api/employee/my/office-attendance', () => {
   });
 
   test('persists rounded distanceMeters for office-required clock-out', async () => {
-    const windowStart = new Date('2026-04-02T00:00:00.000Z');
-    const windowEnd = new Date('2026-04-02T23:59:59.999Z');
+    const windowStart = new Date(Date.now() - 60 * 60_000);
+    const windowEnd = new Date(Date.now() + 3 * 60 * 60_000);
 
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-distance-out',

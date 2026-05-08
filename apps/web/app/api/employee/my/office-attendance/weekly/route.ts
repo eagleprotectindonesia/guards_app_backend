@@ -8,7 +8,7 @@ import {
   resolveOfficeAttendanceContextForEmployee,
 } from '@repo/database';
 import type { OfficeAttendance, OfficeAttendanceState } from '@repo/types';
-import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
+import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING, OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS } from '@repo/shared';
 import { addDays, startOfDay } from 'date-fns';
 
 function formatMinutesAsTime(minutes: number | null | undefined) {
@@ -21,13 +21,29 @@ function formatMinutesAsTime(minutes: number | null | undefined) {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 }
 
+function isClockHistoryStatus(status: OfficeAttendance['status']) {
+  return status === 'present' || status === 'clocked_out';
+}
+
+function resolveClockOutGraceDeadline(windowEnd: Date | null | undefined) {
+  if (!(windowEnd instanceof Date) || Number.isNaN(windowEnd.getTime())) return null;
+  return new Date(windowEnd.getTime() + OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS * 60 * 60 * 1000);
+}
+
+function isWithinClockOutGrace(now: Date, windowEnd: Date | null | undefined) {
+  const deadline = resolveClockOutGraceDeadline(windowEnd);
+  if (!deadline) return false;
+  return now.getTime() <= deadline.getTime();
+}
+
 function getOfficeAttendanceState(params: {
   scheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>;
   latestAttendance: OfficeAttendance | null;
   latestTodayAttendance: OfficeAttendance | null;
   leaveEffectsEnabled: boolean;
+  canClockOutOpenAttendance: boolean;
 }): OfficeAttendanceState {
-  const { scheduleContext, latestAttendance, latestTodayAttendance, leaveEffectsEnabled } = params;
+  const { scheduleContext, latestAttendance, latestTodayAttendance, leaveEffectsEnabled, canClockOutOpenAttendance } = params;
   const effectiveLatestAttendance = latestAttendance ?? latestTodayAttendance;
 
   if (!scheduleContext.isWorkingDay) {
@@ -74,7 +90,7 @@ function getOfficeAttendanceState(params: {
     };
   }
 
-  if (effectiveLatestAttendance?.status === 'present') {
+  if (effectiveLatestAttendance?.status === 'present' && canClockOutOpenAttendance) {
     return {
       status: 'clocked_in',
       canClockIn: false,
@@ -151,7 +167,9 @@ export async function GET() {
         latestAttendance,
         latestTodayAttendance: attendances[0] ?? null,
         leaveEffectsEnabled,
+        canClockOutOpenAttendance: latestAttendance?.status === 'present' && isWithinClockOutGrace(now, stateScheduleContext.windowEnd),
       });
+      const filteredAttendances = attendances.filter(attendance => isClockHistoryStatus(attendance.status));
 
       days.push({
         date: displayDate.toISOString(),
@@ -165,7 +183,7 @@ export async function GET() {
           (employee.officeId ? (employee.fieldModeEnabled ? 'non_office' : 'office_required') : 'non_office'),
         attendancePolicySource:
           displayScheduleContext.attendancePolicySource ?? (!employee.officeId ? 'no_office_employee' : 'employee_default'),
-        attendances,
+        attendances: filteredAttendances,
         attendanceState,
       });
     }

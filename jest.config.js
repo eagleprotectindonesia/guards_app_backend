@@ -25,6 +25,7 @@ module.exports = {
     "node_modules/(?!(@scure|otplib|@otplib|qrcode|@noble)/)"
   ],
   moduleNameMapper: {
+    "^@/lib/(.*)$": "<rootDir>/apps/web/lib/$1",
     "^@/(.*)$": "<rootDir>/apps/web/$1",
     "^@repo/database$": "<rootDir>/packages/database/src",
     "^@repo/shared$": "<rootDir>/packages/shared/src",

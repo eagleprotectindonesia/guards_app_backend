@@ -9,11 +9,13 @@ import { TopNav } from './components/top-nav';
 import { useProfile } from './hooks/use-employee-queries';
 import { useTranslation } from 'react-i18next';
 import { SocketProvider } from '@/components/socket-provider';
+import { useEmployeePushNotifications } from './hooks/use-employee-push-notifications';
 
 export default function GuardAuthenticatedLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const router = useRouter();
   const { data: profile, isLoading, isError } = useProfile();
+  useEmployeePushNotifications(profile?.id);
 
   useEffect(() => {
     if (!isLoading && (isError || !profile)) {

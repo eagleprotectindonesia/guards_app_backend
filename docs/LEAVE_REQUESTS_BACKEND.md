@@ -174,6 +174,13 @@ Usage:
   - If request does not require HR and actor is HR approver: deny action (`Non-HR leave must be reviewed by manager ownership`).
   - Otherwise: ownership/fallback visibility check is required before approve/reject.
 - Any non-pending request cannot be approved/rejected/cancelled.
+- Office attendance placeholder resolution for pending leave (`pending_leave`):
+  - Rejected request:
+    - past/current working date keys: convert to `absent` with note `Rejected leave converted to absent`
+    - future working date keys: remove placeholder rows
+  - Cancelled request:
+    - past/current working date keys: convert to `absent` with note `Cancelled leave converted to absent`
+    - future working date keys: remove placeholder rows
 
 ## Approval Side Effects
 

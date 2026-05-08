@@ -9,26 +9,33 @@ import {
   CHECK_SHIFTS_JOB_NAME,
   MAINTENANCE_QUEUE_NAME,
   DATA_CLEAN_JOB_NAME,
+  OFFICE_ABSENCE_FINALIZE_QUEUE_NAME,
+  OFFICE_ABSENCE_FINALIZE_JOB_NAME,
   EMPLOYEE_STATUS_QUEUE_NAME,
   EMPLOYEE_STATUS_CHECK_JOB_NAME,
   EMPLOYEE_SYNC_QUEUE_NAME,
   EMPLOYEE_SYNC_JOB_NAME,
   EMAIL_QUEUE_NAME,
-  SEND_EMAIL_JOB_NAME,
+  SHIFT_REMINDER_QUEUE_NAME,
+  SHIFT_REMINDER_JOB_NAME,
 } from '@repo/database';
 
 import { createQueue, createWorker } from './infrastructure/bullmq';
 import { closeRedisConnections } from './infrastructure/redis';
 import { SchedulingProcessor } from './processors/scheduling.processor';
 import { MaintenanceProcessor } from './processors/maintenance.processor';
+import { OfficeAbsenceFinalizeProcessor } from './processors/office-absence-finalize.processor';
 import { EmployeeStatusProcessor } from './processors/employee-status.processor';
 import { EmployeeSyncProcessor } from './processors/employee-sync.processor';
 import { EmailProcessor } from './processors/email.processor';
+import { ShiftReminderProcessor } from './processors/shift-reminder.processor';
 
 // Configuration
 const TICK_INTERVAL_MS = 5 * 1000; // 5 seconds
 const CLEAN_INTERVAL_MS = 60 * 60 * 1000; // 1 hour
+const OFFICE_ABSENCE_FINALIZE_INTERVAL_MS = 1 * 60 * 60 * 1000;
 const DAILY_CRON_PATTERN = '0 0 * * *'; // Every day at midnight
+const SHIFT_REMINDER_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
 async function start() {
   console.log('Starting BullMQ workers...');
@@ -36,16 +43,20 @@ async function start() {
   // 1. Initialize Processors
   const schedulingProcessor = new SchedulingProcessor();
   const maintenanceProcessor = new MaintenanceProcessor();
+  const officeAbsenceFinalizeProcessor = new OfficeAbsenceFinalizeProcessor();
   const employeeStatusProcessor = new EmployeeStatusProcessor();
   const employeeSyncProcessor = new EmployeeSyncProcessor();
   const emailProcessor = new EmailProcessor();
+  const shiftReminderProcessor = new ShiftReminderProcessor();
 
   // 2. Initialize Queues and Add Repeatable Jobs
   const schedulingQueue = createQueue(SCHEDULING_QUEUE_NAME);
   const maintenanceQueue = createQueue(MAINTENANCE_QUEUE_NAME);
+  const officeAbsenceFinalizeQueue = createQueue(OFFICE_ABSENCE_FINALIZE_QUEUE_NAME);
   const employeeStatusQueue = createQueue(EMPLOYEE_STATUS_QUEUE_NAME);
   const employeeSyncQueue = createQueue(EMPLOYEE_SYNC_QUEUE_NAME);
   const emailQueue = createQueue(EMAIL_QUEUE_NAME);
+  const shiftReminderQueue = createQueue(SHIFT_REMINDER_QUEUE_NAME);
 
   console.log('Registering repeatable jobs...');
 
@@ -64,6 +75,16 @@ async function start() {
     {},
     {
       repeat: { every: CLEAN_INTERVAL_MS },
+      removeOnComplete: true,
+      removeOnFail: true,
+    }
+  );
+
+  await officeAbsenceFinalizeQueue.add(
+    OFFICE_ABSENCE_FINALIZE_JOB_NAME,
+    {},
+    {
+      repeat: { every: OFFICE_ABSENCE_FINALIZE_INTERVAL_MS },
       removeOnComplete: true,
       removeOnFail: true,
     }
@@ -89,13 +110,25 @@ async function start() {
     }
   );
 
+  await shiftReminderQueue.add(
+    SHIFT_REMINDER_JOB_NAME,
+    {},
+    {
+      repeat: { every: SHIFT_REMINDER_INTERVAL_MS },
+      removeOnComplete: true,
+      removeOnFail: true,
+    }
+  );
+
   // 3. Initialize Workers
   const workers = [
     createWorker(SCHEDULING_QUEUE_NAME, job => schedulingProcessor.process(job)),
     createWorker(MAINTENANCE_QUEUE_NAME, job => maintenanceProcessor.process(job)),
+    createWorker(OFFICE_ABSENCE_FINALIZE_QUEUE_NAME, job => officeAbsenceFinalizeProcessor.process(job)),
     createWorker(EMPLOYEE_STATUS_QUEUE_NAME, job => employeeStatusProcessor.process(job)),
     createWorker(EMPLOYEE_SYNC_QUEUE_NAME, job => employeeSyncProcessor.process(job)),
     createWorker(EMAIL_QUEUE_NAME, job => emailProcessor.process(job)),
+    createWorker(SHIFT_REMINDER_QUEUE_NAME, job => shiftReminderProcessor.process(job)),
   ];
 
   console.log('All workers started.');
@@ -107,9 +140,11 @@ async function start() {
     await Promise.all(workers.map(w => w.close()));
     await schedulingQueue.close();
     await maintenanceQueue.close();
+    await officeAbsenceFinalizeQueue.close();
     await employeeStatusQueue.close();
     await employeeSyncQueue.close();
     await emailQueue.close();
+    await shiftReminderQueue.close();
     await closeRedisConnections();
 
     console.log('Graceful shutdown complete.');

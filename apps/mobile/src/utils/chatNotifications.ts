@@ -2,6 +2,7 @@ import notifee, { AndroidImportance } from '@notifee/react-native';
 import { getMessaging, setBackgroundMessageHandler } from '@react-native-firebase/messaging';
 
 export const CHAT_NOTIFICATION_CHANNEL_ID = 'chat_messages_v2';
+export const LEAVE_NOTIFICATION_CHANNEL_ID = 'leave_updates_v1';
 
 type ChatNotificationData = {
   messageId?: string;
@@ -22,16 +23,24 @@ function isChatNotification(data: ChatNotificationData) {
   return data.type === 'chat';
 }
 
-let channelPromise: Promise<string> | null = null;
+let channelPromise: Promise<string[]> | null = null;
 
 export function ensureChatNotificationChannel() {
   if (!channelPromise) {
-    channelPromise = notifee.createChannel({
-      id: CHAT_NOTIFICATION_CHANNEL_ID,
-      name: 'Messages',
-      importance: AndroidImportance.HIGH,
-      sound: 'default',
-    });
+    channelPromise = Promise.all([
+      notifee.createChannel({
+        id: CHAT_NOTIFICATION_CHANNEL_ID,
+        name: 'Messages',
+        importance: AndroidImportance.HIGH,
+        sound: 'default',
+      }),
+      notifee.createChannel({
+        id: LEAVE_NOTIFICATION_CHANNEL_ID,
+        name: 'Leave Updates',
+        importance: AndroidImportance.HIGH,
+        sound: 'default',
+      }),
+    ]);
   }
 
   return channelPromise;

@@ -6,7 +6,7 @@ import { redis } from '@repo/database/redis';
 
 jest.mock('socket.io');
 jest.mock('@socket.io/redis-adapter');
-jest.mock('@/lib/redis', () => ({
+jest.mock('@repo/database/redis', () => ({
   redis: {
     duplicate: jest.fn(() => ({
       on: jest.fn(),
@@ -19,7 +19,7 @@ jest.mock('@/lib/redis', () => ({
   },
 }));
 jest.mock('@/lib/socket-auth');
-jest.mock('@/lib/prisma', () => ({ prisma: { chatMessage: { create: jest.fn() } } }));
+jest.mock('@repo/database', () => ({ db: { chatMessage: { create: jest.fn() } } }));
 jest.mock('@/lib/data-access/chat', () => ({
   saveMessage: jest.fn(),
   finalizeMessageDraft: jest.fn(),

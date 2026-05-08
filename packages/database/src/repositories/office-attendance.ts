@@ -4,6 +4,7 @@ import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules'
 import { resolveOfficeAttendanceContextForEmployee } from './office-attendance-context';
 import { getSystemSetting } from './settings';
 import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
+import { getOfficeDayOverrideAnchorDates, resolveOfficeDayOverrideAnchorsForEmployee } from './office-day-overrides';
 
 export async function getOfficeAttendanceById(id: string) {
   return prisma.officeAttendance.findUnique({
@@ -182,7 +183,44 @@ export async function resolveRejectedPendingLeaveStatuses(params: {
   dateKeys: string[];
   now?: Date;
 }, tx: Prisma.TransactionClient | typeof prisma = prisma) {
+  await resolvePendingLeaveStatusesByAction(
+    {
+      employeeId: params.employeeId,
+      dateKeys: params.dateKeys,
+      now: params.now,
+      absentNote: 'Rejected leave converted to absent',
+    },
+    tx
+  );
+}
+
+export async function resolveCancelledPendingLeaveStatuses(params: {
+  employeeId: string;
+  dateKeys: string[];
+  now?: Date;
+}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
+  await resolvePendingLeaveStatusesByAction(
+    {
+      employeeId: params.employeeId,
+      dateKeys: params.dateKeys,
+      now: params.now,
+      absentNote: 'Cancelled leave converted to absent',
+    },
+    tx
+  );
+}
+
+async function resolvePendingLeaveStatusesByAction(params: {
+  employeeId: string;
+  dateKeys: string[];
+  now?: Date;
+  absentNote: string;
+}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
   const now = params.now ?? new Date();
+  const todayDateKey = getBusinessDayRange(now, BUSINESS_TIMEZONE).dateKey;
+  const todayContext = params.dateKeys.includes(todayDateKey)
+    ? await resolveOfficeAttendanceContextForEmployee(params.employeeId, now)
+    : null;
   for (const dateKey of params.dateKeys) {
     const rows = await tx.officeAttendance.findMany({
       where: {
@@ -193,11 +231,12 @@ export async function resolveRejectedPendingLeaveStatuses(params: {
       orderBy: { recordedAt: 'asc' },
     });
     if (rows.length === 0) continue;
-    const targetDate = dateKeyToDate(dateKey);
-    if (targetDate.getTime() <= now.getTime()) {
+    const shouldConvertToAbsent =
+      dateKey < todayDateKey || (dateKey === todayDateKey && Boolean(todayContext?.isAfterEnd));
+    if (shouldConvertToAbsent) {
       await tx.officeAttendance.update({
         where: { id: rows[0].id },
-        data: { status: 'absent', metadata: { note: 'Rejected leave converted to absent' } },
+        data: { status: 'absent', metadata: { note: params.absentNote } },
       });
       if (rows.length > 1) {
         await tx.officeAttendance.deleteMany({
@@ -221,7 +260,7 @@ export async function clearPendingOfficeLeaveStatusesForDateKeys(params: {
   dateKeys: string[];
   now?: Date;
 }, tx: Prisma.TransactionClient | typeof prisma = prisma) {
-  await resolveRejectedPendingLeaveStatuses(
+  await resolveCancelledPendingLeaveStatuses(
     {
       employeeId: params.employeeId,
       dateKeys: params.dateKeys,
@@ -246,24 +285,72 @@ export async function finalizeOfficeDailyAbsences(now = new Date()) {
   let created = 0;
   for (const employee of employees) {
     const context = await resolveOfficeAttendanceContextForEmployee(employee.id, now);
-    if (!context.isWorkingDay || !context.isAfterEnd || !context.businessDay?.dateKey) continue;
+    const anchorDates = getOfficeDayOverrideAnchorDates(now);
+    let dateKey: string | null = null;
 
-    const dateKey = context.businessDay.dateKey;
+    if (context.isWorkingDay && context.isAfterEnd && context.businessDay?.dateKey) {
+      dateKey = context.businessDay.dateKey;
+    } else {
+      const overrideAnchors = await resolveOfficeDayOverrideAnchorsForEmployee(employee.id, now);
+      if (overrideAnchors.currentOverride?.overrideType !== 'shift_override') continue;
+
+      const endedShift = await prisma.officeShift.findFirst({
+        where: {
+          employeeId: employee.id,
+          deletedAt: null,
+          status: {
+            not: 'cancelled',
+          },
+          date: dateKeyToDate(anchorDates.currentDateKey),
+          endsAt: {
+            lte: now,
+          },
+        },
+        select: {
+          id: true,
+        },
+        orderBy: {
+          endsAt: 'desc',
+        },
+      });
+      if (!endedShift) continue;
+      dateKey = anchorDates.currentDateKey;
+    }
+
+    if (!dateKey) continue;
+    const businessDate = dateKeyToDate(dateKey);
     const hasBlocking = await prisma.officeAttendance.findFirst({
       where: {
         employeeId: employee.id,
-        businessDate: dateKeyToDate(dateKey),
+        businessDate,
         status: { in: blockingStatuses },
       },
       select: { id: true },
     });
     if (hasBlocking) continue;
 
+    const approvedLeave = await prisma.employeeLeaveRequest.findFirst({
+      where: {
+        employeeId: employee.id,
+        status: 'approved',
+        startDate: {
+          lte: businessDate,
+        },
+        endDate: {
+          gte: businessDate,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+    if (approvedLeave) continue;
+
     await prisma.officeAttendance.create({
       data: {
         employeeId: employee.id,
-        businessDate: dateKeyToDate(dateKey),
-        recordedAt: dateKeyToDate(dateKey),
+        businessDate,
+        recordedAt: businessDate,
         status: 'absent',
         metadata: { note: 'Auto finalized absent (worker)' },
       },

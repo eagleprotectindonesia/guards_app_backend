@@ -8,7 +8,7 @@
     "next-dev": "next dev",
     "build": "next build",
     "start": "NODE_ENV=production tsx server.ts",
-    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx && tsc --noEmit",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
@@ -43,6 +43,7 @@
     "date-fns-tz": "^3.2.0",
     "dotenv": "^17.2.3",
     "embla-carousel-react": "^8.6.0",
+    "firebase": "^12.8.0",
     "firebase-admin": "^13.6.1",
     "i18next": "^25.7.4",
     "i18next-browser-languagedetector": "^8.2.0",

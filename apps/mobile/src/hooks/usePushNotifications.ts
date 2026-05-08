@@ -95,30 +95,62 @@ export function usePushNotifications() {
     const messaging = getMessaging();
 
     void getInitialNotification(messaging).then(initialNotification => {
+      if (initialNotification?.data?.type === 'shift_reminder') {
+        router.push('/(tabs)');
+        return;
+      }
       if (initialNotification?.data?.type === 'chat' && !isChatRoute) {
         router.push('/(tabs)/chat');
+        return;
+      }
+      if (initialNotification?.data?.type === 'leave_request_status_changed') {
+        router.push('/leave-requests');
       }
     });
 
     const unsubscribeForeground = onMessage(messaging, async remoteMessage => {
       console.log('[Push] Foreground FCM message received', remoteMessage);
       const data = remoteMessage.data ?? {};
+      if (data.type === 'leave_request_status_changed') {
+        const status = data.status === 'approved' ? 'approved' : 'rejected';
+        showToast({
+          title: status === 'approved' ? 'Leave request approved' : 'Leave request rejected',
+          description: `Your leave request for ${data.startDate} to ${data.endDate} was ${status}.`,
+          status: status === 'approved' ? 'success' : 'warning',
+        });
+      } else if (data.type === 'shift_reminder') {
+        showToast({
+          title: data.phase === 'end' ? 'Shift end reminder' : 'Shift reminder',
+          description:
+            data.phase === 'end'
+              ? 'Your shift has ended. Please complete your end-of-shift flow.'
+              : 'Your shift starts in less than 30 minutes.',
+          status: 'info',
+        });
+      } else {
+        const senderName = typeof data.senderName === 'string' && data.senderName.trim() ? data.senderName : 'Eagle Protect';
+        const messagePreview = typeof data.messagePreview === 'string' ? data.messagePreview.trim() : '';
 
-
-      const senderName = typeof data.senderName === 'string' && data.senderName.trim() ? data.senderName : 'Eagle Protect';
-      const messagePreview = typeof data.messagePreview === 'string' ? data.messagePreview.trim() : '';
-
-      showToast({
-        title: `Message from ${senderName}`,
-        description: messagePreview || 'You have a new message',
-        status: 'info',
-      });
+        showToast({
+          title: `Message from ${senderName}`,
+          description: messagePreview || 'You have a new message',
+          status: 'info',
+        });
+      }
     });
 
     const unsubscribeNotificationOpened = onNotificationOpenedApp(messaging, remoteMessage => {
       console.log('[Push] Firebase notification opened from background', remoteMessage);
+      if (remoteMessage.data?.type === 'shift_reminder') {
+        router.push('/(tabs)');
+        return;
+      }
       if (remoteMessage.data?.type === 'chat' && !isChatRoute) {
         router.push('/(tabs)/chat');
+        return;
+      }
+      if (remoteMessage.data?.type === 'leave_request_status_changed') {
+        router.push('/leave-requests');
       }
     });
 

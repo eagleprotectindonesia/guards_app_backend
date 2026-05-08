@@ -3,18 +3,17 @@ export const CHECK_SHIFTS_JOB_NAME = 'check-active-shifts';
 
 export const MAINTENANCE_QUEUE_NAME = 'maintenance';
 export const DATA_CLEAN_JOB_NAME = 'data-clean';
+export const OFFICE_ABSENCE_FINALIZE_QUEUE_NAME = 'office-absence-finalize';
+export const OFFICE_ABSENCE_FINALIZE_JOB_NAME = 'office-absence-finalize';
 export const EMPLOYEE_STATUS_CHECK_JOB_NAME = 'employee-status-check';
 
-// Deprecated: Use EMPLOYEE_STATUS_CHECK_JOB_NAME
-export const GUARD_STATUS_CHECK_JOB_NAME = EMPLOYEE_STATUS_CHECK_JOB_NAME;
-
 export const EMPLOYEE_STATUS_QUEUE_NAME = 'employee-status';
-
-// Deprecated: Use EMPLOYEE_STATUS_QUEUE_NAME
-export const GUARD_STATUS_QUEUE_NAME = EMPLOYEE_STATUS_QUEUE_NAME;
 
 export const EMPLOYEE_SYNC_QUEUE_NAME = 'employee-sync';
 export const EMPLOYEE_SYNC_JOB_NAME = 'employee-sync-from-external';
 
 export const EMAIL_QUEUE_NAME = 'email';
 export const SEND_EMAIL_JOB_NAME = 'send-email';
+
+export const SHIFT_REMINDER_QUEUE_NAME = 'shift-reminder';
+export const SHIFT_REMINDER_JOB_NAME = 'shift-reminder-send';

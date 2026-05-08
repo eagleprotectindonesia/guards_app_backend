@@ -185,6 +185,13 @@
     "title": "Akun",
     "settings": "Pengaturan"
   },
+  "notifications": {
+    "leave_approved": "Pengajuan cuti disetujui",
+    "leave_rejected": "Pengajuan cuti ditolak",
+    "shift_reminder": "Shift Anda dimulai kurang dari 30 menit lagi.",
+    "shift_end_reminder": "Shift Anda telah berakhir. Silakan selesaikan alur akhir shift Anda.",
+    "chat_default_body": "Anda memiliki pesan baru"
+  },
   "announcements": {
     "title": "Pengumuman",
     "empty": "Belum ada pengumuman",
@@ -236,6 +243,7 @@
     "history": "Riwayat Hari Ini",
     "in": "Masuk",
     "out": "Keluar",
+    "absent": "Tidak Hadir",
     "noAttendance": "Belum ada presensi",
     "takingPhoto": "Mengambil foto presensi...",
     "optimizingPhoto": "Mengoptimalkan foto presensi...",
@@ -272,6 +280,7 @@
       "clockInRequired": "Clock-in wajib dilakukan sebelum clock-out.",
       "alreadyClockedIn": "Clock-in sudah tercatat untuk jendela jadwal ini.",
       "attendanceCompleted": "Kehadiran kantor sudah selesai untuk jendela jadwal ini.",
+      "clockOutGraceExpired": "Clock-out hanya diizinkan hingga 4 jam setelah jam berakhir yang dijadwalkan.",
       "internalServerError": "Terjadi kesalahan pada server."
     }
   },

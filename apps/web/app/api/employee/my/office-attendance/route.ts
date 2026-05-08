@@ -13,9 +13,11 @@ import { resolveOfficeAttendanceContextForEmployee } from '@repo/database';
 import { cancelOverlappingPendingLeaveRequestsByAttendance } from '@repo/database';
 import {
   ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING,
+  OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS,
   OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING,
 } from '@repo/shared';
 import { ZodError } from 'zod';
+import type { OfficeAttendance } from '@repo/types';
 
 function getFallbackAttendanceMode(employee: { officeId?: string | null; fieldModeEnabled?: boolean | null }) {
   if (!employee.officeId) return 'non_office';
@@ -35,6 +37,38 @@ function normalizeAttendanceBusinessDate(value: unknown): Date | undefined {
     if (!Number.isNaN(parsed.getTime())) return parsed;
   }
   return undefined;
+}
+
+function resolveClockOutGraceDeadline(windowEnd: Date | null | undefined) {
+  if (!(windowEnd instanceof Date) || Number.isNaN(windowEnd.getTime())) return null;
+  return new Date(windowEnd.getTime() + OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS * 60 * 60 * 1000);
+}
+
+type OpenAttendanceLike = Pick<OfficeAttendance, 'status' | 'officeShiftId'> & {
+  officeShift?: {
+    endsAt?: string | Date | null;
+  } | null;
+};
+
+function resolveOpenAttendanceWindowEnd(
+  attendance: OpenAttendanceLike | null | undefined,
+  scheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>
+) {
+  if (!attendance || attendance.status !== 'present') return null;
+  if (attendance.officeShift?.endsAt) {
+    const shiftEnd = new Date(attendance.officeShift.endsAt);
+    if (!Number.isNaN(shiftEnd.getTime())) return shiftEnd;
+  }
+
+  if (scheduleContext.source !== 'office_shift') {
+    return scheduleContext.windowEnd ?? null;
+  }
+
+  if (attendance.officeShiftId && scheduleContext.shift?.id && attendance.officeShiftId === scheduleContext.shift.id) {
+    return scheduleContext.windowEnd ?? null;
+  }
+
+  return null;
 }
 
 export async function POST(req: Request) {
@@ -111,6 +145,19 @@ export async function POST(req: Request) {
         },
         { status: 400 }
       );
+    }
+
+    if (requestedStatus === 'clocked_out' && latestAttendance?.status === 'present') {
+      const graceDeadline = resolveClockOutGraceDeadline(resolveOpenAttendanceWindowEnd(latestAttendance, scheduleContext));
+      if (!graceDeadline || now.getTime() > graceDeadline.getTime()) {
+        return NextResponse.json(
+          {
+            code: 'clock_out_grace_expired',
+            error: `Clock-out is only allowed up to ${OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS} hours after the scheduled end time.`,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     if (latestAttendance?.status === 'present' && requestedStatus === 'present') {
@@ -253,10 +300,7 @@ export async function POST(req: Request) {
     const attendance = 'attendance' in recordResult ? recordResult.attendance : recordResult;
     const statusCode = 'created' in recordResult ? (recordResult.created ? 201 : 200) : 201;
 
-    if (
-      (requestedStatus === 'present' || requestedStatus === 'clocked_out') &&
-      attendance?.businessDate instanceof Date
-    ) {
+    if (requestedStatus === 'present' && attendance?.businessDate instanceof Date) {
       await cancelOverlappingPendingLeaveRequestsByAttendance({
         employeeId: employee.id,
         attendanceId: attendance.id,

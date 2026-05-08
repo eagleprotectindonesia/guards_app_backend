@@ -137,6 +137,7 @@ const OFFICE_ATTENDANCE_ERROR_KEY_MAP: Record<string, string> = {
   clock_in_required: 'officeAttendance.errors.clockInRequired',
   office_attendance_already_clocked_in: 'officeAttendance.errors.alreadyClockedIn',
   office_attendance_completed: 'officeAttendance.errors.attendanceCompleted',
+  clock_out_grace_expired: 'officeAttendance.errors.clockOutGraceExpired',
   unauthorized: 'officeAttendance.errors.unauthorized',
   internal_server_error: 'officeAttendance.errors.internalServerError',
 };

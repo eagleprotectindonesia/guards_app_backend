@@ -185,6 +185,13 @@
     "title": "Account",
     "settings": "Settings"
   },
+  "notifications": {
+    "leave_approved": "Leave request approved",
+    "leave_rejected": "Leave request rejected",
+    "shift_reminder": "Your shift starts in less than 30 minutes.",
+    "shift_end_reminder": "Your shift has ended. Please complete your end-of-shift flow.",
+    "chat_default_body": "You have a new message"
+  },
   "announcements": {
     "title": "Announcements",
     "empty": "No announcements",
@@ -236,6 +243,7 @@
     "history": "Today's History",
     "in": "In",
     "out": "Out",
+    "absent": "Absent",
     "noAttendance": "No attendance recorded",
     "takingPhoto": "Taking attendance photo...",
     "optimizingPhoto": "Optimizing attendance photo...",
@@ -272,6 +280,7 @@
       "clockInRequired": "Clock-in is required before clock-out.",
       "alreadyClockedIn": "Clock-in has already been recorded for this schedule window.",
       "attendanceCompleted": "Office attendance has already been completed for this schedule window.",
+      "clockOutGraceExpired": "Clock-out is only allowed up to 4 hours after the scheduled end time.",
       "internalServerError": "Internal server error."
     }
   },

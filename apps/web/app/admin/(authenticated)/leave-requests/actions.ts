@@ -10,6 +10,7 @@ import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { resolveLeaveRequestAccessContext } from '@/lib/auth/leave-ownership';
 import { isHrAnnualApprover } from '@/lib/auth/admin-visibility';
+import { sendLeaveRequestStatusPushNotification } from '@/lib/fcm';
 import { revalidatePath } from 'next/cache';
 
 type LeaveReviewActionResult = {
@@ -63,12 +64,24 @@ export async function approveLeaveRequestAction(requestId: string, adminNote?: s
   try {
     const { session, approvalMode } = await assertOwnedLeaveRequestOrThrow(requestId);
 
-    await approveEmployeeLeaveRequest({
+    const updated = await approveEmployeeLeaveRequest({
       requestId,
       adminId: session.id,
       adminNote: adminNote?.trim() || undefined,
       approvalMode,
     });
+    if (updated.status === 'approved') {
+      void sendLeaveRequestStatusPushNotification({
+        employeeId: updated.employeeId,
+        leaveRequestId: updated.id,
+        status: 'approved',
+        reason: updated.reason,
+        startDate: updated.startDate.toISOString().slice(0, 10),
+        endDate: updated.endDate.toISOString().slice(0, 10),
+      }).catch(error => {
+        console.error('approveLeaveRequestAction push send failed:', error);
+      });
+    }
 
     revalidatePath('/admin/leave-requests');
     revalidatePath(`/admin/leave-requests/${requestId}`);
@@ -93,10 +106,20 @@ export async function rejectLeaveRequestAction(requestId: string, adminNote: str
   try {
     const { session } = await assertOwnedLeaveRequestOrThrow(requestId);
 
-    await rejectEmployeeLeaveRequest({
+    const updated = await rejectEmployeeLeaveRequest({
       requestId,
       adminId: session.id,
       adminNote: trimmedNote,
+    });
+    void sendLeaveRequestStatusPushNotification({
+      employeeId: updated.employeeId,
+      leaveRequestId: updated.id,
+      status: 'rejected',
+      reason: updated.reason,
+      startDate: updated.startDate.toISOString().slice(0, 10),
+      endDate: updated.endDate.toISOString().slice(0, 10),
+    }).catch(error => {
+      console.error('rejectLeaveRequestAction push send failed:', error);
     });
 
     revalidatePath('/admin/leave-requests');

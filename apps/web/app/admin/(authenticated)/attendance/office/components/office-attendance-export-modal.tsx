@@ -22,6 +22,7 @@ export default function OfficeAttendanceExportModal({
   onExport,
   offices,
 }: OfficeAttendanceExportModalProps) {
+  const today = new Date();
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [selectedOfficeId, setSelectedOfficeId] = useState<string>('');
@@ -83,7 +84,12 @@ export default function OfficeAttendanceExportModal({
 
           <div>
             <Label htmlFor="export-start-date">Start Date</Label>
-            <DatePicker date={startDate} setDate={setStartDate} maxDate={endDate} className="mt-1" />
+            <DatePicker
+              date={startDate}
+              setDate={setStartDate}
+              maxDate={endDate && endDate < today ? endDate : today}
+              className="mt-1"
+            />
           </div>
 
           <div>
@@ -92,7 +98,7 @@ export default function OfficeAttendanceExportModal({
               date={endDate}
               setDate={setEndDate}
               minDate={startDate}
-              maxDate={startDate ? addDays(startDate, 31) : undefined}
+              maxDate={startDate ? (addDays(startDate, 31) < today ? addDays(startDate, 31) : today) : today}
               className="mt-1"
             />
           </div>

@@ -1,78 +1,26 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { getPaginatedEmployeeLeaveRequestsForAdmin, listEmployeeLeaveRequestsForAdmin } from '@repo/database';
-import type { LeaveRequestReason, LeaveRequestStatus } from '@repo/types';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { resolveLeaveRequestAccessContext, buildVisibleEmployeeWhereClause } from '@/lib/auth/leave-ownership';
 import { getPaginationParams, serialize } from '@/lib/server-utils';
 import LeaveRequestList from './components/leave-request-list';
 import { SerializedLeaveRequestAdminListItemDto } from '@/types/leave-requests';
-import { getLeaveReasonsByCategory } from '@/lib/leave-requests';
+import {
+  mergeReasonFilters,
+  parseCategoriesParam,
+  parseReasonsParam,
+  parseSortByParam,
+  parseSortOrderParam,
+  parseStatusesParam,
+} from './filters';
 
 export const metadata: Metadata = {
   title: 'Leave Requests Management',
 };
 
 export const dynamic = 'force-dynamic';
-
-const ALLOWED_STATUSES: LeaveRequestStatus[] = [
-  'pending',
-  'pending_hr',
-  'pending_manager',
-  'approved',
-  'rejected',
-  'cancelled',
-];
-const ALLOWED_REASONS: LeaveRequestReason[] = [
-  'sick',
-  'family_marriage',
-  'family_child_marriage',
-  'family_child_circumcision_baptism',
-  'family_death',
-  'family_spouse_death',
-  'special_maternity',
-  'special_miscarriage',
-  'special_paternity',
-  'special_emergency',
-  'annual',
-];
-const ALLOWED_CATEGORIES = ['sick', 'family', 'special', 'annual'] as const;
-type LeaveCategoryFilter = (typeof ALLOWED_CATEGORIES)[number];
-const ALLOWED_SORT_FIELDS = ['startDate', 'status'] as const;
-type LeaveRequestSortField = (typeof ALLOWED_SORT_FIELDS)[number];
-
-function parseStatusesParam(rawStatuses: string | string[] | undefined): LeaveRequestStatus[] {
-  const raw = Array.isArray(rawStatuses) ? rawStatuses[0] : rawStatuses;
-  if (!raw) return ALLOWED_STATUSES;
-
-  const parsed = raw
-    .split(',')
-    .map(value => value.trim())
-    .filter((status): status is LeaveRequestStatus => ALLOWED_STATUSES.includes(status as LeaveRequestStatus));
-
-  return parsed.length > 0 ? parsed : ALLOWED_STATUSES;
-}
-
-function parseReasonsParam(rawReasons: string | string[] | undefined): LeaveRequestReason[] {
-  const raw = Array.isArray(rawReasons) ? rawReasons[0] : rawReasons;
-  if (!raw) return [];
-
-  return raw
-    .split(',')
-    .map(value => value.trim())
-    .filter((reason): reason is LeaveRequestReason => ALLOWED_REASONS.includes(reason as LeaveRequestReason));
-}
-
-function parseCategoriesParam(rawCategories: string | string[] | undefined): LeaveCategoryFilter[] {
-  const raw = Array.isArray(rawCategories) ? rawCategories[0] : rawCategories;
-  if (!raw) return [];
-
-  return raw
-    .split(',')
-    .map(value => value.trim())
-    .filter((category): category is LeaveCategoryFilter => ALLOWED_CATEGORIES.includes(category as LeaveCategoryFilter));
-}
 
 type LeaveRequestsPageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -88,20 +36,9 @@ export default async function LeaveRequestsPage(props: LeaveRequestsPageProps) {
   const endDate = typeof searchParams.endDate === 'string' ? searchParams.endDate : undefined;
   const reasonFilters = parseReasonsParam(searchParams.reasons);
   const categoryFilters = parseCategoriesParam(searchParams.categories);
-  const reasons = Array.from(
-    new Set<LeaveRequestReason>([
-      ...reasonFilters,
-      ...categoryFilters.flatMap(category => getLeaveReasonsByCategory(category)),
-    ])
-  );
-  const sortByRaw = typeof searchParams.sortBy === 'string' ? searchParams.sortBy : undefined;
-  const sortBy: LeaveRequestSortField = ALLOWED_SORT_FIELDS.includes(sortByRaw as LeaveRequestSortField)
-    ? (sortByRaw as LeaveRequestSortField)
-    : 'startDate';
-  const sortOrder: 'asc' | 'desc' =
-    typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
-      ? (searchParams.sortOrder as 'asc' | 'desc')
-      : 'desc';
+  const reasons = mergeReasonFilters(reasonFilters, categoryFilters);
+  const sortBy = parseSortByParam(searchParams.sortBy);
+  const sortOrder = parseSortOrderParam(searchParams.sortOrder);
 
   const accessContext = await resolveLeaveRequestAccessContext(session);
   const employeeWhere = await buildVisibleEmployeeWhereClause(session, accessContext);

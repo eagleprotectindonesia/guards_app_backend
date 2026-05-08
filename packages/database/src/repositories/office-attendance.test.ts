@@ -1,14 +1,47 @@
 import { Prisma } from '@prisma/client';
-import { recordOfficeAttendance } from './office-attendance';
+import {
+  finalizeOfficeDailyAbsences,
+  recordOfficeAttendance,
+  resolveCancelledPendingLeaveStatuses,
+  resolveRejectedPendingLeaveStatuses,
+} from './office-attendance';
 import { db as prisma } from '../prisma/client';
+import { getSystemSetting } from './settings';
+import { resolveOfficeAttendanceContextForEmployee } from './office-attendance-context';
+import { getOfficeDayOverrideAnchorDates, resolveOfficeDayOverrideAnchorsForEmployee } from './office-day-overrides';
 
 jest.mock('../prisma/client', () => ({
   db: {
+    employee: {
+      findMany: jest.fn(),
+    },
+    officeShift: {
+      findFirst: jest.fn(),
+    },
+    employeeLeaveRequest: {
+      findFirst: jest.fn(),
+    },
     officeAttendance: {
       create: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      deleteMany: jest.fn(),
     },
   },
+}));
+
+jest.mock('./settings', () => ({
+  getSystemSetting: jest.fn(),
+}));
+
+jest.mock('./office-attendance-context', () => ({
+  resolveOfficeAttendanceContextForEmployee: jest.fn(),
+}));
+
+jest.mock('./office-day-overrides', () => ({
+  getOfficeDayOverrideAnchorDates: jest.fn(),
+  resolveOfficeDayOverrideAnchorsForEmployee: jest.fn(),
 }));
 
 describe('office attendance repository', () => {
@@ -93,5 +126,203 @@ describe('office attendance repository', () => {
         status: 'present',
       })
     ).rejects.toThrow('Unique constraint failed');
+  });
+
+  test('finalizeOfficeDailyAbsences creates absent for normal ended working day without blockers and approved leave', async () => {
+    const now = new Date('2026-05-05T12:00:00.000Z');
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '1' });
+    (prisma.employee.findMany as jest.Mock).mockResolvedValue([{ id: 'employee-1' }]);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: true,
+      businessDay: { dateKey: '2026-05-05' },
+    });
+    (getOfficeDayOverrideAnchorDates as jest.Mock).mockReturnValue({ currentDateKey: '2026-05-05' });
+    (prisma.officeAttendance.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.employeeLeaveRequest.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.officeAttendance.create as jest.Mock).mockResolvedValue({ id: 'absence-1' });
+
+    const result = await finalizeOfficeDailyAbsences(now);
+
+    expect(result).toEqual({ created: 1 });
+    expect(prisma.officeAttendance.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        employeeId: 'employee-1',
+        status: 'absent',
+      }),
+    });
+  });
+
+  test('finalizeOfficeDailyAbsences skips absent when approved leave exists', async () => {
+    const now = new Date('2026-05-05T12:00:00.000Z');
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '1' });
+    (prisma.employee.findMany as jest.Mock).mockResolvedValue([{ id: 'employee-1' }]);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: true,
+      businessDay: { dateKey: '2026-05-05' },
+    });
+    (getOfficeDayOverrideAnchorDates as jest.Mock).mockReturnValue({ currentDateKey: '2026-05-05' });
+    (prisma.officeAttendance.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.employeeLeaveRequest.findFirst as jest.Mock).mockResolvedValue({ id: 'leave-1' });
+
+    const result = await finalizeOfficeDailyAbsences(now);
+
+    expect(result).toEqual({ created: 0 });
+    expect(prisma.officeAttendance.create).not.toHaveBeenCalled();
+  });
+
+  test('finalizeOfficeDailyAbsences uses shift-override fallback when ended shift exists', async () => {
+    const now = new Date('2026-05-05T12:00:00.000Z');
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '1' });
+    (prisma.employee.findMany as jest.Mock).mockResolvedValue([{ id: 'employee-1' }]);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: false,
+      isAfterEnd: false,
+      businessDay: null,
+    });
+    (getOfficeDayOverrideAnchorDates as jest.Mock).mockReturnValue({ currentDateKey: '2026-05-05' });
+    (resolveOfficeDayOverrideAnchorsForEmployee as jest.Mock).mockResolvedValue({
+      currentOverride: { overrideType: 'shift_override' },
+    });
+    (prisma.officeShift.findFirst as jest.Mock).mockResolvedValue({ id: 'shift-1' });
+    (prisma.officeAttendance.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.employeeLeaveRequest.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.officeAttendance.create as jest.Mock).mockResolvedValue({ id: 'absence-1' });
+
+    const result = await finalizeOfficeDailyAbsences(now);
+
+    expect(result).toEqual({ created: 1 });
+    expect(prisma.officeShift.findFirst).toHaveBeenCalled();
+    expect(prisma.officeAttendance.create).toHaveBeenCalled();
+  });
+
+  test('finalizeOfficeDailyAbsences does not use shift-override fallback when no ended shift exists', async () => {
+    const now = new Date('2026-05-05T12:00:00.000Z');
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '1' });
+    (prisma.employee.findMany as jest.Mock).mockResolvedValue([{ id: 'employee-1' }]);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: false,
+      isAfterEnd: false,
+      businessDay: null,
+    });
+    (getOfficeDayOverrideAnchorDates as jest.Mock).mockReturnValue({ currentDateKey: '2026-05-05' });
+    (resolveOfficeDayOverrideAnchorsForEmployee as jest.Mock).mockResolvedValue({
+      currentOverride: { overrideType: 'shift_override' },
+    });
+    (prisma.officeShift.findFirst as jest.Mock).mockResolvedValue(null);
+
+    const result = await finalizeOfficeDailyAbsences(now);
+
+    expect(result).toEqual({ created: 0 });
+    expect(prisma.officeAttendance.create).not.toHaveBeenCalled();
+  });
+
+  test('finalizeOfficeDailyAbsences keeps pending_leave when leave effects are enabled', async () => {
+    const now = new Date('2026-05-05T12:00:00.000Z');
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '1' });
+    (prisma.employee.findMany as jest.Mock).mockResolvedValue([{ id: 'employee-1' }]);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: true,
+      businessDay: { dateKey: '2026-05-05' },
+    });
+    (getOfficeDayOverrideAnchorDates as jest.Mock).mockReturnValue({ currentDateKey: '2026-05-05' });
+    (prisma.officeAttendance.findFirst as jest.Mock).mockResolvedValue({ id: 'attendance-pending-leave' });
+
+    const result = await finalizeOfficeDailyAbsences(now);
+
+    expect(result).toEqual({ created: 0 });
+    expect(prisma.officeAttendance.create).not.toHaveBeenCalled();
+    expect(prisma.officeAttendance.update).not.toHaveBeenCalled();
+  });
+
+  test('resolveRejectedPendingLeaveStatuses updates past pending leave to absent with rejected note', async () => {
+    const now = new Date('2026-05-05T12:00:00.000Z');
+    (prisma.officeAttendance.findMany as jest.Mock).mockResolvedValue([
+      { id: 'pending-1', recordedAt: new Date('2026-05-04T00:00:00.000Z') },
+    ]);
+
+    await resolveRejectedPendingLeaveStatuses({
+      employeeId: 'employee-1',
+      dateKeys: ['2026-05-04'],
+      now,
+    });
+
+    expect(prisma.officeAttendance.update).toHaveBeenCalledWith({
+      where: { id: 'pending-1' },
+      data: { status: 'absent', metadata: { note: 'Rejected leave converted to absent' } },
+    });
+  });
+
+  test('resolveCancelledPendingLeaveStatuses updates past pending leave to absent with cancelled note', async () => {
+    const now = new Date('2026-05-05T12:00:00.000Z');
+    (prisma.officeAttendance.findMany as jest.Mock).mockResolvedValue([
+      { id: 'pending-1', recordedAt: new Date('2026-05-04T00:00:00.000Z') },
+    ]);
+
+    await resolveCancelledPendingLeaveStatuses({
+      employeeId: 'employee-1',
+      dateKeys: ['2026-05-04'],
+      now,
+    });
+
+    expect(prisma.officeAttendance.update).toHaveBeenCalledWith({
+      where: { id: 'pending-1' },
+      data: { status: 'absent', metadata: { note: 'Cancelled leave converted to absent' } },
+    });
+  });
+
+  test('resolveCancelledPendingLeaveStatuses deletes future pending leave rows', async () => {
+    const now = new Date('2026-05-05T12:00:00.000Z');
+    (prisma.officeAttendance.findMany as jest.Mock).mockResolvedValue([
+      { id: 'pending-1', recordedAt: new Date('2026-05-06T00:00:00.000Z') },
+      { id: 'pending-2', recordedAt: new Date('2026-05-06T01:00:00.000Z') },
+    ]);
+
+    await resolveCancelledPendingLeaveStatuses({
+      employeeId: 'employee-1',
+      dateKeys: ['2026-05-06'],
+      now,
+    });
+
+    expect(prisma.officeAttendance.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['pending-1', 'pending-2'] } },
+    });
+    expect(prisma.officeAttendance.update).not.toHaveBeenCalled();
+  });
+
+  test('resolveCancelledPendingLeaveStatuses deletes same-day pending leave before end of attendance window', async () => {
+    const now = new Date('2026-05-05T02:00:00.000Z');
+    (prisma.officeAttendance.findMany as jest.Mock).mockResolvedValue([{ id: 'pending-1' }]);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({ isAfterEnd: false });
+
+    await resolveCancelledPendingLeaveStatuses({
+      employeeId: 'employee-1',
+      dateKeys: ['2026-05-05'],
+      now,
+    });
+
+    expect(prisma.officeAttendance.deleteMany).toHaveBeenCalledWith({
+      where: { id: { in: ['pending-1'] } },
+    });
+    expect(prisma.officeAttendance.update).not.toHaveBeenCalled();
+  });
+
+  test('resolveRejectedPendingLeaveStatuses converts same-day pending leave after end of attendance window', async () => {
+    const now = new Date('2026-05-05T12:00:00.000Z');
+    (prisma.officeAttendance.findMany as jest.Mock).mockResolvedValue([{ id: 'pending-1' }]);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({ isAfterEnd: true });
+
+    await resolveRejectedPendingLeaveStatuses({
+      employeeId: 'employee-1',
+      dateKeys: ['2026-05-05'],
+      now,
+    });
+
+    expect(prisma.officeAttendance.update).toHaveBeenCalledWith({
+      where: { id: 'pending-1' },
+      data: { status: 'absent', metadata: { note: 'Rejected leave converted to absent' } },
+    });
   });
 });

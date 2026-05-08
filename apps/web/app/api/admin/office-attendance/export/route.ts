@@ -5,7 +5,9 @@ import {
   getOfficeAttendanceExportBatch,
   OFFICE_PAID_BREAK_MINUTES,
   getScheduledPaidMinutesForOfficeAttendance,
+  listLeaveRequestsOverlappingOfficeAttendance,
 } from '@repo/database';
+import type { LeaveRequestReason, LeaveRequestStatus } from '@repo/types';
 import { adminHasPermission, getAdminSession } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { canAccessOfficeAttendance } from '@/lib/auth/admin-visibility';
@@ -16,6 +18,7 @@ import {
   OfficeAttendanceMetadataDto,
   SerializedOfficeAttendanceWithRelationsDto,
 } from '@/types/attendance';
+import { getLeaveReasonMeta } from '@/lib/leave-requests';
 
 function escapeCsv(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
@@ -36,6 +39,14 @@ function getWorkMinutes(clockInAt: string, clockOutAt: string | null) {
   return Math.max(0, durationMinutes - breakMinutes);
 }
 
+function parseDateKey(value: string) {
+  return new Date(`${value}T00:00:00Z`);
+}
+
+function toDateKey(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
 export async function GET(request: NextRequest) {
   const session = await getAdminSession();
   if (!session) {
@@ -50,6 +61,7 @@ export async function GET(request: NextRequest) {
   const startDateStr = searchParams.get('startDate');
   const endDateStr = searchParams.get('endDate');
   const officeId = searchParams.get('officeId');
+  const todayEnd = endOfDay(new Date());
 
   const where: Prisma.OfficeAttendanceWhereInput = {};
 
@@ -63,8 +75,12 @@ export async function GET(request: NextRequest) {
       where.businessDate.gte = startOfDay(new Date(startDateStr));
     }
     if (endDateStr) {
-      where.businessDate.lte = endOfDay(new Date(endDateStr));
+      where.businessDate.lte = endOfDay(new Date(endDateStr)) < todayEnd ? endOfDay(new Date(endDateStr)) : todayEnd;
+    } else {
+      where.businessDate.lte = todayEnd;
     }
+  } else {
+    where.businessDate = { lte: todayEnd };
   }
 
   const BATCH_SIZE = 1000;
@@ -129,6 +145,39 @@ export async function GET(request: NextRequest) {
   }
 
   const rows = await buildOfficeAttendanceDisplayRows(records, getScheduledPaidMinutesForOfficeAttendance);
+  const employeeIds = Array.from(new Set(rows.map(row => row.employeeId)));
+  const dateKeys = rows.map(row => row.businessDate);
+  const minDateKey = dateKeys.reduce((min, key) => (key < min ? key : min), dateKeys[0]);
+  const maxDateKey = dateKeys.reduce((max, key) => (key > max ? key : max), dateKeys[0]);
+  const overlappingLeaveRequests =
+    rows.length === 0
+      ? []
+      : await listLeaveRequestsOverlappingOfficeAttendance({
+          employeeIds,
+          startDate: parseDateKey(minDateKey),
+          endDate: parseDateKey(maxDateKey),
+        });
+
+  const leaveRequestsByEmployee = new Map<
+    string,
+    Array<{
+      reason: LeaveRequestReason;
+      status: LeaveRequestStatus;
+      startDate: Date;
+      endDate: Date;
+    }>
+  >();
+  for (const leaveRequest of overlappingLeaveRequests) {
+    const existing = leaveRequestsByEmployee.get(leaveRequest.employeeId) ?? [];
+    existing.push({
+      reason: leaveRequest.reason as LeaveRequestReason,
+      status: leaveRequest.status as LeaveRequestStatus,
+      startDate: leaveRequest.startDate,
+      endDate: leaveRequest.endDate,
+    });
+    leaveRequestsByEmployee.set(leaveRequest.employeeId, existing);
+  }
+
   const scheduledMinutesCache = new Map<string, number>();
   const scheduledMinutesByRow = await Promise.all(
     rows.map(async row => {
@@ -177,17 +226,43 @@ export async function GET(request: NextRequest) {
         'Manual Edit Flag',
         'Edited By',
         'Edit Reason',
+        'Leave Type',
+        'Leave Status',
       ];
 
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
       let chunk = '';
       for (const [index, row] of rows.entries()) {
+        const isNonWorkingStatus =
+          row.displayStatus === 'absent' || row.displayStatus === 'leave' || row.displayStatus === 'pending_leave';
         const scheduledMinutes = scheduledMinutesByRow[index];
-        const workMinutes = getWorkMinutes(row.clockInAt, row.clockOutAt);
+        const workMinutes = isNonWorkingStatus ? null : getWorkMinutes(row.clockInAt, row.clockOutAt);
         const overtimeMinutes = workMinutes == null ? null : Math.max(0, workMinutes - scheduledMinutes);
         const earlyLeaveMinutes = workMinutes == null ? null : Math.max(0, scheduledMinutes - workMinutes);
         const businessDate = new Date(`${row.businessDate}T00:00:00`);
+        const employeeLeaveRequests = leaveRequestsByEmployee.get(row.employeeId) ?? [];
+        const matchingLeave = employeeLeaveRequests.find(leaveRequest => {
+          const startDateKey = toDateKey(leaveRequest.startDate);
+          const endDateKey = toDateKey(leaveRequest.endDate);
+          return startDateKey <= row.businessDate && endDateKey >= row.businessDate;
+        });
+        let leaveType = '';
+        let leaveStatus = '';
+        if (row.displayStatus === 'leave') {
+          if (matchingLeave) {
+            leaveType = getLeaveReasonMeta(matchingLeave.reason).label;
+          }
+          leaveStatus = 'Approved';
+        } else if (row.displayStatus === 'pending_leave') {
+          if (matchingLeave) {
+            leaveType = getLeaveReasonMeta(matchingLeave.reason).label;
+          }
+          leaveStatus = 'Pending';
+        } else if (row.displayStatus === 'absent') {
+          leaveType = 'Unpaid Leave';
+          leaveStatus = matchingLeave?.status === 'rejected' ? 'Rejected' : 'None';
+        }
 
         chunk +=
           [
@@ -203,23 +278,25 @@ export async function GET(request: NextRequest) {
             escapeCsv(row.officeShift?.officeShiftType?.startTime || ''),
             escapeCsv(row.officeShift?.officeShiftType?.endTime || ''),
             '0',
-            format(new Date(row.clockInAt), 'yyyy-MM-dd'),
-            format(new Date(row.clockInAt), 'HH:mm'),
-            formatOptionalNumber(row.clockInMetadata?.distanceMeters),
-            row.clockOutAt ? format(new Date(row.clockOutAt), 'yyyy-MM-dd') : '',
-            row.clockOutAt ? format(new Date(row.clockOutAt), 'HH:mm') : '',
-            formatOptionalNumber(row.clockOutMetadata?.distanceMeters),
-            escapeCsv(row.paidHours || ''),
+            isNonWorkingStatus ? '' : format(new Date(row.clockInAt), 'yyyy-MM-dd'),
+            isNonWorkingStatus ? '' : format(new Date(row.clockInAt), 'HH:mm'),
+            isNonWorkingStatus ? '' : formatOptionalNumber(row.clockInMetadata?.distanceMeters),
+            !isNonWorkingStatus && row.clockOutAt ? format(new Date(row.clockOutAt), 'yyyy-MM-dd') : '',
+            !isNonWorkingStatus && row.clockOutAt ? format(new Date(row.clockOutAt), 'HH:mm') : '',
+            isNonWorkingStatus ? '' : formatOptionalNumber(row.clockOutMetadata?.distanceMeters),
+            isNonWorkingStatus ? '""' : escapeCsv(row.paidHours || ''),
             formatOptionalNumber(workMinutes),
             formatOptionalNumber(overtimeMinutes),
             row.displayStatus,
-            formatOptionalNumber(row.latenessMins),
-            (row.latenessMins ?? 0) > 0 ? 'Yes' : 'No',
+            isNonWorkingStatus ? '' : formatOptionalNumber(row.latenessMins),
+            isNonWorkingStatus ? '' : (row.latenessMins ?? 0) > 0 ? 'Yes' : 'No',
             formatOptionalNumber(earlyLeaveMinutes),
-            row.clockOutAt ? 'No' : 'Yes',
+            isNonWorkingStatus ? '' : row.clockOutAt ? 'No' : 'Yes',
             '',
             '',
             '',
+            escapeCsv(leaveType),
+            escapeCsv(leaveStatus),
           ].join(',') + '\n';
       }
 

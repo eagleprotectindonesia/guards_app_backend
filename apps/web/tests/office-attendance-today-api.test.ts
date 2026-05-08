@@ -98,6 +98,42 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
   });
 
+  test('filters attendances history to present and clocked_out only', async () => {
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-filter-history',
+      role: 'office',
+    });
+    (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([
+      { id: 'a1', status: 'absent', recordedAt: '2026-05-05T08:00:00.000Z' },
+      { id: 'a2', status: 'present', recordedAt: '2026-05-05T09:00:00.000Z' },
+      { id: 'a3', status: 'pending_leave', recordedAt: '2026-05-05T10:00:00.000Z' },
+      { id: 'a4', status: 'clocked_out', recordedAt: '2026-05-05T17:00:00.000Z' },
+    ]);
+    (getOfficeAttendanceInRange as jest.Mock).mockResolvedValue([]);
+    (getLatestOfficeAttendanceForEmployee as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isLate: false,
+      isAfterEnd: false,
+      startMinutes: 8 * 60,
+      endMinutes: 17 * 60,
+      businessDay: {
+        dateKey: '2026-05-05',
+      },
+    });
+
+    const response = await GET();
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.attendances).toEqual([
+      expect.objectContaining({ id: 'a2', status: 'present' }),
+      expect.objectContaining({ id: 'a4', status: 'clocked_out' }),
+    ]);
+  });
+
   test('keeps today schedule display anchored while attendanceState stays real-time', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-display-state-split',
@@ -357,13 +393,71 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
   });
 
+  test('allows canClockIn at 00:01 for an active overnight shift when no open attendance exists', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-04-02T00:01:00.000Z'));
+
+    try {
+      (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+        id: 'employee-midnight-clockin',
+        role: 'office',
+      });
+      (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
+      (getOfficeAttendanceInRange as jest.Mock).mockResolvedValue([]);
+      (getLatestOfficeAttendanceForEmployee as jest.Mock).mockResolvedValue(null);
+      (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+      (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+      (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+        source: 'office_shift',
+        isWorkingDay: true,
+        isLate: true,
+        isAfterEnd: false,
+        shift: {
+          id: 'office-shift-overnight-18-02',
+        },
+        windowStart: new Date('2026-04-01T18:00:00.000Z'),
+        windowEnd: new Date('2026-04-02T02:00:00.000Z'),
+        startMinutes: 18 * 60,
+        endMinutes: 2 * 60,
+        businessDay: {
+          dateKey: '2026-04-01',
+        },
+      });
+
+      const response = await GET();
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.attendanceState).toMatchObject({
+        status: 'available',
+        canClockIn: true,
+        canClockOut: false,
+        windowClosed: false,
+      });
+      expect(data.scheduleContext).toMatchObject({
+        scheduledStartStr: '18:00',
+        scheduledEndStr: '02:00',
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test('keeps overnight shift visible after midnight for clock-out when today list is empty', async () => {
+    const windowStart = new Date(Date.now() - 30 * 60_000);
+    const windowEnd = new Date(Date.now() + 30 * 60_000);
     const windowPresentAttendance = {
       id: 'attendance-overnight-in',
       employeeId: 'employee-overnight',
       officeId: null,
       status: 'present',
       recordedAt: '2026-04-01T16:10:00.000Z',
+      officeShiftId: 'office-shift-overnight',
+      officeShift: {
+        id: 'office-shift-overnight',
+        startsAt: new Date(Date.now() - 2 * 60 * 60_000),
+        endsAt: new Date(Date.now() + 30 * 60_000),
+      },
     };
 
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
@@ -386,8 +480,8 @@ describe('GET /api/employee/my/office-attendance/today', () => {
       shift: {
         id: 'office-shift-overnight',
       },
-      windowStart: new Date('2026-04-01T16:00:00.000Z'),
-      windowEnd: new Date('2026-04-01T20:00:00.000Z'),
+      windowStart,
+      windowEnd,
       startMinutes: 23 * 60,
       endMinutes: 3 * 60,
       businessDay: {
@@ -417,6 +511,8 @@ describe('GET /api/employee/my/office-attendance/today', () => {
   });
 
   test('falls back to a same-business-day present attendance and keeps clock-out available', async () => {
+    const windowStart = new Date(Date.now() - 2 * 60 * 60_000);
+    const windowEnd = new Date(Date.now() + 2 * 60 * 60_000);
     const latestTodayAttendance = {
       id: 'attendance-fallback',
       employeeId: 'employee-5',
@@ -438,8 +534,8 @@ describe('GET /api/employee/my/office-attendance/today', () => {
       isWorkingDay: true,
       isLate: true,
       isAfterEnd: true,
-      windowStart: new Date('2026-04-01T00:00:00.000Z'),
-      windowEnd: new Date('2026-04-01T09:00:00.000Z'),
+      windowStart,
+      windowEnd,
       startMinutes: 8 * 60,
       endMinutes: 17 * 60,
       schedule: {
@@ -608,7 +704,7 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     });
   });
 
-  test('keeps clock-out available after overnight end when latest global attendance is still present', async () => {
+  test('does not allow fallback clock-out when grace anchor is unavailable after overnight end', async () => {
     const openOvernightAttendance = {
       id: 'attendance-overnight-open-late',
       employeeId: 'employee-9',
@@ -645,9 +741,9 @@ describe('GET /api/employee/my/office-attendance/today', () => {
 
     expect(response.status).toBe(200);
     expect(data.attendanceState).toMatchObject({
-      status: 'clocked_in',
+      status: 'non_working_day',
       canClockIn: false,
-      canClockOut: true,
+      canClockOut: false,
       latestAttendance: expect.objectContaining({
         id: 'attendance-overnight-open-late',
         status: 'present',
@@ -656,7 +752,10 @@ describe('GET /api/employee/my/office-attendance/today', () => {
     expect(data.displayAttendances).toEqual([openOvernightAttendance]);
   });
 
-  test('keeps clock-out available before upcoming shift starts when latest global attendance is still present', async () => {
+  test('prioritizes previous-shift open attendance during grace even when an upcoming shift exists', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-04-02T00:30:00.000Z'));
+
     const openPreviousShiftAttendance = {
       id: 'attendance-previous-shift-open',
       employeeId: 'employee-10',
@@ -664,6 +763,11 @@ describe('GET /api/employee/my/office-attendance/today', () => {
       officeShiftId: 'office-shift-previous',
       status: 'present',
       recordedAt: '2026-04-02T03:10:00.000Z',
+      officeShift: {
+        id: 'office-shift-previous',
+        startsAt: new Date('2026-04-01T18:00:00.000Z'),
+        endsAt: new Date('2026-04-02T02:00:00.000Z'),
+      },
     };
 
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
@@ -690,19 +794,68 @@ describe('GET /api/employee/my/office-attendance/today', () => {
       businessDay: { dateKey: '2099-04-02' },
     });
 
+    try {
+      const response = await GET();
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.attendanceState).toMatchObject({
+        status: 'clocked_in',
+        canClockIn: false,
+        canClockOut: true,
+      });
+      expect(data.displayAttendances).toEqual([openPreviousShiftAttendance]);
+      expect(data.scheduleContext).toMatchObject({
+        scheduledStartStr: '18:00',
+        scheduledEndStr: '02:00',
+      });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('keeps display schedule context when prioritized previous open attendance has no shift relation', async () => {
+    const openPreviousShiftAttendanceWithoutRelation = {
+      id: 'attendance-previous-shift-open-no-relation',
+      employeeId: 'employee-11',
+      officeId: null,
+      officeShiftId: 'office-shift-previous',
+      status: 'present',
+      recordedAt: '2026-04-02T03:10:00.000Z',
+    };
+
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-11',
+      role: 'office',
+    });
+    (getTodayOfficeAttendance as jest.Mock).mockResolvedValue([]);
+    (getOfficeAttendanceInRange as jest.Mock).mockResolvedValue([]);
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForEmployee as jest.Mock).mockResolvedValue(openPreviousShiftAttendanceWithoutRelation);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      source: 'office_shift',
+      isWorkingDay: true,
+      isLate: false,
+      isAfterEnd: false,
+      shift: {
+        id: 'office-shift-upcoming',
+      },
+      windowStart: new Date('2099-04-02T10:00:00.000Z'),
+      windowEnd: new Date('2099-04-02T18:00:00.000Z'),
+      startMinutes: 18 * 60,
+      endMinutes: 2 * 60,
+      businessDay: { dateKey: '2099-04-02' },
+    });
+
     const response = await GET();
     const data = await response.json();
 
     expect(response.status).toBe(200);
-    expect(data.attendanceState).toMatchObject({
-      status: 'clocked_in',
-      canClockIn: false,
-      canClockOut: true,
-      latestAttendance: expect.objectContaining({
-        id: 'attendance-previous-shift-open',
-        status: 'present',
-      }),
+    expect(data.scheduleContext).toMatchObject({
+      scheduledStartStr: '18:00',
+      scheduledEndStr: '02:00',
+      businessDateStr: '2099-04-02',
     });
-    expect(data.displayAttendances).toEqual([openPreviousShiftAttendance]);
   });
 });

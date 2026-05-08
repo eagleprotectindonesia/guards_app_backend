@@ -144,3 +144,24 @@ self.addEventListener('fetch', event => {
     })
   );
 });
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+
+  const fallbackUrl = '/employee';
+  const targetUrl = event.notification?.data?.link || fallbackUrl;
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+      for (const client of windowClients) {
+        if ('focus' in client && client.url.includes('/employee')) {
+          return client.focus();
+        }
+      }
+
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});

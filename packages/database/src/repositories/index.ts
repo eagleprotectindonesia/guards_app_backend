@@ -18,6 +18,7 @@ export * from './fcm-tokens';
 export * from './settings';
 export * from './shift-types';
 export * from './shifts';
+export * from './shift-reminders';
 export * from './sites';
 export * from './roles';
 export * from './offices';
