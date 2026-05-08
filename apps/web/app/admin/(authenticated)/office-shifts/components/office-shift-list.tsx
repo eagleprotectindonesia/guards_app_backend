@@ -17,6 +17,7 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 import { OfficeShiftWithRelationsDto } from '@/types/office-shifts';
 import type { EmployeeSummary } from '@repo/database';
 import SortableHeader from '@/components/sortable-header';
+import OfficeShiftExport from './office-shift-export';
 
 type Props = {
   officeShifts: Serialized<OfficeShiftWithRelationsDto>[];
@@ -204,6 +205,10 @@ export default function OfficeShiftList({
               Delete Selected ({selectedOfficeShiftIds.size})
             </button>
           )}
+          <OfficeShiftExport
+            endpoint="/api/admin/office-shifts/export"
+            title="Export Office Shifts"
+          />
           <button
             onClick={() => setIsFilterOpen(true)}
             className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
