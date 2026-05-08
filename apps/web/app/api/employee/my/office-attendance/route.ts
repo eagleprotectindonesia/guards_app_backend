@@ -17,6 +17,7 @@ import {
   OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING,
 } from '@repo/shared';
 import { ZodError } from 'zod';
+import type { OfficeAttendance } from '@repo/types';
 
 function getFallbackAttendanceMode(employee: { officeId?: string | null; fieldModeEnabled?: boolean | null }) {
   if (!employee.officeId) return 'non_office';
@@ -41,6 +42,33 @@ function normalizeAttendanceBusinessDate(value: unknown): Date | undefined {
 function resolveClockOutGraceDeadline(windowEnd: Date | null | undefined) {
   if (!(windowEnd instanceof Date) || Number.isNaN(windowEnd.getTime())) return null;
   return new Date(windowEnd.getTime() + OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS * 60 * 60 * 1000);
+}
+
+type OpenAttendanceLike = Pick<OfficeAttendance, 'status' | 'officeShiftId'> & {
+  officeShift?: {
+    endsAt?: string | Date | null;
+  } | null;
+};
+
+function resolveOpenAttendanceWindowEnd(
+  attendance: OpenAttendanceLike | null | undefined,
+  scheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>
+) {
+  if (!attendance || attendance.status !== 'present') return null;
+  if (attendance.officeShift?.endsAt) {
+    const shiftEnd = new Date(attendance.officeShift.endsAt);
+    if (!Number.isNaN(shiftEnd.getTime())) return shiftEnd;
+  }
+
+  if (scheduleContext.source !== 'office_shift') {
+    return scheduleContext.windowEnd ?? null;
+  }
+
+  if (attendance.officeShiftId && scheduleContext.shift?.id && attendance.officeShiftId === scheduleContext.shift.id) {
+    return scheduleContext.windowEnd ?? null;
+  }
+
+  return null;
 }
 
 export async function POST(req: Request) {
@@ -120,7 +148,7 @@ export async function POST(req: Request) {
     }
 
     if (requestedStatus === 'clocked_out' && latestAttendance?.status === 'present') {
-      const graceDeadline = resolveClockOutGraceDeadline(scheduleContext.windowEnd);
+      const graceDeadline = resolveClockOutGraceDeadline(resolveOpenAttendanceWindowEnd(latestAttendance, scheduleContext));
       if (!graceDeadline || now.getTime() > graceDeadline.getTime()) {
         return NextResponse.json(
           {

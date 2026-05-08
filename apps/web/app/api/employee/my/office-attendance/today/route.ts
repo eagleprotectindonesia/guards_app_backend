@@ -38,6 +38,79 @@ function isWithinClockOutGrace(now: Date, windowEnd: Date | null | undefined) {
   return now.getTime() <= deadline.getTime();
 }
 
+type OpenAttendanceLike = Pick<OfficeAttendance, 'status' | 'officeShiftId'> & {
+  officeShift?: {
+    startsAt?: string | Date | null;
+    endsAt?: string | Date | null;
+  } | null;
+  businessDate?: string | Date | null;
+};
+
+function resolveOpenAttendanceWindowEnd(
+  attendance: OpenAttendanceLike | null | undefined,
+  scheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>
+) {
+  if (!attendance || attendance.status !== 'present') return null;
+  if (attendance.officeShift?.endsAt) {
+    const shiftEnd = new Date(attendance.officeShift.endsAt);
+    if (!Number.isNaN(shiftEnd.getTime())) return shiftEnd;
+  }
+
+  if (scheduleContext.source !== 'office_shift') {
+    return scheduleContext.windowEnd ?? null;
+  }
+
+  if (attendance.officeShiftId && scheduleContext.shift?.id && attendance.officeShiftId === scheduleContext.shift.id) {
+    return scheduleContext.windowEnd ?? null;
+  }
+
+  return null;
+}
+
+function resolveDisplayContext(params: {
+  displayScheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>;
+  prioritizedOpenAttendance: OpenAttendanceLike | null;
+}) {
+  const { displayScheduleContext, prioritizedOpenAttendance } = params;
+  const shiftStartsAt = prioritizedOpenAttendance?.officeShift?.startsAt
+    ? new Date(prioritizedOpenAttendance.officeShift.startsAt)
+    : null;
+  const shiftEndsAt = prioritizedOpenAttendance?.officeShift?.endsAt
+    ? new Date(prioritizedOpenAttendance.officeShift.endsAt)
+    : null;
+
+  if (
+    !prioritizedOpenAttendance?.officeShift ||
+    !shiftStartsAt ||
+    !shiftEndsAt ||
+    Number.isNaN(shiftStartsAt.getTime()) ||
+    Number.isNaN(shiftEndsAt.getTime())
+  ) {
+    return {
+      ...displayScheduleContext,
+      holidayPolicy: displayScheduleContext.holidayPolicy ?? null,
+      businessDateStr: displayScheduleContext.businessDay?.dateKey ?? null,
+      scheduledStartStr: formatMinutesAsTime(displayScheduleContext.startMinutes),
+      scheduledEndStr: formatMinutesAsTime(displayScheduleContext.endMinutes),
+    };
+  }
+
+  const attendanceBusinessDate =
+    prioritizedOpenAttendance.businessDate != null ? new Date(prioritizedOpenAttendance.businessDate) : null;
+  const businessDateStr =
+    attendanceBusinessDate && !Number.isNaN(attendanceBusinessDate.getTime())
+      ? attendanceBusinessDate.toISOString().slice(0, 10)
+      : shiftStartsAt.toISOString().slice(0, 10);
+
+  return {
+    ...displayScheduleContext,
+    holidayPolicy: displayScheduleContext.holidayPolicy ?? null,
+    businessDateStr,
+    scheduledStartStr: formatMinutesAsTime(shiftStartsAt.getUTCHours() * 60 + shiftStartsAt.getUTCMinutes()),
+    scheduledEndStr: formatMinutesAsTime(shiftEndsAt.getUTCHours() * 60 + shiftEndsAt.getUTCMinutes()),
+  };
+}
+
 function getOfficeAttendanceState(params: {
   scheduleContext: Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>;
   latestAttendance: OfficeAttendance | null;
@@ -207,9 +280,28 @@ export async function GET() {
       latestAttendanceForEmployee?.status === 'present' &&
       !stateScheduleContext.shift;
     const fallbackOpenAttendance = shouldUseOpenAttendanceFallback ? latestAttendanceForEmployee : null;
-    const effectiveOpenAttendance = latestAttendance ?? fallbackOpenAttendance;
+    const previousOpenAttendanceCandidate =
+      stateScheduleContext.source === 'office_shift' &&
+      latestAttendanceForEmployee?.status === 'present' &&
+      latestAttendanceForEmployee.officeShiftId &&
+      stateScheduleContext.shift?.id &&
+      latestAttendanceForEmployee.officeShiftId !== stateScheduleContext.shift.id
+        ? latestAttendanceForEmployee
+        : null;
+    const previousOpenAttendanceWindowEnd = resolveOpenAttendanceWindowEnd(
+      previousOpenAttendanceCandidate,
+      stateScheduleContext
+    );
+    const shouldPrioritizePreviousOpenAttendance =
+      previousOpenAttendanceCandidate != null && isWithinClockOutGrace(now, previousOpenAttendanceWindowEnd);
+    const prioritizedOpenAttendance = shouldPrioritizePreviousOpenAttendance ? previousOpenAttendanceCandidate : null;
+    const effectiveOpenAttendance = prioritizedOpenAttendance ?? latestAttendance ?? fallbackOpenAttendance;
+    const effectiveOpenAttendanceWindowEnd = resolveOpenAttendanceWindowEnd(
+      effectiveOpenAttendance,
+      stateScheduleContext
+    );
     const canClockOutOpenAttendance =
-      effectiveOpenAttendance?.status === 'present' && isWithinClockOutGrace(now, stateScheduleContext.windowEnd);
+      effectiveOpenAttendance?.status === 'present' && isWithinClockOutGrace(now, effectiveOpenAttendanceWindowEnd);
     const attendanceState = getOfficeAttendanceState({
       scheduleContext: stateScheduleContext,
       latestAttendance: effectiveOpenAttendance,
@@ -218,18 +310,23 @@ export async function GET() {
       canClockOutOpenAttendance,
     });
     const filteredAttendances = attendances.filter(attendance => isClockHistoryStatus(attendance.status));
+    const scheduleContext = resolveDisplayContext({
+      displayScheduleContext,
+      prioritizedOpenAttendance,
+    });
 
     return NextResponse.json({
       attendances: filteredAttendances,
-      displayAttendances: attendances.length > 0 ? attendances : fallbackOpenAttendance ? [fallbackOpenAttendance] : windowAttendances,
+      displayAttendances:
+        attendances.length > 0
+          ? attendances
+          : prioritizedOpenAttendance
+            ? [prioritizedOpenAttendance]
+            : fallbackOpenAttendance
+              ? [fallbackOpenAttendance]
+              : windowAttendances,
       attendanceState,
-      scheduleContext: {
-        ...displayScheduleContext,
-        holidayPolicy: displayScheduleContext.holidayPolicy ?? null,
-        businessDateStr: displayScheduleContext.businessDay?.dateKey ?? null,
-        scheduledStartStr: formatMinutesAsTime(displayScheduleContext.startMinutes),
-        scheduledEndStr: formatMinutesAsTime(displayScheduleContext.endMinutes),
-      },
+      scheduleContext,
     });
   } catch (error: unknown) {
     console.error('Error fetching today office attendance:', error);
