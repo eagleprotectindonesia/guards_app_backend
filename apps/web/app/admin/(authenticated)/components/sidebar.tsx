@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type MouseEvent } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
@@ -8,6 +8,7 @@ import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@repo/shared';
 import { ADMIN_SECONDARY_NAV_ITEMS, getAdminNavItems, type NavItem } from '@/lib/admin-navigation';
 import { useSession } from '../context/session-context';
+import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
 
 type Props = {
   officeWorkSchedulesEnabled: boolean;
@@ -18,6 +19,15 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
   const { hasPermission } = useSession();
+  const { pendingHref, startNavigation } = useAdminNavigationPending();
+
+  const handlePendingNavigation = (href: string) => (event: MouseEvent<HTMLAnchorElement>) => {
+    if (event.defaultPrevented) return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+    if (pathname === href) return;
+
+    startNavigation(href);
+  };
 
   const navGroups = useMemo(() => {
     const navItems = getAdminNavItems(officeWorkSchedulesEnabled);
@@ -82,9 +92,11 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
       <div className="h-16 flex items-center justify-between px-4 border-b border-border relative group">
         <Link
           href="/admin/dashboard"
+          onClick={handlePendingNavigation('/admin/dashboard')}
           className={cn(
             'flex items-center overflow-hidden transition-all duration-300',
-            isCollapsed ? 'justify-center w-full' : 'w-full'
+            isCollapsed ? 'justify-center w-full' : 'w-full',
+            pendingHref === '/admin/dashboard' && 'opacity-70 cursor-progress'
           )}
         >
           <div className={cn('relative h-10 transition-all duration-300', isCollapsed ? 'w-10' : 'w-48')}>
@@ -147,15 +159,19 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
               <div className="space-y-1">
                 {group.items.map(item => {
                   const isActive = pathname.startsWith(item.href);
+                  const isPending = pendingHref === item.href;
 
                   return (
                     <Link
                       key={item.name}
                       href={item.href}
+                      onClick={handlePendingNavigation(item.href)}
                       title={isCollapsed ? item.name : undefined}
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                        isActive
+                        isPending
+                          ? 'bg-red-50 text-red-700 dark:bg-red-950/25 dark:text-red-300 cursor-progress'
+                          : isActive
                           ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
                           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                         isCollapsed && 'justify-center px-2'
@@ -164,7 +180,11 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       <item.icon
                         className={cn(
                           'w-5 h-5 shrink-0',
-                          isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+                          isPending
+                            ? 'text-red-700 dark:text-red-300 animate-pulse'
+                            : isActive
+                              ? 'text-red-600 dark:text-red-400'
+                              : 'text-muted-foreground'
                         )}
                       />
                       <span
@@ -189,15 +209,19 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
               <div className="space-y-1">
                 {group.items.map(item => {
                   const isActive = pathname.startsWith(item.href);
+                  const isPending = pendingHref === item.href;
 
                   return (
                     <Link
                       key={item.name}
                       href={item.href}
+                      onClick={handlePendingNavigation(item.href)}
                       title={item.name}
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors justify-center px-2',
-                        isActive
+                        isPending
+                          ? 'bg-red-50 text-red-700 dark:bg-red-950/25 dark:text-red-300 cursor-progress'
+                          : isActive
                           ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
                           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                       )}
@@ -205,7 +229,11 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       <item.icon
                         className={cn(
                           'w-5 h-5 shrink-0',
-                          isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+                          isPending
+                            ? 'text-red-700 dark:text-red-300 animate-pulse'
+                            : isActive
+                              ? 'text-red-600 dark:text-red-400'
+                              : 'text-muted-foreground'
                         )}
                       />
                       <span className="opacity-0 w-0 hidden">{item.name}</span>

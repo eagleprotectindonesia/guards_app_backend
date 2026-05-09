@@ -6,6 +6,7 @@ import { getPaginatedShiftTypes } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedShiftTypeWithAdminInfoDto } from '@/types/shift-types';
+import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
   title: 'Guard Shift Types Management',
@@ -43,7 +44,7 @@ export default async function ShiftTypesPage(props: ShiftTypesPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading guard shift types...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={7} />}>
         <ShiftTypeList
           shiftTypes={serializedShiftTypes}
           page={page}

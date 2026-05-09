@@ -15,6 +15,7 @@ import {
   parseSortOrderParam,
   parseStatusesParam,
 } from './filters';
+import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
   title: 'Leave Requests Management',
@@ -84,7 +85,7 @@ export default async function LeaveRequestsPage(props: LeaveRequestsPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading leave requests...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <LeaveRequestList
           leaveRequests={serializedLeaveRequests}
           page={page}

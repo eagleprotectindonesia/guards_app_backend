@@ -9,6 +9,7 @@ import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import type { SerializedOfficeShiftWithRelationsDto } from '@/types/office-shifts';
 import type { EmployeeSummary } from '@repo/database';
+import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
   title: 'Office Shifts Management',
@@ -102,7 +103,7 @@ export default async function OfficeShiftsPage({
     <div className="max-w-7xl mx-auto">
       <OfficeShiftsTabs />
 
-      <Suspense fallback={<div>Loading office shifts...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <OfficeShiftList
           officeShifts={officeShiftDtos}
           employees={employeeOptions}

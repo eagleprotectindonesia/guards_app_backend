@@ -7,6 +7,7 @@ import { getActiveEmployeesSummary } from '@repo/database';
 import { getPaginatedCheckins } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,7 +63,7 @@ export default async function CheckinsPage(props: CheckinsPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading guard check-ins...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <CheckinList
           checkins={serializedCheckins}
           page={page}

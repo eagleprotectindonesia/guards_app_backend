@@ -8,6 +8,7 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 import type { EmployeeSummary } from '@repo/database';
 import GuardShiftsTabs from '../components/guard-shifts-tabs';
 import OnsiteDayOffList from '../components/onsite-day-off-list';
+import { AdminListSkeleton } from '../../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
   title: 'Onsite Employee Day Offs',
@@ -37,7 +38,7 @@ export default async function GuardDayOffsPage({
     <div className="max-w-7xl mx-auto">
       <GuardShiftsTabs />
 
-      <Suspense fallback={<div>Loading day offs...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={7} />}>
         <OnsiteDayOffList
           startDate={startDate}
           endDate={endDate || undefined}

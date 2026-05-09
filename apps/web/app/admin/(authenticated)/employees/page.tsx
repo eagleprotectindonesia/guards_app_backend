@@ -14,6 +14,7 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 import { applyEmployeeVisibilityScope } from '@/lib/auth/admin-visibility';
 import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 import { resolveEmployeeVisibilityAccessContext } from '@/lib/auth/leave-ownership';
+import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
   title: 'Employees Management',
@@ -95,7 +96,7 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading employees...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <EmployeeList
           employees={serializedEmployees}
           showOfficeWorkSchedules={officeWorkSchedulesEnabled}

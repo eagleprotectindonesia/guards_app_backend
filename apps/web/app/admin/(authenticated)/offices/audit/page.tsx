@@ -10,6 +10,7 @@ import { getAllOffices } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
+import { AdminListSkeleton } from '../../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
   title: 'Office Audit Logs',
@@ -105,7 +106,7 @@ export default async function OfficeAuditPage(props: PageProps) {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading logs...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <ChangelogList
           changelogs={serializedChangelogs}
           page={page}

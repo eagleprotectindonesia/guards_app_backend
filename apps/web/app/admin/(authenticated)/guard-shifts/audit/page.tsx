@@ -8,6 +8,7 @@ import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { AdminListSkeleton } from '../../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
   title: 'Shift Audit Logs',
@@ -87,7 +88,7 @@ export default async function ShiftAuditPage(props: PageProps) {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading logs...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <ChangelogList
           changelogs={serializedChangelogs}
           page={page}

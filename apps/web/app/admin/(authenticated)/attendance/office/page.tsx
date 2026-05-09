@@ -21,6 +21,7 @@ import {
   buildOfficeAttendanceDisplayRows,
   paginateOfficeAttendanceDisplayRows,
 } from './office-attendance-display';
+import { AdminListSkeleton } from '../../components/loading/admin-list-skeleton';
 
 export const dynamic = 'force-dynamic';
 
@@ -131,7 +132,7 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
   return (
     <div className="max-w-7xl mx-auto py-8">
       <AttendanceTabs />
-      <Suspense fallback={<div>Loading office attendances...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <OfficeAttendanceList
           attendances={paginatedAttendances}
           page={page}

@@ -5,6 +5,7 @@ import { ChatMessage } from '@/types/chat';
 import { MessageSquare, Loader2 } from 'lucide-react';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { ChatMessageBubble } from './message-bubble';
+import { LoadingBlock } from '../loading/loading-block';
 
 interface ChatMessageListProps {
   messages: ChatMessage[];
@@ -118,9 +119,21 @@ export function ChatMessageList({
 
   if (isLoading && messages.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-2 bg-muted/5">
-        <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
-        <p className="text-sm text-muted-foreground">Loading messages...</p>
+      <div className="flex h-full flex-col gap-4 bg-muted/5 p-6">
+        <div className="flex items-center gap-3">
+          <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+          <div className="space-y-2">
+            <LoadingBlock className="h-4 w-48" />
+            <LoadingBlock className="h-3 w-32" />
+          </div>
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className={index % 2 === 0 ? 'flex justify-start' : 'flex justify-end'}>
+              <LoadingBlock className="h-14 w-3/5 rounded-2xl" />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

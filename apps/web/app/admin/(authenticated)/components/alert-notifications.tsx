@@ -8,10 +8,12 @@ import { cn } from '@repo/shared';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
 
 export default function AlertNotifications() {
   const { isMuted, setIsMuted, alerts, isAlertsInitialized } = useAlerts();
   const pathname = usePathname();
+  const { pendingHref, startNavigation } = useAdminNavigationPending();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const activeAlerts = alerts.filter(
@@ -124,10 +126,30 @@ export default function AlertNotifications() {
 
           <div className="flex flex-col gap-2">
             <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white border-0">
-              <Link href="/admin/dashboard">Go to Dashboard</Link>
+              <Link
+                href="/admin/dashboard"
+                onClick={event => {
+                  if (event.defaultPrevented) return;
+                  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                  startNavigation('/admin/dashboard');
+                }}
+                className={pendingHref === '/admin/dashboard' ? 'opacity-70 cursor-progress' : undefined}
+              >
+                Go to Dashboard
+              </Link>
             </Button>
             <Button asChild variant="outline" className="w-full">
-              <Link href="/admin/alerts">View All Alerts</Link>
+              <Link
+                href="/admin/alerts"
+                onClick={event => {
+                  if (event.defaultPrevented) return;
+                  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                  startNavigation('/admin/alerts');
+                }}
+                className={pendingHref === '/admin/alerts' ? 'opacity-70 cursor-progress' : undefined}
+              >
+                View All Alerts
+              </Link>
             </Button>
           </div>
         </PopoverContent>

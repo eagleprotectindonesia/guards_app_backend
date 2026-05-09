@@ -5,6 +5,7 @@ import type { Metadata } from 'next';
 import { getPaginatedSites } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
   title: 'Sites Management',
@@ -32,7 +33,7 @@ export default async function SitesPage(props: SitesPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading sites...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={7} />}>
         <SiteList sites={serializedSites} page={page} perPage={perPage} totalCount={totalCount} />
       </Suspense>
     </div>
