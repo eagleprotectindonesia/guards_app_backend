@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { findAdminByEmail } from '@repo/database';
-import { AUTH_COOKIES, AUTH_COOKIE_SECURE, JWT_SECRET } from '@/lib/auth/constants';
+import { AUTH_COOKIES, AUTH_COOKIE_SECURE, getJwtSecret } from '@/lib/auth/constants';
 import { verifyPassword } from '@repo/database';
 import { redis } from '@repo/database/redis';
 
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
       // Set a short-lived temporary token for 2FA verification
       const tempToken = jwt.sign(
         { adminId: admin.id, pending2FA: true }, 
-        JWT_SECRET, 
+        getJwtSecret(), 
         { expiresIn: '5m' }
       );
 
@@ -76,7 +76,11 @@ export async function POST(req: Request) {
     await redis.set(cacheKey, admin.tokenVersion.toString(), 'EX', 3600); // 1 hour
 
     // Generate JWT token
-    const token = jwt.sign({ adminId: admin.id, email: admin.email, tokenVersion: admin.tokenVersion }, JWT_SECRET, { expiresIn: '30d' });
+    const token = jwt.sign(
+      { adminId: admin.id, email: admin.email, tokenVersion: admin.tokenVersion },
+      getJwtSecret(),
+      { expiresIn: '30d' }
+    );
 
     // Set the token as an HTTP-only cookie
     const response = new NextResponse(JSON.stringify({ message: 'Login successful' }), {

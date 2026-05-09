@@ -1,4 +1,12 @@
-export const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+export function getJwtSecret() {
+  const secret = process.env.JWT_SECRET;
+
+  if (!secret && process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET is required in production');
+  }
+
+  return secret || 'supersecretjwtkey';
+}
 
 const isExplicitFalse = (value?: string) => value === 'false' || value === '0';
 const isExplicitTrue = (value?: string) => value === 'true' || value === '1';

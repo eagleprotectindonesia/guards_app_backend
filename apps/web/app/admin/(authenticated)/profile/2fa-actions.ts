@@ -5,8 +5,7 @@ import jwt from 'jsonwebtoken';
 import { getAdminById, updateAdminWithChangelog } from '@repo/database';
 import { generate2FASecret, generateQRCode, verify2FAToken } from '@/lib/auth/2fa';
 import { revalidatePath } from 'next/cache';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+import { getJwtSecret } from '@/lib/auth/constants';
 
 async function getAdminIdFromSession() {
   const cookieStore = await cookies();
@@ -15,7 +14,7 @@ async function getAdminIdFromSession() {
   if (!token) return null;
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { adminId: string };
+    const decoded = jwt.verify(token, getJwtSecret()) as { adminId: string };
     return decoded.adminId;
   } catch {
     return null;

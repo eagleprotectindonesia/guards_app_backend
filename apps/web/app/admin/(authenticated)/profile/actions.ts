@@ -6,8 +6,7 @@ import jwt from 'jsonwebtoken';
 import { getAdminById, updateAdminWithChangelog } from '@repo/database';
 import { hashPassword, verifyPassword } from '@repo/database';
 import { redis } from '@repo/database/redis';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+import { getJwtSecret } from '@/lib/auth/constants';
 
 const changePasswordSchema = z
   .object({
@@ -51,7 +50,7 @@ export async function changePassword(prevState: ChangePasswordState, formData: F
 
   let adminId: string;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { adminId: string };
+    const decoded = jwt.verify(token, getJwtSecret()) as { adminId: string };
     adminId = decoded.adminId;
   } catch (error) {
     console.error('Invalid session:', error);
@@ -90,7 +89,7 @@ export async function changePassword(prevState: ChangePasswordState, formData: F
     // 5. Generate NEW token with the NEW version and set it to keep current session active
     const newToken = jwt.sign(
       { adminId: updatedAdmin.id, email: updatedAdmin.email, tokenVersion: updatedAdmin.tokenVersion },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '30d' }
     );
 

@@ -4,7 +4,7 @@ import { cookies } from 'next/headers';
 import { getAdminById } from '@repo/database';
 import { redis } from '@repo/database/redis';
 import { verify2FAToken } from '@/lib/auth/2fa';
-import { AUTH_COOKIES, AUTH_COOKIE_SECURE, JWT_SECRET } from '@/lib/auth/constants';
+import { AUTH_COOKIES, AUTH_COOKIE_SECURE, getJwtSecret } from '@/lib/auth/constants';
 
 export async function POST(req: Request) {
   try {
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
 
     let adminId: string;
     try {
-      const decoded = jwt.verify(pendingToken, JWT_SECRET) as { adminId: string; pending2FA: boolean };
+      const decoded = jwt.verify(pendingToken, getJwtSecret()) as { adminId: string; pending2FA: boolean };
       if (!decoded.pending2FA) throw new Error('Invalid token type');
       adminId = decoded.adminId;
     } catch {
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
 
     const token = jwt.sign(
       { adminId: admin.id, email: admin.email, tokenVersion: admin.tokenVersion }, 
-      JWT_SECRET, 
+      getJwtSecret(), 
       { expiresIn: '30d' }
     );
 

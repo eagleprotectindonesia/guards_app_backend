@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { db as prisma } from '@repo/database';
 import { redis } from '@repo/database/redis';
-import { JWT_SECRET, SESSION_CACHE_TTL } from './constants';
+import { getJwtSecret, SESSION_CACHE_TTL } from './constants';
 import { RolePolicy } from '@repo/validations';
 import { normalizeRolePolicy } from './admin-visibility';
 
@@ -24,40 +24,48 @@ export interface SessionResult {
   user?: unknown;
 }
 
+function createInvalidSessionResult(reason: SessionResult['reason']): SessionResult {
+  return {
+    isValid: false,
+    reason,
+    userId: null,
+    role: null,
+    roleName: null,
+    permissions: [],
+    rolePolicy: normalizeRolePolicy(null),
+  };
+}
+
 export async function verifySession(token: string, type: UserRole): Promise<SessionResult> {
   if (!token) {
-    return {
-      isValid: false,
-      reason: 'missing_token',
-      userId: null,
-      role: null,
-      roleName: null,
-      permissions: [],
-      rolePolicy: normalizeRolePolicy(null),
-    };
+    return createInvalidSessionResult('missing_token');
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as {
+    let decoded: {
       adminId?: string;
       employeeId?: string;
       guardId?: string;
       tokenVersion?: number;
       sessionId?: string;
     };
+
+    try {
+      decoded = jwt.verify(token, getJwtSecret()) as typeof decoded;
+    } catch (error) {
+      if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
+        console.warn(`[Auth] Invalid session token for ${type}:`, error);
+        return createInvalidSessionResult('invalid_token');
+      }
+
+      throw error;
+    }
+
     const userId = type === 'admin' ? decoded.adminId : (decoded.employeeId || decoded.guardId);
     const sessionId = decoded.sessionId;
 
     if (!userId) {
-      return {
-        isValid: false,
-        reason: 'invalid_token',
-        userId: null,
-        role: null,
-        roleName: null,
-        permissions: [],
-        rolePolicy: normalizeRolePolicy(null),
-      };
+      return createInvalidSessionResult('invalid_token');
     }
 
     const versionCacheKey = type === 'admin' ? `admin:token_version:${userId}` : null;
@@ -117,15 +125,7 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
         }
       } else {
         if (!sessionId) {
-          return {
-            isValid: false,
-            reason: 'invalid_token',
-            userId: null,
-            role: null,
-            roleName: null,
-            permissions: [],
-            rolePolicy: normalizeRolePolicy(null),
-          };
+          return createInvalidSessionResult('invalid_token');
         }
 
         const employee = await prisma.employee.findUnique({

@@ -14,8 +14,7 @@ jest.mock('../lib/auth/session', () => ({
   verifySession: jest.fn(),
 }));
 
-// Mock getEmployeeById
-jest.mock('@/lib/data-access/employees', () => ({
+jest.mock('@repo/database', () => ({
   getEmployeeById: jest.fn(),
 }));
 

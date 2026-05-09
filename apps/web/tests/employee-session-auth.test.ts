@@ -2,14 +2,14 @@ const mockRedisGet = jest.fn();
 const mockRedisSet = jest.fn();
 const mockEmployeeFindUnique = jest.fn();
 
-jest.mock('@/lib/redis', () => ({
+jest.mock('@repo/database/redis', () => ({
   redis: {
     get: mockRedisGet,
     set: mockRedisSet,
   },
 }));
 
-jest.mock('@/lib/prisma', () => ({
+jest.mock('@repo/database', () => ({
   db: {
     employee: {
       findUnique: mockEmployeeFindUnique,
@@ -22,10 +22,24 @@ jest.mock('@/lib/prisma', () => ({
 
 import jwt from 'jsonwebtoken';
 import { verifySession } from '@/lib/auth/session';
+import { DEFAULT_ROLE_POLICY } from '@/lib/auth/admin-visibility';
+import { getJwtSecret } from '@/lib/auth/constants';
 
 describe('verifySession employee sessions', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  test('classifies malformed tokens as invalid tokens', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await verifySession('not-a-jwt', 'employee');
+
+    expect(result.isValid).toBe(false);
+    expect(result.reason).toBe('invalid_token');
+    expect(mockEmployeeFindUnique).not.toHaveBeenCalled();
+
+    warnSpy.mockRestore();
   });
 
   test('accepts an active employee session', async () => {
@@ -35,7 +49,7 @@ describe('verifySession employee sessions', () => {
         sessionId: 'session-1',
         clientType: 'mobile',
       },
-      process.env.JWT_SECRET || 'supersecretjwtkey'
+      getJwtSecret()
     );
 
     mockEmployeeFindUnique.mockResolvedValue({
@@ -58,6 +72,7 @@ describe('verifySession employee sessions', () => {
       role: 'employee',
       roleName: null,
       permissions: [],
+      rolePolicy: DEFAULT_ROLE_POLICY,
     });
   });
 
@@ -66,7 +81,7 @@ describe('verifySession employee sessions', () => {
       {
         employeeId: 'emp-1',
       },
-      process.env.JWT_SECRET || 'supersecretjwtkey'
+      getJwtSecret()
     );
 
     const result = await verifySession(token, 'employee');
@@ -81,7 +96,7 @@ describe('verifySession employee sessions', () => {
         employeeId: 'emp-1',
         sessionId: 'session-1',
       },
-      process.env.JWT_SECRET || 'supersecretjwtkey'
+      getJwtSecret()
     );
 
     mockEmployeeFindUnique.mockResolvedValue({

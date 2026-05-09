@@ -5,7 +5,7 @@ import { prisma, getEmployeeSessionExpiry } from '@repo/database';
 import { redis } from '@repo/database/redis';
 import { z } from 'zod';
 import { cookies } from 'next/headers';
-import { AUTH_COOKIES, AUTH_COOKIE_SECURE, JWT_SECRET } from '@/lib/auth/constants';
+import { AUTH_COOKIES, AUTH_COOKIE_SECURE, getJwtSecret } from '@/lib/auth/constants';
 
 const loginSchema = z.object({
   biometricToken: z.string().min(1),
@@ -89,7 +89,7 @@ export async function POST(req: Request) {
         sessionId: session.id,
         clientType: 'mobile' 
       }, 
-      JWT_SECRET, 
+      getJwtSecret(), 
       { expiresIn: '1d' }
     );
     

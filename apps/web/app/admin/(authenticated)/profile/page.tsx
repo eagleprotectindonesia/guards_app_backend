@@ -3,15 +3,14 @@ import { redirect } from 'next/navigation';
 import jwt from 'jsonwebtoken';
 import { getAdminById } from '@repo/database';
 import ProfileClient from './profile-client';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+import { getJwtSecret } from '@/lib/auth/constants';
 
 export default async function ProfilePage() {
   // Parent layout already validates the token
   const cookieStore = await cookies();
   const token = cookieStore.get('admin_token')!;
   
-  const { adminId } = jwt.verify(token.value, JWT_SECRET) as { adminId: string };
+  const { adminId } = jwt.verify(token.value, getJwtSecret()) as { adminId: string };
 
   const admin = await getAdminById(adminId);
 

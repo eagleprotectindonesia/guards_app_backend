@@ -5,7 +5,7 @@ import { prisma, getEmployeeSessionExpiry } from '@repo/database';
 import { redis } from '@repo/database/redis';
 import { z } from 'zod';
 import { DEFAULT_PASSWORD, verifyPassword } from '@repo/database';
-import { AUTH_COOKIES, AUTH_COOKIE_SECURE, JWT_SECRET } from '@/lib/auth/constants';
+import { AUTH_COOKIES, AUTH_COOKIE_SECURE, getJwtSecret } from '@/lib/auth/constants';
 
 type EmployeeClientType = 'mobile' | 'pwa';
 
@@ -129,7 +129,7 @@ export async function POST(req: Request) {
         sessionId: session.id,
         clientType,
       },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '1d' }
     );
 
