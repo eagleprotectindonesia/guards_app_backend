@@ -258,6 +258,14 @@ async function shouldConvertNoDocSickLeaveToAnnual(params: {
   return true;
 }
 
+export function buildManagerApprovalFields(params: { adminId: string; now: Date; adminNote?: string | null }) {
+  return {
+    managerApprovedById: params.adminId,
+    managerApprovedAt: params.now,
+    managerApprovalNote: params.adminNote ?? null,
+  };
+}
+
 function parseHrApprovalReasons(rawValue: string | null | undefined) {
   if (!rawValue) return new Set<LeaveRequestReason>();
   try {
@@ -1046,6 +1054,7 @@ async function finalizeApprovedLeaveRequest(
       reviewedById: params.adminId,
       reviewedAt: now,
       adminNote: params.adminNote ?? null,
+      ...buildManagerApprovalFields({ adminId: params.adminId, now, adminNote: params.adminNote }),
       isPaid: outcome.isPaid,
       deductedAnnualDays: outcome.deductedAnnualDays,
       unpaidDays: outcome.unpaidDays,

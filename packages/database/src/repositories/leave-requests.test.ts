@@ -1,5 +1,6 @@
 import {
   OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR,
+  buildManagerApprovalFields,
   createEmployeeLeaveRequest,
   getPaginatedEmployeeLeaveRequestsForAdmin,
   listEmployeeLeaveRequestsForAdmin,
@@ -233,6 +234,20 @@ describe('leave-requests repository admin queries', () => {
     });
 
     expect(upsertOfficeLeaveStatusesForDateKeys).not.toHaveBeenCalled();
+  });
+
+  test('buildManagerApprovalFields mirrors reviewer data for direct approvals', () => {
+    expect(
+      buildManagerApprovalFields({
+        adminId: 'admin-1',
+        now: new Date('2026-05-09T00:00:00Z'),
+        adminNote: 'Approved',
+      })
+    ).toEqual({
+      managerApprovedById: 'admin-1',
+      managerApprovedAt: new Date('2026-05-09T00:00:00Z'),
+      managerApprovalNote: 'Approved',
+    });
   });
 
 });
