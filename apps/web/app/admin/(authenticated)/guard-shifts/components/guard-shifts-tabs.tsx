@@ -1,7 +1,7 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { AdminNavLink } from '../../components/admin-nav-link';
 
 export default function GuardShiftsTabs() {
   const pathname = usePathname();
@@ -14,7 +14,7 @@ export default function GuardShiftsTabs() {
 
   return (
     <div className="flex border-b border-border mb-6">
-      <Link
+      <AdminNavLink
         href={shiftsHref}
         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
           activeTab === 'shifts'
@@ -23,8 +23,8 @@ export default function GuardShiftsTabs() {
         }`}
       >
         Guard Shifts
-      </Link>
-      <Link
+      </AdminNavLink>
+      <AdminNavLink
         href={dayOffsHref}
         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
           activeTab === 'day-offs'
@@ -33,7 +33,7 @@ export default function GuardShiftsTabs() {
         }`}
       >
         🌴 Day Offs
-      </Link>
+      </AdminNavLink>
     </div>
   );
 }

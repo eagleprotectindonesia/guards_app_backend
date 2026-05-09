@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Checkin, Shift, Site } from '@prisma/client';
 import type { EmployeeSummary } from '@repo/database';
 import type { Serialized } from '@/lib/server-utils';
@@ -11,6 +11,7 @@ import CheckinFilterModal from './checkin-filter-modal';
 import CheckinExport from './checkin-export';
 import { format } from 'date-fns';
 import { JsonValue } from '@prisma/client/runtime/client';
+import { useAdminRouter } from '../../context/admin-router';
 
 // Define the type for a Checkin with its relations
 // Define a type for the checkin metadata that includes location information
@@ -61,7 +62,7 @@ export default function CheckinList({
   initialFilters,
 }: CheckinListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const router = useRouter();
+  const router = useAdminRouter();
   const searchParams = useSearchParams();
 
   const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => {

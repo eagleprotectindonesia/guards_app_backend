@@ -4,8 +4,8 @@ import { useMemo, useState, useTransition } from 'react';
 import { addMonths, eachDayOfInterval, endOfMonth, format, isSameDay, isWithinInterval, parseISO, startOfMonth, subMonths } from 'date-fns';
 import { createHolidayCalendarEntryAction, deleteHolidayCalendarEntryAction, updateHolidayCalendarEntryAction } from '../actions';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
 import HolidayEntryModal, { type HolidayEntry, type HolidayType, type HolidayScope } from './holiday-entry-modal';
+import { useAdminRouter } from '../../context/admin-router';
 
 type Props = {
   initialMonth: string;
@@ -29,7 +29,7 @@ function typeBadgeClass(type: HolidayType) {
 }
 
 export default function HolidayCalendarClient({ initialMonth, entries, departmentOptions }: Props) {
-  const router = useRouter();
+  const router = useAdminRouter();
   const [isPending, startTransition] = useTransition();
   const [monthDate, setMonthDate] = useState<Date>(parseISO(`${initialMonth}-01`));
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
@@ -38,7 +38,8 @@ export default function HolidayCalendarClient({ initialMonth, entries, departmen
 
   const navigateMonth = (nextMonth: Date) => {
     setMonthDate(nextMonth);
-    router.push(`/admin/holiday-calendars?month=${format(nextMonth, 'yyyy-MM')}`);
+    const href = `/admin/holiday-calendars?month=${format(nextMonth, 'yyyy-MM')}`;
+    router.push(href);
   };
 
   const gridDays = useMemo(() => {

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Breadcrumb,
@@ -13,20 +12,11 @@ import {
 import React from 'react';
 import { Home } from 'lucide-react';
 import { ADMIN_LABEL_MAP } from '@/lib/admin-navigation';
-import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
+import { AdminNavLink } from './admin-nav-link';
 
 export function AdminBreadcrumb() {
   const pathname = usePathname();
-  const { pendingHref, startNavigation } = useAdminNavigationPending();
   const allPaths = pathname.split('/').filter(Boolean);
-
-  const handlePendingNavigation = (href: string) => (event: React.MouseEvent<HTMLAnchorElement>) => {
-    if (event.defaultPrevented) return;
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    if (pathname === href) return;
-
-    startNavigation(href);
-  };
 
   // Create objects with path and original index to ensure correct href generation
   const paths = allPaths
@@ -38,14 +28,13 @@ export function AdminBreadcrumb() {
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
-            <Link
+            <AdminNavLink
               href="/admin/dashboard"
-              onClick={handlePendingNavigation('/admin/dashboard')}
-              className={pendingHref === '/admin/dashboard' ? 'flex items-center gap-1 opacity-70 cursor-progress' : 'flex items-center gap-1'}
+              className="flex items-center gap-1"
             >
               <Home className="h-4 w-4" />
               <span className="sr-only">Home</span>
-            </Link>
+            </AdminNavLink>
           </BreadcrumbLink>
         </BreadcrumbItem>
 
@@ -62,13 +51,12 @@ export function AdminBreadcrumb() {
                   <BreadcrumbPage>{label}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink asChild>
-                    <Link
+                    <AdminNavLink
                       href={href}
-                      onClick={handlePendingNavigation(href)}
-                      className={pendingHref === href ? 'opacity-70 cursor-progress' : undefined}
+                      className="opacity-100"
                     >
                       {label}
-                    </Link>
+                    </AdminNavLink>
                   </BreadcrumbLink>
                 )}
               </BreadcrumbItem>

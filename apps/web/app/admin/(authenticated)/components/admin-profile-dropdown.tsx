@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { User, LogOut, ChevronDown } from 'lucide-react';
 import {
   DropdownMenu,
@@ -15,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { AdminSession } from '@/lib/admin-auth';
 import Image from 'next/image';
 import { getInitials } from '@repo/shared';
-import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
+import { AdminNavLink } from './admin-nav-link';
 
 interface AdminProfileDropdownProps {
   currentAdmin: AdminSession;
@@ -23,7 +22,6 @@ interface AdminProfileDropdownProps {
 
 export default function AdminProfileDropdown({ currentAdmin }: AdminProfileDropdownProps) {
   const router = useRouter();
-  const { pendingHref, startNavigation } = useAdminNavigationPending();
 
   const handleLogout = async () => {
     try {
@@ -67,18 +65,13 @@ export default function AdminProfileDropdown({ currentAdmin }: AdminProfileDropd
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer">
-          <Link
+          <AdminNavLink
             href="/admin/profile"
-            onClick={event => {
-              if (event.defaultPrevented) return;
-              if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-              startNavigation('/admin/profile');
-            }}
-            className={pendingHref === '/admin/profile' ? 'flex items-center w-full opacity-70 cursor-progress' : 'flex items-center w-full'}
+            className="flex items-center w-full"
           >
             <User className="mr-2 h-4 w-4" />
             <span>Profile</span>
-          </Link>
+          </AdminNavLink>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

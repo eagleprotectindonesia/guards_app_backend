@@ -1,7 +1,6 @@
 'use client';
 
 import { useActionState, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { addMonths, format, parseISO } from 'date-fns';
 import toast from 'react-hot-toast';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -11,6 +10,7 @@ import { ActionState } from '@/types/actions';
 import { OfficeMemoInput } from '@repo/validations';
 import { createOfficeMemoAction, updateOfficeMemoAction } from '../actions';
 import { SerializedOfficeMemoWithAdminInfoDto } from '@/types/office-memos';
+import { useAdminRouter } from '../../context/admin-router';
 
 type Props = {
   officeMemo?: SerializedOfficeMemoWithAdminInfoDto;
@@ -19,7 +19,7 @@ type Props = {
 
 export default function OfficeMemoForm({ officeMemo, departmentOptions }: Props) {
   const isEditMode = Boolean(officeMemo);
-  const router = useRouter();
+  const router = useAdminRouter();
   const [state, formAction, isPending] = useActionState<ActionState<OfficeMemoInput>, FormData>(
     officeMemo ? updateOfficeMemoAction.bind(null, officeMemo.id) : createOfficeMemoAction,
     { success: false }

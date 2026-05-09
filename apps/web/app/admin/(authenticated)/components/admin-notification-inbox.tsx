@@ -1,13 +1,12 @@
 'use client';
 
 import { Bell } from 'lucide-react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAdminNotifications } from '../context/admin-notification-context';
 import { useSession } from '../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
+import { AdminNavLink } from './admin-nav-link';
 
 function formatTimestamp(value: string) {
   return new Date(value).toLocaleString('en-GB', {
@@ -21,7 +20,6 @@ function formatTimestamp(value: string) {
 export default function AdminNotificationInbox() {
   const { hasPermission } = useSession();
   const { notifications, unreadCount, isInitialized, markVisibleAsRead } = useAdminNotifications();
-  const { pendingHref, startNavigation } = useAdminNavigationPending();
   const canViewLeaveRequests = hasPermission(PERMISSIONS.LEAVE_REQUESTS.VIEW);
 
   if (!canViewLeaveRequests || !isInitialized) {
@@ -56,17 +54,12 @@ export default function AdminNotificationInbox() {
                   : '/admin/leave-requests';
 
               return (
-                <Link
+                <AdminNavLink
                   key={notification.id}
                   href={targetPath}
-                  onClick={event => {
-                    if (event.defaultPrevented) return;
-                    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                    startNavigation(targetPath);
-                  }}
                   className={`block px-4 py-3 border-b last:border-b-0 hover:bg-muted/50 ${
                     notification.readAt ? '' : 'bg-primary/5'
-                  } ${pendingHref === targetPath ? 'opacity-70 cursor-progress' : ''}`}
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-sm font-medium">{notification.title}</p>
@@ -75,7 +68,7 @@ export default function AdminNotificationInbox() {
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">{notification.body}</p>
-                </Link>
+                </AdminNavLink>
               );
             })}
           </div>

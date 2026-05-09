@@ -11,13 +11,14 @@ import { EditButton, DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Upload, ArrowUpDown, ArrowUp, ArrowDown, History } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { ShiftWithRelationsDto } from '@/types/shifts';
 import type { EmployeeSummary } from '@repo/database';
+import { useAdminRouter } from '../../context/admin-router';
 
 type ShiftListProps = {
   shifts: Serialized<ShiftWithRelationsDto>[];
@@ -47,7 +48,7 @@ export default function ShiftList({
   perPage,
   totalCount,
 }: ShiftListProps) {
-  const router = useRouter();
+  const router = useAdminRouter();
   const searchParams = useSearchParams();
   const { hasPermission, isSuperAdmin } = useSession();
 
@@ -209,6 +210,7 @@ export default function ShiftList({
           {canViewAudit && (
             <Link
               href="/admin/guard-shifts/audit"
+              onClick={() => router.push('/admin/guard-shifts/audit')}
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
             >
               <History className="mr-2 h-4 w-4" />
@@ -218,6 +220,7 @@ export default function ShiftList({
           {canCreate && (
             <Link
               href="/admin/guard-shifts/create"
+              onClick={() => router.push('/admin/guard-shifts/create')}
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
             >
               <span className="mr-2 text-lg leading-none">+</span>

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Download, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import PaginationNav from '../../components/pagination-nav';
@@ -11,6 +11,7 @@ import LeaveExportModal from './leave-export-modal';
 import { SerializedLeaveRequestAdminListItemDto } from '@/types/leave-requests';
 import SortableHeader from '@/components/sortable-header';
 import { getLeaveReasonMeta } from '@/lib/leave-requests';
+import { useAdminRouter } from '../../context/admin-router';
 
 type LeaveRequestListProps = {
   leaveRequests: SerializedLeaveRequestAdminListItemDto[];
@@ -74,7 +75,7 @@ export default function LeaveRequestList({
 }: LeaveRequestListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
-  const router = useRouter();
+  const router = useAdminRouter();
   const searchParams = useSearchParams();
 
   const handleApplyFilters = (filters: {
@@ -172,6 +173,10 @@ export default function LeaveRequestList({
         <div className="flex gap-2 items-center">
           <Link
             href="/admin/leave-balances"
+            onClick={event => {
+              event.preventDefault();
+              router.push('/admin/leave-balances');
+            }}
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
           >
             Leave Balances

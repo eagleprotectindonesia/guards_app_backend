@@ -9,8 +9,7 @@ import OfficeShiftFilterModal from './office-shift-filter-modal';
 import { EditButton, DeleteButton } from '../../components/action-buttons';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { Upload, History } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
@@ -18,6 +17,8 @@ import { OfficeShiftWithRelationsDto } from '@/types/office-shifts';
 import type { EmployeeSummary } from '@repo/database';
 import SortableHeader from '@/components/sortable-header';
 import OfficeShiftExport from './office-shift-export';
+import { useAdminRouter } from '../../context/admin-router';
+import { AdminNavLink } from '../../components/admin-nav-link';
 
 type Props = {
   officeShifts: Serialized<OfficeShiftWithRelationsDto>[];
@@ -48,7 +49,7 @@ export default function OfficeShiftList({
   perPage,
   totalCount,
 }: Props) {
-  const router = useRouter();
+  const router = useAdminRouter();
   const searchParams = useSearchParams();
   const { hasPermission, isSuperAdmin } = useSession();
 
@@ -181,7 +182,8 @@ export default function OfficeShiftList({
     }
 
     params.set('page', '1');
-    router.push(`/admin/office-shifts?${params.toString()}`);
+    const href = `/admin/office-shifts?${params.toString()}`;
+    router.push(href);
   };
 
   const activeFiltersCount = [startDate, endDate, employeeId, department].filter(Boolean).length;
@@ -242,22 +244,22 @@ export default function OfficeShiftList({
             </button>
           )}
           {canViewAudit && (
-            <Link
+            <AdminNavLink
               href="/admin/office-shifts/audit"
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
             >
               <History className="mr-2 h-4 w-4" />
               Audit Log
-            </Link>
+            </AdminNavLink>
           )}
           {canCreate && (
-            <Link
+            <AdminNavLink
               href="/admin/office-shifts/create"
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
             >
               <span className="mr-2 text-lg leading-none">+</span>
               Schedule Office Shift
-            </Link>
+            </AdminNavLink>
           )}
         </div>
       </div>

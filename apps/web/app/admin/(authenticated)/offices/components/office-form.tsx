@@ -8,7 +8,7 @@ import { useActionState, useEffect, useState, useCallback, useRef } from 'react'
 import toast from 'react-hot-toast';
 import { APIProvider, Map, Marker, useMapsLibrary, MapMouseEvent, useMap } from '@vis.gl/react-google-maps';
 import { Office } from '@prisma/client';
-import { useRouter } from 'next/navigation';
+import { useAdminRouter } from '../../context/admin-router';
 
 type Props = {
   office: Serialized<Office>; // Always an edit form — offices come from external sync
@@ -158,7 +158,7 @@ function LocationSearchInput({
 }
 
 export default function OfficeForm({ office }: Props) {
-  const router = useRouter();
+  const router = useAdminRouter();
   const [state, formAction, isPending] = useActionState<ActionState<UpdateOfficeInput>, FormData>(
     updateOffice.bind(null, office.id),
     { success: false }

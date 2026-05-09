@@ -7,10 +7,10 @@ import ConfirmDialog from '../../components/confirm-dialog';
 import { EditButton, DeleteButton } from '../../components/action-buttons';
 import toast from 'react-hot-toast';
 import PaginationNav from '../../components/pagination-nav';
-import Link from 'next/link';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { ShieldCheck } from 'lucide-react';
+import { AdminNavLink } from '../../components/admin-nav-link';
 
 type AdminListProps = {
   admins: SerializedAdminWithRoleDto[];
@@ -56,13 +56,13 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
           <p className="text-sm text-muted-foreground mt-1">Manage system administrators.</p>
         </div>
         {canCreate && (
-          <Link
+          <AdminNavLink
             href="/admin/admins/create"
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/30"
           >
             <span className="mr-2 text-lg leading-none">+</span>
             Add Admin
-          </Link>
+          </AdminNavLink>
         )}
       </div>
 

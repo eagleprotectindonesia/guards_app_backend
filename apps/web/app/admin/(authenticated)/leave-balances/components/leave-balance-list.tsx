@@ -2,10 +2,10 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { adjustAnnualLeaveBalanceAction } from '../actions';
+import { useAdminRouter } from '../../context/admin-router';
 
 type EmployeeOption = {
   id: string;
@@ -37,8 +37,8 @@ type Props = {
 };
 
 export default function LeaveBalanceList({ rows, page, perPage, totalCount, year, employeeId, employees }: Props) {
-  const router = useRouter();
   const { hasPermission } = useSession();
+  const adminRouter = useAdminRouter();
   const canEdit = hasPermission(PERMISSIONS.LEAVE_REQUESTS.EDIT);
   const [isPending, startTransition] = useTransition();
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(rows[0]?.employee.id ?? '');
@@ -56,7 +56,8 @@ export default function LeaveBalanceList({ rows, page, perPage, totalCount, year
     if (next.employeeId) {
       params.set('employeeId', next.employeeId);
     }
-    router.push(`/admin/leave-balances?${params.toString()}`);
+    const href = `/admin/leave-balances?${params.toString()}`;
+    adminRouter.push(href);
   };
 
   const goToPage = (nextPage: number) => {
@@ -68,7 +69,8 @@ export default function LeaveBalanceList({ rows, page, perPage, totalCount, year
     if (employeeId) {
       params.set('employeeId', employeeId);
     }
-    router.push(`/admin/leave-balances?${params.toString()}`);
+    const href = `/admin/leave-balances?${params.toString()}`;
+    adminRouter.push(href);
   };
 
   const submitAdjustment = () => {
@@ -100,23 +102,25 @@ export default function LeaveBalanceList({ rows, page, perPage, totalCount, year
       toast.success(result.message || 'Annual leave balance adjusted.');
       setAdjustDays('1');
       setNote('');
-      router.refresh();
+      adminRouter.refresh();
     });
   };
 
   return (
     <div className="space-y-6">
       <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Annual Leave Balances</h1>
             <p className="text-sm text-muted-foreground mt-1">View yearly leave balances and apply manual adjustments with audit notes.</p>
           </div>
           <button
             type="button"
-            onClick={() => router.push('/admin/leave-requests')}
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
-          >
+            onClick={() => {
+              adminRouter.push('/admin/leave-requests');
+            }}
+          className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
+        >
             Leave Requests
           </button>
         </div>
@@ -131,7 +135,7 @@ export default function LeaveBalanceList({ rows, page, perPage, totalCount, year
               type="number"
               className="mt-1 w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
               value={year}
-              onChange={event => applyFilter({ year: Number(event.target.value), employeeId })}
+                onChange={event => applyFilter({ year: Number(event.target.value), employeeId })}
             />
           </div>
           <div>
@@ -251,7 +255,14 @@ export default function LeaveBalanceList({ rows, page, perPage, totalCount, year
                 <td className="px-4 py-3 text-sm text-foreground">{row.consumedDays}</td>
                 <td className="px-4 py-3 text-sm font-semibold text-foreground">{row.availableDays}</td>
                 <td className="px-4 py-3 text-sm">
-                  <a href={`/admin/employees/${row.employee.id}/edit`} className="text-blue-600 hover:text-blue-700 hover:underline">
+                  <a
+                    href={`/admin/employees/${row.employee.id}/edit`}
+                    onClick={event => {
+                      event.preventDefault();
+                      adminRouter.push(`/admin/employees/${row.employee.id}/edit`);
+                    }}
+                    className="text-blue-600 hover:text-blue-700 hover:underline"
+                  >
                     Open Employee
                   </a>
                 </td>

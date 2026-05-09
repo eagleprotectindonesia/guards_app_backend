@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from '../../context/session-context';
+import { AdminNavLink } from '../../components/admin-nav-link';
 
 export default function AttendanceTabs() {
   const pathname = usePathname();
@@ -11,7 +11,7 @@ export default function AttendanceTabs() {
 
   return (
     <div className="flex border-b border-border mb-6">
-      <Link
+      <AdminNavLink
         href="/admin/attendance"
         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
           activeTab === 'shifts'
@@ -20,9 +20,9 @@ export default function AttendanceTabs() {
         }`}
       >
         Shift Attendance
-      </Link>
+      </AdminNavLink>
       {canAccessOfficeAttendance && (
-        <Link
+        <AdminNavLink
           href="/admin/attendance/office"
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'office'
@@ -31,7 +31,7 @@ export default function AttendanceTabs() {
           }`}
         >
           Office Attendance
-        </Link>
+        </AdminNavLink>
       )}
     </div>
   );

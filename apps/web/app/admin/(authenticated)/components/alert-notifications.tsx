@@ -6,14 +6,12 @@ import { Volume2, VolumeX, Bell, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@repo/shared';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
+import { AdminNavLink } from './admin-nav-link';
 
 export default function AlertNotifications() {
   const { isMuted, setIsMuted, alerts, isAlertsInitialized } = useAlerts();
   const pathname = usePathname();
-  const { pendingHref, startNavigation } = useAdminNavigationPending();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const activeAlerts = alerts.filter(
@@ -126,30 +124,20 @@ export default function AlertNotifications() {
 
           <div className="flex flex-col gap-2">
             <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white border-0">
-              <Link
+              <AdminNavLink
                 href="/admin/dashboard"
-                onClick={event => {
-                  if (event.defaultPrevented) return;
-                  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                  startNavigation('/admin/dashboard');
-                }}
-                className={pendingHref === '/admin/dashboard' ? 'opacity-70 cursor-progress' : undefined}
+                className="w-full"
               >
                 Go to Dashboard
-              </Link>
+              </AdminNavLink>
             </Button>
             <Button asChild variant="outline" className="w-full">
-              <Link
+              <AdminNavLink
                 href="/admin/alerts"
-                onClick={event => {
-                  if (event.defaultPrevented) return;
-                  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                  startNavigation('/admin/alerts');
-                }}
-                className={pendingHref === '/admin/alerts' ? 'opacity-70 cursor-progress' : undefined}
+                className="w-full"
               >
                 View All Alerts
-              </Link>
+              </AdminNavLink>
             </Button>
           </div>
         </PopoverContent>

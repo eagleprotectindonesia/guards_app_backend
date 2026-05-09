@@ -9,7 +9,7 @@ import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { Key, Download, History, MessageSquare, RefreshCw, Pencil, Upload } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
 import Search from '../../components/search';
 import { useSession } from '../../context/session-context';
@@ -17,6 +17,7 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 import { syncEmployeesAction, getAllEmployeesForExport } from '../actions';
 import { format } from 'date-fns';
 import { enUS } from 'date-fns/locale';
+import { useAdminRouter } from '../../context/admin-router';
 
 type EmployeeListProps = {
   employees: Serialized<EmployeeWithRelationsAndSchedule>[];
@@ -41,7 +42,7 @@ export default function EmployeeList({
   lastSyncTimestamp,
   lastSyncDuplicateWarning,
 }: EmployeeListProps) {
-  const router = useRouter();
+  const router = useAdminRouter();
   const searchParams = useSearchParams();
   const { hasPermission } = useSession();
   const [passwordModalData, setPasswordModalData] = useState<{ id: string; name: string } | null>(null);
@@ -191,6 +192,10 @@ export default function EmployeeList({
           {canViewAudit && (
             <Link
               href="/admin/employees/audit"
+              onClick={event => {
+                event.preventDefault();
+                router.push('/admin/employees/audit');
+              }}
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted/50 transition-colors shadow-sm w-full md:w-auto"
             >
               <History className="mr-2 h-4 w-4" />

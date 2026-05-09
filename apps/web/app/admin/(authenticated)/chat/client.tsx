@@ -8,11 +8,13 @@ import { useSession } from '../context/session-context';
 import { ConversationList } from '../components/chat/conversation-list';
 import { ChatMessageList } from '../components/chat/message-list';
 import { ChatAttachmentPreviews } from '../components/chat/attachment-previews';
+import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
 
 export function AdminChatClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const { startNavigation } = useAdminNavigationPending();
   const employeeIdParam = searchParams.get('employeeId');
   const employeeNameParam = searchParams.get('employeeName');
   const employeeNumberParam = searchParams.get('employeeNumber');
@@ -35,16 +37,18 @@ export function AdminChatClient() {
         const currentUrl = currentQuery ? `${pathname}?${currentQuery}` : pathname;
 
         if (nextUrl !== currentUrl) {
+          startNavigation(nextUrl);
           router.replace(nextUrl, { scroll: false });
         }
         return;
       }
 
       if (currentQuery) {
+        startNavigation(pathname);
         router.replace(pathname, { scroll: false });
       }
     },
-    [currentQuery, pathname, router]
+    [currentQuery, pathname, router, startNavigation]
   );
 
   const chatOptions = useMemo(

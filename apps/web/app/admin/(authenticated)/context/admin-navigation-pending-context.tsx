@@ -19,8 +19,22 @@ export function AdminNavigationPendingProvider({ children }: { children: React.R
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   useEffect(() => {
-    setPendingHref(null);
+    const timeout = window.setTimeout(() => {
+      setPendingHref(null);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
   }, [pathname, searchParamsString]);
+
+  useEffect(() => {
+    if (!pendingHref) return;
+
+    const timeout = window.setTimeout(() => {
+      setPendingHref(null);
+    }, 8000);
+
+    return () => window.clearTimeout(timeout);
+  }, [pendingHref]);
 
   const startNavigation = useCallback((href: string) => {
     setPendingHref(href);
