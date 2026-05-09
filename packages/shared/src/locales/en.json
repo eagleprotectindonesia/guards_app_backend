@@ -172,6 +172,8 @@
     "share_location": "Share location",
     "limit_reached": "Limit reached",
     "limit_reached_desc": "You can only attach up to 4 files.",
+    "video_size_limit": "Video too large",
+    "video_size_limit_desc": "Videos must be 20 MB or smaller.",
     "pick_error": "Error",
     "pick_error_desc": "Failed to pick files.",
     "camera_permission": "Permission required",

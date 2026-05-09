@@ -172,6 +172,8 @@
     "share_location": "Bagikan lokasi",
     "limit_reached": "Batas tercapai",
     "limit_reached_desc": "Anda hanya dapat melampirkan hingga 4 file.",
+    "video_size_limit": "Video terlalu besar",
+    "video_size_limit_desc": "Ukuran video harus 20 MB atau kurang.",
     "pick_error": "Kesalahan",
     "pick_error_desc": "Gagal memilih file.",
     "camera_permission": "Izin diperlukan",
