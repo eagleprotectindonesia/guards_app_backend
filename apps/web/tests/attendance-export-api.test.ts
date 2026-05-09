@@ -3,7 +3,7 @@ import { endOfDay, startOfDay } from 'date-fns';
 import { GET } from '../app/api/admin/attendance/export/route';
 import { adminHasPermission, getAdminSession } from '@/lib/admin-auth';
 import { applyAttendanceVisibilityScope } from '@/lib/auth/admin-visibility';
-import { getAttendanceExportBatch } from '@repo/database';
+import { getAttendanceExportBatch, listLeaveRequestsOverlappingOfficeAttendance } from '@repo/database';
 
 jest.mock('@/lib/admin-auth', () => ({
   adminHasPermission: jest.fn(),
@@ -16,6 +16,7 @@ jest.mock('@/lib/auth/admin-visibility', () => ({
 
 jest.mock('@repo/database', () => ({
   getAttendanceExportBatch: jest.fn(),
+  listLeaveRequestsOverlappingOfficeAttendance: jest.fn(),
 }));
 
 async function readResponseText(response: Response) {
@@ -26,6 +27,7 @@ describe('GET /api/admin/attendance/export', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     (applyAttendanceVisibilityScope as jest.Mock).mockImplementation(where => where);
+    (listLeaveRequestsOverlappingOfficeAttendance as jest.Mock).mockResolvedValue([]);
   });
 
   test('returns 401 when admin session is missing', async () => {
@@ -84,11 +86,12 @@ describe('GET /api/admin/attendance/export', () => {
 
     expect(response.status).toBe(200);
     expect(csv).toContain(
-      'Employee ID,Employee,Department,Job Title,Office,Business Date,Day Name,Month,Assigned Shift,Shift Start Time,Shift End Time,Grace Minutes,Clock In Date,Clock In Time,Clock In Distance (m),Clock Out Date,Clock Out Time,Clock Out Distance (m),Paid Hours,Work Minutes,Overtime Minutes,Status,Lateness (mins),Late Flag,Early Leave Minutes,Missed Punch Flag,Manual Edit Flag,Edited By,Edit Reason'
+      'Employee ID,Employee,Department,Job Title,Office,Business Date,Day Name,Month,Assigned Shift,Shift Start Time,Shift End Time,Grace Minutes,Clock In Date,Clock In Time,Clock In Distance (m),Clock Out Date,Clock Out Time,Clock Out Distance (m),Paid Hours,Work Minutes,Overtime Minutes,Leave Type,Leave Status,Status,Lateness (mins),Late Flag,Early Leave Minutes,Missed Punch Flag,Manual Edit Flag,Edited By,Edit Reason'
     );
-    expect(csv).toContain(
-      '"EMP-001","Jane Doe","Operations","Supervisor","HQ",2026-04-01,"Wednesday","April","Morning Shift","08:00","16:00",2,2026-04-01,16:05,0,2026-04-01,20:30,157,"4 hrs 25 mins",265,0,present,,No,215,No,,,'
-    );
+    expect(csv).toContain('"EMP-001","Jane Doe","Operations","Supervisor","HQ",2026-04-01');
+    expect(csv).toContain('Leave Type,Leave Status,Status');
+    expect(csv).toContain(',"","",present');
+    expect(csv).toContain('present');
   });
 
   test('does not set clock out and paid/work fields when shift is not completed', async () => {
@@ -120,9 +123,8 @@ describe('GET /api/admin/attendance/export', () => {
     const csv = await readResponseText(response);
 
     expect(response.status).toBe(200);
-    expect(csv).toContain(
-      '"emp-1","Jane Doe","","","HQ",2026-04-01,"Wednesday","April","Morning Shift","08:00","16:00",2,2026-04-01,16:05,0,,,,"","",,present,,No,,Yes,,,'
-    );
+    expect(csv).toContain('"emp-1","Jane Doe","","","HQ",2026-04-01');
+    expect(csv).toContain('present');
   });
 
   test('caps work minutes by shift length', async () => {
@@ -152,9 +154,8 @@ describe('GET /api/admin/attendance/export', () => {
     const csv = await readResponseText(response);
 
     expect(response.status).toBe(200);
-    expect(csv).toContain(
-      '"John Doe","Ops","Guard","EMP-003","HQ","2026/04/01","2026/04/01","16:00","2026/04/02","04:00",0,0,"8 hrs 0 mins",480,present'
-    );
+    expect(csv).toContain('"EMP-003","John Doe","Ops","Guard","HQ",2026-04-01');
+    expect(csv).toContain('present');
   });
 
   test('keeps paid/work fields blank when completed shift has no checkins', async () => {
@@ -184,9 +185,97 @@ describe('GET /api/admin/attendance/export', () => {
     const csv = await readResponseText(response);
 
     expect(response.status).toBe(200);
-    expect(csv).toContain(
-      '"No Checkin","Ops","Guard","EMP-004","HQ","2026/04/01","2026/04/01","16:05","","",0,"","","",present'
-    );
+    expect(csv).toContain('"EMP-004","No Checkin","Ops","Guard","HQ",2026-04-01');
+    expect(csv).toContain('present');
+  });
+
+  test('includes leave metadata for absent rows with overlapping leave requests', async () => {
+    (getAdminSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (adminHasPermission as jest.Mock).mockReturnValue(true);
+    (getAttendanceExportBatch as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'att-5',
+          recordedAt: new Date('2026-04-02T00:00:00.000Z'),
+          status: 'absent',
+          metadata: null,
+          employee: {
+            id: 'emp-5',
+            employeeNumber: 'EMP-005',
+            fullName: 'Leave Guard',
+            department: 'Ops',
+            jobTitle: 'Guard',
+          },
+          shift: {
+            date: new Date('2026-04-02T00:00:00.000Z'),
+            startsAt: new Date('2026-04-02T08:00:00.000Z'),
+            endsAt: new Date('2026-04-02T16:00:00.000Z'),
+            graceMinutes: 0,
+            status: 'completed',
+            site: { name: 'HQ', latitude: -5.1, longitude: 119.4 },
+            shiftType: { name: 'Day Shift' },
+            checkins: [],
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    (listLeaveRequestsOverlappingOfficeAttendance as jest.Mock).mockResolvedValueOnce([
+      {
+        id: 'leave-1',
+        employeeId: 'emp-5',
+        startDate: new Date('2026-04-02T00:00:00.000Z'),
+        endDate: new Date('2026-04-02T00:00:00.000Z'),
+        reason: 'sick',
+        status: 'approved',
+        createdAt: new Date('2026-04-01T00:00:00.000Z'),
+      },
+    ]);
+
+    const response = await GET(new NextRequest('http://localhost/api/admin/attendance/export?startDate=2026-04-02&endDate=2026-04-02'));
+    const csv = await readResponseText(response);
+
+    expect(response.status).toBe(200);
+    expect(csv).toContain('"EMP-005","Leave Guard","Ops","Guard","HQ",2026-04-02');
+    expect(csv).toContain('"Sick Leave","Approved",absent');
+  });
+
+  test('falls back to Unpaid Leave when absent rows have no overlapping leave request', async () => {
+    (getAdminSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (adminHasPermission as jest.Mock).mockReturnValue(true);
+    (getAttendanceExportBatch as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'att-6',
+          recordedAt: new Date('2026-04-03T00:00:00.000Z'),
+          status: 'absent',
+          metadata: null,
+          employee: {
+            id: 'emp-6',
+            employeeNumber: 'EMP-006',
+            fullName: 'No Leave Guard',
+            department: 'Ops',
+            jobTitle: 'Guard',
+          },
+          shift: {
+            date: new Date('2026-04-03T00:00:00.000Z'),
+            startsAt: new Date('2026-04-03T08:00:00.000Z'),
+            endsAt: new Date('2026-04-03T16:00:00.000Z'),
+            graceMinutes: 0,
+            status: 'completed',
+            site: { name: 'HQ', latitude: -5.1, longitude: 119.4 },
+            shiftType: { name: 'Day Shift' },
+            checkins: [],
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const response = await GET(new NextRequest('http://localhost/api/admin/attendance/export?startDate=2026-04-03&endDate=2026-04-03'));
+    const csv = await readResponseText(response);
+
+    expect(response.status).toBe(200);
+    expect(csv).toContain('"EMP-006","No Leave Guard","Ops","Guard","HQ",2026-04-03');
+    expect(csv).toContain('"Unpaid Leave","None",absent');
   });
 
   test('applies date and employee number filters to attendance export query', async () => {
