@@ -323,7 +323,7 @@
     "selectSubtypeMessage": "Choose one leave type below",
     "policyDescription": "Policy Description",
     "reasonDescription": {
-      "sick": "Allowed: 1 day per cycle (21st-20th). More than 1 day requires a valid doctor certificate. Without documentation, additional days will be unpaid or deducted from Annual Leave. Cycle example: 21 June-20 July.",
+      "sick": "Sick leave without documentation will be converted to Annual Leave deduction during manager approval.",
       "family_marriage": "3 days paid leave for employee's marriage.",
       "family_child_marriage": "2 days paid leave for child's marriage.",
       "family_child_circumcision_baptism": "2 days paid leave for child's ceremony.",

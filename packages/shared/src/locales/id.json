@@ -323,7 +323,7 @@
     "selectSubtypeMessage": "Pilih salah satu jenis izin/cuti di bawah",
     "policyDescription": "Deskripsi Kebijakan",
     "reasonDescription": {
-      "sick": "Diizinkan: 1 hari per siklus (tanggal 21-20). Lebih dari 1 hari memerlukan surat dokter yang valid. Tanpa dokumen, hari tambahan akan tidak dibayar atau dipotong dari Cuti Tahunan. Contoh siklus: 21 Juni-20 Juli.",
+      "sick": "Izin sakit tanpa dokumen akan dikonversi menjadi potongan Cuti Tahunan saat persetujuan manajer.",
       "family_marriage": "3 hari cuti berbayar untuk pernikahan karyawan.",
       "family_child_marriage": "2 hari cuti berbayar untuk pernikahan anak.",
       "family_child_circumcision_baptism": "2 hari cuti berbayar untuk acara anak.",

@@ -157,7 +157,7 @@ Usage:
   - `special_paternity` allowed for `male` only
 - Document-required rules:
   - `special_miscarriage` requires attachment/document.
-  - `sick` request exceeding 1 working day in any sick cycle (`21st -> 20th`) without attachment is auto-converted to `annual` during manager approval flow.
+  - `sick` request without attachment is auto-converted to `annual` during manager approval flow.
 - State transitions:
   - `pending -> approved`
   - `pending -> rejected`
@@ -189,13 +189,8 @@ Usage:
 - Working day mode for deductions:
   - `office`: office overrides only (`shift_override` counted as working day; no override means non-working), still filtered by holiday policy.
   - `on_site`: provisional 7-day baseline (all calendar days except explicit OFF records) at approval time when future shift coverage is incomplete, then reconciled to finalized shift coverage.
-- Sick cycle is anchored by period `21st -> 20th`:
-  - date `21..end-of-month` => cycle start = current month day 21
-  - date `1..20` => cycle start = previous month day 21
-- Multi-cycle sick requests are evaluated per cycle bucket (not only request start cycle).
 - Sick policy:
-  - no-document sick is allowed up to 1 working day per cycle
-  - if a pending no-document sick request exceeds 1 working day in a cycle, manager approval converts it to `annual`
+  - any pending no-document sick request is converted to `annual` by manager approval
   - after conversion, annual policy is applied (including shortfall/unpaid behavior)
 - `special_emergency` always deducts annual leave and rejects if balance is insufficient.
 - `annual` leave deducts annual leave and rejects if balance is insufficient.
