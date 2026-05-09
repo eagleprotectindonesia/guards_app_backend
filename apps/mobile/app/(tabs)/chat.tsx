@@ -93,7 +93,7 @@ export default function ChatScreen() {
 
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images', 'videos'],
+        mediaTypes: ['images'],
         quality: 0.7,
       });
 
@@ -102,6 +102,33 @@ export default function ChatScreen() {
       }
     } catch (error) {
       console.error('Error taking photo:', error);
+      toast.error(t('chat.camera_error'), t('chat.camera_error_desc'));
+    }
+  };
+
+  const recordVideo = async () => {
+    if (selectedAttachments.length >= 4) {
+      toast.warning(t('chat.limit_reached'), t('chat.limit_reached_desc'));
+      return;
+    }
+
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      toast.error(t('chat.camera_permission'), t('chat.camera_permission_desc'));
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['videos'],
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        setSelectedAttachments(prev => [...prev, ...result.assets].slice(0, 4));
+      }
+    } catch (error) {
+      console.error('Error recording video:', error);
       toast.error(t('chat.camera_error'), t('chat.camera_error_desc'));
     }
   };
@@ -292,8 +319,15 @@ export default function ChatScreen() {
           isUploading={isUploading}
           bottomInset={insets.bottom}
           placeholder={t('chat.placeholder')}
+          attachmentActionLabels={{
+            chooseFromLibrary: t('chat.choose_from_library', 'Choose from library'),
+            takePhoto: t('chat.take_photo', 'Take photo'),
+            recordVideo: t('chat.record_video', 'Record video'),
+            shareLocation: t('chat.share_location', 'Share location'),
+          }}
           onPickAttachments={pickAttachments}
           onTakePhoto={takePhoto}
+          onRecordVideo={recordVideo}
           onShareLocation={shareLocation}
           onRemoveAttachment={removeAttachment}
           onChangeText={setInputText}
