@@ -1,9 +1,9 @@
 import { getAllRoles } from '@repo/database';
 import { serialize } from '@/lib/server-utils';
 import RoleList from './components/role-list';
-import Link from 'next/link';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { AdminNavLink } from '../../components/admin-nav-link';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,13 +20,13 @@ export default async function RolesPage() {
             Manage administrative roles and their associated system permissions.
           </p>
         </div>
-        <Link
+        <AdminNavLink
           href="/admin/system/roles/create"
           className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
         >
           <span className="mr-2 text-lg leading-none">+</span>
           Create New Role
-        </Link>
+        </AdminNavLink>
       </div>
 
       <RoleList roles={serialize(roles)} />

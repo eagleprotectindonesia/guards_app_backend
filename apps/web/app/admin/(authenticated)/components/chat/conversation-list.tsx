@@ -224,7 +224,7 @@ export function ConversationList({
                   {isLoadingMore ? (
                     <>
                       <Loader2 size={12} className="animate-spin" />
-                      Loading...
+                      Loading more
                     </>
                   ) : (
                     'Load more'

@@ -6,8 +6,8 @@ import { Volume2, VolumeX, Bell, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@repo/shared';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { AdminNavLink } from './admin-nav-link';
 
 export default function AlertNotifications() {
   const { isMuted, setIsMuted, alerts, isAlertsInitialized } = useAlerts();
@@ -124,10 +124,20 @@ export default function AlertNotifications() {
 
           <div className="flex flex-col gap-2">
             <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white border-0">
-              <Link href="/admin/dashboard">Go to Dashboard</Link>
+              <AdminNavLink
+                href="/admin/dashboard"
+                className="w-full"
+              >
+                Go to Dashboard
+              </AdminNavLink>
             </Button>
             <Button asChild variant="outline" className="w-full">
-              <Link href="/admin/alerts">View All Alerts</Link>
+              <AdminNavLink
+                href="/admin/alerts"
+                className="w-full"
+              >
+                View All Alerts
+              </AdminNavLink>
             </Button>
           </div>
         </PopoverContent>

@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { User, LogOut, ChevronDown } from 'lucide-react';
 import {
   DropdownMenu,
@@ -15,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { AdminSession } from '@/lib/admin-auth';
 import Image from 'next/image';
 import { getInitials } from '@repo/shared';
+import { AdminNavLink } from './admin-nav-link';
 
 interface AdminProfileDropdownProps {
   currentAdmin: AdminSession;
@@ -65,10 +65,13 @@ export default function AdminProfileDropdown({ currentAdmin }: AdminProfileDropd
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild className="cursor-pointer">
-          <Link href="/admin/profile" className="flex items-center w-full">
+          <AdminNavLink
+            href="/admin/profile"
+            className="flex items-center w-full"
+          >
             <User className="mr-2 h-4 w-4" />
             <span>Profile</span>
-          </Link>
+          </AdminNavLink>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

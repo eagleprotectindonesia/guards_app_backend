@@ -1,7 +1,7 @@
 'use client';
 
 import { Pencil, Trash2 } from 'lucide-react';
-import Link from 'next/link';
+import { AdminNavLink } from './admin-nav-link';
 
 type EditButtonProps = {
   onClick?: () => void;
@@ -38,9 +38,13 @@ export function EditButton({ onClick, href, title = 'Edit', disabled = false }: 
 
   if (href) {
     return (
-      <Link href={href} className={`${className} ${activeClassName}`} title={title}>
+      <AdminNavLink
+        href={href}
+        className={`${className} ${activeClassName}`}
+        title={title}
+      >
         {content}
-      </Link>
+      </AdminNavLink>
     );
   }
 

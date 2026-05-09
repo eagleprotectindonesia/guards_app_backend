@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import toast from 'react-hot-toast';
 import ConfirmDialog from '../../components/confirm-dialog';
@@ -9,6 +8,7 @@ import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedOfficeMemoWithAdminInfoDto } from '@/types/office-memos';
 import { deleteOfficeMemoAction } from '../actions';
+import { AdminNavLink } from '../../components/admin-nav-link';
 
 type Props = {
   officeMemos: SerializedOfficeMemoWithAdminInfoDto[];
@@ -45,13 +45,13 @@ export default function OfficeMemoList({ officeMemos }: Props) {
           <p className="text-sm text-muted-foreground mt-1">Manage office announcements by date range and department scope.</p>
         </div>
         {canCreate && (
-          <Link
+          <AdminNavLink
             href="/admin/office-memos/create"
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm shadow-red-500/30"
           >
             <span className="mr-2 text-lg leading-none">+</span>
             Add Office Memo
-          </Link>
+          </AdminNavLink>
         )}
       </div>
 

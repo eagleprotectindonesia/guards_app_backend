@@ -6,6 +6,7 @@ import { getPaginatedOffices } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { Office } from '@prisma/client';
+import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +32,7 @@ export default async function OfficePage(props: OfficePageProps) {
 
   return (
     <div className="max-w-7xl mx-auto py-8">
-      <Suspense fallback={<div>Loading offices...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={7} />}>
         <OfficeList
           offices={serializedOffices}
           page={page}

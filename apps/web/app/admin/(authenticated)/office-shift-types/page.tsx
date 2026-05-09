@@ -6,6 +6,7 @@ import { getPaginatedOfficeShiftTypes } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedOfficeShiftTypeWithAdminInfoDto } from '@/types/office-shift-types';
+import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
   title: 'Office Shift Types Management',
@@ -41,7 +42,7 @@ export default async function OfficeShiftTypesPage({
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading office shift types...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={7} />}>
         <OfficeShiftTypeList
           officeShiftTypes={serializedOfficeShiftTypes}
           page={page}

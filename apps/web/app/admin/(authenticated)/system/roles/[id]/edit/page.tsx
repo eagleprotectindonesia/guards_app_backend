@@ -2,10 +2,10 @@ import { getRoleById, getAllPermissions } from '@repo/database';
 import { serialize } from '@/lib/server-utils';
 import RoleForm from '../../components/role-form';
 import { ChevronLeft } from 'lucide-react';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { AdminNavLink } from '../../../../components/admin-nav-link';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,9 +25,9 @@ export default async function EditRolePage(props: EditRolePageProps) {
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-20">
       <div className="flex items-center gap-4">
-        <Link href="/admin/system/roles" className="p-2 hover:bg-muted rounded-full transition-colors">
+        <AdminNavLink href="/admin/system/roles" className="p-2 hover:bg-muted rounded-full transition-colors">
           <ChevronLeft className="w-5 h-5" />
-        </Link>
+        </AdminNavLink>
         <div>
           <h1 className="text-2xl font-bold text-foreground">Edit Role</h1>
           <p className="text-sm text-muted-foreground mt-1">

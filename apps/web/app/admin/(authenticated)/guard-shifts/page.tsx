@@ -11,6 +11,8 @@ import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import type { SerializedShiftWithRelationsDto } from '@/types/shifts';
 import { EmployeeSummary } from '@repo/database';
+import GuardShiftsTabs from './components/guard-shifts-tabs';
+import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
   title: 'Guard Shifts Management',
@@ -136,7 +138,8 @@ export default async function ShiftsPage({
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading guard shifts...</div>}>
+      <GuardShiftsTabs />
+      <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <ShiftList
           shifts={shiftDtos}
           sites={siteOptions}

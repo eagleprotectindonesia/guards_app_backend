@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Breadcrumb,
@@ -13,6 +12,7 @@ import {
 import React from 'react';
 import { Home } from 'lucide-react';
 import { ADMIN_LABEL_MAP } from '@/lib/admin-navigation';
+import { AdminNavLink } from './admin-nav-link';
 
 export function AdminBreadcrumb() {
   const pathname = usePathname();
@@ -28,10 +28,13 @@ export function AdminBreadcrumb() {
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
-            <Link href="/admin/dashboard" className="flex items-center gap-1">
+            <AdminNavLink
+              href="/admin/dashboard"
+              className="flex items-center gap-1"
+            >
               <Home className="h-4 w-4" />
               <span className="sr-only">Home</span>
-            </Link>
+            </AdminNavLink>
           </BreadcrumbLink>
         </BreadcrumbItem>
 
@@ -48,7 +51,12 @@ export function AdminBreadcrumb() {
                   <BreadcrumbPage>{label}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink asChild>
-                    <Link href={href}>{label}</Link>
+                    <AdminNavLink
+                      href={href}
+                      className="opacity-100"
+                    >
+                      {label}
+                    </AdminNavLink>
                   </BreadcrumbLink>
                 )}
               </BreadcrumbItem>

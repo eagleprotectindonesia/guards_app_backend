@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import PaginationNav from '../../components/pagination-nav';
 import { MapPin, Clock, Filter, Calendar } from 'lucide-react';
 import AttendanceFilterModal from './attendance-filter-modal';
 import AttendanceExport from './attendance-export';
 import { format } from 'date-fns';
+import { useAdminRouter } from '../../context/admin-router';
 import {
   AttendanceEmployeeSummary,
   AttendanceMetadataDto,
@@ -44,7 +45,7 @@ export default function AttendanceList({
   initialFilters,
 }: AttendanceListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const router = useRouter();
+  const router = useAdminRouter();
   const searchParams = useSearchParams();
 
   const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeNumber: string }) => {

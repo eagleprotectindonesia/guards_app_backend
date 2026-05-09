@@ -6,6 +6,7 @@ import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import type { Metadata } from 'next';
 import { SerializedAdminWithRoleDto } from '@/types/admins';
+import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
   title: 'Admins Management',
@@ -43,7 +44,7 @@ export default async function AdminsPage(props: AdminsPageProps) {
 
   return (
     <div className="max-w-7xl mx-auto">
-      <Suspense fallback={<div>Loading admins...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={6} />}>
         <AdminList admins={serializedAdmins} page={page} perPage={perPage} totalCount={totalCount} />
       </Suspense>
     </div>

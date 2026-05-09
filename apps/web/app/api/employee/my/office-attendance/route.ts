@@ -44,6 +44,12 @@ function resolveClockOutGraceDeadline(windowEnd: Date | null | undefined) {
   return new Date(windowEnd.getTime() + OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS * 60 * 60 * 1000);
 }
 
+function isWithinClockOutGrace(now: Date, windowEnd: Date | null | undefined) {
+  const deadline = resolveClockOutGraceDeadline(windowEnd);
+  if (!deadline) return false;
+  return now.getTime() <= deadline.getTime();
+}
+
 type OpenAttendanceLike = Pick<OfficeAttendance, 'status' | 'officeShiftId'> & {
   officeShift?: {
     endsAt?: string | Date | null;
@@ -99,16 +105,31 @@ export async function POST(req: Request) {
         : null;
     const latestAttendanceForDay = await getLatestOfficeAttendanceForDay(employee.id, now);
     const latestAttendanceForEmployee = await getLatestOfficeAttendanceForEmployee(employee.id);
-    const latestAttendance =
+    const latestAttendanceForClockOut =
       requestedStatus === 'clocked_out'
         ? latestAttendanceInWindow?.status === 'present'
           ? latestAttendanceInWindow
           : latestAttendanceForDay?.status === 'present'
             ? latestAttendanceForDay
             : latestAttendanceForEmployee?.status === 'present'
-              ? latestAttendanceForEmployee
+            ? latestAttendanceForEmployee
               : (latestAttendanceInWindow ?? latestAttendanceForDay)
         : latestAttendanceInWindow;
+    const previousOpenAttendanceCandidate =
+      requestedStatus === 'clocked_out' &&
+      scheduleContext.source === 'office_shift' &&
+      latestAttendanceForEmployee?.status === 'present' &&
+      latestAttendanceForEmployee.officeShiftId &&
+      scheduleContext.shift?.id &&
+      latestAttendanceForEmployee.officeShiftId !== scheduleContext.shift.id
+        ? latestAttendanceForEmployee
+        : null;
+    const previousOpenAttendanceWindowEnd = resolveOpenAttendanceWindowEnd(previousOpenAttendanceCandidate, scheduleContext);
+    const shouldPrioritizePreviousOpenAttendance =
+      previousOpenAttendanceCandidate != null && isWithinClockOutGrace(now, previousOpenAttendanceWindowEnd);
+    const latestAttendance = shouldPrioritizePreviousOpenAttendance
+      ? previousOpenAttendanceCandidate
+      : latestAttendanceForClockOut;
 
     const hasOpenClockIn = latestAttendance?.status === 'present';
 

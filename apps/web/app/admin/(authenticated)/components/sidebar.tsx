@@ -1,13 +1,13 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@repo/shared';
 import { ADMIN_SECONDARY_NAV_ITEMS, getAdminNavItems, type NavItem } from '@/lib/admin-navigation';
 import { useSession } from '../context/session-context';
+import { AdminNavLink } from './admin-nav-link';
 
 type Props = {
   officeWorkSchedulesEnabled: boolean;
@@ -80,7 +80,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
     >
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-border relative group">
-        <Link
+        <AdminNavLink
           href="/admin/dashboard"
           className={cn(
             'flex items-center overflow-hidden transition-all duration-300',
@@ -103,7 +103,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
               priority
             />
           </div>
-        </Link>
+        </AdminNavLink>
 
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
@@ -149,7 +149,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                   const isActive = pathname.startsWith(item.href);
 
                   return (
-                    <Link
+                    <AdminNavLink
                       key={item.name}
                       href={item.href}
                       title={isCollapsed ? item.name : undefined}
@@ -175,7 +175,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       >
                         {item.name}
                       </span>
-                    </Link>
+                    </AdminNavLink>
                   );
                 })}
               </div>
@@ -191,7 +191,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                   const isActive = pathname.startsWith(item.href);
 
                   return (
-                    <Link
+                    <AdminNavLink
                       key={item.name}
                       href={item.href}
                       title={item.name}
@@ -209,7 +209,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                         )}
                       />
                       <span className="opacity-0 w-0 hidden">{item.name}</span>
-                    </Link>
+                    </AdminNavLink>
                   );
                 })}
               </div>

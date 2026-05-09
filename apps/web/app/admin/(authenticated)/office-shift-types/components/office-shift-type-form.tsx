@@ -6,9 +6,9 @@ import { ActionState } from '@/types/actions';
 import { CreateOfficeShiftTypeInput } from '@repo/validations';
 import { useActionState, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { useRouter } from 'next/navigation';
 import { TimePicker } from '@/components/ui/time-picker';
 import { Clock } from 'lucide-react';
+import { useAdminRouter } from '../../context/admin-router';
 
 type Props = {
   officeShiftType?: Omit<SerializedOfficeShiftTypeWithAdminInfoDto, 'createdBy' | 'lastUpdatedBy'>;
@@ -26,7 +26,7 @@ const calculateDuration = (start: string | null, end: string | null) => {
 };
 
 export default function OfficeShiftTypeForm({ officeShiftType }: Props) {
-  const router = useRouter();
+  const router = useAdminRouter();
   const [state, formAction, isPending] = useActionState<ActionState<CreateOfficeShiftTypeInput>, FormData>(
     officeShiftType ? updateOfficeShiftType.bind(null, officeShiftType.id) : createOfficeShiftType,
     { success: false }

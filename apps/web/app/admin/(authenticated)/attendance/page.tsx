@@ -14,6 +14,7 @@ import {
   AttendanceMetadataDto,
   SerializedAttendanceWithRelationsDto,
 } from '@/types/attendance';
+import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,7 +105,7 @@ export default async function AttendancePage(props: AttendancePageProps) {
   return (
     <div className="max-w-7xl mx-auto py-8">
       <AttendanceTabs />
-      <Suspense fallback={<div>Loading attendances...</div>}>
+      <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <AttendanceList
           attendances={serializedAttendances}
           page={page}

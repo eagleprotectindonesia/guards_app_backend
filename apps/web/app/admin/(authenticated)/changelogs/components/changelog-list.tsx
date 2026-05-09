@@ -4,12 +4,13 @@ import { useState, ComponentType } from 'react';
 import { Prisma } from '@prisma/client';
 import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
 import PaginationNav from '../../components/pagination-nav';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { useSearchParams, usePathname } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
 import { Eye, Filter } from 'lucide-react';
 import ChangelogDetailsModal from './changelog-details-modal';
 import { format } from 'date-fns';
 import ChangelogExport from './changelog-export';
+import { useAdminRouter } from '../../context/admin-router';
 
 
 type FilterModalProps = {
@@ -73,7 +74,7 @@ export default function ChangelogList({
   offices,
   officeWorkSchedules,
 }: ChangelogListProps) {
-  const router = useRouter();
+  const router = useAdminRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const [selectedLog, setSelectedLog] = useState<{ entityType: string; details: Prisma.JsonValue } | null>(null);

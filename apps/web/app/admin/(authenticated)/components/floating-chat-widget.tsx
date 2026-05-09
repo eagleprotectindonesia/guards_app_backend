@@ -10,6 +10,7 @@ import { ConversationList } from './chat/conversation-list';
 import { ChatMessageList } from './chat/message-list';
 import { ChatAttachmentPreviews } from './chat/attachment-previews';
 import ConfirmDialog from './confirm-dialog';
+import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
 
 export default function FloatingChatWidget() {
   const pathname = usePathname();
@@ -24,6 +25,7 @@ export default function FloatingChatWidget() {
 
 function FloatingChatWidgetContent() {
   const router = useRouter();
+  const { startNavigation } = useAdminNavigationPending();
   const [isOpen, setIsOpen] = useState(false);
   const { userId, hasPermission } = useSession();
   const canCreateChat = hasPermission('chat:create');
@@ -77,8 +79,11 @@ function FloatingChatWidgetContent() {
           params.set('employeeNumber', draftConversation.employeeNumber);
         }
       }
-      router.push(`/admin/chat?${params.toString()}`);
+      const href = `/admin/chat?${params.toString()}`;
+      startNavigation(href);
+      router.push(href);
     } else {
+      startNavigation('/admin/chat');
       router.push('/admin/chat');
     }
     setIsOpen(false);

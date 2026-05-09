@@ -9,18 +9,18 @@ import { useForm, Controller, Resolver, Path } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import toast from 'react-hot-toast';
 import type { EmployeeWithRelations } from '@repo/database';
-import { useRouter } from 'next/navigation';
 import PhoneInput from '@/components/ui/phone-input';
 import { E164Number } from 'libphonenumber-js';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { EmployeeRole } from '@prisma/client';
+import { useAdminRouter } from '../../context/admin-router';
 
 type Props = {
   employee: Serialized<EmployeeWithRelations>;
 };
 
 export default function EmployeeForm({ employee }: Props) {
-  const router = useRouter();
+  const router = useAdminRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
   const [state, formAction, isPending] = useActionState<ActionState<UpdateEmployeeInput>, FormData>(

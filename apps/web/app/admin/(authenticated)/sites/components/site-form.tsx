@@ -8,7 +8,7 @@ import { useActionState, useEffect, useState, useCallback, useRef } from 'react'
 import toast from 'react-hot-toast';
 import { APIProvider, Map, Marker, useMapsLibrary, MapMouseEvent, useMap } from '@vis.gl/react-google-maps';
 import { Site } from '@prisma/client';
-import { useRouter } from 'next/navigation';
+import { useAdminRouter } from '../../context/admin-router';
 
 type Props = {
   site?: Serialized<Site>; // If provided, it's an edit form
@@ -163,7 +163,7 @@ function LocationSearchInput({
 }
 
 export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
-  const router = useRouter();
+  const router = useAdminRouter();
   const [state, formAction, isPending] = useActionState<ActionState<CreateSiteInput>, FormData>(
     site ? updateSite.bind(null, site.id) : createSite,
     { success: false }
@@ -274,7 +274,9 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
                   min={10}
                   step={1}
                 />
-                {state.errors?.geofenceRadius && <p className="text-red-500 text-xs mt-1">{state.errors.geofenceRadius[0]}</p>}
+                {state.errors?.geofenceRadius && (
+                  <p className="text-red-500 text-xs mt-1">{state.errors.geofenceRadius[0]}</p>
+                )}
               </div>
             )}
           </div>
@@ -331,7 +333,9 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
 
           {/* Error Message */}
           {state.message && !state.success && (
-            <div className="p-3 rounded bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-100 dark:border-red-900/30">{state.message}</div>
+            <div className="p-3 rounded bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-sm border border-red-100 dark:border-red-900/30">
+              {state.message}
+            </div>
           )}
 
           {/* Actions */}

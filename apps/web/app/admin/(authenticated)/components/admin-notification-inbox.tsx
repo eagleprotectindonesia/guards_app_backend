@@ -1,12 +1,12 @@
 'use client';
 
 import { Bell } from 'lucide-react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useAdminNotifications } from '../context/admin-notification-context';
 import { useSession } from '../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { AdminNavLink } from './admin-nav-link';
 
 function formatTimestamp(value: string) {
   return new Date(value).toLocaleString('en-GB', {
@@ -54,7 +54,7 @@ export default function AdminNotificationInbox() {
                   : '/admin/leave-requests';
 
               return (
-                <Link
+                <AdminNavLink
                   key={notification.id}
                   href={targetPath}
                   className={`block px-4 py-3 border-b last:border-b-0 hover:bg-muted/50 ${
@@ -68,7 +68,7 @@ export default function AdminNotificationInbox() {
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-1">{notification.body}</p>
-                </Link>
+                </AdminNavLink>
               );
             })}
           </div>

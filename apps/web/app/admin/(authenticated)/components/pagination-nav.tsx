@@ -1,6 +1,7 @@
 'use client';
 
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useMemo, type ChangeEvent } from 'react';
+import { useSearchParams, usePathname } from 'next/navigation';
 import {
   Pagination,
   PaginationContent,
@@ -10,6 +11,7 @@ import {
   PaginationPrevious,
   PaginationEllipsis,
 } from '@/components/ui/pagination';
+import { useAdminRouter } from '../context/admin-router';
 
 type PaginationNavProps = {
   page: number;
@@ -18,19 +20,22 @@ type PaginationNavProps = {
 };
 
 export default function PaginationNav({ page, perPage, totalCount }: PaginationNavProps) {
-  const router = useRouter();
+  const router = useAdminRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const { pendingHref } = router;
 
   const pageCount = Math.ceil(totalCount / perPage);
 
   const createPageURL = (pageNumber: number | string) => {
     const params = new URLSearchParams(searchParams);
     params.set('page', pageNumber.toString());
-    return `?${params.toString()}`;
+    return `${pathname}?${params.toString()}`;
   };
 
-  const handlePerPageChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const isPendingHref = (href: string) => pendingHref === href;
+
+  const handlePerPageChange = (event: ChangeEvent<HTMLSelectElement>) => {
     const newPerPage = event.target.value;
     const params = new URLSearchParams(searchParams);
     params.set('per_page', newPerPage);
@@ -38,7 +43,7 @@ export default function PaginationNav({ page, perPage, totalCount }: PaginationN
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const pages = Array.from({ length: pageCount }, (_, i) => i + 1);
+  const pages = useMemo(() => Array.from({ length: pageCount }, (_, i) => i + 1), [pageCount]);
 
   if (totalCount === 0) {
     return null;
@@ -65,13 +70,29 @@ export default function PaginationNav({ page, perPage, totalCount }: PaginationN
         <Pagination className="mx-0 w-auto">
           <PaginationContent>
             <PaginationItem>
-              <PaginationPrevious href={page > 1 ? createPageURL(page - 1) : '#'} isActive={page > 1} />
+              <PaginationPrevious
+                href={page > 1 ? createPageURL(page - 1) : '#'}
+                isActive={page > 1}
+                onClick={event => {
+                  event.preventDefault();
+                  if (page > 1) router.push(createPageURL(page - 1));
+                }}
+                className={page > 1 && isPendingHref(createPageURL(page - 1)) ? 'opacity-70 cursor-progress' : undefined}
+              />
             </PaginationItem>
             {pages.map(p => {
               if (p === 1 || p === pageCount || (p >= page - 1 && p <= page + 1)) {
                 return (
                   <PaginationItem key={p}>
-                    <PaginationLink href={createPageURL(p)} isActive={p === page}>
+                    <PaginationLink
+                      href={createPageURL(p)}
+                      isActive={p === page}
+                      onClick={event => {
+                        event.preventDefault();
+                        router.push(createPageURL(p));
+                      }}
+                      className={isPendingHref(createPageURL(p)) ? 'opacity-70 cursor-progress' : undefined}
+                    >
                       {p}
                     </PaginationLink>
                   </PaginationItem>
@@ -86,7 +107,15 @@ export default function PaginationNav({ page, perPage, totalCount }: PaginationN
               return null;
             })}
             <PaginationItem>
-              <PaginationNext href={page < pageCount ? createPageURL(page + 1) : '#'} isActive={page < pageCount} />
+              <PaginationNext
+                href={page < pageCount ? createPageURL(page + 1) : '#'}
+                isActive={page < pageCount}
+                onClick={event => {
+                  event.preventDefault();
+                  if (page < pageCount) router.push(createPageURL(page + 1));
+                }}
+                className={page < pageCount && isPendingHref(createPageURL(page + 1)) ? 'opacity-70 cursor-progress' : undefined}
+              />
             </PaginationItem>
           </PaginationContent>
         </Pagination>
