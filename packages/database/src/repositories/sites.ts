@@ -45,27 +45,26 @@ export async function getPaginatedSites(params: { query?: string; skip: number; 
 
   const [sites, totalCount] = await prisma.$transaction(
     async tx => {
-      return Promise.all([
-        tx.site.findMany({
-          where,
-          orderBy: { name: 'asc' },
-          skip,
-          take,
-          include: {
-            lastUpdatedBy: {
-              select: {
-                name: true,
-              },
-            },
-            createdBy: {
-              select: {
-                name: true,
-              },
+      const sites = await tx.site.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip,
+        take,
+        include: {
+          lastUpdatedBy: {
+            select: {
+              name: true,
             },
           },
-        }),
-        tx.site.count({ where }),
-      ]);
+          createdBy: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+      const totalCount = await tx.site.count({ where });
+      return [sites, totalCount] as const;
     },
     { timeout: 5000 }
   );

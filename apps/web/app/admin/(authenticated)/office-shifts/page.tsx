@@ -42,22 +42,26 @@ export default async function OfficeShiftsPage({
   const parsedStartDate = startDate ? startOfDay(parseISO(startDate)) : undefined;
   const parsedEndDate = endDate ? endOfDay(parseISO(endDate)) : undefined;
 
-  const { officeShifts, totalCount } = await getPaginatedOfficeShifts({
-    where: {
-      startsAt: {
-        gte: parsedStartDate,
-        lte: parsedEndDate,
+  const [{ officeShifts, totalCount }, employeeOptions, allDepartments] = await Promise.all([
+    getPaginatedOfficeShifts({
+      where: {
+        startsAt: {
+          gte: parsedStartDate,
+          lte: parsedEndDate,
+        },
+        employeeId: employeeId || undefined,
+        ...(department ? { employee: { department } } : {}),
       },
-      employeeId: employeeId || undefined,
-      ...(department ? { employee: { department } } : {}),
-    },
-    orderBy:
-      sortBy === 'employee'
-        ? { employee: { fullName: sortOrder as 'asc' | 'desc' } }
-        : { startsAt: sortOrder as 'asc' | 'desc' },
-    skip,
-    take: perPage,
-  });
+      orderBy:
+        sortBy === 'employee'
+          ? { employee: { fullName: sortOrder as 'asc' | 'desc' } }
+          : { startsAt: sortOrder as 'asc' | 'desc' },
+      skip,
+      take: perPage,
+    }),
+    getActiveEmployeesSummary('office'),
+    getDistinctDepartments(),
+  ]);
 
   const officeShiftDtos: SerializedOfficeShiftWithRelationsDto[] = officeShifts.map(officeShift => ({
     id: officeShift.id,
@@ -95,8 +99,7 @@ export default async function OfficeShiftsPage({
     lastUpdatedBy: officeShift.lastUpdatedBy,
   }));
 
-  const employeeOptions: EmployeeSummary[] = await getActiveEmployeesSummary('office');
-  const allDepartments = await getDistinctDepartments();
+  const employeeOptionsTyped: EmployeeSummary[] = employeeOptions;
   const departmentOptions = allDepartments.filter(d => !d.toLowerCase().includes('security'));
 
   return (
@@ -106,7 +109,7 @@ export default async function OfficeShiftsPage({
       <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <OfficeShiftList
           officeShifts={officeShiftDtos}
-          employees={employeeOptions}
+          employees={employeeOptionsTyped}
           departments={departmentOptions}
           startDate={startDate}
           endDate={endDate}

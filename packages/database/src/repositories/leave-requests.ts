@@ -549,6 +549,33 @@ export async function listEmployeeLeaveRequestsForAdmin(params: AdminLeaveReques
   });
 }
 
+export async function listLeaveRequestFilterEmployeesForAdmin(
+  params: AdminLeaveRequestFilterParams,
+  tx: TxLike = prisma
+) {
+  const where = buildAdminLeaveRequestWhere(params);
+  const targetTx = tx as TxLike;
+
+  return targetTx.employeeLeaveRequest.findMany({
+    where,
+    select: {
+      employee: {
+        select: {
+          id: true,
+          fullName: true,
+          employeeNumber: true,
+        },
+      },
+    },
+    distinct: ['employeeId'],
+    orderBy: {
+      employee: {
+        fullName: 'asc',
+      },
+    },
+  });
+}
+
 export async function getPaginatedEmployeeLeaveRequestsForAdmin(
   params: AdminLeaveRequestFilterParams & {
     skip: number;

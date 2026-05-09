@@ -129,23 +129,22 @@ export async function getPaginatedOfficeShifts(params: {
   const finalWhere = { ...where, deletedAt: null };
 
   const [officeShifts, totalCount] = await prisma.$transaction(async tx => {
-    return Promise.all([
-      tx.officeShift.findMany({
-        where: finalWhere,
-        orderBy,
-        skip,
-        take,
-        include:
-          include || {
-            officeShiftType: true,
-            employee: { include: { office: { select: { name: true } } } },
-            officeAttendances: true,
-            createdBy: { select: { name: true } },
-            lastUpdatedBy: { select: { name: true } },
-          },
-      }),
-      tx.officeShift.count({ where: finalWhere }),
-    ]);
+    const officeShifts = await tx.officeShift.findMany({
+      where: finalWhere,
+      orderBy,
+      skip,
+      take,
+      include:
+        include || {
+          officeShiftType: true,
+          employee: { include: { office: { select: { name: true } } } },
+          officeAttendances: true,
+          createdBy: { select: { name: true } },
+          lastUpdatedBy: { select: { name: true } },
+        },
+    });
+    const totalCount = await tx.officeShift.count({ where: finalWhere });
+    return [officeShifts, totalCount] as const;
   });
 
   return { officeShifts, totalCount };

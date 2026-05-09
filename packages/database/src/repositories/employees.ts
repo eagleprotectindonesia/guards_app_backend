@@ -23,6 +23,9 @@ import { updateSystemSettingWithChangelog } from './settings';
 const LAST_EMPLOYEE_SYNC_KEY = 'employee:sync:last_timestamp';
 const LAST_EMPLOYEE_SYNC_DUPLICATE_WARNING_KEY = 'employee:sync:last_duplicate_warning';
 const EMPLOYEE_PASSWORD_HISTORY_LIMIT = 3;
+const EMPLOYEE_DEPARTMENTS_CACHE_KEY = 'employee:departments:distinct';
+const EMPLOYEE_ACTIVE_SUMMARY_CACHE_KEY_PREFIX = 'employee:active-summary';
+const EMPLOYEE_METADATA_CACHE_TTL_SECONDS = 60;
 type ChangelogSyncActor = { type: 'admin' | 'system' | 'unknown'; id?: string };
 
 function getCurrentBusinessYear(now = new Date()) {
@@ -194,14 +197,39 @@ export function getEmployeeSearchWhere(query?: string): Prisma.EmployeeWhereInpu
   };
 }
 
+function getEmployeeActiveSummaryCacheKey(role?: EmployeeRole) {
+  return `${EMPLOYEE_ACTIVE_SUMMARY_CACHE_KEY_PREFIX}:${role ?? 'all'}`;
+}
+
+async function invalidateEmployeeMetadataCaches() {
+  await redis.del(
+    EMPLOYEE_DEPARTMENTS_CACHE_KEY,
+    getEmployeeActiveSummaryCacheKey(),
+    getEmployeeActiveSummaryCacheKey('office'),
+    getEmployeeActiveSummaryCacheKey('on_site')
+  );
+}
+
 export async function getDistinctDepartments(): Promise<string[]> {
+  const cached = await redis.get(EMPLOYEE_DEPARTMENTS_CACHE_KEY);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached) as string[];
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // Fall through to DB query.
+    }
+  }
+
   const results = await prisma.employee.findMany({
     where: { status: true, department: { not: null } },
     distinct: ['department'],
     select: { department: true },
     orderBy: { department: 'asc' },
   });
-  return results.map(r => r.department!).filter(Boolean);
+  const departments = results.map(r => r.department!).filter(Boolean);
+  await redis.set(EMPLOYEE_DEPARTMENTS_CACHE_KEY, JSON.stringify(departments), 'EX', EMPLOYEE_METADATA_CACHE_TTL_SECONDS);
+  return departments;
 }
 
 async function attachDerivedOfficeMetadata<T extends {
@@ -300,7 +328,18 @@ export async function getActiveEmployees(role?: EmployeeRole) {
 }
 
 export async function getActiveEmployeesSummary(role?: EmployeeRole): Promise<EmployeeSummary[]> {
-  return prisma.employee.findMany({
+  const cacheKey = getEmployeeActiveSummaryCacheKey(role);
+  const cached = await redis.get(cacheKey);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached) as EmployeeSummary[];
+      if (Array.isArray(parsed)) return parsed;
+    } catch {
+      // Fall through to DB query.
+    }
+  }
+
+  const summaries = await prisma.employee.findMany({
     where: {
       status: true,
       deletedAt: null,
@@ -313,6 +352,8 @@ export async function getActiveEmployeesSummary(role?: EmployeeRole): Promise<Em
       employeeNumber: true,
     },
   });
+  await redis.set(cacheKey, JSON.stringify(summaries), 'EX', EMPLOYEE_METADATA_CACHE_TTL_SECONDS);
+  return summaries;
 }
 
 export async function getOfficeEmployeesByCodes(
@@ -694,6 +735,7 @@ export async function deactivateEmployeesNotIn(
       }
     }
 
+    await invalidateEmployeeMetadataCaches();
     return { deactivatedCount: idsToDeactivate.length };
   });
 }
@@ -715,13 +757,15 @@ export async function updateEmployee(id: string, data: Prisma.EmployeeUpdateInpu
 
   const fieldModeEnabled = await normalizeEmployeeFieldModeForUpdate(existingEmployee, data);
 
-  return prisma.employee.update({
+  const updated = await prisma.employee.update({
     where: { id },
     data: {
       ...data,
       fieldModeEnabled,
     },
   });
+  await invalidateEmployeeMetadataCaches();
+  return updated;
 }
 
 export async function updateEmployeeFieldMode(id: string, fieldModeEnabled: boolean) {
@@ -848,13 +892,15 @@ export async function setEmployeePassword({
 }
 
 export async function deleteEmployee(id: string) {
-  return prisma.employee.update({
+  const deleted = await prisma.employee.update({
     where: { id },
     data: {
       deletedAt: new Date(),
       status: false,
     },
   });
+  await invalidateEmployeeMetadataCaches();
+  return deleted;
 }
 
 export async function updateEmployeePasswordWithChangelog(id: string, password: string, adminId: string) {
@@ -1194,6 +1240,8 @@ export async function syncEmployeesFromExternal(
   } catch (err) {
     console.error('[SyncEmployees] Failed to persist sync metadata:', err);
   }
+
+  await invalidateEmployeeMetadataCaches();
 
   return {
     added: addedCount,

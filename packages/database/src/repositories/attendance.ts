@@ -76,24 +76,23 @@ export async function getPaginatedAttendance(params: {
   const { where, orderBy, skip, take } = params;
 
   const [attendances, totalCount] = await prisma.$transaction(async tx => {
-    return Promise.all([
-      tx.attendance.findMany({
-        where,
-        orderBy,
-        skip,
-        take,
-        include: {
-          employee: true,
-          shift: {
-            include: {
-              site: true,
-              shiftType: true,
-            },
+    const attendances = await tx.attendance.findMany({
+      where,
+      orderBy,
+      skip,
+      take,
+      include: {
+        employee: true,
+        shift: {
+          include: {
+            site: true,
+            shiftType: true,
           },
         },
-      }),
-      tx.attendance.count({ where }),
-    ]);
+      },
+    });
+    const totalCount = await tx.attendance.count({ where });
+    return [attendances, totalCount] as const;
   });
 
   return { attendances, totalCount };

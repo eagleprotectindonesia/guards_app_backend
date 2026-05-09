@@ -40,16 +40,15 @@ export async function getPaginatedAdmins(params: {
 
   const [admins, totalCount] = await prisma.$transaction(
     async tx => {
-      return Promise.all([
-        tx.admin.findMany({
-          where: finalWhere,
-          orderBy,
-          skip,
-          take,
-          include: { roleRef: true },
-        }),
-        tx.admin.count({ where: finalWhere }),
-      ]);
+      const admins = await tx.admin.findMany({
+        where: finalWhere,
+        orderBy,
+        skip,
+        take,
+        include: { roleRef: true },
+      });
+      const totalCount = await tx.admin.count({ where: finalWhere });
+      return [admins, totalCount] as const;
     },
     { timeout: 5000 }
   );
@@ -120,11 +119,8 @@ export async function updateAdminWithChangelog(id: string, data: Prisma.AdminUpd
         await redis.del(cacheKey);
       }
 
-      // If role was changed, invalidate permissions cache
-      if (data.roleRef) {
-        const permsCacheKey = `admin:permissions:${id}`;
-        await redis.del(permsCacheKey);
-      }
+      const permsCacheKey = `admin:permissions:${id}`;
+      await redis.del(permsCacheKey);
 
       return updatedAdmin;
     },

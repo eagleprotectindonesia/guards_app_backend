@@ -45,27 +45,26 @@ export async function getPaginatedOffices(params: { query?: string; skip: number
 
   const [offices, totalCount] = await prisma.$transaction(
     async tx => {
-      return Promise.all([
-        tx.office.findMany({
-          where,
-          orderBy: { name: 'asc' },
-          skip,
-          take,
-          include: {
-            lastUpdatedBy: {
-              select: {
-                name: true,
-              },
-            },
-            createdBy: {
-              select: {
-                name: true,
-              },
+      const offices = await tx.office.findMany({
+        where,
+        orderBy: { name: 'asc' },
+        skip,
+        take,
+        include: {
+          lastUpdatedBy: {
+            select: {
+              name: true,
             },
           },
-        }),
-        tx.office.count({ where }),
-      ]);
+          createdBy: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+      const totalCount = await tx.office.count({ where });
+      return [offices, totalCount] as const;
     },
     { timeout: 5000 }
   );

@@ -73,27 +73,26 @@ export async function getPaginatedShiftTypes(params: {
 
   const [shiftTypes, totalCount] = await prisma.$transaction(
     async tx => {
-      return Promise.all([
-        tx.shiftType.findMany({
-          where: finalWhere,
-          orderBy,
-          skip,
-          take,
-          include: {
-            lastUpdatedBy: {
-              select: {
-                name: true,
-              },
-            },
-            createdBy: {
-              select: {
-                name: true,
-              },
+      const shiftTypes = await tx.shiftType.findMany({
+        where: finalWhere,
+        orderBy,
+        skip,
+        take,
+        include: {
+          lastUpdatedBy: {
+            select: {
+              name: true,
             },
           },
-        }),
-        tx.shiftType.count({ where: finalWhere }),
-      ]);
+          createdBy: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
+      const totalCount = await tx.shiftType.count({ where: finalWhere });
+      return [shiftTypes, totalCount] as const;
     },
     { timeout: 5000 }
   );

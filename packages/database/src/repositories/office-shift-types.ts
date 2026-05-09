@@ -39,19 +39,18 @@ export async function getPaginatedOfficeShiftTypes(params: {
   const finalWhere = { ...where, deletedAt: null };
 
   const [officeShiftTypes, totalCount] = await prisma.$transaction(async tx => {
-    return Promise.all([
-      tx.officeShiftType.findMany({
-        where: finalWhere,
-        orderBy,
-        skip,
-        take,
-        include: {
-          lastUpdatedBy: { select: { name: true } },
-          createdBy: { select: { name: true } },
-        },
-      }),
-      tx.officeShiftType.count({ where: finalWhere }),
-    ]);
+    const officeShiftTypes = await tx.officeShiftType.findMany({
+      where: finalWhere,
+      orderBy,
+      skip,
+      take,
+      include: {
+        lastUpdatedBy: { select: { name: true } },
+        createdBy: { select: { name: true } },
+      },
+    });
+    const totalCount = await tx.officeShiftType.count({ where: finalWhere });
+    return [officeShiftTypes, totalCount] as const;
   });
 
   return { officeShiftTypes, totalCount };

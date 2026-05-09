@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { endOfDay, format, startOfDay } from 'date-fns';
 import { getEmployeeDayOffsForDateRange } from '@repo/database';
-import { adminHasPermission, getAdminSession } from '@/lib/admin-auth';
+import { adminHasPermission, getAdminAuthSession } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 function escapeCsv(value: string) {
@@ -9,7 +9,7 @@ function escapeCsv(value: string) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getAdminSession();
+  const session = await getAdminAuthSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
