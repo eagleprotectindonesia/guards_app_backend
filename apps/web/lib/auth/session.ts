@@ -15,6 +15,7 @@ export interface SessionPayload {
 
 export interface SessionResult {
   isValid: boolean;
+  reason?: 'missing_token' | 'invalid_token' | 'version_mismatch' | 'backend_error' | 'inactive_session';
   userId: string | null;
   role: UserRole | null;
   roleName: string | null;
@@ -25,7 +26,15 @@ export interface SessionResult {
 
 export async function verifySession(token: string, type: UserRole): Promise<SessionResult> {
   if (!token) {
-    return { isValid: false, userId: null, role: null, roleName: null, permissions: [], rolePolicy: normalizeRolePolicy(null) };
+    return {
+      isValid: false,
+      reason: 'missing_token',
+      userId: null,
+      role: null,
+      roleName: null,
+      permissions: [],
+      rolePolicy: normalizeRolePolicy(null),
+    };
   }
 
   try {
@@ -40,7 +49,15 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
     const sessionId = decoded.sessionId;
 
     if (!userId) {
-      return { isValid: false, userId: null, role: null, roleName: null, permissions: [], rolePolicy: normalizeRolePolicy(null) };
+      return {
+        isValid: false,
+        reason: 'invalid_token',
+        userId: null,
+        role: null,
+        roleName: null,
+        permissions: [],
+        rolePolicy: normalizeRolePolicy(null),
+      };
     }
 
     const versionCacheKey = type === 'admin' ? `admin:token_version:${userId}` : null;
@@ -102,6 +119,7 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
         if (!sessionId) {
           return {
             isValid: false,
+            reason: 'invalid_token',
             userId: null,
             role: null,
             roleName: null,
@@ -146,7 +164,15 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
           };
         }
 
-        return { isValid: false, userId: null, role: null, roleName: null, permissions: [], rolePolicy: normalizeRolePolicy(null) };
+        return {
+          isValid: false,
+          reason: 'inactive_session',
+          userId: null,
+          role: null,
+          roleName: null,
+          permissions: [],
+          rolePolicy: normalizeRolePolicy(null),
+        };
       }
     }
 
@@ -165,9 +191,25 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
       };
     }
 
-    return { isValid: false, userId: null, role: null, roleName: null, permissions: [], rolePolicy: normalizeRolePolicy(null) };
+    return {
+      isValid: false,
+      reason: 'version_mismatch',
+      userId: null,
+      role: null,
+      roleName: null,
+      permissions: [],
+      rolePolicy: normalizeRolePolicy(null),
+    };
   } catch (error) {
     console.warn(`[Auth] Session verification failed for ${type}:`, error);
-    return { isValid: false, userId: null, role: null, roleName: null, permissions: [], rolePolicy: normalizeRolePolicy(null) };
+    return {
+      isValid: false,
+      reason: 'backend_error',
+      userId: null,
+      role: null,
+      roleName: null,
+      permissions: [],
+      rolePolicy: normalizeRolePolicy(null),
+    };
   }
 }

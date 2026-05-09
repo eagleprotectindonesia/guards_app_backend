@@ -5,6 +5,7 @@ import { z } from 'zod';
 import jwt from 'jsonwebtoken';
 import { getAdminById, updateAdminWithChangelog } from '@repo/database';
 import { hashPassword, verifyPassword } from '@repo/database';
+import { redis } from '@repo/database/redis';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
 
@@ -83,6 +84,8 @@ export async function changePassword(prevState: ChangePasswordState, formData: F
       },
       adminId // Self-modified
     );
+
+    await redis.set(`admin:token_version:${updatedAdmin.id}`, updatedAdmin.tokenVersion.toString(), 'EX', 3600);
 
     // 5. Generate NEW token with the NEW version and set it to keep current session active
     const newToken = jwt.sign(

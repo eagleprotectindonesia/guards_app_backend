@@ -94,16 +94,27 @@ export async function proxy(request: NextRequest) {
     const token = request.cookies.get(AUTH_COOKIES.ADMIN)?.value;
 
     let isValid = false;
+    let sessionReason: string | undefined;
 
     if (token) {
-      const { isValid: sessionValid } = await verifySession(token, 'admin');
+      const { isValid: sessionValid, reason } = await verifySession(token, 'admin');
       isValid = sessionValid;
+      sessionReason = reason;
     }
 
     if (!isValid) {
+      const isTransientVerificationFailure = sessionReason === 'backend_error';
+
       // If it's an API request, return 401
       if (isAdminApiPath) {
+        if (isTransientVerificationFailure) {
+          return NextResponse.json({ error: 'Service Unavailable' }, { status: 503 });
+        }
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      if (isTransientVerificationFailure) {
+        return NextResponse.next();
       }
 
       // If it's a page request (admin page or external docs), redirect to login
