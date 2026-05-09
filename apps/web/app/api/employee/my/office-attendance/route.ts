@@ -105,14 +105,29 @@ export async function POST(req: Request) {
         : null;
     const latestAttendanceForDay = await getLatestOfficeAttendanceForDay(employee.id, now);
     const latestAttendanceForEmployee = await getLatestOfficeAttendanceForEmployee(employee.id);
+    const selectedClockOutSource: 'inWindow' | 'forDay' | 'forEmployee' | 'fallback' | null = requestedStatus === 'clocked_out'
+      ? latestAttendanceInWindow?.status === 'present'
+        ? 'inWindow'
+        : latestAttendanceForDay?.status === 'present' && latestAttendanceForEmployee?.status === 'present'
+          ? latestAttendanceForDay.id === latestAttendanceForEmployee.id
+            ? 'forEmployee'
+            : latestAttendanceForDay.recordedAt >= latestAttendanceForEmployee.recordedAt
+              ? 'forDay'
+              : 'forEmployee'
+          : latestAttendanceForDay?.status === 'present'
+            ? 'forDay'
+            : latestAttendanceForEmployee?.status === 'present'
+              ? 'forEmployee'
+              : 'fallback'
+      : null;
     const latestAttendanceForClockOut =
       requestedStatus === 'clocked_out'
-        ? latestAttendanceInWindow?.status === 'present'
+        ? selectedClockOutSource === 'inWindow'
           ? latestAttendanceInWindow
-          : latestAttendanceForDay?.status === 'present'
+          : selectedClockOutSource === 'forDay'
             ? latestAttendanceForDay
-            : latestAttendanceForEmployee?.status === 'present'
-            ? latestAttendanceForEmployee
+            : selectedClockOutSource === 'forEmployee'
+              ? latestAttendanceForEmployee
               : (latestAttendanceInWindow ?? latestAttendanceForDay)
         : latestAttendanceInWindow;
     const previousOpenAttendanceCandidate =
@@ -169,7 +184,8 @@ export async function POST(req: Request) {
     }
 
     if (requestedStatus === 'clocked_out' && latestAttendance?.status === 'present') {
-      const graceDeadline = resolveClockOutGraceDeadline(resolveOpenAttendanceWindowEnd(latestAttendance, scheduleContext));
+      const resolvedWindowEnd = resolveOpenAttendanceWindowEnd(latestAttendance, scheduleContext);
+      const graceDeadline = resolveClockOutGraceDeadline(resolvedWindowEnd);
       if (!graceDeadline || now.getTime() > graceDeadline.getTime()) {
         return NextResponse.json(
           {

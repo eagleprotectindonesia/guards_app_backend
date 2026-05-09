@@ -324,6 +324,76 @@ describe('POST /api/employee/my/office-attendance', () => {
     }
   });
 
+  test('rejects clock-out when day attendance is present without shift relation and employee open shift is beyond grace', async () => {
+    jest.useFakeTimers();
+
+    const now = new Date('2026-04-02T03:00:00.001Z');
+    const shiftEnd = new Date('2026-04-02T02:00:00.000Z');
+    jest.setSystemTime(now);
+
+    try {
+      const dayOpenAttendanceWithoutShiftRelation = {
+        id: 'attendance-day-open-no-shift-expired',
+        employeeId: 'employee-mismatch-case-expired',
+        officeId: null,
+        status: 'present',
+        recordedAt: new Date('2026-04-02T00:10:00.000Z'),
+      };
+      const openPreviousShiftAttendance = {
+        id: 'attendance-open-previous-shift-expired',
+        employeeId: 'employee-mismatch-case-expired',
+        officeId: null,
+        officeShiftId: 'office-shift-previous-expired',
+        businessDate: new Date('2026-04-01T00:00:00.000Z'),
+        status: 'present',
+        recordedAt: new Date('2026-04-01T18:05:00.000Z'),
+        officeShift: {
+          id: 'office-shift-previous-expired',
+          startsAt: new Date('2026-04-01T18:00:00.000Z'),
+          endsAt: shiftEnd,
+        },
+      };
+
+      (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+        id: 'employee-mismatch-case-expired',
+        role: 'office',
+        officeId: null,
+        fieldModeEnabled: true,
+      });
+      (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+        source: 'office_shift',
+        isWorkingDay: false,
+        isAfterEnd: false,
+        isLate: false,
+        shift: null,
+        windowStart: null,
+        windowEnd: null,
+        businessDay: {
+          dateKey: '2026-04-02',
+        },
+      });
+      (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+      (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(dayOpenAttendanceWithoutShiftRelation);
+      (getLatestOfficeAttendanceForEmployee as jest.Mock).mockResolvedValue(openPreviousShiftAttendance);
+
+      const req = new Request('http://localhost/api/employee/my/office-attendance', {
+        method: 'POST',
+        body: JSON.stringify({ status: 'clocked_out' }),
+      });
+
+      const response = await POST(req);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data).toMatchObject({
+        code: 'clock_out_grace_expired',
+      });
+      expect(recordOfficeAttendance).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test('rejects clock-out at one millisecond after grace deadline', async () => {
     jest.useFakeTimers();
 
