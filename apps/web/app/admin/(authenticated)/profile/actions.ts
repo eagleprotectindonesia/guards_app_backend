@@ -24,6 +24,57 @@ export type ChangePasswordState = {
   error?: string;
 };
 
+const updateProfileSchema = z.object({
+  leaveApprovalEmail: z.email().optional().or(z.literal('')),
+});
+
+export type UpdateProfileState = {
+  message?: string;
+  error?: string;
+};
+
+export async function updateProfile(prevState: UpdateProfileState, formData: FormData): Promise<UpdateProfileState> {
+  const leaveApprovalEmail = formData.get('leaveApprovalEmail');
+  const validation = updateProfileSchema.safeParse({
+    leaveApprovalEmail: typeof leaveApprovalEmail === 'string' ? leaveApprovalEmail : '',
+  });
+
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get('admin_token')?.value;
+  if (!token) {
+    return { error: 'Unauthorized' };
+  }
+
+  let adminId: string;
+  try {
+    const decoded = jwt.verify(token, getJwtSecret()) as { adminId: string };
+    adminId = decoded.adminId;
+  } catch (error) {
+    console.error('Invalid session:', error);
+    return { error: 'Invalid session' };
+  }
+
+  try {
+    const normalizedLeaveApprovalEmail = validation.data.leaveApprovalEmail || null;
+    await updateAdminWithChangelog(
+      adminId,
+      {
+        leaveApprovalEmail: normalizedLeaveApprovalEmail,
+      },
+      adminId
+    );
+
+    return { message: 'Profile updated successfully' };
+  } catch (error) {
+    console.error('Update profile error:', error);
+    return { error: 'Internal server error' };
+  }
+}
+
 export async function changePassword(prevState: ChangePasswordState, formData: FormData): Promise<ChangePasswordState> {
   const currentPassword = formData.get('currentPassword') as string;
   const newPassword = formData.get('newPassword') as string;

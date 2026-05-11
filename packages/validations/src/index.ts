@@ -26,6 +26,7 @@ export const createSiteSchema = z.object({
 export const createAdminSchema = z.object({
   name: z.string().min(1),
   email: z.email(),
+  leaveApprovalEmail: z.email().optional().or(z.literal('')),
   password: z.string().min(6, 'Password must be at least 6 characters long'),
   roleId: z.string().min(1, 'Role is required'),
   note: z.string().optional(),
@@ -34,6 +35,7 @@ export const createAdminSchema = z.object({
 export const updateAdminSchema = z.object({
   name: z.string().min(1),
   email: z.email(),
+  leaveApprovalEmail: z.email().optional().or(z.literal('')),
   password: z.string().min(6, 'Password must be at least 6 characters long').optional(),
   roleId: z.string().min(1, 'Role is required'),
   note: z.string().optional(),

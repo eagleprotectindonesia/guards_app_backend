@@ -58,6 +58,7 @@ export async function createAdmin(
   const validatedFields = createAdminSchema.safeParse({
     name: formData.get('name'),
     email: formData.get('email'),
+    leaveApprovalEmail: formData.get('leaveApprovalEmail'),
     password: formData.get('password'),
     roleId: formData.get('roleId'),
     note: formData.get('note'),
@@ -71,7 +72,7 @@ export async function createAdmin(
     };
   }
 
-  const { name, email, password, roleId, note } = validatedFields.data;
+  const { name, email, leaveApprovalEmail, password, roleId, note } = validatedFields.data;
   const ownershipForm = parseAdminOwnershipForm(formData);
 
   if (!ownershipForm.success) {
@@ -98,6 +99,7 @@ export async function createAdmin(
       {
         name,
         email,
+        leaveApprovalEmail: leaveApprovalEmail || null,
         hashedPassword,
         roleRef: { connect: { id: roleId } },
         note: note || null,
@@ -156,6 +158,7 @@ export async function updateAdmin(
   const rawData = {
     name: formData.get('name'),
     email: formData.get('email'),
+    leaveApprovalEmail: formData.get('leaveApprovalEmail'),
     roleId: formData.get('roleId'),
     note: formData.get('note'),
     ...(password && typeof password === 'string' && password.length > 0 && { password }),
@@ -171,7 +174,7 @@ export async function updateAdmin(
     };
   }
 
-  const { name, email, roleId, note, password: newPassword } = validatedFields.data;
+  const { name, email, leaveApprovalEmail, roleId, note, password: newPassword } = validatedFields.data;
   const ownershipForm = parseAdminOwnershipForm(formData);
 
   if (!ownershipForm.success) {
@@ -196,6 +199,7 @@ export async function updateAdmin(
     const data = {
       name,
       email,
+      leaveApprovalEmail: leaveApprovalEmail || null,
       roleRef: { connect: { id: roleId } },
       note: note || null,
       includeFallbackLeaveQueue: ownershipForm.data.includeFallbackLeaveQueue,

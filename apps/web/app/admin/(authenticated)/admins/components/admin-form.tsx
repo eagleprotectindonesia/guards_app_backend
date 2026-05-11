@@ -132,6 +132,23 @@ export default function AdminForm({
           {state.errors?.email && <p className="text-red-500 text-xs mt-1">{state.errors.email[0]}</p>}
         </div>
 
+        <div>
+          <label htmlFor="leaveApprovalEmail" className="block font-medium text-foreground mb-1">
+            Leave Approval Email
+          </label>
+          <input
+            type="email"
+            name="leaveApprovalEmail"
+            id="leaveApprovalEmail"
+            defaultValue={admin?.leaveApprovalEmail || ''}
+            className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all placeholder:text-muted-foreground"
+            placeholder="e.g. leave-approvals@example.com"
+          />
+          {state.errors?.leaveApprovalEmail && (
+            <p className="text-red-500 text-xs mt-1">{state.errors.leaveApprovalEmail[0]}</p>
+          )}
+        </div>
+
         {/* Role Field */}
         <div>
           <label htmlFor="roleId" className="block font-medium text-foreground mb-1">

@@ -21,6 +21,7 @@ export default async function ProfilePage() {
       admin={{
         name: admin.name,
         email: admin.email,
+        leaveApprovalEmail: admin.leaveApprovalEmail,
         profileImage: admin.profileImage,
         twoFactorEnabled: admin.twoFactorEnabled,
       }}

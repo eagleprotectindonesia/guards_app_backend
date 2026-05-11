@@ -34,6 +34,7 @@ export default async function AdminsPage(props: AdminsPageProps) {
     id: admin.id,
     name: admin.name,
     email: admin.email,
+    leaveApprovalEmail: admin.leaveApprovalEmail,
     twoFactorEnabled: admin.twoFactorEnabled,
     includeFallbackLeaveQueue: admin.includeFallbackLeaveQueue,
     note: admin.note,

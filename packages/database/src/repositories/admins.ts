@@ -73,6 +73,7 @@ export async function createAdminWithChangelog(data: Prisma.AdminCreateInput, cr
           details: {
             name: createdAdmin.name,
             email: createdAdmin.email,
+            leaveApprovalEmail: createdAdmin.leaveApprovalEmail,
             roleId: createdAdmin.roleId,
             note: createdAdmin.note,
             includeFallbackLeaveQueue: createdAdmin.includeFallbackLeaveQueue,
@@ -104,6 +105,8 @@ export async function updateAdminWithChangelog(id: string, data: Prisma.AdminUpd
           details: {
             name: data.name ? updatedAdmin.name : undefined,
             email: data.email ? updatedAdmin.email : undefined,
+            leaveApprovalEmail:
+              data.leaveApprovalEmail !== undefined ? updatedAdmin.leaveApprovalEmail : undefined,
             roleId: data.roleRef ? updatedAdmin.roleId : undefined,
             note: data.note !== undefined ? updatedAdmin.note : undefined,
             includeFallbackLeaveQueue:

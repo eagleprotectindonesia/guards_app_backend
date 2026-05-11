@@ -467,65 +467,61 @@ export async function createEmployeeLeaveRequest(
     )
   );
 
-  const sendNotif = 0;
-
-  if (sendNotif) {
-    const adminIds = Array.from(new Set(createdNotifications.map(notification => notification.adminId)));
-    if (adminIds.length > 0) {
-      const targetPathByAdminId = new Map<string, string>();
-      for (const notification of createdNotifications) {
-        const payload = (notification.payload ?? {}) as Record<string, unknown>;
-        const targetPath = typeof payload.targetPath === 'string' ? payload.targetPath : '/admin/leave-requests';
-        targetPathByAdminId.set(notification.adminId, targetPath);
-      }
-
-      const admins = await targetTx.admin.findMany({
-        where: {
-          id: { in: adminIds },
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      });
-
-      const webAppUrl = process.env.WEB_APP_URL || 'http://localhost:3000';
-      await Promise.all(
-        admins.map(admin => {
-          const notification = createdNotifications.find(item => item.adminId === admin.id);
-          if (!notification || !admin.email) {
-            return Promise.resolve();
-          }
-
-          const targetPath = targetPathByAdminId.get(admin.id) || '/admin/leave-requests';
-          const targetUrl = `${webAppUrl}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}`;
-
-          return enqueueEmailEvent({
-            templateId: 'admin.leave_request_created',
-            to: [
-              {
-                email: admin.email,
-                name: admin.name,
-              },
-            ],
-            context: {
-              adminName: admin.name,
-              notificationTitle: notification.title,
-              notificationBody: notification.body,
-              targetUrl,
-            },
-            metadata: {
-              source: 'leave_request_created',
-              leaveRequestId: created.id,
-              adminId: admin.id,
-            },
-            idempotencyKey: `leave_request_created:${created.id}:${admin.id}`,
-          });
-        })
-      );
+  const adminIds = Array.from(new Set(createdNotifications.map(notification => notification.adminId)));
+  if (adminIds.length > 0) {
+    const targetPathByAdminId = new Map<string, string>();
+    for (const notification of createdNotifications) {
+      const payload = (notification.payload ?? {}) as Record<string, unknown>;
+      const targetPath = typeof payload.targetPath === 'string' ? payload.targetPath : '/admin/leave-requests';
+      targetPathByAdminId.set(notification.adminId, targetPath);
     }
+
+    const admins = await targetTx.admin.findMany({
+      where: {
+        id: { in: adminIds },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        leaveApprovalEmail: true,
+      },
+    });
+
+    const webAppUrl = process.env.WEB_APP_URL || 'http://localhost:3000';
+    await Promise.all(
+      admins.map(admin => {
+        const notification = createdNotifications.find(item => item.adminId === admin.id);
+        if (!notification || !admin.leaveApprovalEmail) {
+          return Promise.resolve();
+        }
+
+        const targetPath = targetPathByAdminId.get(admin.id) || '/admin/leave-requests';
+        const targetUrl = `${webAppUrl}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}`;
+
+        return enqueueEmailEvent({
+          templateId: 'admin.leave_request_created',
+          to: [
+            {
+              email: admin.leaveApprovalEmail,
+              name: admin.name,
+            },
+          ],
+          context: {
+            adminName: admin.name,
+            notificationTitle: notification.title,
+            notificationBody: notification.body,
+            targetUrl,
+          },
+          metadata: {
+            source: 'leave_request_created',
+            leaveRequestId: created.id,
+            adminId: admin.id,
+          },
+          idempotencyKey: `leave_request_created:${created.id}:${admin.id}`,
+        });
+      })
+    );
   }
 
   return created;
