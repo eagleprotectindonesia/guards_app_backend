@@ -74,6 +74,9 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Email</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Leave Approval Email
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Role</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
                   2FA
@@ -87,7 +90,7 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
             <tbody className="divide-y divide-border">
               {admins.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
                     No admins found. Add one to get started.
                   </td>
                 </tr>
@@ -100,6 +103,11 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
                     <tr key={admin.id} className="hover:bg-muted/50 transition-colors group">
                       <td className="py-4 px-6 text-sm font-medium text-foreground">{admin.name}</td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">{admin.email}</td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
+                        <div className="max-w-[220px] whitespace-normal wrap-break-words">
+                          {admin.leaveApprovalEmail || '-'}
+                        </div>
+                      </td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
