@@ -35,12 +35,14 @@ interface OfficeAttendanceCardProps {
 }
 
 const ATTENDANCE_PHOTO_MAX_DIMENSION = 1280;
+const TEMP_DISABLE_ATTENDANCE_PHOTO = true;
 
 export function OfficeAttendanceCard({ office }: OfficeAttendanceCardProps) {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [statusMessage, setStatusMessage] = useState('');
   const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
+  const requirePhotoForClockIn = !TEMP_DISABLE_ATTENDANCE_PHOTO;
 
   const { data, refetch, isRefetching } = useOfficeAttendance();
   const { data: weeklyData, isLoading: isWeeklyLoading } = useWeeklyOfficeAttendance();
@@ -138,7 +140,7 @@ export function OfficeAttendanceCard({ office }: OfficeAttendanceCardProps) {
         };
       } | undefined = undefined;
 
-      if (nextStatus === 'present') {
+      if (nextStatus === 'present' && requirePhotoForClockIn) {
         setIsPhotoProcessing(true);
         setStatusMessage(t('officeAttendance.takingPhoto', 'Taking attendance photo'));
         
@@ -180,6 +182,59 @@ export function OfficeAttendanceCard({ office }: OfficeAttendanceCardProps) {
       refetch();
     } catch (error: unknown) {
       const errorData = getEmployeeAttendanceCheckinErrorPayload(error);
+      if (nextStatus === 'present' && errorData.code === 'photo_required' && !requirePhotoForClockIn) {
+        setIsPhotoProcessing(true);
+        setStatusMessage(t('officeAttendance.takingPhoto', 'Taking attendance photo'));
+        try {
+          const photoFile = await handleCapturePhoto();
+          if (!photoFile) {
+            setStatusMessage('');
+            return;
+          }
+
+          setStatusMessage(t('officeAttendance.uploadingPhoto', 'Uploading attendance photo'));
+          const upload = await uploadToS3(photoFile, {
+            folder: 'office-attendance',
+            fileType: 'image',
+          });
+
+          setStatusMessage(t('attendance.recording'));
+          await recordMutation.mutateAsync({
+            location: location ?? undefined,
+            metadata: {
+              pictureOptimized: {
+                fileSize: upload.size,
+                contentType: upload.contentType,
+              },
+            },
+            picture: upload.key,
+            status: nextStatus,
+          });
+
+          const successMessage = t('attendance.success');
+          setStatusMessage(successMessage);
+          toast.success(successMessage, { id: 'attendance-success' });
+          refetch();
+          return;
+        } catch (retryError: unknown) {
+          const retryErrorData = getEmployeeAttendanceCheckinErrorPayload(retryError);
+          const retryMessage = resolveOfficeAttendanceErrorMessage(t, {
+            code: retryErrorData.code,
+            fallbackMessage:
+              retryErrorData.error ||
+              retryErrorData.message ||
+              (retryError instanceof Error ? retryError.message : undefined),
+            details: retryErrorData.details,
+          });
+
+          setStatusMessage(retryMessage);
+          toast.error(retryMessage, { id: 'attendance-error' });
+          return;
+        } finally {
+          setIsPhotoProcessing(false);
+        }
+      }
+
       const message = resolveOfficeAttendanceErrorMessage(t, {
         code: errorData.code,
         fallbackMessage: errorData.error || errorData.message || (error instanceof Error ? error.message : undefined),
