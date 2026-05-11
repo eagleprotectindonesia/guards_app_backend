@@ -134,6 +134,13 @@ function listDateKeysInclusive(startDateKey: string, endDateKey: string) {
   return keys;
 }
 
+function formatLeaveReasonLabel(reason: string) {
+  return reason
+    .split('_')
+    .map(token => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(' ');
+}
+
 const FIXED_DURATION_DAYS_BY_REASON: Partial<Record<LeaveRequestReason, number>> = {
   family_marriage: 3,
   family_child_marriage: 2,
@@ -488,13 +495,18 @@ export async function createEmployeeLeaveRequest(
       },
     });
 
-    const webAppUrl = process.env.WEB_APP_URL || 'http://localhost:3000';
+    const webAppUrl = process.env.EMAIL_WEB_APP_URL || process.env.WEB_APP_URL || 'http://localhost:3000';
     await Promise.all(
       admins.map(admin => {
         const notification = createdNotifications.find(item => item.adminId === admin.id);
         if (!notification || !admin.leaveApprovalEmail) {
           return Promise.resolve();
         }
+        const payload = (notification.payload ?? {}) as Record<string, unknown>;
+        const leaveType =
+          typeof payload.reason === 'string' && payload.reason.trim().length > 0
+            ? formatLeaveReasonLabel(payload.reason)
+            : formatLeaveReasonLabel(created.reason);
 
         const targetPath = targetPathByAdminId.get(admin.id) || '/admin/leave-requests';
         const targetUrl = `${webAppUrl}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}`;
@@ -511,6 +523,7 @@ export async function createEmployeeLeaveRequest(
             adminName: admin.name,
             notificationTitle: notification.title,
             notificationBody: notification.body,
+            leaveType,
             targetUrl,
           },
           metadata: {

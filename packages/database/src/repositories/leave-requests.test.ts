@@ -224,6 +224,9 @@ describe('leave-requests repository admin queries', () => {
       expect.objectContaining({
         templateId: 'admin.leave_request_created',
         to: [{ email: 'approval@example.com', name: 'Admin One' }],
+        context: expect.objectContaining({
+          leaveType: 'Sick',
+        }),
       })
     );
   });

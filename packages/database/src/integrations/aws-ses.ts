@@ -47,16 +47,18 @@ function renderTemplate(templateId: EmailTemplateId, context: Record<string, str
   if (templateId === 'admin.leave_request_created') {
     const title = requireContext(context, 'notificationTitle');
     const body = requireContext(context, 'notificationBody');
+    const leaveType = context.leaveType || 'Unknown';
     const targetUrl = requireContext(context, 'targetUrl');
     const adminName = context.adminName || 'Admin';
 
     return {
       subject: title,
-      text: `${body}\n\nOpen request: ${targetUrl}`,
+      text: `${body}\nLeave type: ${leaveType}\n\nOpen request: ${targetUrl}`,
       html: `
 <div style="font-family: Arial, sans-serif; color: #111827;">
   <p>Hello ${adminName},</p>
   <p>${body}</p>
+  <p><strong>Leave type:</strong> ${leaveType}</p>
   <p><a href="${targetUrl}">Open leave requests</a></p>
 </div>`.trim(),
     };
