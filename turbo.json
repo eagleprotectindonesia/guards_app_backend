@@ -24,6 +24,9 @@
     "@repo/database#lint": {
       "dependsOn": ["@repo/database#type-check"]
     },
+    "@repo/auth-server#lint": {
+      "dependsOn": ["@repo/auth-server#type-check"]
+    },
     "@repo/shared#lint": {
       "dependsOn": ["@repo/shared#type-check"]
     },
@@ -39,6 +42,9 @@
     "@repo/database#type-check": {
       "dependsOn": ["@repo/database#prisma:generate"]
     },
+    "@repo/auth-server#type-check": {
+      "dependsOn": ["@repo/database#prisma:generate", "@repo/validations#type-check"]
+    },
     "@repo/shared#type-check": {},
     "@repo/types#type-check": {},
     "@repo/validations#type-check": {},
@@ -48,6 +54,7 @@
     "web#type-check": {
       "dependsOn": [
         "@repo/database#prisma:generate",
+        "@repo/auth-server#type-check",
         "@repo/shared#type-check",
         "@repo/types#type-check",
         "@repo/validations#type-check"

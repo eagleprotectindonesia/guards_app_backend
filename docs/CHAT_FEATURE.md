@@ -28,6 +28,7 @@ The backend logic is modularized into specialized registrars under `apps/web/lib
 
 #### Security & Authorization
 -   **CORS:** Managed via `ALLOWED_ORIGINS` environment variable to restrict browser-based connections.
+-   **Legacy Socket Runtime Flag:** `ENABLE_LEGACY_SOCKET_SERVER` controls whether `apps/web/server.ts` attaches the embedded Socket.IO server. Default behavior is enabled (unset or any value except `'false'`).
 -   **Scoped Read Receipts:** `mark_read` event uses server-side scoped functions (`markAsReadForEmployee`, `markAsReadForAdmin`) to ensure users can only mark their own received messages as read.
 
 #### Room Management
