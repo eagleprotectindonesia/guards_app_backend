@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay, format } from 'date-fns';
-import { getAttendanceExportBatch } from '@repo/database';
-import { adminHasPermission, getAdminSession } from '@/lib/admin-auth';
+import {
+  getAttendanceExportBatch,
+  listLeaveRequestsOverlappingOfficeAttendance,
+} from '@repo/database';
+import type { LeaveRequestReason, LeaveRequestStatus } from '@repo/types';
+import { adminHasPermission, getAdminAuthSession } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { applyAttendanceVisibilityScope } from '@/lib/auth/admin-visibility';
+import { getLeaveReasonMeta } from '@/lib/leave-requests';
 
 function escapeCsv(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
@@ -22,6 +27,33 @@ function formatPaidHours(minutes: number | null) {
 
 function formatOptionalNumber(value?: number | null) {
   return value == null ? '' : String(value);
+}
+
+function formatLeaveStatus(status: LeaveRequestStatus) {
+  switch (status) {
+    case 'pending_hr':
+      return 'Pending HR';
+    case 'pending_manager':
+      return 'Pending Manager';
+    case 'pending':
+      return 'Pending';
+    case 'approved':
+      return 'Approved';
+    case 'rejected':
+      return 'Rejected';
+    case 'cancelled':
+      return 'Cancelled';
+    default:
+      return status;
+  }
+}
+
+function toDateKey(value: Date) {
+  return value.toISOString().slice(0, 10);
+}
+
+function parseDateKey(value: string) {
+  return new Date(`${value}T00:00:00Z`);
 }
 
 function toRadians(value: number) {
@@ -58,7 +90,7 @@ function getDistanceMeters(
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getAdminSession();
+  const session = await getAdminAuthSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -122,6 +154,8 @@ export async function GET(request: NextRequest) {
         'Paid Hours',
         'Work Minutes',
         'Overtime Minutes',
+        'Leave Type',
+        'Leave Status',
         'Status',
         'Lateness (mins)',
         'Late Flag',
@@ -147,6 +181,41 @@ export async function GET(request: NextRequest) {
             break;
           }
 
+          const batchEmployeeIds = Array.from(
+            new Set(batch.map(att => att.employeeId ?? att.employee?.id).filter((id): id is string => Boolean(id)))
+          );
+          const batchDateKeys = batch.map(att => toDateKey(att.shift.date));
+          const minBatchDateKey = batchDateKeys.reduce((min, key) => (key < min ? key : min), batchDateKeys[0]);
+          const maxBatchDateKey = batchDateKeys.reduce((max, key) => (key > max ? key : max), batchDateKeys[0]);
+          const overlappingLeaveRequests =
+            batchEmployeeIds.length === 0
+              ? []
+              : await listLeaveRequestsOverlappingOfficeAttendance({
+                  employeeIds: batchEmployeeIds,
+                  startDate: parseDateKey(minBatchDateKey),
+                  endDate: parseDateKey(maxBatchDateKey),
+                });
+
+          const leaveRequestsByEmployee = new Map<
+            string,
+            Array<{
+              reason: LeaveRequestReason;
+              status: LeaveRequestStatus;
+              startDate: Date;
+              endDate: Date;
+            }>
+          >();
+          for (const leaveRequest of overlappingLeaveRequests) {
+            const existing = leaveRequestsByEmployee.get(leaveRequest.employeeId) ?? [];
+            existing.push({
+              reason: leaveRequest.reason as LeaveRequestReason,
+              status: leaveRequest.status as LeaveRequestStatus,
+              startDate: leaveRequest.startDate,
+              endDate: leaveRequest.endDate,
+            });
+            leaveRequestsByEmployee.set(leaveRequest.employeeId, existing);
+          }
+
           let chunk = '';
           for (const att of batch) {
             const metadata = (att.metadata as { location?: { lat?: number; lng?: number } } | null)?.location;
@@ -154,6 +223,7 @@ export async function GET(request: NextRequest) {
             const department = att.employee?.department || '';
             const jobTitle = att.employee?.jobTitle || '';
             const employeeIdentifier = att.employee?.employeeNumber?.trim() || att.employee?.id || 'N/A';
+            const employeeLookupId = att.employeeId ?? att.employee?.id ?? '';
             const siteName = att.shift.site.name;
             const businessDateObj = new Date(att.shift.date);
             const businessDate = format(businessDateObj, 'yyyy-MM-dd');
@@ -203,6 +273,22 @@ export async function GET(request: NextRequest) {
             const overtimeMinutes = workMinutes == null ? null : Math.max(0, workMinutes - shiftLengthMinutes);
             const earlyLeaveMinutes = workMinutes == null ? null : Math.max(0, shiftLengthMinutes - workMinutes);
             const latenessMins = (att.metadata as { latenessMins?: number } | null)?.latenessMins ?? null;
+            const employeeLeaveRequests = leaveRequestsByEmployee.get(employeeLookupId) ?? [];
+            const attendanceDateKey = toDateKey(att.shift.date);
+            const matchingLeave = employeeLeaveRequests.find(leaveRequest => {
+              const startDateKey = toDateKey(leaveRequest.startDate);
+              const endDateKey = toDateKey(leaveRequest.endDate);
+              return startDateKey <= attendanceDateKey && endDateKey >= attendanceDateKey;
+            });
+            let leaveType = '';
+            let leaveStatus = '';
+            if (matchingLeave) {
+              leaveType = getLeaveReasonMeta(matchingLeave.reason).label;
+              leaveStatus = formatLeaveStatus(matchingLeave.status);
+            } else if (att.status === 'absent') {
+              leaveType = 'Unpaid Leave';
+              leaveStatus = 'None';
+            }
 
             chunk +=
               [
@@ -227,6 +313,8 @@ export async function GET(request: NextRequest) {
                 escapeCsv(paidHours),
                 workMinutes == null ? '' : String(workMinutes),
                 formatOptionalNumber(overtimeMinutes),
+                escapeCsv(leaveType),
+                escapeCsv(leaveStatus),
                 att.status,
                 formatOptionalNumber(latenessMins),
                 (latenessMins ?? 0) > 0 ? 'Yes' : 'No',

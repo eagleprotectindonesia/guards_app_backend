@@ -12,6 +12,7 @@ import { SerializedLeaveRequestAdminListItemDto } from '@/types/leave-requests';
 import SortableHeader from '@/components/sortable-header';
 import { getLeaveReasonMeta } from '@/lib/leave-requests';
 import { useAdminRouter } from '../../context/admin-router';
+import { getLeaveRequestReviewerName } from './leave-request-list-utils';
 
 type LeaveRequestListProps = {
   leaveRequests: SerializedLeaveRequestAdminListItemDto[];
@@ -230,6 +231,7 @@ export default function LeaveRequestList({
                   onSort={handleSort}
                   className="text-muted-foreground hover:bg-muted/80"
                 />
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Reviewer</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Submitted</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
                   Actions
@@ -239,13 +241,14 @@ export default function LeaveRequestList({
             <tbody className="divide-y divide-border">
               {leaveRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
                     No leave requests found.
                   </td>
                 </tr>
               ) : (
                 leaveRequests.map(leaveRequest => {
                   const reasonMeta = getLeaveReasonMeta(leaveRequest.reason);
+                  const reviewerName = getLeaveRequestReviewerName(leaveRequest);
                   return (
                     <tr key={leaveRequest.id} className="hover:bg-muted/30 transition-colors">
                       <td className="py-4 px-6 text-sm">
@@ -262,12 +265,15 @@ export default function LeaveRequestList({
                       </td>
                       <td className="py-4 px-6 text-sm">
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(
+                          className={`inline-flex w-fit items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadgeClass(
                             leaveRequest.status
                           )}`}
                         >
                           {formatStatusLabel(leaveRequest.status)}
                         </span>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
+                        {reviewerName || '-'}
                       </td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">
                         {format(new Date(leaveRequest.createdAt), 'yyyy/MM/dd HH:mm')}

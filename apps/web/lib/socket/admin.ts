@@ -25,7 +25,7 @@ export function registerAdminHandlers(io: UnifiedServer, socket: UnifiedSocket) 
     socket.join(`admin:site:${siteId}`);
   });
 
-  socket.on('request_dashboard_backfill', async (data) => {
+  socket.on('request_dashboard_backfill', async data => {
     try {
       const { siteId } = data;
 

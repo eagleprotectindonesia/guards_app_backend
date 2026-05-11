@@ -21,7 +21,7 @@ export const OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR = 'Overlapping pending leav
 export const FIXED_LEAVE_DURATION_ERROR = 'Selected leave type requires an exact policy duration';
 export const ANNUAL_LEAVE_INSUFFICIENT_ERROR = 'Insufficient annual leave balance';
 export const SICK_NO_DOC_REQUIRES_MANAGER_CONVERSION_ERROR =
-  'Sick leave exceeding 1 working day per cycle without document must be converted by manager first';
+  'Sick leave without document must be converted by manager first';
 export const LEAVE_REASONS_REQUIRE_HR_APPROVAL_SETTING = 'LEAVE_REASONS_REQUIRE_HR_APPROVAL';
 async function isOfficeAttendanceLeaveEffectsEnabled() {
   const setting = await getSystemSetting(ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING);
@@ -134,6 +134,13 @@ function listDateKeysInclusive(startDateKey: string, endDateKey: string) {
   return keys;
 }
 
+function formatLeaveReasonLabel(reason: string) {
+  return reason
+    .split('_')
+    .map(token => token.charAt(0).toUpperCase() + token.slice(1))
+    .join(' ');
+}
+
 const FIXED_DURATION_DAYS_BY_REASON: Partial<Record<LeaveRequestReason, number>> = {
   family_marriage: 3,
   family_child_marriage: 2,
@@ -233,21 +240,6 @@ async function listOnsiteScheduledShiftDateKeysInRange(
   return new Set(rows.map(row => row.date.toISOString().slice(0, 10)));
 }
 
-function cycleStartKeyFromDateKey(dateKey: string) {
-  return dateToDateKey(getSickCycleStart(dateKeyToDate(dateKey)));
-}
-
-function groupWorkingDateKeysBySickCycle(dateKeys: string[]) {
-  const buckets = new Map<string, string[]>();
-  for (const dateKey of dateKeys) {
-    const cycleStartKey = cycleStartKeyFromDateKey(dateKey);
-    const existing = buckets.get(cycleStartKey) ?? [];
-    existing.push(dateKey);
-    buckets.set(cycleStartKey, existing);
-  }
-  return buckets;
-}
-
 function countCalendarDaysInclusive(startDateKey: string, endDateKey: string) {
   return listDateKeysInclusive(startDateKey, endDateKey).length;
 }
@@ -266,51 +258,19 @@ async function shouldConvertNoDocSickLeaveToAnnual(params: {
   };
   tx: TxLike;
 }) {
-  const { request, employee, tx } = params;
+  const { request } = params;
   if (request.reason !== 'sick' || request.attachments.length > 0) {
     return false;
   }
+  return true;
+}
 
-  const startDateKey = dateToDateKey(request.startDate);
-  const endDateKey = dateToDateKey(request.endDate);
-  const workingDateKeys = await listWorkingDateKeysInclusiveForEmployee(
-    { id: employee.id, role: employee.role, department: employee.department ?? null },
-    startDateKey,
-    endDateKey,
-    tx
-  );
-  const cycleBuckets = groupWorkingDateKeysBySickCycle(workingDateKeys);
-  const cycleStartKeys = Array.from(cycleBuckets.keys()).sort((a, b) => a.localeCompare(b));
-  if (cycleStartKeys.length === 0) {
-    return false;
-  }
-
-  const approvedSickRequests = await (tx as TxLike).employeeLeaveRequest.findMany({
-    where: {
-      employeeId: employee.id,
-      status: 'approved',
-      reason: 'sick',
-      cycleKey: { in: cycleStartKeys.map(key => dateKeyToDate(key)) },
-    },
-    select: {
-      attachments: true,
-      policySnapshot: true,
-      deductedAnnualDays: true,
-      unpaidDays: true,
-      cycleKey: true,
-    },
-  });
-  const existingNoDocPaidByCycle = buildExistingNoDocPaidByCycleMap(approvedSickRequests);
-
-  for (const cycleStartKey of cycleStartKeys) {
-    const cycleWorkingKeys = cycleBuckets.get(cycleStartKey) ?? [];
-    const noDocUsedBefore = existingNoDocPaidByCycle.get(cycleStartKey) ?? 0;
-    if (noDocUsedBefore + cycleWorkingKeys.length > 1) {
-      return true;
-    }
-  }
-
-  return false;
+export function buildManagerApprovalFields(params: { adminId: string; now: Date; adminNote?: string | null }) {
+  return {
+    managerApprovedById: params.adminId,
+    managerApprovedAt: params.now,
+    managerApprovalNote: params.adminNote ?? null,
+  };
 }
 
 function parseHrApprovalReasons(rawValue: string | null | undefined) {
@@ -514,65 +474,67 @@ export async function createEmployeeLeaveRequest(
     )
   );
 
-  const sendNotif = 0;
-
-  if (sendNotif) {
-    const adminIds = Array.from(new Set(createdNotifications.map(notification => notification.adminId)));
-    if (adminIds.length > 0) {
-      const targetPathByAdminId = new Map<string, string>();
-      for (const notification of createdNotifications) {
-        const payload = (notification.payload ?? {}) as Record<string, unknown>;
-        const targetPath = typeof payload.targetPath === 'string' ? payload.targetPath : '/admin/leave-requests';
-        targetPathByAdminId.set(notification.adminId, targetPath);
-      }
-
-      const admins = await targetTx.admin.findMany({
-        where: {
-          id: { in: adminIds },
-          deletedAt: null,
-        },
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      });
-
-      const webAppUrl = process.env.WEB_APP_URL || 'http://localhost:3000';
-      await Promise.all(
-        admins.map(admin => {
-          const notification = createdNotifications.find(item => item.adminId === admin.id);
-          if (!notification || !admin.email) {
-            return Promise.resolve();
-          }
-
-          const targetPath = targetPathByAdminId.get(admin.id) || '/admin/leave-requests';
-          const targetUrl = `${webAppUrl}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}`;
-
-          return enqueueEmailEvent({
-            templateId: 'admin.leave_request_created',
-            to: [
-              {
-                email: admin.email,
-                name: admin.name,
-              },
-            ],
-            context: {
-              adminName: admin.name,
-              notificationTitle: notification.title,
-              notificationBody: notification.body,
-              targetUrl,
-            },
-            metadata: {
-              source: 'leave_request_created',
-              leaveRequestId: created.id,
-              adminId: admin.id,
-            },
-            idempotencyKey: `leave_request_created:${created.id}:${admin.id}`,
-          });
-        })
-      );
+  const adminIds = Array.from(new Set(createdNotifications.map(notification => notification.adminId)));
+  if (adminIds.length > 0) {
+    const targetPathByAdminId = new Map<string, string>();
+    for (const notification of createdNotifications) {
+      const payload = (notification.payload ?? {}) as Record<string, unknown>;
+      const targetPath = typeof payload.targetPath === 'string' ? payload.targetPath : '/admin/leave-requests';
+      targetPathByAdminId.set(notification.adminId, targetPath);
     }
+
+    const admins = await targetTx.admin.findMany({
+      where: {
+        id: { in: adminIds },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        leaveApprovalEmail: true,
+      },
+    });
+
+    const webAppUrl = process.env.EMAIL_WEB_APP_URL || process.env.WEB_APP_URL || 'http://localhost:3000';
+    await Promise.all(
+      admins.map(admin => {
+        const notification = createdNotifications.find(item => item.adminId === admin.id);
+        if (!notification || !admin.leaveApprovalEmail) {
+          return Promise.resolve();
+        }
+        const payload = (notification.payload ?? {}) as Record<string, unknown>;
+        const leaveType =
+          typeof payload.reason === 'string' && payload.reason.trim().length > 0
+            ? formatLeaveReasonLabel(payload.reason)
+            : formatLeaveReasonLabel(created.reason);
+
+        const targetPath = targetPathByAdminId.get(admin.id) || '/admin/leave-requests';
+        const targetUrl = `${webAppUrl}${targetPath.startsWith('/') ? targetPath : `/${targetPath}`}`;
+
+        return enqueueEmailEvent({
+          templateId: 'admin.leave_request_created',
+          to: [
+            {
+              email: admin.leaveApprovalEmail,
+              name: admin.name,
+            },
+          ],
+          context: {
+            adminName: admin.name,
+            notificationTitle: notification.title,
+            notificationBody: notification.body,
+            leaveType,
+            targetUrl,
+          },
+          metadata: {
+            source: 'leave_request_created',
+            leaveRequestId: created.id,
+            adminId: admin.id,
+          },
+          idempotencyKey: `leave_request_created:${created.id}:${admin.id}`,
+        });
+      })
+    );
   }
 
   return created;
@@ -593,6 +555,33 @@ export async function listEmployeeLeaveRequestsForAdmin(params: AdminLeaveReques
     where,
     include: adminLeaveRequestInclude,
     orderBy,
+  });
+}
+
+export async function listLeaveRequestFilterEmployeesForAdmin(
+  params: AdminLeaveRequestFilterParams,
+  tx: TxLike = prisma
+) {
+  const where = buildAdminLeaveRequestWhere(params);
+  const targetTx = tx as TxLike;
+
+  return targetTx.employeeLeaveRequest.findMany({
+    where,
+    select: {
+      employee: {
+        select: {
+          id: true,
+          fullName: true,
+          employeeNumber: true,
+        },
+      },
+    },
+    distinct: ['employeeId'],
+    orderBy: {
+      employee: {
+        fullName: 'asc',
+      },
+    },
   });
 }
 
@@ -681,59 +670,6 @@ type AnnualLeaveConsumptionResult = {
   deductedDays: number;
   shortfallDays: number;
 };
-
-function toPositiveNumber(value: unknown) {
-  const n = Number(value);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
-function buildExistingNoDocPaidByCycleMap(
-  priorApprovedSickRequests: Array<{
-    attachments: string[];
-    policySnapshot: Prisma.JsonValue | null;
-    deductedAnnualDays: number;
-    unpaidDays: number;
-    cycleKey: Date | null;
-  }>
-) {
-  const noDocPaidByCycle = new Map<string, number>();
-
-  for (const prior of priorApprovedSickRequests) {
-    if (prior.attachments.length > 0) {
-      continue;
-    }
-
-    const snapshot = (prior.policySnapshot ?? {}) as Record<string, unknown>;
-    const perCycle = snapshot.noDocPaidByCycle;
-    if (perCycle && typeof perCycle === 'object' && !Array.isArray(perCycle)) {
-      for (const [cycleStartKey, rawValue] of Object.entries(perCycle as Record<string, unknown>)) {
-        const paid = toPositiveNumber(rawValue);
-        if (paid <= 0) continue;
-        noDocPaidByCycle.set(cycleStartKey, (noDocPaidByCycle.get(cycleStartKey) ?? 0) + paid);
-      }
-      continue;
-    }
-
-    const singleCyclePaid = toPositiveNumber(snapshot.noDocPaidDays);
-    const singleCycleStart =
-      typeof snapshot.cycleStart === 'string'
-        ? snapshot.cycleStart
-        : prior.cycleKey
-          ? dateToDateKey(prior.cycleKey)
-          : null;
-    if (singleCyclePaid > 0 && singleCycleStart) {
-      noDocPaidByCycle.set(singleCycleStart, (noDocPaidByCycle.get(singleCycleStart) ?? 0) + singleCyclePaid);
-      continue;
-    }
-
-    const inferred = Math.max(0, toPositiveNumber(snapshot.workingDays) - prior.deductedAnnualDays - prior.unpaidDays);
-    if (inferred > 0 && singleCycleStart) {
-      noDocPaidByCycle.set(singleCycleStart, (noDocPaidByCycle.get(singleCycleStart) ?? 0) + inferred);
-    }
-  }
-
-  return noDocPaidByCycle;
-}
 
 async function getOrCreateAnnualLeaveBalance(employeeId: string, year: number, tx: Prisma.TransactionClient) {
   return tx.employeeAnnualLeaveBalance.upsert({
@@ -954,16 +890,6 @@ type LeaveRequestWithEmployee = Prisma.EmployeeLeaveRequestGetPayload<{
   };
 }>;
 
-export type LeavePolicyCycleBreakdown = {
-  cycleStart: string;
-  cycleEnd: string;
-  requestedWorkingDays: number;
-  noDocAllowanceRemainingBeforeRequest: number;
-  noDocPaidDaysCurrentRequest: number;
-  deductedAnnualDays: number;
-  unpaidDays: number;
-};
-
 export type LeavePolicySnapshot = {
   mainCategory?: 'sick' | 'family' | 'special' | 'annual';
   workingDays?: number;
@@ -975,11 +901,6 @@ export type LeavePolicySnapshot = {
   reconciliationDeltaDays?: number;
   annualRequestedDays?: number;
   emergencyDeductedDays?: number;
-  cycleStart?: string;
-  cycleEnd?: string;
-  noDocPaidDays?: number;
-  noDocPaidByCycle?: Record<string, number>;
-  cycleBreakdown?: LeavePolicyCycleBreakdown[];
 };
 
 export type LeavePolicyOutcomeProjection = {
@@ -1090,88 +1011,7 @@ export async function projectLeavePolicyOutcome(
     isPaid = unpaidDays === 0;
     policySnapshot = { ...policySnapshot, emergencyDeductedDays: deductedAnnualDays };
   } else if (request.reason === 'sick') {
-    const cycleBuckets = groupWorkingDateKeysBySickCycle(workingDateKeys);
-    const cycleStartKeys = Array.from(cycleBuckets.keys()).sort((a, b) => a.localeCompare(b));
-    const cycleStartDates = cycleStartKeys.map(cycleStartKey => dateKeyToDate(cycleStartKey));
-    const approvedSickRequests = await (tx as TxLike).employeeLeaveRequest.findMany({
-      where: {
-        employeeId: employee.id,
-        status: 'approved',
-        reason: 'sick',
-        id: { not: request.id },
-        cycleKey: { in: cycleStartDates },
-      },
-      select: {
-        attachments: true,
-        policySnapshot: true,
-        deductedAnnualDays: true,
-        unpaidDays: true,
-        cycleKey: true,
-      },
-    });
-
-    const existingNoDocPaidByCycle = buildExistingNoDocPaidByCycleMap(approvedSickRequests);
-    const currentNoDocPaidByCycle: Record<string, number> = {};
-    const cycleBreakdown: Array<{
-      cycleStart: string;
-      cycleEnd: string;
-      requestedWorkingDays: number;
-      noDocAllowanceRemainingBeforeRequest: number;
-      noDocPaidDaysCurrentRequest: number;
-      deductedAnnualDays: number;
-      unpaidDays: number;
-    }> = [];
-
-    for (const cycleStartKey of cycleStartKeys) {
-      const cycleWorkingKeys = cycleBuckets.get(cycleStartKey) ?? [];
-      const cycleStart = dateKeyToDate(cycleStartKey);
-      const cycleEnd = getSickCycleEnd(cycleStart);
-      const noDocUsedBefore = existingNoDocPaidByCycle.get(cycleStartKey) ?? 0;
-      const noDocAllowanceRemainingBefore = Math.max(0, 1 - noDocUsedBefore);
-
-      let noDocPaidDaysCurrentRequest = 0;
-      let cycleDeducted = 0;
-      let cycleUnpaid = 0;
-
-      if (!hasDocument) {
-        noDocPaidDaysCurrentRequest = Math.min(cycleWorkingKeys.length, noDocAllowanceRemainingBefore);
-        const excessKeys = cycleWorkingKeys.slice(noDocPaidDaysCurrentRequest);
-        if (excessKeys.length > 0) {
-          const annual = await calculateAnnualLeaveConsumption(
-            {
-              employeeId: employee.id,
-              dayKeys: excessKeys,
-            },
-            tx
-          );
-          cycleDeducted = annual.deductedDays;
-          cycleUnpaid = excessKeys.length - annual.deductedDays;
-        }
-      }
-
-      deductedAnnualDays += cycleDeducted;
-      unpaidDays += cycleUnpaid;
-      currentNoDocPaidByCycle[cycleStartKey] = noDocPaidDaysCurrentRequest;
-      cycleBreakdown.push({
-        cycleStart: cycleStartKey,
-        cycleEnd: dateToDateKey(cycleEnd),
-        requestedWorkingDays: cycleWorkingKeys.length,
-        noDocAllowanceRemainingBeforeRequest: noDocAllowanceRemainingBefore,
-        noDocPaidDaysCurrentRequest,
-        deductedAnnualDays: cycleDeducted,
-        unpaidDays: cycleUnpaid,
-      });
-    }
-    isPaid = unpaidDays === 0;
-
-    policySnapshot = {
-      ...policySnapshot,
-      cycleStart: request.cycleKey ? dateToDateKey(request.cycleKey) : cycleStartKeyFromDateKey(startDateKey),
-      cycleEnd: dateToDateKey(getSickCycleEnd(request.cycleKey ?? getSickCycleStart(request.startDate))),
-      noDocPaidDays: hasDocument ? 0 : Object.values(currentNoDocPaidByCycle).reduce((sum, value) => sum + value, 0),
-      noDocPaidByCycle: currentNoDocPaidByCycle,
-      cycleBreakdown,
-    };
+    isPaid = true;
   }
 
   return {
@@ -1240,52 +1080,6 @@ async function finalizeApprovedLeaveRequest(
         },
         trx
       );
-    } else if (request.reason === 'sick') {
-      const cycleBuckets = groupWorkingDateKeysBySickCycle(outcome.workingDateKeys);
-      const cycleStartKeys = Array.from(cycleBuckets.keys()).sort((a, b) => a.localeCompare(b));
-      const hasDocument = request.attachments.length > 0;
-
-      if (!hasDocument) {
-        const approvedSickRequests = await trx.employeeLeaveRequest.findMany({
-          where: {
-            employeeId: request.employeeId,
-            status: 'approved',
-            reason: 'sick',
-            id: { not: request.id },
-            cycleKey: { in: cycleStartKeys.map(key => dateKeyToDate(key)) },
-          },
-          select: {
-            attachments: true,
-            policySnapshot: true,
-            deductedAnnualDays: true,
-            unpaidDays: true,
-            cycleKey: true,
-          },
-        });
-        const existingNoDocPaidByCycle = buildExistingNoDocPaidByCycleMap(approvedSickRequests);
-
-        for (const cycleStartKey of cycleStartKeys) {
-          const cycleWorkingKeys = cycleBuckets.get(cycleStartKey) ?? [];
-          const noDocUsedBefore = existingNoDocPaidByCycle.get(cycleStartKey) ?? 0;
-          const noDocAllowanceRemainingBefore = Math.max(0, 1 - noDocUsedBefore);
-          const noDocPaidDaysCurrentRequest = Math.min(cycleWorkingKeys.length, noDocAllowanceRemainingBefore);
-          const excessKeys = cycleWorkingKeys.slice(noDocPaidDaysCurrentRequest);
-
-          if (excessKeys.length > 0) {
-            await consumeAnnualLeaveDays(
-              {
-                employeeId: request.employeeId,
-                leaveRequestId: request.id,
-                dayKeys: excessKeys,
-                adminId: params.adminId,
-                allowShortfall: true,
-                note: `Sick leave no-document fallback deduction (${request.id})`,
-              },
-              trx
-            );
-          }
-        }
-      }
     }
   }
 
@@ -1296,6 +1090,7 @@ async function finalizeApprovedLeaveRequest(
       reviewedById: params.adminId,
       reviewedAt: now,
       adminNote: params.adminNote ?? null,
+      ...buildManagerApprovalFields({ adminId: params.adminId, now, adminNote: params.adminNote }),
       isPaid: outcome.isPaid,
       deductedAnnualDays: outcome.deductedAnnualDays,
       unpaidDays: outcome.unpaidDays,

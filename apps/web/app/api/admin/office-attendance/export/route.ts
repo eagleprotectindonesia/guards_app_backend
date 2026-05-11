@@ -8,7 +8,7 @@ import {
   listLeaveRequestsOverlappingOfficeAttendance,
 } from '@repo/database';
 import type { LeaveRequestReason, LeaveRequestStatus } from '@repo/types';
-import { adminHasPermission, getAdminSession } from '@/lib/admin-auth';
+import { adminHasPermission, getAdminAuthSession } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { canAccessOfficeAttendance } from '@/lib/auth/admin-visibility';
 import {
@@ -48,7 +48,7 @@ function toDateKey(value: Date) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getAdminSession();
+  const session = await getAdminAuthSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
@@ -218,6 +218,8 @@ export async function GET(request: NextRequest) {
         'Paid Hours',
         'Work Minutes',
         'Overtime Minutes',
+        'Leave Type',
+        'Leave Status',
         'Status',
         'Lateness (mins)',
         'Late Flag',
@@ -226,8 +228,6 @@ export async function GET(request: NextRequest) {
         'Manual Edit Flag',
         'Edited By',
         'Edit Reason',
-        'Leave Type',
-        'Leave Status',
       ];
 
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
@@ -287,6 +287,8 @@ export async function GET(request: NextRequest) {
             isNonWorkingStatus ? '""' : escapeCsv(row.paidHours || ''),
             formatOptionalNumber(workMinutes),
             formatOptionalNumber(overtimeMinutes),
+            escapeCsv(leaveType),
+            escapeCsv(leaveStatus),
             row.displayStatus,
             isNonWorkingStatus ? '' : formatOptionalNumber(row.latenessMins),
             isNonWorkingStatus ? '' : (row.latenessMins ?? 0) > 0 ? 'Yes' : 'No',
@@ -295,8 +297,6 @@ export async function GET(request: NextRequest) {
             '',
             '',
             '',
-            escapeCsv(leaveType),
-            escapeCsv(leaveStatus),
           ].join(',') + '\n';
       }
 

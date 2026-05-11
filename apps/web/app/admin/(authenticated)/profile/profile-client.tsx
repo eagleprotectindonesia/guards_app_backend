@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
 import Modal from '../components/modal';
-import { changePassword } from './actions';
+import { changePassword, updateProfile } from './actions';
 import { setup2FA, enable2FA, disable2FA } from './2fa-actions';
 import { toast } from 'react-hot-toast';
 import { ShieldCheck, ShieldAlert, KeyRound } from 'lucide-react';
@@ -13,6 +13,7 @@ interface ProfileClientProps {
   admin: {
     name: string;
     email: string;
+    leaveApprovalEmail?: string | null;
     profileImage?: string | null;
     twoFactorEnabled: boolean;
   };
@@ -23,12 +24,25 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
   const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
 
   const [isPasswordPending, startPasswordTransition] = useTransition();
+  const [isProfilePending, startProfileTransition] = useTransition();
   const [isSetupPending, startSetupTransition] = useTransition();
   const [isEnablePending, startEnableTransition] = useTransition();
   const [isDisablePending, startDisableTransition] = useTransition();
 
   const [setupData, setSetupData] = useState<{ secret: string; qrCode: string } | null>(null);
   const [verificationCode, setVerificationCode] = useState('');
+  const [leaveApprovalEmail, setLeaveApprovalEmail] = useState(admin.leaveApprovalEmail || '');
+
+  const handleProfileSubmit = async (formData: FormData) => {
+    startProfileTransition(async () => {
+      const result = await updateProfile({}, formData);
+      if (result.error) {
+        toast.error(result.error);
+      } else if (result.message) {
+        toast.success(result.message);
+      }
+    });
+  };
 
   const handlePasswordSubmit = async (formData: FormData) => {
     startPasswordTransition(async () => {
@@ -106,6 +120,28 @@ export default function ProfileClient({ admin }: ProfileClientProps) {
               <div className="mt-1 text-base font-medium text-foreground">{admin.email}</div>
             </div>
           </div>
+          <form action={handleProfileSubmit} className="space-y-3">
+            <div>
+              <label htmlFor="leaveApprovalEmail" className="block text-sm font-medium text-muted-foreground">
+                Leave Approval Email
+              </label>
+              <input
+                id="leaveApprovalEmail"
+                name="leaveApprovalEmail"
+                type="email"
+                value={leaveApprovalEmail}
+                onChange={e => setLeaveApprovalEmail(e.target.value)}
+                placeholder="e.g. leave-approvals@example.com"
+                className="mt-1 w-full md:w-[420px] px-3 py-2 border border-border bg-card text-foreground rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Leave request emails are sent only when this field is set.
+              </p>
+            </div>
+            <Button type="submit" disabled={isProfilePending} className="bg-primary text-primary-foreground hover:bg-primary/90">
+              {isProfilePending ? 'Saving...' : 'Save Profile'}
+            </Button>
+          </form>
         </div>
       </div>
 

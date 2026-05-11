@@ -1,7 +1,7 @@
 import { listEmployeeLeaveRequestsForAdmin } from '@repo/database';
 import { NextRequest, NextResponse } from 'next/server';
 import { format } from 'date-fns';
-import { adminHasPermission, getAdminSession } from '@/lib/admin-auth';
+import { adminHasPermission, getAdminAuthSession } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { resolveLeaveRequestAccessContext, buildVisibleEmployeeWhereClause } from '@/lib/auth/leave-ownership';
 import { getLeaveReasonMeta } from '@/lib/leave-requests';
@@ -44,7 +44,7 @@ function getCalendarDaysInclusive(startDate: Date, endDate: Date) {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getAdminSession();
+  const session = await getAdminAuthSession();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }

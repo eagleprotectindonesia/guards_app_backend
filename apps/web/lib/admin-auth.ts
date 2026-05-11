@@ -4,9 +4,18 @@ import { AUTH_COOKIES } from './auth/constants';
 import { PermissionCode } from './auth/permissions';
 import { forbidden } from 'next/navigation';
 import { RolePolicy } from '@repo/validations';
+import { redis } from '@repo/database/redis';
+import { SESSION_CACHE_TTL } from './auth/constants';
 
 function isSuperAdminRole(roleName: string | null) {
   return roleName === 'Super Admin' || roleName === 'superadmin';
+}
+export interface AdminAuthSession {
+  id: string;
+  roleName: string | null;
+  permissions: string[];
+  rolePolicy: RolePolicy;
+  isSuperAdmin: boolean;
 }
 
 export async function getAdminIdFromToken(): Promise<string> {
@@ -20,17 +29,17 @@ export async function getAdminIdFromToken(): Promise<string> {
 }
 
 export interface AdminSession {
-  id: string;
+  id: AdminAuthSession['id'];
   name: string;
   email: string;
   profileImage: string | null;
-  roleName: string | null;
-  permissions: string[];
-  rolePolicy: RolePolicy;
-  isSuperAdmin: boolean;
+  roleName: AdminAuthSession['roleName'];
+  permissions: AdminAuthSession['permissions'];
+  rolePolicy: AdminAuthSession['rolePolicy'];
+  isSuperAdmin: AdminAuthSession['isSuperAdmin'];
 }
 
-export async function getAdminSession(): Promise<AdminSession | null> {
+export async function getAdminAuthSession(): Promise<AdminAuthSession | null> {
   const cookieStore = await cookies();
   const token = cookieStore.get(AUTH_COOKIES.ADMIN)?.value;
 
@@ -40,19 +49,61 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 
   if (!isValid || !userId) return null;
 
-  const { db } = await import('@repo/database');
-  const admin = await db.admin.findUnique({
-    where: { id: userId },
-    select: { name: true, email: true, profileImage: true },
-  });
+  return {
+    id: userId,
+    roleName,
+    permissions,
+    rolePolicy,
+    isSuperAdmin: isSuperAdminRole(roleName),
+  };
+}
 
-  if (!admin) return null;
+export async function getAdminSession(): Promise<AdminSession | null> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(AUTH_COOKIES.ADMIN)?.value;
+
+  if (!token) return null;
+
+  const { isValid, userId, roleName, permissions, rolePolicy, name, email, profileImage } = await verifySession(token, 'admin');
+
+  if (!isValid || !userId) return null;
+
+  let profileName = name;
+  let profileEmail = email;
+  let profileImageValue = profileImage ?? null;
+
+  if (!profileName || !profileEmail) {
+    const { db } = await import('@repo/database');
+    const admin = await db.admin.findUnique({
+      where: { id: userId },
+      select: { name: true, email: true, profileImage: true },
+    });
+    if (!admin) return null;
+
+    profileName = admin.name;
+    profileEmail = admin.email;
+    profileImageValue = admin.profileImage;
+
+    await redis.set(
+      `admin:permissions:${userId}`,
+      JSON.stringify({
+        roleName,
+        permissions,
+        rolePolicy,
+        name: profileName,
+        email: profileEmail,
+        profileImage: profileImageValue,
+      }),
+      'EX',
+      SESSION_CACHE_TTL
+    );
+  }
 
   return {
     id: userId,
-    name: admin.name,
-    email: admin.email,
-    profileImage: admin.profileImage,
+    name: profileName,
+    email: profileEmail,
+    profileImage: profileImageValue,
     roleName,
     permissions,
     rolePolicy,
@@ -69,56 +120,22 @@ export function adminHasPermission(session: Pick<AdminSession, 'permissions' | '
  * Should be called at the top of Server Components or Server Actions.
  * Supports passing a single permission or an array of permissions (all must be satisfied).
  */
-export async function requirePermission(permission: PermissionCode | PermissionCode[]): Promise<AdminSession> {
-  let session = await getAdminSession();
+export async function requirePermission(permission: PermissionCode | PermissionCode[]): Promise<AdminAuthSession> {
+  const permissionCodes = Array.isArray(permission) ? permission : [permission];
+  const authSession = await getAdminAuthSession();
 
-  if (!session) {
+  if (!authSession) {
     const { redirect } = await import('next/navigation');
     redirect('/admin/login');
   }
 
-  session = session!;
-
-  const permissionCodes = Array.isArray(permission) ? permission : [permission];
-  const uniqueResources = [...new Set(permissionCodes.map(code => code.split(':')[0]))];
-
-  // Auto-create all CRUD permissions for the involved resources
-  const { db } = await import('@repo/database');
-  const { ACTIONS } = await import('./auth/permissions');
-
-  try {
-    await Promise.all(
-      uniqueResources.map(async (resource) => {
-        if (!resource) return;
-
-        // Ensure all standard CRUD actions exist for this resource
-        await Promise.all(
-          ACTIONS.map(async (action) => {
-            const code = `${resource}:${action}`;
-            await db.permission.upsert({
-              where: { code },
-              update: {}, // No update needed if it exists
-              create: {
-                code,
-                resource,
-                action,
-                description: `Auto-generated permission for ${resource}:${action}`,
-              },
-            });
-          })
-        );
-      })
-    );
-  } catch (error) {
-    // We log but don't fail the request if auto-creation fails
-    console.error('[Auth] Failed to auto-create CRUD permissions:', error);
-  }
+  const session = authSession!;
 
   if (session.isSuperAdmin) {
     return session;
   }
 
-  const hasAllPermissions = permissionCodes.every(p => adminHasPermission(session, p));
+  const hasAllPermissions = permissionCodes.every(p => adminHasPermission(session!, p));
 
   if (!hasAllPermissions) {
     forbidden();
@@ -131,7 +148,7 @@ export async function requirePermission(permission: PermissionCode | PermissionC
  * @deprecated Use getAdminSession for RBAC support
  */
 export async function getCurrentAdmin() {
-  const session = await getAdminSession();
+  const session = await getAdminAuthSession();
   if (!session) return null;
   return {
     ...session,
@@ -140,7 +157,7 @@ export async function getCurrentAdmin() {
 }
 
 export async function checkSuperAdmin() {
-  const session = await getAdminSession();
+  const session = await getAdminAuthSession();
   if (!session?.isSuperAdmin) {
     return null;
   }

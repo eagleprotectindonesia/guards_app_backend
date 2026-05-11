@@ -1,12 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Image, TouchableOpacity, TextInput, ScrollView, StyleSheet } from 'react-native';
 import { HStack } from '@/components/ui/hstack';
 import { Spinner } from '@/components/ui/spinner';
 import { Box } from '@/components/ui/box';
 import { Paperclip, X, Video as VideoIcon, Camera, Send, MapPin } from 'lucide-react-native';
+import {
+  Actionsheet,
+  ActionsheetBackdrop,
+  ActionsheetContent,
+  ActionsheetDragIndicator,
+  ActionsheetDragIndicatorWrapper,
+  ActionsheetItem,
+  ActionsheetItemText,
+} from '@/components/ui/actionsheet';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
+
+type AttachmentActionLabels = {
+  chooseFromLibrary: string;
+  takePhoto: string;
+  recordVideo: string;
+  shareLocation: string;
+};
 
 type ChatComposerProps = {
   selectedAttachments: ImagePicker.ImagePickerAsset[];
@@ -14,8 +30,10 @@ type ChatComposerProps = {
   isUploading: boolean;
   bottomInset: number;
   placeholder: string;
+  attachmentActionLabels: AttachmentActionLabels;
   onPickAttachments: () => void;
   onTakePhoto: () => void;
+  onRecordVideo: () => void;
   onShareLocation: () => void;
   onRemoveAttachment: (index: number) => void;
   onChangeText: (value: string) => void;
@@ -28,14 +46,22 @@ export function ChatComposer({
   isUploading,
   bottomInset,
   placeholder,
+  attachmentActionLabels,
   onPickAttachments,
   onTakePhoto,
+  onRecordVideo,
   onShareLocation,
   onRemoveAttachment,
   onChangeText,
   onSendMessage,
 }: ChatComposerProps) {
+  const [showAttachmentActions, setShowAttachmentActions] = useState(false);
   const sendDisabled = (!inputText.trim() && selectedAttachments.length === 0) || isUploading;
+
+  const runAttachmentAction = (action: () => void) => {
+    setShowAttachmentActions(false);
+    action();
+  };
 
   return (
     <>
@@ -63,14 +89,12 @@ export function ChatComposer({
       <View style={styles.inputContainerWrapper}>
         <BlurView intensity={60} tint="dark" style={styles.inputBlurContainer}>
           <HStack className="items-center">
-            <TouchableOpacity onPress={onPickAttachments} disabled={isUploading} style={styles.attachButton}>
+            <TouchableOpacity
+              onPress={() => setShowAttachmentActions(true)}
+              disabled={isUploading}
+              style={styles.attachButton}
+            >
               <Paperclip size={18} color="#94A3B8" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onTakePhoto} disabled={isUploading} style={styles.attachButton}>
-              <Camera size={18} color="#94A3B8" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onShareLocation} disabled={isUploading} style={styles.attachButton}>
-              <MapPin size={18} color="#94A3B8" />
             </TouchableOpacity>
             <TextInput
               style={styles.input}
@@ -94,6 +118,53 @@ export function ChatComposer({
         </BlurView>
         <View style={{ height: bottomInset + 8 }} />
       </View>
+
+      <Actionsheet isOpen={showAttachmentActions} onClose={() => setShowAttachmentActions(false)}>
+        <ActionsheetBackdrop />
+        <ActionsheetContent className="bg-[#1C1C1E] border-t border-white/10">
+          <ActionsheetDragIndicatorWrapper>
+            <ActionsheetDragIndicator className="bg-white/20" />
+          </ActionsheetDragIndicatorWrapper>
+          <View style={styles.actionSheetBody}>
+            <ActionsheetItem
+              onPress={() => runAttachmentAction(onTakePhoto)}
+              className="rounded-xl mb-2 py-3 px-4 bg-white/5 active:bg-white/10"
+            >
+              <Camera size={18} color="#94A3B8" />
+              <ActionsheetItemText className="text-white font-bold text-md">
+                {attachmentActionLabels.takePhoto}
+              </ActionsheetItemText>
+            </ActionsheetItem>
+            <ActionsheetItem
+              onPress={() => runAttachmentAction(onRecordVideo)}
+              className="rounded-xl mb-2 py-3 px-4 bg-white/5 active:bg-white/10"
+            >
+              <VideoIcon size={18} color="#94A3B8" />
+              <ActionsheetItemText className="text-white font-bold text-md">
+                {attachmentActionLabels.recordVideo}
+              </ActionsheetItemText>
+            </ActionsheetItem>
+            <ActionsheetItem
+              onPress={() => runAttachmentAction(onPickAttachments)}
+              className="rounded-xl mb-2 py-3 px-4 bg-white/5 active:bg-white/10"
+            >
+              <Paperclip size={18} color="#94A3B8" />
+              <ActionsheetItemText className="text-white font-bold text-md">
+                {attachmentActionLabels.chooseFromLibrary}
+              </ActionsheetItemText>
+            </ActionsheetItem>
+            <ActionsheetItem
+              onPress={() => runAttachmentAction(onShareLocation)}
+              className="rounded-xl py-3 px-4 bg-white/5 active:bg-white/10"
+            >
+              <MapPin size={18} color="#94A3B8" />
+              <ActionsheetItemText className="text-white font-bold text-md">
+                {attachmentActionLabels.shareLocation}
+              </ActionsheetItemText>
+            </ActionsheetItem>
+          </View>
+        </ActionsheetContent>
+      </Actionsheet>
     </>
   );
 }
@@ -126,6 +197,12 @@ const styles = StyleSheet.create({
   },
   attachButton: {
     padding: 8,
+  },
+  actionSheetBody: {
+    width: '100%',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
   },
   sendButton: {
     width: 38,

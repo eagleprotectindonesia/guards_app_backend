@@ -2,6 +2,7 @@ export type AdminWithRoleDto = {
   id: string;
   name: string;
   email: string;
+  leaveApprovalEmail: string | null;
   twoFactorEnabled: boolean;
   includeFallbackLeaveQueue: boolean;
   note: string | null;

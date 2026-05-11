@@ -29,22 +29,21 @@ export async function getPaginatedShifts(params: {
 
   const [shifts, totalCount] = await prisma.$transaction(
     async tx => {
-      return Promise.all([
-        tx.shift.findMany({
-          where: finalWhere,
-          orderBy,
-          skip,
-          take,
-          include: include || {
-            site: { select: { name: true } },
-            shiftType: { select: { name: true, startTime: true, endTime: true } },
-            employee: { include: { office: { select: { name: true } } } },
-            createdBy: { select: { name: true } },
-            lastUpdatedBy: { select: { name: true } },
-          },
-        }),
-        tx.shift.count({ where: finalWhere }),
-      ]);
+      const shifts = await tx.shift.findMany({
+        where: finalWhere,
+        orderBy,
+        skip,
+        take,
+        include: include || {
+          site: { select: { name: true } },
+          shiftType: { select: { name: true, startTime: true, endTime: true } },
+          employee: { include: { office: { select: { name: true } } } },
+          createdBy: { select: { name: true } },
+          lastUpdatedBy: { select: { name: true } },
+        },
+      });
+      const totalCount = await tx.shift.count({ where: finalWhere });
+      return [shifts, totalCount] as const;
     },
     { timeout: 5000 }
   );

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import { getPaginatedEmployeeLeaveRequestsForAdmin, listEmployeeLeaveRequestsForAdmin } from '@repo/database';
+import { getPaginatedEmployeeLeaveRequestsForAdmin, listLeaveRequestFilterEmployeesForAdmin } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { resolveLeaveRequestAccessContext, buildVisibleEmployeeWhereClause } from '@/lib/auth/leave-ownership';
@@ -58,7 +58,7 @@ export default async function LeaveRequestsPage(props: LeaveRequestsPageProps) {
       skip,
       take: perPage,
     }),
-    listEmployeeLeaveRequestsForAdmin({
+    listLeaveRequestFilterEmployeesForAdmin({
       statuses,
       reasons,
       startDate,
@@ -68,18 +68,7 @@ export default async function LeaveRequestsPage(props: LeaveRequestsPageProps) {
     }),
   ]);
 
-  const employeeOptions = Array.from(
-    new Map(
-      filterEmployeeResults.map(request => [
-        request.employee.id,
-        {
-          id: request.employee.id,
-          fullName: request.employee.fullName,
-          employeeNumber: request.employee.employeeNumber,
-        },
-      ])
-    ).values()
-  ).sort((a, b) => a.fullName.localeCompare(b.fullName));
+  const employeeOptions = filterEmployeeResults.map(item => item.employee);
 
   const serializedLeaveRequests = serialize(leaveRequests) as SerializedLeaveRequestAdminListItemDto[];
 

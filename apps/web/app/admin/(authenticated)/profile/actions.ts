@@ -6,8 +6,7 @@ import jwt from 'jsonwebtoken';
 import { getAdminById, updateAdminWithChangelog } from '@repo/database';
 import { hashPassword, verifyPassword } from '@repo/database';
 import { redis } from '@repo/database/redis';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+import { getJwtSecret } from '@/lib/auth/constants';
 
 const changePasswordSchema = z
   .object({
@@ -24,6 +23,57 @@ export type ChangePasswordState = {
   message?: string;
   error?: string;
 };
+
+const updateProfileSchema = z.object({
+  leaveApprovalEmail: z.email().optional().or(z.literal('')),
+});
+
+export type UpdateProfileState = {
+  message?: string;
+  error?: string;
+};
+
+export async function updateProfile(prevState: UpdateProfileState, formData: FormData): Promise<UpdateProfileState> {
+  const leaveApprovalEmail = formData.get('leaveApprovalEmail');
+  const validation = updateProfileSchema.safeParse({
+    leaveApprovalEmail: typeof leaveApprovalEmail === 'string' ? leaveApprovalEmail : '',
+  });
+
+  if (!validation.success) {
+    return { error: validation.error.issues[0].message };
+  }
+
+  const cookieStore = await cookies();
+  const token = cookieStore.get('admin_token')?.value;
+  if (!token) {
+    return { error: 'Unauthorized' };
+  }
+
+  let adminId: string;
+  try {
+    const decoded = jwt.verify(token, getJwtSecret()) as { adminId: string };
+    adminId = decoded.adminId;
+  } catch (error) {
+    console.error('Invalid session:', error);
+    return { error: 'Invalid session' };
+  }
+
+  try {
+    const normalizedLeaveApprovalEmail = validation.data.leaveApprovalEmail || null;
+    await updateAdminWithChangelog(
+      adminId,
+      {
+        leaveApprovalEmail: normalizedLeaveApprovalEmail,
+      },
+      adminId
+    );
+
+    return { message: 'Profile updated successfully' };
+  } catch (error) {
+    console.error('Update profile error:', error);
+    return { error: 'Internal server error' };
+  }
+}
 
 export async function changePassword(prevState: ChangePasswordState, formData: FormData): Promise<ChangePasswordState> {
   const currentPassword = formData.get('currentPassword') as string;
@@ -51,7 +101,7 @@ export async function changePassword(prevState: ChangePasswordState, formData: F
 
   let adminId: string;
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as { adminId: string };
+    const decoded = jwt.verify(token, getJwtSecret()) as { adminId: string };
     adminId = decoded.adminId;
   } catch (error) {
     console.error('Invalid session:', error);
@@ -90,7 +140,7 @@ export async function changePassword(prevState: ChangePasswordState, formData: F
     // 5. Generate NEW token with the NEW version and set it to keep current session active
     const newToken = jwt.sign(
       { adminId: updatedAdmin.id, email: updatedAdmin.email, tokenVersion: updatedAdmin.tokenVersion },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '30d' }
     );
 

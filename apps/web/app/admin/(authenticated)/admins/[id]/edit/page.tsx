@@ -43,6 +43,7 @@ export default async function EditAdminPage(props: EditAdminPageProps) {
     id: admin.id,
     name: admin.name,
     email: admin.email,
+    leaveApprovalEmail: admin.leaveApprovalEmail,
     twoFactorEnabled: admin.twoFactorEnabled,
     includeFallbackLeaveQueue: admin.includeFallbackLeaveQueue,
     note: admin.note,

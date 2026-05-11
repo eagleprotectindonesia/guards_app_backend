@@ -31,6 +31,7 @@ describe('aws-ses integration', () => {
       context: {
         notificationTitle: 'New leave request submitted',
         notificationBody: 'Employee requested leave.',
+        leaveType: 'Sick',
         targetUrl: 'http://localhost:3000/admin/leave-requests',
       },
       idempotencyKey: 'leave_request_created:leave-1:admin-1',
@@ -42,6 +43,13 @@ describe('aws-ses integration', () => {
         Destination: {
           ToAddresses: ['admin@example.com'],
         },
+        Message: expect.objectContaining({
+          Body: expect.objectContaining({
+            Text: expect.objectContaining({
+              Data: expect.stringContaining('Leave type: Sick'),
+            }),
+          }),
+        }),
         Tags: expect.arrayContaining([
           expect.objectContaining({
             Name: 'idempotency_key',

@@ -163,23 +163,22 @@ export async function getPaginatedCheckins(params: {
   const { where, orderBy, skip, take } = params;
 
   const [checkins, totalCount] = await prisma.$transaction(async tx => {
-    return Promise.all([
-      tx.checkin.findMany({
-        where,
-        orderBy,
-        skip,
-        take,
-        include: {
-          employee: true,
-          shift: {
-            include: {
-              site: true,
-            },
+    const checkins = await tx.checkin.findMany({
+      where,
+      orderBy,
+      skip,
+      take,
+      include: {
+        employee: true,
+        shift: {
+          include: {
+            site: true,
           },
         },
-      }),
-      tx.checkin.count({ where }),
-    ]);
+      },
+    });
+    const totalCount = await tx.checkin.count({ where });
+    return [checkins, totalCount] as const;
   });
 
   return { checkins, totalCount };

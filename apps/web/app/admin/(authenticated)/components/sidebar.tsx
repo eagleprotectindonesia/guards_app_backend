@@ -8,6 +8,7 @@ import { cn } from '@repo/shared';
 import { ADMIN_SECONDARY_NAV_ITEMS, getAdminNavItems, type NavItem } from '@/lib/admin-navigation';
 import { useSession } from '../context/session-context';
 import { AdminNavLink } from './admin-nav-link';
+import { useAdminNotifications } from '../context/admin-notification-context';
 
 type Props = {
   officeWorkSchedulesEnabled: boolean;
@@ -18,6 +19,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
   const { hasPermission } = useSession();
+  const { unreadCount } = useAdminNotifications();
 
   const navGroups = useMemo(() => {
     const navItems = getAdminNavItems(officeWorkSchedulesEnabled);
@@ -147,6 +149,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
               <div className="space-y-1">
                 {group.items.map(item => {
                   const isActive = pathname.startsWith(item.href);
+                  const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
 
                   return (
                     <AdminNavLink
@@ -175,6 +178,11 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       >
                         {item.name}
                       </span>
+                      {showLeaveRequestsCounter && (
+                        <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
                     </AdminNavLink>
                   );
                 })}
@@ -189,6 +197,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
               <div className="space-y-1">
                 {group.items.map(item => {
                   const isActive = pathname.startsWith(item.href);
+                  const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
 
                   return (
                     <AdminNavLink
@@ -208,6 +217,11 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                           isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
                         )}
                       />
+                      {showLeaveRequestsCounter && (
+                        <span className="absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
                       <span className="opacity-0 w-0 hidden">{item.name}</span>
                     </AdminNavLink>
                   );

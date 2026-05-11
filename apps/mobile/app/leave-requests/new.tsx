@@ -65,7 +65,7 @@ const LEAVE_CATEGORY_OPTIONS: Record<LeaveMainCategory, LeaveSubtypeOption[]> = 
       fallbackLabel: 'Sick Leave',
       descriptionKey: 'leave.reasonDescription.sick',
       fallbackDescription:
-        'Allowed: 1 day per cycle (21st-20th). More than 1 day requires doctor certificate. Without document, additional days are unpaid or deducted from annual leave.',
+        'Sick leave without documentation will be converted to annual leave deduction during manager approval.',
     },
   ],
   family: [
@@ -171,7 +171,7 @@ export default function NewLeaveRequestScreen() {
   const createMutation = useCreateLeaveRequest();
 
   const [startDate, setStartDate] = useState(new Date());
-  const [endDate, setEndDate] = useState(addDays(new Date(), 1));
+  const [endDate, setEndDate] = useState(new Date());
   const [reason, setReason] = useState<LeaveRequestReason>('annual');
   const [mainCategory, setMainCategory] = useState<LeaveMainCategory>('annual');
   const [employeeNote, setEmployeeNote] = useState('');
@@ -329,53 +329,73 @@ export default function NewLeaveRequestScreen() {
       return;
     }
 
-    try {
-      const attachmentKeys = await Promise.all(
-        attachments.map(async (asset, index) => {
-          const uploaded = await uploadToS3(asset.uri, asset.name || `leave_${Date.now()}_${index}`, asset.mimeType, asset.fileSize || 0, {
-            folder: 'leave-requests',
-          });
-          return uploaded.key;
-        })
-      );
+    const submitLeaveRequest = async () => {
+      try {
+        const attachmentKeys = await Promise.all(
+          attachments.map(async (asset, index) => {
+            const uploaded = await uploadToS3(asset.uri, asset.name || `leave_${Date.now()}_${index}`, asset.mimeType, asset.fileSize || 0, {
+              folder: 'leave-requests',
+            });
+            return uploaded.key;
+          })
+        );
 
-      createMutation.mutate(
-        {
-          startDate: format(startDate, 'yyyy-MM-dd'),
-          endDate: format(computedEndDate, 'yyyy-MM-dd'),
-          reason,
-          employeeNote: employeeNote.trim() || undefined,
-          attachments: attachmentKeys,
-        },
-        {
-          onSuccess: () => {
-            toast.success(t('common.successTitle'), t('leave.success.created'));
-            router.back();
+        createMutation.mutate(
+          {
+            startDate: format(startDate, 'yyyy-MM-dd'),
+            endDate: format(computedEndDate, 'yyyy-MM-dd'),
+            reason,
+            employeeNote: employeeNote.trim() || undefined,
+            attachments: attachmentKeys,
           },
-          onError: error => {
-            const fallbackMessage = t('leave.error.createFailed');
-            if (error instanceof AxiosError) {
-              const responseError = error.response?.data?.error;
-              const backendMessage =
-                typeof responseError === 'string'
-                  ? responseError
-                  : Array.isArray(responseError)
+          {
+            onSuccess: () => {
+              toast.success(t('common.successTitle'), t('leave.success.created'));
+              router.back();
+            },
+            onError: error => {
+              const fallbackMessage = t('leave.error.createFailed');
+              if (error instanceof AxiosError) {
+                const responseError = error.response?.data?.error;
+                const backendMessage =
+                  typeof responseError === 'string'
                     ? responseError
-                        .map(item => (item && typeof item.message === 'string' ? item.message : null))
-                        .filter(Boolean)
-                        .join(', ')
-                    : null;
-              toast.error(t('common.errorTitle'), backendMessage || fallbackMessage);
-              return;
-            }
-            toast.error(t('common.errorTitle'), fallbackMessage);
-          },
-        }
+                    : Array.isArray(responseError)
+                      ? responseError
+                          .map(item => (item && typeof item.message === 'string' ? item.message : null))
+                          .filter(Boolean)
+                          .join(', ')
+                      : null;
+                toast.error(t('common.errorTitle'), backendMessage || fallbackMessage);
+                return;
+              }
+              toast.error(t('common.errorTitle'), fallbackMessage);
+            },
+          }
+        );
+      } catch (error) {
+        console.error('Error uploading leave attachments:', error);
+        toast.error(t('common.errorTitle'), t('leave.error.attachmentUploadFailed', 'Failed to upload attachments'));
+      }
+    };
+
+    if (reason === 'sick' && attachments.length === 0) {
+      showAlert(
+        t('leave.reasonType.sick', 'Sick Leave'),
+        t(
+          'leave.reasonDescription.sick',
+          'Sick leave without documentation will be converted to annual leave deduction during manager approval.'
+        ),
+        [
+          { text: t('common.cancel', 'Cancel'), style: 'cancel' },
+          { text: t('common.submit', 'Submit'), onPress: () => void submitLeaveRequest() },
+        ],
+        { icon: 'warning' }
       );
-    } catch (error) {
-      console.error('Error uploading leave attachments:', error);
-      toast.error(t('common.errorTitle'), t('leave.error.attachmentUploadFailed', 'Failed to upload attachments'));
+      return;
     }
+
+    await submitLeaveRequest();
   };
 
   return (

@@ -79,15 +79,14 @@ export default async function EmployeesPage(props: EmployeesPageProps) {
     };
   }
 
-  const { employees, totalCount } = await getPaginatedEmployees({
-    where,
-    orderBy: { [sortField]: sortOrder as 'asc' | 'desc' },
-    skip,
-    take: perPage,
-    includeActiveOfficeWorkScheduleName: officeWorkSchedulesEnabled,
-  });
-
-  const [lastSyncTimestamp, lastSyncDuplicateWarning] = await Promise.all([
+  const [{ employees, totalCount }, lastSyncTimestamp, lastSyncDuplicateWarning] = await Promise.all([
+    getPaginatedEmployees({
+      where,
+      orderBy: { [sortField]: sortOrder as 'asc' | 'desc' },
+      skip,
+      take: perPage,
+      includeActiveOfficeWorkScheduleName: officeWorkSchedulesEnabled,
+    }),
     getLastEmployeeSyncTimestamp(),
     getLastEmployeeSyncDuplicateWarning(),
   ]);

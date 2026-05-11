@@ -20,6 +20,8 @@ import { ChatHeader } from '../../src/components/chat/ChatHeader';
 import { ChatComposer } from '../../src/components/chat/ChatComposer';
 import { useChatMessages } from '../../src/hooks/useChatMessages';
 
+const MAX_CHAT_VIDEO_SIZE_BYTES = 20 * 1024 * 1024;
+
 export default function ChatScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
@@ -56,6 +58,25 @@ export default function ChatScreen() {
     t,
   });
 
+  const addAttachments = useCallback(
+    (assets: ImagePicker.ImagePickerAsset[]) => {
+      const validAssets = assets.filter(asset => {
+        const isVideo = asset.type === 'video';
+        const fileSize = asset.fileSize ?? 0;
+        return !isVideo || fileSize === 0 || fileSize <= MAX_CHAT_VIDEO_SIZE_BYTES;
+      });
+
+      if (validAssets.length < assets.length) {
+        toast.warning(t('chat.video_size_limit'), t('chat.video_size_limit_desc'));
+      }
+
+      if (validAssets.length > 0) {
+        setSelectedAttachments(prev => [...prev, ...validAssets].slice(0, 4));
+      }
+    },
+    [t, toast]
+  );
+
   const pickAttachments = async () => {
     if (selectedAttachments.length >= 4) {
       toast.warning(t('chat.limit_reached'), t('chat.limit_reached_desc'));
@@ -71,7 +92,7 @@ export default function ChatScreen() {
       });
 
       if (!result.canceled) {
-        setSelectedAttachments(prev => [...prev, ...result.assets].slice(0, 4));
+        addAttachments(result.assets);
       }
     } catch (error) {
       console.error('Error picking attachments:', error);
@@ -93,15 +114,42 @@ export default function ChatScreen() {
 
     try {
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ['images', 'videos'],
+        mediaTypes: ['images'],
         quality: 0.7,
       });
 
       if (!result.canceled) {
-        setSelectedAttachments(prev => [...prev, ...result.assets].slice(0, 4));
+        addAttachments(result.assets);
       }
     } catch (error) {
       console.error('Error taking photo:', error);
+      toast.error(t('chat.camera_error'), t('chat.camera_error_desc'));
+    }
+  };
+
+  const recordVideo = async () => {
+    if (selectedAttachments.length >= 4) {
+      toast.warning(t('chat.limit_reached'), t('chat.limit_reached_desc'));
+      return;
+    }
+
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      toast.error(t('chat.camera_permission'), t('chat.camera_permission_desc'));
+      return;
+    }
+
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['videos'],
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        addAttachments(result.assets);
+      }
+    } catch (error) {
+      console.error('Error recording video:', error);
       toast.error(t('chat.camera_error'), t('chat.camera_error_desc'));
     }
   };
@@ -292,8 +340,15 @@ export default function ChatScreen() {
           isUploading={isUploading}
           bottomInset={insets.bottom}
           placeholder={t('chat.placeholder')}
+          attachmentActionLabels={{
+            chooseFromLibrary: t('chat.choose_from_library', 'Choose from library'),
+            takePhoto: t('chat.take_photo', 'Take photo'),
+            recordVideo: t('chat.record_video', 'Record video'),
+            shareLocation: t('chat.share_location', 'Share location'),
+          }}
           onPickAttachments={pickAttachments}
           onTakePhoto={takePhoto}
+          onRecordVideo={recordVideo}
           onShareLocation={shareLocation}
           onRemoveAttachment={removeAttachment}
           onChangeText={setInputText}

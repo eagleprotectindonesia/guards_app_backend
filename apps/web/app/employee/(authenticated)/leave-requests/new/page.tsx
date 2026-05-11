@@ -40,7 +40,7 @@ const LEAVE_CATEGORY_OPTIONS: Record<LeaveMainCategory, LeaveSubtypeOption[]> = 
       fallbackLabel: 'Sick Leave',
       descriptionKey: 'leave.reasonDescription.sick',
       fallbackDescription:
-        'Allowed: 1 day per cycle (21st-20th). More than 1 day requires doctor certificate. Without document, additional days are unpaid or deducted from annual leave.',
+        'Sick leave without documentation will be converted to annual leave deduction during manager approval.',
     },
   ],
   family: [
@@ -139,7 +139,7 @@ export default function NewLeaveRequestPage() {
   const createMutation = useCreateLeaveRequest();
 
   const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [endDate, setEndDate] = useState(format(addDays(new Date(), 1), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [reason, setReason] = useState<LeaveRequestReason>('annual');
   const [mainCategory, setMainCategory] = useState<LeaveMainCategory>('annual');
   const [employeeNote, setEmployeeNote] = useState('');

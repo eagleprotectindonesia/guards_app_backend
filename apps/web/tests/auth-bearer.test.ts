@@ -73,4 +73,27 @@ describe('Middleware - Bearer Token Auth', () => {
     const response = await proxy(req);
     expect(response.status).toBe(401);
   });
+
+  test('allows admin page request when verification fails transiently', async () => {
+    const req = new NextRequest(new URL('http://localhost/admin/dashboard'));
+    req.cookies.set('admin_token', 'admin-token');
+
+    (verifySession as jest.Mock).mockResolvedValue({ isValid: false, reason: 'backend_error' });
+
+    const response = await proxy(req);
+    expect(response.status).toBe(200);
+    expect(verifySession).toHaveBeenCalledWith('admin-token', 'admin');
+  });
+
+  test('returns 503 for admin API when verification fails transiently', async () => {
+    const req = new NextRequest(new URL('http://localhost/api/admin/attendance/export'));
+    req.cookies.set('admin_token', 'admin-token');
+
+    (verifySession as jest.Mock).mockResolvedValue({ isValid: false, reason: 'backend_error' });
+
+    const response = await proxy(req);
+    const data = await response.json();
+    expect(response.status).toBe(503);
+    expect(data?.error).toBe('Service Unavailable');
+  });
 });

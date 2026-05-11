@@ -9,6 +9,19 @@ import { isImageFile, isVideoFile } from '@/lib/file';
 import { SerializedLeavePolicyOutcomeDto, SerializedLeaveRequestAdminListItemDto } from '@/types/leave-requests';
 import { getLeaveReasonMeta } from '@/lib/leave-requests';
 
+type CycleBreakdownItem = {
+  cycleStart: string;
+  cycleEnd: string;
+  requestedWorkingDays: number;
+  noDocPaidDaysCurrentRequest: number;
+  deductedAnnualDays: number;
+  unpaidDays: number;
+};
+
+type LeavePolicySnapshotWithCycleBreakdown = NonNullable<SerializedLeavePolicyOutcomeDto['policySnapshot']> & {
+  cycleBreakdown?: CycleBreakdownItem[];
+};
+
 type LeaveRequestDetailProps = {
   leaveRequest: SerializedLeaveRequestAdminListItemDto;
   canEdit: boolean;
@@ -58,9 +71,9 @@ export default function LeaveRequestDetail({
 
   const displayOutcome = isPendingStatus && projectedOutcome ? projectedOutcome : leaveRequest;
 
-  const cycleBreakdown = Array.isArray(displayOutcome.policySnapshot?.cycleBreakdown)
-    ? displayOutcome.policySnapshot.cycleBreakdown
-    : [];
+  const policySnapshot = displayOutcome.policySnapshot as LeavePolicySnapshotWithCycleBreakdown | null;
+
+  const cycleBreakdown = Array.isArray(policySnapshot?.cycleBreakdown) ? policySnapshot.cycleBreakdown : [];
 
   const handleApprove = () => {
     if (!isPendingStatus || !canEdit) return;
@@ -212,7 +225,7 @@ export default function LeaveRequestDetail({
         {cycleBreakdown.length > 0 && (
           <div className="mt-6 space-y-3">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Sick Cycle Breakdown</p>
-            {cycleBreakdown.map((cycle, index) => (
+            {cycleBreakdown.map((cycle: CycleBreakdownItem, index: number) => (
               <div key={`${cycle.cycleStart}-${index}`} className="rounded-lg border border-border p-3">
                 <p className="text-sm font-medium text-foreground">
                   {cycle.cycleStart} - {cycle.cycleEnd}

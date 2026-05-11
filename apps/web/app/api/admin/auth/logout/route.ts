@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { redis } from '@repo/database/redis';
 import jwt from 'jsonwebtoken';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretjwtkey';
+import { getJwtSecret } from '@/lib/auth/constants';
 
 export async function POST() {
   const cookieStore = await cookies();
@@ -11,7 +10,7 @@ export async function POST() {
 
   if (token) {
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { adminId: string };
+      const decoded = jwt.verify(token, getJwtSecret()) as { adminId: string };
       const cacheKey = `admin:token_version:${decoded.adminId}`;
       await redis.del(cacheKey);
     } catch {

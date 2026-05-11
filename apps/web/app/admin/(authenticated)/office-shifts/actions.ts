@@ -4,7 +4,7 @@ import { prisma } from '@repo/database';
 import { revalidatePath } from 'next/cache';
 import { addDays, isBefore, parse } from 'date-fns';
 import { ShiftStatus } from '@prisma/client';
-import { getAdminSession, adminHasPermission } from '@/lib/admin-auth';
+import { getAdminAuthSession, adminHasPermission } from '@/lib/admin-auth';
 import * as XLSX from 'xlsx';
 import {
   bulkCreateOfficeShiftsWithChangelog,
@@ -131,7 +131,7 @@ export async function createOfficeShift(
   prevState: ActionState<CreateOfficeShiftInput>,
   formData: FormData
 ): Promise<ActionState<CreateOfficeShiftInput>> {
-  const session = await getAdminSession();
+  const session = await getAdminAuthSession();
   if (!session) return { success: false, message: 'Unauthorized' };
   if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.CREATE)) {
     return { success: false, message: 'Permission denied' };
@@ -234,7 +234,7 @@ export async function updateOfficeShift(
   prevState: ActionState<UpdateOfficeShiftInput>,
   formData: FormData
 ): Promise<ActionState<UpdateOfficeShiftInput>> {
-  const session = await getAdminSession();
+  const session = await getAdminAuthSession();
   if (!session) return { success: false, message: 'Unauthorized' };
   if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.EDIT)) {
     return { success: false, message: 'Permission denied' };
@@ -331,7 +331,7 @@ export async function updateOfficeShift(
 
 export async function deleteOfficeShift(id: string) {
   try {
-    const session = await getAdminSession();
+    const session = await getAdminAuthSession();
     if (!session) return { success: false, message: 'Unauthorized' };
     if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.DELETE)) {
       return { success: false, message: 'Permission denied' };
@@ -355,7 +355,7 @@ export async function bulkDeleteOfficeShifts(ids: string[]) {
       return { success: false, message: 'No shifts selected for deletion' };
     }
 
-    const session = await getAdminSession();
+    const session = await getAdminAuthSession();
     if (!session) return { success: false, message: 'Unauthorized' };
     if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.DELETE)) {
       return { success: false, message: 'Permission denied' };
@@ -375,7 +375,7 @@ export async function bulkDeleteOfficeShifts(ids: string[]) {
 
 export async function cancelOfficeShift(id: string, cancelNote?: string) {
   try {
-    const session = await getAdminSession();
+    const session = await getAdminAuthSession();
     if (!session) return { success: false, message: 'Unauthorized' };
     if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.DELETE)) {
       return { success: false, message: 'Permission denied' };
@@ -740,7 +740,7 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
 export async function bulkCreateOfficeShifts(
   formData: FormData
 ): Promise<{ success: boolean; message?: string; errors?: string[] }> {
-  const session = await getAdminSession();
+  const session = await getAdminAuthSession();
   if (!session) return { success: false, message: 'Unauthorized' };
   if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.CREATE)) {
     return { success: false, message: 'Permission denied' };
