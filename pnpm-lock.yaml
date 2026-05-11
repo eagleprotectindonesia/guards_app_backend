@@ -357,9 +357,15 @@ importers:
       '@repo/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@repo/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
       '@repo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@repo/storage':
+        specifier: workspace:*
+        version: link:../../packages/storage
       '@repo/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -624,9 +630,6 @@ importers:
       '@repo/tsconfig':
         specifier: workspace:*
         version: link:../tsconfig
-      '@types/jsonwebtoken':
-        specifier: ^9.0.10
-        version: 9.0.10
       '@typescript-eslint/parser':
         specifier: ^8.57.0
         version: 8.57.0(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
@@ -695,6 +698,28 @@ importers:
         specifier: ^5
         version: 5.9.3
 
+  packages/notifications:
+    dependencies:
+      '@repo/database':
+        specifier: workspace:*
+        version: link:../database
+      firebase-admin:
+        specifier: ^13.6.1
+        version: 13.7.0
+    devDependencies:
+      '@repo/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@typescript-eslint/parser':
+        specifier: ^8.57.0
+        version: 8.57.0(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.39.2
+        version: 9.39.4(jiti@2.6.1)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
   packages/shared:
     dependencies:
       clsx:
@@ -706,6 +731,31 @@ importers:
       tailwind-merge:
         specifier: ^3.4.0
         version: 3.5.0
+    devDependencies:
+      '@repo/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      '@typescript-eslint/parser':
+        specifier: ^8.57.0
+        version: 8.57.0(eslint@9.39.4(jiti@2.6.1))(typescript@5.9.3)
+      eslint:
+        specifier: ^9.39.2
+        version: 9.39.4(jiti@2.6.1)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+
+  packages/storage:
+    dependencies:
+      '@aws-sdk/client-s3':
+        specifier: ^3.955.0
+        version: 3.1006.0
+      '@aws-sdk/s3-request-presigner':
+        specifier: ^3.971.0
+        version: 3.1006.0
+      '@repo/database':
+        specifier: workspace:*
+        version: link:../database
     devDependencies:
       '@repo/tsconfig':
         specifier: workspace:*

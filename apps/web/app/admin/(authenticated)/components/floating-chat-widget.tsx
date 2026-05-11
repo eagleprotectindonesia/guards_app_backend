@@ -66,7 +66,7 @@ function FloatingChatWidgetContent() {
     openConversationFromLaunch,
     confirmArchivedLaunch,
     cancelArchivedLaunch,
-  } = useAdminChat();
+  } = useAdminChat({ isChatVisible: isOpen });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 

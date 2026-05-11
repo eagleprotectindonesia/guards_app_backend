@@ -19,6 +19,7 @@ interface UseAdminChatOptions {
   initialEmployeeId?: string | null;
   initialDraft?: AdminChatLaunchPayload | null;
   onSelectConversation?: (employeeId: string | null, draft?: AdminChatLaunchPayload | null) => void;
+  isChatVisible?: boolean;
 }
 
 type ConversationView = 'inbox' | 'unread' | 'archived';
@@ -42,6 +43,7 @@ const buildDraftConversation = (payload: AdminChatLaunchPayload): Conversation =
 export function useAdminChat(options: UseAdminChatOptions = {}) {
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
+  const isChatVisible = options.isChatVisible ?? true;
   const [draftConversation, setDraftConversation] = useState<Conversation | null>(null);
   const [pendingArchivedLaunch, setPendingArchivedLaunch] = useState<AdminChatLaunchPayload | null>(null);
   const [activeEmployeeId, setActiveEmployeeId] = useState<string | null>(null);
@@ -441,7 +443,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
         };
       });
 
-      if (message.sender === 'employee' && socket) {
+      if (message.sender === 'employee' && socket && isChatVisible) {
         socket.emit('mark_read', { employeeId: message.employeeId, messageIds: [message.id] });
       }
     }
@@ -538,7 +540,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   });
 
   useEffect(() => {
-    if (!activeEmployeeId || !socket || !messages.length) return;
+    if (!activeEmployeeId || !socket || !messages.length || !isChatVisible) return;
 
     const unreadIds = messages
       .filter(message => message.sender === 'employee' && !message.readAt)
@@ -547,7 +549,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     if (unreadIds.length > 0) {
       socket.emit('mark_read', { employeeId: activeEmployeeId, messageIds: unreadIds });
     }
-  }, [activeEmployeeId, messages, socket]);
+  }, [activeEmployeeId, isChatVisible, messages, socket]);
 
   useEffect(() => {
     if (options.initialDraft) {
