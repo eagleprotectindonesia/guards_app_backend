@@ -6,6 +6,7 @@ import { getSystemSetting } from '@repo/database';
 import { recordAttendance } from '@repo/database';
 import { getShiftById } from '@repo/database';
 import { redis } from '@repo/database/redis';
+import { ATTENDANCE_REQUIRE_PHOTO_SETTING } from '@repo/shared';
 import { employeeShiftErrorResponse } from '../shared-errors';
 
 // Define a schema for the incoming request body
@@ -15,6 +16,8 @@ const attendanceSchema = z.object({
     lat: z.number(),
     lng: z.number(),
   }),
+  picture: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -29,6 +32,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const json = await req.json();
     const parsedBody = attendanceSchema.parse(json); // Use parsedBody for type-safe access
+    const requirePhotoSetting = await getSystemSetting(ATTENDANCE_REQUIRE_PHOTO_SETTING);
+    const requirePhotoForAttendance = requirePhotoSetting?.value === '1';
 
     // 1. Fetch Shift
     const shift = await getShiftById(shiftId, { attendance: true, site: true });
@@ -47,6 +52,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         status: 400,
         code: 'attendance_already_recorded',
         error: 'Attendance already recorded for this shift',
+      });
+    }
+
+    if (requirePhotoForAttendance && !parsedBody.picture) {
+      return employeeShiftErrorResponse({
+        status: 400,
+        code: 'photo_required',
+        error: 'Attendance photo is required to record attendance.',
       });
     }
 
@@ -110,6 +123,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     // Prepare metadata if location data is present
     const metadata = {
+      ...(parsedBody.metadata ?? {}),
       ...(parsedBody.location ? { location: parsedBody.location } : {}),
       ...(isLate ? { latenessMins } : {}),
     };
@@ -119,6 +133,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       shiftId: shift.id,
       employeeId: shift.employeeId!,
       status,
+      picture: parsedBody.picture,
       metadata,
       updateShiftStatus: shift.status === 'scheduled',
     });

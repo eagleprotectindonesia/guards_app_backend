@@ -413,6 +413,11 @@ async function main() {
         note: 'Default office work schedule template used when an office employee has no assigned custom office schedule.',
       },
       {
+        name: 'ATTENDANCE_REQUIRE_PHOTO',
+        value: '0',
+        note: 'Require shift attendance photo capture (1=ON, 0=OFF).',
+      },
+      {
         name: 'OFFICE_ATTENDANCE_REQUIRE_PHOTO',
         value: '0',
         note: 'Require office attendance photo capture for clock-in (1=ON, 0=OFF).',

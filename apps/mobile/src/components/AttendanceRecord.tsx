@@ -6,6 +6,8 @@ import { Heading } from '@/components/ui/heading';
 import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
+import { File } from 'expo-file-system';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { client } from '../api/client';
@@ -14,6 +16,7 @@ import { ShiftWithRelations } from '@repo/types';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { queryKeys } from '../api/queryKeys';
+import { uploadToS3 } from '../api/upload';
 import {
   getEmployeeAttendanceCheckinErrorPayload,
   resolveEmployeeAttendanceCheckinErrorMessage,
@@ -24,6 +27,28 @@ type AttendanceRecordProps = {
   onAttendanceRecorded?: () => void;
 };
 
+const ATTENDANCE_PHOTO_MAX_DIMENSION = 1280;
+const ATTENDANCE_PHOTO_QUALITY = 0.8;
+const ATTENDANCE_PHOTO_CONTENT_TYPE = 'image/webp';
+
+type AttendancePhotoUpload = {
+  key: string;
+  metadata: {
+    pictureOriginal?: {
+      width?: number;
+      height?: number;
+      fileSize?: number;
+      contentType?: string;
+    };
+    pictureOptimized: {
+      width?: number;
+      height?: number;
+      fileSize: number;
+      contentType: string;
+    };
+  };
+};
+
 export default function AttendanceRecord({ shift, onAttendanceRecorded }: AttendanceRecordProps) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -31,10 +56,16 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   const toast = useCustomToast();
 
   const attendanceMutation = useMutation({
-    mutationFn: async (location: { lat: number; lng: number }) => {
+    mutationFn: async (payload: {
+      location: { lat: number; lng: number };
+      picture?: string;
+      metadata?: Record<string, unknown>;
+    }) => {
       const response = await client.post(`/api/employee/shifts/${shift.id}/attendance`, {
         shiftId: shift.id,
-        location,
+        location: payload.location,
+        picture: payload.picture,
+        metadata: payload.metadata,
       });
       return response.data;
     },
@@ -60,6 +91,93 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
     },
   });
 
+  const buildResizeAction = (width?: number, height?: number) => {
+    if (!width || !height) return null;
+
+    const longestSide = Math.max(width, height);
+    if (longestSide <= ATTENDANCE_PHOTO_MAX_DIMENSION) return null;
+
+    if (width >= height) {
+      return { resize: { width: ATTENDANCE_PHOTO_MAX_DIMENSION } };
+    }
+
+    return { resize: { height: ATTENDANCE_PHOTO_MAX_DIMENSION } };
+  };
+
+  const captureAndUploadAttendancePhoto = async (): Promise<AttendancePhotoUpload | null> => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+
+    if (permission.status !== 'granted') {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      toast.error(
+        t('attendance.permissionDeniedTitle'),
+        t('officeAttendance.errors.cameraRequired', 'Camera permission is required to record attendance.')
+      );
+      return null;
+    }
+
+    setStatus(t('officeAttendance.takingPhoto', 'Taking attendance photo'));
+
+    const result = await ImagePicker.launchCameraAsync({
+      allowsEditing: false,
+      mediaTypes: ['images'],
+      cameraType: ImagePicker.CameraType.front,
+      quality: 1,
+    });
+
+    if (result.canceled || !result.assets[0]?.uri) {
+      setStatus(t('officeAttendance.errors.photoRequired', 'Attendance photo is required.'));
+      return null;
+    }
+
+    const asset = result.assets[0];
+    const resizeAction = buildResizeAction(asset.width, asset.height);
+    const ImageManipulator = await import('expo-image-manipulator');
+
+    setStatus(t('officeAttendance.optimizingPhoto', 'Optimizing attendance photo'));
+
+    const optimized = await ImageManipulator.manipulateAsync(asset.uri, resizeAction ? [resizeAction] : [], {
+      compress: ATTENDANCE_PHOTO_QUALITY,
+      format: ImageManipulator.SaveFormat.WEBP,
+    });
+    const optimizedFile = new File(optimized.uri);
+
+    if (!optimizedFile.exists || optimizedFile.size == null || optimizedFile.size <= 0) {
+      throw new Error('Optimized attendance photo is empty');
+    }
+
+    setStatus(t('officeAttendance.uploadingPhoto', 'Uploading attendance photo'));
+
+    const upload = await uploadToS3(
+      optimized.uri,
+      `attendance-${Date.now()}.webp`,
+      ATTENDANCE_PHOTO_CONTENT_TYPE,
+      optimizedFile.size,
+      {
+        folder: 'attendance',
+        fileType: 'image',
+      }
+    );
+
+    return {
+      key: upload.key,
+      metadata: {
+        pictureOriginal: {
+          width: asset.width,
+          height: asset.height,
+          fileSize: asset.fileSize,
+          contentType: asset.mimeType,
+        },
+        pictureOptimized: {
+          width: optimized.width,
+          height: optimized.height,
+          fileSize: upload.size,
+          contentType: upload.contentType,
+        },
+      },
+    };
+  };
+
   const handleRecordAttendance = async () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setStatus(t('attendance.requestingPermission'));
@@ -75,11 +193,19 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
     setStatus(t('attendance.gettingLocation'));
     try {
       let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      const photoUpload = await captureAndUploadAttendancePhoto();
+      if (!photoUpload) {
+        return;
+      }
 
       setStatus(t('attendance.recording'));
       attendanceMutation.mutate({
-        lat: location.coords.latitude,
-        lng: location.coords.longitude,
+        location: {
+          lat: location.coords.latitude,
+          lng: location.coords.longitude,
+        },
+        picture: photoUpload.key,
+        metadata: photoUpload.metadata,
       });
     } catch (err) {
       console.error(err);

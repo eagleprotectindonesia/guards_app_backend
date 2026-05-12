@@ -68,6 +68,7 @@
       "attendanceAlreadyRecorded": "Attendance has already been recorded for this shift.",
       "shiftNotActive": "This shift is not active yet.",
       "locationRequired": "Location permission is required for this site.",
+      "photoRequired": "Attendance photo is required to clock in.",
       "tooFarFromSite": "You are too far from the assigned site. Current distance: {{currentDistanceMeters}}m (Maximum: {{maxDistanceMeters}}m). Please move to the required location.",
       "internalServerError": "Internal server error."
     }

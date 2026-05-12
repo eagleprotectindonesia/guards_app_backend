@@ -36,7 +36,7 @@ type Props = {
 const ATTENDANCE_PHOTO_MAX_DIMENSION = 1280;
 const ATTENDANCE_PHOTO_QUALITY = 0.8;
 const ATTENDANCE_PHOTO_CONTENT_TYPE = 'image/webp';
-const TEMP_DISABLE_ATTENDANCE_PHOTO = true;
+const TEMP_DISABLE_ATTENDANCE_PHOTO = false;
 
 type AttendancePhotoUpload = {
   key: string;

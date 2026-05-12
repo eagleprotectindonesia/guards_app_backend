@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { SystemSetting } from '@prisma/client';
 import type { Serialized } from '@/lib/server-utils';
 import {
+  ATTENDANCE_REQUIRE_PHOTO_SETTING,
   OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING,
   OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING,
   OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING,
@@ -35,12 +36,14 @@ export default function SettingsForm({ settings, defaultOfficeSchedule, showDefa
   const officeAttendanceRequirePhotoSetting = settings.find(
     setting => setting.name === OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING
   );
+  const attendanceRequirePhotoSetting = settings.find(setting => setting.name === ATTENDANCE_REQUIRE_PHOTO_SETTING);
   const officeJobTitleMap = parseOfficeJobTitleCategoryMap(officeJobTitleMapSetting?.value);
   const generalSettings = settings.filter(
     setting =>
       setting.name !== OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING &&
       setting.name !== OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING &&
-      setting.name !== OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING
+      setting.name !== OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING &&
+      setting.name !== ATTENDANCE_REQUIRE_PHOTO_SETTING
   );
 
   const [state, formAction, isPending] = useActionState<ActionState<UpdateSettingsInput>, FormData>(updateSettings, {
@@ -160,6 +163,29 @@ export default function SettingsForm({ settings, defaultOfficeSchedule, showDefa
             />
             <p className="text-xs text-muted-foreground mt-2">
               This is stored now for the later office-attendance enforcement phase.
+            </p>
+          </div>
+
+          <div className="mt-6">
+            <label htmlFor="attendanceRequirePhoto" className="block font-medium text-foreground mb-1">
+              Require Shift Attendance Photo
+            </label>
+            <label className="inline-flex items-center gap-3">
+              <input
+                type="checkbox"
+                name="attendanceRequirePhoto"
+                id="attendanceRequirePhoto"
+                value="1"
+                defaultChecked={attendanceRequirePhotoSetting?.value === '1'}
+                disabled={!isSuperAdmin}
+                className="h-4 w-4 rounded border-border"
+              />
+              <span className={isSuperAdmin ? 'text-sm text-foreground' : 'text-sm text-muted-foreground'}>
+                Require camera photo for shift attendance record
+              </span>
+            </label>
+            <p className="text-xs text-muted-foreground mt-2">
+              When enabled, attendance submission fails with <code>photo_required</code> if no photo is uploaded.
             </p>
           </div>
 

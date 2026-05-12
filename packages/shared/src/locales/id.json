@@ -68,6 +68,7 @@
       "attendanceAlreadyRecorded": "Kehadiran sudah direkam untuk shift ini.",
       "shiftNotActive": "Shift ini belum aktif.",
       "locationRequired": "Izin lokasi diperlukan untuk lokasi ini.",
+      "photoRequired": "Foto presensi diperlukan untuk clock in.",
       "tooFarFromSite": "Anda berada terlalu jauh dari lokasi penugasan. Jarak saat ini: {{currentDistanceMeters}}m (Maksimal: {{maxDistanceMeters}}m). Silakan pindah ke lokasi yang ditentukan.",
       "internalServerError": "Terjadi kesalahan pada server."
     }

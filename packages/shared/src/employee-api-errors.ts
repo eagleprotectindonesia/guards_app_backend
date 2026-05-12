@@ -5,6 +5,7 @@ export type EmployeeAttendanceCheckinErrorCode =
   | 'attendance_already_recorded'
   | 'shift_not_active'
   | 'location_required'
+  | 'photo_required'
   | 'too_far_from_site'
   | 'checkin_interval_completed'
   | 'checkin_too_early'
@@ -35,6 +36,7 @@ const EMPLOYEE_ATTENDANCE_CHECKIN_ERROR_KEY_MAP: Record<EmployeeAttendanceChecki
   attendance_already_recorded: 'errors.attendanceAlreadyRecorded',
   shift_not_active: 'errors.shiftNotActive',
   location_required: 'errors.locationRequired',
+  photo_required: 'errors.photoRequired',
   too_far_from_site: 'errors.tooFarFromSite',
   checkin_interval_completed: 'errors.checkinIntervalCompleted',
   checkin_too_early: 'errors.checkinTooEarly',
