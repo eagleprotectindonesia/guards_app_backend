@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Image, Modal, Pressable, View } from 'react-native';
 import { useCustomToast } from '../hooks/useCustomToast';
 import { Box } from '@/components/ui/box';
 import { Button, ButtonText, ButtonSpinner } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { File } from 'expo-file-system';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -15,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Camera } from 'lucide-react-native';
 import { queryKeys } from '../api/queryKeys';
 import { uploadToS3 } from '../api/upload';
 import {
@@ -53,6 +56,13 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<string>('');
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [capturedUri, setCapturedUri] = useState<string | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [cameraFailed, setCameraFailed] = useState(false);
+  const [cameraResolve, setCameraResolve] = useState<((asset: ImagePicker.ImagePickerAsset | null) => void) | null>(null);
+  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [cameraRef, setCameraRef] = useState<CameraView | null>(null);
   const toast = useCustomToast();
 
   const attendanceMutation = useMutation({
@@ -104,7 +114,7 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
     return { resize: { height: ATTENDANCE_PHOTO_MAX_DIMENSION } };
   };
 
-  const captureAndUploadAttendancePhoto = async (): Promise<AttendancePhotoUpload | null> => {
+  const captureWithSystemCamera = async (): Promise<ImagePicker.ImagePickerAsset | null> => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
 
     if (permission.status !== 'granted') {
@@ -129,8 +139,40 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
       setStatus(t('officeAttendance.errors.photoRequired', 'Attendance photo is required.'));
       return null;
     }
+    return result.assets[0];
+  };
 
-    const asset = result.assets[0];
+  const captureWithInAppCamera = async (): Promise<ImagePicker.ImagePickerAsset | null> => {
+    if (!cameraPermission?.granted) {
+      const permission = await requestCameraPermission();
+      if (!permission.granted) {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        toast.error(
+          t('attendance.permissionDeniedTitle'),
+          t('officeAttendance.errors.cameraRequired', 'Camera permission is required to record attendance.')
+        );
+        return null;
+      }
+    }
+
+    setCapturedUri(null);
+    setCameraFailed(false);
+    setCameraOpen(true);
+
+    return await new Promise(resolve => {
+      setCameraResolve(() => resolve);
+    });
+  };
+
+  const captureAndUploadAttendancePhoto = async (): Promise<AttendancePhotoUpload | null> => {
+    setStatus(t('officeAttendance.takingPhoto', 'Taking attendance photo'));
+
+    let asset = await captureWithInAppCamera();
+    if (!asset && cameraFailed) {
+      asset = await captureWithSystemCamera();
+    }
+    if (!asset?.uri) return null;
+
     const resizeAction = buildResizeAction(asset.width, asset.height);
     const ImageManipulator = await import('expo-image-manipulator');
 
@@ -215,6 +257,52 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
     }
   };
 
+  const closeCameraWithResult = (asset: ImagePicker.ImagePickerAsset | null) => {
+    const resolver = cameraResolve;
+    setCameraResolve(null);
+    setCameraOpen(false);
+    setCapturedUri(null);
+    if (resolver) resolver(asset);
+  };
+
+  const handleTakePhotoInApp = async () => {
+    if (!cameraRef || isCapturing) return;
+    setIsCapturing(true);
+    try {
+      const photo = await cameraRef.takePictureAsync({ quality: 1 });
+      if (photo?.uri) {
+        setCapturedUri(photo.uri);
+      }
+    } catch (error) {
+      console.error('In-app camera capture failed:', error);
+      setCameraFailed(true);
+      closeCameraWithResult(null);
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
+  const handleUsePhoto = () => {
+    if (!capturedUri) {
+      closeCameraWithResult(null);
+      return;
+    }
+    closeCameraWithResult({
+      uri: capturedUri,
+      width: 0,
+      height: 0,
+      fileSize: undefined,
+      mimeType: 'image/jpeg',
+      assetId: null,
+      base64: null,
+      exif: null,
+      fileName: undefined,
+      type: 'image',
+      duration: null,
+      pairedVideoAsset: null,
+    });
+  };
+
   const hasAttendance = !!shift.attendance;
 
   // Calculate late status
@@ -252,12 +340,92 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
   }
 
   return (
-    <Box
-      className={`bg-background-900 ${
-        isLateTime ? 'border-error-500' : 'border-white/10'
-      } p-5 rounded-2xl border mb-4 shadow-xl`}
-    >
-      <VStack space="md">
+    <>
+      <Modal visible={cameraOpen} animationType="slide" transparent={false} onRequestClose={() => closeCameraWithResult(null)}>
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          {!capturedUri ? (
+            <>
+              <CameraView
+                style={{ flex: 1 }}
+                facing="front"
+                onMountError={() => {
+                  setCameraFailed(true);
+                  closeCameraWithResult(null);
+                }}
+                ref={setCameraRef}
+              />
+              <View style={{ position: 'absolute', top: 48, right: 20 }}>
+                <Pressable onPress={() => closeCameraWithResult(null)} style={{ padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }}>
+                  <Text className="text-white">{t('attendance.close', 'Close')}</Text>
+                </Pressable>
+              </View>
+              <View style={{ position: 'absolute', top: 48, left: 20, right: 96 }}>
+                <View style={{ backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12 }}>
+                  <Text className="text-white font-bold">{t('attendance.cameraTitle', 'Take Attendance Photo')}</Text>
+                  <Text className="text-white/90 text-xs mt-1">
+                    {t(
+                      'attendance.cameraHint',
+                      'Keep your face centered and clearly visible, then tap the capture button.'
+                    )}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ position: 'absolute', bottom: 48, left: 0, right: 0, alignItems: 'center' }}>
+                <Pressable
+                  onPress={handleTakePhotoInApp}
+                  disabled={isCapturing}
+                  style={{
+                    width: 86,
+                    height: 86,
+                    borderRadius: 43,
+                    borderWidth: 6,
+                    borderColor: '#fff',
+                    backgroundColor: isCapturing ? '#888' : '#fff',
+                  }}
+                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
+                  <Camera size={16} color="#FFFFFF" />
+                  <Text className="text-white font-semibold ml-2">
+                    {isCapturing ? t('attendance.capturing', 'Capturing...') : t('attendance.capturePhoto', 'Capture Photo')}
+                  </Text>
+                </View>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={{ flex: 1 }}>
+                <Image source={{ uri: capturedUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              </View>
+              <View style={{ position: 'absolute', top: 48, left: 20, right: 20 }}>
+                <View style={{ backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12 }}>
+                  <Text className="text-white font-bold">{t('attendance.reviewTitle', 'Review Photo')}</Text>
+                  <Text className="text-white/90 text-xs mt-1">
+                    {t(
+                      'attendance.reviewHint',
+                      'Use this photo if your face is clear. Retake if it is blurry or not centered.'
+                    )}
+                  </Text>
+                </View>
+              </View>
+              <View style={{ position: 'absolute', bottom: 36, left: 20, right: 20, flexDirection: 'row', justifyContent: 'space-between' }}>
+                <Pressable onPress={() => setCapturedUri(null)} style={{ paddingVertical: 12, paddingHorizontal: 18, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12 }}>
+                  <Text className="text-white font-bold">{t('attendance.retake', 'Retake')}</Text>
+                </Pressable>
+                <Pressable onPress={handleUsePhoto} style={{ paddingVertical: 12, paddingHorizontal: 18, backgroundColor: '#2563EB', borderRadius: 12 }}>
+                  <Text className="text-white font-bold">{t('attendance.usePhoto', 'Use Photo')}</Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+        </View>
+      </Modal>
+
+      <Box
+        className={`bg-background-900 ${
+          isLateTime ? 'border-error-500' : 'border-white/10'
+        } p-5 rounded-2xl border mb-4 shadow-xl`}
+      >
+        <VStack space="md">
         <Heading size="md" className="text-white font-bold">
           {isLateTime ? t('attendance.notRecordedTitle') : t('attendance.requiredTitle')}
         </Heading>
@@ -308,7 +476,8 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
             </ButtonText>
           </LinearGradient>
         </Button>
-      </VStack>
-    </Box>
+        </VStack>
+      </Box>
+    </>
   );
 }
