@@ -317,6 +317,7 @@ model Employee {
   hashedPassword                String                                 @map("password")
   mustChangePassword            Boolean                                @default(true) @map("must_change_password")
   role                          EmployeeRole?
+  roleSyncOverride              Boolean                                @default(false) @map("role_sync_override")
   status                        Boolean?                               @default(true)
   note                          String?                                @db.Text
   createdAt                     DateTime                               @default(now())

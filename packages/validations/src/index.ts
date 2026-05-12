@@ -99,6 +99,7 @@ export const updateEmployeeSchema = z.object({
   jobTitle: z.string().optional(),
   department: z.string().optional(),
   role: EmployeeRoleEnum.optional(),
+  roleSyncOverride: z.boolean().optional(),
   fieldModeEnabled: z.boolean().optional(),
   status: z.boolean().optional(),
   note: z.string().optional(),

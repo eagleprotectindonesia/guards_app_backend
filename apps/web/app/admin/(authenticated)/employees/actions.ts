@@ -67,6 +67,7 @@ export async function updateEmployee(
   const dataToValidate = {
     ...rawData,
     status: rawData.status === 'true',
+    roleSyncOverride: rawData.roleSyncOverride === 'true',
   };
 
   const validatedFields = updateEmployeeSchema.safeParse(dataToValidate);

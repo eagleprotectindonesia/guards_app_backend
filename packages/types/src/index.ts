@@ -88,6 +88,7 @@ export interface Employee {
   jobTitle?: string | null;
   department?: string | null;
   officeId?: string | null;
+  roleSyncOverride?: boolean;
   fieldModeEnabled?: boolean;
   jobTitleCategory?: OfficeJobTitleCategory | null;
   isFieldModeEditable?: boolean;
