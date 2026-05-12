@@ -141,6 +141,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: false,
       mediaTypes: ['images'],
+      cameraType: ImagePicker.CameraType.front,
       quality: 1,
     });
 

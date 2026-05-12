@@ -96,29 +96,106 @@ export function OfficeAttendanceCard({ office }: OfficeAttendanceCardProps) {
       const input = fileInputRef.current;
       if (!input) return resolve(null);
 
-      const handleCapture = async (e: Event) => {
-        const file = (e.target as HTMLInputElement).files?.[0];
-        if (!file) {
-          resolve(null);
-          return;
-        }
-
+      const optimizeFile = async (file: File) => {
         setStatusMessage(t('officeAttendance.optimizingPhoto', 'Optimizing attendance photo'));
         try {
-          const optimized = await optimizeImage(file, ATTENDANCE_PHOTO_MAX_DIMENSION);
-          resolve(optimized);
+          return await optimizeImage(file, ATTENDANCE_PHOTO_MAX_DIMENSION);
         } catch (error) {
           console.error('Error optimizing image:', error);
           toast.error(t('officeAttendance.errors.photoOptimizationFailed', 'Failed to optimize photo'));
-          resolve(null);
-        } finally {
-          input.value = '';
-          input.removeEventListener('change', handleCapture);
+          return null;
         }
       };
 
-      input.addEventListener('change', handleCapture);
-      input.click();
+      const fallbackToFileInput = () => {
+        const handleCapture = async (e: Event) => {
+          const file = (e.target as HTMLInputElement).files?.[0];
+          if (!file) {
+            resolve(null);
+            return;
+          }
+
+          const optimized = await optimizeFile(file);
+          resolve(optimized);
+
+          input.value = '';
+          input.removeEventListener('change', handleCapture);
+        };
+
+        input.addEventListener('change', handleCapture);
+        input.click();
+      };
+
+      const captureFromStream = async (stream: MediaStream) => {
+        const video = document.createElement('video');
+        video.playsInline = true;
+        video.muted = true;
+        video.srcObject = stream;
+
+        try {
+          await video.play();
+          await new Promise(resolveReady => {
+            if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+              resolveReady(null);
+              return;
+            }
+            video.onloadedmetadata = () => resolveReady(null);
+          });
+
+          const width = video.videoWidth || 1280;
+          const height = video.videoHeight || 720;
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+
+          ctx.drawImage(video, 0, 0, width, height);
+          const blob = await new Promise<Blob | null>(blobResolve => canvas.toBlob(blobResolve, 'image/jpeg', 0.92));
+          if (!blob) {
+            resolve(null);
+            return;
+          }
+
+          const captured = new File([blob], `office-attendance-${Date.now()}.jpg`, { type: blob.type || 'image/jpeg' });
+          const optimized = await optimizeFile(captured);
+          resolve(optimized);
+        } finally {
+          stream.getTracks().forEach(track => track.stop());
+          video.srcObject = null;
+        }
+      };
+
+      const tryStreamCapture = async () => {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          fallbackToFileInput();
+          return;
+        }
+
+        const constraints: MediaStreamConstraints[] = [
+          { video: { facingMode: { exact: 'user' } } },
+          { video: { facingMode: 'user' } },
+          { video: true },
+        ];
+
+        for (const constraint of constraints) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia(constraint);
+            await captureFromStream(stream);
+            return;
+          } catch {
+            // Continue to next fallback constraint.
+          }
+        }
+
+        fallbackToFileInput();
+      };
+
+      void tryStreamCapture();
     });
   };
 
