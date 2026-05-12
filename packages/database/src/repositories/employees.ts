@@ -28,6 +28,14 @@ const EMPLOYEE_ACTIVE_SUMMARY_CACHE_KEY_PREFIX = 'employee:active-summary';
 const EMPLOYEE_METADATA_CACHE_TTL_SECONDS = 60;
 type ChangelogSyncActor = { type: 'admin' | 'system' | 'unknown'; id?: string };
 
+function normalizeDepartmentValue(value?: string | null): string {
+  return (value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function resolveSyncedEmployeeRole(department?: string | null): EmployeeRole {
+  return normalizeDepartmentValue(department) === 'security standby' ? 'on_site' : 'office';
+}
+
 function getCurrentBusinessYear(now = new Date()) {
   return Number(
     new Intl.DateTimeFormat('en-US', {
@@ -955,8 +963,7 @@ export async function syncEmployeesFromExternal(
   const autoSeedStaffTitles: string[] = [];
 
   for (const ext of externalEmployees) {
-    const isSecurityDepartment = ext.department?.toLowerCase().includes('security') ?? false;
-    const role: EmployeeRole = isSecurityDepartment && !ext.office_id ? 'on_site' : 'office';
+    const role: EmployeeRole = resolveSyncedEmployeeRole(ext.department);
 
     if (role !== 'office') continue;
 
@@ -1009,8 +1016,7 @@ export async function syncEmployeesFromExternal(
   const currentBusinessYear = getCurrentBusinessYear();
 
   for (const ext of canonicalEmployees) {
-    const isSecurityDepartment = ext.department?.toLowerCase().includes('security') ?? false;
-    const role: EmployeeRole = isSecurityDepartment && !ext.office_id ? 'on_site' : 'office';
+    const role: EmployeeRole = resolveSyncedEmployeeRole(ext.department);
     const existing = existingMap.get(ext.id);
 
     if (!existing) {
@@ -1048,6 +1054,7 @@ export async function syncEmployeesFromExternal(
             hashedPassword: hashedPassword,
             mustChangePassword: true,
             role,
+            roleSyncOverride: false,
             office: ext.office_id ? { connect: { id: ext.office_id } } : undefined,
             fieldModeEnabled: fieldModeState.fieldModeEnabled,
             status: true,
@@ -1133,7 +1140,7 @@ export async function syncEmployeesFromExternal(
       }
 
       // Special handling for role
-      if (existing.role !== role) {
+      if (!existing.roleSyncOverride && existing.role !== role) {
         updateData.role = role;
         changes.role = { from: existing.role, to: role };
       }

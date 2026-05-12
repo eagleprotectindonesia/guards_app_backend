@@ -87,7 +87,8 @@ export async function syncEmployeesFromExternal() {
 
   // Step 4: Process each canonical employee
   for (const ext of canonicalEmployees) {
-    const role: EmployeeRole = ext.office_id ? 'office' : 'on_site';
+    const normalizedDepartment = (ext.department ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const role: EmployeeRole = normalizedDepartment === 'security standby' ? 'on_site' : 'office';
 
     if (!existingIds.has(ext.id)) {
       // NEW: Create with default password
@@ -160,8 +161,13 @@ EXTERNAL_EMPLOYEE_API_KEY=your-secret-api-key
 
 | External Field | Condition | Local Role |
 |----------------|-----------|------------|
-| `office_id` | Not null | `office` |
-| `office_id` | Null | `on_site` |
+| `department` | Normalized value is exactly `security standby` | `on_site` |
+| `department` | Any other value | `office` |
+
+### Role Override
+
+If `role_sync_override` is enabled for an employee, sync will **not** update that employee's role.
+Other external fields (including `office_id`) continue syncing as normal.
 
 ### Default Password
 

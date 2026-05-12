@@ -450,6 +450,104 @@ describe('employees repository', () => {
     expect(redis.del).toHaveBeenCalledWith('employee:sync:last_duplicate_warning');
   });
 
+  test('sync sets on_site only for exact normalized security standby department', async () => {
+    (prisma.employee.findMany as jest.Mock)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    (prisma.employee.create as jest.Mock).mockResolvedValue({
+      id: 'employee-1',
+      role: 'on_site',
+      officeId: 'office-1',
+      status: true,
+      mustChangePassword: true,
+    });
+
+    await syncEmployeesFromExternal(
+      { type: 'system' },
+      [
+        {
+          id: 'employee-1',
+          employee_number: 'EMP001',
+          personnel_id: 'P1',
+          nickname: 'Guard',
+          full_name: 'Guard User',
+          job_title: 'Guard',
+          department: '  SECURITY   standby ',
+          office_id: 'office-1',
+          office_name: 'HQ',
+          phone: '+62123',
+          date_of_joining: '2024-01-01T00:00:00.000Z',
+        },
+      ]
+    );
+
+    expect(prisma.employee.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          role: 'on_site',
+          roleSyncOverride: false,
+        }),
+      })
+    );
+  });
+
+  test('sync does not auto-update role when roleSyncOverride is true', async () => {
+    (prisma.employee.findMany as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'employee-1',
+          employeeNumber: 'EMP001',
+          fullName: 'Office User',
+          personnelId: 'P1',
+          nickname: 'Office',
+          jobTitle: 'Analyst',
+          department: 'Operations',
+          phone: '+62123',
+          date_of_joining: '2024-01-01T00:00:00.000Z',
+          role: 'office',
+          roleSyncOverride: true,
+          officeId: 'office-1',
+          fieldModeEnabled: false,
+          status: true,
+          deletedAt: null,
+          dateOfJoining: new Date('2024-01-01T00:00:00.000Z'),
+          createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    (prisma.employee.update as jest.Mock).mockResolvedValue({
+      id: 'employee-1',
+      role: 'office',
+      roleSyncOverride: true,
+      officeId: 'office-1',
+      fieldModeEnabled: false,
+      status: true,
+    });
+
+    await syncEmployeesFromExternal(
+      { type: 'system' },
+      [
+        {
+          id: 'employee-1',
+          employee_number: 'EMP001',
+          personnel_id: 'P1',
+          nickname: 'Office',
+          full_name: 'Office User',
+          job_title: 'Analyst',
+          department: 'security standby',
+          office_id: 'office-1',
+          office_name: 'HQ',
+          phone: '+62123',
+          date_of_joining: '2024-01-01T00:00:00.000Z',
+        },
+      ]
+    );
+
+    expect(prisma.employee.update).toHaveBeenCalled();
+    const updateArgs = (prisma.employee.update as jest.Mock).mock.calls[0][0];
+    expect(updateArgs.data.role).toBeUndefined();
+  });
+
   test('sync changelog entries omit actorId for system-triggered runs', async () => {
     (prisma.employee.findMany as jest.Mock)
       .mockResolvedValueOnce([

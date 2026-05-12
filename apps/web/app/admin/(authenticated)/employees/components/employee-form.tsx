@@ -47,6 +47,7 @@ export default function EmployeeForm({ employee }: Props) {
       jobTitle: employee.jobTitle || '',
       department: employee.department || '',
       role: (employee.role as EmployeeRole) || undefined,
+      roleSyncOverride: employee.roleSyncOverride ?? false,
       status: employee.status ?? true,
       note: employee.note || '',
     },
@@ -247,6 +248,37 @@ export default function EmployeeForm({ employee }: Props) {
                     <SelectItem value="office">Office Staff</SelectItem>
                   </SelectContent>
                 </Select>
+              )}
+            />
+          </div>
+
+          <div>
+            <label className="block font-medium text-foreground mb-1">Role Override</label>
+            <Controller
+              control={control}
+              name="roleSyncOverride"
+              render={({ field }) => (
+                <div className="flex items-center space-x-4 h-10">
+                  <input type="hidden" name="roleSyncOverride" value={field.value ? 'true' : 'false'} />
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={field.value === true}
+                      onChange={() => field.onChange(true)}
+                      className="text-red-600 focus:ring-red-600"
+                    />
+                    <span className="ml-2 text-foreground">Enabled (lock role from sync)</span>
+                  </label>
+                  <label className="inline-flex items-center cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={field.value === false}
+                      onChange={() => field.onChange(false)}
+                      className="text-red-600 focus:ring-red-600"
+                    />
+                    <span className="ml-2 text-foreground">Disabled</span>
+                  </label>
+                </div>
               )}
             />
           </div>
