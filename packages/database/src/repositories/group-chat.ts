@@ -116,6 +116,24 @@ export async function getGroupChatForParticipant(params: { groupId: string; acto
   });
 }
 
+export async function updateGroupChat(params: {
+  groupId: string;
+  actor: Actor;
+  title?: string;
+  description?: string | null;
+}) {
+  return db.$transaction(async tx => {
+    await assertOwner(tx, params.groupId, params.actor);
+    return tx.groupChat.update({
+      where: { id: params.groupId },
+      data: {
+        title: params.title,
+        description: params.description,
+      },
+    });
+  });
+}
+
 export async function getGroupChatListForParticipant(params: { actor: Actor; limit?: number; cursor?: Date }) {
   const limit = params.limit ?? 20;
   const rows = await db.groupChatParticipant.findMany({
