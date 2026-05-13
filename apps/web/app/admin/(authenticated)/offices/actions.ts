@@ -3,7 +3,7 @@
 import { UpdateOfficeInput, updateOfficeSchema } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
-import { updateOfficeWithChangelog, getAllOffices } from '@repo/database';
+import { updateOfficeWithChangelog, getAllOffices, deleteOfficeWithChangelog } from '@repo/database';
 import { ActionState } from '@/types/actions';
 import { Office } from '@prisma/client';
 import { serialize } from '@/lib/server-utils';
@@ -49,4 +49,22 @@ export async function updateOffice(
 
   revalidatePath('/admin/offices');
   return { success: true, message: 'Office updated successfully' };
+}
+
+export async function deleteOffice(id: string): Promise<{ success: boolean; message: string }> {
+  const adminId = await getAdminIdFromToken();
+  if (!adminId) return { success: false, message: 'Unauthorized' };
+
+  try {
+    await deleteOfficeWithChangelog(id, adminId);
+  } catch (error) {
+    console.error('Database Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Database Error: Failed to delete office.',
+    };
+  }
+
+  revalidatePath('/admin/offices');
+  return { success: true, message: 'Office deleted successfully' };
 }

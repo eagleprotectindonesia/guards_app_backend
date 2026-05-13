@@ -3,12 +3,14 @@ import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import EmployeeScheduleManager from '../../components/employee-schedule-manager';
 import EmployeeFieldModeCard from '../../components/employee-field-mode-card';
+import EmployeeSyncOverridesCard from '../../components/employee-sync-overrides-card';
 import EmployeeLeaveBalanceCard from '../../components/employee-leave-balance-card';
 import { resolveLeaveRequestAccessContext } from '@/lib/auth/leave-ownership';
 import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 import {
   getEmployeeAnnualLeaveBalanceWithLedger,
   getAllOfficeWorkSchedules,
+  getActiveOffices,
   getEmployeeByIdWithRelations,
   listOfficeWorkScheduleAssignments,
 } from '@repo/database';
@@ -23,11 +25,12 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
   const canViewLeaveBalance = session.isSuperAdmin || session.permissions.includes(PERMISSIONS.LEAVE_REQUESTS.VIEW);
   const leaveBalanceYear = new Date().getFullYear();
 
-  const [employee, officeWorkScheduleData] = await Promise.all([
+  const [employee, officeWorkScheduleData, activeOffices] = await Promise.all([
     getEmployeeByIdWithRelations(id),
     officeWorkSchedulesEnabled
       ? Promise.all([getAllOfficeWorkSchedules(), listOfficeWorkScheduleAssignments(id)])
       : Promise.resolve([[], []] as const),
+    getActiveOffices(),
   ]);
 
   if (!employee) {
@@ -77,16 +80,26 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
 
   return (
     <div className="max-w-6xl mx-auto py-8 space-y-8">
-      <EmployeeFieldModeCard
+      {employee.role === 'office' ? (
+        <EmployeeFieldModeCard
+          employeeId={employee.id}
+          employeeName={employee.fullName}
+          role={employee.role ?? null}
+          officeName={employee.office?.name ?? null}
+          jobTitle={employee.jobTitle ?? null}
+          jobTitleCategory={employee.jobTitleCategory}
+          fieldModeEnabled={employee.fieldModeEnabled}
+          isFieldModeEditable={employee.isFieldModeEditable}
+          fieldModeReasonCode={employee.fieldModeReasonCode}
+        />
+      ) : null}
+      <EmployeeSyncOverridesCard
         employeeId={employee.id}
-        employeeName={employee.fullName}
-        role={employee.role ?? null}
-        officeName={employee.office?.name ?? null}
-        jobTitle={employee.jobTitle ?? null}
-        jobTitleCategory={employee.jobTitleCategory}
-        fieldModeEnabled={employee.fieldModeEnabled}
-        isFieldModeEditable={employee.isFieldModeEditable}
-        fieldModeReasonCode={employee.fieldModeReasonCode}
+        roleSyncOverride={employee.roleSyncOverride ?? false}
+        role={(employee.role ?? 'office') as 'on_site' | 'office'}
+        officeSyncOverride={employee.officeSyncOverride ?? false}
+        officeId={employee.officeId ?? null}
+        offices={serialize(activeOffices) as Array<{ id: string; name: string; source: 'external' | 'manual' }>}
       />
       {leaveBalanceData ? (
         <EmployeeLeaveBalanceCard

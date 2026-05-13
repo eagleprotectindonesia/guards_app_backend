@@ -1,17 +1,19 @@
 'use client';
 
-import { getAllOfficesForExport } from '../actions';
-import { EditButton } from '../../components/action-buttons';
+import { deleteOffice, getAllOfficesForExport } from '../actions';
+import { DeleteButton, EditButton } from '../../components/action-buttons';
 import { Office } from '@prisma/client';
 import type { Serialized } from '@/lib/server-utils';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { History, Download } from 'lucide-react';
+import ConfirmDialog from '../../components/confirm-dialog';
 import Search from '../../components/search';
 import { format } from 'date-fns';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { useState } from 'react';
 
 type OfficeWithAdminInfo = Office & {
   lastUpdatedBy?: { name: string } | null;
@@ -29,7 +31,18 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
   const { hasPermission } = useSession();
 
   const canEdit = hasPermission(PERMISSIONS.OFFICES.EDIT);
+  const canCreate = hasPermission(PERMISSIONS.OFFICES.CREATE);
+  const canDelete = hasPermission(PERMISSIONS.OFFICES.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const result = await deleteOffice(deleteId);
+    if (result.success) toast.success(result.message);
+    else toast.error(result.message);
+    setDeleteId(null);
+  };
 
   const handleExportCSV = async () => {
     try {
@@ -99,6 +112,14 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
             <Download className="mr-2 h-4 w-4" />
             Download CSV
           </button>
+          {canCreate && (
+            <Link
+              href="/admin/offices/create"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-lg hover:bg-blue-700 transition-colors shadow-sm w-full md:w-auto"
+            >
+              Create Office
+            </Link>
+          )}
           {canViewAudit && (
             <Link
               href="/admin/offices/audit"
@@ -124,6 +145,7 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
                   Longitude
                 </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Source</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
                   <div className="flex flex-col gap-0.5">
@@ -139,7 +161,7 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
             <tbody className="divide-y divide-border">
               {offices.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
                     No offices found. Offices are synced automatically from the external system.
                   </td>
                 </tr>
@@ -165,6 +187,11 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
                         }`}
                       >
                         {office.status ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6 text-sm">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-muted text-foreground border border-border">
+                        {office.source === 'external' ? 'External' : 'Manual'}
                       </span>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
@@ -201,6 +228,17 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
                           disabled={!canEdit}
                           title={!canEdit ? 'Permission Denied' : 'Edit'}
                         />
+                        <DeleteButton
+                          onClick={() => setDeleteId(office.id)}
+                          disabled={!canDelete || office.source === 'external'}
+                          title={
+                            office.source === 'external'
+                              ? 'External offices cannot be deleted'
+                              : !canDelete
+                                ? 'Permission Denied'
+                                : 'Delete'
+                          }
+                        />
                       </div>
                     </td>
                   </tr>
@@ -212,6 +250,15 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
       </div>
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
+      <ConfirmDialog
+        isOpen={!!deleteId}
+        onClose={() => setDeleteId(null)}
+        onConfirm={handleDelete}
+        title="Delete this office?"
+        description="This action cannot be undone. Deletion is blocked if active employees are still assigned."
+        confirmText="Delete"
+        variant="danger"
+      />
     </div>
   );
 }

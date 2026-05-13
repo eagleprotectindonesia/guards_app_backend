@@ -241,6 +241,100 @@ export async function updateEmployeeFieldMode(
   return { success: true, message: 'Field mode updated successfully.' };
 }
 
+export async function updateEmployeeRoleSyncOverride(
+  id: string,
+  prevState: ActionState<{ roleSyncOverride: boolean; role: 'on_site' | 'office' }>,
+  formData: FormData
+): Promise<ActionState<{ roleSyncOverride: boolean; role: 'on_site' | 'office' }>> {
+  await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
+
+  const roleSyncOverrideValue = formData.get('roleSyncOverride');
+  const roleValue = formData.get('role');
+  if (roleSyncOverrideValue !== 'true' && roleSyncOverrideValue !== 'false') {
+    return {
+      errors: { roleSyncOverride: ['Invalid role sync override value'] },
+      message: 'Invalid input. Failed to update role sync override.',
+      success: false,
+    };
+  }
+  if (roleValue !== 'on_site' && roleValue !== 'office') {
+    return {
+      errors: { role: ['Invalid role value'] },
+      message: 'Invalid input. Failed to update role sync override.',
+      success: false,
+    };
+  }
+
+  try {
+    const roleSyncOverride = roleSyncOverrideValue === 'true';
+    await updateEmployeeDb(
+      id,
+      roleSyncOverride
+        ? {
+            roleSyncOverride: true,
+            role: roleValue,
+          }
+        : {
+            roleSyncOverride: false,
+          }
+    );
+  } catch (error) {
+    console.error('Database Error:', error);
+    return {
+      message: error instanceof Error ? error.message : 'Database Error: Failed to update role sync override.',
+      success: false,
+    };
+  }
+
+  revalidatePath(`/admin/employees/${id}/edit`);
+  revalidatePath('/admin/employees');
+  return { success: true, message: 'Role sync override updated successfully.' };
+}
+
+export async function updateEmployeeOfficeSyncOverride(
+  id: string,
+  prevState: ActionState<{ officeSyncOverride: boolean; officeId: string }>,
+  formData: FormData
+): Promise<ActionState<{ officeSyncOverride: boolean; officeId: string }>> {
+  await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
+
+  const officeSyncOverrideValue = formData.get('officeSyncOverride');
+  const officeIdValue = formData.get('officeId');
+  if (officeSyncOverrideValue !== 'true' && officeSyncOverrideValue !== 'false') {
+    return {
+      errors: { officeSyncOverride: ['Invalid office sync override value'] },
+      message: 'Invalid input. Failed to update office sync override.',
+      success: false,
+    };
+  }
+  if (officeIdValue !== null && typeof officeIdValue !== 'string') {
+    return {
+      errors: { officeId: ['Invalid office value'] },
+      message: 'Invalid input. Failed to update office sync override.',
+      success: false,
+    };
+  }
+
+  try {
+    const officeSyncOverride = officeSyncOverrideValue === 'true';
+    const officeId = typeof officeIdValue === 'string' ? officeIdValue : '';
+    await updateEmployeeDb(id, {
+      officeSyncOverride,
+      ...(officeSyncOverride ? { office: officeId ? { connect: { id: officeId } } : { disconnect: true } } : {}),
+    });
+  } catch (error) {
+    console.error('Database Error:', error);
+    return {
+      message: error instanceof Error ? error.message : 'Database Error: Failed to update office sync override.',
+      success: false,
+    };
+  }
+
+  revalidatePath(`/admin/employees/${id}/edit`);
+  revalidatePath('/admin/employees');
+  return { success: true, message: 'Office sync override updated successfully.' };
+}
+
 export async function syncEmployeesAction() {
   await requirePermission(PERMISSIONS.EMPLOYEES.EDIT);
 
