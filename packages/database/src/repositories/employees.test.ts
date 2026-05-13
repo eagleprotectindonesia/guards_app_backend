@@ -450,7 +450,7 @@ describe('employees repository', () => {
     expect(redis.del).toHaveBeenCalledWith('employee:sync:last_duplicate_warning');
   });
 
-  test('sync sets on_site only for exact normalized security standby department', async () => {
+  test('sync sets on_site only for exact normalized security standby job title', async () => {
     (prisma.employee.findMany as jest.Mock)
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([]);
@@ -471,8 +471,8 @@ describe('employees repository', () => {
           personnel_id: 'P1',
           nickname: 'Guard',
           full_name: 'Guard User',
-          job_title: 'Guard',
-          department: '  SECURITY   standby ',
+          job_title: '  SECURITY   standby ',
+          department: 'Operations',
           office_id: 'office-1',
           office_name: 'HQ',
           phone: '+62123',
@@ -533,8 +533,8 @@ describe('employees repository', () => {
           personnel_id: 'P1',
           nickname: 'Office',
           full_name: 'Office User',
-          job_title: 'Analyst',
-          department: 'security standby',
+          job_title: 'security standby',
+          department: 'Operations',
           office_id: 'office-1',
           office_name: 'HQ',
           phone: '+62123',
