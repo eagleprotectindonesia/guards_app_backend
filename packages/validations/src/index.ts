@@ -100,6 +100,8 @@ export const updateEmployeeSchema = z.object({
   department: z.string().optional(),
   role: EmployeeRoleEnum.optional(),
   roleSyncOverride: z.boolean().optional(),
+  officeSyncOverride: z.boolean().optional(),
+  officeId: z.union([z.string().min(1), emptyStringToNull]).optional(),
   fieldModeEnabled: z.boolean().optional(),
   status: z.boolean().optional(),
   note: z.string().optional(),

@@ -86,6 +86,7 @@ export async function createOfficeWithChangelog(data: Prisma.OfficeCreateInput, 
       const createdOffice = await tx.office.create({
         data: {
           ...data,
+          source: 'manual',
           lastUpdatedBy: { connect: { id: adminId } },
           createdBy: { connect: { id: adminId } },
         },
@@ -123,6 +124,9 @@ export async function updateOfficeWithChangelog(id: string, data: Prisma.OfficeU
 
       if (!beforeOffice) {
         throw new Error('Office not found');
+      }
+      if (beforeOffice.source === 'external' && typeof data.name !== 'undefined') {
+        throw new Error('External office name cannot be edited');
       }
 
       const updatedOffice = await tx.office.update({
@@ -170,6 +174,36 @@ export async function updateOfficeWithChangelog(id: string, data: Prisma.OfficeU
   );
 }
 
+export async function deleteOfficeWithChangelog(id: string, adminId: string) {
+  return prisma.$transaction(async tx => {
+    const office = await tx.office.findUnique({ where: { id, deletedAt: null } });
+    if (!office) throw new Error('Office not found');
+    if (office.source === 'external') throw new Error('External office cannot be deleted');
+
+    const activeAssignments = await tx.employee.count({
+      where: { officeId: id, status: true, deletedAt: null },
+    });
+    if (activeAssignments > 0) throw new Error('Office is still assigned to active employees');
+
+    const deleted = await tx.office.update({
+      where: { id },
+      data: { deletedAt: new Date(), status: false, lastUpdatedBy: { connect: { id: adminId } } },
+    });
+
+    await tx.changelog.create({
+      data: {
+        action: 'DELETE',
+        entityType: 'Office',
+        entityId: deleted.id,
+        actor: 'admin',
+        actorId: adminId,
+        details: { name: deleted.name, source: deleted.source },
+      },
+    });
+    return deleted;
+  });
+}
+
 /**
  * Sync offices from external employee data.
  * The external system is the source of truth for office id, name, and status.
@@ -211,6 +245,7 @@ export async function syncOfficesFromExternalEmployees(
             id: officeId,
             name: officeName,
             status: true,
+            source: 'external',
           },
         });
 
@@ -235,7 +270,7 @@ export async function syncOfficesFromExternalEmployees(
       const changes: Record<string, { from: unknown; to: unknown }> = {};
       const updateData: Record<string, unknown> = {};
 
-      if (existing.name !== officeName) {
+      if (existing.source === 'external' && existing.name !== officeName) {
         changes.name = { from: existing.name, to: officeName };
         updateData.name = officeName;
       }
@@ -244,7 +279,7 @@ export async function syncOfficesFromExternalEmployees(
       updateData.updatedAt = new Date();
 
       // Reactivate if previously deactivated
-      if (existing.status === false || existing.deletedAt !== null) {
+      if (existing.source === 'external' && (existing.status === false || existing.deletedAt !== null)) {
         changes.status = { from: existing.status, to: true };
         updateData.status = true;
         updateData.deletedAt = null;
@@ -281,6 +316,7 @@ export async function syncOfficesFromExternalEmployees(
   const toDeactivate = await prisma.office.findMany({
     where: {
       id: { notIn: externalOfficeIds },
+      source: 'external',
       status: true,
       deletedAt: null,
     },

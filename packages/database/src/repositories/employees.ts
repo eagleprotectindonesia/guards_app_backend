@@ -1055,6 +1055,7 @@ export async function syncEmployeesFromExternal(
             mustChangePassword: true,
             role,
             roleSyncOverride: false,
+            officeSyncOverride: false,
             office: ext.office_id ? { connect: { id: ext.office_id } } : undefined,
             fieldModeEnabled: fieldModeState.fieldModeEnabled,
             status: true,
@@ -1146,7 +1147,7 @@ export async function syncEmployeesFromExternal(
       }
 
       // Special handling for office
-      if (existing.officeId !== ext.office_id) {
+      if (!existing.officeSyncOverride && existing.officeId !== ext.office_id) {
         updateData.office = ext.office_id ? { connect: { id: ext.office_id } } : { disconnect: true };
         changes.officeId = { from: existing.officeId, to: ext.office_id };
       }

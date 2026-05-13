@@ -322,7 +322,7 @@ export default function EmployeeList({
                         >
                           <Key className="w-4 h-4" />
                         </button>
-                        {canEdit && employee.role === 'office' && (
+                        {canEdit && (
                           <Link
                             href={`/admin/employees/${employee.id}/edit`}
                             className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
