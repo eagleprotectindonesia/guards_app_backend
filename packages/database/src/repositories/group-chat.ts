@@ -116,6 +116,23 @@ export async function getGroupChatForParticipant(params: { groupId: string; acto
   });
 }
 
+export async function getActiveGroupParticipant(params: { groupId: string; actor: Actor }) {
+  return db.$transaction(async tx => getActiveParticipantForActor(tx, params.groupId, params.actor));
+}
+
+export async function listActiveGroupIdsForParticipant(params: { actor: Actor }) {
+  const rows = await db.groupChatParticipant.findMany({
+    where: {
+      status: GroupChatParticipantStatus.active,
+      participantType: params.actor.participantType,
+      adminId: actorAdminId(params.actor),
+      employeeId: actorEmployeeId(params.actor),
+    },
+    select: { groupId: true },
+  });
+  return rows.map(row => row.groupId);
+}
+
 export async function updateGroupChat(params: {
   groupId: string;
   actor: Actor;
@@ -399,6 +416,22 @@ export async function markGroupAsRead(params: { groupId: string; actor: Actor; m
       }
     }
     return { participantId: participant.id, readAt: now };
+  });
+}
+
+export async function listGroupChatPushTargets(params: { groupId: string }) {
+  return db.groupChatParticipant.findMany({
+    where: {
+      groupId: params.groupId,
+      participantType: GroupChatParticipantType.employee,
+      status: GroupChatParticipantStatus.active,
+      employeeId: { not: null },
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      isMuted: true,
+    },
   });
 }
 
