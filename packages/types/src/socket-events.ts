@@ -1,4 +1,4 @@
-import { ChatMessage } from './index';
+import { ChatMessage, GroupChatMessage, GroupChatParticipant } from './index';
 
 /**
  * Shared Socket.io Event Definitions
@@ -21,6 +21,17 @@ export interface ServerToClientEvents {
   messages_read: (data: { employeeId: string; messageIds: string[]; readBy?: string }) => void;
   typing: (data: { employeeId: string; isTyping: boolean }) => void;
   conversation_locked: (data: { employeeId: string; lockedBy: string; expiresAt: number }) => void;
+  group_new_message: (message: GroupChatMessage) => void;
+  group_messages_read: (data: { groupId: string; participantId: string; messageIds?: string[]; readAt: string }) => void;
+  group_typing: (data: { groupId: string; participantId: string; participantName: string; isTyping: boolean }) => void;
+  group_member_added: (data: { groupId: string; participant: GroupChatParticipant }) => void;
+  group_member_removed: (data: { groupId: string; participantId: string; removedByParticipantId?: string }) => void;
+  group_owner_changed: (data: {
+    groupId: string;
+    previousOwnerParticipantId: string;
+    newOwnerParticipantId: string;
+  }) => void;
+  group_updated: (data: { groupId: string; title?: string; description?: string | null }) => void;
 
   // Dashboard events
   alert: (payload: any) => void;
@@ -52,6 +63,16 @@ export interface ClientToServerEvents {
   mark_read: (data: { messageIds: string[]; employeeId?: string; guardId?: string }) => void;
 
   typing: (data: { isTyping: boolean; employeeId?: string; guardId?: string }) => void;
+  group_send_message: (data: {
+    groupId: string;
+    messageId?: string;
+    content: string;
+    attachments?: string[];
+    latitude?: number;
+    longitude?: number;
+  }) => void;
+  group_mark_read: (data: { groupId: string; messageIds?: string[] }) => void;
+  group_typing: (data: { groupId: string; isTyping: boolean }) => void;
 
   // Dashboard events
   subscribe_site: (siteId: string) => void;
