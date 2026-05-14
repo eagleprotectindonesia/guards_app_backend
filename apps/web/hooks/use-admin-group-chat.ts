@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { useInfiniteQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { useSocket } from '@/components/socket-provider';
 import { useSocketEvent } from './use-socket-event';
 import { uploadToS3 } from '@/lib/upload';
@@ -10,7 +10,14 @@ import { toast } from 'react-hot-toast';
 
 type GroupListItem = {
   participant: { id: string; role: string; unreadCount: number };
-  group: { id: string; title: string; lastMessageAt?: string | null; lastMessageSenderName?: string | null; lastMessageContent?: string | null };
+  group: {
+    id: string;
+    title: string;
+    description?: string | null;
+    lastMessageAt?: string | null;
+    lastMessageSenderName?: string | null;
+    lastMessageContent?: string | null;
+  };
 };
 
 type GroupMessage = {
@@ -23,6 +30,36 @@ type GroupMessage = {
   createdAt: string;
 };
 
+type GroupMember = {
+  id: string;
+  groupId: string;
+  participantType: 'admin' | 'employee';
+  adminId: string | null;
+  employeeId: string | null;
+  role: 'owner' | 'admin' | 'member';
+  status: 'active' | 'left' | 'removed';
+  displayName: string;
+  displayEmail: string | null;
+  displayEmployeeNumber: string | null;
+};
+
+type DirectoryEmployee = {
+  id: string;
+  fullName: string;
+  employeeNumber: string | null;
+};
+
+type DirectoryAdmin = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+async function parseErrorResponse(response: Response, fallbackMessage: string) {
+  const body = await response.json().catch(() => null);
+  return body?.error || fallbackMessage;
+}
+
 export function useAdminGroupChat() {
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
@@ -32,6 +69,12 @@ export function useAdminGroupChat() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isManagingMembers, setIsManagingMembers] = useState(false);
+  const [isDisbandingGroup, setIsDisbandingGroup] = useState(false);
+  const [createGroupTitle, setCreateGroupTitle] = useState('');
+  const [createGroupDescription, setCreateGroupDescription] = useState('');
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [selectedAdminIds, setSelectedAdminIds] = useState<string[]>([]);
 
   const groupsQuery = useInfiniteQuery({
     queryKey: ['admin', 'group-chat', 'groups', 'inbox', searchTerm],
@@ -45,6 +88,52 @@ export function useAdminGroupChat() {
     },
     initialPageParam: undefined as string | undefined,
     getNextPageParam: lastPage => lastPage.nextCursor ?? undefined,
+  });
+
+  const groupDetailsQuery = useQuery({
+    queryKey: ['admin', 'group-chat', 'group', activeGroupId],
+    queryFn: async () => {
+      if (!activeGroupId) return null;
+      const res = await fetch(`/api/shared/group-chat/${activeGroupId}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('Failed to fetch group');
+      return res.json() as Promise<GroupListItem['group']>;
+    },
+    enabled: !!activeGroupId,
+  });
+
+  const membersQuery = useQuery({
+    queryKey: ['admin', 'group-chat', 'members', activeGroupId],
+    queryFn: async () => {
+      if (!activeGroupId) return [] as GroupMember[];
+      const res = await fetch(`/api/shared/group-chat/${activeGroupId}/members`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('Failed to fetch members');
+      const body = (await res.json()) as { participants: GroupMember[] };
+      return body.participants;
+    },
+    enabled: !!activeGroupId,
+  });
+
+  const employeesQuery = useQuery({
+    queryKey: ['admin', 'group-chat', 'employee-directory'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/employees', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Failed to fetch employees');
+      const employees = (await res.json()) as Array<{ id: string; fullName: string; employeeNumber?: string | null }>;
+      return employees.map(employee => ({
+        id: employee.id,
+        fullName: employee.fullName,
+        employeeNumber: employee.employeeNumber ?? null,
+      })) as DirectoryEmployee[];
+    },
+  });
+
+  const adminsQuery = useQuery({
+    queryKey: ['admin', 'group-chat', 'admin-directory'],
+    queryFn: async () => {
+      const res = await fetch('/api/admin/admins', { cache: 'no-store' });
+      if (!res.ok) throw new Error('Failed to fetch admins');
+      return (await res.json()) as DirectoryAdmin[];
+    },
   });
 
   const messagesQuery = useInfiniteQuery({
@@ -65,21 +154,46 @@ export function useAdminGroupChat() {
 
   const groups = useMemo(() => groupsQuery.data?.pages.flatMap(p => p.groups) ?? [], [groupsQuery.data]);
   const messages = useMemo(() => (messagesQuery.data?.pages.flat() ?? []).reverse(), [messagesQuery.data]);
+  const activeGroup = groupDetailsQuery.data;
+  const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
+  const employees = useMemo(() => employeesQuery.data ?? [], [employeesQuery.data]);
+  const admins = useMemo(() => adminsQuery.data ?? [], [adminsQuery.data]);
 
-  const handleFileChange = useCallback(async (files: File[]) => {
-    const imageFiles = files.filter(f => f.type.startsWith('image/'));
-    const processed = await Promise.all(imageFiles.map(f => optimizeImage(f)));
-    const next = [...selectedFiles, ...processed].slice(0, 4);
-    setSelectedFiles(next);
-    const urls = processed.map(file => URL.createObjectURL(file));
-    setPreviews(prev => [...prev, ...urls].slice(0, 4));
-  }, [selectedFiles]);
+  const activeEmployeeSet = useMemo(
+    () => new Set(members.filter(member => member.participantType === 'employee').map(member => member.employeeId).filter(Boolean) as string[]),
+    [members]
+  );
+  const activeAdminSet = useMemo(
+    () => new Set(members.filter(member => member.participantType === 'admin').map(member => member.adminId).filter(Boolean) as string[]),
+    [members]
+  );
 
-  const removeFile = useCallback((index: number) => {
-    URL.revokeObjectURL(previews[index]);
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-    setPreviews(prev => prev.filter((_, i) => i !== index));
-  }, [previews]);
+  const availableEmployees = useMemo(
+    () => employees.filter(employee => !activeEmployeeSet.has(employee.id)),
+    [employees, activeEmployeeSet]
+  );
+  const availableAdmins = useMemo(() => admins.filter(admin => !activeAdminSet.has(admin.id)), [admins, activeAdminSet]);
+
+  const handleFileChange = useCallback(
+    async (files: File[]) => {
+      const imageFiles = files.filter(f => f.type.startsWith('image/'));
+      const processed = await Promise.all(imageFiles.map(f => optimizeImage(f)));
+      const next = [...selectedFiles, ...processed].slice(0, 4);
+      setSelectedFiles(next);
+      const urls = processed.map(file => URL.createObjectURL(file));
+      setPreviews(prev => [...prev, ...urls].slice(0, 4));
+    },
+    [selectedFiles]
+  );
+
+  const removeFile = useCallback(
+    (index: number) => {
+      URL.revokeObjectURL(previews[index]);
+      setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+      setPreviews(prev => prev.filter((_, i) => i !== index));
+    },
+    [previews]
+  );
 
   const sendMessage = useCallback(async () => {
     if (!socket || !activeGroupId || (!inputText.trim() && selectedFiles.length === 0) || isUploading) return;
@@ -110,6 +224,138 @@ export function useAdminGroupChat() {
     }
   }, [socket, activeGroupId, inputText, selectedFiles, isUploading, previews]);
 
+  const createGroup = useCallback(async () => {
+    const title = createGroupTitle.trim();
+    if (!title) {
+      toast.error('Group title is required');
+      return;
+    }
+
+    setIsManagingMembers(true);
+    try {
+      const response = await fetch('/api/shared/group-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          description: createGroupDescription.trim() || null,
+          employeeIds: selectedEmployeeIds,
+          adminIds: selectedAdminIds,
+        }),
+      });
+
+      if (!response.ok) {
+        toast.error(await parseErrorResponse(response, 'Failed to create group'));
+        return;
+      }
+
+      const group = (await response.json()) as { id: string };
+      setCreateGroupTitle('');
+      setCreateGroupDescription('');
+      setSelectedEmployeeIds([]);
+      setSelectedAdminIds([]);
+      setActiveGroupId(group.id);
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'groups'] });
+    } catch {
+      toast.error('Failed to create group');
+    } finally {
+      setIsManagingMembers(false);
+    }
+  }, [createGroupDescription, createGroupTitle, queryClient, selectedAdminIds, selectedEmployeeIds]);
+
+  const addSelectedMembers = useCallback(async () => {
+    if (!activeGroupId) return;
+
+    const employeeIds = selectedEmployeeIds.filter(id => !activeEmployeeSet.has(id));
+    const adminIds = selectedAdminIds.filter(id => !activeAdminSet.has(id));
+    if (employeeIds.length === 0 && adminIds.length === 0) {
+      toast.error('Select members to add');
+      return;
+    }
+
+    setIsManagingMembers(true);
+    try {
+      const response = await fetch(`/api/shared/group-chat/${activeGroupId}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeIds, adminIds }),
+      });
+
+      if (!response.ok) {
+        toast.error(await parseErrorResponse(response, 'Failed to add members'));
+        return;
+      }
+
+      setSelectedEmployeeIds([]);
+      setSelectedAdminIds([]);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'groups'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'members', activeGroupId] }),
+      ]);
+    } catch {
+      toast.error('Failed to add members');
+    } finally {
+      setIsManagingMembers(false);
+    }
+  }, [activeAdminSet, activeEmployeeSet, activeGroupId, queryClient, selectedAdminIds, selectedEmployeeIds]);
+
+  const removeMember = useCallback(
+    async (participantId: string) => {
+      if (!activeGroupId) return;
+
+      setIsManagingMembers(true);
+      try {
+        const response = await fetch(`/api/shared/group-chat/${activeGroupId}/members/${participantId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          toast.error(await parseErrorResponse(response, 'Failed to remove member'));
+          return;
+        }
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'groups'] }),
+          queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'members', activeGroupId] }),
+        ]);
+      } catch {
+        toast.error('Failed to remove member');
+      } finally {
+        setIsManagingMembers(false);
+      }
+    },
+    [activeGroupId, queryClient]
+  );
+
+  const disbandGroup = useCallback(async () => {
+    if (!activeGroupId) return false;
+
+    setIsDisbandingGroup(true);
+    try {
+      const response = await fetch(`/api/shared/group-chat/${activeGroupId}`, { method: 'DELETE' });
+      if (!response.ok) {
+        toast.error(await parseErrorResponse(response, 'Failed to disband group'));
+        return false;
+      }
+
+      setSelectedEmployeeIds([]);
+      setSelectedAdminIds([]);
+      setActiveGroupId(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'groups'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'members'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'messages'] }),
+      ]);
+      toast.success('Group disbanded');
+      return true;
+    } catch {
+      toast.error('Failed to disband group');
+      return false;
+    } finally {
+      setIsDisbandingGroup(false);
+    }
+  }, [activeGroupId, queryClient]);
+
   useSocketEvent('group_new_message', message => {
     queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'groups'] });
     if (message.groupId !== activeGroupId) return;
@@ -123,6 +369,8 @@ export function useAdminGroupChat() {
   return {
     isConnected,
     groups,
+    activeGroup,
+    members,
     messages,
     activeGroupId,
     setActiveGroupId,
@@ -132,12 +380,32 @@ export function useAdminGroupChat() {
     setInputText,
     previews,
     isUploading,
+    isManagingMembers,
+    isDisbandingGroup,
+    createGroupTitle,
+    setCreateGroupTitle,
+    createGroupDescription,
+    setCreateGroupDescription,
+    selectedEmployeeIds,
+    setSelectedEmployeeIds,
+    selectedAdminIds,
+    setSelectedAdminIds,
+    employeeDirectory: employees,
+    adminDirectory: admins,
+    availableEmployees,
+    availableAdmins,
     handleFileChange,
     removeFile,
     sendMessage,
+    createGroup,
+    addSelectedMembers,
+    removeMember,
+    disbandGroup,
     fetchNextGroups: groupsQuery.fetchNextPage,
     hasNextGroups: groupsQuery.hasNextPage,
+    isFetchingNextGroups: groupsQuery.isFetchingNextPage,
     isGroupsLoading: groupsQuery.isLoading,
+    isMembersLoading: membersQuery.isLoading,
     isMessagesLoading: messagesQuery.isLoading,
   };
 }

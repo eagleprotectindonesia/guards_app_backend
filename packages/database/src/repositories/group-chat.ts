@@ -54,6 +54,7 @@ export async function createGroupChat(params: {
   description?: string | null;
   creator: Actor;
   employeeIds?: string[];
+  adminIds?: string[];
 }) {
   const title = params.title.trim();
   if (!title) throw new Error('Group title is required');
@@ -80,7 +81,10 @@ export async function createGroupChat(params: {
     });
 
     const uniqueEmployeeIds = Array.from(new Set(params.employeeIds ?? [])).filter(Boolean);
+    const uniqueAdminIds = Array.from(new Set(params.adminIds ?? [])).filter(Boolean);
     const creatorEmployeeId = actorEmployeeId(params.creator) ?? null;
+    const creatorAdminId = actorAdminId(params.creator) ?? null;
+
     if (uniqueEmployeeIds.length > 0) {
       await tx.groupChatParticipant.createMany({
         data: uniqueEmployeeIds
@@ -89,6 +93,20 @@ export async function createGroupChat(params: {
             groupId: group.id,
             participantType: GroupChatParticipantType.employee,
             employeeId,
+            role: 'member',
+            status: 'active',
+          })),
+      });
+    }
+
+    if (uniqueAdminIds.length > 0) {
+      await tx.groupChatParticipant.createMany({
+        data: uniqueAdminIds
+          .filter(adminId => adminId !== creatorAdminId)
+          .map(adminId => ({
+            groupId: group.id,
+            participantType: GroupChatParticipantType.admin,
+            adminId,
             role: 'member',
             status: 'active',
           })),
@@ -174,30 +192,154 @@ export async function getGroupChatListForParticipant(params: { actor: Actor; lim
   };
 }
 
-export async function addGroupMembers(params: { groupId: string; actor: Actor; employeeIds: string[] }) {
-  if (params.employeeIds.length === 0) return [];
+export async function addGroupMembers(params: { groupId: string; actor: Actor; employeeIds?: string[]; adminIds?: string[] }) {
+  const employeeIds = params.employeeIds ?? [];
+  const adminIds = params.adminIds ?? [];
+  if (employeeIds.length === 0 && adminIds.length === 0) return [];
+
   return db.$transaction(async tx => {
     await assertOwner(tx, params.groupId, params.actor);
-    const uniqueIds = Array.from(new Set(params.employeeIds)).filter(Boolean);
+
+    const uniqueEmployeeIds = Array.from(new Set(employeeIds)).filter(Boolean);
+    const uniqueAdminIds = Array.from(new Set(adminIds)).filter(Boolean);
     const existing = await tx.groupChatParticipant.findMany({
-      where: { groupId: params.groupId, status: GroupChatParticipantStatus.active, participantType: 'employee', employeeId: { in: uniqueIds } },
-      select: { employeeId: true },
-    });
-    const existingSet = new Set(existing.map(x => x.employeeId).filter(Boolean) as string[]);
-    const toCreate = uniqueIds.filter(id => !existingSet.has(id));
-    if (toCreate.length === 0) return [];
-    await tx.groupChatParticipant.createMany({
-      data: toCreate.map(employeeId => ({
+      where: {
         groupId: params.groupId,
-        participantType: GroupChatParticipantType.employee,
-        employeeId,
-        role: 'member',
-        status: 'active',
-        visibleFromAt: new Date(),
-      })),
+        status: GroupChatParticipantStatus.active,
+        OR: [
+          uniqueEmployeeIds.length > 0
+            ? { participantType: GroupChatParticipantType.employee, employeeId: { in: uniqueEmployeeIds } }
+            : undefined,
+          uniqueAdminIds.length > 0 ? { participantType: GroupChatParticipantType.admin, adminId: { in: uniqueAdminIds } } : undefined,
+        ].filter(Boolean) as Prisma.GroupChatParticipantWhereInput[],
+      },
+      select: { participantType: true, employeeId: true, adminId: true },
     });
+
+    const existingEmployeeIds = new Set(
+      existing
+        .filter(item => item.participantType === GroupChatParticipantType.employee)
+        .map(item => item.employeeId)
+        .filter(Boolean) as string[]
+    );
+    const existingAdminIds = new Set(
+      existing
+        .filter(item => item.participantType === GroupChatParticipantType.admin)
+        .map(item => item.adminId)
+        .filter(Boolean) as string[]
+    );
+    const employeeToCreate = uniqueEmployeeIds.filter(id => !existingEmployeeIds.has(id));
+    const adminToCreate = uniqueAdminIds.filter(id => !existingAdminIds.has(id));
+    if (employeeToCreate.length === 0 && adminToCreate.length === 0) return [];
+
+    await tx.groupChatParticipant.createMany({
+      data: [
+        ...employeeToCreate.map(employeeId => ({
+          groupId: params.groupId,
+          participantType: GroupChatParticipantType.employee,
+          employeeId,
+          role: 'member' as const,
+          status: 'active' as const,
+          visibleFromAt: new Date(),
+        })),
+        ...adminToCreate.map(adminId => ({
+          groupId: params.groupId,
+          participantType: GroupChatParticipantType.admin,
+          adminId,
+          role: 'member' as const,
+          status: 'active' as const,
+          visibleFromAt: new Date(),
+        })),
+      ],
+    });
+
     return tx.groupChatParticipant.findMany({
-      where: { groupId: params.groupId, participantType: 'employee', status: 'active', employeeId: { in: toCreate } },
+      where: {
+        groupId: params.groupId,
+        status: 'active',
+        OR: [
+          employeeToCreate.length > 0
+            ? { participantType: GroupChatParticipantType.employee, employeeId: { in: employeeToCreate } }
+            : undefined,
+          adminToCreate.length > 0 ? { participantType: GroupChatParticipantType.admin, adminId: { in: adminToCreate } } : undefined,
+        ].filter(Boolean) as Prisma.GroupChatParticipantWhereInput[],
+      },
+    });
+  });
+}
+
+export async function listGroupMembers(params: { groupId: string; actor: Actor }) {
+  return db.$transaction(async tx => {
+    const actorParticipant = await getActiveParticipantForActor(tx, params.groupId, params.actor);
+    if (!actorParticipant) throw new Error('Active group participant not found');
+
+    const participants = await tx.groupChatParticipant.findMany({
+      where: { groupId: params.groupId, status: GroupChatParticipantStatus.active },
+      orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }],
+    });
+
+    const adminIds = Array.from(
+      new Set(
+        participants
+          .filter(item => item.participantType === GroupChatParticipantType.admin)
+          .map(item => item.adminId)
+          .filter(Boolean) as string[]
+      )
+    );
+    const employeeIds = Array.from(
+      new Set(
+        participants
+          .filter(item => item.participantType === GroupChatParticipantType.employee)
+          .map(item => item.employeeId)
+          .filter(Boolean) as string[]
+      )
+    );
+
+    const [admins, employees] = await Promise.all([
+      adminIds.length > 0
+        ? tx.admin.findMany({
+            where: { id: { in: adminIds }, deletedAt: null },
+            select: { id: true, name: true, email: true },
+          })
+        : Promise.resolve([]),
+      employeeIds.length > 0
+        ? tx.employee.findMany({
+            where: { id: { in: employeeIds }, deletedAt: null },
+            select: { id: true, fullName: true, employeeNumber: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const adminMap = new Map(admins.map(admin => [admin.id, admin]));
+    const employeeMap = new Map(employees.map(employee => [employee.id, employee]));
+
+    return participants.map(participant => {
+      if (participant.participantType === GroupChatParticipantType.admin && participant.adminId) {
+        const admin = adminMap.get(participant.adminId);
+        return {
+          ...participant,
+          displayName: admin?.name ?? 'Unknown Admin',
+          displayEmail: admin?.email ?? null,
+          displayEmployeeNumber: null,
+        };
+      }
+
+      if (participant.participantType === GroupChatParticipantType.employee && participant.employeeId) {
+        const employee = employeeMap.get(participant.employeeId);
+        return {
+          ...participant,
+          displayName: employee?.fullName ?? 'Unknown Employee',
+          displayEmail: null,
+          displayEmployeeNumber: employee?.employeeNumber ?? null,
+        };
+      }
+
+      return {
+        ...participant,
+        displayName: 'Unknown Participant',
+        displayEmail: null,
+        displayEmployeeNumber: null,
+      };
     });
   });
 }
@@ -213,6 +355,41 @@ export async function removeGroupMember(params: { groupId: string; actor: Actor;
       where: { id: target.id },
       data: { status: 'removed', removedAt: now, leftAt: now, removedByParticipantId: owner.id },
     });
+  });
+}
+
+export async function disbandGroup(params: { groupId: string; actor: Actor }) {
+  return db.$transaction(async tx => {
+    const owner = await assertOwner(tx, params.groupId, params.actor);
+    const now = new Date();
+
+    const group = await tx.groupChat.update({
+      where: { id: params.groupId },
+      data: { archivedAt: now },
+      select: { id: true, archivedAt: true },
+    });
+
+    await tx.groupChatParticipant.updateMany({
+      where: { groupId: params.groupId, status: GroupChatParticipantStatus.active },
+      data: {
+        status: GroupChatParticipantStatus.removed,
+        removedAt: now,
+        leftAt: now,
+        removedByParticipantId: owner.id,
+      },
+    });
+
+    await tx.groupChatMembershipEvent.create({
+      data: {
+        groupId: params.groupId,
+        actorParticipantId: owner.id,
+        targetParticipantId: owner.id,
+        type: 'group_archived',
+        metadata: { reason: 'disbanded_by_owner' },
+      },
+    });
+
+    return group;
   });
 }
 

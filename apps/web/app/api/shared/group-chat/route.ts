@@ -37,8 +37,9 @@ export async function POST(request: NextRequest) {
   const title = typeof body?.title === 'string' ? body.title.trim() : '';
   const description = typeof body?.description === 'string' ? body.description : null;
   const employeeIds = Array.isArray(body?.employeeIds) ? body.employeeIds.filter((v: unknown) => typeof v === 'string') : [];
+  const adminIds = Array.isArray(body?.adminIds) ? body.adminIds.filter((v: unknown) => typeof v === 'string') : [];
   if (!title) return NextResponse.json({ error: 'title is required' }, { status: 400 });
 
-  const group = await createGroupChat({ title, description, creator: actor, employeeIds });
+  const group = await createGroupChat({ title, description, creator: actor, employeeIds, adminIds });
   return NextResponse.json(group);
 }

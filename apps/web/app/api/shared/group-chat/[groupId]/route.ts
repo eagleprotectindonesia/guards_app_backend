@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentAdmin, requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { getGroupChatForParticipant, updateGroupChat } from '@/lib/data-access/group-chat';
+import { disbandGroup, getGroupChatForParticipant, updateGroupChat } from '@/lib/data-access/group-chat';
 
 function getActor(admin: Awaited<ReturnType<typeof getCurrentAdmin>>, employee: Awaited<ReturnType<typeof getAuthenticatedEmployee>>) {
   if (admin) return { participantType: 'admin' as const, adminId: admin.id };
@@ -38,4 +38,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const group = await updateGroupChat({ groupId, actor, title, description });
   return NextResponse.json(group);
+}
+
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ groupId: string }> }) {
+  const { groupId } = await params;
+  const admin = await getCurrentAdmin();
+  const employee = await getAuthenticatedEmployee();
+  const actor = getActor(admin, employee);
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (admin) await requirePermission(PERMISSIONS.CHAT.CREATE);
+
+  try {
+    const result = await disbandGroup({ groupId, actor });
+    return NextResponse.json({
+      success: true,
+      groupId: result.id,
+      archivedAt: result.archivedAt,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to disband group';
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

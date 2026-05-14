@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useCallback, useMemo, useState } from 'react';
-import { ArchiveRestore, ArchiveX, MessageSquare, Send, User, Paperclip, Loader2, Lock } from 'lucide-react';
+import { ArchiveRestore, ArchiveX, MessageSquare, Send, User, Paperclip, Loader2, Lock, Users } from 'lucide-react';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { AdminChatLaunchPayload, useAdminChat } from '@/hooks/use-admin-chat';
 import { useAdminGroupChat } from '@/hooks/use-admin-group-chat';
@@ -11,9 +11,15 @@ import { ConversationList } from '../components/chat/conversation-list';
 import { ChatMessageList } from '../components/chat/message-list';
 import { ChatAttachmentPreviews } from '../components/chat/attachment-previews';
 import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
+import { GroupList } from '../components/chat/group-list';
+import { GroupCreateDialog } from '../components/chat/group-create-dialog';
+import { GroupMemberManager } from '../components/chat/group-member-manager';
 
 export function AdminChatClient() {
   const [mode, setMode] = useState<'direct' | 'groups'>('direct');
+  const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
+  const [isMemberManagerOpen, setIsMemberManagerOpen] = useState(false);
+  const [groupSearchTerm, setGroupSearchTerm] = useState('');
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -70,6 +76,11 @@ export function AdminChatClient() {
     [employeeIdParam, employeeNameParam, employeeNumberParam, onSelectConversation]
   );
   const groupChat = useAdminGroupChat();
+  const ownerParticipant = useMemo(
+    () => groupChat.members.find(member => member.role === 'owner'),
+    [groupChat.members]
+  );
+  const isCurrentAdminOwner = !!ownerParticipant && ownerParticipant.participantType === 'admin' && ownerParticipant.adminId === userId;
 
   const {
     conversations,
@@ -112,34 +123,195 @@ export function AdminChatClient() {
   const isLockedByOther = !!(currentLock && currentLock.lockedBy !== userId);
 
   return (
-    <div className="flex h-[calc(100vh-180px)] bg-card rounded-xl shadow-sm border border-border overflow-hidden">
-      <div className="absolute mt-2 ml-2 z-20 flex gap-2">
-        <button className={`px-3 py-1 rounded ${mode === 'direct' ? 'bg-blue-600 text-white' : 'bg-muted'}`} onClick={() => setMode('direct')}>Direct</button>
-        <button className={`px-3 py-1 rounded ${mode === 'groups' ? 'bg-blue-600 text-white' : 'bg-muted'}`} onClick={() => setMode('groups')}>Groups</button>
+    <div className="flex h-[calc(100vh-180px)] bg-card rounded-xl shadow-sm border border-border overflow-hidden relative">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex p-1 bg-muted/80 backdrop-blur rounded-lg border shadow-sm">
+        <button
+          className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${mode === 'direct' ? 'bg-blue-600 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+          onClick={() => setMode('direct')}
+        >
+          Direct
+        </button>
+        <button
+          className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${mode === 'groups' ? 'bg-blue-600 text-white shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
+          onClick={() => setMode('groups')}
+        >
+          Groups
+        </button>
       </div>
+
       {mode === 'groups' ? (
         <>
-          <div className="w-1/3 border-r border-border shrink-0 pt-12 overflow-y-auto">
-            {groupChat.groups.map(item => (
-              <button key={item.group.id} className="w-full text-left p-3 border-b" onClick={() => groupChat.setActiveGroupId(item.group.id)}>
-                <div className="font-medium">{item.group.title}</div>
-                <div className="text-xs text-muted-foreground">{item.group.lastMessageSenderName}: {item.group.lastMessageContent}</div>
-              </button>
-            ))}
+          <GroupList
+            groups={groupChat.groups}
+            activeGroupId={groupChat.activeGroupId}
+            onSelect={groupChat.setActiveGroupId}
+            searchTerm={groupSearchTerm}
+            onSearchChange={setGroupSearchTerm}
+            className="w-1/3 border-r border-border shrink-0"
+            onCreateGroup={() => setIsCreateGroupOpen(true)}
+            isLoading={groupChat.isGroupsLoading}
+            hasMore={groupChat.hasNextGroups}
+            onLoadMore={groupChat.fetchNextGroups}
+            isLoadingMore={groupChat.isFetchingNextGroups}
+          />
+
+          <div className="flex-1 flex flex-col overflow-hidden bg-muted/5">
+            {groupChat.activeGroupId ? (
+              <>
+                <div className="p-4 border-b border-border bg-card flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                      <Users className="text-blue-600 dark:text-blue-400" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground flex items-center gap-2">
+                        {groupChat.activeGroup?.title || 'Group Chat'}
+                      </h3>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs text-muted-foreground">
+                          {groupChat.members.length} members
+                          {groupChat.activeGroup?.description && ` • ${groupChat.activeGroup.description}`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMemberManagerOpen(true)}
+                    className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+                  >
+                    <Users size={16} />
+                    Manage
+                  </button>
+                </div>
+
+                <ChatMessageList
+                  messages={groupChat.messages as unknown as ChatMessage[]}
+                  isLoading={groupChat.isMessagesLoading}
+                  className="flex-1 overflow-y-auto"
+                />
+
+                <ChatAttachmentPreviews previews={groupChat.previews} onRemove={groupChat.removeFile} />
+
+                <div className="p-4 bg-card border-t border-border shrink-0 relative">
+                  <form
+                    onSubmit={e => {
+                      e.preventDefault();
+                      void groupChat.sendMessage();
+                    }}
+                    className="flex items-end gap-3 max-w-4xl mx-auto"
+                  >
+                    <div className="flex-1 bg-muted/50 rounded-2xl border border-border focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent transition-all flex items-end p-2 px-4 gap-3">
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={e => groupChat.handleFileChange(Array.from(e.target.files || []))}
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={groupChat.previews.length >= 4 || groupChat.isUploading || !canCreateChat}
+                        className="mb-1 text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-50 shrink-0 p-1"
+                      >
+                        <Paperclip size={22} />
+                      </button>
+
+                      <textarea
+                        rows={1}
+                        value={groupChat.inputText}
+                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                          groupChat.setInputText(e.target.value);
+                          e.target.style.height = 'auto';
+                          e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                        }}
+                        onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            void groupChat.sendMessage();
+                          }
+                        }}
+                        disabled={groupChat.isUploading || !canCreateChat}
+                        placeholder={
+                          !canCreateChat ? 'Read-only mode' : 'Type a message to the group...'
+                        }
+                        className="flex-1 bg-transparent border-none focus:ring-0 text-sm text-foreground py-2 resize-none max-h-[120px] placeholder:text-muted-foreground/50"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={
+                        (!groupChat.inputText.trim() && groupChat.previews.length === 0) ||
+                        groupChat.isUploading ||
+                        !canCreateChat
+                      }
+                      className="bg-blue-600 text-white p-3 rounded-xl disabled:opacity-50 hover:bg-blue-700 transition-all shadow-md shrink-0 mb-1"
+                    >
+                      {groupChat.isUploading ? (
+                        <Loader2 size={20} className="animate-spin" />
+                      ) : (
+                        <Send size={20} />
+                      )}
+                    </button>
+                  </form>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-12 text-center">
+                <div className="w-20 h-20 bg-muted/30 rounded-full flex items-center justify-center mb-6">
+                  <Users size={40} className="opacity-20" />
+                </div>
+                <h3 className="text-xl font-medium text-foreground mb-2">Group Messages</h3>
+                <p className="max-w-xs mx-auto text-sm">
+                  Select a group from the sidebar to view the conversation or start chatting.
+                </p>
+              </div>
+            )}
           </div>
-          <div className="flex-1 flex flex-col pt-12">
-            <ChatMessageList
-              messages={groupChat.messages as unknown as ChatMessage[]}
-              isLoading={groupChat.isMessagesLoading}
-              className="flex-1 overflow-y-auto"
-            />
-            <ChatAttachmentPreviews previews={groupChat.previews} onRemove={groupChat.removeFile} />
-            <div className="p-3 border-t flex gap-2">
-              <input type="file" multiple accept="image/*" onChange={e => groupChat.handleFileChange(Array.from(e.target.files || []))} />
-              <input className="flex-1 border rounded px-2" value={groupChat.inputText} onChange={e => groupChat.setInputText(e.target.value)} />
-              <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={() => void groupChat.sendMessage()}>Send</button>
-            </div>
-          </div>
+
+          <GroupCreateDialog
+            isOpen={isCreateGroupOpen}
+            onClose={() => setIsCreateGroupOpen(false)}
+            title={groupChat.createGroupTitle}
+            onTitleChange={groupChat.setCreateGroupTitle}
+            description={groupChat.createGroupDescription}
+            onDescriptionChange={groupChat.setCreateGroupDescription}
+            employeeDirectory={groupChat.employeeDirectory}
+            adminDirectory={groupChat.adminDirectory}
+            selectedEmployeeIds={groupChat.selectedEmployeeIds}
+            onSelectedEmployeeIdsChange={groupChat.setSelectedEmployeeIds}
+            selectedAdminIds={groupChat.selectedAdminIds}
+            onSelectedAdminIdsChange={groupChat.setSelectedAdminIds}
+            onCreate={async () => {
+              await groupChat.createGroup();
+              setIsCreateGroupOpen(false);
+            }}
+            isLoading={groupChat.isManagingMembers}
+          />
+
+          <GroupMemberManager
+            isOpen={isMemberManagerOpen}
+            onClose={() => setIsMemberManagerOpen(false)}
+            groupTitle={groupChat.activeGroup?.title || ''}
+            members={groupChat.members}
+            isMembersLoading={groupChat.isMembersLoading}
+            availableEmployees={groupChat.availableEmployees}
+            availableAdmins={groupChat.availableAdmins}
+            selectedEmployeeIds={groupChat.selectedEmployeeIds}
+            onSelectedEmployeeIdsChange={groupChat.setSelectedEmployeeIds}
+            selectedAdminIds={groupChat.selectedAdminIds}
+            onSelectedAdminIdsChange={groupChat.setSelectedAdminIds}
+            onAddMembers={groupChat.addSelectedMembers}
+            onRemoveMember={groupChat.removeMember}
+            isManaging={groupChat.isManagingMembers}
+            canManage={canCreateChat}
+            canDisband={canCreateChat && isCurrentAdminOwner}
+            onDisbandGroup={groupChat.disbandGroup}
+            isDisbandingGroup={groupChat.isDisbandingGroup}
+          />
         </>
       ) : (
       <>
