@@ -11,30 +11,30 @@ import toast from 'react-hot-toast';
 type ChatExportModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onExport: (startDate: Date, endDate: Date, employeeId: string) => void;
-  employees: { id: string; fullName: string }[];
-  initialEmployeeId?: string;
+  onExport: (startDate: Date, endDate: Date, target: { kind: 'direct' | 'group'; id: string; title: string }) => void;
+  targets: { kind: 'direct' | 'group'; id: string; title: string }[];
+  initialTarget?: { kind: 'direct' | 'group'; id: string };
 };
 
 export default function ChatExportModal({
   isOpen,
   onClose,
   onExport,
-  employees,
-  initialEmployeeId,
+  targets,
+  initialTarget,
 }: ChatExportModalProps) {
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(initialEmployeeId || '');
+  const initialTargetKey = initialTarget ? `${initialTarget.kind}:${initialTarget.id}` : '';
+  const [selectedTargetKey, setSelectedTargetKey] = useState<string>(initialTargetKey);
 
-  // Update selected employee if initialEmployeeId changes and modal opens
-  if (isOpen && initialEmployeeId && selectedEmployeeId === '' && initialEmployeeId !== selectedEmployeeId) {
-    setSelectedEmployeeId(initialEmployeeId);
+  if (isOpen && initialTargetKey && selectedTargetKey === '') {
+    setSelectedTargetKey(initialTargetKey);
   }
 
   const handleExport = () => {
-    if (!selectedEmployeeId) {
-      toast.error('Please select an employee.');
+    if (!selectedTargetKey) {
+      toast.error('Please select a conversation.');
       return;
     }
 
@@ -54,7 +54,13 @@ export default function ChatExportModal({
       return;
     }
 
-    onExport(startDate, endDate, selectedEmployeeId);
+    const [kind, id] = selectedTargetKey.split(':');
+    const target = targets.find(t => t.kind === kind && t.id === id);
+    if (!target) {
+      toast.error('Invalid conversation selection.');
+      return;
+    }
+    onExport(startDate, endDate, target);
     onClose();
   };
 
@@ -70,28 +76,26 @@ export default function ChatExportModal({
           </button>
         </div>
 
-        <p className="text-sm text-muted-foreground mb-4">
-          Select an employee and date range to export chat history and attachments.
-        </p>
+        <p className="text-sm text-muted-foreground mb-4">Select a conversation and date range to export chat history and attachments.</p>
 
         <div className="space-y-4">
-          {/* Employee Selection */}
+          {/* Conversation Selection */}
           <div>
-            <Label htmlFor="employee">
-              Employee <span className="text-red-500">*</span>
+            <Label htmlFor="conversation">
+              Conversation <span className="text-red-500">*</span>
             </Label>
             <select
-              id="employee"
-              value={selectedEmployeeId}
-              onChange={e => setSelectedEmployeeId(e.target.value)}
+              id="conversation"
+              value={selectedTargetKey}
+              onChange={e => setSelectedTargetKey(e.target.value)}
               className="w-full mt-1 rounded-lg border border-border bg-card px-3 py-2 text-sm shadow-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground"
             >
               <option value="" disabled className="bg-card">
-                Select an Employee
+                Select a Conversation
               </option>
-              {employees.map(employee => (
-                <option key={employee.id} value={employee.id} className="bg-card">
-                  {employee.fullName}
+              {targets.map(target => (
+                <option key={`${target.kind}:${target.id}`} value={`${target.kind}:${target.id}`} className="bg-card">
+                  {target.kind === 'group' ? '[Group] ' : ''}{target.title}
                 </option>
               ))}
             </select>

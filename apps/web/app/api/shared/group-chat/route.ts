@@ -21,8 +21,12 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 50);
   const cursorParam = searchParams.get('cursor');
   const cursor = cursorParam ? new Date(cursorParam) : undefined;
+  const viewParam = searchParams.get('view');
+  const view: 'inbox' | 'unread' | 'archived' =
+    viewParam === 'unread' || viewParam === 'archived' ? viewParam : 'inbox';
+  const search = searchParams.get('search') || undefined;
 
-  const result = await getGroupChatListForParticipant({ actor, limit, cursor });
+  const result = await getGroupChatListForParticipant({ actor, limit, cursor, view, search });
   return NextResponse.json(result);
 }
 

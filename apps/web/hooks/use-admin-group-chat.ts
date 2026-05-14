@@ -68,11 +68,33 @@ async function parseErrorResponse(response: Response, fallbackMessage: string) {
   return body?.error || fallbackMessage;
 }
 
+function clearUnreadInGroupPages(
+  old: InfiniteData<{ groups: GroupListItem[]; nextCursor: string | null }> | undefined,
+  groupId: string,
+  removeFromList: boolean
+) {
+  if (!old) return old;
+  return {
+    ...old,
+    pages: old.pages.map(page => ({
+      ...page,
+      groups: page.groups
+        .map(item =>
+          item.group.id === groupId
+            ? { ...item, participant: { ...item.participant, unreadCount: 0 } }
+            : item
+        )
+        .filter(item => (removeFromList ? item.group.id !== groupId : true)),
+    })),
+  };
+}
+
 export function useAdminGroupChat() {
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeView, setActiveView] = useState<'inbox' | 'unread' | 'archived'>('inbox');
   const [inputText, setInputText] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -85,10 +107,14 @@ export function useAdminGroupChat() {
   const [selectedAdminIds, setSelectedAdminIds] = useState<string[]>([]);
 
   const groupsQuery = useInfiniteQuery({
-    queryKey: ['admin', 'group-chat', 'groups', 'inbox', searchTerm],
+    queryKey: ['admin', 'group-chat', 'groups', activeView, searchTerm],
     queryFn: async ({ pageParam }) => {
       const url = new URL('/api/shared/group-chat', window.location.origin);
       url.searchParams.set('limit', '20');
+      url.searchParams.set('view', activeView);
+      if (searchTerm.trim()) {
+        url.searchParams.set('search', searchTerm.trim());
+      }
       if (pageParam) url.searchParams.set('cursor', pageParam as string);
       const res = await fetch(url.toString(), { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to fetch groups');
@@ -355,34 +381,51 @@ export function useAdminGroupChat() {
     [activeGroupId, queryClient]
   );
 
-  const disbandGroup = useCallback(async () => {
-    if (!activeGroupId) return false;
+  const archiveGroup = useCallback(async (groupId: string) => {
+    const response = await fetch(`/api/shared/group-chat/${groupId}/state`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isArchived: true }),
+    });
+    if (!response.ok) {
+      throw new Error(await parseErrorResponse(response, 'Failed to archive group'));
+    }
+    await queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'groups'] });
+  }, [queryClient]);
 
-    setIsDisbandingGroup(true);
-    try {
-      const response = await fetch(`/api/shared/group-chat/${activeGroupId}`, { method: 'DELETE' });
-      if (!response.ok) {
-        toast.error(await parseErrorResponse(response, 'Failed to disband group'));
-        return false;
+  const markGroupAsReadOptimistic = useCallback(
+    async (groupId: string) => {
+      queryClient.setQueriesData<InfiniteData<{ groups: GroupListItem[]; nextCursor: string | null }>>(
+        { queryKey: ['admin', 'group-chat', 'groups'] },
+        old => clearUnreadInGroupPages(old, groupId, activeView === 'unread')
+      );
+
+      if (socket) {
+        socket.emit('group_mark_read', { groupId });
+        return;
       }
 
-      setSelectedEmployeeIds([]);
-      setSelectedAdminIds([]);
-      setActiveGroupId(null);
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'groups'] }),
-        queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'members'] }),
-        queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'messages'] }),
-      ]);
-      toast.success('Group disbanded');
-      return true;
-    } catch {
-      toast.error('Failed to disband group');
-      return false;
-    } finally {
-      setIsDisbandingGroup(false);
+      await fetch(`/api/shared/group-chat/${groupId}/read`, { method: 'POST' });
+    },
+    [activeView, queryClient, socket]
+  );
+
+  const unarchiveGroup = useCallback(async (groupId: string) => {
+    const response = await fetch(`/api/shared/group-chat/${groupId}/state`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isArchived: false }),
+    });
+    if (!response.ok) {
+      throw new Error(await parseErrorResponse(response, 'Failed to unarchive group'));
     }
-  }, [activeGroupId, queryClient]);
+    await queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'groups'] });
+  }, [queryClient]);
+
+  const disbandGroup = useCallback(async () => {
+    toast.error('Disband group is no longer available from this flow');
+    return false;
+  }, []);
 
   useSocketEvent('group_new_message', message => {
     queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'groups'] });
@@ -392,6 +435,13 @@ export function useAdminGroupChat() {
       return { ...old, pages: [[message as GroupMessage, ...old.pages[0]], ...old.pages.slice(1)] };
     });
     socket?.emit('group_mark_read', { groupId: message.groupId, messageIds: [message.id] });
+  });
+
+  useSocketEvent('group_messages_read', payload => {
+    queryClient.setQueriesData<InfiniteData<{ groups: GroupListItem[]; nextCursor: string | null }>>(
+      { queryKey: ['admin', 'group-chat', 'groups'] },
+      old => clearUnreadInGroupPages(old, payload.groupId, activeView === 'unread')
+    );
   });
 
   return {
@@ -405,6 +455,8 @@ export function useAdminGroupChat() {
     setActiveGroupId,
     searchTerm,
     setSearchTerm,
+    activeView,
+    setActiveView,
     inputText,
     setInputText,
     previews,
@@ -429,6 +481,9 @@ export function useAdminGroupChat() {
     createGroup,
     addSelectedMembers,
     removeMember,
+    archiveGroup,
+    unarchiveGroup,
+    markGroupAsReadOptimistic,
     disbandGroup,
     fetchNextGroups: groupsQuery.fetchNextPage,
     hasNextGroups: groupsQuery.hasNextPage,

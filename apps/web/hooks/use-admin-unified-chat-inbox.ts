@@ -46,8 +46,9 @@ export function useAdminUnifiedChatInbox(options: Parameters<typeof useAdminChat
   const setActiveView = useCallback(
     (view: UnifiedInboxView) => {
       directChat.handleViewChange(view);
+      groupChat.setActiveView(view);
     },
-    [directChat]
+    [directChat, groupChat]
   );
 
   const selectConversation = useCallback(
@@ -66,6 +67,7 @@ export function useAdminUnifiedChatInbox(options: Parameters<typeof useAdminChat
 
       directChat.handleSelectConversation(null);
       groupChat.setActiveGroupId(selection.id);
+      void groupChat.markGroupAsReadOptimistic(selection.id);
     },
     [directChat, groupChat]
   );
@@ -101,18 +103,22 @@ export function useAdminUnifiedChatInbox(options: Parameters<typeof useAdminChat
     async (item: ChatInboxItem) => {
       if (item.kind === 'direct') {
         await directChat.handleArchiveConversation(item.id);
+        return;
       }
+      await groupChat.archiveGroup(item.id);
     },
-    [directChat]
+    [directChat, groupChat]
   );
 
   const unarchiveItem = useCallback(
     async (item: ChatInboxItem) => {
       if (item.kind === 'direct') {
         await directChat.handleUnarchiveConversation(item.id);
+        return;
       }
+      await groupChat.unarchiveGroup(item.id);
     },
-    [directChat]
+    [directChat, groupChat]
   );
 
   return {

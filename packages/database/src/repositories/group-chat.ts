@@ -196,15 +196,33 @@ export async function updateGroupChat(params: {
   });
 }
 
-export async function getGroupChatListForParticipant(params: { actor: Actor; limit?: number; cursor?: Date }) {
+export async function getGroupChatListForParticipant(params: {
+  actor: Actor;
+  limit?: number;
+  cursor?: Date;
+  view?: 'inbox' | 'unread' | 'archived';
+  search?: string;
+}) {
   const limit = params.limit ?? 20;
+  const view = params.view ?? 'inbox';
+  const search = params.search?.trim();
   const rows = await db.groupChatParticipant.findMany({
     where: {
       status: GroupChatParticipantStatus.active,
       participantType: params.actor.participantType,
       adminId: actorAdminId(params.actor),
       employeeId: actorEmployeeId(params.actor),
+      isArchived: view === 'archived' ? true : false,
+      unreadCount: view === 'unread' ? { gt: 0 } : undefined,
       group: params.cursor ? { lastMessageAt: { lt: params.cursor } } : undefined,
+      ...(search
+        ? {
+            group: {
+              ...(params.cursor ? { lastMessageAt: { lt: params.cursor } } : {}),
+              OR: [{ title: { contains: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }],
+            },
+          }
+        : {}),
     },
     include: { group: true },
     orderBy: [{ group: { lastMessageAt: 'desc' } }, { groupId: 'desc' }],
@@ -217,6 +235,21 @@ export async function getGroupChatListForParticipant(params: { actor: Actor; lim
     groups: page.map(row => ({ participant: row, group: row.group })),
     nextCursor: hasNext ? page[page.length - 1].group.lastMessageAt : null,
   };
+}
+
+export async function setGroupChatArchiveState(params: { groupId: string; actor: Actor; isArchived: boolean }) {
+  return db.$transaction(async tx => {
+    const participant = await getActiveParticipantForActor(tx, params.groupId, params.actor);
+    if (!participant) throw new Error('Active group participant not found');
+    const now = new Date();
+    return tx.groupChatParticipant.update({
+      where: { id: participant.id },
+      data: {
+        isArchived: params.isArchived,
+        isMuted: params.isArchived,
+      },
+    });
+  });
 }
 
 export async function addGroupMembers(params: { groupId: string; actor: Actor; employeeIds?: string[]; adminIds?: string[] }) {
@@ -654,6 +687,36 @@ export async function markGroupAsRead(params: { groupId: string; actor: Actor; m
       }
     }
     return { participantId: participant.id, readAt: now };
+  });
+}
+
+export async function getGroupChatExportBatch(params: {
+  groupId: string;
+  actor: Actor;
+  take: number;
+  cursor?: string;
+  startDate?: Date;
+  endDate?: Date;
+}) {
+  return db.$transaction(async tx => {
+    const participant = await getActiveParticipantForActor(tx, params.groupId, params.actor);
+    if (!participant) throw new Error('Active group participant not found');
+
+    return tx.groupChatMessage.findMany({
+      where: sentGroupMessageWhere({
+        groupId: params.groupId,
+        createdAt: {
+          ...(params.startDate ? { gte: params.startDate } : {}),
+          ...(params.endDate ? { lte: params.endDate } : {}),
+          gte: participant.visibleFromAt,
+          lte: participant.leftAt ?? undefined,
+        },
+      }),
+      orderBy: { createdAt: 'asc' },
+      take: params.take,
+      skip: params.cursor ? 1 : 0,
+      cursor: params.cursor ? { id: params.cursor } : undefined,
+    });
   });
 }
 

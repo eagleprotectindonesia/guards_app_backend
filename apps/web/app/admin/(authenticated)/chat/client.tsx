@@ -54,9 +54,9 @@ export function AdminChatClient() {
   const currentLock = directChat.activeEmployeeId ? directChat.conversationLocks[directChat.activeEmployeeId] : null;
   const isLockedByOther = !!(currentLock && currentLock.lockedBy !== userId);
 
-  const exportEmployees = useMemo(
-    () => directChat.conversations.map(c => ({ id: c.employeeId, fullName: c.employeeName })),
-    [directChat.conversations]
+  const exportTargets = useMemo(
+    () => unifiedChat.items.map(item => ({ kind: item.kind, id: item.id, title: item.title })),
+    [unifiedChat.items]
   );
 
   return (
@@ -87,9 +87,12 @@ export function AdminChatClient() {
           void unifiedChat.unarchiveItem(item);
         }}
         onCreateGroup={() => setIsCreateGroupOpen(true)}
-        onExport={() => {}}
-        isExportDisabled={unifiedChat.selectedConversation?.kind === 'group'}
-        exportDisabledReason="Group export will be available in a later phase"
+        onExport={() => {
+          const el = document.getElementById('chat-export-open-btn');
+          el?.click();
+        }}
+        isExportDisabled={!unifiedChat.selectedConversation}
+        exportDisabledReason="Select a conversation first"
         className="w-1/3 border-r border-border shrink-0"
       />
 
@@ -157,7 +160,10 @@ export function AdminChatClient() {
       </div>
 
       <div className="hidden">
-        <ChatExport activeEmployeeId={directChat.activeEmployeeId} employees={exportEmployees} />
+        <ChatExport
+          targets={exportTargets}
+          initialTarget={unifiedChat.selectedConversation}
+        />
       </div>
 
       <GroupCreateDialog
