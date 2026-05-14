@@ -202,7 +202,17 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
             longitude: data.longitude,
           });
 
-      io.to(`group:${data.groupId}`).emit('group_new_message', msg as any);
+      io.to(`group:${data.groupId}`).emit('group_new_message', {
+        ...msg,
+        createdAt: msg.createdAt.toISOString(),
+        sentAt: msg.sentAt ? msg.sentAt.toISOString() : null,
+        draftExpiresAt: msg.draftExpiresAt ? msg.draftExpiresAt.toISOString() : null,
+      });
+
+      const groupMessageMeta = {
+        id: msg.id,
+        senderName: msg.senderName,
+      };
 
       const pushTargets = await listGroupChatPushTargets({ groupId: data.groupId });
       for (const target of pushTargets) {
@@ -217,9 +227,9 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
           employeeId: target.employeeId,
           groupId: data.groupId,
           groupTitle: 'Group chat',
-          senderName: (msg as any).senderName ?? (auth.type === 'admin' ? 'Admin' : 'Employee'),
+          senderName: groupMessageMeta.senderName ?? (auth.type === 'admin' ? 'Admin' : 'Employee'),
           content: data.content,
-          messageId: (msg as any).id,
+          messageId: groupMessageMeta.id,
         });
       }
     } catch (err) {

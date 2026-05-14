@@ -1,9 +1,11 @@
 'use client';
 
-import { useRef, useCallback, useMemo } from 'react';
+import { useRef, useCallback, useMemo, useState } from 'react';
 import { ArchiveRestore, ArchiveX, MessageSquare, Send, User, Paperclip, Loader2, Lock } from 'lucide-react';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { AdminChatLaunchPayload, useAdminChat } from '@/hooks/use-admin-chat';
+import { useAdminGroupChat } from '@/hooks/use-admin-group-chat';
+import { ChatMessage } from '@/types/chat';
 import { useSession } from '../context/session-context';
 import { ConversationList } from '../components/chat/conversation-list';
 import { ChatMessageList } from '../components/chat/message-list';
@@ -11,6 +13,7 @@ import { ChatAttachmentPreviews } from '../components/chat/attachment-previews';
 import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
 
 export function AdminChatClient() {
+  const [mode, setMode] = useState<'direct' | 'groups'>('direct');
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -66,6 +69,7 @@ export function AdminChatClient() {
     }),
     [employeeIdParam, employeeNameParam, employeeNumberParam, onSelectConversation]
   );
+  const groupChat = useAdminGroupChat();
 
   const {
     conversations,
@@ -109,6 +113,36 @@ export function AdminChatClient() {
 
   return (
     <div className="flex h-[calc(100vh-180px)] bg-card rounded-xl shadow-sm border border-border overflow-hidden">
+      <div className="absolute mt-2 ml-2 z-20 flex gap-2">
+        <button className={`px-3 py-1 rounded ${mode === 'direct' ? 'bg-blue-600 text-white' : 'bg-muted'}`} onClick={() => setMode('direct')}>Direct</button>
+        <button className={`px-3 py-1 rounded ${mode === 'groups' ? 'bg-blue-600 text-white' : 'bg-muted'}`} onClick={() => setMode('groups')}>Groups</button>
+      </div>
+      {mode === 'groups' ? (
+        <>
+          <div className="w-1/3 border-r border-border shrink-0 pt-12 overflow-y-auto">
+            {groupChat.groups.map(item => (
+              <button key={item.group.id} className="w-full text-left p-3 border-b" onClick={() => groupChat.setActiveGroupId(item.group.id)}>
+                <div className="font-medium">{item.group.title}</div>
+                <div className="text-xs text-muted-foreground">{item.group.lastMessageSenderName}: {item.group.lastMessageContent}</div>
+              </button>
+            ))}
+          </div>
+          <div className="flex-1 flex flex-col pt-12">
+            <ChatMessageList
+              messages={groupChat.messages as unknown as ChatMessage[]}
+              isLoading={groupChat.isMessagesLoading}
+              className="flex-1 overflow-y-auto"
+            />
+            <ChatAttachmentPreviews previews={groupChat.previews} onRemove={groupChat.removeFile} />
+            <div className="p-3 border-t flex gap-2">
+              <input type="file" multiple accept="image/*" onChange={e => groupChat.handleFileChange(Array.from(e.target.files || []))} />
+              <input className="flex-1 border rounded px-2" value={groupChat.inputText} onChange={e => groupChat.setInputText(e.target.value)} />
+              <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={() => void groupChat.sendMessage()}>Send</button>
+            </div>
+          </div>
+        </>
+      ) : (
+      <>
       {/* Sidebar: Conversation List */}
       <ConversationList
         conversations={filteredConversations}
@@ -284,6 +318,8 @@ export function AdminChatClient() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }

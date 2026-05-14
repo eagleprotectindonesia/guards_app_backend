@@ -22,7 +22,7 @@ export interface UploadResponse {
 }
 
 function assertValidChatUploadOptions(options: UploadOptions) {
-  if (options.folder !== 'chat') return;
+  if (options.folder !== 'chat' && options.folder !== 'group-chat') return;
 
   if (!options.conversationId?.trim()) {
     throw new Error('Chat uploads require a conversationId');
