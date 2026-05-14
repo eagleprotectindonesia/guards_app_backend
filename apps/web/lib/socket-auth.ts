@@ -3,6 +3,8 @@ import cookie from 'cookie';
 import { verifySession } from './auth/session';
 import { AUTH_COOKIES } from './auth/constants';
 import { SocketData } from '@repo/types';
+import { db } from '@repo/database';
+import { redis } from '@repo/database/redis';
 
 interface HandshakeLike {
   headers: { cookie?: string };
@@ -26,6 +28,14 @@ export async function authenticateSocket(handshake: HandshakeLike): Promise<Sock
     if (!adminToken) return null;
     const { isValid, userId, permissions } = await verifySession(adminToken, 'admin');
     if (isValid && userId) {
+      const admin = await db.admin.findUnique({
+        where: { id: userId },
+        select: { id: true, deletedAt: true },
+      });
+      if (!admin || admin.deletedAt) {
+        await redis.del(`admin:token_version:${userId}`, `admin:permissions:${userId}`);
+        return null;
+      }
       return {
         type: 'admin' as const,
         id: userId,
@@ -86,6 +96,10 @@ export async function authenticateSocket(handshake: HandshakeLike): Promise<Sock
   if (preferredRole === 'employee') {
     const auth = await tryEmployeeAuth();
     if (auth) return auth;
+    return tryAdminAuth();
+  }
+
+  if (preferredRole === 'admin') {
     return tryAdminAuth();
   }
 

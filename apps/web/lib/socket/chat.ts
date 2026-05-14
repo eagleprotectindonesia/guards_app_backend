@@ -4,6 +4,7 @@ import { UnifiedServer, UnifiedSocket } from '../socket';
 import { ChatMessage } from '@repo/types';
 import { sendChatPushNotification } from '../fcm';
 import {
+  listGroupMembers,
   finalizeGroupMessageDraft,
   getActiveGroupParticipant,
   listActiveGroupIdsForParticipant,
@@ -109,6 +110,19 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
       }
     } catch (err) {
       console.error('Send Message Error:', err);
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        (err as { code?: string }).code === 'P2003' &&
+        'meta' in err &&
+        typeof (err as { meta?: { constraint_name?: string } }).meta?.constraint_name === 'string' &&
+        (err as { meta?: { constraint_name?: string } }).meta?.constraint_name === 'chat_messages_admin_id_fkey'
+      ) {
+        socket.emit('error', { message: 'Unauthorized' });
+        socket.disconnect(true);
+        return;
+      }
       socket.emit('error', { message: 'Failed to send' });
     }
   });
@@ -202,12 +216,22 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
             longitude: data.longitude,
           });
 
-      io.to(`group:${data.groupId}`).emit('group_new_message', {
+      const recipients = await listGroupMembers({ groupId: data.groupId, actor });
+      const payload = {
         ...msg,
         createdAt: msg.createdAt.toISOString(),
         sentAt: msg.sentAt ? msg.sentAt.toISOString() : null,
         draftExpiresAt: msg.draftExpiresAt ? msg.draftExpiresAt.toISOString() : null,
-      });
+      };
+      for (const participant of recipients) {
+        if (participant.participantType === 'employee' && participant.employeeId) {
+          io.to(`employee:${participant.employeeId}`).emit('group_new_message', payload);
+          continue;
+        }
+        if (participant.participantType === 'admin' && participant.adminId) {
+          io.to(`admin:${participant.adminId}`).emit('group_new_message', payload);
+        }
+      }
 
       const groupMessageMeta = {
         id: msg.id,
