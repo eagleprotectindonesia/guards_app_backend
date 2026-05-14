@@ -14,6 +14,8 @@ import { db as prisma } from '../prisma/client';
 
 jest.mock('../prisma/client', () => ({
   db: {
+    admin: { findUnique: jest.fn() },
+    employee: { findUnique: jest.fn(), findMany: jest.fn() },
     groupChat: { create: jest.fn(), update: jest.fn() },
     groupChatParticipant: {
       create: jest.fn(),
@@ -165,9 +167,20 @@ describe('group-chat repository', () => {
       adminId: 'a1',
       employeeId: null,
     });
-    (prisma.groupChatMessage.create as jest.Mock).mockResolvedValue({ id: 'm1', content: 'hello', senderName: 'Admin', createdAt: new Date() });
+    (prisma.admin.findUnique as jest.Mock).mockResolvedValue({ name: 'Admin Jane' });
+    (prisma.groupChatMessage.create as jest.Mock).mockResolvedValue({
+      id: 'm1',
+      content: 'hello',
+      senderName: 'Admin Jane',
+      createdAt: new Date(),
+    });
 
     await saveGroupMessage({ groupId: 'group-1', actor: { participantType: 'admin', adminId: 'a1' }, content: 'hello' });
+    expect(prisma.groupChatMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ senderName: 'Admin Jane' }),
+      })
+    );
     expect(prisma.groupChatParticipant.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({ data: { unreadCount: { increment: 1 } } })
     );
@@ -187,9 +200,15 @@ describe('group-chat repository', () => {
       employeeId: 'emp-1',
       adminId: null,
     });
+    (prisma.employee.findUnique as jest.Mock).mockResolvedValue({ fullName: 'Bob Employee' });
     (prisma.groupChatMessage.create as jest.Mock).mockResolvedValue({ id: 'draft-1' });
 
     await reserveGroupMessageDraft({ groupId: 'group-1', actor: { participantType: 'employee', employeeId: 'emp-1' } });
+    expect(prisma.groupChatMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ senderName: 'Bob Employee' }),
+      })
+    );
 
     (prisma.groupChatMessage.findUnique as jest.Mock).mockResolvedValue({
       id: 'draft-1',
@@ -207,5 +226,70 @@ describe('group-chat repository', () => {
         content: 'final',
       })
     ).rejects.toThrow('Group draft has expired');
+  });
+
+  test('finalizeGroupMessageDraft updates senderName using resolved participant name', async () => {
+    (prisma.groupChatParticipant.findFirst as jest.Mock).mockResolvedValue({
+      id: 'sender-1',
+      participantType: 'admin',
+      adminId: 'admin-1',
+      employeeId: null,
+      role: 'member',
+    });
+    (prisma.admin.findUnique as jest.Mock).mockResolvedValue({ name: 'Admin John' });
+    (prisma.groupChatMessage.findUnique as jest.Mock).mockResolvedValue({
+      id: 'draft-1',
+      groupId: 'group-1',
+      senderParticipantId: 'sender-1',
+      status: 'draft',
+      draftExpiresAt: new Date(Date.now() + 1000),
+    });
+    (prisma.groupChatMessage.update as jest.Mock).mockResolvedValue({
+      id: 'draft-1',
+      groupId: 'group-1',
+      content: 'final',
+      senderName: 'Admin John',
+      createdAt: new Date(),
+      sentAt: new Date(),
+      draftExpiresAt: null,
+    });
+
+    await finalizeGroupMessageDraft({
+      groupId: 'group-1',
+      messageId: 'draft-1',
+      actor: { participantType: 'admin', adminId: 'admin-1' },
+      content: 'final',
+    });
+
+    expect(prisma.groupChatMessage.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ senderName: 'Admin John' }),
+      })
+    );
+  });
+
+  test('falls back to unknown sender labels when identity record is missing', async () => {
+    (prisma.groupChatParticipant.findFirst as jest.Mock).mockResolvedValue({
+      id: 'sender-1',
+      role: 'member',
+      participantType: 'employee',
+      employeeId: 'emp-missing',
+      adminId: null,
+    });
+    (prisma.employee.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.groupChatMessage.create as jest.Mock).mockResolvedValue({
+      id: 'm1',
+      content: 'hello',
+      senderName: 'Unknown Employee',
+      createdAt: new Date(),
+    });
+
+    await saveGroupMessage({ groupId: 'group-1', actor: { participantType: 'employee', employeeId: 'emp-missing' }, content: 'hello' });
+
+    expect(prisma.groupChatMessage.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ senderName: 'Unknown Employee' }),
+      })
+    );
   });
 });

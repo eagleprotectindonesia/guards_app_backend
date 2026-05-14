@@ -29,6 +29,7 @@ type GroupMessage = {
   adminId: string | null;
   employeeId: string | null;
   senderName: string;
+  senderEmployeeNumber?: string | null;
   content: string;
   attachments: string[];
   latitude?: number | null;

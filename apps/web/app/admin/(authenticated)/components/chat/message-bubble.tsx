@@ -36,7 +36,8 @@ function getSenderColorClass(senderKey: string) {
 export function ChatMessageBubble({ message, isAdmin, mode = 'direct', currentAdminId, className }: ChatMessageBubbleProps) {
   const isMe = isAdmin && currentAdminId === message.adminId;
   const senderType = message.sender ?? (message.adminId ? 'admin' : 'employee');
-  const senderRoleLabel = senderType === 'admin' ? 'Admin' : 'Employee';
+  const senderEmployeeNumber = (message as ChatMessage & { senderEmployeeNumber?: string | null }).senderEmployeeNumber;
+  const senderRoleLabel = senderType === 'admin' ? 'Admin' : senderEmployeeNumber || 'Employee';
   const senderDisplayName = message.admin?.name || (message as ChatMessage & { senderName?: string }).senderName || 'Unknown';
   const senderKey =
     message.adminId ||

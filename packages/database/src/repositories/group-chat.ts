@@ -49,6 +49,33 @@ async function syncGroupConversation(tx: Prisma.TransactionClient, groupId: stri
   });
 }
 
+async function resolveParticipantSenderName(tx: Prisma.TransactionClient, participant: { participantType: GroupChatParticipantType; adminId?: string | null; employeeId?: string | null }) {
+  if (participant.participantType === GroupChatParticipantType.admin) {
+    if (!participant.adminId) return 'Unknown Admin';
+    const admin = await tx.admin.findUnique({
+      where: { id: participant.adminId },
+      select: { name: true },
+    });
+    return admin?.name ?? 'Unknown Admin';
+  }
+
+  if (!participant.employeeId) return 'Unknown Employee';
+  const employee = await tx.employee.findUnique({
+    where: { id: participant.employeeId },
+    select: { fullName: true },
+  });
+  return employee?.fullName ?? 'Unknown Employee';
+}
+
+async function resolveSenderEmployeeNumber(tx: Prisma.TransactionClient, employeeId?: string | null) {
+  if (!employeeId) return null;
+  const employee = await tx.employee.findUnique({
+    where: { id: employeeId },
+    select: { employeeNumber: true },
+  });
+  return employee?.employeeNumber ?? null;
+}
+
 export async function createGroupChat(params: {
   title: string;
   description?: string | null;
@@ -439,20 +466,23 @@ export async function reserveGroupMessageDraft(params: { groupId: string; actor:
   return db.$transaction(async tx => {
     const participant = await getActiveParticipantForActor(tx, params.groupId, params.actor);
     if (!participant) throw new Error('Active group participant not found');
-    return tx.groupChatMessage.create({
+    const senderName = await resolveParticipantSenderName(tx, participant);
+    const senderEmployeeNumber = await resolveSenderEmployeeNumber(tx, participant.employeeId);
+    const message = await tx.groupChatMessage.create({
       data: {
         groupId: params.groupId,
         senderParticipantId: participant.id,
         senderType: participant.participantType,
         adminId: participant.adminId,
         employeeId: participant.employeeId,
-        senderName: participant.participantType === 'admin' ? 'Admin' : 'Employee',
+        senderName,
         status: ChatMessageStatus.draft,
         content: '',
         attachments: [],
         draftExpiresAt: new Date(Date.now() + GROUP_CHAT_DRAFT_TTL_MS),
       },
     });
+    return { ...message, senderEmployeeNumber };
   });
 }
 
@@ -468,6 +498,7 @@ export async function finalizeGroupMessageDraft(params: {
   return db.$transaction(async tx => {
     const participant = await getActiveParticipantForActor(tx, params.groupId, params.actor);
     if (!participant) throw new Error('Active group participant not found');
+    const senderName = await resolveParticipantSenderName(tx, participant);
     const draft = await tx.groupChatMessage.findUnique({ where: { id: params.messageId } });
     if (!draft || draft.groupId !== params.groupId) throw new Error('Group draft not found');
     if (draft.senderParticipantId !== participant.id) throw new Error('Group draft does not belong to sender');
@@ -477,9 +508,11 @@ export async function finalizeGroupMessageDraft(params: {
       throw new Error('Group draft has expired');
     }
     const now = new Date();
+    const senderEmployeeNumber = await resolveSenderEmployeeNumber(tx, participant.employeeId);
     const message = await tx.groupChatMessage.update({
       where: { id: draft.id },
       data: {
+        senderName,
         content: params.content,
         attachments: params.attachments ?? [],
         latitude: params.latitude,
@@ -495,7 +528,7 @@ export async function finalizeGroupMessageDraft(params: {
       where: { groupId: params.groupId, status: 'active', id: { not: participant.id } },
       data: { unreadCount: { increment: 1 } },
     });
-    return message;
+    return { ...message, senderEmployeeNumber };
   });
 }
 
@@ -510,7 +543,9 @@ export async function saveGroupMessage(params: {
   return db.$transaction(async tx => {
     const participant = await getActiveParticipantForActor(tx, params.groupId, params.actor);
     if (!participant) throw new Error('Active group participant not found');
+    const senderName = await resolveParticipantSenderName(tx, participant);
     const now = new Date();
+    const senderEmployeeNumber = await resolveSenderEmployeeNumber(tx, participant.employeeId);
     const message = await tx.groupChatMessage.create({
       data: {
         groupId: params.groupId,
@@ -518,7 +553,7 @@ export async function saveGroupMessage(params: {
         senderType: participant.participantType,
         adminId: participant.adminId,
         employeeId: participant.employeeId,
-        senderName: participant.participantType === 'admin' ? 'Admin' : 'Employee',
+        senderName,
         status: ChatMessageStatus.sent,
         content: params.content,
         attachments: params.attachments ?? [],
@@ -532,7 +567,7 @@ export async function saveGroupMessage(params: {
       where: { groupId: params.groupId, status: 'active', id: { not: participant.id } },
       data: { unreadCount: { increment: 1 } },
     });
-    return message;
+    return { ...message, senderEmployeeNumber };
   });
 }
 
@@ -540,7 +575,7 @@ export async function getGroupMessages(params: { groupId: string; actor: Actor; 
   return db.$transaction(async tx => {
     const participant = await getActiveParticipantForActor(tx, params.groupId, params.actor);
     if (!participant) return [];
-    return tx.groupChatMessage.findMany({
+    const messages = await tx.groupChatMessage.findMany({
       where: sentGroupMessageWhere({
         groupId: params.groupId,
         createdAt: {
@@ -553,6 +588,19 @@ export async function getGroupMessages(params: { groupId: string; actor: Actor; 
       skip: params.cursorId ? 1 : 0,
       cursor: params.cursorId ? { id: params.cursorId } : undefined,
     });
+    const employeeIds = Array.from(new Set(messages.map(message => message.employeeId).filter(Boolean) as string[]));
+    const employees =
+      employeeIds.length > 0
+        ? await tx.employee.findMany({
+            where: { id: { in: employeeIds } },
+            select: { id: true, employeeNumber: true },
+          })
+        : [];
+    const employeeNumberById = new Map(employees.map(employee => [employee.id, employee.employeeNumber]));
+    return messages.map(message => ({
+      ...message,
+      senderEmployeeNumber: message.employeeId ? (employeeNumberById.get(message.employeeId) ?? null) : null,
+    }));
   });
 }
 
@@ -560,7 +608,7 @@ export async function getGroupMessagesSince(params: { groupId: string; actor: Ac
   return db.$transaction(async tx => {
     const participant = await getActiveParticipantForActor(tx, params.groupId, params.actor);
     if (!participant) return [];
-    return tx.groupChatMessage.findMany({
+    const messages = await tx.groupChatMessage.findMany({
       where: sentGroupMessageWhere({
         groupId: params.groupId,
         createdAt: {
@@ -571,6 +619,19 @@ export async function getGroupMessagesSince(params: { groupId: string; actor: Ac
       }),
       orderBy: { createdAt: 'asc' },
     });
+    const employeeIds = Array.from(new Set(messages.map(message => message.employeeId).filter(Boolean) as string[]));
+    const employees =
+      employeeIds.length > 0
+        ? await tx.employee.findMany({
+            where: { id: { in: employeeIds } },
+            select: { id: true, employeeNumber: true },
+          })
+        : [];
+    const employeeNumberById = new Map(employees.map(employee => [employee.id, employee.employeeNumber]));
+    return messages.map(message => ({
+      ...message,
+      senderEmployeeNumber: message.employeeId ? (employeeNumberById.get(message.employeeId) ?? null) : null,
+    }));
   });
 }
 
