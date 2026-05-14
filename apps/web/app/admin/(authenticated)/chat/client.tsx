@@ -84,6 +84,7 @@ export function AdminChatClient() {
 
   const {
     conversations,
+    inboxItems,
     filteredConversations,
     activeEmployeeId,
     messages,
@@ -143,6 +144,7 @@ export function AdminChatClient() {
         <>
           <GroupList
             groups={groupChat.groups}
+            inboxItems={groupChat.inboxItems}
             activeGroupId={groupChat.activeGroupId}
             onSelect={groupChat.setActiveGroupId}
             searchTerm={groupSearchTerm}
@@ -318,6 +320,7 @@ export function AdminChatClient() {
       {/* Sidebar: Conversation List */}
       <ConversationList
         conversations={filteredConversations}
+        inboxItems={inboxItems.filter(item => item.kind === 'direct')}
         activeEmployeeId={activeEmployeeId}
         currentAdminId={userId}
         onSelect={handleSelectConversation}

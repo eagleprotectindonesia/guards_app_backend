@@ -373,4 +373,25 @@ export interface GroupChatConversation {
   } | null;
 }
 
+export type ConversationKind = 'direct' | 'group';
+
+export type ConversationKey =
+  | { kind: 'direct'; employeeId: string }
+  | { kind: 'group'; groupId: string };
+
+export interface ChatInboxItem {
+  kind: ConversationKind;
+  id: string;
+  title: string;
+  subtitle?: string;
+  unreadCount: number;
+  isMuted: boolean;
+  isArchived: boolean;
+  lastMessage?: {
+    content: string;
+    senderName: string;
+    createdAt: string;
+  } | null;
+}
+
 export * from './socket-events';

@@ -7,6 +7,7 @@ import { useSocketEvent } from './use-socket-event';
 import { uploadToS3 } from '@/lib/upload';
 import { optimizeImage } from '@/lib/image-utils';
 import { toast } from 'react-hot-toast';
+import { ChatInboxItem } from '@repo/types';
 
 type GroupListItem = {
   participant: { id: string; role: string; unreadCount: number };
@@ -153,6 +154,26 @@ export function useAdminGroupChat() {
   });
 
   const groups = useMemo(() => groupsQuery.data?.pages.flatMap(p => p.groups) ?? [], [groupsQuery.data]);
+  const inboxItems = useMemo<ChatInboxItem[]>(
+    () =>
+      groups.map(item => ({
+        kind: 'group',
+        id: item.group.id,
+        title: item.group.title,
+        subtitle: item.group.description ?? undefined,
+        unreadCount: item.participant.unreadCount,
+        isMuted: false,
+        isArchived: false,
+        lastMessage: item.group.lastMessageContent
+          ? {
+              content: item.group.lastMessageContent,
+              senderName: item.group.lastMessageSenderName ?? 'Unknown',
+              createdAt: item.group.lastMessageAt ?? new Date(0).toISOString(),
+            }
+          : null,
+      })),
+    [groups]
+  );
   const messages = useMemo(() => (messagesQuery.data?.pages.flat() ?? []).reverse(), [messagesQuery.data]);
   const activeGroup = groupDetailsQuery.data;
   const members = useMemo(() => membersQuery.data ?? [], [membersQuery.data]);
@@ -369,6 +390,7 @@ export function useAdminGroupChat() {
   return {
     isConnected,
     groups,
+    inboxItems,
     activeGroup,
     members,
     messages,

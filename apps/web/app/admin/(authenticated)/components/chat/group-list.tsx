@@ -3,6 +3,7 @@
 import React from 'react';
 import { Users, Search, X, Loader2 } from 'lucide-react';
 import { cn } from '@repo/shared';
+import { ChatInboxItem } from '@repo/types';
 
 interface GroupListItem {
   participant: { id: string; role: string; unreadCount: number };
@@ -18,6 +19,7 @@ interface GroupListItem {
 
 interface GroupListProps {
   groups: GroupListItem[];
+  inboxItems?: ChatInboxItem[];
   activeGroupId: string | null;
   onSelect: (groupId: string) => void;
   searchTerm: string;
@@ -32,6 +34,7 @@ interface GroupListProps {
 
 export function GroupList({
   groups,
+  inboxItems,
   activeGroupId,
   onSelect,
   searchTerm,
@@ -43,6 +46,24 @@ export function GroupList({
   onLoadMore,
   isLoadingMore,
 }: GroupListProps) {
+  const resolvedItems =
+    inboxItems ??
+    groups.map(item => ({
+      kind: 'group' as const,
+      id: item.group.id,
+      title: item.group.title,
+      subtitle: item.group.description ?? undefined,
+      unreadCount: item.participant.unreadCount,
+      isMuted: false,
+      isArchived: false,
+      lastMessage: item.group.lastMessageContent
+        ? {
+            content: item.group.lastMessageContent,
+            senderName: item.group.lastMessageSenderName ?? 'Unknown',
+            createdAt: item.group.lastMessageAt ?? new Date(0).toISOString(),
+          }
+        : null,
+    }));
   return (
     <div className={cn('flex flex-col h-full bg-card', className)}>
       <div className="p-4 border-b border-border bg-muted/10">
@@ -91,21 +112,21 @@ export function GroupList({
           </div>
         ) : (
           <>
-            {groups.map(item => (
+            {resolvedItems.map(item => (
               <div
-                key={item.group.id}
+                key={item.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => onSelect(item.group.id)}
+                onClick={() => onSelect(item.id)}
                 onKeyDown={event => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    onSelect(item.group.id);
+                    onSelect(item.id);
                   }
                 }}
                 className={cn(
                   'w-full text-left p-4 border-b border-border/50 hover:bg-muted/50 transition-all flex items-center gap-4 relative cursor-pointer',
-                  activeGroupId === item.group.id &&
+                  activeGroupId === item.id &&
                     'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500'
                 )}
               >
@@ -115,21 +136,21 @@ export function GroupList({
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start mb-1 gap-2">
                     <p className="font-semibold text-foreground truncate flex-1 min-w-0">
-                      {item.group.title}
+                      {item.title}
                     </p>
                   </div>
                   <p className="text-xs text-muted-foreground truncate">
-                    {item.group.lastMessageSenderName ? (
+                    {item.lastMessage?.senderName ? (
                       <span className="font-medium text-blue-600 dark:text-blue-400">
-                        {item.group.lastMessageSenderName}:{' '}
+                        {item.lastMessage.senderName}:{' '}
                       </span>
                     ) : null}
-                    {item.group.lastMessageContent || <span className="italic">No messages yet</span>}
+                    {item.lastMessage?.content || <span className="italic">No messages yet</span>}
                   </p>
                 </div>
-                {item.participant.unreadCount > 0 && (
+                {item.unreadCount > 0 && (
                   <div className="min-w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold px-1.5 ml-2">
-                    {item.participant.unreadCount}
+                    {item.unreadCount}
                   </div>
                 )}
               </div>

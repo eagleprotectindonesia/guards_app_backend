@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useSocket } from '@/components/socket-provider';
 import { useSocketEvent } from './use-socket-event';
 import { Conversation, ChatMessage } from '@/types/chat';
+import { ChatInboxItem } from '@repo/types';
+import { mapDirectConversationToInboxItem } from '@/types/chat-inbox';
 import { uploadToS3 } from '@/lib/upload';
 import { optimizeImage } from '@/lib/image-utils';
 import { toast } from 'react-hot-toast';
@@ -226,6 +228,8 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
     }
     return [draftConversation, ...persistedConversations];
   }, [draftConversation, persistedConversations]);
+
+  const inboxItems = useMemo<ChatInboxItem[]>(() => conversations.map(mapDirectConversationToInboxItem), [conversations]);
 
   useEffect(() => {
     if (!audioRef.current) {
@@ -761,6 +765,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
   return {
     conversations,
+    inboxItems,
     filteredConversations,
     draftConversation,
     pendingArchivedLaunch,

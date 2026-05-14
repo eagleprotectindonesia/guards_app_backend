@@ -12,11 +12,13 @@ import { ChatHeader } from '../../../src/components/chat/ChatHeader';
 import { client } from '../../../src/api/client';
 import { queryKeys } from '../../../src/api/queryKeys';
 import { useChatUnread } from '../../../src/hooks/useChatUnread';
-import { GroupChatConversation } from '@repo/types';
-
-type MobileChatInboxItem =
-  | { kind: 'direct'; employeeId: string; title: string; unreadCount: number }
-  | { kind: 'group'; groupId: string; title: string; unreadCount: number };
+import { ChatInboxItem } from '@repo/types';
+import {
+  directSupportInboxItem,
+  inboxItemToConversationKey,
+  mapGroupConversationToInboxItem,
+  parseGroupChatListPayload,
+} from '../../../src/lib/chat-inbox';
 
 export default function ChatInboxScreen() {
   const { t } = useTranslation();
@@ -28,24 +30,13 @@ export default function ChatInboxScreen() {
     queryKey: queryKeys.chat.groupList,
     queryFn: async () => {
       const response = await client.get('/api/shared/group-chat');
-      const payload = response.data as
-        | GroupChatConversation[]
-        | { items?: GroupChatConversation[]; groups?: GroupChatConversation[] };
-      if (Array.isArray(payload)) return payload;
-      if (Array.isArray(payload?.items)) return payload.items;
-      if (Array.isArray(payload?.groups)) return payload.groups;
-      return [];
+      return parseGroupChatListPayload(response.data);
     },
   });
 
-  const items: MobileChatInboxItem[] = [
-    { kind: 'direct', employeeId: 'me', title: t('chat.admin_support', 'Admin Support'), unreadCount },
-    ...groups.map(group => ({
-      kind: 'group' as const,
-      groupId: group.groupId,
-      title: group.title,
-      unreadCount: group.unreadCount,
-    })),
+  const items: ChatInboxItem[] = [
+    directSupportInboxItem(unreadCount, t('chat.admin_support', 'Admin Support')),
+    ...groups.map(mapGroupConversationToInboxItem),
   ];
 
   return (
@@ -57,15 +48,18 @@ export default function ChatInboxScreen() {
       ) : (
         <FlatList
           data={items}
-          keyExtractor={item => (item.kind === 'direct' ? 'direct' : item.groupId)}
+          keyExtractor={item => `${item.kind}:${item.id}`}
           contentContainerStyle={{ padding: 16, gap: 10 }}
           renderItem={({ item }) => (
             <Pressable
-              onPress={() =>
-                item.kind === 'direct'
-                  ? router.push('/(tabs)/chat/direct')
-                  : router.push(`/(tabs)/chat/group/${item.groupId}`)
-              }
+              onPress={() => {
+                const key = inboxItemToConversationKey(item);
+                if (key.kind === 'direct') {
+                  router.push('/(tabs)/chat/direct');
+                  return;
+                }
+                router.push(`/(tabs)/chat/group/${key.groupId}`);
+              }}
               style={styles.item}
             >
               <Text style={styles.title}>{item.title}</Text>
