@@ -30,7 +30,7 @@ export interface ChatDraftResponse {
 }
 
 function assertValidChatUploadOptions(options: UploadOptions) {
-  if (options.folder !== 'chat') return;
+  if (options.folder !== 'chat' && options.folder !== 'group-chat') return;
 
   if (!options.conversationId?.trim()) {
     throw new Error('Chat uploads require a conversationId');
@@ -43,6 +43,11 @@ function assertValidChatUploadOptions(options: UploadOptions) {
 
 export async function reserveChatDraft(employeeId: string): Promise<ChatDraftResponse> {
   const response = await client.post(`/api/shared/chat/${employeeId}/draft`);
+  return response.data as ChatDraftResponse;
+}
+
+export async function reserveGroupChatDraft(groupId: string): Promise<ChatDraftResponse> {
+  const response = await client.post(`/api/shared/group-chat/${groupId}/draft`);
   return response.data as ChatDraftResponse;
 }
 
@@ -78,14 +83,12 @@ export async function uploadToS3(
   size: number,
   folderOrOptions: string | UploadOptions = 'uploads'
 ): Promise<UploadResponse> {
-  // 1. Get presigned URL
   const { uploadUrl, publicUrl, key } = await getPresignedUrl(fileName, contentType, size, folderOrOptions);
 
   if (!uri?.trim()) {
     throw new Error('Upload file URI is required');
   }
 
-  // 2. Use Expo's native file abstraction instead of fetching the local URI through XHR.
   const file = new File(uri);
 
   if (!file.exists) {
@@ -100,7 +103,6 @@ export async function uploadToS3(
     throw new Error('Selected attachment is empty');
   }
 
-  // 3. Upload the file directly to S3 (Frontend to S3)
   const response = await fetch(uploadUrl, {
     method: 'PUT',
     body: bytes,

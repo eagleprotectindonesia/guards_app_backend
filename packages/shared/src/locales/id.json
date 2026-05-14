@@ -195,18 +195,22 @@
     "error_invalid_files": "Hanya file gambar dan video yang diperbolehkan",
     "processing_failed": "Gagal memproses file",
     "send_failed": "Gagal mengirim pesan",
-    "image_viewer": "Penampil Gambar"
+    "image_viewer": "Penampil Gambar",
+    "admin_support": "Dukungan Admin",
+    "group_chat": "Grup Chat",
+    "leave_group": "Keluar grup",
+    "leave_group_confirm": "Apakah Anda yakin ingin keluar dari grup ini?",
+    "leave_group_action": "Keluar"
   },
   "account": {
     "title": "Akun",
     "settings": "Pengaturan"
   },
   "notifications": {
-    "leave_approved": "Pengajuan cuti disetujui",
-    "leave_rejected": "Pengajuan cuti ditolak",
-    "shift_reminder": "Shift Anda dimulai kurang dari 30 menit lagi.",
-    "shift_end_reminder": "Shift Anda telah berakhir. Silakan selesaikan alur akhir shift Anda.",
-    "chat_default_body": "Anda memiliki pesan baru"
+    "permission_title": "Aktifkan Notifikasi",
+    "permission_message": "Izin notifikasi ditolak. Untuk menerima pesan dari admin, aktifkan notifikasi di pengaturan aplikasi.",
+    "permission_settings": "Buka Pengaturan",
+    "permission_later": "Nanti"
   },
   "announcements": {
     "title": "Pengumuman",
@@ -393,11 +397,5 @@
       "attachmentPickFailed": "Gagal memilih lampiran",
       "attachmentUploadFailed": "Gagal mengunggah lampiran"
     }
-  },
-  "notifications": {
-    "permission_title": "Aktifkan Notifikasi",
-    "permission_message": "Izin notifikasi ditolak. Untuk menerima pesan dari admin, aktifkan notifikasi di pengaturan aplikasi.",
-    "permission_settings": "Buka Pengaturan",
-    "permission_later": "Nanti"
   }
 }

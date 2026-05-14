@@ -82,12 +82,24 @@ function TabsContent({ isAuthenticated }: { isAuthenticated: boolean }) {
             }}
           />
           <Tabs.Screen
-            name="chat"
+            name="chat/index"
             options={{
               title: t('tabs.chat', 'Chat'),
               tabBarIcon: ({ color, size }) => <MessageSquare stroke={color} size={size} />,
               tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
               tabBarBadgeStyle: { backgroundColor: '#EF4444' },
+            }}
+          />
+          <Tabs.Screen
+            name="chat/direct"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="chat/group/[groupId]"
+            options={{
+              href: null,
             }}
           />
           <Tabs.Screen

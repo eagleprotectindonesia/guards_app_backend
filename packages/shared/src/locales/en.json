@@ -195,18 +195,22 @@
     "error_invalid_files": "Only image and video files are allowed",
     "processing_failed": "Failed to process files",
     "send_failed": "Failed to send message",
-    "image_viewer": "Image Viewer"
+    "image_viewer": "Image Viewer",
+    "admin_support": "Admin Support",
+    "group_chat": "Group Chat",
+    "leave_group": "Leave group",
+    "leave_group_confirm": "Are you sure you want to leave this group?",
+    "leave_group_action": "Leave"
   },
   "account": {
     "title": "Account",
     "settings": "Settings"
   },
   "notifications": {
-    "leave_approved": "Leave request approved",
-    "leave_rejected": "Leave request rejected",
-    "shift_reminder": "Your shift starts in less than 30 minutes.",
-    "shift_end_reminder": "Your shift has ended. Please complete your end-of-shift flow.",
-    "chat_default_body": "You have a new message"
+    "permission_title": "Enable Notifications",
+    "permission_message": "Notification permission was denied. To receive messages from admin, please enable notifications in app settings.",
+    "permission_settings": "Open Settings",
+    "permission_later": "Later"
   },
   "announcements": {
     "title": "Announcements",
@@ -393,11 +397,5 @@
       "attachmentPickFailed": "Failed to pick attachments",
       "attachmentUploadFailed": "Failed to upload attachments"
     }
-  },
-  "notifications": {
-    "permission_title": "Enable Notifications",
-    "permission_message": "Notification permission was denied. To receive messages from admin, please enable notifications in app settings.",
-    "permission_settings": "Open Settings",
-    "permission_later": "Later"
   }
 }

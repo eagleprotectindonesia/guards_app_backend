@@ -10,15 +10,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useSocket } from '../../src/hooks/useSocket';
-import { useAuth } from '../../src/contexts/AuthContext';
-import { useCustomToast } from '../../src/hooks/useCustomToast';
-import { reserveChatDraft, uploadToS3 } from '../../src/api/upload';
-import { isVideoFile } from '../../src/utils/file';
-import { ChatListItem, ChatListItemData } from '../../src/components/chat/ChatListItem';
-import { ChatHeader } from '../../src/components/chat/ChatHeader';
-import { ChatComposer } from '../../src/components/chat/ChatComposer';
-import { useChatMessages } from '../../src/hooks/useChatMessages';
+import { useSocket } from '../../../src/hooks/useSocket';
+import { useAuth } from '../../../src/contexts/AuthContext';
+import { useCustomToast } from '../../../src/hooks/useCustomToast';
+import { reserveChatDraft, uploadToS3 } from '../../../src/api/upload';
+import { isVideoFile } from '../../../src/utils/file';
+import { ChatListItem, ChatListItemData } from '../../../src/components/chat/ChatListItem';
+import { ChatHeader } from '../../../src/components/chat/ChatHeader';
+import { ChatComposer } from '../../../src/components/chat/ChatComposer';
+import { useChatMessages } from '../../../src/hooks/useChatMessages';
 
 const MAX_CHAT_VIDEO_SIZE_BYTES = 20 * 1024 * 1024;
 
