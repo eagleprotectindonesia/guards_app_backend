@@ -190,6 +190,8 @@ export function AdminChatClient() {
                 <ChatMessageList
                   messages={groupChat.messages as unknown as ChatMessage[]}
                   isLoading={groupChat.isMessagesLoading}
+                  currentAdminId={userId}
+                  mode="group"
                   className="flex-1 overflow-y-auto"
                 />
 

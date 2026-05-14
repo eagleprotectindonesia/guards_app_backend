@@ -15,6 +15,7 @@ interface ChatMessageListProps {
   fetchNextPage?: () => void;
   currentAdminId?: string | null;
   typingEmployeeName?: string;
+  mode?: 'direct' | 'group';
   className?: string;
 }
 
@@ -26,6 +27,7 @@ export function ChatMessageList({
   fetchNextPage,
   currentAdminId,
   typingEmployeeName,
+  mode = 'direct',
   className,
 }: ChatMessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -184,7 +186,8 @@ export function ChatMessageList({
                 <ChatMessageBubble
                   key={current.id}
                   message={current}
-                  isAdmin={current.sender === 'admin'}
+                  isAdmin={mode === 'group' ? current.adminId === currentAdminId : current.sender === 'admin'}
+                  mode={mode}
                   currentAdminId={currentAdminId}
                 />
               ))}

@@ -24,10 +24,16 @@ type GroupListItem = {
 type GroupMessage = {
   id: string;
   groupId: string;
+  senderParticipantId: string;
   senderType: 'admin' | 'employee';
+  adminId: string | null;
+  employeeId: string | null;
   senderName: string;
   content: string;
   attachments: string[];
+  latitude?: number | null;
+  longitude?: number | null;
+  readAt?: string | null;
   createdAt: string;
 };
 

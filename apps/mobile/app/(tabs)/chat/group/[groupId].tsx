@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Alert, FlatList, Platform, StyleSheet, TouchableOpacity, View, ViewToken } from 'react-native';
+import { Alert, BackHandler, FlatList, Platform, StyleSheet, TouchableOpacity, View, ViewToken } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import ImageView from 'react-native-image-viewing';
 import { Text } from '@/components/ui/text';
@@ -23,6 +23,7 @@ import { useGroupChatMessages } from '../../../../src/hooks/useGroupChatMessages
 import { client } from '../../../../src/api/client';
 import { queryKeys } from '../../../../src/api/queryKeys';
 import { useQueryClient } from '@tanstack/react-query';
+import { useFocusEffect } from '@react-navigation/native';
 
 const MAX_CHAT_VIDEO_SIZE_BYTES = 20 * 1024 * 1024;
 
@@ -35,6 +36,19 @@ export default function GroupChatScreen() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { groupId } = useLocalSearchParams<{ groupId: string }>();
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return undefined;
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        router.replace('/(tabs)/chat');
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [router])
+  );
 
   const [inputText, setInputText] = useState('');
   const [selectedAttachments, setSelectedAttachments] = useState<ImagePicker.ImagePickerAsset[]>([]);
@@ -153,7 +167,12 @@ export default function GroupChatScreen() {
     <View style={{ flex: 1, backgroundColor: '#121212' }}>
       <LinearGradient colors={['rgba(37, 99, 235, 0.05)', 'transparent']} style={[StyleSheet.absoluteFill, { height: '40%' }]} />
       <View>
-        <ChatHeader topInset={insets.top} title={t('chat.group_chat', 'Group Chat')} statusText={t('chat.status_active').toUpperCase()} />
+        <ChatHeader
+          topInset={insets.top}
+          title={t('chat.group_chat', 'Group Chat')}
+          statusText={t('chat.status_active').toUpperCase()}
+          onBackPress={() => router.replace('/(tabs)/chat')}
+        />
         <TouchableOpacity onPress={leaveGroup} style={styles.leaveButton}><Text style={styles.leaveText}>{t('chat.leave_group_action', 'Leave')}</Text></TouchableOpacity>
       </View>
       <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0} style={{ flex: 1 }}>
