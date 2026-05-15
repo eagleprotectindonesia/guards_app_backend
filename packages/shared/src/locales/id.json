@@ -196,11 +196,12 @@
     "processing_failed": "Gagal memproses file",
     "send_failed": "Gagal mengirim pesan",
     "image_viewer": "Penampil Gambar",
-    "admin_support": "Dukungan Admin",
+    "admin_support": "Admin Central",
     "group_chat": "Grup Chat",
     "leave_group": "Keluar grup",
     "leave_group_confirm": "Apakah Anda yakin ingin keluar dari grup ini?",
-    "leave_group_action": "Keluar"
+    "leave_group_action": "Keluar",
+    "support_description": "Layanan Bantuan Resmi Eagle Protect"
   },
   "account": {
     "title": "Akun",

@@ -13,6 +13,7 @@ export const queryKeys = {
   chat: {
     unread: ['chat', 'unread'] as const,
     messages: (employeeId?: string) => ['chat', 'messages', employeeId] as const,
+    directLatest: (employeeId?: string) => ['chat', 'direct-latest', employeeId] as const,
     inbox: ['chat', 'inbox'] as const,
     groupList: ['chat', 'groups'] as const,
     groupMessages: (groupId?: string) => ['chat', 'group-messages', groupId] as const,

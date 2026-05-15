@@ -196,11 +196,12 @@
     "processing_failed": "Failed to process files",
     "send_failed": "Failed to send message",
     "image_viewer": "Image Viewer",
-    "admin_support": "Admin Support",
+    "admin_support": "Admin Central",
     "group_chat": "Group Chat",
     "leave_group": "Leave group",
     "leave_group_confirm": "Are you sure you want to leave this group?",
-    "leave_group_action": "Leave"
+    "leave_group_action": "Leave",
+    "support_description": "Official Eagle Protect Support"
   },
   "account": {
     "title": "Account",

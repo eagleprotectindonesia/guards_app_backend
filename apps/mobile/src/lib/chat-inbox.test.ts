@@ -16,6 +16,38 @@ describe('mobile chat inbox adapters', () => {
     expect(result[0].groupId).toBe('g2');
   });
 
+  test('parses nested wrapped payload with participant and group metadata', () => {
+    const result = parseGroupChatListPayload({
+      groups: [
+        {
+          participant: { unreadCount: 3, isMuted: true, isArchived: false },
+          group: {
+            id: 'g4',
+            title: 'Bravo',
+            description: 'night ops',
+            lastMessageContent: 'Check point done',
+            lastMessageSenderName: 'Supervisor',
+            lastMessageAt: '2026-03-01T01:02:03.000Z',
+          },
+        },
+      ],
+    });
+
+    expect(result[0]).toMatchObject({
+      groupId: 'g4',
+      title: 'Bravo',
+      description: 'night ops',
+      unreadCount: 3,
+      isMuted: true,
+      isArchived: false,
+      lastMessage: {
+        content: 'Check point done',
+        senderName: 'Supervisor',
+        createdAt: '2026-03-01T01:02:03.000Z',
+      },
+    });
+  });
+
   test('maps group conversation to inbox item', () => {
     const item = mapGroupConversationToInboxItem({
       kind: 'group',

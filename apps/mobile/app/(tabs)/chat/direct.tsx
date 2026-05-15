@@ -306,13 +306,12 @@ export default function ChatScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#121212' }}>
       <LinearGradient
-        colors={['rgba(37, 99, 235, 0.05)', 'transparent']}
+        colors={['rgba(255, 255, 255, 0.05)', 'transparent']}
         style={[StyleSheet.absoluteFill, { height: '40%' }]}
       />
-
       <ChatHeader
         topInset={insets.top}
-        title={t('chat.title')}
+        title={t('chat.admin_support', 'Admin Support')}
         statusText={t('chat.status_active').toUpperCase()}
         onBackPress={() => router.replace('/(tabs)/chat')}
       />

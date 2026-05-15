@@ -5,8 +5,15 @@ export type GroupChatListPayload =
   | { items?: GroupChatConversation[]; groups?: GroupChatConversation[] | GroupListApiItem[] };
 
 type GroupListApiItem = {
-  participant?: { unreadCount?: number };
-  group?: { id?: string; title?: string };
+  participant?: { unreadCount?: number; isMuted?: boolean; isArchived?: boolean };
+  group?: {
+    id?: string;
+    title?: string;
+    description?: string | null;
+    lastMessageContent?: string | null;
+    lastMessageSenderName?: string | null;
+    lastMessageAt?: string | null;
+  };
 };
 
 export function parseGroupChatListPayload(payload: GroupChatListPayload): GroupChatConversation[] {
@@ -26,12 +33,20 @@ export function parseGroupChatListPayload(payload: GroupChatListPayload): GroupC
           kind: 'group',
           groupId: nested.group.id,
           title: nested.group.title,
+          description: nested.group.description ?? null,
           memberCount: 0,
           currentUserRole: 'member',
-          isArchived: false,
-          isMuted: false,
+          isArchived: nested.participant?.isArchived ?? false,
+          isMuted: nested.participant?.isMuted ?? false,
           unreadCount: nested.participant?.unreadCount ?? 0,
-          lastMessage: null,
+          lastMessage:
+            nested.group.lastMessageContent && nested.group.lastMessageSenderName && nested.group.lastMessageAt
+              ? {
+                  content: nested.group.lastMessageContent,
+                  senderName: nested.group.lastMessageSenderName,
+                  createdAt: nested.group.lastMessageAt,
+                }
+              : null,
         } satisfies GroupChatConversation;
       })
       .filter((item): item is GroupChatConversation => item !== null);
