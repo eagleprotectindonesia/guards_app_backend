@@ -87,8 +87,8 @@ export async function syncEmployeesFromExternal() {
 
   // Step 4: Process each canonical employee
   for (const ext of canonicalEmployees) {
-    const normalizedDepartment = (ext.department ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
-    const role: EmployeeRole = normalizedDepartment === 'security standby' ? 'on_site' : 'office';
+    const normalizedJobTitle = (ext.job_title ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const role: EmployeeRole = normalizedJobTitle === 'security standby' ? 'on_site' : 'office';
 
     if (!existingIds.has(ext.id)) {
       // NEW: Create with default password
@@ -161,8 +161,8 @@ EXTERNAL_EMPLOYEE_API_KEY=your-secret-api-key
 
 | External Field | Condition | Local Role |
 |----------------|-----------|------------|
-| `department` | Normalized value is exactly `security standby` | `on_site` |
-| `department` | Any other value | `office` |
+| `job_title` | Normalized value is exactly `security standby` | `on_site` |
+| `job_title` | Any other value | `office` |
 
 ### Role Override
 

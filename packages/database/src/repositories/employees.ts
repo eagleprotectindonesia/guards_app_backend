@@ -28,12 +28,12 @@ const EMPLOYEE_ACTIVE_SUMMARY_CACHE_KEY_PREFIX = 'employee:active-summary';
 const EMPLOYEE_METADATA_CACHE_TTL_SECONDS = 60;
 type ChangelogSyncActor = { type: 'admin' | 'system' | 'unknown'; id?: string };
 
-function normalizeDepartmentValue(value?: string | null): string {
+function normalizeSyncStringValue(value?: string | null): string {
   return (value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-function resolveSyncedEmployeeRole(department?: string | null): EmployeeRole {
-  return normalizeDepartmentValue(department) === 'security standby' ? 'on_site' : 'office';
+function resolveSyncedEmployeeRole(jobTitle?: string | null): EmployeeRole {
+  return normalizeSyncStringValue(jobTitle) === 'security standby' ? 'on_site' : 'office';
 }
 
 function getCurrentBusinessYear(now = new Date()) {
@@ -963,7 +963,7 @@ export async function syncEmployeesFromExternal(
   const autoSeedStaffTitles: string[] = [];
 
   for (const ext of externalEmployees) {
-    const role: EmployeeRole = resolveSyncedEmployeeRole(ext.department);
+    const role: EmployeeRole = resolveSyncedEmployeeRole(ext.job_title);
 
     if (role !== 'office') continue;
 
@@ -1016,7 +1016,7 @@ export async function syncEmployeesFromExternal(
   const currentBusinessYear = getCurrentBusinessYear();
 
   for (const ext of canonicalEmployees) {
-    const role: EmployeeRole = resolveSyncedEmployeeRole(ext.department);
+    const role: EmployeeRole = resolveSyncedEmployeeRole(ext.job_title);
     const existing = existingMap.get(ext.id);
 
     if (!existing) {

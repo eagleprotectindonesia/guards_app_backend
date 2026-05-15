@@ -1,5 +1,13 @@
 import { db as prisma } from '../prisma/client';
 import { Prisma } from '@prisma/client';
+type SitePostInput = {
+  id?: string;
+  name: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
+  sortOrder?: number;
+};
 
 export async function getAllSites(includeDeleted = false) {
   return prisma.site.findMany({
@@ -51,6 +59,16 @@ export async function getPaginatedSites(params: { query?: string; skip: number; 
         skip,
         take,
         include: {
+          _count: {
+            select: {
+              posts: {
+                where: {
+                  status: true,
+                  deletedAt: null,
+                },
+              },
+            },
+          },
           lastUpdatedBy: {
             select: {
               name: true,
@@ -75,6 +93,31 @@ export async function getPaginatedSites(params: { query?: string; skip: number; 
 export async function getSiteById(id: string) {
   return prisma.site.findUnique({
     where: { id, deletedAt: null },
+  });
+}
+
+export async function getActiveSitePosts(siteId: string) {
+  return prisma.sitePost.findMany({
+    where: {
+      siteId,
+      status: true,
+      deletedAt: null,
+    },
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+  });
+}
+
+export async function getSiteByIdWithPosts(id: string) {
+  return prisma.site.findUnique({
+    where: { id, deletedAt: null },
+    include: {
+      posts: {
+        where: {
+          deletedAt: null,
+        },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      },
+    },
   });
 }
 
@@ -112,6 +155,46 @@ export async function createSiteWithChangelog(data: Prisma.SiteCreateInput, admi
     },
     { timeout: 5000 }
   );
+}
+
+export async function createSiteWithPostsAndChangelog(
+  data: Prisma.SiteCreateInput,
+  posts: SitePostInput[],
+  adminId: string
+) {
+  return prisma.$transaction(async tx => {
+    const createdSite = await tx.site.create({
+      data: {
+        ...data,
+        lastUpdatedBy: { connect: { id: adminId } },
+        createdBy: { connect: { id: adminId } },
+      },
+    });
+
+    await tx.sitePost.createMany({
+      data: posts.map((post, index) => ({
+        siteId: createdSite.id,
+        name: post.name,
+        address: post.address,
+        latitude: post.latitude,
+        longitude: post.longitude,
+        sortOrder: post.sortOrder ?? index,
+        status: true,
+      })),
+    });
+
+    await tx.changelog.create({
+      data: {
+        action: 'CREATE',
+        entityType: 'Site',
+        entityId: createdSite.id,
+        actor: 'admin',
+        actorId: adminId,
+        details: { name: createdSite.name, postCount: posts.length },
+      },
+    });
+    return createdSite;
+  });
 }
 
 export const SITE_TRACKED_FIELDS = [
@@ -180,6 +263,75 @@ export async function updateSiteWithChangelog(id: string, data: Prisma.SiteUpdat
     },
     { timeout: 5000 }
   );
+}
+
+export async function updateSiteWithPostsAndChangelog(
+  id: string,
+  data: Prisma.SiteUpdateInput,
+  posts: SitePostInput[],
+  adminId: string
+) {
+  return prisma.$transaction(async tx => {
+    const existingPosts = await tx.sitePost.findMany({ where: { siteId: id, deletedAt: null } });
+    const updatedSite = await tx.site.update({
+      where: { id, deletedAt: null },
+      data: {
+        ...data,
+        lastUpdatedBy: { connect: { id: adminId } },
+      },
+    });
+
+    for (const [index, post] of posts.entries()) {
+      if (post.id) {
+        await tx.sitePost.update({
+          where: { id: post.id },
+          data: {
+            name: post.name,
+            address: post.address,
+            latitude: post.latitude,
+            longitude: post.longitude,
+            sortOrder: post.sortOrder ?? index,
+            status: true,
+            deletedAt: null,
+          },
+        });
+      } else {
+        await tx.sitePost.create({
+          data: {
+            siteId: id,
+            name: post.name,
+            address: post.address,
+            latitude: post.latitude,
+            longitude: post.longitude,
+            sortOrder: post.sortOrder ?? index,
+            status: true,
+          },
+        });
+      }
+    }
+
+    const incomingIds = new Set(posts.map(p => p.id).filter(Boolean));
+    const toSoftDelete = existingPosts.filter(p => !incomingIds.has(p.id));
+    if (toSoftDelete.length > 0) {
+      await tx.sitePost.updateMany({
+        where: { id: { in: toSoftDelete.map(p => p.id) } },
+        data: { deletedAt: new Date(), status: false },
+      });
+    }
+
+    await tx.changelog.create({
+      data: {
+        action: 'UPDATE',
+        entityType: 'Site',
+        entityId: updatedSite.id,
+        actor: 'admin',
+        actorId: adminId,
+        details: { name: updatedSite.name, postCount: posts.length },
+      },
+    });
+
+    return updatedSite;
+  });
 }
 
 export async function deleteSiteWithChangelog(id: string, adminId: string) {

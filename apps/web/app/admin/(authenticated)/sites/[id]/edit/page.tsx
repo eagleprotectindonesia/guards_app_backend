@@ -1,7 +1,7 @@
 import { serialize } from '@/lib/server-utils';
 import SiteForm from '../../components/site-form';
 import { notFound } from 'next/navigation';
-import { getSiteById } from '@repo/database';
+import { getSiteByIdWithPosts } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { getSystemSetting } from '@repo/database';
@@ -13,7 +13,7 @@ export default async function EditSitePage({ params }: { params: Promise<{ id: s
   const { id } = await params;
 
   const [site, monitoringSetting] = await Promise.all([
-    getSiteById(id),
+    getSiteByIdWithPosts(id),
     getSystemSetting('ENABLE_LOCATION_MONITORING')
   ]);
 

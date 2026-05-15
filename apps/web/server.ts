@@ -25,8 +25,13 @@ app.prepare().then(() => {
     }
   });
 
-  // Initialize Socket.io
-  initSocket(server);
+  const shouldEnableLegacySocketServer = process.env.ENABLE_LEGACY_SOCKET_SERVER !== 'false';
+
+  // Keep legacy behavior by default; allow staged disable during realtime split migration.
+  if (shouldEnableLegacySocketServer) {
+    initSocket(server);
+  }
+  console.log(`[socket] legacy socket server ${shouldEnableLegacySocketServer ? 'enabled' : 'disabled'}`);
 
   server.listen(port, () => {
     console.log(`> Ready on http://${hostname}:${port}`);

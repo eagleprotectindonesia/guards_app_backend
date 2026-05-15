@@ -8,18 +8,26 @@ import { format } from 'date-fns';
 import JSZip from 'jszip';
 
 type ChatExportProps = {
+  targets?: { kind: 'direct' | 'group'; id: string; title: string }[];
+  initialTarget?: { kind: 'direct' | 'group'; id: string } | null;
   activeEmployeeId?: string | null;
-  employees: { id: string; fullName: string }[];
+  employees?: { id: string; fullName: string }[];
 };
 
-export default function ChatExport({ activeEmployeeId, employees }: ChatExportProps) {
+export default function ChatExport({ targets, initialTarget, activeEmployeeId, employees }: ChatExportProps) {
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const resolvedTargets =
+    targets ??
+    (employees ?? []).map(employee => ({ kind: 'direct' as const, id: employee.id, title: employee.fullName }));
+  const resolvedInitialTarget =
+    initialTarget ?? (activeEmployeeId ? { kind: 'direct' as const, id: activeEmployeeId } : null);
 
-  const performExport = async (startDate: Date, endDate: Date, employeeId: string) => {
+  const performExport = async (startDate: Date, endDate: Date, target: { kind: 'direct' | 'group'; id: string; title: string }) => {
     const toastId = toast.loading('Preparing export...');
     try {
       const params = new URLSearchParams();
-      params.set('employeeId', employeeId);
+      params.set('kind', target.kind);
+      params.set('id', target.id);
       params.set('startDate', format(startDate, 'yyyy-MM-dd'));
       params.set('endDate', format(endDate, 'yyyy-MM-dd'));
 
@@ -31,15 +39,16 @@ export default function ChatExport({ activeEmployeeId, employees }: ChatExportPr
 
       const decoder = new TextDecoder();
       let buffer = '';
-      const messages: {
+      const messages: Array<{
         id: string;
         createdAt: Date;
-        sender: string;
-        employee: { fullName: string };
+        sender?: string;
+        senderName?: string;
+        employee?: { fullName: string };
         content: string;
         attachments: string[];
         admin?: { name: string };
-      }[] = [];
+      }> = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -68,7 +77,9 @@ export default function ChatExport({ activeEmployeeId, employees }: ChatExportPr
 
       for (const msg of messages) {
         const timestamp = format(new Date(msg.createdAt), 'dd/MM/yy, HH:mm:ss');
-        const senderName = msg.sender === 'admin' ? `Admin (${msg.admin?.name || 'Unknown'})` : msg.employee.fullName;
+        const senderName =
+          msg.senderName ||
+          (msg.sender === 'admin' ? `Admin (${msg.admin?.name || 'Unknown'})` : msg.employee?.fullName || 'Participant');
 
         let line = `[${timestamp}] ${senderName}: ${msg.content || ''}`;
 
@@ -104,7 +115,7 @@ export default function ChatExport({ activeEmployeeId, employees }: ChatExportPr
 
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = `chat_export_${employeeId}_${format(new Date(), 'yyyyMMdd')}.zip`;
+      link.download = `chat_export_${target.kind}_${target.id}_${format(new Date(), 'yyyyMMdd')}.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -121,6 +132,7 @@ export default function ChatExport({ activeEmployeeId, employees }: ChatExportPr
   return (
     <>
       <button
+        id="chat-export-open-btn"
         onClick={() => setIsExportOpen(true)}
         className="inline-flex items-center justify-center h-9 px-3 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm"
         title="Download Chat History"
@@ -133,8 +145,8 @@ export default function ChatExport({ activeEmployeeId, employees }: ChatExportPr
         isOpen={isExportOpen}
         onClose={() => setIsExportOpen(false)}
         onExport={performExport}
-        employees={employees}
-        initialEmployeeId={activeEmployeeId || undefined}
+        targets={resolvedTargets}
+        initialTarget={resolvedInitialTarget || undefined}
       />
     </>
   );

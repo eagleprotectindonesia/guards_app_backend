@@ -25,10 +25,11 @@ export async function recordAttendance(params: {
   // Backward compatibility
   guardId?: string;
   status: AttendanceStatus;
+  picture?: string;
   metadata?: any;
   updateShiftStatus?: boolean;
 }) {
-  const { shiftId, employeeId, guardId, status, metadata, updateShiftStatus } = params;
+  const { shiftId, employeeId, guardId, status, picture, metadata, updateShiftStatus } = params;
   const targetEmployeeId = employeeId || guardId;
 
   if (!targetEmployeeId) {
@@ -41,6 +42,7 @@ export async function recordAttendance(params: {
         shiftId,
         employeeId: targetEmployeeId,
         recordedAt: new Date(),
+        picture,
         status,
         metadata,
       },

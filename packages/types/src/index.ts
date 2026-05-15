@@ -317,4 +317,81 @@ export interface ChatMessage {
   readAt?: string | null;
 }
 
+export type GroupChatParticipantType = 'admin' | 'employee';
+export type GroupChatParticipantRole = 'owner' | 'admin' | 'member';
+export type GroupChatParticipantStatus = 'active' | 'left' | 'removed';
+
+export interface GroupChatParticipant {
+  id: string;
+  groupId: string;
+  participantType: GroupChatParticipantType;
+  adminId?: string | null;
+  employeeId?: string | null;
+  displayName: string;
+  role: GroupChatParticipantRole;
+  status: GroupChatParticipantStatus;
+  joinedAt: string;
+  visibleFromAt: string;
+  leftAt?: string | null;
+  unreadCount: number;
+  isMuted: boolean;
+  isArchived: boolean;
+}
+
+export interface GroupChatMessage {
+  id: string;
+  groupId: string;
+  senderParticipantId: string;
+  senderType: GroupChatParticipantType;
+  adminId?: string | null;
+  employeeId?: string | null;
+  senderName: string;
+  content: string;
+  attachments: string[];
+  latitude?: number | null;
+  longitude?: number | null;
+  status?: 'draft' | 'sent' | 'expired';
+  createdAt: string;
+  sentAt?: string | null;
+  draftExpiresAt?: string | null;
+}
+
+export interface GroupChatConversation {
+  kind: 'group';
+  groupId: string;
+  title: string;
+  description?: string | null;
+  memberCount: number;
+  currentUserRole: GroupChatParticipantRole;
+  isArchived: boolean;
+  isMuted: boolean;
+  unreadCount: number;
+  lastMessage?: {
+    content: string;
+    senderName: string;
+    createdAt: string;
+  } | null;
+}
+
+export type ConversationKind = 'direct' | 'group';
+
+export type ConversationKey =
+  | { kind: 'direct'; employeeId: string }
+  | { kind: 'group'; groupId: string };
+
+export interface ChatInboxItem {
+  kind: ConversationKind;
+  id: string;
+  title: string;
+  subtitle?: string;
+  unreadCount: number;
+  isMuted: boolean;
+  isArchived: boolean;
+  lastMessage?: {
+    content: string;
+    senderName: string;
+    createdAt: string;
+  } | null;
+}
+
 export * from './socket-events';

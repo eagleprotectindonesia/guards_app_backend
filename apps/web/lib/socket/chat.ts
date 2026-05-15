@@ -3,6 +3,16 @@ import { finalizeMessageDraft, saveMessage, markAsReadForEmployee, markAsReadFor
 import { UnifiedServer, UnifiedSocket } from '../socket';
 import { ChatMessage } from '@repo/types';
 import { sendChatPushNotification } from '../fcm';
+import {
+  listGroupMembers,
+  finalizeGroupMessageDraft,
+  getActiveGroupParticipant,
+  listActiveGroupIdsForParticipant,
+  listGroupChatPushTargets,
+  markGroupAsRead,
+  saveGroupMessage,
+} from '../data-access/group-chat';
+import { sendGroupChatPushNotification } from '../fcm';
 
 /**
  * Handlers for Chat functionality.
@@ -11,6 +21,18 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
   const auth = socket.data.auth!;
   const hasChatView = auth.type === 'employee' || auth.permissions?.includes('chat:view') || false;
   const hasChatCreate = auth.type === 'employee' || auth.permissions?.includes('chat:create') || false;
+  const actor = auth.type === 'admin' ? ({ participantType: 'admin', adminId: auth.id } as const) : ({ participantType: 'employee', employeeId: auth.id } as const);
+
+  void (async () => {
+    try {
+      const groupIds = await listActiveGroupIdsForParticipant({ actor });
+      for (const groupId of groupIds) {
+        socket.join(`group:${groupId}`);
+      }
+    } catch (err) {
+      console.error('Group room join error:', err);
+    }
+  })();
 
   socket.on('send_message', async data => {
     try {
@@ -88,6 +110,19 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
       }
     } catch (err) {
       console.error('Send Message Error:', err);
+      if (
+        typeof err === 'object' &&
+        err !== null &&
+        'code' in err &&
+        (err as { code?: string }).code === 'P2003' &&
+        'meta' in err &&
+        typeof (err as { meta?: { constraint_name?: string } }).meta?.constraint_name === 'string' &&
+        (err as { meta?: { constraint_name?: string } }).meta?.constraint_name === 'chat_messages_admin_id_fkey'
+      ) {
+        socket.emit('error', { message: 'Unauthorized' });
+        socket.disconnect(true);
+        return;
+      }
       socket.emit('error', { message: 'Failed to send' });
     }
   });
@@ -150,6 +185,120 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
       }
     } catch (err) {
       console.error('Typing Event Error:', err);
+    }
+  });
+
+  socket.on('group_send_message', async data => {
+    try {
+      if (auth.type === 'admin' && !hasChatCreate) {
+        return socket.emit('error', { message: 'Forbidden' });
+      }
+      if (data.attachments && data.attachments.length > 4) {
+        return socket.emit('error', { message: 'Max 4 attachments' });
+      }
+
+      const msg = data.messageId
+        ? await finalizeGroupMessageDraft({
+            groupId: data.groupId,
+            messageId: data.messageId,
+            actor,
+            content: data.content,
+            attachments: data.attachments,
+            latitude: data.latitude,
+            longitude: data.longitude,
+          })
+        : await saveGroupMessage({
+            groupId: data.groupId,
+            actor,
+            content: data.content,
+            attachments: data.attachments,
+            latitude: data.latitude,
+            longitude: data.longitude,
+          });
+
+      const recipients = await listGroupMembers({ groupId: data.groupId, actor });
+      const payload = {
+        ...msg,
+        createdAt: msg.createdAt.toISOString(),
+        sentAt: msg.sentAt ? msg.sentAt.toISOString() : null,
+        draftExpiresAt: msg.draftExpiresAt ? msg.draftExpiresAt.toISOString() : null,
+      };
+      for (const participant of recipients) {
+        if (participant.participantType === 'employee' && participant.employeeId) {
+          io.to(`employee:${participant.employeeId}`).emit('group_new_message', payload);
+          continue;
+        }
+        if (participant.participantType === 'admin' && participant.adminId) {
+          io.to(`admin:${participant.adminId}`).emit('group_new_message', payload);
+        }
+      }
+
+      const groupMessageMeta = {
+        id: msg.id,
+        senderName: msg.senderName,
+      };
+
+      const pushTargets = await listGroupChatPushTargets({ groupId: data.groupId });
+      for (const target of pushTargets) {
+        if (!target.employeeId) continue;
+        if (target.isMuted) continue;
+        if (target.employeeId === auth.id) continue;
+
+        const sockets = await io.in(`employee:${target.employeeId}`).fetchSockets();
+        if (sockets.length > 0) continue;
+
+        await sendGroupChatPushNotification({
+          employeeId: target.employeeId,
+          groupId: data.groupId,
+          groupTitle: 'Group chat',
+          senderName: groupMessageMeta.senderName ?? (auth.type === 'admin' ? 'Admin' : 'Employee'),
+          content: data.content,
+          messageId: groupMessageMeta.id,
+        });
+      }
+    } catch (err) {
+      console.error('Group Send Message Error:', err);
+      socket.emit('error', { message: 'Failed to send' });
+    }
+  });
+
+  socket.on('group_mark_read', async data => {
+    try {
+      if (auth.type === 'admin' && !hasChatView) {
+        return socket.emit('error', { message: 'Forbidden' });
+      }
+      const result = await markGroupAsRead({
+        groupId: data.groupId,
+        actor,
+        messageIds: data.messageIds,
+      });
+      io.to(`group:${data.groupId}`).emit('group_messages_read', {
+        groupId: data.groupId,
+        participantId: result.participantId,
+        messageIds: data.messageIds,
+        readAt: result.readAt.toISOString(),
+      });
+    } catch (err) {
+      console.error('Group Mark Read Error:', err);
+    }
+  });
+
+  socket.on('group_typing', async data => {
+    try {
+      if (auth.type === 'admin' && !hasChatCreate) {
+        return socket.emit('error', { message: 'Forbidden' });
+      }
+      const participant = await getActiveGroupParticipant({ groupId: data.groupId, actor });
+      if (!participant) return;
+
+      socket.to(`group:${data.groupId}`).emit('group_typing', {
+        groupId: data.groupId,
+        participantId: participant.id,
+        participantName: auth.type === 'admin' ? 'Admin' : 'Employee',
+        isTyping: data.isTyping,
+      });
+    } catch (err) {
+      console.error('Group Typing Error:', err);
     }
   });
 }

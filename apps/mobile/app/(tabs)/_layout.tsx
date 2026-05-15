@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { Home, MessageSquare, User } from 'lucide-react-native';
 import { useTranslation } from 'react-i18next';
-import { useChatUnread } from '../../src/hooks/useChatUnread';
+import { useChatTabUnread } from '../../src/hooks/useChatTabUnread';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { View, ActivityIndicator } from 'react-native';
 import PasswordChangeModal from '../../src/components/PasswordChangeModal';
@@ -50,7 +50,7 @@ function PasswordChangeManager() {
 
 function TabsContent({ isAuthenticated }: { isAuthenticated: boolean }) {
   const { t } = useTranslation();
-  const { unreadCount } = useChatUnread();
+  const { unreadCount } = useChatTabUnread();
   const { unreadCount: unreadAnnouncementCount } = useAnnouncements();
 
   return (
@@ -82,12 +82,24 @@ function TabsContent({ isAuthenticated }: { isAuthenticated: boolean }) {
             }}
           />
           <Tabs.Screen
-            name="chat"
+            name="chat/index"
             options={{
               title: t('tabs.chat', 'Chat'),
               tabBarIcon: ({ color, size }) => <MessageSquare stroke={color} size={size} />,
               tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
               tabBarBadgeStyle: { backgroundColor: '#EF4444' },
+            }}
+          />
+          <Tabs.Screen
+            name="chat/direct"
+            options={{
+              href: null,
+            }}
+          />
+          <Tabs.Screen
+            name="chat/group/[groupId]"
+            options={{
+              href: null,
             }}
           />
           <Tabs.Screen

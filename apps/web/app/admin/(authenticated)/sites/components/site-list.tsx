@@ -17,6 +17,7 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 type SiteWithAdminInfo = Site & {
   lastUpdatedBy?: { name: string } | null;
   createdBy?: { name: string } | null;
+  _count?: { posts: number };
 };
 
 type SiteListProps = {
@@ -154,6 +155,7 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Latitude</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Longitude</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Posts</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
                   <div className="flex flex-col gap-0.5">
@@ -169,7 +171,7 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
             <tbody className="divide-y divide-border">
               {sites.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={10} className="py-8 text-center text-muted-foreground">
                     No sites found. Create one to get started.
                   </td>
                 </tr>
@@ -196,6 +198,7 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
                         {site.status ? 'Active' : 'Inactive'}
                       </span>
                     </td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground">{site._count?.posts ?? 0}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
                       <div className="max-w-[200px] whitespace-normal wrap-break-words">{site.note || '-'}</div>
                     </td>

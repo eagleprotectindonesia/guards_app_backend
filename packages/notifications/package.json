@@ -1,0 +1,22 @@
+{
+  "name": "@repo/notifications",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint . --ext .ts && tsc --noEmit",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/database": "workspace:*",
+    "firebase-admin": "^13.6.1"
+  },
+  "devDependencies": {
+    "@repo/tsconfig": "workspace:*",
+    "@typescript-eslint/parser": "^8.57.0",
+    "eslint": "^9.39.2",
+    "typescript": "^5"
+  }
+}

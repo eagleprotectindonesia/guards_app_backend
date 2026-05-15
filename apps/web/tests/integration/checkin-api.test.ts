@@ -53,7 +53,7 @@ describe('POST /api/employee/shifts/[id]/checkin', () => {
       lastHeartbeatAt: new Date('2025-12-20T09:00:00Z'),
       status: 'in_progress',
       siteId: 'site-1',
-      site: { latitude: null, longitude: null },
+      site: { name: 'Site A', latitude: null, longitude: null, posts: [] },
     });
     (getSystemSetting as jest.Mock).mockResolvedValue(null);
     (recordCheckin as jest.Mock).mockResolvedValue({ checkin: { id: 'checkin-1', status: 'on_time' } });
@@ -94,7 +94,7 @@ describe('POST /api/employee/shifts/[id]/checkin', () => {
       lastHeartbeatAt: new Date('2025-12-20T09:48:00Z'),
       status: 'in_progress',
       siteId: 'site-1',
-      site: { latitude: null, longitude: null },
+      site: { name: 'Site A', latitude: null, longitude: null, posts: [] },
     });
     (getSystemSetting as jest.Mock).mockResolvedValue(null);
 
@@ -129,7 +129,12 @@ describe('POST /api/employee/shifts/[id]/checkin', () => {
       lastHeartbeatAt: null,
       status: 'in_progress',
       siteId: 'site-1',
-      site: { latitude: 0, longitude: 0 },
+      site: {
+        name: 'Site A',
+        latitude: 1,
+        longitude: 1,
+        posts: [{ id: 'post-1', name: 'Post 1', latitude: 0, longitude: 0, status: true, deletedAt: null }],
+      },
     });
     (getSystemSetting as jest.Mock).mockResolvedValue({ value: '100' });
 

@@ -10,7 +10,17 @@ export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
   return prisma.shift.findUnique({
     where: { id, deletedAt: null },
     include: include || {
-      site: true,
+      site: {
+        include: {
+          posts: {
+            where: {
+              status: true,
+              deletedAt: null,
+            },
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+          },
+        },
+      },
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
     },

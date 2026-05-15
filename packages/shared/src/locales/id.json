@@ -61,6 +61,15 @@
     "submitButton": "Rekam Kehadiran",
     "submitLateButton": "Rekam Kehadiran Terlambat",
     "alreadyRecorded": "Kehadiran sudah direkam untuk Shift ini.",
+    "cameraTitle": "Ambil Foto Presensi",
+    "cameraHint": "Posisikan wajah di tengah dan terlihat jelas, lalu tekan tombol ambil foto.",
+    "capturePhoto": "Ambil Foto",
+    "capturing": "Mengambil foto...",
+    "reviewTitle": "Tinjau Foto",
+    "reviewHint": "Gunakan foto ini jika wajah terlihat jelas. Ambil ulang jika buram atau tidak di tengah.",
+    "retake": "Ambil Ulang",
+    "usePhoto": "Gunakan Foto",
+    "close": "Tutup",
     "errors": {
       "unauthorized": "Anda tidak memiliki izin untuk melakukan tindakan ini.",
       "shiftNotFound": "Shift tidak ditemukan.",
@@ -68,6 +77,7 @@
       "attendanceAlreadyRecorded": "Kehadiran sudah direkam untuk shift ini.",
       "shiftNotActive": "Shift ini belum aktif.",
       "locationRequired": "Izin lokasi diperlukan untuk lokasi ini.",
+      "photoRequired": "Foto presensi diperlukan untuk clock in.",
       "tooFarFromSite": "Anda berada terlalu jauh dari lokasi penugasan. Jarak saat ini: {{currentDistanceMeters}}m (Maksimal: {{maxDistanceMeters}}m). Silakan pindah ke lokasi yang ditentukan.",
       "internalServerError": "Terjadi kesalahan pada server."
     }
@@ -185,18 +195,23 @@
     "error_invalid_files": "Hanya file gambar dan video yang diperbolehkan",
     "processing_failed": "Gagal memproses file",
     "send_failed": "Gagal mengirim pesan",
-    "image_viewer": "Penampil Gambar"
+    "image_viewer": "Penampil Gambar",
+    "admin_support": "Admin Central",
+    "group_chat": "Grup Chat",
+    "leave_group": "Keluar grup",
+    "leave_group_confirm": "Apakah Anda yakin ingin keluar dari grup ini?",
+    "leave_group_action": "Keluar",
+    "support_description": "Layanan Bantuan Resmi Eagle Protect"
   },
   "account": {
     "title": "Akun",
     "settings": "Pengaturan"
   },
   "notifications": {
-    "leave_approved": "Pengajuan cuti disetujui",
-    "leave_rejected": "Pengajuan cuti ditolak",
-    "shift_reminder": "Shift Anda dimulai kurang dari 30 menit lagi.",
-    "shift_end_reminder": "Shift Anda telah berakhir. Silakan selesaikan alur akhir shift Anda.",
-    "chat_default_body": "Anda memiliki pesan baru"
+    "permission_title": "Aktifkan Notifikasi",
+    "permission_message": "Izin notifikasi ditolak. Untuk menerima pesan dari admin, aktifkan notifikasi di pengaturan aplikasi.",
+    "permission_settings": "Buka Pengaturan",
+    "permission_later": "Nanti"
   },
   "announcements": {
     "title": "Pengumuman",
@@ -383,11 +398,5 @@
       "attachmentPickFailed": "Gagal memilih lampiran",
       "attachmentUploadFailed": "Gagal mengunggah lampiran"
     }
-  },
-  "notifications": {
-    "permission_title": "Aktifkan Notifikasi",
-    "permission_message": "Izin notifikasi ditolak. Untuk menerima pesan dari admin, aktifkan notifikasi di pengaturan aplikasi.",
-    "permission_settings": "Buka Pengaturan",
-    "permission_later": "Nanti"
   }
 }

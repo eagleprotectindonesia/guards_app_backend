@@ -5,10 +5,12 @@ import { ArchiveRestore, ArchiveX, Loader2, Search, User, X } from 'lucide-react
 import { format } from 'date-fns';
 import { cn } from '@repo/shared';
 import { Conversation } from '@/types/chat';
+import { ChatInboxItem } from '@repo/types';
 import ChatExport from './chat-export';
 
 interface ConversationListProps {
   conversations: Conversation[];
+  inboxItems?: ChatInboxItem[];
   activeEmployeeId: string | null;
   currentAdminId?: string | null;
   onSelect: (employeeId: string) => void;
@@ -31,6 +33,7 @@ interface ConversationListProps {
 
 export function ConversationList({
   conversations,
+  inboxItems,
   activeEmployeeId,
   currentAdminId,
   onSelect,
@@ -49,6 +52,28 @@ export function ConversationList({
   hasMore = false,
   isLoadingMore = false,
 }: ConversationListProps) {
+  const resolvedInboxItems: ChatInboxItem[] =
+    inboxItems ??
+    conversations.map(conv => ({
+      kind: 'direct',
+      id: conv.employeeId,
+      title: conv.employeeName,
+      subtitle: conv.employeeNumber,
+      unreadCount: conv.unreadCount,
+      isMuted: conv.isMuted,
+      isArchived: conv.isArchived,
+      lastMessage: conv.lastMessage
+        ? {
+            content: conv.lastMessage.content,
+            senderName:
+              conv.lastMessage.sender === 'admin'
+                ? conv.lastMessage.adminName || 'Admin'
+                : conv.employeeName,
+            createdAt: conv.lastMessage.createdAt,
+          }
+        : null,
+    }));
+
   const exportEmployees = useMemo(
     () => conversations.map(c => ({ id: c.employeeId, fullName: c.employeeName })),
     [conversations]
@@ -119,21 +144,24 @@ export function ConversationList({
           </div>
         ) : (
           <>
-            {conversations.map(conv => (
+            {resolvedInboxItems.map(item => {
+              const conv = conversations.find(c => c.employeeId === item.id);
+              if (!conv) return null;
+              return (
               <div
-                key={conv.employeeId}
+                key={item.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => onSelect(conv.employeeId)}
+                onClick={() => onSelect(item.id)}
                 onKeyDown={event => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
-                    onSelect(conv.employeeId);
+                    onSelect(item.id);
                   }
                 }}
                 className={cn(
                   'w-full text-left p-4 border-b border-border/50 hover:bg-muted/50 transition-all flex items-center gap-4 relative',
-                  activeEmployeeId === conv.employeeId &&
+                  activeEmployeeId === item.id &&
                     'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500',
                   itemClassName
                 )}
@@ -147,17 +175,17 @@ export function ConversationList({
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start mb-1 gap-2">
                     <p className="font-semibold text-foreground truncate flex-1 min-w-0">
-                      {conv.employeeName}{' '}
-                      <span className="text-xs font-normal text-muted-foreground">({conv.employeeNumber})</span>
+                      {item.title}{' '}
+                      <span className="text-xs font-normal text-muted-foreground">({item.subtitle || conv.employeeNumber})</span>
                     </p>
                     {showDate && (
                       <span className="text-[10px] text-muted-foreground shrink-0 mt-1">
-                        {format(new Date(conv.lastMessage.createdAt), 'MMM d, HH:mm')}
+                        {format(new Date(item.lastMessage?.createdAt || conv.lastMessage.createdAt), 'MMM d, HH:mm')}
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground truncate">
-                    {typingEmployees[conv.employeeId] ? (
+                    {typingEmployees[item.id] ? (
                       <span className="text-green-600 dark:text-green-400 font-medium italic">typing...</span>
                     ) : conv.isDraft ? (
                       <span className="italic">No messages yet</span>
@@ -173,24 +201,24 @@ export function ConversationList({
                             :{' '}
                           </span>
                         ) : null}
-                        {conv.lastMessage.content}
+                        {item.lastMessage?.content || conv.lastMessage.content}
                       </>
                     )}
                   </p>
                 </div>
-                {conv.unreadCount > 0 && (
+                {item.unreadCount > 0 && (
                   <div className="min-w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold px-1.5 ml-2">
-                    {conv.unreadCount}
+                    {item.unreadCount}
                   </div>
                 )}
-                {conv.isDraft ? null : conv.isArchived ? (
+                {conv.isDraft ? null : item.isArchived ? (
                   <button
                     type="button"
                     aria-label="Unarchive conversation"
                     title="Unarchive conversation"
                     onClick={event => {
                       event.stopPropagation();
-                      onUnarchive?.(conv.employeeId);
+                      onUnarchive?.(item.id);
                     }}
                     className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                   >
@@ -203,7 +231,7 @@ export function ConversationList({
                     title="Archive conversation"
                     onClick={event => {
                       event.stopPropagation();
-                      onArchive?.(conv.employeeId);
+                      onArchive?.(item.id);
                     }}
                     className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
                   >
@@ -211,7 +239,8 @@ export function ConversationList({
                   </button>
                 )}
               </div>
-            ))}
+              );
+            })}
 
             {/* Load more button */}
             {hasMore && (

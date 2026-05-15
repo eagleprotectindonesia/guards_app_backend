@@ -308,6 +308,136 @@ enum ChatMessageStatus {
   expired
 }
 
+enum GroupChatParticipantType {
+  admin
+  employee
+}
+
+enum GroupChatParticipantRole {
+  owner
+  admin
+  member
+}
+
+enum GroupChatParticipantStatus {
+  active
+  left
+  removed
+}
+
+enum GroupChatMembershipEventType {
+  created
+  member_added
+  member_removed
+  member_left
+  owner_transferred
+  group_updated
+  group_archived
+}
+
+model GroupChat {
+  id                    String    @id @default(uuid())
+  title                 String
+  description           String?   @db.Text
+  createdByAdminId      String?   @map("created_by_admin_id")
+  createdByEmployeeId   String?   @map("created_by_employee_id")
+  lastMessageAt         DateTime? @map("last_message_at")
+  lastMessageContent    String?   @map("last_message_content") @db.Text
+  lastMessageSenderName String?   @map("last_message_sender_name")
+  archivedAt            DateTime? @map("archived_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  participants GroupChatParticipant[]
+  messages     GroupChatMessage[]
+  events       GroupChatMembershipEvent[]
+
+  @@index([lastMessageAt(sort: Desc)])
+  @@index([archivedAt])
+  @@map("group_chats")
+}
+
+model GroupChatParticipant {
+  id                      String                     @id @default(uuid())
+  groupId                 String                     @map("group_id")
+  participantType         GroupChatParticipantType   @map("participant_type")
+  adminId                 String?                    @map("admin_id")
+  employeeId              String?                    @map("employee_id")
+  role                    GroupChatParticipantRole   @default(member)
+  status                  GroupChatParticipantStatus @default(active)
+  joinedAt                DateTime                   @default(now()) @map("joined_at")
+  visibleFromAt           DateTime                   @default(now()) @map("visible_from_at")
+  leftAt                  DateTime?                  @map("left_at")
+  removedAt               DateTime?                  @map("removed_at")
+  removedByParticipantId  String?                    @map("removed_by_participant_id")
+  lastReadAt              DateTime?                  @map("last_read_at")
+  unreadCount             Int                        @default(0) @map("unread_count")
+  isMuted                 Boolean                    @default(false) @map("is_muted")
+  isArchived              Boolean                    @default(false) @map("is_archived")
+  createdAt               DateTime                   @default(now()) @map("created_at")
+  updatedAt               DateTime                   @updatedAt @map("updated_at")
+
+  group GroupChat @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, status])
+  @@index([adminId, status])
+  @@index([employeeId, status])
+  @@index([participantType, adminId])
+  @@index([participantType, employeeId])
+  @@map("group_chat_participants")
+}
+
+model GroupChatMessage {
+  id                  String                  @id @default(uuid())
+  groupId             String                  @map("group_id")
+  senderParticipantId String                  @map("sender_participant_id")
+  senderType          GroupChatParticipantType @map("sender_type")
+  adminId             String?                 @map("admin_id")
+  employeeId          String?                 @map("employee_id")
+  senderName          String                  @map("sender_name")
+  status              ChatMessageStatus       @default(sent)
+  content             String                  @db.Text
+  attachments         String[]                @default([])
+  latitude            Float?
+  longitude           Float?
+  createdAt           DateTime                @default(now()) @map("created_at")
+  sentAt              DateTime?               @map("sent_at")
+  draftExpiresAt      DateTime?               @map("draft_expires_at")
+
+  group GroupChat @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, createdAt])
+  @@index([senderParticipantId])
+  @@index([status, draftExpiresAt])
+  @@map("group_chat_messages")
+}
+
+model GroupChatReadReceipt {
+  id            String   @id @default(uuid())
+  messageId     String   @map("message_id")
+  participantId String   @map("participant_id")
+  readAt        DateTime @default(now()) @map("read_at")
+
+  @@unique([messageId, participantId])
+  @@index([participantId, readAt])
+  @@map("group_chat_read_receipts")
+}
+
+model GroupChatMembershipEvent {
+  id                  String                       @id @default(uuid())
+  groupId             String                       @map("group_id")
+  actorParticipantId  String?                      @map("actor_participant_id")
+  targetParticipantId String?                      @map("target_participant_id")
+  type                GroupChatMembershipEventType
+  metadata            Json?
+  createdAt           DateTime                     @default(now()) @map("created_at")
+
+  group GroupChat @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([groupId, createdAt])
+  @@map("group_chat_membership_events")
+}
+
 model Employee {
   id                            String                                 @id
   employeeNumber                String?                                @map("employee_number")
@@ -407,12 +537,33 @@ model Site {
   note            String?   @db.Text
   alerts          Alert[]
   shifts          Shift[]
+  posts           SitePost[]
   lastUpdatedBy   Admin?    @relation("SiteLastUpdatedBy", fields: [lastUpdatedById], references: [id])
   createdBy       Admin?    @relation("SiteCreatedBy", fields: [createdById], references: [id])
 
   @@index([status])
   @@index([deletedAt])
   @@map("sites")
+}
+
+model SitePost {
+  id        String    @id @default(uuid())
+  siteId    String    @map("site_id")
+  name      String
+  address   String?
+  latitude  Float
+  longitude Float
+  status    Boolean?  @default(true)
+  sortOrder Int       @default(0) @map("sort_order")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, name], map: "site_posts_site_id_name_key")
+  @@index([siteId, status, deletedAt])
+  @@map("site_posts")
 }
 
 model Office {

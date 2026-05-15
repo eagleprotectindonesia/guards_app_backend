@@ -10,6 +10,15 @@ export const EmployeeRoleEnum = z.enum(['on_site', 'office']);
 
 const optionalNumber = z.preprocess(val => (!val ? undefined : Number(val)), z.number().optional());
 
+const sitePostSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().min(1),
+  address: z.string().optional(),
+  latitude: z.number(),
+  longitude: z.number(),
+  sortOrder: z.number().int().optional(),
+});
+
 // --- Site ---
 export const createSiteSchema = z.object({
   name: z.string().min(1),
@@ -20,6 +29,7 @@ export const createSiteSchema = z.object({
   geofenceRadius: optionalNumber,
   status: z.boolean().optional(),
   note: z.string().optional(),
+  posts: z.array(sitePostSchema).min(1),
 });
 
 // --- Admin ---
@@ -292,6 +302,7 @@ export const updateOfficeSchema = z.object({
 export const createOfficeAttendanceSchema = z.object({
   employeeId: z.string().min(1).optional(),
   status: z.enum(['present', 'clocked_out']).default('present'),
+  validateOnly: z.boolean().optional(),
   picture: z.string().min(1).optional(),
   location: z
     .object({

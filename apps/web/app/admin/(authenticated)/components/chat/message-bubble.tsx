@@ -10,12 +10,46 @@ import { ChatMessage } from '@/types/chat';
 interface ChatMessageBubbleProps {
   message: ChatMessage;
   isAdmin: boolean;
+  mode?: 'direct' | 'group';
   currentAdminId?: string | null;
   className?: string;
 }
 
-export function ChatMessageBubble({ message, isAdmin, currentAdminId, className }: ChatMessageBubbleProps) {
+function getSenderColorClass(senderKey: string) {
+  const palette = [
+    'bg-emerald-50 border-emerald-200 text-emerald-950',
+    'bg-amber-50 border-amber-200 text-amber-950',
+    'bg-cyan-50 border-cyan-200 text-cyan-950',
+    'bg-rose-50 border-rose-200 text-rose-950',
+    'bg-lime-50 border-lime-200 text-lime-950',
+    'bg-sky-50 border-sky-200 text-sky-950',
+  ] as const;
+
+  let hash = 0;
+  for (let i = 0; i < senderKey.length; i += 1) {
+    hash = (hash * 31 + senderKey.charCodeAt(i)) >>> 0;
+  }
+
+  return palette[hash % palette.length];
+}
+
+export function ChatMessageBubble({ message, isAdmin, mode = 'direct', currentAdminId, className }: ChatMessageBubbleProps) {
   const isMe = isAdmin && currentAdminId === message.adminId;
+  const senderType = message.sender ?? (message.adminId ? 'admin' : 'employee');
+  const senderEmployeeNumber = (message as ChatMessage & { senderEmployeeNumber?: string | null }).senderEmployeeNumber;
+  const senderRoleLabel = senderType === 'admin' ? 'Admin' : senderEmployeeNumber || 'Employee';
+  const senderDisplayName = message.admin?.name || (message as ChatMessage & { senderName?: string }).senderName || 'Unknown';
+  const senderKey =
+    message.adminId ||
+    (message as ChatMessage & { employeeId?: string | null; senderParticipantId?: string }).employeeId ||
+    (message as ChatMessage & { senderParticipantId?: string }).senderParticipantId ||
+    senderDisplayName;
+  const showGroupSenderLabel = mode === 'group' && !isMe;
+  const bubbleClass = isAdmin
+    ? 'bg-blue-600 text-white rounded-tr-none'
+    : mode === 'group'
+      ? `${getSenderColorClass(senderKey)} rounded-tl-none`
+      : 'bg-card border border-border text-foreground rounded-tl-none';
 
   return (
     <div
@@ -25,6 +59,11 @@ export function ChatMessageBubble({ message, isAdmin, currentAdminId, className 
         className
       )}
     >
+      {showGroupSenderLabel && (
+        <span className="text-[10px] font-medium text-muted-foreground mb-1 px-1">
+          {senderDisplayName} · {senderRoleLabel}
+        </span>
+      )}
       {isAdmin && (message.admin?.name || isMe) && (
         <span className="text-[10px] font-medium text-muted-foreground mb-1 px-1">
           {isMe ? 'You' : message.admin?.name}
@@ -33,9 +72,7 @@ export function ChatMessageBubble({ message, isAdmin, currentAdminId, className 
       <div
         className={cn(
           'p-3 px-4 rounded-2xl text-sm shadow-sm',
-          isAdmin
-            ? 'bg-blue-600 text-white rounded-tr-none'
-            : 'bg-card border border-border text-foreground rounded-tl-none'
+          bubbleClass
         )}
       >
         {message.attachments && message.attachments.length > 0 && (

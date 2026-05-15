@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { FlatList, Platform, StyleSheet, View, ViewToken } from 'react-native';
+import { BackHandler, FlatList, Platform, StyleSheet, View, ViewToken } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import ImageView from 'react-native-image-viewing';
 import { Text } from '@/components/ui/text';
@@ -10,15 +11,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { useSocket } from '../../src/hooks/useSocket';
-import { useAuth } from '../../src/contexts/AuthContext';
-import { useCustomToast } from '../../src/hooks/useCustomToast';
-import { reserveChatDraft, uploadToS3 } from '../../src/api/upload';
-import { isVideoFile } from '../../src/utils/file';
-import { ChatListItem, ChatListItemData } from '../../src/components/chat/ChatListItem';
-import { ChatHeader } from '../../src/components/chat/ChatHeader';
-import { ChatComposer } from '../../src/components/chat/ChatComposer';
-import { useChatMessages } from '../../src/hooks/useChatMessages';
+import { useRouter } from 'expo-router';
+import { useSocket } from '../../../src/hooks/useSocket';
+import { useAuth } from '../../../src/contexts/AuthContext';
+import { useCustomToast } from '../../../src/hooks/useCustomToast';
+import { reserveChatDraft, uploadToS3 } from '../../../src/api/upload';
+import { isVideoFile } from '../../../src/utils/file';
+import { ChatListItem, ChatListItemData } from '../../../src/components/chat/ChatListItem';
+import { ChatHeader } from '../../../src/components/chat/ChatHeader';
+import { ChatComposer } from '../../../src/components/chat/ChatComposer';
+import { useChatMessages } from '../../../src/hooks/useChatMessages';
 
 const MAX_CHAT_VIDEO_SIZE_BYTES = 20 * 1024 * 1024;
 
@@ -26,6 +28,7 @@ export default function ChatScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { socket } = useSocket();
+  const router = useRouter();
   const auth = useAuth();
   const toast = useCustomToast();
 
@@ -41,6 +44,19 @@ export default function ChatScreen() {
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
 
   const employeeId = auth.user?.id;
+
+  useFocusEffect(
+    useCallback(() => {
+      if (Platform.OS !== 'android') return undefined;
+
+      const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+        router.replace('/(tabs)/chat');
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [router])
+  );
 
   const {
     messages,
@@ -290,11 +306,15 @@ export default function ChatScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: '#121212' }}>
       <LinearGradient
-        colors={['rgba(37, 99, 235, 0.05)', 'transparent']}
+        colors={['rgba(255, 255, 255, 0.05)', 'transparent']}
         style={[StyleSheet.absoluteFill, { height: '40%' }]}
       />
-
-      <ChatHeader topInset={insets.top} title={t('chat.title')} statusText={t('chat.status_active').toUpperCase()} />
+      <ChatHeader
+        topInset={insets.top}
+        title={t('chat.admin_support', 'Admin Support')}
+        statusText={t('chat.status_active').toUpperCase()}
+        onBackPress={() => router.replace('/(tabs)/chat')}
+      />
 
       <KeyboardAvoidingView
         behavior="padding"

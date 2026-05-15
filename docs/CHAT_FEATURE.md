@@ -2,6 +2,11 @@
 
 This document provides a technical overview and implementation details of the Chat feature within the EP Guard Scheduling system. The chat enables real-time communication between administrators and security guards (employees) across the Admin Dashboard, Employee PWA, and Mobile App.
 
+Current state:
+- Direct chat remains employee-keyed (`employeeId`) and uses legacy direct-chat events.
+- Group chat is additive and uses separate data models, APIs, and socket events.
+- The platform has not migrated yet to a fully unified generic conversation/thread model.
+
 ---
 
 ## 1. System Architecture
@@ -14,6 +19,18 @@ The chat system is built on a real-time event-driven architecture using **Socket
 -   **Storage:** AWS S3 for message attachments (images and videos).
 -   **Real-time Protocols:** WebSockets (via Socket.io) for instant delivery and typing indicators.
 -   **Typed Contracts:** Shared TypeScript interfaces in `packages/types/src/socket-events.ts` ensure consistency between Backend, Web, and Mobile.
+
+### 1.1 Conversation Modes
+
+- **Direct chat (legacy path):**
+  - Employee-centric persistence (`ChatConversation`, `ChatMessage`, `AdminChatConversationState`).
+  - Uses direct events: `send_message`, `new_message`, `typing`, `mark_read`, `messages_read`, `conversation_locked`.
+  - Admin support locking applies only to direct chat.
+
+- **Group chat (additive path):**
+  - Group-centric persistence (`GroupChat`, `GroupChatParticipant`, `GroupChatMessage`, `GroupChatReadReceipt`, `GroupChatMembershipEvent`).
+  - Uses separate events: `group_send_message`, `group_new_message`, `group_mark_read`, `group_messages_read`, `group_typing`.
+  - No reuse of direct conversation locks for groups.
 
 ---
 
@@ -28,6 +45,7 @@ The backend logic is modularized into specialized registrars under `apps/web/lib
 
 #### Security & Authorization
 -   **CORS:** Managed via `ALLOWED_ORIGINS` environment variable to restrict browser-based connections.
+-   **Legacy Socket Runtime Flag:** `ENABLE_LEGACY_SOCKET_SERVER` controls whether `apps/web/server.ts` attaches the embedded Socket.IO server. Default behavior is enabled (unset or any value except `'false'`).
 -   **Scoped Read Receipts:** `mark_read` event uses server-side scoped functions (`markAsReadForEmployee`, `markAsReadForAdmin`) to ensure users can only mark their own received messages as read.
 
 #### Room Management
@@ -39,6 +57,9 @@ The backend logic is modularized into specialized registrars under `apps/web/lib
 -   `mark_read`: Updates the `readAt` timestamp in the database and notifies the sender.
 -   `typing`: Broadcasts typing status. Includes a 5-second auto-TTL on the client to clear stale "typing..." states.
 -   `conversation_locked` (Admin only): A Redis-based lock mechanism (`chat_lock:${employeeId}`) that prevents multiple admins from responding to the same employee at the same time. Locks are acquired/refreshed on typing and sending.
+-   `group_send_message`: Sends or finalizes a group message, persists it, then emits `group_new_message` to active participants.
+-   `group_mark_read`: Marks participant read state and emits `group_messages_read`.
+-   `group_typing`: Emits typing state to other active participants in a group.
 
 #### Data Persistence (`apps/web/lib/data-access/chat.ts`)
 Messages are stored in the `ChatMessage` table. Attachment messages reserve a draft row first, then finalize that same row after S3 upload completes. Attachments are stored as S3 keys. On retrieval, the system dynamically generates **presigned URLs** via `enrichMessageWithUrls` to ensure secure access.
@@ -47,6 +68,19 @@ Messages are stored in the `ChatMessage` table. Attachment messages reserve a dr
 -   `draft`: Reserved for attachment upload, hidden from normal chat/history/unread/export queries.
 -   `sent`: Finalized and visible in normal chat flows.
 -   `expired`: Abandoned draft that aged out and remains hidden.
+
+#### Group Data Persistence (`apps/web/lib/data-access/group-chat.ts`)
+Group messages and membership state are stored separately from direct chat:
+- `GroupChat`: group metadata and conversation summary fields.
+- `GroupChatParticipant`: membership, role, status, unread count, visibility window.
+- `GroupChatMessage`: sent/draft/expired messages and attachment metadata.
+- `GroupChatReadReceipt`: per-message per-participant read markers.
+- `GroupChatMembershipEvent`: audit timeline for membership/ownership lifecycle events.
+
+Membership and ownership rules:
+- One owner at a time.
+- Owner transfer fallback: earliest joined active participant.
+- Last active participant leaving archives the group.
 
 ### 2.2 Authentication (`apps/web/lib/socket-auth.ts`)
 Socket connections are authenticated using JWT tokens. 
@@ -105,9 +139,50 @@ A native React Native implementation for guards.
 7.  **Read Receipt:** When the recipient views the message, a `mark_read` event is emitted, updating the DB and notifying the sender via `messages_read`.
 8.  **Draft Cleanup:** The maintenance worker expires stale draft rows hourly. Expired drafts remain hidden from normal chat history and unread/export queries.
 
+### 4.1 Group Message Lifecycle
+
+1.  **Compose:** Participant (admin or employee) creates text and/or attachment message in a group.
+2.  **Reserve Draft (attachments only):** Client calls `POST /api/shared/group-chat/[groupId]/draft` to reserve a canonical message row.
+3.  **Upload:** Attachments are uploaded to S3 using the reserved `messageId`.
+4.  **Emit:** Client emits `group_send_message` (with optional `messageId` when finalizing draft).
+5.  **Finalize / Save:** Server finalizes reserved draft or creates a sent row directly for text-only sends.
+6.  **Broadcast:** Server emits `group_new_message` to active participants of the group.
+7.  **Read Receipt:** Clients emit `group_mark_read`; server updates participant state and emits `group_messages_read`.
+8.  **Draft Cleanup:** Group drafts are also expired by maintenance and hidden from normal message history.
+
+### 4.2 Group History Visibility
+
+- New members only see messages from `visibleFromAt` onward.
+- Left/removed members do not receive new messages.
+- Previously visible history remains bounded by participant visibility/leave timestamps.
+
+## 5. Group Chat Architecture
+
+### 5.1 Data Model
+- `GroupChat`
+- `GroupChatParticipant`
+- `GroupChatMessage`
+- `GroupChatReadReceipt`
+- `GroupChatMembershipEvent`
+
+### 5.2 Socket Rooms
+- Group room namespace: `group:{groupId}`.
+- Delivery target rooms for active participants: `admin:{adminId}` and `employee:{employeeId}`.
+
+### 5.3 Group Events
+- `group_send_message`
+- `group_new_message`
+- `group_mark_read`
+- `group_messages_read`
+- `group_typing`
+- Reserved for future expansion: `group_member_added`, `group_member_removed`, `group_owner_changed`, `group_updated`
+
+### 5.4 Push Notifications
+- Group push notifications are sent to active, non-muted employee participants except the sender.
+
 ---
 
-## 5. Key Features & Constraints
+## 6. Key Features & Constraints
 
 | Feature | Implementation |
 | :--- | :--- |
@@ -120,3 +195,9 @@ A native React Native implementation for guards.
 | **Draft Cleanup** | Attachment drafts expire after TTL and are hidden from chat/history/export. |
 | **Typed Events** | End-to-end type safety via `@repo/types`. |
 | **Offline Support** | TanStack Query caching for message history. |
+
+## 7. Direct vs Group and Migration Path
+
+- Direct chat remains the primary employee-keyed legacy implementation.
+- Group chat is implemented as additive behavior, intentionally separated from direct event/model contracts.
+- Future migration may converge both into a generic conversation/thread model, but this has not been executed in the current implementation.
