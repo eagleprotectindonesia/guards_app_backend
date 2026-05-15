@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ChatInboxItem } from '@repo/types';
 import { useAdminChat } from '@/hooks/use-admin-chat';
 import { useAdminGroupChat } from '@/hooks/use-admin-group-chat';
 import { ConversationSelection } from '@/lib/chat/conversation-selection';
 
 type UnifiedInboxView = 'inbox' | 'unread' | 'archived';
+type UnifiedKindFilter = 'all' | 'direct' | 'group';
 
 function toTimestamp(item: ChatInboxItem): number {
   const createdAt = item.lastMessage?.createdAt;
@@ -28,6 +29,7 @@ function matchesSearch(item: ChatInboxItem, searchTerm: string): boolean {
 export function useAdminUnifiedChatInbox(options: Parameters<typeof useAdminChat>[0]) {
   const directChat = useAdminChat(options);
   const groupChat = useAdminGroupChat();
+  const [kindFilter, setKindFilter] = useState<UnifiedKindFilter>('all');
 
   const selectedConversation = useMemo<ConversationSelection>(() => {
     if (groupChat.activeGroupId) return { kind: 'group', id: groupChat.activeGroupId };
@@ -82,13 +84,15 @@ export function useAdminUnifiedChatInbox(options: Parameters<typeof useAdminChat
   }, [groupChat.inboxItems, directChat.searchTerm, directChat.activeView]);
 
   const items = useMemo<ChatInboxItem[]>(() => {
-    return [...directChat.inboxItems, ...filteredGroupItems].sort((a, b) => {
+    const merged = [...directChat.inboxItems, ...filteredGroupItems];
+    const byKind = kindFilter === 'all' ? merged : merged.filter(item => item.kind === kindFilter);
+    return byKind.sort((a, b) => {
       const diff = toTimestamp(b) - toTimestamp(a);
       if (diff !== 0) return diff;
       if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
       return a.id.localeCompare(b.id);
     });
-  }, [directChat.inboxItems, filteredGroupItems]);
+  }, [directChat.inboxItems, filteredGroupItems, kindFilter]);
 
   const loadMore = useCallback(() => {
     if (directChat.hasNextConversationPage && !directChat.isFetchingNextConversationPage) {
@@ -125,12 +129,14 @@ export function useAdminUnifiedChatInbox(options: Parameters<typeof useAdminChat
     items,
     selectedConversation,
     activeView: directChat.activeView as UnifiedInboxView,
+    kindFilter,
     searchTerm: directChat.searchTerm,
     isLoading: directChat.isConversationsLoading || groupChat.isGroupsLoading,
     isFetchingMore: directChat.isFetchingNextConversationPage || groupChat.isFetchingNextGroups,
     hasMore: Boolean(directChat.hasNextConversationPage || groupChat.hasNextGroups),
     setSearchTerm,
     setActiveView,
+    setKindFilter,
     selectConversation,
     loadMore,
     archiveItem,

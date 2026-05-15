@@ -10,6 +10,7 @@ type UnifiedConversationListProps = {
   items: ChatInboxItem[];
   selectedConversation: ConversationSelection;
   activeView: 'inbox' | 'unread' | 'archived';
+  kindFilter: 'all' | 'direct' | 'group';
   searchTerm: string;
   isLoading?: boolean;
   hasMore?: boolean;
@@ -17,6 +18,7 @@ type UnifiedConversationListProps = {
   onSelect: (selection: Exclude<ConversationSelection, null>) => void;
   onSearchChange: (value: string) => void;
   onViewChange: (view: 'inbox' | 'unread' | 'archived') => void;
+  onKindFilterChange: (kind: 'all' | 'direct' | 'group') => void;
   onLoadMore?: () => void;
   onArchive?: (item: ChatInboxItem) => void;
   onUnarchive?: (item: ChatInboxItem) => void;
@@ -31,6 +33,7 @@ export function UnifiedConversationList({
   items,
   selectedConversation,
   activeView,
+  kindFilter,
   searchTerm,
   isLoading,
   hasMore,
@@ -38,6 +41,7 @@ export function UnifiedConversationList({
   onSelect,
   onSearchChange,
   onViewChange,
+  onKindFilterChange,
   onLoadMore,
   onArchive,
   onUnarchive,
@@ -85,6 +89,21 @@ export function UnifiedConversationList({
               )}
             >
               {view[0].toUpperCase() + view.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2 mb-4">
+          {(['all', 'direct', 'group'] as const).map(kind => (
+            <button
+              key={kind}
+              onClick={() => onKindFilterChange(kind)}
+              className={cn(
+                'px-3 py-1 text-xs font-medium rounded-full transition-all',
+                kindFilter === kind ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              )}
+            >
+              {kind === 'all' ? 'All' : kind === 'direct' ? 'Direct' : 'Group'}
             </button>
           ))}
         </div>

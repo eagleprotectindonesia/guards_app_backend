@@ -65,6 +65,7 @@ export function AdminChatClient() {
         items={unifiedChat.items}
         selectedConversation={unifiedChat.selectedConversation}
         activeView={unifiedChat.activeView}
+        kindFilter={unifiedChat.kindFilter}
         searchTerm={unifiedChat.searchTerm}
         isLoading={unifiedChat.isLoading}
         hasMore={unifiedChat.hasMore}
@@ -79,6 +80,7 @@ export function AdminChatClient() {
         }}
         onSearchChange={unifiedChat.setSearchTerm}
         onViewChange={unifiedChat.setActiveView}
+        onKindFilterChange={unifiedChat.setKindFilter}
         onLoadMore={unifiedChat.loadMore}
         onArchive={item => {
           void unifiedChat.archiveItem(item);
