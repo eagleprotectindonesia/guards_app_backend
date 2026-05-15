@@ -302,6 +302,7 @@ export const updateOfficeSchema = z.object({
 export const createOfficeAttendanceSchema = z.object({
   employeeId: z.string().min(1).optional(),
   status: z.enum(['present', 'clocked_out']).default('present'),
+  validateOnly: z.boolean().optional(),
   picture: z.string().min(1).optional(),
   location: z
     .object({

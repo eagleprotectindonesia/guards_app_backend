@@ -552,6 +552,49 @@ describe('POST /api/employee/my/office-attendance', () => {
     expect(recordOfficeAttendance).not.toHaveBeenCalled();
   });
 
+  test('validateOnly succeeds without picture and without recording attendance when in range', async () => {
+    (getSystemSetting as jest.Mock).mockImplementation((name: string) => {
+      if (name === OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING) return Promise.resolve({ value: '1' });
+      if (name === OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING) return Promise.resolve({ value: '100' });
+      return Promise.resolve({ value: '0' });
+    });
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
+      id: 'employee-validate-only',
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
+    });
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      isWorkingDay: true,
+      isAfterEnd: false,
+      isLate: false,
+    });
+    (getLatestOfficeAttendanceInRange as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForDay as jest.Mock).mockResolvedValue(null);
+    (getLatestOfficeAttendanceForEmployee as jest.Mock).mockResolvedValue(null);
+    (getOfficeById as jest.Mock).mockResolvedValue({
+      id: 'office-1',
+      latitude: 0,
+      longitude: 0,
+    });
+
+    const req = new Request('http://localhost/api/employee/my/office-attendance', {
+      method: 'POST',
+      body: JSON.stringify({
+        status: 'present',
+        location: { lat: 0, lng: 0 },
+        validateOnly: true,
+      }),
+    });
+
+    const response = await POST(req);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({ validated: true });
+    expect(recordOfficeAttendance).not.toHaveBeenCalled();
+  });
+
   test('returns 200 when duplicate attendance resolves to an existing record', async () => {
     (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({
       id: 'employee-2',

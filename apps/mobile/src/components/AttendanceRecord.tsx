@@ -101,6 +101,17 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
     },
   });
 
+  const preflightAttendanceMutation = useMutation({
+    mutationFn: async (location: { lat: number; lng: number }) => {
+      const response = await client.post(`/api/employee/shifts/${shift.id}/attendance`, {
+        shiftId: shift.id,
+        location,
+        validateOnly: true,
+      });
+      return response.data;
+    },
+  });
+
   const buildResizeAction = (width?: number, height?: number) => {
     if (!width || !height) return null;
 
@@ -235,6 +246,12 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
     setStatus(t('attendance.gettingLocation'));
     try {
       let location = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+      setStatus(t('attendance.recording'));
+      await preflightAttendanceMutation.mutateAsync({
+        lat: location.coords.latitude,
+        lng: location.coords.longitude,
+      });
+
       const photoUpload = await captureAndUploadAttendancePhoto();
       if (!photoUpload) {
         return;
@@ -249,9 +266,28 @@ export default function AttendanceRecord({ shift, onAttendanceRecorded }: Attend
         picture: photoUpload.key,
         metadata: photoUpload.metadata,
       });
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      const errorData = getEmployeeAttendanceCheckinErrorPayload(err);
+      const isApiError = Boolean(errorData.code || errorData.error || errorData.message);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+
+      if (isApiError) {
+        const msg = resolveEmployeeAttendanceCheckinErrorMessage(
+          t,
+          {
+            code: errorData.code,
+            fallbackMessage: errorData.error || errorData.message || err?.message,
+            details: errorData.details,
+          },
+          t('attendance.fail'),
+          'attendance'
+        );
+        setStatus(t('attendance.failPrefix') + msg);
+        toast.error('Error', msg);
+        return;
+      }
+
+      console.error(err);
       setStatus(t('attendance.locationFetchError'));
       toast.error(t('attendance.locationErrorTitle'), t('attendance.locationErrorMessage'));
     }

@@ -101,4 +101,39 @@ describe('POST /api/employee/shifts/[id]/attendance', () => {
     });
     expect(typeof data.details.currentDistanceMeters).toBe('number');
   });
+
+  test('validateOnly returns success without recording attendance when in range', async () => {
+    const { recordAttendance } = jest.requireMock('@repo/database');
+    (getAuthenticatedEmployee as jest.Mock).mockResolvedValue({ id: employeeId });
+    (getShiftById as jest.Mock).mockResolvedValue({
+      id: shiftId,
+      employeeId,
+      startsAt: new Date('2025-12-20T08:00:00Z'),
+      attendance: null,
+      site: {
+        name: 'Site A',
+        latitude: 0,
+        longitude: 0,
+        posts: [{ id: 'post-1', name: 'Post 1', latitude: 0, longitude: 0, status: true, deletedAt: null }],
+      },
+      status: 'scheduled',
+    });
+    (getSystemSetting as jest.Mock).mockResolvedValue({ value: '100' });
+
+    const req = new Request(`http://localhost/api/employee/shifts/${shiftId}/attendance`, {
+      method: 'POST',
+      body: JSON.stringify({
+        shiftId,
+        location: { lat: 0, lng: 0 },
+        validateOnly: true,
+      }),
+    });
+
+    const response = await POST(req, { params: Promise.resolve({ id: shiftId }) });
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data).toMatchObject({ validated: true });
+    expect(recordAttendance).not.toHaveBeenCalled();
+  });
 });

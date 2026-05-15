@@ -227,7 +227,7 @@ export async function POST(req: Request) {
       );
     }
 
-    if (requestedStatus === 'present' && requirePhotoForClockIn && !body.picture) {
+    if (requestedStatus === 'present' && !body.validateOnly && requirePhotoForClockIn && !body.picture) {
       return NextResponse.json(
         {
           code: 'photo_required',
@@ -298,6 +298,10 @@ export async function POST(req: Request) {
           }
         }
       }
+    }
+
+    if (body.validateOnly) {
+      return NextResponse.json({ validated: true }, { status: 200 });
     }
 
     const latenessMins =

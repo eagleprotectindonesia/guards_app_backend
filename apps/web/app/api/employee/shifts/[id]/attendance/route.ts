@@ -13,6 +13,7 @@ import { findNearestAllowedSiteLocation } from '@/lib/site-post-location';
 // Define a schema for the incoming request body
 const attendanceSchema = z.object({
   shiftId: z.string().uuid(),
+  validateOnly: z.boolean().optional(),
   location: z.object({
     lat: z.number(),
     lng: z.number(),
@@ -69,7 +70,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       });
     }
 
-    if (requirePhotoForAttendance && !parsedBody.picture) {
+    if (!parsedBody.validateOnly && requirePhotoForAttendance && !parsedBody.picture) {
       return employeeShiftErrorResponse({
         status: 400,
         code: 'photo_required',
@@ -135,6 +136,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           });
         }
       }
+    }
+
+    if (parsedBody.validateOnly) {
+      return NextResponse.json({ validated: true }, { status: 200 });
     }
 
     // Determine if late

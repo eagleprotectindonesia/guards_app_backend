@@ -24,6 +24,7 @@ import { useCustomToast } from '../hooks/useCustomToast';
 import { useOfficeAttendance, useRecordOfficeAttendance } from '../hooks/useOfficeAttendance';
 import { useProfile } from '../hooks/useProfile';
 import { uploadToS3 } from '../api/upload';
+import { client } from '../api/client';
 import {
   getOfficeHolidayDisplayContent,
   getOfficeScheduleDisplayState,
@@ -289,6 +290,14 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
 
     try {
       let photoUpload: AttendancePhotoUpload | null = null;
+      if (nextStatus === 'present') {
+        await client.post('/api/employee/my/office-attendance', {
+          location: location ?? undefined,
+          status: nextStatus,
+          validateOnly: true,
+        });
+      }
+
       if (nextStatus === 'present' && requirePhotoForClockIn) {
         setIsPhotoProcessing(true);
         photoUpload = await captureAndUploadAttendancePhoto();

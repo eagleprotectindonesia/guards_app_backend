@@ -179,21 +179,12 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
   const [currentLatitude, setCurrentLatitude] = useState(site?.latitude || defaultPosition.lat);
   const [currentLongitude, setCurrentLongitude] = useState(site?.longitude || defaultPosition.lng);
   const [selectedPostIndex, setSelectedPostIndex] = useState(0);
-  const newPostNameInputRef = useRef<HTMLInputElement | null>(null);
   const [pendingFocusPostIndex, setPendingFocusPostIndex] = useState<number | null>(null);
   const [posts, setPosts] = useState<SitePostFormValue[]>(
     site?.posts && site.posts.length > 0
       ? site.posts.map((p, idx) => ({ ...p, sortOrder: p.sortOrder ?? idx }))
       : [{ name: 'Main Post', address: '', latitude: null, longitude: null, sortOrder: 0 }]
   );
-
-  useEffect(() => {
-    if (pendingFocusPostIndex == null) return;
-    if (pendingFocusPostIndex >= posts.length) return;
-    if (!newPostNameInputRef.current) return;
-    newPostNameInputRef.current.focus();
-    setPendingFocusPostIndex(null);
-  }, [pendingFocusPostIndex, posts.length]);
 
   const focusPost = useCallback((index: number) => {
     setSelectedPostIndex(index);
@@ -357,7 +348,15 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
               >
                 <div className="md:col-span-2">
                   <input
-                    ref={pendingFocusPostIndex === idx ? newPostNameInputRef : null}
+                    ref={
+                      pendingFocusPostIndex === idx
+                        ? element => {
+                            if (!element) return;
+                            element.focus();
+                            setPendingFocusPostIndex(null);
+                          }
+                        : undefined
+                    }
                     className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
                     value={post.name || ''}
                     onFocus={() => focusPost(idx)}
