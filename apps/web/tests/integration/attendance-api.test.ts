@@ -44,7 +44,7 @@ describe('POST /api/employee/shifts/[id]/attendance', () => {
       employeeId,
       startsAt: new Date('2025-12-20T08:00:00Z'),
       attendance: { id: 'attendance-1' },
-      site: { latitude: null, longitude: null },
+      site: { name: 'Site A', latitude: null, longitude: null, posts: [] },
       status: 'scheduled',
     });
 
@@ -73,7 +73,12 @@ describe('POST /api/employee/shifts/[id]/attendance', () => {
       employeeId,
       startsAt: new Date('2025-12-20T08:00:00Z'),
       attendance: null,
-      site: { latitude: 0, longitude: 0 },
+      site: {
+        name: 'Site A',
+        latitude: 1,
+        longitude: 1,
+        posts: [{ id: 'post-1', name: 'Post 1', latitude: 0, longitude: 0, status: true, deletedAt: null }],
+      },
       status: 'scheduled',
     });
     (getSystemSetting as jest.Mock).mockResolvedValue({ value: '100' });

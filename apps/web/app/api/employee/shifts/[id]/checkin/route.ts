@@ -9,6 +9,7 @@ import { recordCheckin, recordBulkCheckins } from '@repo/database';
 import { getShiftById } from '@repo/database';
 import { redis } from '@repo/database/redis';
 import { employeeShiftErrorResponse } from '../shared-errors';
+import { findNearestAllowedSiteLocation } from '@/lib/site-post-location';
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id: shiftId } = await params;
@@ -44,6 +45,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const setting = await getSystemSetting('MAX_CHECKIN_DISTANCE_METERS');
     const maxDistanceStr = setting?.value || process.env.MAX_CHECKIN_DISTANCE_METERS;
 
+    let matchedLocation:
+      | {
+          type: 'post' | 'legacy_site';
+          id: string | null;
+          name: string;
+          latitude: number;
+          longitude: number;
+          distanceMeters: number;
+        }
+      | null = null;
+
     if (maxDistanceStr) {
       const maxDistance = parseInt(maxDistanceStr, 10);
       if (!isNaN(maxDistance) && maxDistance > 0) {
@@ -55,30 +67,45 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           });
         }
 
-        if (shift.site.latitude != null && shift.site.longitude != null) {
-          const distance = calculateDistance(
-            body.location.lat,
-            body.location.lng,
-            shift.site.latitude,
-            shift.site.longitude
-          );
+        const locationResult = findNearestAllowedSiteLocation({
+          site: shift.site,
+          employeeLocation: body.location,
+          maxDistanceMeters: maxDistance,
+          calculateDistance,
+        });
 
-          if (distance > maxDistance) {
-            return employeeShiftErrorResponse({
-              status: 400,
-              code: 'too_far_from_site',
-              error: `You are too far from the assigned site. Current distance: ${Math.round(
-                distance
-              )}m (Maximum: ${maxDistance}m). Please move to the required location.`,
-              details: {
-                currentDistanceMeters: Math.round(distance),
-                maxDistanceMeters: maxDistance,
-              },
-            });
-          }
+        matchedLocation = locationResult.matchedLocation;
+
+        if (!matchedLocation) {
+          const nearestDistance = locationResult.nearestLocation?.distanceMeters;
+          return employeeShiftErrorResponse({
+            status: 400,
+            code: 'too_far_from_site',
+            error:
+              nearestDistance != null
+                ? `You are too far from the assigned site. Current distance: ${Math.round(
+                    nearestDistance
+                  )}m (Maximum: ${maxDistance}m). Please move to the required location.`
+                : 'No valid location is configured for this site. Please contact an administrator.',
+            details: {
+              currentDistanceMeters: nearestDistance != null ? Math.round(nearestDistance) : null,
+              maxDistanceMeters: maxDistance,
+            },
+          });
         }
       }
     }
+
+    const matchedLocationMetadata = matchedLocation
+      ? {
+          matchedLocation: {
+            type: matchedLocation.type,
+            id: matchedLocation.id,
+            name: matchedLocation.name,
+            distanceMeters: Math.round(matchedLocation.distanceMeters),
+          },
+        }
+      : {};
 
     // 3. Calculate Status using Shared Logic
     const windowResult = calculateCheckInWindow(
@@ -126,7 +153,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           at: new Date(checkTime),
           status: 'late',
           source: body.source,
-          metadata: { ...body.location, autoFilled: true, latenessMins },
+          metadata: { ...body.location, location: body.location, ...matchedLocationMetadata, autoFilled: true, latenessMins },
         });
       }
       checkTime += intervalMs;
@@ -143,7 +170,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       at: now,
       status,
       source: body.source,
-      metadata: { ...body.location, latenessMins: currentLatenessMins },
+      metadata: { ...body.location, location: body.location, ...matchedLocationMetadata, latenessMins: currentLatenessMins },
     });
 
     // 4. Record Checkin and Update Shift
@@ -173,7 +200,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         employeeId: employeeId,
         status,
         source: body.source,
-        metadata: { ...body.location, latenessMins: currentLatenessMins },
+        metadata: { ...body.location, location: body.location, ...matchedLocationMetadata, latenessMins: currentLatenessMins },
         now,
         shiftUpdateData,
       });

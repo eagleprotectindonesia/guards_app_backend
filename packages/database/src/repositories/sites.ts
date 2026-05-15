@@ -78,6 +78,31 @@ export async function getSiteById(id: string) {
   });
 }
 
+export async function getActiveSitePosts(siteId: string) {
+  return prisma.sitePost.findMany({
+    where: {
+      siteId,
+      status: true,
+      deletedAt: null,
+    },
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+  });
+}
+
+export async function getSiteByIdWithPosts(id: string) {
+  return prisma.site.findUnique({
+    where: { id, deletedAt: null },
+    include: {
+      posts: {
+        where: {
+          deletedAt: null,
+        },
+        orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      },
+    },
+  });
+}
+
 export async function createSiteWithChangelog(data: Prisma.SiteCreateInput, adminId: string) {
   return prisma.$transaction(
     async tx => {
