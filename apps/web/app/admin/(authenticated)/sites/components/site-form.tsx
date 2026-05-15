@@ -1,5 +1,6 @@
 'use client';
 
+import { Plus, Trash2 } from 'lucide-react';
 import type { Serialized } from '@/lib/server-utils';
 import { createSite, updateSite } from '../actions';
 import { ActionState } from '@/types/actions';
@@ -10,8 +11,17 @@ import { APIProvider, Map, Marker, useMapsLibrary, MapMouseEvent, useMap } from 
 import { Site } from '@prisma/client';
 import { useAdminRouter } from '../../context/admin-router';
 
+type SitePostFormValue = {
+  id?: string;
+  name: string;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  sortOrder: number;
+};
+
 type Props = {
-  site?: Serialized<Site>; // If provided, it's an edit form
+  site?: Serialized<Site & { posts?: SitePostFormValue[] }>;
   isMonitoringEnabled?: boolean;
 };
 
@@ -109,25 +119,22 @@ function MapComponent({
   );
 }
 
-// LocationSearchInput component for the autocomplete functionality
-function LocationSearchInput({
+function PostAddressAutocompleteInput({
+  value,
+  onFocus,
+  onChange,
   onPlaceSelect,
-  initialAddress,
 }: {
+  value: string;
+  onFocus: () => void;
+  onChange: (value: string) => void;
   onPlaceSelect: (address: string, lat: number, lng: number) => void;
-  initialAddress: string | null;
-  initialPosition: { lat: number; lng: number };
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const placesLib = useMapsLibrary('places');
 
   useEffect(() => {
     if (!placesLib || !inputRef.current) return;
-
-    // Set initial value if we have an address
-    if (initialAddress && inputRef.current) {
-      inputRef.current.value = initialAddress;
-    }
 
     const autocomplete = new placesLib.Autocomplete(inputRef.current, {
       fields: ['geometry', 'formatted_address', 'name'],
@@ -136,28 +143,26 @@ function LocationSearchInput({
 
     const listener = autocomplete.addListener('place_changed', () => {
       const place = autocomplete.getPlace();
-      if (place.geometry?.location) {
-        const lat = place.geometry.location.lat();
-        const lng = place.geometry.location.lng();
-        const newAddress = place.formatted_address || place.name || '';
-
-        onPlaceSelect(newAddress, lat, lng); // Update using the parent form state
-      }
+      if (!place.geometry?.location) return;
+      const lat = place.geometry.location.lat();
+      const lng = place.geometry.location.lng();
+      const address = place.formatted_address || place.name || '';
+      onPlaceSelect(address, lat, lng);
     });
 
     return () => {
       google.maps.event.removeListener(listener);
     };
-  }, [placesLib, onPlaceSelect, initialAddress]);
+  }, [placesLib, onPlaceSelect]);
 
   return (
     <input
       ref={inputRef}
-      type="text"
-      id="locationSearch"
-      placeholder="Search for a location..."
-      className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
-      defaultValue={initialAddress || ''}
+      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
+      value={value}
+      onFocus={onFocus}
+      onChange={e => onChange(e.target.value)}
+      placeholder="Address"
     />
   );
 }
@@ -173,6 +178,33 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
   const [currentAddress, setCurrentAddress] = useState(site?.address || null);
   const [currentLatitude, setCurrentLatitude] = useState(site?.latitude || defaultPosition.lat);
   const [currentLongitude, setCurrentLongitude] = useState(site?.longitude || defaultPosition.lng);
+  const [selectedPostIndex, setSelectedPostIndex] = useState(0);
+  const newPostNameInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingFocusPostIndex, setPendingFocusPostIndex] = useState<number | null>(null);
+  const [posts, setPosts] = useState<SitePostFormValue[]>(
+    site?.posts && site.posts.length > 0
+      ? site.posts.map((p, idx) => ({ ...p, sortOrder: p.sortOrder ?? idx }))
+      : [{ name: 'Main Post', address: '', latitude: null, longitude: null, sortOrder: 0 }]
+  );
+
+  useEffect(() => {
+    if (pendingFocusPostIndex == null) return;
+    if (pendingFocusPostIndex >= posts.length) return;
+    if (!newPostNameInputRef.current) return;
+    newPostNameInputRef.current.focus();
+    setPendingFocusPostIndex(null);
+  }, [pendingFocusPostIndex, posts.length]);
+
+  const focusPost = useCallback((index: number) => {
+    setSelectedPostIndex(index);
+    const target = posts[index];
+    if (!target) return;
+    if (target.latitude != null && target.longitude != null) {
+      setCurrentAddress(target.address || '');
+      setCurrentLatitude(target.latitude);
+      setCurrentLongitude(target.longitude);
+    }
+  }, [posts]);
 
   useEffect(() => {
     if (state.success) {
@@ -187,13 +219,17 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
     setCurrentAddress(address);
     setCurrentLatitude(lat);
     setCurrentLongitude(lng);
-  }, []);
+    setPosts(prev =>
+      prev.map((p, idx) => (idx === selectedPostIndex ? { ...p, address, latitude: lat, longitude: lng } : p))
+    );
+  }, [selectedPostIndex]);
 
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}>
       <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
         <h1 className="text-2xl font-bold text-foreground mb-6">{site ? 'Edit Site' : 'Create New Site'}</h1>
         <form action={formAction} className="space-y-6">
+          <input type="hidden" name="postsPayload" value={JSON.stringify(posts)} />
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Name Field */}
             <div>
@@ -281,21 +317,127 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
             )}
           </div>
 
-          {/* Location Search Input */}
-          <div className="relative">
-            <label htmlFor="locationSearch" className="block font-medium text-foreground mb-1">
-              Search for a location
-            </label>
-            <LocationSearchInput
-              onPlaceSelect={handlePlaceSelect}
-              initialAddress={currentAddress}
-              initialPosition={{ lat: currentLatitude, lng: currentLongitude }}
-            />
+          {/* Posts */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="block font-medium text-foreground">Site Posts</label>
+              <button
+                type="button"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-secondary/50 hover:bg-secondary text-foreground text-sm font-medium transition-colors"
+                onClick={() =>
+                  setPosts(prev => {
+                    const nextIndex = prev.length;
+                    setSelectedPostIndex(nextIndex);
+                    setPendingFocusPostIndex(nextIndex);
+                    return [
+                      ...prev,
+                      {
+                        name: `Post ${prev.length + 1}`,
+                        address: '',
+                        latitude: null,
+                        longitude: null,
+                        sortOrder: prev.length,
+                      },
+                    ];
+                  })
+                }
+              >
+                <Plus className="w-4 h-4" />
+                Add Post
+              </button>
+            </div>
+            {posts.map((post, idx) => (
+              <div
+                key={post.id || idx}
+                className={`grid grid-cols-1 md:grid-cols-12 gap-3 p-4 border rounded-xl transition-all ${
+                  selectedPostIndex === idx
+                    ? 'border-red-500 bg-red-50/5 dark:bg-red-500/5 shadow-sm shadow-red-500/10'
+                    : 'border-border bg-card'
+                }`}
+              >
+                <div className="md:col-span-2">
+                  <input
+                    ref={pendingFocusPostIndex === idx ? newPostNameInputRef : null}
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
+                    value={post.name || ''}
+                    onFocus={() => focusPost(idx)}
+                    onChange={e =>
+                      setPosts(prev => prev.map((p, i) => (i === idx ? { ...p, name: e.target.value } : p)))
+                    }
+                    placeholder="Post Name"
+                  />
+                </div>
+                <div className="md:col-span-5">
+                  <PostAddressAutocompleteInput
+                    value={post.address || ''}
+                    onFocus={() => focusPost(idx)}
+                    onChange={nextValue =>
+                      setPosts(prev => prev.map((p, i) => (i === idx ? { ...p, address: nextValue } : p)))
+                    }
+                    onPlaceSelect={(address, lat, lng) => {
+                      setSelectedPostIndex(idx);
+                      setCurrentAddress(address);
+                      setCurrentLatitude(lat);
+                      setCurrentLongitude(lng);
+                      setPosts(prev =>
+                        prev.map((p, i) => (i === idx ? { ...p, address, latitude: lat, longitude: lng } : p))
+                      );
+                    }}
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <input
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
+                    type="number"
+                    value={post.latitude ?? ''}
+                    onFocus={() => focusPost(idx)}
+                    onChange={e =>
+                      setPosts(prev =>
+                        prev.map((p, i) => (i === idx ? { ...p, latitude: e.target.value === '' ? null : Number(e.target.value) } : p))
+                      )
+                    }
+                    placeholder="Latitude"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <input
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
+                    type="number"
+                    value={post.longitude ?? ''}
+                    onFocus={() => focusPost(idx)}
+                    onChange={e =>
+                      setPosts(prev =>
+                        prev.map((p, i) => (i === idx ? { ...p, longitude: e.target.value === '' ? null : Number(e.target.value) } : p))
+                      )
+                    }
+                    placeholder="Longitude"
+                  />
+                </div>
+                <div className="md:col-span-1 flex items-center justify-end">
+                  <button
+                    type="button"
+                    className="p-2 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors flex-shrink-0"
+                    title="Remove Post"
+                    onClick={() => {
+                      if (posts.length <= 1) return;
+                      setPosts(prev => prev.filter((_, i) => i !== idx));
+                      setSelectedPostIndex(prevSelected => {
+                        if (idx < prevSelected) return prevSelected - 1;
+                        if (idx === prevSelected) return Math.max(0, prevSelected - 1);
+                        return prevSelected;
+                      });
+                    }}
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Map Integration */}
           <div>
-            <label className="block font-medium text-foreground mb-2">Site Location</label>
+            <label className="block font-medium text-foreground mb-2">Selected Post Location</label>
             <div className="border border-border rounded-lg overflow-hidden">
               <MapComponent
                 initialPosition={{ lat: currentLatitude, lng: currentLongitude }}
@@ -303,9 +445,9 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
                 initialAddress={currentAddress}
               />
             </div>
-            <input type="hidden" name="address" value={currentAddress || ''} />
-            <input type="hidden" name="latitude" value={currentLatitude || ''} />
-            <input type="hidden" name="longitude" value={currentLongitude || ''} />
+            <input type="hidden" name="address" value={posts[0]?.address || currentAddress || ''} />
+            <input type="hidden" name="latitude" value={posts[0]?.latitude ?? currentLatitude ?? ''} />
+            <input type="hidden" name="longitude" value={posts[0]?.longitude ?? currentLongitude ?? ''} />
             {state.errors?.address && <p className="text-red-500 text-xs mt-1">{state.errors.address[0]}</p>}
             {state.errors?.latitude && <p className="text-red-500 text-xs mt-1">{state.errors.latitude[0]}</p>}
             {state.errors?.longitude && <p className="text-red-500 text-xs mt-1">{state.errors.longitude[0]}</p>}

@@ -4,8 +4,8 @@ import { createSiteSchema, CreateSiteInput, UpdateSiteInput } from '@repo/valida
 import { revalidatePath } from 'next/cache';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import {
-  createSiteWithChangelog,
-  updateSiteWithChangelog,
+  createSiteWithPostsAndChangelog,
+  updateSiteWithPostsAndChangelog,
   deleteSiteWithChangelog,
   checkSiteRelations,
   getAllSites,
@@ -14,6 +14,9 @@ import { ActionState } from '@/types/actions';
 import { Site } from '@prisma/client';
 import { serialize } from '@/lib/server-utils';
 import type { Serialized } from '@/lib/server-utils';
+import type { CreateSiteInput as CreateSiteInputType } from '@repo/validations';
+
+type SitePostPayload = CreateSiteInputType['posts'][number];
 
 export async function getAllSitesForExport(): Promise<
   Serialized<Site & { lastUpdatedBy?: { name: string } | null; createdBy?: { name: string } | null }>[]
@@ -27,14 +30,23 @@ export async function createSite(
   formData: FormData
 ): Promise<ActionState<CreateSiteInput>> {
   const adminId = await getAdminIdFromToken();
+  let postsPayload: unknown[] = [];
+  try {
+    postsPayload = JSON.parse((formData.get('postsPayload') as string) || '[]');
+  } catch {
+    return { message: 'Invalid posts payload.', success: false };
+  }
+
+  const firstPost = (postsPayload[0] as Partial<SitePostPayload> | undefined) ?? {};
   const validatedFields = createSiteSchema.safeParse({
     name: formData.get('name'),
     clientName: formData.get('clientName'),
-    address: formData.get('address'),
-    latitude: parseFloat(formData.get('latitude') as string),
-    longitude: parseFloat(formData.get('longitude') as string),
+    address: firstPost.address || formData.get('address'),
+    latitude: Number(firstPost.latitude),
+    longitude: Number(firstPost.longitude),
     geofenceRadius: parseFloat(formData.get('geofenceRadius') as string),
     status: formData.get('status') === 'true',
+    posts: postsPayload,
   });
 
   if (!validatedFields.success) {
@@ -46,7 +58,8 @@ export async function createSite(
   }
 
   try {
-    await createSiteWithChangelog(validatedFields.data, adminId!);
+    const { posts, ...siteData } = validatedFields.data;
+    await createSiteWithPostsAndChangelog(siteData, posts, adminId!);
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -67,14 +80,23 @@ export async function updateSite(
   formData: FormData
 ): Promise<ActionState<UpdateSiteInput>> {
   const adminId = await getAdminIdFromToken();
+  let postsPayload: unknown[] = [];
+  try {
+    postsPayload = JSON.parse((formData.get('postsPayload') as string) || '[]');
+  } catch {
+    return { message: 'Invalid posts payload.', success: false };
+  }
+
+  const firstPost = (postsPayload[0] as Partial<SitePostPayload> | undefined) ?? {};
   const validatedFields = createSiteSchema.safeParse({
     name: formData.get('name'),
     clientName: formData.get('clientName'),
-    address: formData.get('address'),
-    latitude: parseFloat(formData.get('latitude') as string),
-    longitude: parseFloat(formData.get('longitude') as string),
+    address: firstPost.address || formData.get('address'),
+    latitude: Number(firstPost.latitude),
+    longitude: Number(firstPost.longitude),
     geofenceRadius: parseFloat(formData.get('geofenceRadius') as string),
     status: formData.get('status') === 'true',
+    posts: postsPayload,
   });
 
   if (!validatedFields.success) {
@@ -86,7 +108,8 @@ export async function updateSite(
   }
 
   try {
-    await updateSiteWithChangelog(id, validatedFields.data, adminId!);
+    const { posts, ...siteData } = validatedFields.data;
+    await updateSiteWithPostsAndChangelog(id, siteData, posts, adminId!);
   } catch (error) {
     console.error('Database Error:', error);
     return {
