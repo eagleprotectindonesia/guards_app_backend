@@ -11,7 +11,12 @@
   },
   "dependencies": {
     "@repo/realtime": "workspace:*",
-    "dotenv": "^17.2.3"
+    "@prisma/adapter-pg": "^7.7.0",
+    "@prisma/client": "^7.7.0",
+    "dotenv": "^17.2.3",
+    "firebase-admin": "^13.6.1",
+    "ioredis": "5.9.3",
+    "pg": "^8.18.0"
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
