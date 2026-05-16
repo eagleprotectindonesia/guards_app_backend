@@ -1,0 +1,24 @@
+{
+  "name": "realtime",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx --watch src/server.ts",
+    "build": "esbuild src/server.ts --bundle --platform=node --target=node22 --outfile=dist/server.js --external:@prisma/client --external:pg --external:@prisma/adapter-pg --external:ioredis --external:firebase-admin --external:dotenv",
+    "start": "node dist/server.js",
+    "lint": "eslint . --ext .ts && tsc --noEmit",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/realtime": "workspace:*",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@repo/tsconfig": "workspace:*",
+    "@types/node": "^20",
+    "@typescript-eslint/parser": "^8.52.0",
+    "esbuild": "^0.24.0",
+    "eslint": "^9.39.2",
+    "tsx": "^4.21.0"
+  }
+}
