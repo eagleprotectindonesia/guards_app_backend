@@ -4,7 +4,7 @@ import { createServer } from 'http';
 
 jest.mock('socket.io');
 jest.mock('@socket.io/redis-adapter');
-jest.mock('@/lib/redis', () => ({
+jest.mock('@repo/database/redis', () => ({
   redis: {
     duplicate: jest.fn(() => ({
       on: jest.fn(),
@@ -14,7 +14,6 @@ jest.mock('@/lib/redis', () => ({
     })),
   },
 }));
-jest.mock('@/lib/prisma', () => ({ prisma: {} }));
 
 describe('Socket.io CORS/Origin Restriction', () => {
   let mockIo: { adapter: jest.Mock; use: jest.Mock; on: jest.Mock };

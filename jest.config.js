@@ -35,6 +35,7 @@ module.exports = {
     "^@repo/auth-server$": "<rootDir>/packages/auth-server/src",
     "^@repo/notifications$": "<rootDir>/packages/notifications/src",
     "^@repo/realtime$": "<rootDir>/packages/realtime/src",
+    "^@repo/realtime/(.*)$": "<rootDir>/packages/realtime/src/$1",
     "^@repo/shared$": "<rootDir>/packages/shared/src",
     "^@repo/storage$": "<rootDir>/packages/storage/src",
     "^@repo/types$": "<rootDir>/packages/types/src",

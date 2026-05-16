@@ -18,20 +18,26 @@ jest.mock('@repo/database/redis', () => ({
     set: jest.fn(),
   },
 }));
-jest.mock('@/lib/socket-auth');
+jest.mock('@repo/realtime/socket-auth', () => ({
+  authenticateSocket: jest.fn().mockResolvedValue({
+    id: 'admin-1',
+    type: 'admin',
+    permissions: ['chat:view', 'chat:create'],
+  }),
+}));
 jest.mock('@repo/database', () => ({ db: { chatMessage: { create: jest.fn() } } }));
-jest.mock('@/lib/data-access/chat', () => ({
+jest.mock('@repo/realtime/data-access/chat', () => ({
   saveMessage: jest.fn(),
   finalizeMessageDraft: jest.fn(),
   markAsReadForEmployee: jest.fn(),
   markAsReadForAdmin: jest.fn(),
 }));
-jest.mock('@/lib/fcm', () => ({
+jest.mock('@repo/realtime/fcm', () => ({
   sendChatPushNotification: jest.fn(),
 }));
 
 describe('Chat Locking Logic', () => {
-  const mockSaveMessage = jest.requireMock('@/lib/data-access/chat').saveMessage as jest.Mock;
+  const mockSaveMessage = jest.requireMock('@repo/realtime/data-access/chat').saveMessage as jest.Mock;
   let mockIo: {
     adapter: jest.Mock;
     use: jest.Mock;

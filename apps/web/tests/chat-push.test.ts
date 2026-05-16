@@ -17,14 +17,14 @@ jest.mock('@repo/database/redis', () => ({
   },
 }));
 
-jest.mock('@/lib/data-access/chat', () => ({
+jest.mock('@repo/realtime/data-access/chat', () => ({
   saveMessage: mockSaveMessage,
   finalizeMessageDraft: mockFinalizeMessageDraft,
   markAsReadForEmployee: jest.fn(),
   markAsReadForAdmin: jest.fn(),
 }));
 
-jest.mock('@/lib/data-access/group-chat', () => ({
+jest.mock('@repo/realtime/data-access/group-chat', () => ({
   saveGroupMessage: mockSaveGroupMessage,
   finalizeGroupMessageDraft: jest.fn(),
   getActiveGroupParticipant: mockGetActiveGroupParticipant,
@@ -34,7 +34,7 @@ jest.mock('@/lib/data-access/group-chat', () => ({
   listGroupChatPushTargets: mockListGroupChatPushTargets,
 }));
 
-jest.mock('@/lib/fcm', () => ({
+jest.mock('@repo/realtime/fcm', () => ({
   sendChatPushNotification: mockSendChatPushNotification,
   sendGroupChatPushNotification: jest.fn(),
 }));

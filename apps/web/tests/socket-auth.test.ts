@@ -4,7 +4,11 @@ const mockVerifySession = jest.fn();
 const mockFindUnique = jest.fn();
 const mockRedisDel = jest.fn();
 
-jest.mock('@/lib/auth/session', () => ({
+jest.mock('@repo/auth-server', () => ({
+  AUTH_COOKIES: {
+    ADMIN: 'admin_token',
+    EMPLOYEE: 'employee_token',
+  },
   verifySession: (...args: unknown[]) => mockVerifySession(...args),
 }));
 
