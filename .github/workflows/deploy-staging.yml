@@ -6,6 +6,7 @@ on:
     paths:
       - 'apps/web/**'
       - 'apps/worker/**'
+      - 'apps/realtime/**'
       - 'packages/**'
       - 'docker-compose.staging.yml'
       - 'Dockerfile'
@@ -63,6 +64,19 @@ jobs:
             type=gha,scope=worker
           cache-to: type=gha,mode=min,scope=worker
 
+      - name: Build & Push Realtime Image (staging)
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: realtime-runner
+          push: true
+          tags: |
+            ${{ secrets.ECR_REGISTRY }}/guards-backend:realtime-${{ github.sha }}-${{ github.run_id }}
+          cache-from: |
+            type=gha,scope=app
+            type=gha,scope=realtime
+          cache-to: type=gha,mode=min,scope=realtime
+
       - name: Build & Push Migration Image (staging)
         uses: docker/build-push-action@v5
         with:
@@ -112,6 +126,6 @@ jobs:
 
             docker compose -f docker-compose.staging.yml --profile migration pull
             docker compose -f docker-compose.staging.yml --profile migration run --rm migration
-            docker compose -f docker-compose.staging.yml up -d --remove-orphans app worker
+            docker compose -f docker-compose.staging.yml up -d --remove-orphans app worker realtime
 
             docker image prune -af

@@ -27,9 +27,10 @@ export const SocketProvider = ({
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    // In Next.js, we can use a relative URL or the same host
-    const socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> = io({
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL?.trim() || undefined;
+    const socketInstance: Socket<ServerToClientEvents, ClientToServerEvents> = io(socketUrl, {
       path: '/socket.io', // Default path
+      withCredentials: true,
       reconnectionAttempts: 5,
       auth: {
         role,

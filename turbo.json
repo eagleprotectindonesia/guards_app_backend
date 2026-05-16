@@ -21,6 +21,19 @@
       "env": ["DATABASE_URL"],
       "outputs": ["dist/**"]
     },
+    "realtime#build": {
+      "dependsOn": [
+        "@repo/database#prisma:generate",
+        "@repo/auth-server#type-check",
+        "@repo/storage#type-check",
+        "@repo/notifications#type-check",
+        "@repo/shared#type-check",
+        "@repo/types#type-check",
+        "@repo/validations#type-check"
+      ],
+      "env": ["DATABASE_URL"],
+      "outputs": ["dist/**"]
+    },
     "@repo/database#lint": {
       "dependsOn": ["@repo/database#type-check"]
     },
@@ -44,6 +57,9 @@
     },
     "worker#lint": {
       "dependsOn": ["worker#type-check"]
+    },
+    "realtime#lint": {
+      "dependsOn": ["realtime#type-check"]
     },
     "@repo/database#type-check": {
       "dependsOn": ["@repo/database#prisma:generate"]
@@ -82,6 +98,17 @@
         "@repo/validations#type-check"
       ]
     },
+    "realtime#type-check": {
+      "dependsOn": [
+        "@repo/database#prisma:generate",
+        "@repo/auth-server#type-check",
+        "@repo/storage#type-check",
+        "@repo/notifications#type-check",
+        "@repo/shared#type-check",
+        "@repo/types#type-check",
+        "@repo/validations#type-check"
+      ]
+    },
     "dev": {
       "cache": false,
       "persistent": true
@@ -91,7 +118,7 @@
       "persistent": true
     },
     "test": {
-      "dependsOn": ["web#build", "worker#build"],
+      "dependsOn": ["web#build", "worker#build", "realtime#build"],
       "outputs": ["coverage/**"]
     },
     "@repo/database#prisma:generate": {

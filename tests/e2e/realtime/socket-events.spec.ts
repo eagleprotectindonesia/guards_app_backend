@@ -206,7 +206,8 @@ test.describe('Real-time Socket.io Events', () => {
   test('should handle socket authentication failure', async () => {
     // Create socket with invalid token
     const { io } = require('socket.io-client');
-    const socket = io(process.env.API_BASE_URL || 'http://localhost:3000', {
+    const socketBaseUrl = process.env.SOCKET_BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
+    const socket = io(socketBaseUrl, {
       auth: { token: 'invalid-token' },
       transports: ['websocket'],
       reconnection: false,
