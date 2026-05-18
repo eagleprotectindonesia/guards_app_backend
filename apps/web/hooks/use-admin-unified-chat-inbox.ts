@@ -5,9 +5,15 @@ import { ChatInboxItem } from '@repo/types';
 import { useAdminChat } from '@/hooks/use-admin-chat';
 import { useAdminGroupChat } from '@/hooks/use-admin-group-chat';
 import { ConversationSelection } from '@/lib/chat/conversation-selection';
+import { AdminChatLaunchPayload } from '@/hooks/use-admin-chat';
 
 type UnifiedInboxView = 'inbox' | 'unread' | 'archived';
 type UnifiedKindFilter = 'all' | 'direct' | 'group';
+type StartChatCandidate = {
+  id: string;
+  fullName: string;
+  employeeNumber: string | null;
+};
 
 function toTimestamp(item: ChatInboxItem): number {
   const createdAt = item.lastMessage?.createdAt;
@@ -30,6 +36,43 @@ export function useAdminUnifiedChatInbox(options: Parameters<typeof useAdminChat
   const directChat = useAdminChat(options);
   const groupChat = useAdminGroupChat();
   const [kindFilter, setKindFilter] = useState<UnifiedKindFilter>('all');
+
+  const filteredGroupItems = useMemo(() => {
+    return groupChat.inboxItems.filter(item => {
+      if (!matchesSearch(item, directChat.searchTerm)) return false;
+      if (directChat.activeView === 'unread') return item.unreadCount > 0;
+      if (directChat.activeView === 'archived') return item.isArchived;
+      return !item.isArchived;
+    });
+  }, [groupChat.inboxItems, directChat.searchTerm, directChat.activeView]);
+
+  const items = useMemo<ChatInboxItem[]>(() => {
+    const merged = [...directChat.inboxItems, ...filteredGroupItems];
+    const byKind = kindFilter === 'all' ? merged : merged.filter(item => item.kind === kindFilter);
+    return byKind.sort((a, b) => {
+      const diff = toTimestamp(b) - toTimestamp(a);
+      if (diff !== 0) return diff;
+      if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
+      return a.id.localeCompare(b.id);
+    });
+  }, [directChat.inboxItems, filteredGroupItems, kindFilter]);
+
+  const startChatCandidates = useMemo<StartChatCandidate[]>(() => {
+    const trimmedSearch = directChat.searchTerm.trim().toLowerCase();
+    if (!trimmedSearch) return [];
+    if (directChat.activeView !== 'inbox') return [];
+    if (kindFilter === 'group') return [];
+    if (items.length > 0) return [];
+
+    const directConversationIds = new Set(directChat.inboxItems.map(item => item.id));
+    return groupChat.employeeDirectory.filter(employee => {
+      if (directConversationIds.has(employee.id)) return false;
+      return (
+        employee.fullName.toLowerCase().includes(trimmedSearch) ||
+        (employee.employeeNumber ?? '').toLowerCase().includes(trimmedSearch)
+      );
+    });
+  }, [directChat.searchTerm, directChat.activeView, kindFilter, items.length, directChat.inboxItems, groupChat.employeeDirectory]);
 
   const selectedConversation = useMemo<ConversationSelection>(() => {
     if (groupChat.activeGroupId) return { kind: 'group', id: groupChat.activeGroupId };
@@ -63,7 +106,15 @@ export function useAdminUnifiedChatInbox(options: Parameters<typeof useAdminChat
 
       if (selection.kind === 'direct') {
         groupChat.setActiveGroupId(null);
-        void directChat.handleSelectConversation(selection.id);
+        const employee = startChatCandidates.find(candidate => candidate.id === selection.id);
+        const draft: AdminChatLaunchPayload | undefined = employee
+          ? {
+              employeeId: employee.id,
+              employeeName: employee.fullName,
+              employeeNumber: employee.employeeNumber,
+            }
+          : undefined;
+        void directChat.handleSelectConversation(selection.id, false, draft);
         return;
       }
 
@@ -71,28 +122,8 @@ export function useAdminUnifiedChatInbox(options: Parameters<typeof useAdminChat
       groupChat.setActiveGroupId(selection.id);
       void groupChat.markGroupAsReadOptimistic(selection.id);
     },
-    [directChat, groupChat]
+    [directChat, groupChat, startChatCandidates]
   );
-
-  const filteredGroupItems = useMemo(() => {
-    return groupChat.inboxItems.filter(item => {
-      if (!matchesSearch(item, directChat.searchTerm)) return false;
-      if (directChat.activeView === 'unread') return item.unreadCount > 0;
-      if (directChat.activeView === 'archived') return item.isArchived;
-      return !item.isArchived;
-    });
-  }, [groupChat.inboxItems, directChat.searchTerm, directChat.activeView]);
-
-  const items = useMemo<ChatInboxItem[]>(() => {
-    const merged = [...directChat.inboxItems, ...filteredGroupItems];
-    const byKind = kindFilter === 'all' ? merged : merged.filter(item => item.kind === kindFilter);
-    return byKind.sort((a, b) => {
-      const diff = toTimestamp(b) - toTimestamp(a);
-      if (diff !== 0) return diff;
-      if (a.kind !== b.kind) return a.kind.localeCompare(b.kind);
-      return a.id.localeCompare(b.id);
-    });
-  }, [directChat.inboxItems, filteredGroupItems, kindFilter]);
 
   const loadMore = useCallback(() => {
     if (directChat.hasNextConversationPage && !directChat.isFetchingNextConversationPage) {
@@ -134,6 +165,7 @@ export function useAdminUnifiedChatInbox(options: Parameters<typeof useAdminChat
     isLoading: directChat.isConversationsLoading || groupChat.isGroupsLoading,
     isFetchingMore: directChat.isFetchingNextConversationPage || groupChat.isFetchingNextGroups,
     hasMore: Boolean(directChat.hasNextConversationPage || groupChat.hasNextGroups),
+    startChatCandidates,
     setSearchTerm,
     setActiveView,
     setKindFilter,

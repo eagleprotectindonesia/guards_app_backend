@@ -5,9 +5,23 @@ import { ArchiveRestore, ArchiveX, Download, Loader2, Search, Users, X } from 'l
 import { ChatInboxItem } from '@repo/types';
 import { cn } from '@repo/shared';
 import { ConversationSelection } from '@/lib/chat/conversation-selection';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+type StartChatCandidate = {
+  id: string;
+  fullName: string;
+  employeeNumber: string | null;
+};
 
 type UnifiedConversationListProps = {
   items: ChatInboxItem[];
+  startChatCandidates?: StartChatCandidate[];
   selectedConversation: ConversationSelection;
   activeView: 'inbox' | 'unread' | 'archived';
   kindFilter: 'all' | 'direct' | 'group';
@@ -16,6 +30,7 @@ type UnifiedConversationListProps = {
   hasMore?: boolean;
   isLoadingMore?: boolean;
   onSelect: (selection: Exclude<ConversationSelection, null>) => void;
+  onStartChat?: (employeeId: string) => void;
   onSearchChange: (value: string) => void;
   onViewChange: (view: 'inbox' | 'unread' | 'archived') => void;
   onKindFilterChange: (kind: 'all' | 'direct' | 'group') => void;
@@ -31,6 +46,7 @@ type UnifiedConversationListProps = {
 
 export function UnifiedConversationList({
   items,
+  startChatCandidates = [],
   selectedConversation,
   activeView,
   kindFilter,
@@ -39,6 +55,7 @@ export function UnifiedConversationList({
   hasMore,
   isLoadingMore,
   onSelect,
+  onStartChat,
   onSearchChange,
   onViewChange,
   onKindFilterChange,
@@ -78,34 +95,37 @@ export function UnifiedConversationList({
           </div>
         </div>
 
-        <div className="flex gap-2 mb-4">
-          {(['inbox', 'unread', 'archived'] as const).map(view => (
-            <button
-              key={view}
-              onClick={() => onViewChange(view)}
-              className={cn(
-                'px-3 py-1 text-xs font-medium rounded-full transition-all',
-                activeView === view ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              )}
-            >
-              {view[0].toUpperCase() + view.slice(1)}
-            </button>
-          ))}
-        </div>
+        <div className="flex items-center justify-between gap-2 mb-4">
+          <div className="flex gap-1 bg-muted/50 p-1 rounded-lg">
+            {(['inbox', 'unread', 'archived'] as const).map(view => (
+              <button
+                key={view}
+                onClick={() => onViewChange(view)}
+                className={cn(
+                  'px-3 py-1 text-xs font-medium rounded-md transition-all',
+                  activeView === view
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-muted/80'
+                )}
+              >
+                {view[0].toUpperCase() + view.slice(1)}
+              </button>
+            ))}
+          </div>
 
-        <div className="flex gap-2 mb-4">
-          {(['all', 'direct', 'group'] as const).map(kind => (
-            <button
-              key={kind}
-              onClick={() => onKindFilterChange(kind)}
-              className={cn(
-                'px-3 py-1 text-xs font-medium rounded-full transition-all',
-                kindFilter === kind ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              )}
-            >
-              {kind === 'all' ? 'All' : kind === 'direct' ? 'Direct' : 'Group'}
-            </button>
-          ))}
+          <Select
+            value={kindFilter}
+            onValueChange={val => onKindFilterChange(val as 'all' | 'direct' | 'group')}
+          >
+            <SelectTrigger size="sm" className="w-[110px] h-8 bg-background border-border/50">
+              <SelectValue placeholder="All types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All types</SelectItem>
+              <SelectItem value="direct">Direct</SelectItem>
+              <SelectItem value="group">Group</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="relative">
@@ -134,7 +154,7 @@ export function UnifiedConversationList({
             <Loader2 className="animate-spin mb-2" size={24} />
             <p className="text-sm">Loading conversations...</p>
           </div>
-        ) : items.length === 0 ? (
+        ) : items.length === 0 && startChatCandidates.length === 0 ? (
           <div className="text-center text-muted-foreground mt-20 text-sm px-6">
             {searchTerm ? 'No conversations found' : 'No conversations yet'}
           </div>
@@ -213,6 +233,42 @@ export function UnifiedConversationList({
                 </div>
               );
             })}
+
+            {items.length === 0 && startChatCandidates.map(employee => {
+              const isSelected = selectedConversation?.kind === 'direct' && selectedConversation?.id === employee.id;
+              return (
+                <div
+                  key={`start-chat:${employee.id}`}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onStartChat?.(employee.id)}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onStartChat?.(employee.id);
+                    }
+                  }}
+                  className={cn(
+                    'w-full text-left p-4 border-b border-border/50 hover:bg-muted/50 transition-all flex items-center gap-4 relative cursor-pointer',
+                    isSelected && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500'
+                  )}
+                >
+                  <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex justify-between items-start mb-1 gap-2">
+                      <p className="font-semibold text-foreground truncate flex-1 min-w-0">{employee.fullName}</p>
+                      <span className="text-[10px] uppercase tracking-wide text-blue-600 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded-full shrink-0">
+                        start-chat
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {employee.employeeNumber || 'No employee number'}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+
             {hasMore && (
               <div className="p-3 flex justify-center border-t border-border/50">
                 <button

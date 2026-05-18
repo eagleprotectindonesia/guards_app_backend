@@ -63,6 +63,7 @@ export function AdminChatClient() {
     <div className="flex h-[calc(100vh-180px)] bg-card rounded-xl shadow-sm border border-border overflow-hidden relative">
       <UnifiedConversationList
         items={unifiedChat.items}
+        startChatCandidates={unifiedChat.startChatCandidates}
         selectedConversation={unifiedChat.selectedConversation}
         activeView={unifiedChat.activeView}
         kindFilter={unifiedChat.kindFilter}
@@ -79,6 +80,14 @@ export function AdminChatClient() {
           }
         }}
         onSearchChange={unifiedChat.setSearchTerm}
+        onStartChat={employeeId => {
+          unifiedChat.selectConversation({ kind: 'direct', id: employeeId });
+          const nextUrl = buildConversationUrl({ kind: 'direct', id: employeeId });
+          if (nextUrl !== currentUrl) {
+            startNavigation(nextUrl);
+            router.replace(nextUrl, { scroll: false });
+          }
+        }}
         onViewChange={unifiedChat.setActiveView}
         onKindFilterChange={unifiedChat.setKindFilter}
         onLoadMore={unifiedChat.loadMore}
