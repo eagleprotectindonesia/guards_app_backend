@@ -156,4 +156,15 @@ describe('group chat API routes', () => {
 
     expect(res.status).toBe(200);
   });
+
+  test('leave returns validation error when owner cannot leave without another admin', async () => {
+    mockLeaveGroup.mockRejectedValueOnce(new Error('Owner cannot leave without another active admin'));
+
+    const req = new Request('http://localhost/api/shared/group-chat/group-1/leave', { method: 'POST' });
+    const res = await leaveGroup(req as never, { params: Promise.resolve({ groupId: 'group-1' }) } as never);
+    const body = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(body.error).toBe('Owner cannot leave without another active admin');
+  });
 });

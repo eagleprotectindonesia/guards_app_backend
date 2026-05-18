@@ -503,6 +503,27 @@ export function useAdminGroupChat(options: UseAdminGroupChatOptions = {}) {
     [activeGroupId, queryClient]
   );
 
+  const leaveActiveGroup = useCallback(async () => {
+    if (!activeGroupId) return false;
+    try {
+      const response = await fetch(`/api/shared/group-chat/${activeGroupId}/leave`, { method: 'POST' });
+      if (!response.ok) {
+        toast.error(await parseErrorResponse(response, 'Failed to leave group'));
+        return false;
+      }
+      setActiveGroupId(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'groups'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'members', activeGroupId] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'messages', activeGroupId] }),
+      ]);
+      return true;
+    } catch {
+      toast.error('Failed to leave group');
+      return false;
+    }
+  }, [activeGroupId, queryClient]);
+
   useSocketEvent('group_new_message', message => {
     const isFromCurrentAdmin =
       message.senderType === 'admin' &&
@@ -576,6 +597,7 @@ export function useAdminGroupChat(options: UseAdminGroupChatOptions = {}) {
     markGroupAsReadOptimistic,
     disbandGroup,
     renameActiveGroup,
+    leaveActiveGroup,
     fetchNextGroups: groupsQuery.fetchNextPage,
     hasNextGroups: groupsQuery.hasNextPage,
     isFetchingNextGroups: groupsQuery.isFetchingNextPage,

@@ -172,6 +172,7 @@ export function AdminChatClient() {
             isRenamingGroup={groupChat.isRenamingGroup}
             onOpenMembers={() => setIsMemberManagerOpen(true)}
             onRenameGroup={groupChat.renameActiveGroup}
+            onLeaveGroup={groupChat.leaveActiveGroup}
             onInputChange={groupChat.setInputText}
             onSendMessage={() => {
               void groupChat.sendMessage();
