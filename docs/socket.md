@@ -825,7 +825,7 @@ docs/CHAT_FEATURE.md
 docs/FIREBASE_NOTIFICATIONS.md
 ```
 
-`docs/CHAT_FEATURE.md` still describes the backend as a Next.js custom server with Socket.IO. 
+`docs/CHAT_FEATURE.md` is now an index. Keep `docs/CHAT_PRODUCT.md` (product behavior) and `docs/SOCKET_IMPLEMENTATION.md` (socket architecture/auth) aligned with the actual runtime.
 
 ## Add operational checks
 

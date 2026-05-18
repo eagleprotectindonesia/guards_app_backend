@@ -155,6 +155,8 @@ That means the realtime service split must preserve:
 ### Chat feature docs
 
 - [`docs/CHAT_FEATURE.md`](/home/tian/Documents/Work/guards_app_backend/docs/CHAT_FEATURE.md)
+- [`docs/CHAT_PRODUCT.md`](/home/tian/Documents/Work/guards_app_backend/docs/CHAT_PRODUCT.md)
+- [`docs/SOCKET_IMPLEMENTATION.md`](/home/tian/Documents/Work/guards_app_backend/docs/SOCKET_IMPLEMENTATION.md)
 - [`docs/FIREBASE_NOTIFICATIONS.md`](/home/tian/Documents/Work/guards_app_backend/docs/FIREBASE_NOTIFICATIONS.md)
 
 ### Docker and runtime
@@ -424,4 +426,3 @@ If you only need the fastest summary for a planning discussion:
 - clients expect the socket server on the app origin
 - splitting this will require infra, auth, CORS, and client connection changes
 - preserve chat locks, read receipts, drafts, and push fallback
-
