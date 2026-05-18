@@ -111,6 +111,7 @@ function FloatingChatWidgetContent() {
               showCreateGroupButton={false}
               showExportButton={false}
               className="w-1/3 border-r border-border shrink-0"
+              isWidget
             />
 
             <div className="flex-1 flex flex-col overflow-hidden bg-muted/30">
@@ -148,6 +149,7 @@ function FloatingChatWidgetContent() {
                   onArchive={directChat.handleArchiveConversation}
                   onUnarchive={directChat.handleUnarchiveConversation}
                   fileInputRef={fileInputRef}
+                  isWidget
                 />
               ) : (
                 <GroupChatPane
@@ -175,6 +177,7 @@ function FloatingChatWidgetContent() {
                   onRemoveFile={groupChat.removeFile}
                   fileInputRef={fileInputRef}
                   showManageButton={false}
+                  isWidget
                 />
               )}
             </div>

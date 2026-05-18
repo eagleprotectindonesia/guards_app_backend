@@ -1,6 +1,6 @@
 'use client';
 
-import { format } from 'date-fns';
+import { format, isToday } from 'date-fns';
 import { ArchiveRestore, ArchiveX, Download, Loader2, Search, Users, X } from 'lucide-react';
 import { ChatInboxItem } from '@repo/types';
 import { cn } from '@repo/shared';
@@ -44,6 +44,7 @@ type UnifiedConversationListProps = {
   isExportDisabled?: boolean;
   exportDisabledReason?: string;
   className?: string;
+  isWidget?: boolean;
 };
 
 export function UnifiedConversationList({
@@ -71,12 +72,17 @@ export function UnifiedConversationList({
   isExportDisabled,
   exportDisabledReason,
   className,
+  isWidget = false,
 }: UnifiedConversationListProps) {
+  const views = isWidget
+    ? (['inbox', 'unread'] as const)
+    : (['inbox', 'unread', 'archived'] as const);
+
   return (
     <div className={cn('flex flex-col h-full bg-card', className)}>
-      <div className="p-4 border-b border-border bg-muted/10">
+      <div className={cn('p-4 border-b border-border bg-muted/10', isWidget && 'p-3')}>
         <div className="flex items-center justify-between mb-4 gap-2">
-          <h2 className="text-lg font-semibold">Messages</h2>
+          <h2 className={cn('text-lg font-semibold', isWidget && 'text-base')}>Messages</h2>
           <div className="flex items-center gap-2">
             {showCreateGroupButton && (
               <button
@@ -105,7 +111,7 @@ export function UnifiedConversationList({
 
         <div className="flex items-center justify-between gap-2 mb-4">
           <div className="flex gap-1 bg-muted/50 p-1 rounded-lg">
-            {(['inbox', 'unread', 'archived'] as const).map(view => (
+            {views.map(view => (
               <button
                 key={view}
                 onClick={() => onViewChange(view)}
@@ -121,19 +127,21 @@ export function UnifiedConversationList({
             ))}
           </div>
 
-          <Select
-            value={kindFilter}
-            onValueChange={val => onKindFilterChange(val as 'all' | 'direct' | 'group')}
-          >
-            <SelectTrigger size="sm" className="w-[110px] h-8 bg-background border-border/50">
-              <SelectValue placeholder="All types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              <SelectItem value="direct">Direct</SelectItem>
-              <SelectItem value="group">Group</SelectItem>
-            </SelectContent>
-          </Select>
+          {!isWidget && (
+            <Select
+              value={kindFilter}
+              onValueChange={val => onKindFilterChange(val as 'all' | 'direct' | 'group')}
+            >
+              <SelectTrigger size="sm" className="w-[110px] h-8 bg-background border-border/50">
+                <SelectValue placeholder="All types" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All types</SelectItem>
+                <SelectItem value="direct">Direct</SelectItem>
+                <SelectItem value="group">Group</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         <div className="relative">
@@ -184,32 +192,39 @@ export function UnifiedConversationList({
                     }
                   }}
                   className={cn(
-                    'w-full text-left p-4 border-b border-border/50 hover:bg-muted/50 transition-all flex items-center gap-4 relative cursor-pointer',
+                    'w-full text-left p-4 border-b border-border/50 hover:bg-muted/50 transition-all flex items-center gap-3 relative cursor-pointer',
+                    isWidget && 'p-3 gap-2',
                     isSelected && 'bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-600 dark:border-l-blue-500'
                   )}
                 >
                   {item.kind === 'group' ? (
-                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center shrink-0">
-                      <Users className="text-blue-600 dark:text-blue-400" size={24} />
+                    <div className={cn('w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center shrink-0', isWidget && 'w-10 h-10')}>
+                      <Users className="text-blue-600 dark:text-blue-400" size={isWidget ? 20 : 24} />
                     </div>
                   ) : (
-                    <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center shrink-0" />
+                    <div className={cn('w-12 h-12 bg-muted rounded-full flex items-center justify-center shrink-0', isWidget && 'w-10 h-10')} />
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="flex justify-between items-start mb-1 gap-2">
-                      <p className="font-semibold text-foreground truncate flex-1 min-w-0">
+                    <div className="flex justify-between items-start mb-0.5 gap-2">
+                      <p className={cn('font-semibold text-foreground truncate flex-1 min-w-0 leading-tight', isWidget && 'text-sm')}>
                         {item.title}
                         {item.kind === 'direct' && item.subtitle ? (
-                          <span className="text-xs font-normal text-muted-foreground"> ({item.subtitle})</span>
+                          <span className="text-[10px] font-normal text-muted-foreground block md:inline md:text-xs"> ({item.subtitle})</span>
                         ) : null}
                       </p>
                       {item.lastMessage?.createdAt && (
-                        <span className="text-[10px] text-muted-foreground shrink-0 mt-1">
-                          {format(new Date(item.lastMessage.createdAt), 'MMM d, HH:mm')}
+                        <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">
+                          {(() => {
+                            const date = new Date(item.lastMessage.createdAt);
+                            if (isWidget) {
+                              return isToday(date) ? format(date, 'HH:mm') : format(date, 'MMM d');
+                            }
+                            return format(date, 'MMM d, HH:mm');
+                          })()}
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-xs text-muted-foreground truncate leading-normal">
                       {item.kind === 'group'
                         ? item.subtitle ||
                           (item.lastMessage
@@ -222,32 +237,36 @@ export function UnifiedConversationList({
                     </p>
                   </div>
                   {item.unreadCount > 0 && (
-                    <div className="min-w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold px-1.5 ml-2">
+                    <div className="min-w-5 h-5 bg-red-500 text-white text-[10px] rounded-full flex items-center justify-center font-bold px-1.5 ml-1">
                       {item.unreadCount}
                     </div>
                   )}
-                  {item.isArchived ? (
-                    <button
-                      type="button"
-                      onClick={e => {
-                        e.stopPropagation();
-                        onUnarchive?.(item);
-                      }}
-                      className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <ArchiveRestore size={16} />
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={e => {
-                        e.stopPropagation();
-                        onArchive?.(item);
-                      }}
-                      className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      <ArchiveX size={16} />
-                    </button>
+                  {!isWidget && (
+                    <>
+                      {item.isArchived ? (
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            onUnarchive?.(item);
+                          }}
+                          className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                        >
+                          <ArchiveRestore size={16} />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation();
+                            onArchive?.(item);
+                          }}
+                          className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                        >
+                          <ArchiveX size={16} />
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               );

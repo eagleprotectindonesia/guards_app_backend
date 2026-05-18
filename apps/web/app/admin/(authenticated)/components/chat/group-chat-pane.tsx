@@ -27,6 +27,7 @@ type GroupChatPaneProps = {
   onRemoveFile: (index: number) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   showManageButton?: boolean;
+  isWidget?: boolean;
 };
 
 export function GroupChatPane(props: GroupChatPaneProps) {
@@ -51,6 +52,7 @@ export function GroupChatPane(props: GroupChatPaneProps) {
     onRemoveFile,
     fileInputRef,
     showManageButton = true,
+    isWidget = false,
   } = props;
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);

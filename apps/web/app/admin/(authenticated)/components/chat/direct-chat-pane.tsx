@@ -30,6 +30,7 @@ type DirectChatPaneProps = {
   onArchive: (employeeId: string) => void;
   onUnarchive: (employeeId: string) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  isWidget?: boolean;
 };
 
 export function DirectChatPane(props: DirectChatPaneProps) {
@@ -57,6 +58,7 @@ export function DirectChatPane(props: DirectChatPaneProps) {
     onArchive,
     onUnarchive,
     fileInputRef,
+    isWidget = false,
   } = props;
 
   if (!activeEmployeeId) {
@@ -88,7 +90,7 @@ export function DirectChatPane(props: DirectChatPaneProps) {
             </h3>
           </div>
         </div>
-        {activeEmployee && (
+        {activeEmployee && !isWidget && (
           <button
             type="button"
             disabled={activeEmployee.isDraft}
