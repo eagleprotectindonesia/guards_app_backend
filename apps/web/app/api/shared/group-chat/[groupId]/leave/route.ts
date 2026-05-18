@@ -18,6 +18,11 @@ export async function POST(_request: NextRequest, { params }: { params: Promise<
   if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (admin) await requirePermission(PERMISSIONS.CHAT.CREATE);
 
-  const participant = await leaveGroup({ groupId, actor });
-  return NextResponse.json(participant);
+  try {
+    const participant = await leaveGroup({ groupId, actor });
+    return NextResponse.json(participant);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to leave group';
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }

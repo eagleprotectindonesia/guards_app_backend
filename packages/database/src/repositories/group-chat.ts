@@ -475,6 +475,22 @@ export async function leaveGroup(params: { groupId: string; actor: Actor }) {
   return db.$transaction(async tx => {
     const participant = await getActiveParticipantForActor(tx, params.groupId, params.actor);
     if (!participant) throw new Error('Active group participant not found');
+
+    if (participant.role === 'owner' && participant.participantType === GroupChatParticipantType.admin) {
+      const nextAdminOwner = await tx.groupChatParticipant.findFirst({
+        where: {
+          groupId: params.groupId,
+          status: GroupChatParticipantStatus.active,
+          participantType: GroupChatParticipantType.admin,
+          id: { not: participant.id },
+        },
+        orderBy: { joinedAt: 'asc' },
+      });
+      if (!nextAdminOwner) {
+        throw new Error('Owner cannot leave without another active admin');
+      }
+    }
+
     const now = new Date();
     const left = await tx.groupChatParticipant.update({
       where: { id: participant.id },

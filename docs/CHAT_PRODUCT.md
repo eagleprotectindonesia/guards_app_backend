@@ -37,6 +37,7 @@ Core user behavior:
 Membership behavior:
 - One owner at a time.
 - If owner leaves, ownership transfers to earliest joined active participant.
+- If owner is admin, leave is blocked unless another active admin exists; ownership transfers to earliest joined active admin.
 - If last active participant leaves, group is archived.
 
 Visibility behavior:

@@ -146,6 +146,21 @@ describe('group-chat repository', () => {
     );
   });
 
+  test('owner admin cannot leave without another active admin', async () => {
+    (prisma.groupChatParticipant.findFirst as jest.Mock)
+      .mockResolvedValueOnce({
+        id: 'owner-1',
+        role: 'owner',
+        participantType: 'admin',
+        status: 'active',
+      })
+      .mockResolvedValueOnce(null);
+
+    await expect(leaveGroup({ groupId: 'group-1', actor: { participantType: 'admin', adminId: 'a1' } })).rejects.toThrow(
+      'Owner cannot leave without another active admin'
+    );
+  });
+
   test('last member leaving archives group', async () => {
     (prisma.groupChatParticipant.findFirst as jest.Mock).mockResolvedValue({ id: 'member-1', role: 'member' });
     (prisma.groupChatParticipant.update as jest.Mock).mockResolvedValue({ id: 'member-1', status: 'left' });

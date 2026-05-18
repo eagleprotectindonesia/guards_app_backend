@@ -21,6 +21,7 @@ type GroupChatPaneProps = {
   isRenamingGroup: boolean;
   onOpenMembers: () => void;
   onRenameGroup: (title: string) => Promise<boolean>;
+  onLeaveGroup: () => Promise<boolean>;
   onInputChange: (value: string) => void;
   onSendMessage: () => void;
   onFileChange: (files: File[]) => void;
@@ -47,6 +48,7 @@ export function GroupChatPane(props: GroupChatPaneProps) {
     isRenamingGroup,
     onOpenMembers,
     onRenameGroup,
+    onLeaveGroup,
     onInputChange,
     onSendMessage,
     onFileChange,
@@ -149,6 +151,15 @@ export function GroupChatPane(props: GroupChatPaneProps) {
               Manage
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => {
+              void onLeaveGroup();
+            }}
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+          >
+            Leave
+          </button>
           {onMinimize && !isWidget && (
             <button
               type="button"
