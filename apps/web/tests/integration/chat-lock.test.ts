@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { initSocket } from '@/lib/socket';
+import { initSocket } from '@repo/realtime';
 import { Server as SocketIOServer } from 'socket.io';
 import { createServer } from 'http';
 import { redis } from '@repo/database/redis';

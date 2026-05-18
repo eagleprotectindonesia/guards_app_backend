@@ -39,7 +39,7 @@ jest.mock('@repo/realtime/fcm', () => ({
   sendGroupChatPushNotification: jest.fn(),
 }));
 
-import { registerChatHandlers } from '@/lib/socket/chat';
+import { registerChatHandlers } from '@repo/realtime';
 
 describe('registerChatHandlers push decision logging', () => {
   let infoSpy: jest.SpyInstance;

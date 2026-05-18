@@ -108,15 +108,17 @@ ENV NODE_ENV=production \
 
 RUN apk add --no-cache libc6-compat wget
 
-# Copy full monorepo structure needed for runtime (since we're not using standalone)
-COPY --from=web-builder /app ./
+# Copy Next.js standalone runtime output and static assets only
+COPY --from=web-builder /app/apps/web/.next/standalone ./
+COPY --from=web-builder /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=web-builder /app/apps/web/public ./apps/web/public
 
 EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-CMD ["pnpm", "--filter", "web", "start"]
+CMD ["node", "apps/web/server.js"]
 
 # 9. Worker Runner (production image)
 FROM node:24-alpine AS worker-runner
