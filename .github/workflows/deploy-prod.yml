@@ -2,7 +2,7 @@ name: Deploy to Production
 
 on:
   push:
-    branches: ['main','test-deploy-2']
+    branches: ['main', 'test-deploy']
     paths:
       - 'apps/web/**'
       - 'apps/worker/**'
