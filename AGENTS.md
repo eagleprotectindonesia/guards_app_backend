@@ -12,9 +12,9 @@ This repository is a TurboRepo monorepo.
 
 ## Build, Test, and Development Commands
 Run from repository root unless noted.
-- `pnpm dev`: starts web + worker in development.
+- `pnpm dev`: starts web + worker + realtime in development.
 - `pnpm dev:mobile`: starts mobile app in development mode.
-- `pnpm dev:https`: runs HTTPS dev flow for web and worker.
+- `pnpm dev:https`: runs HTTPS dev flow for web + worker + realtime.
 - `pnpm build`: builds all workspaces through Turbo.
 - `pnpm lint`: runs workspace lint and type-check tasks.
 - `pnpm test`: runs Jest unit/integration tests.

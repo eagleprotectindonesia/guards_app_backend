@@ -1,4 +1,4 @@
-import { authenticateSocket } from '@/lib/socket-auth';
+import { authenticateSocket } from '@repo/realtime';
 
 const mockVerifySession = jest.fn();
 const mockFindUnique = jest.fn();
