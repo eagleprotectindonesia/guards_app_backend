@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { ChatInboxItem } from '@repo/types';
 import { useAdminChat } from '@/hooks/use-admin-chat';
 import { useAdminGroupChat } from '@/hooks/use-admin-group-chat';
-import { ConversationSelection } from '@/lib/chat/conversation-selection';
+import { ConversationSelection, isSameConversation } from '@/lib/chat/conversation-selection';
 import { AdminChatLaunchPayload } from '@/hooks/use-admin-chat';
 
 type UnifiedInboxView = 'inbox' | 'unread' | 'archived';
@@ -102,6 +102,10 @@ export function useAdminUnifiedChatInbox(options: UseAdminUnifiedChatInboxOption
 
   const selectConversation = useCallback(
     (selection: ConversationSelection) => {
+      if (isSameConversation(selectedConversation, selection)) {
+        return;
+      }
+
       if (!selection) {
         directChat.handleSelectConversation(null);
         groupChat.setActiveGroupId(null);
@@ -122,11 +126,11 @@ export function useAdminUnifiedChatInbox(options: UseAdminUnifiedChatInboxOption
         return;
       }
 
-      directChat.handleSelectConversation(null);
+      directChat.handleSelectConversation(null, true);
       groupChat.setActiveGroupId(selection.id);
       void groupChat.markGroupAsReadOptimistic(selection.id);
     },
-    [directChat, groupChat, startChatCandidates]
+    [directChat, groupChat, selectedConversation, startChatCandidates]
   );
 
   const loadMore = useCallback(() => {

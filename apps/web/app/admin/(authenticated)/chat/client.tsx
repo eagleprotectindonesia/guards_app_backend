@@ -1,11 +1,17 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Minimize2 } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from '../context/session-context';
 import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
 import { useAdminUnifiedChatInbox } from '@/hooks/use-admin-unified-chat-inbox';
-import { buildConversationUrl, parseConversationSelection } from '@/lib/chat/conversation-selection';
+import {
+  buildConversationUrl,
+  isSameConversation,
+  parseConversationSelection,
+} from '@/lib/chat/conversation-selection';
+import { saveWidgetResumeState } from '@/lib/chat/widget-resume-state';
 import { UnifiedConversationList } from '../components/chat/unified-conversation-list';
 import { GroupCreateDialog } from '../components/chat/group-create-dialog';
 import { GroupMemberManager } from '../components/chat/group-member-manager';
@@ -36,21 +42,20 @@ export function AdminChatClient() {
       initialEmployeeId: selectionFromUrl?.kind === 'direct' ? selectionFromUrl.id : null,
       initialDraft: null,
       currentAdminId: userId,
-      onSelectConversation: (employeeId: string | null) => {
-        const nextUrl = buildConversationUrl(employeeId ? { kind: 'direct', id: employeeId } : null);
-        if (nextUrl !== currentUrl) {
-          startNavigation(nextUrl);
-          router.replace(nextUrl, { scroll: false });
-        }
-      },
     }),
-    [currentUrl, router, selectionFromUrl, startNavigation]
+    [selectionFromUrl?.id, selectionFromUrl?.kind, userId]
   );
 
   const unifiedChat = useAdminUnifiedChatInbox(chatOptions);
   const groupChat = unifiedChat.groupChat;
   const directChat = unifiedChat.directChat;
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!selectionFromUrl) return;
+    if (isSameConversation(unifiedChat.selectedConversation, selectionFromUrl)) return;
+    unifiedChat.selectConversation(selectionFromUrl);
+  }, [selectionFromUrl, unifiedChat.selectedConversation, unifiedChat.selectConversation]);
 
   const activeEmployee = directChat.conversations.find(c => c.employeeId === directChat.activeEmployeeId);
   const currentLock = directChat.activeEmployeeId ? directChat.conversationLocks[directChat.activeEmployeeId] : null;
@@ -60,6 +65,15 @@ export function AdminChatClient() {
     () => unifiedChat.items.map(item => ({ kind: item.kind, id: item.id, title: item.title })),
     [unifiedChat.items]
   );
+  const handleMinimize = () => {
+    saveWidgetResumeState(unifiedChat.selectedConversation);
+    startNavigation('/admin/dashboard');
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push('/admin/dashboard');
+  };
 
   return (
     <div className="flex h-[calc(100vh-180px)] bg-card rounded-xl shadow-sm border border-border overflow-hidden relative">
@@ -140,6 +154,7 @@ export function AdminChatClient() {
             onRemoveFile={directChat.removeFile}
             onArchive={directChat.handleArchiveConversation}
             onUnarchive={directChat.handleUnarchiveConversation}
+            onMinimize={handleMinimize}
             fileInputRef={fileInputRef}
           />
         ) : (
@@ -166,6 +181,7 @@ export function AdminChatClient() {
               void groupChat.handleFileChange(files);
             }}
             onRemoveFile={groupChat.removeFile}
+            onMinimize={handleMinimize}
             fileInputRef={fileInputRef}
           />
         )}

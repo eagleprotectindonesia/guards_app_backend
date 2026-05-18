@@ -6,6 +6,7 @@ import { cn } from '@repo/shared';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAdminUnifiedChatInbox } from '@/hooks/use-admin-unified-chat-inbox';
 import { buildConversationUrl } from '@/lib/chat/conversation-selection';
+import { consumeWidgetResumeState } from '@/lib/chat/widget-resume-state';
 import { AdminChatLaunchPayload } from '@/hooks/use-admin-chat';
 import { useSession } from '../context/session-context';
 import { UnifiedConversationList } from './chat/unified-conversation-list';
@@ -28,7 +29,8 @@ export default function FloatingChatWidget() {
 function FloatingChatWidgetContent() {
   const router = useRouter();
   const { startNavigation } = useAdminNavigationPending();
-  const [isOpen, setIsOpen] = useState(false);
+  const [resumeState] = useState(() => consumeWidgetResumeState());
+  const [isOpen, setIsOpen] = useState(() => resumeState?.isOpen ?? false);
   const { userId, hasPermission } = useSession();
   const canCreateChat = hasPermission('chat:create');
 
@@ -61,6 +63,11 @@ function FloatingChatWidgetContent() {
     window.addEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
     return () => window.removeEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
   }, [unifiedChat]);
+
+  useEffect(() => {
+    if (!resumeState?.selection) return;
+    unifiedChat.selectConversation(resumeState.selection);
+  }, [resumeState, unifiedChat]);
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">

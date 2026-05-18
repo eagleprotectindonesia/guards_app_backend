@@ -1,6 +1,6 @@
 'use client';
 
-import { ArchiveRestore, ArchiveX, Loader2, Lock, Paperclip, Send, User } from 'lucide-react';
+import { ArchiveRestore, ArchiveX, Loader2, Lock, Minimize2, Paperclip, Send, User } from 'lucide-react';
 import { ChatMessage } from '@/types/chat';
 import { Conversation } from '@/types/chat';
 import { ChatMessageList } from './message-list';
@@ -29,6 +29,7 @@ type DirectChatPaneProps = {
   onRemoveFile: (index: number) => void;
   onArchive: (employeeId: string) => void;
   onUnarchive: (employeeId: string) => void;
+  onMinimize?: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   isWidget?: boolean;
 };
@@ -57,6 +58,7 @@ export function DirectChatPane(props: DirectChatPaneProps) {
     onRemoveFile,
     onArchive,
     onUnarchive,
+    onMinimize,
     fileInputRef,
     isWidget = false,
   } = props;
@@ -90,21 +92,33 @@ export function DirectChatPane(props: DirectChatPaneProps) {
             </h3>
           </div>
         </div>
-        {activeEmployee && !isWidget && (
-          <button
-            type="button"
-            disabled={activeEmployee.isDraft}
-            onClick={() =>
-              activeEmployee.isArchived
-                ? onUnarchive(activeEmployee.employeeId)
-                : onArchive(activeEmployee.employeeId)
-            }
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50"
-          >
-            {activeEmployee.isArchived ? <ArchiveRestore size={16} /> : <ArchiveX size={16} />}
-            {activeEmployee.isDraft ? 'Draft' : activeEmployee.isArchived ? 'Unarchive' : 'Archive'}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {activeEmployee && !isWidget && (
+            <button
+              type="button"
+              disabled={activeEmployee.isDraft}
+              onClick={() =>
+                activeEmployee.isArchived
+                  ? onUnarchive(activeEmployee.employeeId)
+                  : onArchive(activeEmployee.employeeId)
+              }
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors disabled:opacity-50"
+            >
+              {activeEmployee.isArchived ? <ArchiveRestore size={16} /> : <ArchiveX size={16} />}
+              {activeEmployee.isDraft ? 'Draft' : activeEmployee.isArchived ? 'Unarchive' : 'Archive'}
+            </button>
+          )}
+          {onMinimize && !isWidget && (
+            <button
+              type="button"
+              onClick={onMinimize}
+              className="inline-flex items-center justify-center rounded-lg border border-border w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+              title="Minimize to floating widget"
+            >
+              <Minimize2 size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       <ChatMessageList

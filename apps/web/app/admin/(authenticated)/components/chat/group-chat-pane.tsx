@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Loader2, Pencil, Paperclip, Send, Users, X } from 'lucide-react';
+import { Check, Loader2, Pencil, Paperclip, Send, Users, X, Minimize2 } from 'lucide-react';
 import { useState } from 'react';
 import { ChatMessage } from '@/types/chat';
 import { ChatMessageList } from './message-list';
@@ -25,6 +25,7 @@ type GroupChatPaneProps = {
   onSendMessage: () => void;
   onFileChange: (files: File[]) => void;
   onRemoveFile: (index: number) => void;
+  onMinimize?: () => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   showManageButton?: boolean;
   isWidget?: boolean;
@@ -50,6 +51,7 @@ export function GroupChatPane(props: GroupChatPaneProps) {
     onSendMessage,
     onFileChange,
     onRemoveFile,
+    onMinimize,
     fileInputRef,
     showManageButton = true,
     isWidget = false,
@@ -136,16 +138,28 @@ export function GroupChatPane(props: GroupChatPaneProps) {
             </span>
           </div>
         </div>
-        {showManageButton && (
-          <button
-            type="button"
-            onClick={onOpenMembers}
-            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-          >
-            <Users size={16} />
-            Manage
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {showManageButton && (
+            <button
+              type="button"
+              onClick={onOpenMembers}
+              className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+            >
+              <Users size={16} />
+              Manage
+            </button>
+          )}
+          {onMinimize && !isWidget && (
+            <button
+              type="button"
+              onClick={onMinimize}
+              className="inline-flex items-center justify-center rounded-lg border border-border w-9 h-9 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+              title="Minimize to floating widget"
+            >
+              <Minimize2 size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       <ChatMessageList
