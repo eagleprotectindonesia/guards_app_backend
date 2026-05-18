@@ -3,7 +3,6 @@ import { GET as getGroup } from '@/app/api/shared/group-chat/[groupId]/route';
 import { POST as addMembers } from '@/app/api/shared/group-chat/[groupId]/members/route';
 import { DELETE as removeMember } from '@/app/api/shared/group-chat/[groupId]/members/[participantId]/route';
 import { POST as leaveGroup } from '@/app/api/shared/group-chat/[groupId]/leave/route';
-import { forbidden } from 'next/navigation';
 
 const mockGetCurrentAdmin = jest.fn();
 const mockGetAuthenticatedEmployee = jest.fn();

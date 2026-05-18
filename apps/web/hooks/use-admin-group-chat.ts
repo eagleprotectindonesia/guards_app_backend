@@ -106,7 +106,6 @@ export function useAdminGroupChat(options: UseAdminGroupChatOptions = {}) {
   const [previews, setPreviews] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isManagingMembers, setIsManagingMembers] = useState(false);
-  const [isDisbandingGroup, setIsDisbandingGroup] = useState(false);
   const [isRenamingGroup, setIsRenamingGroup] = useState(false);
   const [createGroupTitle, setCreateGroupTitle] = useState('');
   const [createGroupDescription, setCreateGroupDescription] = useState('');
@@ -553,7 +552,6 @@ export function useAdminGroupChat(options: UseAdminGroupChatOptions = {}) {
     previews,
     isUploading,
     isManagingMembers,
-    isDisbandingGroup,
     isRenamingGroup,
     createGroupTitle,
     setCreateGroupTitle,

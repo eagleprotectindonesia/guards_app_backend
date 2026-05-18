@@ -8,7 +8,6 @@ import {
   removeGroupMember,
   reserveGroupMessageDraft,
   saveGroupMessage,
-  transferOwnershipIfNeeded,
 } from './group-chat';
 import { db as prisma } from '../prisma/client';
 

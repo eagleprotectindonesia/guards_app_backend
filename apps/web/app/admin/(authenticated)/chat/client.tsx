@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Minimize2 } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from '../context/session-context';
 import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
@@ -233,7 +232,6 @@ export function AdminChatClient() {
         canManage={canCreateChat}
         canDisband={false}
         onDisbandGroup={groupChat.disbandGroup}
-        isDisbandingGroup={groupChat.isDisbandingGroup}
       />
     </div>
   );
