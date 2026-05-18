@@ -39,6 +39,8 @@ type UnifiedConversationListProps = {
   onUnarchive?: (item: ChatInboxItem) => void;
   onCreateGroup?: () => void;
   onExport?: () => void;
+  showCreateGroupButton?: boolean;
+  showExportButton?: boolean;
   isExportDisabled?: boolean;
   exportDisabledReason?: string;
   className?: string;
@@ -64,6 +66,8 @@ export function UnifiedConversationList({
   onUnarchive,
   onCreateGroup,
   onExport,
+  showCreateGroupButton = true,
+  showExportButton = true,
   isExportDisabled,
   exportDisabledReason,
   className,
@@ -74,24 +78,28 @@ export function UnifiedConversationList({
         <div className="flex items-center justify-between mb-4 gap-2">
           <h2 className="text-lg font-semibold">Messages</h2>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onCreateGroup}
-              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-              title="Create group"
-            >
-              <Users size={18} />
-            </button>
-            <button
-              type="button"
-              onClick={onExport}
-              disabled={isExportDisabled}
-              title={isExportDisabled ? exportDisabledReason : 'Download chat history'}
-              className="inline-flex items-center justify-center h-9 px-3 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm disabled:opacity-50"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Download History
-            </button>
+            {showCreateGroupButton && (
+              <button
+                type="button"
+                onClick={onCreateGroup}
+                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                title="Create group"
+              >
+                <Users size={18} />
+              </button>
+            )}
+            {showExportButton && (
+              <button
+                type="button"
+                onClick={onExport}
+                disabled={isExportDisabled}
+                title={isExportDisabled ? exportDisabledReason : 'Download chat history'}
+                className="inline-flex items-center justify-center h-9 px-3 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm disabled:opacity-50"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download History
+              </button>
+            )}
           </div>
         </div>
 
@@ -189,7 +197,12 @@ export function UnifiedConversationList({
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-1 gap-2">
-                      <p className="font-semibold text-foreground truncate flex-1 min-w-0">{item.title}</p>
+                      <p className="font-semibold text-foreground truncate flex-1 min-w-0">
+                        {item.title}
+                        {item.kind === 'direct' && item.subtitle ? (
+                          <span className="text-xs font-normal text-muted-foreground"> ({item.subtitle})</span>
+                        ) : null}
+                      </p>
                       {item.lastMessage?.createdAt && (
                         <span className="text-[10px] text-muted-foreground shrink-0 mt-1">
                           {format(new Date(item.lastMessage.createdAt), 'MMM d, HH:mm')}
@@ -197,9 +210,15 @@ export function UnifiedConversationList({
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">
-                      {item.subtitle ||
-                        item.lastMessage?.content ||
-                        (item.kind === 'group' ? 'No group messages yet' : 'No messages yet')}
+                      {item.kind === 'group'
+                        ? item.subtitle ||
+                          (item.lastMessage
+                            ? `${item.lastMessage.senderName}: ${item.lastMessage.content}`
+                            : null) ||
+                          'No group messages yet'
+                        : (item.lastMessage
+                            ? `${item.lastMessage.senderName}: ${item.lastMessage.content}`
+                            : null) || 'No messages yet'}
                     </p>
                   </div>
                   {item.unreadCount > 0 && (

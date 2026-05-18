@@ -15,6 +15,10 @@ type StartChatCandidate = {
   employeeNumber: string | null;
 };
 
+type UseAdminUnifiedChatInboxOptions = Parameters<typeof useAdminChat>[0] & {
+  currentAdminId?: string | null;
+};
+
 function toTimestamp(item: ChatInboxItem): number {
   const createdAt = item.lastMessage?.createdAt;
   if (!createdAt) return 0;
@@ -32,9 +36,9 @@ function matchesSearch(item: ChatInboxItem, searchTerm: string): boolean {
   );
 }
 
-export function useAdminUnifiedChatInbox(options: Parameters<typeof useAdminChat>[0]) {
+export function useAdminUnifiedChatInbox(options: UseAdminUnifiedChatInboxOptions) {
   const directChat = useAdminChat(options);
-  const groupChat = useAdminGroupChat();
+  const groupChat = useAdminGroupChat({ currentAdminId: options.currentAdminId, isChatVisible: options.isChatVisible });
   const [kindFilter, setKindFilter] = useState<UnifiedKindFilter>('all');
 
   const filteredGroupItems = useMemo(() => {

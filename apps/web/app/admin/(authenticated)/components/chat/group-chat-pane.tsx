@@ -26,6 +26,7 @@ type GroupChatPaneProps = {
   onFileChange: (files: File[]) => void;
   onRemoveFile: (index: number) => void;
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  showManageButton?: boolean;
 };
 
 export function GroupChatPane(props: GroupChatPaneProps) {
@@ -49,6 +50,7 @@ export function GroupChatPane(props: GroupChatPaneProps) {
     onFileChange,
     onRemoveFile,
     fileInputRef,
+    showManageButton = true,
   } = props;
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editingTitle, setEditingTitle] = useState<string | null>(null);
@@ -132,14 +134,16 @@ export function GroupChatPane(props: GroupChatPaneProps) {
             </span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onOpenMembers}
-          className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-        >
-          <Users size={16} />
-          Manage
-        </button>
+        {showManageButton && (
+          <button
+            type="button"
+            onClick={onOpenMembers}
+            className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
+          >
+            <Users size={16} />
+            Manage
+          </button>
+        )}
       </div>
 
       <ChatMessageList

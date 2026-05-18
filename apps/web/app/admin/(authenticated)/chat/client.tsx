@@ -35,6 +35,7 @@ export function AdminChatClient() {
     () => ({
       initialEmployeeId: selectionFromUrl?.kind === 'direct' ? selectionFromUrl.id : null,
       initialDraft: null,
+      currentAdminId: userId,
       onSelectConversation: (employeeId: string | null) => {
         const nextUrl = buildConversationUrl(employeeId ? { kind: 'direct', id: employeeId } : null);
         if (nextUrl !== currentUrl) {
