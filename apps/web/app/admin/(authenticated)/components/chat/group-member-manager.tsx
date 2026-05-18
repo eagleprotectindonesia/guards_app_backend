@@ -57,7 +57,7 @@ interface GroupMemberManagerProps {
   canManage: boolean;
   canDisband: boolean;
   onDisbandGroup: () => Promise<boolean>;
-  isDisbandingGroup: boolean;
+  isDisbandingGroup?: boolean;
 }
 
 export function GroupMemberManager({

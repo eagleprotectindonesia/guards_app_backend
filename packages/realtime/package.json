@@ -1,0 +1,31 @@
+{
+  "name": "@repo/realtime",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "lint": "eslint . --ext .ts && tsc --noEmit",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/auth-server": "workspace:*",
+    "@repo/database": "workspace:*",
+    "@repo/notifications": "workspace:*",
+    "@repo/storage": "workspace:*",
+    "@repo/types": "workspace:*",
+    "@socket.io/redis-adapter": "^8.3.0",
+    "cookie": "^0.7.2",
+    "jsonwebtoken": "^9.0.3",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "@repo/tsconfig": "workspace:*",
+    "@types/cookie": "^0.6.0",
+    "@types/node": "^20",
+    "@typescript-eslint/parser": "^8.57.0",
+    "eslint": "^9.39.2",
+    "typescript": "^5"
+  }
+}

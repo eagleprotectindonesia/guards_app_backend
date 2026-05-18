@@ -1,21 +1,24 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
-import { MessageSquare, X, Send, User, Paperclip, Loader2, Maximize2 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { MessageSquare, X, Maximize2 } from 'lucide-react';
 import { cn } from '@repo/shared';
 import { usePathname, useRouter } from 'next/navigation';
-import { AdminChatLaunchPayload, useAdminChat } from '@/hooks/use-admin-chat';
+import { useAdminUnifiedChatInbox } from '@/hooks/use-admin-unified-chat-inbox';
+import { buildConversationUrl } from '@/lib/chat/conversation-selection';
+import { consumeWidgetResumeState } from '@/lib/chat/widget-resume-state';
+import { AdminChatLaunchPayload } from '@/hooks/use-admin-chat';
 import { useSession } from '../context/session-context';
-import { ConversationList } from './chat/conversation-list';
-import { ChatMessageList } from './chat/message-list';
-import { ChatAttachmentPreviews } from './chat/attachment-previews';
+import { UnifiedConversationList } from './chat/unified-conversation-list';
+import { DirectChatPane } from './chat/direct-chat-pane';
+import { GroupChatPane } from './chat/group-chat-pane';
 import ConfirmDialog from './confirm-dialog';
 import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
+import { ChatMessage } from '@/types/chat';
 
 export default function FloatingChatWidget() {
   const pathname = usePathname();
 
-  // Don't show the floating widget if we are on the full chat page
   if (pathname === '/admin/chat') {
     return null;
   }
@@ -26,91 +29,50 @@ export default function FloatingChatWidget() {
 function FloatingChatWidgetContent() {
   const router = useRouter();
   const { startNavigation } = useAdminNavigationPending();
-  const [isOpen, setIsOpen] = useState(false);
+  const [resumeState] = useState(() => consumeWidgetResumeState());
+  const [isOpen, setIsOpen] = useState(() => resumeState?.isOpen ?? false);
   const { userId, hasPermission } = useSession();
   const canCreateChat = hasPermission('chat:create');
 
-  const {
-    conversations,
-    filteredConversations,
-    draftConversation,
-    pendingArchivedLaunch,
-    activeEmployeeId,
-    adminUnreadCount,
-    messages,
-    inputText,
-    searchTerm,
-    activeView,
-    isLoading,
-    isFetchingNextPage,
-    hasNextPage,
-    isUploading,
-    isOptimizing,
-    previews,
-    typingEmployees,
-    isConnected,
-    setSearchTerm,
-    handleViewChange,
-    handleSelectConversation,
-    handleSendMessage,
-    handleFileChange,
-    removeFile,
-    handleInputChange,
-    fetchConversations,
-    fetchNextPage,
-    fetchNextConversationPage,
-    hasNextConversationPage,
-    isFetchingNextConversationPage,
-    handleArchiveConversation,
-    handleUnarchiveConversation,
-    openConversationFromLaunch,
-    confirmArchivedLaunch,
-    cancelArchivedLaunch,
-  } = useAdminChat({ isChatVisible: isOpen });
+  const unifiedChat = useAdminUnifiedChatInbox({ isChatVisible: isOpen, currentAdminId: userId });
+  const groupChat = unifiedChat.groupChat;
+  const directChat = unifiedChat.directChat;
+
+  const totalUnreadCount = useMemo(() => {
+    const groupUnread = groupChat.inboxItems.reduce((sum, item) => sum + (item.unreadCount ?? 0), 0);
+    return directChat.adminUnreadCount + groupUnread;
+  }, [directChat.adminUnreadCount, groupChat.inboxItems]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const activeEmployee = directChat.conversations.find(c => c.employeeId === directChat.activeEmployeeId);
+  const currentLock = directChat.activeEmployeeId ? directChat.conversationLocks[directChat.activeEmployeeId] : null;
+  const isLockedByOther = !!(currentLock && currentLock.lockedBy !== userId);
 
   const handleMaximize = () => {
-    if (activeEmployeeId) {
-      const params = new URLSearchParams({ employeeId: activeEmployeeId });
-      if (draftConversation?.employeeId === activeEmployeeId) {
-        params.set('employeeName', draftConversation.employeeName);
-        if (draftConversation.employeeNumber) {
-          params.set('employeeNumber', draftConversation.employeeNumber);
-        }
-      }
-      const href = `/admin/chat?${params.toString()}`;
-      startNavigation(href);
-      router.push(href);
-    } else {
-      startNavigation('/admin/chat');
-      router.push('/admin/chat');
-    }
+    const href = buildConversationUrl(unifiedChat.selectedConversation);
+    startNavigation(href);
+    router.push(href);
     setIsOpen(false);
   };
 
-  // Listen for external open chat events
   useEffect(() => {
     const handleOpenChat = (e: CustomEvent<AdminChatLaunchPayload>) => {
       setIsOpen(true);
-      openConversationFromLaunch(e.detail);
+      unifiedChat.selectConversation({ kind: 'direct', id: e.detail.employeeId });
     };
     window.addEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
     return () => window.removeEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
-  }, [openConversationFromLaunch]);
+  }, [unifiedChat]);
 
   useEffect(() => {
-    fetchConversations(activeView);
-  }, [activeView, fetchConversations]);
-
-  const activeEmployee = conversations.find(c => c.employeeId === activeEmployeeId);
+    if (!resumeState?.selection) return;
+    unifiedChat.selectConversation(resumeState.selection);
+  }, [resumeState, unifiedChat]);
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-      {/* Chat Window */}
       {isOpen && (
         <div className="mb-4 w-[650px] h-[500px] bg-card rounded-lg shadow-2xl border border-border flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
-          {/* Header */}
           <div className="bg-blue-600 dark:bg-blue-700 text-white p-3 flex items-center justify-between shrink-0">
             <h3 className="font-semibold">Chat Support</h3>
             <div className="flex items-center gap-1">
@@ -130,127 +92,106 @@ function FloatingChatWidgetContent() {
             </div>
           </div>
 
-          {/* Body */}
           <div className="flex-1 flex overflow-hidden bg-muted/50">
-            {/* Sidebar: Conversation List */}
-            <ConversationList
-              conversations={filteredConversations}
-              activeEmployeeId={activeEmployeeId}
-              currentAdminId={userId}
-              onSelect={handleSelectConversation}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              activeView={activeView}
-              onViewChange={handleViewChange}
-              typingEmployees={typingEmployees}
-              className="w-1/3 border-r border-border shrink-0"
-              itemClassName="p-3 gap-3"
+            <UnifiedConversationList
+              items={unifiedChat.items}
+              startChatCandidates={unifiedChat.startChatCandidates}
+              selectedConversation={unifiedChat.selectedConversation}
+              activeView={unifiedChat.activeView}
+              kindFilter={unifiedChat.kindFilter}
+              searchTerm={unifiedChat.searchTerm}
+              isLoading={unifiedChat.isLoading}
+              hasMore={unifiedChat.hasMore}
+              isLoadingMore={unifiedChat.isFetchingMore}
+              onSelect={unifiedChat.selectConversation}
+              onStartChat={employeeId => unifiedChat.selectConversation({ kind: 'direct', id: employeeId })}
+              onSearchChange={unifiedChat.setSearchTerm}
+              onViewChange={unifiedChat.setActiveView}
+              onKindFilterChange={unifiedChat.setKindFilter}
+              onLoadMore={unifiedChat.loadMore}
+              onArchive={item => {
+                void unifiedChat.archiveItem(item);
+              }}
+              onUnarchive={item => {
+                void unifiedChat.unarchiveItem(item);
+              }}
+              showCreateGroupButton={false}
               showExportButton={false}
-              showDate={false}
-              onArchive={handleArchiveConversation}
-              onUnarchive={handleUnarchiveConversation}
-              onLoadMore={fetchNextConversationPage}
-              hasMore={hasNextConversationPage}
-              isLoadingMore={isFetchingNextConversationPage}
+              className="w-1/3 border-r border-border shrink-0"
+              isWidget
             />
 
-            {/* Main: Active Chat Area */}
             <div className="flex-1 flex flex-col overflow-hidden bg-muted/30">
-              {activeEmployeeId ? (
-                <>
-                  {/* Active Chat Header */}
-                  <div className="p-2 px-4 border-b border-border bg-card flex items-center gap-2">
-                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                      <User className="text-blue-600 dark:text-blue-400" size={16} />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-medium text-sm leading-tight text-foreground">
-                        {activeEmployee?.employeeName}
-                      </span>
-                      {typingEmployees[activeEmployeeId] && (
-                        <span className="text-[10px] text-green-600 dark:text-green-400 animate-pulse">typing...</span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Messages */}
-                  <ChatMessageList
-                    messages={messages}
-                    isLoading={isLoading}
-                    hasNextPage={hasNextPage}
-                    isFetchingNextPage={isFetchingNextPage}
-                    fetchNextPage={fetchNextPage}
-                    currentAdminId={userId}
-                    className="flex-1 overflow-y-auto scrollbar-thin"
-                  />
-
-                  {/* Previews Area */}
-                  <ChatAttachmentPreviews
-                    previews={previews}
-                    onRemove={removeFile}
-                    className="px-4 py-2 gap-2"
-                    itemClassName="h-12 w-12"
-                  />
-
-                  {/* Footer Input */}
-                  <form
-                    onSubmit={e => {
-                      e.preventDefault();
-                      handleSendMessage();
-                    }}
-                    className="p-3 bg-card border-t border-border flex items-center gap-2 shrink-0"
-                  >
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={e => handleFileChange(Array.from(e.target.files || []))}
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={previews.length >= 4 || isUploading || isOptimizing || !canCreateChat}
-                      className="text-muted-foreground hover:text-blue-600 transition-colors disabled:opacity-50 shrink-0"
-                    >
-                      {isOptimizing ? <Loader2 size={20} className="animate-spin" /> : <Paperclip size={20} />}
-                    </button>
-                    <input
-                      type="text"
-                      value={inputText}
-                      onChange={e => handleInputChange(e.target.value)}
-                      disabled={isUploading || isOptimizing || !canCreateChat}
-                      placeholder={canCreateChat ? 'Type a message...' : 'You do not have permission to send messages'}
-                      className="flex-1 bg-muted rounded-full px-4 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-muted-foreground/50"
-                    />
-                    <button
-                      type="submit"
-                      disabled={
-                        (!inputText.trim() && previews.length === 0) ||
-                        !isConnected ||
-                        isUploading ||
-                        isOptimizing ||
-                        !canCreateChat
-                      }
-                      className="bg-blue-600 dark:bg-blue-700 text-white p-2 rounded-full disabled:opacity-50 hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors shrink-0"
-                    >
-                      {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Send size={18} />}
-                    </button>
-                  </form>
-                </>
-              ) : (
+              {!unifiedChat.selectedConversation ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-8 text-center">
                   <MessageSquare size={48} className="mb-4 opacity-10" />
-                  <p className="text-sm">Select a employee from the list to start chatting</p>
+                  <p className="text-sm">Select a conversation from the list to start chatting</p>
                 </div>
+              ) : unifiedChat.selectedConversation.kind === 'direct' ? (
+                <DirectChatPane
+                  activeEmployeeId={directChat.activeEmployeeId}
+                  activeEmployee={activeEmployee}
+                  messages={directChat.messages}
+                  isLoading={directChat.isLoading}
+                  hasNextPage={directChat.hasNextPage}
+                  isFetchingNextPage={directChat.isFetchingNextPage}
+                  fetchNextPage={directChat.fetchNextPage}
+                  currentAdminId={userId}
+                  typingEmployees={directChat.typingEmployees}
+                  isConnected={directChat.isConnected}
+                  isLockedByOther={isLockedByOther}
+                  canCreateChat={canCreateChat}
+                  inputText={directChat.inputText}
+                  previews={directChat.previews}
+                  isUploading={directChat.isUploading}
+                  isOptimizing={directChat.isOptimizing}
+                  onInputChange={directChat.handleInputChange}
+                  onSendMessage={() => {
+                    void directChat.handleSendMessage();
+                  }}
+                  onFileChange={files => {
+                    void directChat.handleFileChange(files);
+                  }}
+                  onRemoveFile={directChat.removeFile}
+                  onArchive={directChat.handleArchiveConversation}
+                  onUnarchive={directChat.handleUnarchiveConversation}
+                  fileInputRef={fileInputRef}
+                  isWidget
+                />
+              ) : (
+                <GroupChatPane
+                  activeGroupId={groupChat.activeGroupId}
+                  activeGroupTitle={groupChat.activeGroup?.title}
+                  activeGroupDescription={groupChat.activeGroup?.description}
+                  memberCount={groupChat.members.length}
+                  messages={groupChat.messages as unknown as ChatMessage[]}
+                  isMessagesLoading={groupChat.isMessagesLoading}
+                  currentAdminId={userId}
+                  previews={groupChat.previews}
+                  isUploading={groupChat.isUploading}
+                  inputText={groupChat.inputText}
+                  canCreateChat={canCreateChat}
+                  isRenamingGroup={groupChat.isRenamingGroup}
+                  onOpenMembers={() => {}}
+                  onRenameGroup={groupChat.renameActiveGroup}
+                  onInputChange={groupChat.setInputText}
+                  onSendMessage={() => {
+                    void groupChat.sendMessage();
+                  }}
+                  onFileChange={files => {
+                    void groupChat.handleFileChange(files);
+                  }}
+                  onRemoveFile={groupChat.removeFile}
+                  fileInputRef={fileInputRef}
+                  showManageButton={false}
+                  isWidget
+                />
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
@@ -262,25 +203,25 @@ function FloatingChatWidgetContent() {
       >
         {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
 
-        {!isOpen && adminUnreadCount > 0 && (
+        {!isOpen && totalUnreadCount > 0 && (
           <div className="absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold border-2 border-white dark:border-slate-900">
-            {adminUnreadCount}
+            {totalUnreadCount}
           </div>
         )}
 
-        {!isConnected && !isOpen && (
+        {!directChat.isConnected && !isOpen && (
           <div className="absolute bottom-0 right-0 w-3 h-3 bg-gray-400 rounded-full border-2 border-white dark:border-slate-900" />
         )}
       </button>
 
       <ConfirmDialog
-        isOpen={!!pendingArchivedLaunch}
-        onClose={cancelArchivedLaunch}
-        onConfirm={confirmArchivedLaunch}
+        isOpen={!!directChat.pendingArchivedLaunch}
+        onClose={directChat.cancelArchivedLaunch}
+        onConfirm={directChat.confirmArchivedLaunch}
         title="Resume archived chat?"
         description={
-          pendingArchivedLaunch
-            ? `Chat with ${pendingArchivedLaunch.employeeName} is archived. Resuming will move it back to Inbox and unmute it.`
+          directChat.pendingArchivedLaunch
+            ? `Chat with ${directChat.pendingArchivedLaunch.employeeName} is archived. Resuming will move it back to Inbox and unmute it.`
             : ''
         }
         confirmText="Resume Chat"

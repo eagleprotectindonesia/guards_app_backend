@@ -5,11 +5,6 @@ import { isHrApprovalRequiredForLeaveRequest } from './leave-requests';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 
-type LeaveRecipientEmployeeScope = {
-  department: string | null;
-  officeId: string | null;
-};
-
 type ActiveOwnershipAssignment = {
   adminId: string;
   departmentKey: string | null;

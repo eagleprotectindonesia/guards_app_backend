@@ -241,7 +241,6 @@ export async function setGroupChatArchiveState(params: { groupId: string; actor:
   return db.$transaction(async tx => {
     const participant = await getActiveParticipantForActor(tx, params.groupId, params.actor);
     if (!participant) throw new Error('Active group participant not found');
-    const now = new Date();
     return tx.groupChatParticipant.update({
       where: { id: participant.id },
       data: {

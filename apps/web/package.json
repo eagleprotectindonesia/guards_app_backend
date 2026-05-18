@@ -30,6 +30,7 @@
     "@repo/auth-server": "workspace:*",
     "@repo/database": "workspace:*",
     "@repo/notifications": "workspace:*",
+    "@repo/realtime": "workspace:*",
     "@repo/shared": "workspace:*",
     "@repo/storage": "workspace:*",
     "@repo/types": "workspace:*",

@@ -170,10 +170,6 @@ function getSickCycleStart(date: Date) {
   return new Date(Date.UTC(year, month - 1, 21));
 }
 
-function getSickCycleEnd(cycleStart: Date) {
-  return new Date(Date.UTC(cycleStart.getUTCFullYear(), cycleStart.getUTCMonth() + 1, 20));
-}
-
 async function listWorkingDateKeysInclusiveForEmployee(
   employee: { id: string; role: EmployeeRole | null; department?: string | null },
   startDateKey: string,
@@ -200,8 +196,6 @@ async function listWorkingDateKeysInclusiveForEmployee(
         { date: at, department: employee.department ?? null },
         tx
       );
-      const weekday = at.getUTCDay();
-      const isWeekday = weekday >= 1 && weekday <= 5;
       const isHolidayOff =
         holidayPolicy?.entry.affectsAttendance === true &&
         (holidayPolicy.entry.type === 'holiday' || holidayPolicy.entry.type === 'week_off') &&
@@ -290,7 +284,7 @@ function parseHrApprovalReasons(rawValue: string | null | undefined) {
   }
 }
 
-async function getHrApprovalReasons(tx: TxLike = prisma) {
+async function getHrApprovalReasons() {
   const setting = await getSystemSetting(LEAVE_REASONS_REQUIRE_HR_APPROVAL_SETTING);
   return parseHrApprovalReasons(setting?.value);
 }

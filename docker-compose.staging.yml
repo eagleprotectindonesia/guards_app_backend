@@ -44,6 +44,31 @@ services:
           cpus: '0.25'
           memory: 256M
 
+  realtime:
+    image: ${ECR_REGISTRY}/guards-backend:realtime-${IMAGE_TAG:-latest}
+    container_name: ep_guard_staging_realtime
+    restart: unless-stopped
+    env_file: .env.staging
+    ports:
+      - '127.0.0.1:3003:3001'
+    environment:
+      - TZ=Asia/Makassar
+      - REALTIME_PORT=3001
+      - ENABLE_REALTIME_SYSTEM_SUBSCRIBERS=true
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - staging_network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
   migration:
     image: ${ECR_REGISTRY}/guards-backend:migration-${IMAGE_TAG:-latest}
     container_name: ep_guard_staging_migration

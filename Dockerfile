@@ -14,7 +14,9 @@ COPY . .
 RUN turbo prune --scope=web --docker && \
     mv out out-web && \
     turbo prune --scope=worker --docker && \
-    mv out out-worker
+    mv out out-worker && \
+    turbo prune --scope=realtime --docker && \
+    mv out out-realtime
 
 # 2. Shared build base
 FROM base AS build-base
@@ -54,7 +56,21 @@ ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
 RUN pnpm --filter @repo/database prisma:generate && \
     turbo run build --filter=worker
 
-# 5. Package Worker runtime
+# 5. Build Realtime
+FROM build-base AS realtime-builder
+COPY --from=pruner /app/out-realtime/json/ .
+RUN --mount=type=cache,target=/pnpm/store \
+    pnpm install --frozen-lockfile --ignore-scripts
+COPY --from=pruner /app/out-realtime/full/ .
+COPY turbo.json turbo.json
+
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
+    NODE_ENV=production
+
+RUN pnpm --filter @repo/database prisma:generate && \
+    turbo run build --filter=realtime
+
+# 6. Package Worker runtime
 FROM worker-builder AS worker-deployer
 RUN pnpm --filter worker --prod deploy --legacy /out/worker-deploy && \
     DEPLOYED_PRISMA_CLIENT_DIR="$(find /out/worker-deploy/node_modules -path '*/node_modules/@prisma/client' -type d | head -n 1)" && \
@@ -68,7 +84,21 @@ RUN pnpm --filter worker --prod deploy --legacy /out/worker-deploy && \
     cp -R "$BUILT_PRISMA_DIR"/. "$DEPLOYED_NODE_MODULES_DIR/.prisma/" && \
     cp -R "$BUILT_PRISMA_DIR"/. "$DEPLOYED_PRISMA_CLIENT_DIR/.prisma/"
 
-# 6. Web Runner (production image)
+# 7. Package Realtime runtime
+FROM realtime-builder AS realtime-deployer
+RUN pnpm --filter realtime --prod deploy --legacy /out/realtime-deploy && \
+    DEPLOYED_PRISMA_CLIENT_DIR="$(find /out/realtime-deploy/node_modules -path '*/node_modules/@prisma/client' -type d | head -n 1)" && \
+    DEPLOYED_NODE_MODULES_DIR="$(dirname "$(dirname "$DEPLOYED_PRISMA_CLIENT_DIR")")" && \
+    BUILT_PRISMA_DIR="$(find /app/node_modules -path '*/node_modules/.prisma' -type d | head -n 1)" && \
+    test -n "$DEPLOYED_PRISMA_CLIENT_DIR" && \
+    test -n "$DEPLOYED_NODE_MODULES_DIR" && \
+    test -n "$BUILT_PRISMA_DIR" && \
+    mkdir -p "$DEPLOYED_NODE_MODULES_DIR/.prisma" && \
+    mkdir -p "$DEPLOYED_PRISMA_CLIENT_DIR/.prisma" && \
+    cp -R "$BUILT_PRISMA_DIR"/. "$DEPLOYED_NODE_MODULES_DIR/.prisma/" && \
+    cp -R "$BUILT_PRISMA_DIR"/. "$DEPLOYED_PRISMA_CLIENT_DIR/.prisma/"
+
+# 8. Web Runner (production image)
 FROM base AS app-runner
 WORKDIR /app
 ENV NODE_ENV=production \
@@ -88,7 +118,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
 
 CMD ["pnpm", "--filter", "web", "start"]
 
-# 7. Worker Runner (production image)
+# 9. Worker Runner (production image)
 FROM node:24-alpine AS worker-runner
 WORKDIR /app
 ENV NODE_ENV=production \
@@ -108,7 +138,29 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
 
 CMD ["node", "dist/worker.js"]
 
-# 8. Migration Runner (lightweight)
+# 10. Realtime Runner (production image)
+FROM node:24-alpine AS realtime-runner
+WORKDIR /app
+ENV NODE_ENV=production \
+    TZ=Asia/Makassar \
+    REALTIME_PORT=3001
+
+RUN apk add --no-cache libc6-compat wget && \
+    addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 realtimeuser
+
+COPY --from=realtime-deployer /out/realtime-deploy ./
+
+USER realtimeuser
+
+EXPOSE 3001
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+
+CMD ["node", "dist/server.js"]
+
+# 11. Migration Runner (lightweight)
 FROM base AS migration-runner
 WORKDIR /app
 ENV NODE_ENV=production \

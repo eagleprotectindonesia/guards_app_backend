@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { addMonths, eachDayOfInterval, endOfMonth, format, isSameDay, isWithinInterval, parseISO, startOfMonth, subMonths } from 'date-fns';
 import { createHolidayCalendarEntryAction, deleteHolidayCalendarEntryAction, updateHolidayCalendarEntryAction } from '../actions';
 import toast from 'react-hot-toast';
-import HolidayEntryModal, { type HolidayEntry, type HolidayType, type HolidayScope } from './holiday-entry-modal';
+import HolidayEntryModal, { type HolidayEntry, type HolidayType } from './holiday-entry-modal';
 import { useAdminRouter } from '../../context/admin-router';
 
 type Props = {

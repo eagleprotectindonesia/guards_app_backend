@@ -12,8 +12,12 @@ module.exports = {
         baseUrl: ".",
         paths: {
           "@/*": ["./apps/web/*"],
+          "@repo/auth-server": ["./packages/auth-server/src"],
           "@repo/database": ["./packages/database/src"],
+          "@repo/notifications": ["./packages/notifications/src"],
+          "@repo/realtime": ["./packages/realtime/src"],
           "@repo/shared": ["./packages/shared/src"],
+          "@repo/storage": ["./packages/storage/src"],
           "@repo/types": ["./packages/types/src"],
           "@repo/validations": ["./packages/validations/src"]
         }
@@ -28,7 +32,12 @@ module.exports = {
     "^@/lib/(.*)$": "<rootDir>/apps/web/lib/$1",
     "^@/(.*)$": "<rootDir>/apps/web/$1",
     "^@repo/database$": "<rootDir>/packages/database/src",
+    "^@repo/auth-server$": "<rootDir>/packages/auth-server/src",
+    "^@repo/notifications$": "<rootDir>/packages/notifications/src",
+    "^@repo/realtime$": "<rootDir>/packages/realtime/src",
+    "^@repo/realtime/(.*)$": "<rootDir>/packages/realtime/src/$1",
     "^@repo/shared$": "<rootDir>/packages/shared/src",
+    "^@repo/storage$": "<rootDir>/packages/storage/src",
     "^@repo/types$": "<rootDir>/packages/types/src",
     "^@repo/validations$": "<rootDir>/packages/validations/src"
   },

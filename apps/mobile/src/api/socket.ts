@@ -6,6 +6,7 @@ import { storage, STORAGE_KEYS } from '../utils/storage';
 let socket: Socket | null = null;
 let appStateSubscription: NativeEventSubscription | null = null;
 let socketCreationPromise: Promise<Socket | null> | null = null;
+const SOCKET_BASE_URL = process.env.EXPO_PUBLIC_SOCKET_URL?.trim() || BASE_URL;
 
 const shouldKeepSocketConnected = (appState: AppStateStatus) => appState === 'active';
 
@@ -38,7 +39,7 @@ export const getSocket = async () => {
       return null;
     }
 
-    socket = io(BASE_URL, {
+    socket = io(SOCKET_BASE_URL, {
       auth: {
         token,
       },

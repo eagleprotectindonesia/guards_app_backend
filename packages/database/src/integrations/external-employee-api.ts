@@ -31,7 +31,7 @@ export async function fetchExternalEmployees(): Promise<ExternalEmployee[]> {
       throw new Error(`Failed to fetch external employees: ${response.statusText}`);
     }
 
-    return await response.json();
+    return (await response.json()) as ExternalEmployee[];
   } catch (error) {
     console.error('Error fetching external employees:', error);
     throw error;

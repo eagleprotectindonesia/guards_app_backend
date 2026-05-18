@@ -2,7 +2,7 @@ import { io, Socket } from 'socket.io-client';
 import type { Admin, Employee } from '@repo/database';
 import { generateAdminToken, generateEmployeeToken } from '../fixtures/auth';
 
-const SOCKET_URL = process.env.API_BASE_URL || 'http://localhost:3000';
+const SOCKET_URL = process.env.SOCKET_BASE_URL || process.env.API_BASE_URL || 'http://localhost:3000';
 
 /**
  * Create a Socket.io client for testing

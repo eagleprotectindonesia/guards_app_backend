@@ -1,11 +1,16 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSession } from '../context/session-context';
 import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
 import { useAdminUnifiedChatInbox } from '@/hooks/use-admin-unified-chat-inbox';
-import { buildConversationUrl, parseConversationSelection } from '@/lib/chat/conversation-selection';
+import {
+  buildConversationUrl,
+  isSameConversation,
+  parseConversationSelection,
+} from '@/lib/chat/conversation-selection';
+import { saveWidgetResumeState } from '@/lib/chat/widget-resume-state';
 import { UnifiedConversationList } from '../components/chat/unified-conversation-list';
 import { GroupCreateDialog } from '../components/chat/group-create-dialog';
 import { GroupMemberManager } from '../components/chat/group-member-manager';
@@ -17,6 +22,7 @@ import { ChatMessage } from '@/types/chat';
 export function AdminChatClient() {
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isMemberManagerOpen, setIsMemberManagerOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -34,21 +40,21 @@ export function AdminChatClient() {
     () => ({
       initialEmployeeId: selectionFromUrl?.kind === 'direct' ? selectionFromUrl.id : null,
       initialDraft: null,
-      onSelectConversation: (employeeId: string | null) => {
-        const nextUrl = buildConversationUrl(employeeId ? { kind: 'direct', id: employeeId } : null);
-        if (nextUrl !== currentUrl) {
-          startNavigation(nextUrl);
-          router.replace(nextUrl, { scroll: false });
-        }
-      },
+      currentAdminId: userId,
     }),
-    [currentUrl, router, selectionFromUrl, startNavigation]
+    [selectionFromUrl?.id, selectionFromUrl?.kind, userId]
   );
 
   const unifiedChat = useAdminUnifiedChatInbox(chatOptions);
   const groupChat = unifiedChat.groupChat;
   const directChat = unifiedChat.directChat;
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!selectionFromUrl) return;
+    if (isSameConversation(unifiedChat.selectedConversation, selectionFromUrl)) return;
+    unifiedChat.selectConversation(selectionFromUrl);
+  }, [selectionFromUrl, unifiedChat.selectedConversation, unifiedChat.selectConversation]);
 
   const activeEmployee = directChat.conversations.find(c => c.employeeId === directChat.activeEmployeeId);
   const currentLock = directChat.activeEmployeeId ? directChat.conversationLocks[directChat.activeEmployeeId] : null;
@@ -58,11 +64,21 @@ export function AdminChatClient() {
     () => unifiedChat.items.map(item => ({ kind: item.kind, id: item.id, title: item.title })),
     [unifiedChat.items]
   );
+  const handleMinimize = () => {
+    saveWidgetResumeState(unifiedChat.selectedConversation);
+    startNavigation('/admin/dashboard');
+    if (window.history.length > 1) {
+      router.back();
+      return;
+    }
+    router.push('/admin/dashboard');
+  };
 
   return (
     <div className="flex h-[calc(100vh-180px)] bg-card rounded-xl shadow-sm border border-border overflow-hidden relative">
       <UnifiedConversationList
         items={unifiedChat.items}
+        startChatCandidates={unifiedChat.startChatCandidates}
         selectedConversation={unifiedChat.selectedConversation}
         activeView={unifiedChat.activeView}
         kindFilter={unifiedChat.kindFilter}
@@ -79,6 +95,14 @@ export function AdminChatClient() {
           }
         }}
         onSearchChange={unifiedChat.setSearchTerm}
+        onStartChat={employeeId => {
+          unifiedChat.selectConversation({ kind: 'direct', id: employeeId });
+          const nextUrl = buildConversationUrl({ kind: 'direct', id: employeeId });
+          if (nextUrl !== currentUrl) {
+            startNavigation(nextUrl);
+            router.replace(nextUrl, { scroll: false });
+          }
+        }}
         onViewChange={unifiedChat.setActiveView}
         onKindFilterChange={unifiedChat.setKindFilter}
         onLoadMore={unifiedChat.loadMore}
@@ -89,10 +113,7 @@ export function AdminChatClient() {
           void unifiedChat.unarchiveItem(item);
         }}
         onCreateGroup={() => setIsCreateGroupOpen(true)}
-        onExport={() => {
-          const el = document.getElementById('chat-export-open-btn');
-          el?.click();
-        }}
+        onExport={() => setIsExportOpen(true)}
         isExportDisabled={!unifiedChat.selectedConversation}
         exportDisabledReason="Select a conversation first"
         className="w-1/3 border-r border-border shrink-0"
@@ -132,6 +153,7 @@ export function AdminChatClient() {
             onRemoveFile={directChat.removeFile}
             onArchive={directChat.handleArchiveConversation}
             onUnarchive={directChat.handleUnarchiveConversation}
+            onMinimize={handleMinimize}
             fileInputRef={fileInputRef}
           />
         ) : (
@@ -147,7 +169,9 @@ export function AdminChatClient() {
             isUploading={groupChat.isUploading}
             inputText={groupChat.inputText}
             canCreateChat={canCreateChat}
+            isRenamingGroup={groupChat.isRenamingGroup}
             onOpenMembers={() => setIsMemberManagerOpen(true)}
+            onRenameGroup={groupChat.renameActiveGroup}
             onInputChange={groupChat.setInputText}
             onSendMessage={() => {
               void groupChat.sendMessage();
@@ -156,17 +180,19 @@ export function AdminChatClient() {
               void groupChat.handleFileChange(files);
             }}
             onRemoveFile={groupChat.removeFile}
+            onMinimize={handleMinimize}
             fileInputRef={fileInputRef}
           />
         )}
       </div>
 
-      <div className="hidden">
-        <ChatExport
-          targets={exportTargets}
-          initialTarget={unifiedChat.selectedConversation}
-        />
-      </div>
+      <ChatExport
+        targets={exportTargets}
+        initialTarget={unifiedChat.selectedConversation}
+        isOpen={isExportOpen}
+        onOpenChange={setIsExportOpen}
+        hideTrigger
+      />
 
       <GroupCreateDialog
         isOpen={isCreateGroupOpen}
@@ -206,7 +232,6 @@ export function AdminChatClient() {
         canManage={canCreateChat}
         canDisband={false}
         onDisbandGroup={groupChat.disbandGroup}
-        isDisbandingGroup={groupChat.isDisbandingGroup}
       />
     </div>
   );
