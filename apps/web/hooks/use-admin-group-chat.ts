@@ -101,6 +101,7 @@ export function useAdminGroupChat() {
   const [isUploading, setIsUploading] = useState(false);
   const [isManagingMembers, setIsManagingMembers] = useState(false);
   const [isDisbandingGroup, setIsDisbandingGroup] = useState(false);
+  const [isRenamingGroup, setIsRenamingGroup] = useState(false);
   const [createGroupTitle, setCreateGroupTitle] = useState('');
   const [createGroupDescription, setCreateGroupDescription] = useState('');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
@@ -427,6 +428,41 @@ export function useAdminGroupChat() {
     return false;
   }, []);
 
+  const renameActiveGroup = useCallback(
+    async (title: string) => {
+      if (!activeGroupId) return false;
+      const nextTitle = title.trim();
+      if (!nextTitle) {
+        toast.error('Group title is required');
+        return false;
+      }
+
+      setIsRenamingGroup(true);
+      try {
+        const response = await fetch(`/api/shared/group-chat/${activeGroupId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: nextTitle }),
+        });
+        if (!response.ok) {
+          toast.error(await parseErrorResponse(response, 'Failed to update group name'));
+          return false;
+        }
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'groups'] }),
+          queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'group', activeGroupId] }),
+        ]);
+        return true;
+      } catch {
+        toast.error('Failed to update group name');
+        return false;
+      } finally {
+        setIsRenamingGroup(false);
+      }
+    },
+    [activeGroupId, queryClient]
+  );
+
   useSocketEvent('group_new_message', message => {
     queryClient.invalidateQueries({ queryKey: ['admin', 'group-chat', 'groups'] });
     if (message.groupId !== activeGroupId) return;
@@ -463,6 +499,7 @@ export function useAdminGroupChat() {
     isUploading,
     isManagingMembers,
     isDisbandingGroup,
+    isRenamingGroup,
     createGroupTitle,
     setCreateGroupTitle,
     createGroupDescription,
@@ -485,6 +522,7 @@ export function useAdminGroupChat() {
     unarchiveGroup,
     markGroupAsReadOptimistic,
     disbandGroup,
+    renameActiveGroup,
     fetchNextGroups: groupsQuery.fetchNextPage,
     hasNextGroups: groupsQuery.hasNextPage,
     isFetchingNextGroups: groupsQuery.isFetchingNextPage,

@@ -1,6 +1,7 @@
 'use client';
 
-import { Loader2, Paperclip, Send, Users } from 'lucide-react';
+import { Check, Loader2, Pencil, Paperclip, Send, Users, X } from 'lucide-react';
+import { useState } from 'react';
 import { ChatMessage } from '@/types/chat';
 import { ChatMessageList } from './message-list';
 import { ChatAttachmentPreviews } from './attachment-previews';
@@ -17,7 +18,9 @@ type GroupChatPaneProps = {
   isUploading: boolean;
   inputText: string;
   canCreateChat: boolean;
+  isRenamingGroup: boolean;
   onOpenMembers: () => void;
+  onRenameGroup: (title: string) => Promise<boolean>;
   onInputChange: (value: string) => void;
   onSendMessage: () => void;
   onFileChange: (files: File[]) => void;
@@ -38,13 +41,18 @@ export function GroupChatPane(props: GroupChatPaneProps) {
     isUploading,
     inputText,
     canCreateChat,
+    isRenamingGroup,
     onOpenMembers,
+    onRenameGroup,
     onInputChange,
     onSendMessage,
     onFileChange,
     onRemoveFile,
     fileInputRef,
   } = props;
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editingTitle, setEditingTitle] = useState<string | null>(null);
+  const currentTitle = activeGroupTitle || '';
 
   if (!activeGroupId) {
     return (
@@ -66,7 +74,58 @@ export function GroupChatPane(props: GroupChatPaneProps) {
             <Users className="text-blue-600 dark:text-blue-400" size={20} />
           </div>
           <div>
-            <h3 className="font-semibold text-foreground">{activeGroupTitle || 'Group Chat'}</h3>
+            {isEditingTitle ? (
+              <div className="flex items-center gap-2">
+                <input
+                  value={editingTitle ?? currentTitle}
+                  onChange={e => setEditingTitle(e.target.value)}
+                  className="h-8 rounded-md border border-border bg-background px-2 text-sm text-foreground"
+                  maxLength={120}
+                  disabled={isRenamingGroup}
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await onRenameGroup((editingTitle ?? currentTitle).trim());
+                    if (ok) setIsEditingTitle(false);
+                  }}
+                  disabled={isRenamingGroup || !(editingTitle ?? currentTitle).trim()}
+                  className="text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  aria-label="Save group name"
+                >
+                  {isRenamingGroup ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingTitle(null);
+                    setIsEditingTitle(false);
+                  }}
+                  disabled={isRenamingGroup}
+                  className="text-muted-foreground hover:text-foreground disabled:opacity-50"
+                  aria-label="Cancel editing group name"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold text-foreground">{activeGroupTitle || 'Group Chat'}</h3>
+                {canCreateChat && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingTitle(currentTitle);
+                      setIsEditingTitle(true);
+                    }}
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="Edit group name"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                )}
+              </div>
+            )}
             <span className="text-xs text-muted-foreground">
               {memberCount} members
               {activeGroupDescription ? ` • ${activeGroupDescription}` : ''}

@@ -12,10 +12,23 @@ type ChatExportProps = {
   initialTarget?: { kind: 'direct' | 'group'; id: string } | null;
   activeEmployeeId?: string | null;
   employees?: { id: string; fullName: string }[];
+  isOpen?: boolean;
+  onOpenChange?: (isOpen: boolean) => void;
+  hideTrigger?: boolean;
 };
 
-export default function ChatExport({ targets, initialTarget, activeEmployeeId, employees }: ChatExportProps) {
-  const [isExportOpen, setIsExportOpen] = useState(false);
+export default function ChatExport({
+  targets,
+  initialTarget,
+  activeEmployeeId,
+  employees,
+  isOpen,
+  onOpenChange,
+  hideTrigger = false,
+}: ChatExportProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isExportOpen = isOpen ?? internalOpen;
+  const setIsExportOpen = onOpenChange ?? setInternalOpen;
   const resolvedTargets =
     targets ??
     (employees ?? []).map(employee => ({ kind: 'direct' as const, id: employee.id, title: employee.fullName }));
@@ -131,15 +144,17 @@ export default function ChatExport({ targets, initialTarget, activeEmployeeId, e
 
   return (
     <>
-      <button
-        id="chat-export-open-btn"
-        onClick={() => setIsExportOpen(true)}
-        className="inline-flex items-center justify-center h-9 px-3 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm"
-        title="Download Chat History"
-      >
-        <Download className="w-4 h-4 mr-2" />
-        Download History
-      </button>
+      {!hideTrigger && (
+        <button
+          id="chat-export-open-btn"
+          onClick={() => setIsExportOpen(true)}
+          className="inline-flex items-center justify-center h-9 px-3 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm"
+          title="Download Chat History"
+        >
+          <Download className="w-4 h-4 mr-2" />
+          Download History
+        </button>
+      )}
 
       <ChatExportModal
         isOpen={isExportOpen}

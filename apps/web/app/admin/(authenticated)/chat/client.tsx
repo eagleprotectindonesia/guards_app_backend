@@ -17,6 +17,7 @@ import { ChatMessage } from '@/types/chat';
 export function AdminChatClient() {
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isMemberManagerOpen, setIsMemberManagerOpen] = useState(false);
+  const [isExportOpen, setIsExportOpen] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -98,10 +99,7 @@ export function AdminChatClient() {
           void unifiedChat.unarchiveItem(item);
         }}
         onCreateGroup={() => setIsCreateGroupOpen(true)}
-        onExport={() => {
-          const el = document.getElementById('chat-export-open-btn');
-          el?.click();
-        }}
+        onExport={() => setIsExportOpen(true)}
         isExportDisabled={!unifiedChat.selectedConversation}
         exportDisabledReason="Select a conversation first"
         className="w-1/3 border-r border-border shrink-0"
@@ -156,7 +154,9 @@ export function AdminChatClient() {
             isUploading={groupChat.isUploading}
             inputText={groupChat.inputText}
             canCreateChat={canCreateChat}
+            isRenamingGroup={groupChat.isRenamingGroup}
             onOpenMembers={() => setIsMemberManagerOpen(true)}
+            onRenameGroup={groupChat.renameActiveGroup}
             onInputChange={groupChat.setInputText}
             onSendMessage={() => {
               void groupChat.sendMessage();
@@ -170,12 +170,13 @@ export function AdminChatClient() {
         )}
       </div>
 
-      <div className="hidden">
-        <ChatExport
-          targets={exportTargets}
-          initialTarget={unifiedChat.selectedConversation}
-        />
-      </div>
+      <ChatExport
+        targets={exportTargets}
+        initialTarget={unifiedChat.selectedConversation}
+        isOpen={isExportOpen}
+        onOpenChange={setIsExportOpen}
+        hideTrigger
+      />
 
       <GroupCreateDialog
         isOpen={isCreateGroupOpen}
