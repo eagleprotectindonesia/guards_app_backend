@@ -174,6 +174,7 @@ function FloatingChatWidgetContent() {
                   isRenamingGroup={groupChat.isRenamingGroup}
                   onOpenMembers={() => {}}
                   onRenameGroup={groupChat.renameActiveGroup}
+                  onLeaveGroup={groupChat.leaveActiveGroup}
                   onInputChange={groupChat.setInputText}
                   onSendMessage={() => {
                     void groupChat.sendMessage();
