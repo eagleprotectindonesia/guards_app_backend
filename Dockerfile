@@ -26,7 +26,7 @@ RUN apk add --no-cache python3 make g++
 FROM build-base AS web-builder
 COPY --from=pruner /app/out-web/json/ .
 RUN --mount=type=cache,target=/pnpm/store \
-    pnpm install --frozen-lockfile --ignore-scripts
+    pnpm install --frozen-lockfile
 COPY --from=pruner /app/out-web/full/ .
 COPY turbo.json turbo.json
 
