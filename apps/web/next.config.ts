@@ -1,5 +1,4 @@
 import type { NextConfig } from 'next';
-import path from 'path';
 // import path from 'path';
 // import dotenv from 'dotenv';
 
@@ -15,9 +14,6 @@ const nextConfig: NextConfig = {
   experimental: {
     authInterrupts: true,
   },
-
-  output: 'standalone',
-  outputFileTracingRoot: path.join(__dirname, '../../'),
 };
 
 export default nextConfig;

@@ -5,7 +5,7 @@ import { UnifiedServer } from '../socket';
 /**
  * Listens to Redis channels and broadcasts to Socket.io rooms.
  */
-export async function registerSystemHandlers(io: UnifiedServer) {
+export function registerSystemHandlers(io: UnifiedServer) {
   const sub = redis.duplicate({ enableOfflineQueue: true });
 
   sub.on('error', err => {
@@ -59,17 +59,18 @@ export async function registerSystemHandlers(io: UnifiedServer) {
     void handleRedisMessage(channel, message);
   });
 
-  try {
-    await sub.psubscribe('alerts:site:*');
-    await sub.psubscribe('admin-notifications:admin:*');
-    await sub.subscribe('dashboard:active-shifts', 'dashboard:upcoming-shifts');
-    console.log('[Socket Redis Sub] Subscribed to alerts and dashboard channels');
-  } catch (err) {
-    console.error('[Socket Redis Sub] Subscription Failed:', err);
-  }
+  void (async () => {
+    try {
+      await sub.psubscribe('alerts:site:*');
+      await sub.psubscribe('admin-notifications:admin:*');
+      await sub.subscribe('dashboard:active-shifts', 'dashboard:upcoming-shifts');
+      console.log('[Socket Redis Sub] Subscribed to alerts and dashboard channels');
+    } catch (err) {
+      console.error('[Socket Redis Sub] Subscription Failed:', err);
+    }
+  })();
 
-  // Cleanup on shutdown if needed (though Socket.io lifecycle might handle it)
-  return () => {
-    sub.quit();
+  return async () => {
+    await sub.quit();
   };
 }
