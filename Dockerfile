@@ -27,7 +27,7 @@ FROM build-base AS web-builder
 COPY --from=pruner /app/out-web/json/ .
 COPY turbo.json turbo.json
 RUN --mount=type=cache,target=/pnpm/store \
-    pnpm install --frozen-lockfile
+    SKIP_TURBO_POSTINSTALL=1 pnpm install --frozen-lockfile
 COPY --from=pruner /app/out-web/full/ .
 
 ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
