@@ -1,5 +1,5 @@
 import type { NextConfig } from 'next';
-// import path from 'path';
+import path from 'path';
 // import dotenv from 'dotenv';
 
 // 🌍 Load environment variables from the root .env file
@@ -8,6 +8,8 @@ import type { NextConfig } from 'next';
 // const isBeta = process.env.APP_ENV === 'beta';
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
+  outputFileTracingRoot: path.join(__dirname, '../../'),
   /* config options here */
   // basePath: isBeta ? '/beta' : '',
 
