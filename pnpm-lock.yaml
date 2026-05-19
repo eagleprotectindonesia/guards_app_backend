@@ -11,6 +11,9 @@ importers:
       '@playwright/test':
         specifier: ^1.58.2
         version: 1.58.2
+      '@tailwindcss/postcss':
+        specifier: ^4.2.1
+        version: 4.2.1
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
@@ -29,6 +32,9 @@ importers:
       prettier:
         specifier: ^3.3.3
         version: 3.8.1
+      tailwindcss:
+        specifier: ^4.3.0
+        version: 4.3.0
       ts-jest:
         specifier: ^29.4.6
         version: 29.4.6(@babel/core@7.29.0)(@jest/transform@30.3.0)(@jest/types@30.3.0)(babel-jest@30.3.0(@babel/core@7.29.0))(jest-util@30.3.0)(jest@30.3.0(@types/node@20.19.37)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@20.19.37)(typescript@5.9.3)))(typescript@5.9.3)
@@ -532,10 +538,10 @@ importers:
       sharp:
         specifier: ^0.34.5
         version: 0.34.5
-      socket.io-client:
+      socket.io:
         specifier: ^4.8.3
         version: 4.8.3
-      socket.io:
+      socket.io-client:
         specifier: ^4.8.3
         version: 4.8.3
       swagger-ui-react:
@@ -554,18 +560,18 @@ importers:
         specifier: ^4.1.13
         version: 4.3.6
     devDependencies:
-      '@repo/tsconfig':
-        specifier: workspace:*
-        version: link:../../packages/tsconfig
       '@repo/realtime':
         specifier: workspace:*
         version: link:../../packages/realtime
-      '@tailwindcss/postcss':
-        specifier: ^4
-        version: 4.2.1
+      '@repo/tsconfig':
+        specifier: workspace:*
+        version: link:../../packages/tsconfig
       '@socket.io/redis-adapter':
         specifier: ^8.3.0
         version: 8.3.0(socket.io-adapter@2.5.6)
+      '@tailwindcss/postcss':
+        specifier: ^4
+        version: 4.2.1
       '@types/google.maps':
         specifier: ^3.58.1
         version: 3.58.1
@@ -10975,6 +10981,9 @@ packages:
 
   tailwindcss@4.2.1:
     resolution: {integrity: sha512-/tBrSQ36vCleJkAOsy9kbNTgaxvGbyOamC30PRePTQe/o1MFwEKHQk4Cn7BNGaPtjp+PuUrByJehM1hgxfq4sw==}
+
+  tailwindcss@4.3.0:
+    resolution: {integrity: sha512-y6nxMGB1nMW9R6k96e5gdIFzcfL/gTJRNaqGes1YvkLnPVXzWgbqFF2yLC0T8G774n24cx3Pe8XrKoniCOAH+Q==}
 
   tapable@2.3.0:
     resolution: {integrity: sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg==}
@@ -25349,6 +25358,8 @@ snapshots:
       - yaml
 
   tailwindcss@4.2.1: {}
+
+  tailwindcss@4.3.0: {}
 
   tapable@2.3.0: {}
 
