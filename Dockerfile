@@ -36,16 +36,32 @@ ARG SENTRY_ORG
 ARG SENTRY_PROJECT
 ARG SENTRY_AUTH_TOKEN
 ARG SENTRY_ENVIRONMENT
+ARG CI
+ARG SENTRY_LOG_LEVEL
 ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY} \
     NEXT_PUBLIC_SENTRY_DSN=${NEXT_PUBLIC_SENTRY_DSN} \
     SENTRY_ORG=${SENTRY_ORG} \
     SENTRY_PROJECT=${SENTRY_PROJECT} \
     SENTRY_AUTH_TOKEN=${SENTRY_AUTH_TOKEN} \
     SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT} \
+    CI=${CI} \
+    SENTRY_LOG_LEVEL=${SENTRY_LOG_LEVEL} \
     DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
     NODE_ENV=production
 
-RUN turbo run build --filter=web && \
+RUN test -n "$NEXT_PUBLIC_SENTRY_DSN" && \
+    test -n "$SENTRY_ORG" && \
+    test -n "$SENTRY_PROJECT" && \
+    test -n "$SENTRY_AUTH_TOKEN" && \
+    echo "[sentry] web build preflight: org=$SENTRY_ORG project=$SENTRY_PROJECT env=$SENTRY_ENVIRONMENT dsn_host=$(echo "$NEXT_PUBLIC_SENTRY_DSN" | sed -E 's#^[^:]+://([^/@]+).*$#\\1#') token_present=yes token_length=${#SENTRY_AUTH_TOKEN} ci=${CI:-unset} log_level=${SENTRY_LOG_LEVEL:-unset}" && \
+    turbo run build --filter=web && \
+    DEBUG_ID_COUNT=$(grep -Rho "debugId=" apps/web/.next 2>/dev/null | wc -l | tr -d ' ') && \
+    MAP_COUNT=$(find apps/web/.next -type f -name '*.map' | wc -l | tr -d ' ') && \
+    echo "[sentry] web build artifacts: debug_id_markers=$DEBUG_ID_COUNT source_map_files=$MAP_COUNT" && \
+    if [ "$DEBUG_ID_COUNT" = "0" ] || [ "$MAP_COUNT" = "0" ]; then \
+      echo "[sentry] expected debug IDs and source maps were not found in apps/web/.next"; \
+      exit 1; \
+    fi && \
     # Inject BUILD_ID into Service Worker for cache busting
     BUILD_ID=$(cat apps/web/.next/BUILD_ID) && \
     sed -i "s/{{BUILD_ID}}/$BUILD_ID/g" apps/web/public/sw.js && \
