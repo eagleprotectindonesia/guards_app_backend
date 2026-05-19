@@ -16,6 +16,14 @@ export interface AdminChatLaunchPayload {
   employeeName: string;
   employeeNumber?: string | null;
 }
+interface ConversationLaunchInfoResponse {
+  employeeId: string;
+  employeeName: string;
+  employeeNumber: string;
+  exists: boolean;
+  isArchived: boolean;
+  isMuted: boolean;
+}
 
 interface UseAdminChatOptions {
   initialEmployeeId?: string | null;
@@ -393,15 +401,32 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
 
   const openConversationFromLaunch = useCallback(
     async (launch: AdminChatLaunchPayload) => {
-      const existingConversation = conversations.find(conversation => conversation.employeeId === launch.employeeId);
+      const response = await fetch(`/api/shared/chat/conversations/${launch.employeeId}`, { cache: 'no-store' });
+      if (!response.ok) {
+        toast.error('Failed to open conversation');
+        return;
+      }
 
-      if (archivedEmployeeIds.includes(launch.employeeId) && !existingConversation?.isDraft) {
-        setPendingArchivedLaunch(launch);
+      const info = (await response.json()) as ConversationLaunchInfoResponse;
+      const normalizedLaunch: AdminChatLaunchPayload = {
+        employeeId: info.employeeId,
+        employeeName: info.employeeName,
+        employeeNumber: info.employeeNumber,
+      };
+
+      const existingConversation = conversations.find(conversation => conversation.employeeId === launch.employeeId);
+      const isArchived = info.isArchived || archivedEmployeeIds.includes(launch.employeeId);
+      if (isArchived && !existingConversation?.isDraft) {
+        setPendingArchivedLaunch(normalizedLaunch);
         return;
       }
 
       setActiveView('inbox');
-      await handleSelectConversation(launch.employeeId, false, existingConversation ? null : launch);
+      await handleSelectConversation(
+        normalizedLaunch.employeeId,
+        false,
+        info.exists || existingConversation ? null : normalizedLaunch
+      );
     },
     [archivedEmployeeIds, conversations, handleSelectConversation]
   );

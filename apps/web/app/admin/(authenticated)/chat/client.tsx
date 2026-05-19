@@ -18,11 +18,14 @@ import { DirectChatPane } from '../components/chat/direct-chat-pane';
 import { GroupChatPane } from '../components/chat/group-chat-pane';
 import ChatExport from '../components/chat/chat-export';
 import { ChatMessage } from '@/types/chat';
+import ConfirmDialog from '../components/confirm-dialog';
+import { DirectConversationDialog } from '../components/chat/direct-conversation-dialog';
 
 export function AdminChatClient() {
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isMemberManagerOpen, setIsMemberManagerOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const [isCreateDirectOpen, setIsCreateDirectOpen] = useState(false);
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -113,6 +116,7 @@ export function AdminChatClient() {
           void unifiedChat.unarchiveItem(item);
         }}
         onCreateGroup={() => setIsCreateGroupOpen(true)}
+        onCreateDirect={() => setIsCreateDirectOpen(true)}
         onExport={() => setIsExportOpen(true)}
         isExportDisabled={!unifiedChat.selectedConversation}
         exportDisabledReason="Select a conversation first"
@@ -233,6 +237,39 @@ export function AdminChatClient() {
         canManage={canCreateChat}
         canDisband={false}
         onDisbandGroup={groupChat.disbandGroup}
+      />
+
+      <DirectConversationDialog
+        isOpen={isCreateDirectOpen}
+        onClose={() => setIsCreateDirectOpen(false)}
+        employees={unifiedChat.groupChat.employeeDirectory}
+        onSelectEmployee={employee => {
+          void unifiedChat.openDirectConversationFromEmployee({
+            employeeId: employee.id,
+            employeeName: employee.fullName,
+            employeeNumber: employee.employeeNumber,
+          });
+          setIsCreateDirectOpen(false);
+          const nextUrl = buildConversationUrl({ kind: 'direct', id: employee.id });
+          if (nextUrl !== currentUrl) {
+            startNavigation(nextUrl);
+            router.replace(nextUrl, { scroll: false });
+          }
+        }}
+      />
+
+      <ConfirmDialog
+        isOpen={!!directChat.pendingArchivedLaunch}
+        onClose={directChat.cancelArchivedLaunch}
+        onConfirm={directChat.confirmArchivedLaunch}
+        title="Resume archived chat?"
+        description={
+          directChat.pendingArchivedLaunch
+            ? `Chat with ${directChat.pendingArchivedLaunch.employeeName} is archived. Resuming will move it back to Inbox and unmute it.`
+            : ''
+        }
+        confirmText="Resume Chat"
+        variant="neutral"
       />
     </div>
   );
