@@ -134,7 +134,13 @@ async function start() {
   console.log('All workers started.');
 
   // Handle Shutdown
+  let isShuttingDown = false;
   const shutdown = async (signal: string) => {
+    if (isShuttingDown) {
+      return;
+    }
+    isShuttingDown = true;
+
     console.log(`Received ${signal}, shutting down...`);
 
     await Promise.all(workers.map(w => w.close()));
@@ -153,6 +159,7 @@ async function start() {
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGUSR2', () => shutdown('SIGUSR2'));
 }
 
 start().catch(err => {

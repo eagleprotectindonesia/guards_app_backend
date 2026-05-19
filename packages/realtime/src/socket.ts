@@ -21,6 +21,7 @@ export function initRealtimeSocket(
   server: HttpServer | HttpsServer,
   options?: {
     enableSystemSubscribers?: boolean;
+    registerCleanup?: (cleanup: () => void | Promise<void>) => void;
   }
 ) {
   const allowedOrigins = process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : '*';
@@ -28,6 +29,7 @@ export function initRealtimeSocket(
   const io: UnifiedServer = new SocketIOServer(server, {
     cors: {
       origin: allowedOrigins,
+      credentials: true,
       methods: ['GET', 'POST'],
     },
   });
@@ -36,10 +38,14 @@ export function initRealtimeSocket(
   const pubClient = redis.duplicate({ enableOfflineQueue: true });
   const subClient = redis.duplicate({ enableOfflineQueue: true });
   io.adapter(createAdapter(pubClient, subClient));
+  options?.registerCleanup?.(async () => {
+    await Promise.allSettled([pubClient.quit(), subClient.quit()]);
+  });
 
   // 2. System-wide Redis Subscribers (Alerts, Dashboard)
   if (options?.enableSystemSubscribers !== false) {
-    registerSystemHandlers(io);
+    const cleanupSystemHandlers = registerSystemHandlers(io);
+    options?.registerCleanup?.(cleanupSystemHandlers);
   }
 
   // 3. Auth Middleware

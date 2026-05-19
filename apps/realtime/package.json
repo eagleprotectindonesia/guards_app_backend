@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "tsx --watch src/server.ts",
+    "dev": "tsx watch --clear-screen=false src/server.ts",
     "build": "esbuild src/server.ts --bundle --platform=node --target=node22 --outfile=dist/server.js --external:@prisma/client --external:pg --external:@prisma/adapter-pg --external:ioredis --external:firebase-admin --external:dotenv",
     "start": "node dist/server.js",
     "lint": "eslint . --ext .ts && tsc --noEmit",
