@@ -1,9 +1,9 @@
 'use client';
 
 export default function SentryTestPage() {
-  if (process.env.NODE_ENV === 'production') {
-    return <div className="p-6">Not found.</div>;
-  }
+  // if (process.env.NODE_ENV === 'production') {
+  //   return <div className="p-6">Not found.</div>;
+  // }
 
   return (
     <main className="p-6">
