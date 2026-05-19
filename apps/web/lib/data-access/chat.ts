@@ -74,6 +74,7 @@ export async function getMessagesSince(employeeId: string, since: Date) {
 
 // Re-export all other chat functions that don't need S3 enrichment
 export {
+  getConversationLaunchInfo,
   reserveMessageDraft,
   expireStaleChatDrafts,
   getConversationListPaginated,

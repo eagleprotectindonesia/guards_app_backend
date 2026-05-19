@@ -256,6 +256,51 @@ export interface ConversationItem {
   unreadCount: number;
 }
 
+export interface ConversationLaunchInfo {
+  employeeId: string;
+  employeeName: string;
+  employeeNumber: string;
+  exists: boolean;
+  isArchived: boolean;
+  isMuted: boolean;
+}
+
+export async function getConversationLaunchInfo(params: {
+  adminId: string;
+  employeeId: string;
+}): Promise<ConversationLaunchInfo | null> {
+  const [employee, state, conversation] = await Promise.all([
+    db.employee.findUnique({
+      where: { id: params.employeeId },
+      select: { id: true, fullName: true, employeeNumber: true },
+    }),
+    db.adminChatConversationState.findUnique({
+      where: {
+        adminId_employeeId: {
+          adminId: params.adminId,
+          employeeId: params.employeeId,
+        },
+      },
+      select: { isArchived: true, isMuted: true },
+    }),
+    db.chatConversation.findUnique({
+      where: { employeeId: params.employeeId },
+      select: { employeeId: true },
+    }),
+  ]);
+
+  if (!employee) return null;
+
+  return {
+    employeeId: employee.id,
+    employeeName: employee.fullName,
+    employeeNumber: employee.employeeNumber ?? employee.id,
+    exists: Boolean(conversation),
+    isArchived: state?.isArchived ?? false,
+    isMuted: state?.isMuted ?? false,
+  };
+}
+
 export async function getConversationListPaginated(params: {
   adminId: string;
   view: ConversationView;

@@ -115,14 +115,15 @@ export function useAdminUnifiedChatInbox(options: UseAdminUnifiedChatInboxOption
       if (selection.kind === 'direct') {
         groupChat.setActiveGroupId(null);
         const employee = startChatCandidates.find(candidate => candidate.id === selection.id);
-        const draft: AdminChatLaunchPayload | undefined = employee
-          ? {
-              employeeId: employee.id,
-              employeeName: employee.fullName,
-              employeeNumber: employee.employeeNumber,
-            }
-          : undefined;
-        void directChat.handleSelectConversation(selection.id, false, draft);
+        if (employee) {
+          void directChat.openConversationFromLaunch({
+            employeeId: employee.id,
+            employeeName: employee.fullName,
+            employeeNumber: employee.employeeNumber,
+          });
+          return;
+        }
+        void directChat.handleSelectConversation(selection.id, false);
         return;
       }
 
@@ -181,6 +182,8 @@ export function useAdminUnifiedChatInbox(options: UseAdminUnifiedChatInboxOption
     loadMore,
     archiveItem,
     unarchiveItem,
+    openDirectConversationFromEmployee: (employee: AdminChatLaunchPayload) =>
+      directChat.openConversationFromLaunch(employee),
     directChat,
     groupChat,
   };

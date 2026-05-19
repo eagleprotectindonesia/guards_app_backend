@@ -1,7 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { setConversationArchiveState } from '@/lib/data-access/chat';
+import { getConversationLaunchInfo, setConversationArchiveState } from '@/lib/data-access/chat';
+
+export async function GET(_: NextRequest, { params }: { params: Promise<{ employeeId: string }> }) {
+  const admin = await requirePermission(PERMISSIONS.CHAT.VIEW);
+
+  try {
+    const { employeeId } = await params;
+    const info = await getConversationLaunchInfo({ adminId: admin.id, employeeId });
+    if (!info) {
+      return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
+    }
+
+    return NextResponse.json(info);
+  } catch (error) {
+    console.error('Error fetching conversation launch info:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ employeeId: string }> }) {
   const admin = await requirePermission(PERMISSIONS.CHAT.VIEW);

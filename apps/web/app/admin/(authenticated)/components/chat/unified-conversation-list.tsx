@@ -1,7 +1,7 @@
 'use client';
 
 import { format, isToday } from 'date-fns';
-import { ArchiveRestore, ArchiveX, Download, Loader2, Search, Users, X } from 'lucide-react';
+import { ArchiveRestore, ArchiveX, Download, Loader2, MessageSquarePlus, Search, Users, X } from 'lucide-react';
 import { ChatInboxItem } from '@repo/types';
 import { cn } from '@repo/shared';
 import { ConversationSelection } from '@/lib/chat/conversation-selection';
@@ -38,6 +38,7 @@ type UnifiedConversationListProps = {
   onArchive?: (item: ChatInboxItem) => void;
   onUnarchive?: (item: ChatInboxItem) => void;
   onCreateGroup?: () => void;
+  onCreateDirect?: () => void;
   onExport?: () => void;
   showCreateGroupButton?: boolean;
   showExportButton?: boolean;
@@ -66,6 +67,7 @@ export function UnifiedConversationList({
   onArchive,
   onUnarchive,
   onCreateGroup,
+  onCreateDirect,
   onExport,
   showCreateGroupButton = true,
   showExportButton = true,
@@ -92,6 +94,16 @@ export function UnifiedConversationList({
                 title="Create group"
               >
                 <Users size={18} />
+              </button>
+            )}
+            {!isWidget && (
+              <button
+                type="button"
+                onClick={onCreateDirect}
+                className="p-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-sm"
+                title="Start new conversation"
+              >
+                <MessageSquarePlus size={18} />
               </button>
             )}
             {showExportButton && (

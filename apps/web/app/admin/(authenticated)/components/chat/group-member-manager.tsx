@@ -138,39 +138,49 @@ export function GroupMemberManager({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[450px] gap-0 p-0 overflow-hidden flex flex-col max-h-[85vh]">
-        <DialogHeader className="p-6 border-b">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="truncate pr-4">
+      <DialogContent showCloseButton={false} className="sm:max-w-[450px] gap-0 p-0 overflow-hidden flex flex-col max-h-[85vh]">
+        <DialogHeader className="p-0 border-b">
+          <div className="flex items-center justify-between px-4 py-3">
+            <DialogTitle className="truncate pr-4 text-base">
               {view === 'list' ? `Members: ${groupTitle}` : 'Add New Members'}
             </DialogTitle>
-            {view === 'list' && canManage && (
+            <div className="flex items-center gap-2">
+              {view === 'list' && canManage && (
+                <Button
+                  size="sm"
+                  className="h-8 gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                  onClick={() => {
+                      setView('add');
+                      setSearchTerm('');
+                  }}
+                >
+                  <UserPlus size={14} />
+                  Add
+                </Button>
+              )}
+              {view === 'add' && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 gap-1.5 text-xs shadow-sm"
+                  onClick={() => {
+                      setView('list');
+                      setSearchTerm('');
+                  }}
+                >
+                  Back to list
+                </Button>
+              )}
               <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1.5 text-xs border-blue-200 text-blue-600 hover:bg-blue-50"
-                onClick={() => {
-                    setView('add');
-                    setSearchTerm('');
-                }}
-              >
-                <UserPlus size={14} />
-                Add
-              </Button>
-            )}
-            {view === 'add' && (
-              <Button
-                size="sm"
                 variant="ghost"
-                className="h-8 gap-1.5 text-xs"
-                onClick={() => {
-                    setView('list');
-                    setSearchTerm('');
-                }}
+                size="icon"
+                className="h-8 w-8 text-muted-foreground hover:bg-muted"
+                onClick={handleClose}
               >
-                Back to list
+                <X size={18} />
+                <span className="sr-only">Close</span>
               </Button>
-            )}
+            </div>
           </div>
         </DialogHeader>
 
@@ -348,8 +358,8 @@ export function GroupMemberManager({
           )}
         </div>
 
-        <DialogFooter className="p-4 border-t bg-muted/5">
-          <Button variant="ghost" size="sm" onClick={handleClose} disabled={isManaging} className="w-full">
+        <DialogFooter className="p-4 border-t bg-muted/5 sm:justify-end">
+          <Button variant="outline" size="sm" onClick={handleClose} disabled={isManaging} className="w-full sm:w-auto">
             Close
           </Button>
         </DialogFooter>
