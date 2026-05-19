@@ -57,21 +57,7 @@ jobs:
             -H "Authorization: Bearer ${SENTRY_AUTH_TOKEN}" \
             "https://sentry.io/api/0/projects/${SENTRY_ORG}/${SENTRY_PROJECT}/keys/")
 
-          python3 - <<'PY'
-import json
-import os
-import sys
-
-dsn = os.environ["NEXT_PUBLIC_SENTRY_DSN"]
-keys = json.loads(os.environ["KEYS_JSON"])
-public_key = dsn.split("://", 1)[1].split("@", 1)[0]
-
-if any(k.get("public") == public_key for k in keys):
-    print("Sentry DSN matches target project key.")
-else:
-    print("Sentry DSN key does not belong to configured SENTRY_ORG/SENTRY_PROJECT.")
-    sys.exit(1)
-PY
+          python3 -c 'import json, os, sys; dsn=os.environ["NEXT_PUBLIC_SENTRY_DSN"]; keys=json.loads(os.environ["KEYS_JSON"]); pk=dsn.split("://",1)[1].split("@",1)[0]; ok=any(k.get("public")==pk for k in keys); print("Sentry DSN matches target project key." if ok else "Sentry DSN key does not belong to configured SENTRY_ORG/SENTRY_PROJECT."); sys.exit(0 if ok else 1)'
 
       - name: Build & Push Backend Image (staging)
         uses: docker/build-push-action@v5
