@@ -1,9 +1,9 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { cn } from '@repo/shared';
 import { ADMIN_SECONDARY_NAV_ITEMS, getAdminNavItems, type NavItem } from '@/lib/admin-navigation';
 import { useSession } from '../context/session-context';
@@ -13,6 +13,51 @@ import { useAdminNotifications } from '../context/admin-notification-context';
 type Props = {
   officeWorkSchedulesEnabled: boolean;
 };
+
+function DigitalClock({ isCollapsed }: { isCollapsed: boolean }) {
+  const [time, setTime] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date());
+    }, 1000);
+
+    const timeout = setTimeout(() => {
+      setTime(new Date());
+    }, 0);
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(timeout);
+    };
+  }, []);
+
+  if (!time) return null;
+
+  return (
+    <div className={cn(
+      "mt-auto p-3 border-t border-border bg-accent/5 transition-all duration-300",
+      isCollapsed ? "items-center px-0" : ""
+    )}>
+      <div className={cn("flex items-start gap-3", isCollapsed ? "justify-center" : "")}>
+        <div className="p-2 rounded-lg bg-accent/10 text-muted-foreground shrink-0">
+          <Clock className="w-5 h-5" />
+        </div>
+        {!isCollapsed && (
+          <div className="flex flex-col min-w-0">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              System Time
+            </span>
+            <div className="flex flex-wrap items-baseline gap-x-2 text-sm font-medium text-foreground/90 tabular-nums leading-tight mt-1">
+              <span className="whitespace-nowrap">{time.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+              <span className="text-muted-foreground whitespace-nowrap">{time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -231,6 +276,8 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
           </div>
         ))}
       </nav>
+
+      <DigitalClock isCollapsed={isCollapsed} />
     </aside>
   );
 }
