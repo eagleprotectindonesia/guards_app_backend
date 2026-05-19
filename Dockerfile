@@ -25,10 +25,10 @@ RUN apk add --no-cache python3 make g++
 # 3. Build Web
 FROM build-base AS web-builder
 COPY --from=pruner /app/out-web/json/ .
+COPY turbo.json turbo.json
 RUN --mount=type=cache,target=/pnpm/store \
     pnpm install --frozen-lockfile
 COPY --from=pruner /app/out-web/full/ .
-COPY turbo.json turbo.json
 
 ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 ARG NEXT_PUBLIC_SENTRY_DSN
@@ -55,10 +55,10 @@ RUN turbo run build --filter=web && \
 # 4. Build Worker
 FROM build-base AS worker-builder
 COPY --from=pruner /app/out-worker/json/ .
+COPY turbo.json turbo.json
 RUN --mount=type=cache,target=/pnpm/store \
     pnpm install --frozen-lockfile --ignore-scripts
 COPY --from=pruner /app/out-worker/full/ .
-COPY turbo.json turbo.json
 
 ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
     NODE_ENV=production
@@ -69,10 +69,10 @@ RUN pnpm --filter @repo/database prisma:generate && \
 # 5. Build Realtime
 FROM build-base AS realtime-builder
 COPY --from=pruner /app/out-realtime/json/ .
+COPY turbo.json turbo.json
 RUN --mount=type=cache,target=/pnpm/store \
     pnpm install --frozen-lockfile --ignore-scripts
 COPY --from=pruner /app/out-realtime/full/ .
-COPY turbo.json turbo.json
 
 ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres" \
     NODE_ENV=production
