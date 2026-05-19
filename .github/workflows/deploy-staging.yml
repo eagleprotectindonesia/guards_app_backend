@@ -38,6 +38,41 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Verify Sentry Project/DSN Alignment (staging)
+        env:
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          for v in NEXT_PUBLIC_SENTRY_DSN SENTRY_ORG SENTRY_PROJECT SENTRY_AUTH_TOKEN; do
+            if [ -z "${!v:-}" ]; then
+              echo "Missing required Sentry value: $v"
+              exit 1
+            fi
+          done
+
+          KEYS_JSON=$(curl -sSf \
+            -H "Authorization: Bearer ${SENTRY_AUTH_TOKEN}" \
+            "https://sentry.io/api/0/projects/${SENTRY_ORG}/${SENTRY_PROJECT}/keys/")
+
+          python3 - <<'PY'
+import json
+import os
+import sys
+
+dsn = os.environ["NEXT_PUBLIC_SENTRY_DSN"]
+keys = json.loads(os.environ["KEYS_JSON"])
+public_key = dsn.split("://", 1)[1].split("@", 1)[0]
+
+if any(k.get("public") == public_key for k in keys):
+    print("Sentry DSN matches target project key.")
+else:
+    print("Sentry DSN key does not belong to configured SENTRY_ORG/SENTRY_PROJECT.")
+    sys.exit(1)
+PY
+
       - name: Build & Push Backend Image (staging)
         uses: docker/build-push-action@v5
         with:
@@ -55,6 +90,9 @@ jobs:
             SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
             SENTRY_ENVIRONMENT=staging
+            CI=true
+            SENTRY_LOG_LEVEL=debug
+            SENTRY_UPLOAD_STRICT=1
 
       - name: Build & Push Worker Image (staging)
         uses: docker/build-push-action@v5

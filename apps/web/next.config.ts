@@ -19,12 +19,24 @@ const nextConfig: NextConfig = {
   },
 };
 
+const isCi = process.env.CI === 'true';
+const sentryStrict = process.env.SENTRY_UPLOAD_STRICT === '1';
+const sentryDebug = process.env.SENTRY_LOG_LEVEL === 'debug';
+
 export default withSentryConfig(nextConfig, {
   org: process.env.SENTRY_ORG,
   project: process.env.SENTRY_PROJECT,
   authToken: process.env.SENTRY_AUTH_TOKEN,
-  silent: !process.env.CI,
+  silent: !isCi,
+  debug: sentryDebug,
   widenClientFileUpload: true,
   disableLogger: true,
   tunnelRoute: '/monitoring',
+  ...(sentryStrict
+    ? {
+        errorHandler(error) {
+          throw error;
+        },
+      }
+    : {}),
 });
