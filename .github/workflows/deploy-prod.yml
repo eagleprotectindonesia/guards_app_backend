@@ -38,6 +38,37 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Verify Sentry build inputs (production)
+        env:
+          NEXT_PUBLIC_SENTRY_DSN: ${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          for v in NEXT_PUBLIC_SENTRY_DSN SENTRY_ORG SENTRY_PROJECT SENTRY_AUTH_TOKEN; do
+            if [ -z "${!v:-}" ]; then
+              echo "Missing required Sentry value: $v"
+              exit 1
+            fi
+          done
+
+          python3 - <<'PY'
+          import os
+          from urllib.parse import urlparse
+
+          dsn = os.environ["NEXT_PUBLIC_SENTRY_DSN"]
+          parsed = urlparse(dsn)
+          project_id = parsed.path.strip("/").split("/")[0] if parsed.path else ""
+
+          print(
+              f"[sentry] production preflight: org={os.environ['SENTRY_ORG']} "
+              f"project={os.environ['SENTRY_PROJECT']} "
+              f"dsn_host={parsed.hostname} project_id={project_id} "
+              f"token_present=yes token_length={len(os.environ['SENTRY_AUTH_TOKEN'])}"
+          )
+          PY
+
       - name: Build & Push Backend Image (correct stage, immutable tag)
         uses: docker/build-push-action@v5
         with:
@@ -48,6 +79,7 @@ jobs:
             ${{ secrets.ECR_REGISTRY }}/guards-backend:app-${{ github.sha }}-${{ github.run_id }}
           cache-from: type=gha,scope=app
           cache-to: type=gha,mode=max,scope=app
+          no-cache: true
           build-args: |
             NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
             NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
@@ -55,6 +87,8 @@ jobs:
             SENTRY_PROJECT=${{ secrets.SENTRY_PROJECT }}
             SENTRY_AUTH_TOKEN=${{ secrets.SENTRY_AUTH_TOKEN }}
             SENTRY_ENVIRONMENT=production
+            CI=true
+            SENTRY_LOG_LEVEL=debug
 
       - name: Build & Push Worker Image
         uses: docker/build-push-action@v5

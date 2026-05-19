@@ -8,7 +8,17 @@
         "@repo/types#type-check",
         "@repo/validations#type-check"
       ],
-      "env": ["DATABASE_URL", "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY"],
+      "env": [
+        "DATABASE_URL",
+        "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY",
+        "NEXT_PUBLIC_SENTRY_DSN",
+        "SENTRY_ORG",
+        "SENTRY_PROJECT",
+        "SENTRY_AUTH_TOKEN",
+        "SENTRY_ENVIRONMENT",
+        "CI",
+        "SENTRY_LOG_LEVEL"
+      ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
     "worker#build": {

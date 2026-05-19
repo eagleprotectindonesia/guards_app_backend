@@ -2,6 +2,7 @@ packages:
   - 'apps/*'
   - 'packages/*'
 allowBuilds:
+  '@sentry/cli': true
   '@firebase/util': true
   '@prisma/engines': true
   '@scarf/scarf': true
