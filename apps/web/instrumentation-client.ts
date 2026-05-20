@@ -6,7 +6,7 @@ Sentry.init({
   enableLogs: true,
   integrations: [
     Sentry.consoleLoggingIntegration({
-      levels: ['error'],
+      levels: ['warn', 'error'],
     }),
   ],
 });

@@ -6,9 +6,10 @@ import type { EmployeeShift } from '@/app/employee/(authenticated)/hooks/use-emp
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import {
-  getEmployeeAttendanceCheckinErrorPayload,
-  resolveEmployeeAttendanceCheckinErrorMessage,
-} from '@repo/shared';
+  getCurrentPositionWithFallback,
+  resolveBrowserPositionFetcher,
+} from '@/app/employee/(authenticated)/utils/geolocation';
+import { getEmployeeAttendanceCheckinErrorPayload, resolveEmployeeAttendanceCheckinErrorMessage } from '@repo/shared';
 
 interface AttendanceRecordProps {
   shift: EmployeeShift;
@@ -33,18 +34,16 @@ export function AttendanceRecord({ shift, onAttendanceRecorded, setStatus, curre
     if (navigator.geolocation) {
       setStatus(t('attendance.gettingLocation'));
       try {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0,
-          });
-        });
+        const position = await getCurrentPositionWithFallback(resolveBrowserPositionFetcher(navigator.geolocation));
         locationData = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
       } catch (error) {
+        console.warn('[Attendance] Geolocation unavailable after fallback attempts.', {
+          shiftId: shift.id,
+          error,
+        });
         console.error('Geolocation failed or timed out:', error);
         setMessage(t('attendance.locationRequired'));
         setMessageType('error');
@@ -157,8 +156,8 @@ export function AttendanceRecord({ shift, onAttendanceRecorded, setStatus, curre
               disabled={attendanceMutation.isPending}
               className={`w-full py-4 rounded-xl font-bold uppercase tracking-widest text-sm text-white shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${
                 isLateTime
-                  ? 'bg-gradient-to-br from-red-600 to-red-800 shadow-red-600/40'
-                  : 'bg-gradient-to-br from-blue-600 to-blue-800 shadow-blue-600/40'
+                  ? 'bg-linear-to-br from-red-600 to-red-800 shadow-red-600/40'
+                  : 'bg-linear-to-br from-blue-600 to-blue-800 shadow-blue-600/40'
               } ${attendanceMutation.isPending ? 'opacity-80 cursor-not-allowed' : ''}`}
             >
               {attendanceMutation.isPending && (
