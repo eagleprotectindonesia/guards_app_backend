@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { useCheckIn } from '@/app/employee/(authenticated)/hooks/use-employee-queries';
+import type { EmployeeShift } from '@/app/employee/(authenticated)/hooks/use-employee-queries';
 import { CheckInWindowResult } from '@/lib/scheduling';
 import { Card } from '@/components/ui/card';
 import toast from 'react-hot-toast';
@@ -14,7 +14,7 @@ import {
   resolveEmployeeAttendanceCheckinErrorMessage,
 } from '@repo/shared';
 
-type ActiveShiftWithWindow = ShiftWithRelationsDto & {
+type ActiveShiftWithWindow = EmployeeShift & {
   checkInWindow?: CheckInWindowResult;
 };
 
@@ -55,6 +55,16 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
       const currentSlotStart = new Date(window.currentSlotStart).getTime();
       const currentSlotEnd = new Date(window.currentSlotEnd).getTime();
       const nextSlotStart = new Date(window.nextSlotStart || window.currentSlotStart).getTime();
+      const hasValidWindow =
+        Number.isFinite(currentSlotStart) && Number.isFinite(currentSlotEnd) && Number.isFinite(nextSlotStart);
+
+      if (!hasValidWindow) {
+        setUiState('upcoming');
+        setTimerDisplay('--');
+        setTimerLabel('');
+        setCanCheckIn(false);
+        return;
+      }
 
       let newState: 'upcoming' | 'open' | 'urgent' | 'late' = 'upcoming';
       let displayValue = '--';

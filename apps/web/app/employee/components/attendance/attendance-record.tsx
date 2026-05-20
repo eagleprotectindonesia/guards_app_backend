@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { useRecordAttendance } from '@/app/employee/(authenticated)/hooks/use-employee-queries'; // Adjust import path as necessary
+import type { EmployeeShift } from '@/app/employee/(authenticated)/hooks/use-employee-queries';
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import {
@@ -11,7 +11,7 @@ import {
 } from '@repo/shared';
 
 interface AttendanceRecordProps {
-  shift: ShiftWithRelationsDto;
+  shift: EmployeeShift;
   onAttendanceRecorded: () => void;
   status: string; // Current status of the shift, e.g., 'active', 'pending attendance', etc.
   setStatus: (status: string) => void;

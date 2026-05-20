@@ -1,13 +1,13 @@
 'use client';
 
-import type { ShiftWithRelationsDto } from '@/types/shifts';
+import type { EmployeeShift } from '@/app/employee/(authenticated)/hooks/use-employee-queries';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import { NextShiftCard } from './next-shift-card';
 import { ShiftInfoCard } from './shift-info-card';
 
 interface EmployeeCarouselProps {
-  activeShift: ShiftWithRelationsDto | null;
-  nextShifts: ShiftWithRelationsDto[];
+  activeShift: EmployeeShift | null;
+  nextShifts: EmployeeShift[];
 }
 
 export function EmployeeCarousel({ activeShift, nextShifts }: EmployeeCarouselProps) {
