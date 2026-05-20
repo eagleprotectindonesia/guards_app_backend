@@ -1,7 +1,7 @@
-import { markOverdueScheduledShiftsAsMissed } from './shifts';
+import { getActiveShifts, getActiveShiftsForDashboard, markOverdueScheduledShiftsAsMissed } from './shifts';
 import { db as prisma } from '../prisma/client';
 
-jest.mock('../client', () => ({
+jest.mock('../prisma/client', () => ({
   db: {
     $transaction: jest.fn(),
     shift: {
@@ -81,5 +81,85 @@ describe('markOverdueScheduledShiftsAsMissed', () => {
     expect(result.updatedShiftIds).toEqual([]);
     expect(result.resolvedAlerts).toEqual([]);
     expect(prisma.shift.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('active shift query filters', () => {
+  const now = new Date('2026-05-20T10:00:00.000Z');
+  const baseShift = {
+    id: 'shift-1',
+    employeeId: 'emp-1',
+    shiftType: { id: 'st-1' },
+    employee: { id: 'emp-1', office: { name: 'HQ' } },
+    site: { id: 'site-1' },
+    attendance: null,
+    startsAt: new Date('2026-05-20T08:00:00.000Z'),
+    requiredCheckinIntervalMins: 20,
+    missedCount: 0,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (prisma.shift.findMany as jest.Mock).mockResolvedValue([]);
+  });
+
+  it('getActiveShifts keeps in_progress shifts until end time + grace', async () => {
+    (prisma.shift.findMany as jest.Mock).mockResolvedValue([
+      {
+        ...baseShift,
+        id: 'scheduled-1',
+        status: 'scheduled',
+        endsAt: new Date('2026-05-20T12:00:00.000Z'),
+        graceMinutes: 2,
+      },
+      {
+        ...baseShift,
+        id: 'in-progress-within-grace',
+        status: 'in_progress',
+        endsAt: new Date('2026-05-20T09:59:00.000Z'),
+        graceMinutes: 2,
+      },
+      {
+        ...baseShift,
+        id: 'in-progress-expired',
+        status: 'in_progress',
+        endsAt: new Date('2026-05-20T09:50:00.000Z'),
+        graceMinutes: 5,
+      },
+    ]);
+
+    const result = await getActiveShifts(now);
+
+    expect(result.map(shift => shift.id)).toEqual(['scheduled-1', 'in-progress-within-grace']);
+  });
+
+  it('getActiveShiftsForDashboard keeps in_progress shifts until end time + grace', async () => {
+    (prisma.shift.findMany as jest.Mock).mockResolvedValue([
+      {
+        ...baseShift,
+        id: 'scheduled-1',
+        status: 'scheduled',
+        endsAt: new Date('2026-05-20T12:00:00.000Z'),
+        graceMinutes: 2,
+      },
+      {
+        ...baseShift,
+        id: 'in-progress-within-grace',
+        status: 'in_progress',
+        endsAt: new Date('2026-05-20T09:59:00.000Z'),
+        graceMinutes: 2,
+      },
+      {
+        ...baseShift,
+        id: 'in-progress-expired',
+        status: 'in_progress',
+        endsAt: new Date('2026-05-20T09:50:00.000Z'),
+        graceMinutes: 5,
+      },
+    ]);
+
+    const result = await getActiveShiftsForDashboard(now);
+
+    expect(result.map(shift => shift.id)).toEqual(['scheduled-1', 'in-progress-within-grace']);
   });
 });
