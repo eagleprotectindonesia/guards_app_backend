@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: 'Eagle Protect Guard Management',
   description: 'Eagle Protect Guard Management',
+  other: {
+    google: 'notranslate',
+  },
   icons: {
     apple: '/employee/icons/180.png',
   },
@@ -27,8 +30,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+    <html lang="en" translate="no" className="notranslate" suppressHydrationWarning>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased notranslate`}>
         <ServiceWorkerRegistration />
         {children}
       </body>
