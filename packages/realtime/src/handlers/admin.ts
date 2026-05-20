@@ -69,6 +69,31 @@ export function registerAdminHandlers(io: UnifiedServer, socket: UnifiedSocket) 
     }
   });
 
+  socket.on('request_new_dashboard_backfill', async data => {
+    try {
+      const cards = Array.isArray(data?.cards) ? data.cards : [];
+      if (!cards.includes('critical_alerts')) {
+        return;
+      }
+
+      const { siteId } = data || {};
+      const alerts = await getOpenAlertsForDashboard(siteId);
+
+      const warningPattern = siteId ? `alert:warning:${siteId}:*` : `alert:warning:*`;
+      const warningKeys = await redis.keys(warningPattern);
+      const warnings =
+        warningKeys.length > 0
+          ? (await redis.mget(...warningKeys)).filter((v): v is string => v !== null).map(v => JSON.parse(v))
+          : [];
+
+      socket.emit('new_dashboard:critical_alerts', {
+        alerts: [...alerts, ...warnings],
+      });
+    } catch (err) {
+      console.error('New dashboard backfill error:', err);
+    }
+  });
+
   socket.on('request_admin_notifications_backfill', async data => {
     try {
       const limit = data?.limit ?? 20;

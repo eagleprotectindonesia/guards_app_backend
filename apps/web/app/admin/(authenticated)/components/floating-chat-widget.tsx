@@ -19,7 +19,7 @@ import { ChatMessage } from '@/types/chat';
 export default function FloatingChatWidget() {
   const pathname = usePathname();
 
-  if (pathname === '/admin/chat') {
+  if (pathname === '/admin/chat' || pathname === '/admin/new-dashboard') {
     return null;
   }
 

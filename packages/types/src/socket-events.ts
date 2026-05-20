@@ -38,6 +38,7 @@ export interface ServerToClientEvents {
   active_shifts: (payload: any) => void;
   upcoming_shifts: (payload: any) => void;
   'dashboard:backfill': (payload: { alerts: any[] }) => void;
+  'new_dashboard:critical_alerts': (payload: { alerts: any[] }) => void;
   admin_notification_created: (payload: { notification: AdminNotificationEventItem; unreadCount: number }) => void;
   admin_notifications_backfill: (payload: { notifications: AdminNotificationEventItem[]; unreadCount: number }) => void;
   admin_notifications_read: (payload: { readIds: string[]; unreadCount: number }) => void;
@@ -77,6 +78,7 @@ export interface ClientToServerEvents {
   // Dashboard events
   subscribe_site: (siteId: string) => void;
   request_dashboard_backfill: (data: { siteId?: string }) => void;
+  request_new_dashboard_backfill: (data: { cards: ('critical_alerts')[]; siteId?: string }) => void;
   request_admin_notifications_backfill: (data: { limit?: number }) => void;
   mark_admin_notifications_read: (data: { notificationIds: string[] }) => void;
 }
