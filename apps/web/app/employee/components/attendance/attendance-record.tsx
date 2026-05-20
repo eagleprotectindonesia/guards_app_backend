@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import { useRecordAttendance } from '@/app/employee/(authenticated)/hooks/use-employee-queries'; // Adjust import path as necessary
 import type { EmployeeShift } from '@/app/employee/(authenticated)/hooks/use-employee-queries';
 import { format } from 'date-fns';
@@ -10,6 +11,7 @@ import {
   resolveBrowserPositionFetcher,
 } from '@/app/employee/(authenticated)/utils/geolocation';
 import { getEmployeeAttendanceCheckinErrorPayload, resolveEmployeeAttendanceCheckinErrorMessage } from '@repo/shared';
+import { getSentryClientContext } from '@/lib/sentry-client-context';
 
 interface AttendanceRecordProps {
   shift: EmployeeShift;
@@ -25,21 +27,55 @@ export function AttendanceRecord({ shift, onAttendanceRecorded, setStatus, curre
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error' | ''>('');
 
+  const addBreadcrumb = (message: string, data?: Record<string, unknown>, level: 'info' | 'error' = 'info') => {
+    Sentry.addBreadcrumb({
+      category: 'attendance.record',
+      message,
+      level,
+      data,
+    });
+  };
+
+  const captureAttendanceException = async (error: unknown, stage: string, extra?: Record<string, unknown>) => {
+    const context = await getSentryClientContext();
+    Sentry.withScope((scope) => {
+      scope.setTag('feature', 'employee_attendance_record');
+      scope.setTag('attendance_stage', stage);
+      scope.setContext('attendance', {
+        shiftId: shift.id,
+        hasAttendance: !!shift.attendance,
+        mutationPending: attendanceMutation.isPending,
+        ...extra,
+      });
+      scope.setContext('client', context);
+      Sentry.captureException(error instanceof Error ? error : new Error(String(error)));
+    });
+  };
+
   const handleRecordAttendance = async () => {
+    addBreadcrumb('attendance.record.click', { shiftId: shift.id });
     setMessage('');
     setMessageType('');
 
     let locationData: { lat: number; lng: number } | undefined = undefined;
 
     if (navigator.geolocation) {
+      addBreadcrumb('attendance.record.status.update', { status: 'gettingLocation' });
       setStatus(t('attendance.gettingLocation'));
       try {
+        addBreadcrumb('attendance.record.geolocation.start', { geolocationAvailable: true });
         const position = await getCurrentPositionWithFallback(resolveBrowserPositionFetcher(navigator.geolocation));
         locationData = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
+        addBreadcrumb('attendance.record.geolocation.success', { hasLocation: !!locationData });
       } catch (error) {
+        addBreadcrumb(
+          'attendance.record.geolocation.failure',
+          { error: error instanceof Error ? error.message : String(error) },
+          'error'
+        );
         console.warn('[Attendance] Geolocation unavailable after fallback attempts.', {
           shiftId: shift.id,
           error,
@@ -47,26 +83,42 @@ export function AttendanceRecord({ shift, onAttendanceRecorded, setStatus, curre
         console.error('Geolocation failed or timed out:', error);
         setMessage(t('attendance.locationRequired'));
         setMessageType('error');
+        addBreadcrumb('attendance.record.status.update', { status: 'locationFetchError' });
         setStatus(t('attendance.locationFetchError'));
+        await captureAttendanceException(error, 'geolocation', { geolocationAvailable: true });
         return;
       }
     } else {
+      addBreadcrumb('attendance.record.geolocation.unavailable', { geolocationAvailable: false }, 'error');
       setMessage(t('attendance.locationErrorMessage'));
       setMessageType('error');
+      addBreadcrumb('attendance.record.status.update', { status: 'locationErrorTitle' });
       setStatus(t('attendance.locationErrorTitle'));
+      await captureAttendanceException(new Error('Geolocation API unavailable in browser'), 'geolocation_unavailable', {
+        geolocationAvailable: false,
+      });
       return;
     }
 
+    addBreadcrumb('attendance.record.status.update', { status: 'recording' });
     setStatus(t('attendance.recording'));
 
     try {
+      addBreadcrumb('attendance.record.request.start', { shiftId: shift.id, hasLocation: !!locationData });
       await attendanceMutation.mutateAsync({ shiftId: shift.id, location: locationData });
 
+      addBreadcrumb('attendance.record.mutation.success', { shiftId: shift.id });
       setMessage(t('attendance.success'));
       setMessageType('success');
       onAttendanceRecorded(); // Notify parent component to refresh shift data
+      addBreadcrumb('attendance.record.status.update', { status: 'Attendance Recorded' });
       setStatus('Attendance Recorded'); // Update local status
     } catch (error: unknown) {
+      addBreadcrumb(
+        'attendance.record.mutation.error',
+        { error: error instanceof Error ? error.message : String(error) },
+        'error'
+      );
       console.error('Error recording attendance:', error);
       const errorData = getEmployeeAttendanceCheckinErrorPayload(error);
       const errorMessage = resolveEmployeeAttendanceCheckinErrorMessage(
@@ -81,7 +133,11 @@ export function AttendanceRecord({ shift, onAttendanceRecorded, setStatus, curre
       );
       setMessage(errorMessage);
       setMessageType('error');
+      addBreadcrumb('attendance.record.status.update', { status: 'fail' });
       setStatus(t('attendance.fail'));
+      await captureAttendanceException(error, 'mutation', {
+        code: errorData.code,
+      });
     }
   };
 
