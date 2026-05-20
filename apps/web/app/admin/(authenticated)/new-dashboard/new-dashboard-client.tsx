@@ -421,6 +421,49 @@ function InternalChatLiveCard() {
   );
 }
 
+function TotalIncidentsCard() {
+  const { totalIncidents } = useNewDashboardStream();
+
+  const isLoading =
+    (totalIncidents.status === 'idle' || totalIncidents.status === 'loading') && totalIncidents.data.dateKey === '';
+  const delta = totalIncidents.data.deltaVsYesterday;
+  const deltaLabel = delta > 0 ? `+${delta}` : `${delta}`;
+  const deltaClass =
+    delta > 0
+      ? 'text-red-600 dark:text-red-400'
+      : delta < 0
+        ? 'text-green-600 dark:text-green-400'
+        : 'text-muted-foreground';
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total Incidents</p>
+
+      {isLoading && (
+        <div className="space-y-2">
+          <LoadingBlock className="h-7 w-16" />
+          <LoadingBlock className="h-3 w-24" />
+          <LoadingBlock className="h-3 w-20" />
+        </div>
+      )}
+
+      {!isLoading && (
+        <>
+          <div className="flex items-end justify-between">
+            <p className="text-3xl font-bold text-foreground">{totalIncidents.data.total}</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-400">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+          </div>
+
+          <p className={`text-xs font-medium ${deltaClass}`}>{`${deltaLabel} vs yesterday`}</p>
+          <p className="text-xs text-muted-foreground">{`Guard ${totalIncidents.data.guard} • Onsite ${totalIncidents.data.onsite}`}</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function NewDashboardClient() {
   const { activeSites, isDashboardInitialized } = useAlerts();
 
@@ -504,7 +547,8 @@ export default function NewDashboardClient() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
+        <TotalIncidentsCard />
+        {Array.from({ length: 5 }).map((_, i) => (
           <div key={i} className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
             <LoadingBlock className="h-3 w-24" />
             <div className="flex items-end justify-between">

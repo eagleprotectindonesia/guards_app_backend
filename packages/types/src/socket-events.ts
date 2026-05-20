@@ -73,6 +73,15 @@ export interface ServerToClientEvents {
       employeeId: string | null;
     };
   }) => void;
+  'new_dashboard:total_incidents': (payload: {
+    dateKey: string;
+    total: number;
+    guard: number;
+    onsite: number;
+    yesterdayTotal: number;
+    deltaVsYesterday: number;
+    lastUpdatedAt: string;
+  }) => void;
   admin_notification_created: (payload: { notification: AdminNotificationEventItem; unreadCount: number }) => void;
   admin_notifications_backfill: (payload: { notifications: AdminNotificationEventItem[]; unreadCount: number }) => void;
   admin_notifications_read: (payload: { readIds: string[]; unreadCount: number }) => void;
@@ -113,7 +122,7 @@ export interface ClientToServerEvents {
   subscribe_site: (siteId: string) => void;
   request_dashboard_backfill: (data: { siteId?: string }) => void;
   request_new_dashboard_backfill: (data: {
-    cards: ('critical_alerts' | 'shift_overview' | 'live_activity_feed')[];
+    cards: ('critical_alerts' | 'shift_overview' | 'live_activity_feed' | 'total_incidents')[];
     siteId?: string;
   }) => void;
   request_admin_notifications_backfill: (data: { limit?: number }) => void;
