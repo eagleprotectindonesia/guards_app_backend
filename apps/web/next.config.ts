@@ -13,6 +13,7 @@ if (process.env.CI !== 'true') {
 const nextConfig: NextConfig = {
   output: 'standalone',
   outputFileTracingRoot: path.join(__dirname, '../../'),
+  serverExternalPackages: ['bullmq', 'ioredis'],
   /* config options here */
   // basePath: isBeta ? '/beta' : '',
 
