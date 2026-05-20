@@ -576,6 +576,14 @@ export type GuardShiftBulkImportResult = {
   summary: GuardShiftBulkImportSummary;
 };
 
+type GuardBulkPlannedOp = {
+  rowNumber: number;
+  employeeId: string;
+  startsAt: Date;
+  endsAt: Date;
+  updateTargetId?: string;
+};
+
 function getShiftBulkDateKey(employeeId: string, date: string) {
   return `${employeeId}:${date}`;
 }
@@ -700,6 +708,7 @@ export async function processGuardShiftBulkImport(
   const workingDateKeysByEmployee = new Map<string, Set<string>>();
   let rowsProcessed = 0;
   let pastDatesSkipped = 0;
+  const plannedOps: GuardBulkPlannedOp[] = [];
 
   for (const row of rows) {
     const siteId = siteByName.get(row.site.toLowerCase());
@@ -798,6 +807,15 @@ export async function processGuardShiftBulkImport(
         status: 'scheduled',
         note: row.note ?? null,
       });
+      const existing = workingDateKeysByEmployee.get(employeeId) ?? new Set<string>();
+      existing.add(row.date);
+      workingDateKeysByEmployee.set(employeeId, existing);
+      plannedOps.push({
+        rowNumber: row.rowNumber,
+        employeeId,
+        startsAt,
+        endsAt,
+      });
       rowsProcessed++;
       continue;
     }
@@ -812,13 +830,84 @@ export async function processGuardShiftBulkImport(
       startsAt,
       endsAt,
       note: row.note ?? null,
-      requiredCheckinIntervalMins: existingShift.requiredCheckinIntervalMins,
-      graceMinutes: existingShift.graceMinutes,
+      requiredCheckinIntervalMins: interval,
+      graceMinutes: grace,
     });
     const existing = workingDateKeysByEmployee.get(employeeId) ?? new Set<string>();
     existing.add(row.date);
     workingDateKeysByEmployee.set(employeeId, existing);
+    plannedOps.push({
+      rowNumber: row.rowNumber,
+      employeeId,
+      startsAt,
+      endsAt,
+      updateTargetId: existingShift.id,
+    });
     rowsProcessed++;
+  }
+
+  if (plannedOps.length > 0) {
+    const employeeIds = Array.from(new Set(plannedOps.map(op => op.employeeId)));
+    const minStartsAt = new Date(Math.min(...plannedOps.map(op => op.startsAt.getTime())));
+    const maxEndsAt = new Date(Math.max(...plannedOps.map(op => op.endsAt.getTime())));
+
+    const overlapCandidates = await prisma.shift.findMany({
+      where: {
+        deletedAt: null,
+        employeeId: { in: employeeIds },
+        startsAt: { lt: maxEndsAt },
+        endsAt: { gt: minStartsAt },
+      },
+      select: {
+        id: true,
+        employeeId: true,
+        startsAt: true,
+        endsAt: true,
+      },
+    });
+
+    const candidatesByEmployee = new Map<string, typeof overlapCandidates>();
+    for (const shift of overlapCandidates) {
+      const current = candidatesByEmployee.get(shift.employeeId!) ?? [];
+      current.push(shift);
+      candidatesByEmployee.set(shift.employeeId!, current);
+    }
+
+    for (const op of plannedOps) {
+      const existingForEmployee = candidatesByEmployee.get(op.employeeId) ?? [];
+      const conflict = existingForEmployee.find(shift => {
+        if (op.updateTargetId && shift.id === op.updateTargetId) return false;
+        if (deleteIds.has(shift.id)) return false;
+        return shift.startsAt.getTime() < op.endsAt.getTime() && shift.endsAt.getTime() > op.startsAt.getTime();
+      });
+
+      if (conflict) {
+        errors.push(
+          `Row ${op.rowNumber}: overlaps existing shift (${conflict.id}) for this employee during ${op.startsAt.toISOString()} - ${op.endsAt.toISOString()}.`
+        );
+      }
+    }
+
+    const plannedByEmployee = new Map<string, GuardBulkPlannedOp[]>();
+    for (const op of plannedOps) {
+      const current = plannedByEmployee.get(op.employeeId) ?? [];
+      current.push(op);
+      plannedByEmployee.set(op.employeeId, current);
+    }
+
+    for (const employeeOps of plannedByEmployee.values()) {
+      const sorted = [...employeeOps].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+      for (let i = 0; i < sorted.length; i++) {
+        for (let j = i + 1; j < sorted.length; j++) {
+          if (sorted[j].startsAt.getTime() >= sorted[i].endsAt.getTime()) break;
+          if (sorted[j].endsAt.getTime() > sorted[i].startsAt.getTime()) {
+            errors.push(
+              `Row ${sorted[i].rowNumber} and Row ${sorted[j].rowNumber}: overlapping shifts in the same import for this employee.`
+            );
+          }
+        }
+      }
+    }
   }
 
   if (errors.length > 0) {
@@ -842,52 +931,286 @@ export async function processGuardShiftBulkImport(
   const adminId = options?.adminId;
 
   if (adminId) {
-    for (const shiftId of deleteIds) {
-      const deleted = await deleteShiftWithChangelog(shiftId, adminId);
-      if (deleted) deletedOff++;
-    }
+    const deletedNotificationTargets: Array<{ shiftId: string; employeeId?: string | null }> = [];
+    const updatedNotificationTargets: Array<{ shiftId: string; employeeId?: string | null }> = [];
+    const createdNotificationTargets: Array<{ shiftId: string; employeeId?: string | null }> = [];
 
-    for (const update of updates) {
-      await updateShiftWithChangelog(
-        update.id,
-        {
-          site: { connect: { id: update.siteId } },
-          shiftType: { connect: { id: update.shiftTypeId } },
-          employee: { connect: { id: update.employeeId } },
-          date: update.date,
-          startsAt: update.startsAt,
-          endsAt: update.endsAt,
-          requiredCheckinIntervalMins: update.requiredCheckinIntervalMins,
-          graceMinutes: update.graceMinutes,
-          note: update.note,
-          status: 'scheduled',
-        },
-        adminId
-      );
-      updated++;
-    }
+    await prisma.$transaction(async tx => {
+      if (deleteIds.size > 0) {
+        const shiftsToDelete = await tx.shift.findMany({
+          where: { id: { in: Array.from(deleteIds) }, deletedAt: null },
+          include: { site: true, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
+        });
 
-    for (const [employeeId, dates] of offDateKeysByEmployee.entries()) {
-      for (const dateKey of dates) {
-        await upsertEmployeeOnsiteDayOff(
-          {
-            employeeId,
-            date: dateKey,
-            adminId,
-            note: 'OFF from guard bulk import',
-          },
-          prisma
+        if (shiftsToDelete.length > 0) {
+          const nowDeletedAt = new Date();
+          await tx.shift.updateMany({
+            where: { id: { in: shiftsToDelete.map(shift => shift.id) }, deletedAt: null },
+            data: { deletedAt: nowDeletedAt, lastUpdatedById: adminId },
+          });
+
+          await tx.changelog.createMany({
+            data: shiftsToDelete.map(shift => {
+              const emp = shift.employee as any;
+              return {
+                action: 'DELETE',
+                entityType: 'Shift',
+                entityId: shift.id,
+                actor: 'admin',
+                actorId: adminId,
+                details: {
+                  siteName: shift.site.name,
+                  typeName: shift.shiftType.name,
+                  employeeName: emp ? emp.fullName : 'Unassigned',
+                  date: shift.date,
+                  startsAt: shift.startsAt,
+                  endsAt: shift.endsAt,
+                  requiredCheckinIntervalMins: shift.requiredCheckinIntervalMins,
+                  status: shift.status,
+                  note: shift.note,
+                  siteId: shift.siteId,
+                  shiftTypeId: shift.shiftTypeId,
+                  employeeId: shift.employeeId,
+                  deletedAt: nowDeletedAt,
+                },
+              };
+            }),
+          });
+        }
+
+        deletedOff = shiftsToDelete.length;
+        deletedNotificationTargets.push(
+          ...shiftsToDelete.map(shift => ({
+            shiftId: shift.id,
+            employeeId: shift.employeeId,
+          }))
         );
       }
-    }
 
-    for (const [employeeId, dates] of workingDateKeysByEmployee.entries()) {
-      await deleteEmployeeOnsiteDayOffsByEmployeeAndDates(employeeId, Array.from(dates), prisma);
-    }
+      for (const [employeeId, dates] of offDateKeysByEmployee.entries()) {
+        for (const dateKey of dates) {
+          await upsertEmployeeOnsiteDayOff(
+            {
+              employeeId,
+              date: dateKey,
+              adminId,
+              note: 'OFF from guard bulk import',
+            },
+            tx
+          );
+        }
+      }
 
-    if (createInputs.length > 0) {
-      const createdRows = await bulkCreateShiftsWithChangelog(createInputs, adminId);
-      created = createdRows.length;
+      for (const update of updates) {
+        const beforeShift = await tx.shift.findUnique({
+          where: { id: update.id, deletedAt: null },
+          include: {
+            site: true,
+            shiftType: true,
+            employee: { include: { office: { select: { name: true } } } },
+          },
+        });
+        if (!beforeShift) continue;
+
+        const updatedShift = await tx.shift.update({
+          where: { id: update.id, deletedAt: null },
+          data: {
+            site: { connect: { id: update.siteId } },
+            shiftType: { connect: { id: update.shiftTypeId } },
+            employee: { connect: { id: update.employeeId } },
+            date: update.date,
+            startsAt: update.startsAt,
+            endsAt: update.endsAt,
+            requiredCheckinIntervalMins: update.requiredCheckinIntervalMins,
+            graceMinutes: update.graceMinutes,
+            note: update.note,
+            status: 'scheduled',
+            lastUpdatedBy: { connect: { id: adminId } },
+          },
+          include: {
+            site: true,
+            shiftType: true,
+            employee: { include: { office: { select: { name: true } } } },
+          },
+        });
+
+        const emp = updatedShift.employee as any;
+        const prevEmp = beforeShift.employee as any;
+        const updatedEmpName = emp ? emp.fullName : 'Unassigned';
+        const beforeEmpName = prevEmp ? prevEmp.fullName : 'Unassigned';
+        const changes: Record<string, { from: any; to: any }> = {};
+        const fieldsToTrack = [
+          'siteId',
+          'shiftTypeId',
+          'employeeId',
+          'date',
+          'startsAt',
+          'endsAt',
+          'requiredCheckinIntervalMins',
+          'graceMinutes',
+          'status',
+          'note',
+        ] as const;
+
+        for (const field of fieldsToTrack) {
+          const oldValue = (beforeShift as any)[field];
+          const newValue = (updatedShift as any)[field];
+
+          if (oldValue instanceof Date && newValue instanceof Date) {
+            if (oldValue.getTime() !== newValue.getTime()) {
+              changes[field] = { from: oldValue, to: newValue };
+            }
+          } else if (oldValue !== newValue) {
+            changes[field] = { from: oldValue, to: newValue };
+          }
+        }
+        if (updatedEmpName !== beforeEmpName) {
+          changes['employeeName'] = { from: beforeEmpName, to: updatedEmpName };
+        }
+        if (beforeShift.site.name !== updatedShift.site.name) {
+          changes['siteName'] = { from: beforeShift.site.name, to: updatedShift.site.name };
+        }
+        if (beforeShift.shiftType.name !== updatedShift.shiftType.name) {
+          changes['typeName'] = { from: beforeShift.shiftType.name, to: updatedShift.shiftType.name };
+        }
+
+        await tx.changelog.create({
+          data: {
+            action: 'UPDATE',
+            entityType: 'Shift',
+            entityId: updatedShift.id,
+            actor: 'admin',
+            actorId: adminId,
+            details: {
+              siteName: updatedShift.site.name,
+              typeName: updatedShift.shiftType.name,
+              employeeName: updatedEmpName,
+              date: updatedShift.date,
+              startsAt: updatedShift.startsAt,
+              endsAt: updatedShift.endsAt,
+              requiredCheckinIntervalMins: updatedShift.requiredCheckinIntervalMins,
+              status: updatedShift.status,
+              note: updatedShift.note,
+              siteId: updatedShift.siteId,
+              shiftTypeId: updatedShift.shiftTypeId,
+              employeeId: updatedShift.employeeId,
+              changes: Object.keys(changes).length > 0 ? changes : undefined,
+            },
+          },
+        });
+
+        updatedNotificationTargets.push({
+          shiftId: updatedShift.id,
+          employeeId: updatedShift.employeeId,
+        });
+        updated++;
+      }
+
+      for (const [employeeId, dates] of workingDateKeysByEmployee.entries()) {
+        await deleteEmployeeOnsiteDayOffsByEmployeeAndDates(employeeId, Array.from(dates), tx);
+      }
+
+      if (createInputs.length > 0) {
+        const createdRows = await tx.shift.createManyAndReturn({
+          data: createInputs.map(row => ({ ...row, createdById: adminId, lastUpdatedById: adminId })),
+          include: {
+            site: { select: { name: true } },
+            shiftType: { select: { name: true } },
+            employee: { include: { office: { select: { name: true } } } },
+          },
+        });
+
+        await tx.changelog.createMany({
+          data: createdRows.map(shift => {
+            const emp = shift.employee as any;
+            return {
+              action: 'CREATE',
+              entityType: 'Shift',
+              entityId: shift.id,
+              actor: 'admin',
+              actorId: adminId,
+              details: {
+                method: 'BULK_UPLOAD',
+                siteName: shift.site.name,
+                typeName: shift.shiftType.name,
+                employeeName: emp ? emp.fullName : 'Unassigned',
+                date: shift.date,
+                startsAt: shift.startsAt,
+                endsAt: shift.endsAt,
+                requiredCheckinIntervalMins: shift.requiredCheckinIntervalMins,
+                status: shift.status,
+                note: shift.note,
+                siteId: shift.siteId,
+                shiftTypeId: shift.shiftTypeId,
+                employeeId: shift.employeeId,
+              },
+            };
+          }),
+        });
+
+        created = createdRows.length;
+        createdNotificationTargets.push(
+          ...createdRows.map(shift => ({
+            shiftId: shift.id,
+            employeeId: shift.employeeId,
+          }))
+        );
+      }
+    });
+
+    try {
+      for (const target of deletedNotificationTargets) {
+        if (target.employeeId) {
+          await redis.xadd(
+            `employee:stream:${target.employeeId}`,
+            'MAXLEN',
+            '~',
+            100,
+            '*',
+            'type',
+            'shift_updated',
+            'shiftId',
+            target.shiftId
+          );
+        }
+        await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_DELETED', id: target.shiftId }));
+      }
+
+      for (const target of updatedNotificationTargets) {
+        if (target.employeeId) {
+          await redis.xadd(
+            `employee:stream:${target.employeeId}`,
+            'MAXLEN',
+            '~',
+            100,
+            '*',
+            'type',
+            'shift_updated',
+            'shiftId',
+            target.shiftId
+          );
+        }
+        await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_UPDATED', id: target.shiftId }));
+      }
+
+      for (const target of createdNotificationTargets) {
+        if (target.employeeId) {
+          await redis.xadd(
+            `employee:stream:${target.employeeId}`,
+            'MAXLEN',
+            '~',
+            100,
+            '*',
+            'type',
+            'shift_updated',
+            'shiftId',
+            target.shiftId
+          );
+        }
+        await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_CREATED', id: target.shiftId }));
+      }
+    } catch (notificationError) {
+      console.warn('[processGuardShiftBulkImport] committed DB changes, but failed to publish notifications.', notificationError);
     }
   } else {
     const nowDeletedAt = new Date();
