@@ -21,6 +21,7 @@ jest.mock('../prisma/client', () => ({
       create: jest.fn(),
       createMany: jest.fn(),
     },
+    $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   },
 }));
@@ -77,6 +78,7 @@ describe('processGuardShiftBulkImport', () => {
     });
     (prisma.changelog.create as jest.Mock).mockResolvedValue({});
     (prisma.changelog.createMany as jest.Mock).mockResolvedValue({});
+    (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
     (redis.xadd as jest.Mock).mockResolvedValue('1-0');
     (redis.publish as jest.Mock).mockResolvedValue(1);
   });
@@ -263,5 +265,167 @@ describe('processGuardShiftBulkImport', () => {
     expect(result.success).toBe(true);
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+
+  it('rejects invalid calendar date values even when format matches YYYY-MM-DD', async () => {
+    (prisma.shift.findMany as jest.Mock).mockResolvedValue([]);
+
+    const result = await processGuardShiftBulkImport(
+      [
+        {
+          rowNumber: 2,
+          site: 'Main Site',
+          shiftTypeName: 'Morning',
+          date: '2026-02-31',
+          employeeCode: 'E001',
+          interval: '20',
+          grace: '2',
+          note: null,
+        },
+      ],
+      { now: new Date('2026-02-01T00:00:00.000Z') }
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.errors).toContain("Row 2: invalid date '2026-02-31'. Expected YYYY-MM-DD.");
+  });
+
+  it('rejects non-strict integer values for interval and grace', async () => {
+    (prisma.shift.findMany as jest.Mock).mockResolvedValue([]);
+
+    const badInterval = await processGuardShiftBulkImport(
+      [
+        {
+          rowNumber: 2,
+          site: 'Main Site',
+          shiftTypeName: 'Morning',
+          date: '2026-06-11',
+          employeeCode: 'E001',
+          interval: '20abc',
+          grace: '2',
+          note: null,
+        },
+      ],
+      { now: new Date('2026-06-01T00:00:00.000Z') }
+    );
+
+    expect(badInterval.success).toBe(false);
+    expect(badInterval.errors).toContain("Row 2: interval '20abc' must be a positive integer.");
+
+    const badGrace = await processGuardShiftBulkImport(
+      [
+        {
+          rowNumber: 2,
+          site: 'Main Site',
+          shiftTypeName: 'Morning',
+          date: '2026-06-11',
+          employeeCode: 'E001',
+          interval: '20',
+          grace: '1.5',
+          note: null,
+        },
+      ],
+      { now: new Date('2026-06-01T00:00:00.000Z') }
+    );
+
+    expect(badGrace.success).toBe(false);
+    expect(badGrace.errors).toContain("Row 2: grace '1.5' must be a non-negative integer.");
+  });
+
+  it('skips past off rows without deleting historical shifts', async () => {
+    (prisma.shift.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'existing-past-shift',
+        employeeId: 'emp-1',
+        date: new Date('2026-06-01T00:00:00.000Z'),
+        requiredCheckinIntervalMins: 20,
+        graceMinutes: 2,
+      },
+    ]);
+
+    const result = await processGuardShiftBulkImport(
+      [
+        {
+          rowNumber: 2,
+          site: 'Main Site',
+          shiftTypeName: 'off',
+          date: '2026-06-01',
+          employeeCode: 'E001',
+          interval: '20',
+          grace: '2',
+          note: null,
+        },
+      ],
+      { now: new Date('2026-06-02T00:00:00.000Z'), adminId: 'admin-1' }
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.summary.past_dates_skipped).toBe(1);
+    expect(result.summary.deleted_off).toBe(0);
+    expect(prisma.shift.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('blocks inactive sites during site lookup', async () => {
+    (prisma.site.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.shift.findMany as jest.Mock).mockResolvedValue([]);
+
+    const result = await processGuardShiftBulkImport(
+      [
+        {
+          rowNumber: 2,
+          site: 'Inactive Site',
+          shiftTypeName: 'Morning',
+          date: '2026-06-11',
+          employeeCode: 'E001',
+          interval: '20',
+          grace: '2',
+          note: null,
+        },
+      ],
+      { now: new Date('2026-06-01T00:00:00.000Z') }
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.errors).toContain("Row 2: site 'Inactive Site' not found.");
+  });
+
+  it('acquires employee row locks in admin transaction before writes', async () => {
+    (prisma.shift.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.shift.createManyAndReturn as jest.Mock).mockResolvedValue([
+      {
+        id: 'created-shift-1',
+        siteId: 'site-1',
+        shiftTypeId: 'shift-type-1',
+        employeeId: 'emp-1',
+        date: new Date('2026-06-11T00:00:00.000Z'),
+        startsAt: new Date('2026-06-11T08:00:00.000Z'),
+        endsAt: new Date('2026-06-11T16:00:00.000Z'),
+        requiredCheckinIntervalMins: 20,
+        status: 'scheduled',
+        note: null,
+        site: { name: 'Main Site' },
+        shiftType: { name: 'Morning' },
+        employee: { fullName: 'Guard One', office: { name: 'HQ' } },
+      },
+    ]);
+
+    const result = await processGuardShiftBulkImport(
+      [
+        {
+          rowNumber: 2,
+          site: 'Main Site',
+          shiftTypeName: 'Morning',
+          date: '2026-06-11',
+          employeeCode: 'E001',
+          interval: '20',
+          grace: '2',
+          note: null,
+        },
+      ],
+      { now: new Date('2026-06-01T00:00:00.000Z'), adminId: 'admin-1' }
+    );
+
+    expect(result.success).toBe(true);
+    expect(prisma.$queryRaw).toHaveBeenCalled();
   });
 });
