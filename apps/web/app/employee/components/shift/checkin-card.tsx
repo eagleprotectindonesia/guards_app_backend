@@ -9,6 +9,10 @@ import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { Clock, CheckCircle, AlertTriangle, Fingerprint, Loader2 } from 'lucide-react';
 import {
+  getCurrentPositionWithFallback,
+  resolveBrowserPositionFetcher,
+} from '@/app/employee/(authenticated)/utils/geolocation';
+import {
   cn,
   getEmployeeAttendanceCheckinErrorPayload,
   resolveEmployeeAttendanceCheckinErrorMessage,
@@ -143,18 +147,16 @@ export default function CheckInCard({ activeShift, status, setStatus, fetchShift
     if (navigator.geolocation) {
       setStatus(t('checkin.gettingLocation'));
       try {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 5000,
-            maximumAge: 0,
-          });
-        });
+        const position = await getCurrentPositionWithFallback(resolveBrowserPositionFetcher(navigator.geolocation));
         locationData = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
         };
       } catch (error) {
+        console.warn('[CheckIn] Geolocation unavailable after fallback attempts.', {
+          shiftId: activeShift.id,
+          error,
+        });
         console.error('Geolocation failed or timed out:', error);
         setStatus(t('checkin.locationRequired'));
         return;
