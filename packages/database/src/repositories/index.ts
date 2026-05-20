@@ -16,6 +16,7 @@ export * from './leave-requests';
 export * from './live-activity-feed';
 export * from './total-incidents';
 export * from './total-attendance';
+export * from './top-sites-activity';
 export * from './holiday-calendar-entries';
 export * from './employee-office-config';
 export * from './fcm-tokens';

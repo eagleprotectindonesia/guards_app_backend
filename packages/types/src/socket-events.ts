@@ -96,6 +96,19 @@ export interface ServerToClientEvents {
     deltaVsYesterday: number;
     lastUpdatedAt: string;
   }) => void;
+  'new_dashboard:top_sites_activity': (payload: {
+    windowStart: string;
+    windowEnd: string;
+    sites: {
+      siteId: string;
+      siteName: string;
+      total: number;
+      guard: number;
+      onsite: number;
+      lastAlertAt: string;
+    }[];
+    lastUpdatedAt: string;
+  }) => void;
   admin_notification_created: (payload: { notification: AdminNotificationEventItem; unreadCount: number }) => void;
   admin_notifications_backfill: (payload: { notifications: AdminNotificationEventItem[]; unreadCount: number }) => void;
   admin_notifications_read: (payload: { readIds: string[]; unreadCount: number }) => void;
@@ -136,7 +149,14 @@ export interface ClientToServerEvents {
   subscribe_site: (siteId: string) => void;
   request_dashboard_backfill: (data: { siteId?: string }) => void;
   request_new_dashboard_backfill: (data: {
-    cards: ('critical_alerts' | 'shift_overview' | 'live_activity_feed' | 'total_incidents' | 'total_attendance')[];
+    cards: (
+      | 'critical_alerts'
+      | 'shift_overview'
+      | 'live_activity_feed'
+      | 'total_incidents'
+      | 'total_attendance'
+      | 'top_sites_activity'
+    )[];
     siteId?: string;
   }) => void;
   request_admin_notifications_backfill: (data: { limit?: number }) => void;

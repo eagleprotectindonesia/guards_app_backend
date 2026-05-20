@@ -49,11 +49,13 @@ type NewDashboardStreamContextType = {
   liveActivityFeed: SliceState<NewDashboardLiveActivityItem[]>;
   totalIncidents: SliceState<TotalIncidentsData>;
   totalAttendance: SliceState<TotalAttendanceData>;
+  topSitesActivity: SliceState<TopSitesActivityData>;
   refetchCriticalAlerts: () => void;
   refetchShiftOverview: () => void;
   refetchLiveActivityFeed: () => void;
   refetchTotalIncidents: () => void;
   refetchTotalAttendance: () => void;
+  refetchTopSitesActivity: () => void;
 };
 
 const NewDashboardStreamContext = createContext<NewDashboardStreamContextType | undefined>(undefined);
@@ -97,6 +99,20 @@ type TotalAttendanceData = {
   eligibleCount: number;
   yesterdayAttendanceRate: number;
   deltaVsYesterday: number;
+  lastUpdatedAt: string;
+};
+
+type TopSitesActivityData = {
+  windowStart: string;
+  windowEnd: string;
+  sites: {
+    siteId: string;
+    siteName: string;
+    total: number;
+    guard: number;
+    onsite: number;
+    lastAlertAt: string;
+  }[];
   lastUpdatedAt: string;
 };
 
@@ -219,6 +235,15 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
       lastUpdatedAt: '',
     },
   });
+  const [topSitesActivity, setTopSitesActivity] = useState<SliceState<TopSitesActivityData>>({
+    status: 'idle',
+    data: {
+      windowStart: '',
+      windowEnd: '',
+      sites: [],
+      lastUpdatedAt: '',
+    },
+  });
 
   const emitCriticalAlertsRequest = useCallback(() => {
     if (!socket || !canViewAlerts) return;
@@ -243,6 +268,11 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
   const emitTotalAttendanceRequest = useCallback(() => {
     if (!socket || !canViewAlerts) return;
     socket.emit('request_new_dashboard_backfill', { cards: ['total_attendance'] });
+  }, [socket, canViewAlerts]);
+
+  const emitTopSitesActivityRequest = useCallback(() => {
+    if (!socket || !canViewAlerts) return;
+    socket.emit('request_new_dashboard_backfill', { cards: ['top_sites_activity'] });
   }, [socket, canViewAlerts]);
 
   const refetchCriticalAlerts = useCallback(() => {
@@ -305,6 +335,18 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     socket.emit('request_new_dashboard_backfill', { cards: ['total_attendance'] });
   }, [socket, canViewAlerts]);
 
+  const refetchTopSitesActivity = useCallback(() => {
+    if (!socket || !canViewAlerts) return;
+
+    setTopSitesActivity(prev => ({
+      ...prev,
+      status: prev.data.windowEnd ? 'ready' : 'loading',
+      error: undefined,
+    }));
+
+    socket.emit('request_new_dashboard_backfill', { cards: ['top_sites_activity'] });
+  }, [socket, canViewAlerts]);
+
   useEffect(() => {
     if (!socket) return;
 
@@ -326,11 +368,13 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
 
       if ('type' in event && event.type === 'alert_created' && isIncidentAlert(event.alert)) {
         emitTotalIncidentsRequest();
+        emitTopSitesActivityRequest();
         return;
       }
 
       if ('id' in event && !('type' in event) && isIncidentAlert(event)) {
         emitTotalIncidentsRequest();
+        emitTopSitesActivityRequest();
       }
 
       const alertReason =
@@ -391,12 +435,21 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
       });
     };
 
+    const handleTopSitesActivityBackfill = (payload: TopSitesActivityData) => {
+      setTopSitesActivity({
+        status: 'ready',
+        data: payload,
+        lastUpdatedAt: new Date().toISOString(),
+      });
+    };
+
     socket.on('new_dashboard:critical_alerts', handleCriticalAlertsBackfill);
     socket.on('new_dashboard:shift_overview', handleShiftOverviewBackfill);
     socket.on('new_dashboard:live_activity_feed', handleLiveActivityBackfill);
     socket.on('new_dashboard:live_activity_event', handleLiveActivityEvent);
     socket.on('new_dashboard:total_incidents', handleTotalIncidentsBackfill);
     socket.on('new_dashboard:total_attendance', handleTotalAttendanceBackfill);
+    socket.on('new_dashboard:top_sites_activity', handleTopSitesActivityBackfill);
     socket.on('alert', handleAlertEvent);
     socket.on('upcoming_shifts', emitShiftOverviewRequest);
 
@@ -407,10 +460,17 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
       socket.off('new_dashboard:live_activity_event', handleLiveActivityEvent);
       socket.off('new_dashboard:total_incidents', handleTotalIncidentsBackfill);
       socket.off('new_dashboard:total_attendance', handleTotalAttendanceBackfill);
+      socket.off('new_dashboard:top_sites_activity', handleTopSitesActivityBackfill);
       socket.off('alert', handleAlertEvent);
       socket.off('upcoming_shifts', emitShiftOverviewRequest);
     };
-  }, [socket, emitShiftOverviewRequest, emitTotalIncidentsRequest, emitTotalAttendanceRequest]);
+  }, [
+    socket,
+    emitShiftOverviewRequest,
+    emitTotalIncidentsRequest,
+    emitTotalAttendanceRequest,
+    emitTopSitesActivityRequest,
+  ]);
 
   useEffect(() => {
     if (!canViewAlerts || !isConnected) {
@@ -422,6 +482,7 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     emitLiveActivityFeedRequest();
     emitTotalIncidentsRequest();
     emitTotalAttendanceRequest();
+    emitTopSitesActivityRequest();
   }, [
     canViewAlerts,
     isConnected,
@@ -430,6 +491,7 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     emitLiveActivityFeedRequest,
     emitTotalIncidentsRequest,
     emitTotalAttendanceRequest,
+    emitTopSitesActivityRequest,
   ]);
 
   const value: NewDashboardStreamContextType = {
@@ -478,11 +540,23 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
             lastUpdatedAt: '',
           },
         },
+    topSitesActivity: canViewAlerts
+      ? topSitesActivity
+      : {
+          status: 'ready',
+          data: {
+            windowStart: '',
+            windowEnd: '',
+            sites: [],
+            lastUpdatedAt: '',
+          },
+        },
     refetchCriticalAlerts,
     refetchShiftOverview,
     refetchLiveActivityFeed,
     refetchTotalIncidents,
     refetchTotalAttendance,
+    refetchTopSitesActivity,
   };
 
   return <NewDashboardStreamContext.Provider value={value}>{children}</NewDashboardStreamContext.Provider>;
