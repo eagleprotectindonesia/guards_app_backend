@@ -1351,8 +1351,9 @@ export async function getExportShiftsBatch(params: { where: Prisma.ShiftWhereInp
 export async function getActiveShifts(now: Date) {
   const LOOKAHEAD_MS = 10 * 60 * 1000; // 10 minutes
   const lookaheadDate = new Date(now.getTime() + LOOKAHEAD_MS);
+  const nowMs = now.getTime();
 
-  return prisma.shift.findMany({
+  const shifts = await prisma.shift.findMany({
     where: {
       deletedAt: null,
       employeeId: { not: null },
@@ -1373,6 +1374,13 @@ export async function getActiveShifts(now: Date) {
       site: true,
       attendance: true,
     },
+  });
+
+  return shifts.filter(shift => {
+    if (shift.status === 'scheduled') return true;
+    if (shift.status !== 'in_progress') return false;
+    const cutoffMs = shift.endsAt.getTime() + shift.graceMinutes * 60000;
+    return nowMs < cutoffMs;
   });
 }
 
@@ -1672,8 +1680,9 @@ export async function cancelInProgressShiftsForDeactivatedEmployee(employeeId: s
 export async function getActiveShiftsForDashboard(now: Date) {
   const LOOKAHEAD_MS = 10 * 60 * 1000; // 10 minutes
   const lookaheadDate = new Date(now.getTime() + LOOKAHEAD_MS);
+  const nowMs = now.getTime();
 
-  return prisma.shift.findMany({
+  const shifts = await prisma.shift.findMany({
     where: {
       deletedAt: null,
       employeeId: { not: null },
@@ -1694,6 +1703,13 @@ export async function getActiveShiftsForDashboard(now: Date) {
       site: true,
       attendance: true,
     },
+  });
+
+  return shifts.filter(shift => {
+    if (shift.status === 'scheduled') return true;
+    if (shift.status !== 'in_progress') return false;
+    const cutoffMs = shift.endsAt.getTime() + shift.graceMinutes * 60000;
+    return nowMs < cutoffMs;
   });
 }
 
