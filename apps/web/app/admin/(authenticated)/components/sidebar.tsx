@@ -71,7 +71,10 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
     const byName = new Map(navItems.map(item => [item.name, item]));
 
     const groups: Array<{ label: string; items: NavItem[] }> = [
-      { label: 'Dashboard', items: [byName.get('Dashboard')].filter(Boolean) as NavItem[] },
+      {
+        label: 'Dashboard',
+        items: [byName.get('Dashboard'), byName.get('Live Operations')].filter(Boolean) as NavItem[],
+      },
       {
         label: 'Office',
         items: [

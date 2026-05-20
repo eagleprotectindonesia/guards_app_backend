@@ -31,6 +31,7 @@ export interface NavGroup {
 export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
   return [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
+    { name: 'Live Operations', href: '/admin/new-dashboard', icon: LayoutDashboard },
     { name: 'Sites', href: '/admin/sites', icon: MapPin, requiredPermission: 'sites:view' },
     { name: 'Offices', href: '/admin/offices', icon: Hotel, requiredPermission: 'offices:view' },
     ...(officeWorkSchedulesEnabled

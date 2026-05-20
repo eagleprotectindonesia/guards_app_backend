@@ -16,6 +16,11 @@ import { AdminNavLink } from './admin-nav-link';
 
 export function AdminBreadcrumb() {
   const pathname = usePathname();
+
+  if (pathname === '/admin/new-dashboard') {
+    return null;
+  }
+
   const allPaths = pathname.split('/').filter(Boolean);
 
   // Create objects with path and original index to ensure correct href generation
