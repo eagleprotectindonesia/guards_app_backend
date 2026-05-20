@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import * as Sentry from '@sentry/nextjs';
 import { useEmployeeApi } from './use-employee-api';
 import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { CheckInWindowResult } from '@/lib/scheduling';
@@ -205,6 +206,16 @@ export function useRecordAttendance() {
 
   return useMutation({
     mutationFn: async ({ shiftId, location }: { shiftId: string; location?: { lat: number; lng: number } }) => {
+      Sentry.addBreadcrumb({
+        category: 'attendance.record',
+        message: 'attendance.record.request.fetch.start',
+        level: 'info',
+        data: {
+          shiftId,
+          endpoint: '/api/employee/shifts/:id/attendance',
+          hasLocation: !!location,
+        },
+      });
       const res = await fetchWithAuth(`/api/employee/shifts/${shiftId}/attendance`, {
         method: 'POST',
         headers: {
@@ -213,8 +224,30 @@ export function useRecordAttendance() {
         body: JSON.stringify({ shiftId, location }),
       });
 
+      Sentry.addBreadcrumb({
+        category: 'attendance.record',
+        message: 'attendance.record.request.fetch.response',
+        level: res.ok ? 'info' : 'error',
+        data: {
+          shiftId,
+          endpoint: '/api/employee/shifts/:id/attendance',
+          status: res.status,
+          ok: res.ok,
+        },
+      });
+
       const data = await res.json();
       if (!res.ok) {
+        Sentry.addBreadcrumb({
+          category: 'attendance.record',
+          message: 'attendance.record.request.fetch.non_ok',
+          level: 'error',
+          data: {
+            shiftId,
+            status: res.status,
+            code: typeof data?.code === 'string' ? data.code : undefined,
+          },
+        });
         throw data as EmployeeAttendanceCheckinErrorPayload;
       }
       return data;
