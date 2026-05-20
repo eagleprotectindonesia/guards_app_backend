@@ -72,23 +72,24 @@ function CriticalAlertsCard() {
         </Link>
       </div>
 
-      {(criticalAlerts.status === 'loading' || criticalAlerts.status === 'idle') && criticalAlerts.data.length === 0 && (
-        <div className="space-y-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="rounded-lg bg-muted/20 p-3 space-y-2">
-              <div className="flex justify-between">
-                <LoadingBlock className="h-3 w-20" />
-                <LoadingBlock className="h-3 w-12" />
+      {(criticalAlerts.status === 'loading' || criticalAlerts.status === 'idle') &&
+        criticalAlerts.data.length === 0 && (
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="rounded-lg bg-muted/20 p-3 space-y-2">
+                <div className="flex justify-between">
+                  <LoadingBlock className="h-3 w-20" />
+                  <LoadingBlock className="h-3 w-12" />
+                </div>
+                <LoadingBlock className="h-4 w-32" />
+                <div className="flex justify-between items-center">
+                  <LoadingBlock className="h-3 w-24" />
+                  <LoadingBlock className="h-3 w-10" />
+                </div>
               </div>
-              <LoadingBlock className="h-4 w-32" />
-              <div className="flex justify-between items-center">
-                <LoadingBlock className="h-3 w-24" />
-                <LoadingBlock className="h-3 w-10" />
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
 
       {criticalAlerts.status === 'ready' && criticalAlerts.data.length === 0 && (
         <div className="h-[calc(100%-2.5rem)] flex items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
@@ -116,13 +117,87 @@ function CriticalAlertsCard() {
 
               <div className="text-sm font-medium text-foreground truncate">{guardSiteLabel(alert)}</div>
 
-              <div className="mt-1 text-xs text-muted-foreground">
-                {format(new Date(alert.createdAt), 'hh:mm a')}
-              </div>
+              <div className="mt-1 text-xs text-muted-foreground">{format(new Date(alert.createdAt), 'hh:mm a')}</div>
             </div>
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function ShiftOverviewCard() {
+  const { shiftOverview } = useNewDashboardStream();
+
+  if (shiftOverview.status === 'idle' || shiftOverview.status === 'loading') {
+    return (
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <LoadingBlock className="h-4 w-32" />
+        <div className="mt-6 flex justify-center">
+          <LoadingBlock className="h-48 w-48 rounded-full border-12 border-muted/20" />
+        </div>
+        <div className="mt-6 space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <LoadingBlock className="h-2 w-2 rounded-full" />
+                <LoadingBlock className="h-3 w-16" />
+              </div>
+              <LoadingBlock className="h-3 w-12" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  const data = shiftOverview.data;
+  const total = Math.max(data.total, 0);
+  const onDutyPct = total > 0 ? (data.onDuty / total) * 100 : 0;
+  const upcomingPct = total > 0 ? (data.upcoming / total) * 100 : 0;
+  const completedPct = total > 0 ? (data.completed / total) * 100 : 0;
+  const donutBackground =
+    total > 0
+      ? `conic-gradient(
+        #22c55e 0% ${onDutyPct}%,
+        #3b82f6 ${onDutyPct}% ${onDutyPct + upcomingPct}%,
+        #94a3b8 ${onDutyPct + upcomingPct}% ${onDutyPct + upcomingPct + completedPct}%,
+        #ef4444 ${onDutyPct + upcomingPct + completedPct}% 100%
+      )`
+      : 'conic-gradient(#334155 0% 100%)';
+
+  const legend = [
+    { label: 'On Duty', count: data.onDuty, color: 'bg-green-500' },
+    { label: 'Upcoming', count: data.upcoming, color: 'bg-blue-500' },
+    { label: 'Completed', count: data.completed, color: 'bg-slate-400' },
+    { label: 'Absent', count: data.absent, color: 'bg-red-500' },
+  ];
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+      <h3 className="text-sm font-semibold text-foreground">Shift Overview</h3>
+      <div className="mt-5 flex justify-center">
+        <div
+          className="relative flex h-44 w-44 items-center justify-center rounded-full"
+          style={{ background: donutBackground }}
+        >
+          <div className="flex h-30 w-30 flex-col items-center justify-center rounded-full bg-card text-center">
+            <p className="text-4xl font-bold text-foreground">{total}</p>
+            <p className="text-sm text-muted-foreground">Total Shifts</p>
+          </div>
+        </div>
+      </div>
+      <div className="mt-5 space-y-2">
+        {legend.map(item => (
+          <div key={item.label} className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-full ${item.color}`} />
+              <span className="text-sm text-muted-foreground">{item.label}</span>
+            </div>
+            <span className="text-sm font-semibold text-foreground">{item.count}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -142,7 +217,9 @@ function InternalChatLiveCard() {
 
   const selectedItem = useMemo(() => {
     if (!selectedConversation) return null;
-    return topItems.find(item => item.kind === selectedConversation.kind && item.id === selectedConversation.id) ?? null;
+    return (
+      topItems.find(item => item.kind === selectedConversation.kind && item.id === selectedConversation.id) ?? null
+    );
   }, [selectedConversation, topItems]);
 
   const openSelectedConversation = () => {
@@ -156,7 +233,9 @@ function InternalChatLiveCard() {
     }
 
     return (
-      item.subtitle || (item.lastMessage ? `${item.lastMessage.senderName}: ${item.lastMessage.content}` : null) || 'No group messages yet'
+      item.subtitle ||
+      (item.lastMessage ? `${item.lastMessage.senderName}: ${item.lastMessage.content}` : null) ||
+      'No group messages yet'
     );
   };
 
@@ -316,23 +395,7 @@ export default function NewDashboardClient() {
 
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12 space-y-4 lg:col-span-3">
-          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-            <LoadingBlock className="h-4 w-32" />
-            <div className="mt-6 flex justify-center">
-              <LoadingBlock className="h-48 w-48 rounded-full border-12 border-muted/20" />
-            </div>
-            <div className="mt-6 space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <LoadingBlock className="h-2 w-2 rounded-full" />
-                    <LoadingBlock className="h-3 w-16" />
-                  </div>
-                  <LoadingBlock className="h-3 w-12" />
-                </div>
-              ))}
-            </div>
-          </div>
+          <ShiftOverviewCard />
 
           <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <h3 className="text-sm font-semibold text-foreground">Guard Status</h3>

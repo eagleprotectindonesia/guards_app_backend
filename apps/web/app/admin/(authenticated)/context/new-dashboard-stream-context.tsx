@@ -44,10 +44,23 @@ type SliceState<T> = {
 
 type NewDashboardStreamContextType = {
   criticalAlerts: SliceState<NewDashboardAlert[]>;
+  shiftOverview: SliceState<ShiftOverviewData>;
   refetchCriticalAlerts: () => void;
+  refetchShiftOverview: () => void;
 };
 
 const NewDashboardStreamContext = createContext<NewDashboardStreamContextType | undefined>(undefined);
+
+type ShiftOverviewData = {
+  dateKey: string;
+  onDuty: number;
+  upcoming: number;
+  completed: number;
+  absent: number;
+  carryoverOnDuty: number;
+  total: number;
+  lastUpdatedAt: string;
+};
 
 function severityRank(alert: NewDashboardAlert): number {
   return alert.severity === 'critical' ? 2 : 1;
@@ -123,10 +136,28 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     status: 'idle',
     data: [],
   });
+  const [shiftOverview, setShiftOverview] = useState<SliceState<ShiftOverviewData>>({
+    status: 'idle',
+    data: {
+      dateKey: '',
+      onDuty: 0,
+      upcoming: 0,
+      completed: 0,
+      absent: 0,
+      carryoverOnDuty: 0,
+      total: 0,
+      lastUpdatedAt: '',
+    },
+  });
 
   const emitCriticalAlertsRequest = useCallback(() => {
     if (!socket || !canViewAlerts) return;
     socket.emit('request_new_dashboard_backfill', { cards: ['critical_alerts'] });
+  }, [socket, canViewAlerts]);
+
+  const emitShiftOverviewRequest = useCallback(() => {
+    if (!socket || !canViewAlerts) return;
+    socket.emit('request_new_dashboard_backfill', { cards: ['shift_overview'] });
   }, [socket, canViewAlerts]);
 
   const refetchCriticalAlerts = useCallback(() => {
@@ -139,6 +170,18 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     }));
 
     socket.emit('request_new_dashboard_backfill', { cards: ['critical_alerts'] });
+  }, [socket, canViewAlerts]);
+
+  const refetchShiftOverview = useCallback(() => {
+    if (!socket || !canViewAlerts) return;
+
+    setShiftOverview(prev => ({
+      ...prev,
+      status: prev.data.total > 0 ? 'ready' : 'loading',
+      error: undefined,
+    }));
+
+    socket.emit('request_new_dashboard_backfill', { cards: ['shift_overview'] });
   }, [socket, canViewAlerts]);
 
   useEffect(() => {
@@ -161,14 +204,26 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
       }));
     };
 
+    const handleShiftOverviewBackfill = (payload: ShiftOverviewData) => {
+      setShiftOverview({
+        status: 'ready',
+        data: payload,
+        lastUpdatedAt: new Date().toISOString(),
+      });
+    };
+
     socket.on('new_dashboard:critical_alerts', handleCriticalAlertsBackfill);
+    socket.on('new_dashboard:shift_overview', handleShiftOverviewBackfill);
     socket.on('alert', handleAlertEvent);
+    socket.on('upcoming_shifts', emitShiftOverviewRequest);
 
     return () => {
       socket.off('new_dashboard:critical_alerts', handleCriticalAlertsBackfill);
+      socket.off('new_dashboard:shift_overview', handleShiftOverviewBackfill);
       socket.off('alert', handleAlertEvent);
+      socket.off('upcoming_shifts', emitShiftOverviewRequest);
     };
-  }, [socket]);
+  }, [socket, emitShiftOverviewRequest]);
 
   useEffect(() => {
     if (!canViewAlerts || !isConnected) {
@@ -176,11 +231,28 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     }
 
     emitCriticalAlertsRequest();
-  }, [canViewAlerts, isConnected, emitCriticalAlertsRequest]);
+    emitShiftOverviewRequest();
+  }, [canViewAlerts, isConnected, emitCriticalAlertsRequest, emitShiftOverviewRequest]);
 
   const value: NewDashboardStreamContextType = {
     criticalAlerts: canViewAlerts ? criticalAlerts : { status: 'ready', data: [] },
+    shiftOverview: canViewAlerts
+      ? shiftOverview
+      : {
+          status: 'ready',
+          data: {
+            dateKey: '',
+            onDuty: 0,
+            upcoming: 0,
+            completed: 0,
+            absent: 0,
+            carryoverOnDuty: 0,
+            total: 0,
+            lastUpdatedAt: '',
+          },
+        },
     refetchCriticalAlerts,
+    refetchShiftOverview,
   };
 
   return <NewDashboardStreamContext.Provider value={value}>{children}</NewDashboardStreamContext.Provider>;

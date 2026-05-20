@@ -2,6 +2,7 @@ import {
   countUnreadAdminNotifications,
   getActiveShiftsForDashboard,
   getOpenAlertsForDashboard,
+  getShiftOverviewForDashboard,
   getUpcomingShiftsForDashboard,
   listRecentAdminNotifications,
   markAdminNotificationsAsRead,
@@ -72,23 +73,27 @@ export function registerAdminHandlers(io: UnifiedServer, socket: UnifiedSocket) 
   socket.on('request_new_dashboard_backfill', async data => {
     try {
       const cards = Array.isArray(data?.cards) ? data.cards : [];
-      if (!cards.includes('critical_alerts')) {
-        return;
+      const { siteId } = data || {};
+
+      if (cards.includes('critical_alerts')) {
+        const alerts = await getOpenAlertsForDashboard(siteId);
+
+        const warningPattern = siteId ? `alert:warning:${siteId}:*` : `alert:warning:*`;
+        const warningKeys = await redis.keys(warningPattern);
+        const warnings =
+          warningKeys.length > 0
+            ? (await redis.mget(...warningKeys)).filter((v): v is string => v !== null).map(v => JSON.parse(v))
+            : [];
+
+        socket.emit('new_dashboard:critical_alerts', {
+          alerts: [...alerts, ...warnings],
+        });
       }
 
-      const { siteId } = data || {};
-      const alerts = await getOpenAlertsForDashboard(siteId);
-
-      const warningPattern = siteId ? `alert:warning:${siteId}:*` : `alert:warning:*`;
-      const warningKeys = await redis.keys(warningPattern);
-      const warnings =
-        warningKeys.length > 0
-          ? (await redis.mget(...warningKeys)).filter((v): v is string => v !== null).map(v => JSON.parse(v))
-          : [];
-
-      socket.emit('new_dashboard:critical_alerts', {
-        alerts: [...alerts, ...warnings],
-      });
+      if (cards.includes('shift_overview')) {
+        const overview = await getShiftOverviewForDashboard(new Date());
+        socket.emit('new_dashboard:shift_overview', overview);
+      }
     } catch (err) {
       console.error('New dashboard backfill error:', err);
     }

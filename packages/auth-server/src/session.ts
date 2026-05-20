@@ -83,8 +83,15 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
     let email: string | null = null;
     let profileImage: string | null = null;
 
-    const cachedVersion = versionCacheKey ? await redis.get(versionCacheKey) : null;
-    const cachedPerms = type === 'admin' ? await redis.get(permsCacheKey) : null;
+    let cachedVersion: string | null = null;
+    let cachedPerms: string | null = null;
+
+    try {
+      cachedVersion = versionCacheKey ? await redis.get(versionCacheKey) : null;
+      cachedPerms = type === 'admin' ? await redis.get(permsCacheKey) : null;
+    } catch (error) {
+      console.warn('[Auth] Redis read failed during session verification, falling back to database:', error);
+    }
 
     if (cachedVersion !== null) {
       currentVersion = parseInt(cachedVersion, 10);
@@ -127,15 +134,19 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
           email = admin.email;
           profileImage = admin.profileImage;
 
-          if (versionCacheKey) {
-            await redis.set(versionCacheKey, currentVersion.toString(), 'EX', SESSION_CACHE_TTL);
+          try {
+            if (versionCacheKey) {
+              await redis.set(versionCacheKey, currentVersion.toString(), 'EX', SESSION_CACHE_TTL);
+            }
+            await redis.set(
+              permsCacheKey,
+              JSON.stringify({ roleName, permissions, rolePolicy, name, email, profileImage }),
+              'EX',
+              SESSION_CACHE_TTL
+            );
+          } catch (error) {
+            console.warn('[Auth] Redis write failed during session verification:', error);
           }
-          await redis.set(
-            permsCacheKey,
-            JSON.stringify({ roleName, permissions, rolePolicy, name, email, profileImage }),
-            'EX',
-            SESSION_CACHE_TTL
-          );
         }
       } else {
         if (!sessionId) {

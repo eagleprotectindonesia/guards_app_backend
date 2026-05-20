@@ -1719,3 +1719,82 @@ export async function getActiveShiftsForDashboard(now: Date) {
 export async function getUpcomingShiftsForDashboard(now: Date, take = 50) {
   return getUpcomingShifts(now, take);
 }
+
+export type ShiftOverviewForDashboard = {
+  dateKey: string;
+  onDuty: number;
+  upcoming: number;
+  completed: number;
+  absent: number;
+  carryoverOnDuty: number;
+  total: number;
+  lastUpdatedAt: string;
+};
+
+export async function getShiftOverviewForDashboard(now: Date): Promise<ShiftOverviewForDashboard> {
+  const dateKey = now.toISOString().slice(0, 10);
+  const dayStart = new Date(`${dateKey}T00:00:00Z`);
+  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  const [todayShifts, activeShifts] = await Promise.all([
+    prisma.shift.findMany({
+      where: {
+        deletedAt: null,
+        employeeId: { not: null },
+        date: {
+          gte: dayStart,
+          lt: dayEnd,
+        },
+      },
+      select: {
+        id: true,
+        status: true,
+        startsAt: true,
+      },
+    }),
+    getActiveShiftsForDashboard(now),
+  ]);
+
+  const activeIds = new Set(activeShifts.map(shift => shift.id));
+
+  let upcoming = 0;
+  let completed = 0;
+  let absent = 0;
+  for (const shift of todayShifts) {
+    if (activeIds.has(shift.id)) {
+      continue;
+    }
+    if (shift.status === 'scheduled' && shift.startsAt > now) {
+      upcoming += 1;
+      continue;
+    }
+    if (shift.status === 'completed') {
+      completed += 1;
+      continue;
+    }
+    if (shift.status === 'missed') {
+      absent += 1;
+    }
+  }
+
+  let onDuty = 0;
+  let carryoverOnDuty = 0;
+  for (const shift of activeShifts) {
+    const shiftDateKey = shift.date.toISOString().slice(0, 10);
+    onDuty += 1;
+    if (shiftDateKey < dateKey) {
+      carryoverOnDuty += 1;
+    }
+  }
+
+  return {
+    dateKey,
+    onDuty,
+    upcoming,
+    completed,
+    absent,
+    carryoverOnDuty,
+    total: onDuty + upcoming + completed + absent,
+    lastUpdatedAt: new Date().toISOString(),
+  };
+}
