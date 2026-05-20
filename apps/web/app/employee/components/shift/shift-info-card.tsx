@@ -1,4 +1,4 @@
-import type { ShiftWithRelationsDto } from '@/types/shifts';
+import type { EmployeeShift } from '@/app/employee/(authenticated)/hooks/use-employee-queries';
 import { format } from 'date-fns';
 import { enUS, id } from 'date-fns/locale';
 import { Card, CardContent } from '@/components/ui/card';
@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { CalendarCheck, MapPin } from 'lucide-react';
 
 interface ShiftInfoCardProps {
-  shift: ShiftWithRelationsDto;
+  shift: EmployeeShift;
 }
 
 export function ShiftInfoCard({ shift }: ShiftInfoCardProps) {

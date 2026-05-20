@@ -7,6 +7,17 @@ import type { EmployeeAttendanceCheckinErrorPayload } from '@repo/shared';
 import { useCallback, useMemo } from 'react';
 
 export type ShiftWithCheckInWindow = ShiftWithRelationsDto & { checkInWindow?: CheckInWindowResult };
+export type EmployeeShift = ShiftWithCheckInWindow;
+type SerializedCheckInWindow = Omit<CheckInWindowResult, 'currentSlotStart' | 'currentSlotEnd' | 'nextSlotStart'> & {
+  currentSlotStart: string | Date;
+  currentSlotEnd: string | Date;
+  nextSlotStart: string | Date | null;
+};
+type SerializedShiftWithCheckInWindow = Omit<ShiftWithRelationsDto, 'startsAt' | 'endsAt'> & {
+  startsAt: string | Date;
+  endsAt: string | Date;
+  checkInWindow?: SerializedCheckInWindow;
+};
 
 type OfficeAttendanceScheduleContext = {
   isWorkingDay: boolean;
@@ -36,20 +47,38 @@ export type EmployeeAnnouncement = {
   meta: Record<string, unknown>;
 };
 
-const parseShiftDates = (shift: ShiftWithCheckInWindow) => {
+const toValidDate = (value: string | Date | null | undefined): Date | null => {
+  if (value == null) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+};
+
+export const parseShiftDates = (shift: SerializedShiftWithCheckInWindow | null): ShiftWithCheckInWindow | null => {
   if (!shift) return null;
+  const startsAt = toValidDate(shift.startsAt);
+  const endsAt = toValidDate(shift.endsAt);
+  if (!startsAt || !endsAt) return null;
+
+  const parsedWindow = shift.checkInWindow
+    ? (() => {
+        const currentSlotStart = toValidDate(shift.checkInWindow.currentSlotStart);
+        const currentSlotEnd = toValidDate(shift.checkInWindow.currentSlotEnd);
+        const nextSlotStart = toValidDate(shift.checkInWindow.nextSlotStart);
+        if (!currentSlotStart || !currentSlotEnd || !nextSlotStart) return undefined;
+        return {
+          ...shift.checkInWindow,
+          currentSlotStart,
+          currentSlotEnd,
+          nextSlotStart,
+        };
+      })()
+    : undefined;
+
   return {
     ...shift,
-    startsAt: new Date(shift.startsAt),
-    endsAt: new Date(shift.endsAt),
-    checkInWindow: shift.checkInWindow
-      ? {
-          ...shift.checkInWindow,
-          currentSlotStart: new Date(shift.checkInWindow.currentSlotStart),
-          currentSlotEnd: new Date(shift.checkInWindow.currentSlotEnd),
-          nextSlotStart: new Date(shift.checkInWindow.nextSlotStart),
-        }
-      : undefined,
+    startsAt,
+    endsAt,
+    checkInWindow: parsedWindow,
   };
 };
 
@@ -85,11 +114,16 @@ export function useActiveShift() {
     queryFn: async () => {
       const res = await fetchWithAuth('/api/employee/my/active-shift');
       if (!res.ok) throw new Error('Failed to fetch active shift');
-      const data = await res.json();
+      const data = (await res.json()) as {
+        activeShift: SerializedShiftWithCheckInWindow | null;
+        nextShifts?: SerializedShiftWithCheckInWindow[];
+      };
 
       const activeShift = data.activeShift ? parseShiftDates(data.activeShift) : null;
 
-      const nextShifts = (data.nextShifts || []).map(parseShiftDates);
+      const nextShifts = (data.nextShifts || [])
+        .map(parseShiftDates)
+        .filter((shift): shift is ShiftWithCheckInWindow => !!shift);
 
       return { activeShift, nextShifts };
     },

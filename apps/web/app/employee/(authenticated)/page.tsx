@@ -6,6 +6,7 @@ import { AttendanceRecord } from '@/app/employee/components/attendance/attendanc
 import { EmployeeCarousel } from '@/app/employee/components/shift/employee-carousel';
 import { OfficeAttendanceCard } from '@/app/employee/components/office/office-attendance-card';
 import { useProfile, useActiveShift } from './hooks/use-employee-queries';
+import { shouldRefetchForActiveShift, shouldRefetchForNextShift } from './utils/shift-time';
 import { useTranslation } from 'react-i18next';
 
 export default function EmployeePage() {
@@ -26,19 +27,11 @@ export default function EmployeePage() {
       setCurrentTime(now);
 
       // Check if the current shift has ended
-      if (activeShift) {
-        const endTime = new Date(activeShift.endsAt.getTime() + 5 * 60000);
-        if (now > endTime) {
-          refetchShift();
-        }
-      } else if (nextShifts.length > 0) {
-        // When there's no active shift, check if we've passed the scheduled start time of the next shift
-        const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
-        const startTime = new Date(nextShifts[0].startsAt);
-        const shiftStartWithGrace = new Date(startTime.getTime() - FIVE_MINUTES_IN_MS);
-        if (now >= shiftStartWithGrace) {
-          refetchShift();
-        }
+      if (shouldRefetchForActiveShift(activeShift, now)) {
+        refetchShift();
+      } else if (shouldRefetchForNextShift(nextShifts[0] ?? null, now)) {
+        // When there's no active shift, refresh shortly before next shift starts.
+        refetchShift();
       }
     }, 1000);
     return () => clearInterval(timer);
