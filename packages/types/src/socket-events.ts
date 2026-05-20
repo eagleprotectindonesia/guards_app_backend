@@ -49,6 +49,30 @@ export interface ServerToClientEvents {
     total: number;
     lastUpdatedAt: string;
   }) => void;
+  'new_dashboard:live_activity_feed': (payload: {
+    items: {
+      id: string;
+      kind: 'attendance' | 'checkin';
+      occurredAt: string;
+      guardName: string;
+      siteName: string;
+      status: string;
+      shiftId: string;
+      employeeId: string | null;
+    }[];
+  }) => void;
+  'new_dashboard:live_activity_event': (payload: {
+    item: {
+      id: string;
+      kind: 'attendance' | 'checkin';
+      occurredAt: string;
+      guardName: string;
+      siteName: string;
+      status: string;
+      shiftId: string;
+      employeeId: string | null;
+    };
+  }) => void;
   admin_notification_created: (payload: { notification: AdminNotificationEventItem; unreadCount: number }) => void;
   admin_notifications_backfill: (payload: { notifications: AdminNotificationEventItem[]; unreadCount: number }) => void;
   admin_notifications_read: (payload: { readIds: string[]; unreadCount: number }) => void;
@@ -88,7 +112,10 @@ export interface ClientToServerEvents {
   // Dashboard events
   subscribe_site: (siteId: string) => void;
   request_dashboard_backfill: (data: { siteId?: string }) => void;
-  request_new_dashboard_backfill: (data: { cards: ('critical_alerts' | 'shift_overview')[]; siteId?: string }) => void;
+  request_new_dashboard_backfill: (data: {
+    cards: ('critical_alerts' | 'shift_overview' | 'live_activity_feed')[];
+    siteId?: string;
+  }) => void;
   request_admin_notifications_backfill: (data: { limit?: number }) => void;
   mark_admin_notifications_read: (data: { notificationIds: string[] }) => void;
 }

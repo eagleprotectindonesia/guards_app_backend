@@ -1,13 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Building2, SendHorizontal, ShieldCheck, User, UserCheck, Users } from 'lucide-react';
+import { AlertTriangle, Building2, CheckCircle2, Clock3, SendHorizontal, ShieldCheck, User, UserCheck, Users } from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ChatInboxItem } from '@repo/types';
 import { useAlerts } from '../context/alert-context';
-import { useNewDashboardStream, type NewDashboardAlert } from '../context/new-dashboard-stream-context';
+import {
+  useNewDashboardStream,
+  type NewDashboardAlert,
+  type NewDashboardLiveActivityItem,
+} from '../context/new-dashboard-stream-context';
 import { LoadingBlock } from '../components/loading/loading-block';
 import { NewDashboardSkeleton } from '../components/loading/new-dashboard-skeleton';
 import { useSession } from '../context/session-context';
@@ -198,6 +202,80 @@ function ShiftOverviewCard() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function activityStatusLabel(item: NewDashboardLiveActivityItem): string {
+  if (item.kind === 'attendance') {
+    if (item.status === 'late') return 'Attendance Late';
+    if (item.status === 'present') return 'Attendance Present';
+    if (item.status === 'absent') return 'Attendance Absent';
+    return `Attendance ${item.status.replace(/_/g, ' ')}`;
+  }
+  if (item.status === 'late') return 'Check-in Late';
+  if (item.status === 'on_time') return 'Check-in On Time';
+  return `Check-in ${item.status.replace(/_/g, ' ')}`;
+}
+
+function LiveActivityFeedCard() {
+  const { liveActivityFeed } = useNewDashboardStream();
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm h-64">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">Live Activity Feed</h3>
+        <Link href="/admin/attendance" className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400">
+          See All
+        </Link>
+      </div>
+
+      {(liveActivityFeed.status === 'loading' || liveActivityFeed.status === 'idle') && liveActivityFeed.data.length === 0 && (
+        <div className="space-y-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <LoadingBlock className="h-8 w-8 rounded-full" />
+              <div className="flex-1 space-y-2">
+                <LoadingBlock className="h-3 w-full" />
+                <LoadingBlock className="h-2 w-16" />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {liveActivityFeed.status === 'ready' && liveActivityFeed.data.length === 0 && (
+        <div className="h-[calc(100%-2.5rem)] flex items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
+          No recent activity
+        </div>
+      )}
+
+      {liveActivityFeed.data.length > 0 && (
+        <div className="space-y-3">
+          {liveActivityFeed.data.map(item => {
+            const occurredAt = new Date(item.occurredAt);
+            const timestamp = isToday(occurredAt) ? format(occurredAt, 'hh:mm a') : format(occurredAt, 'MMM d');
+            return (
+              <div key={item.id} className="flex items-center gap-3 rounded-lg border border-border bg-muted/10 p-2.5">
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
+                    item.kind === 'attendance'
+                      ? 'bg-green-500/15 text-green-600 dark:text-green-400'
+                      : 'bg-blue-500/15 text-blue-600 dark:text-blue-400'
+                  }`}
+                >
+                  {item.kind === 'attendance' ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">{`${item.guardName} - ${item.siteName}`}</p>
+                  <p className="truncate text-xs text-muted-foreground">{activityStatusLabel(item)}</p>
+                </div>
+                <span className="shrink-0 text-[10px] text-muted-foreground">{timestamp}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -414,7 +492,7 @@ export default function NewDashboardClient() {
         <div className="col-span-12 space-y-4 lg:col-span-6">
           <PlaceholderCard className="h-125 p-1" />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <PlaceholderCard className="h-64" />
+            <LiveActivityFeedCard />
             <PlaceholderCard className="h-64" />
           </div>
         </div>

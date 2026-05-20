@@ -13,6 +13,7 @@ export * from './employees';
 export * from './employee-sessions';
 export * from './annual-leave-balances';
 export * from './leave-requests';
+export * from './live-activity-feed';
 export * from './holiday-calendar-entries';
 export * from './employee-office-config';
 export * from './fcm-tokens';

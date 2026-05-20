@@ -191,6 +191,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       await redis.publish(`alerts:site:${resolvedAlert.siteId}`, JSON.stringify(payload));
     }
 
+    await redis.publish(
+      'dashboard:live-activity',
+      JSON.stringify({
+        item: {
+          id: `attendance:${attendance.id}`,
+          kind: 'attendance',
+          occurredAt: attendance.recordedAt.toISOString(),
+          guardName: employee.fullName,
+          siteName: shift.site.name,
+          status: attendance.status,
+          shiftId: attendance.shiftId,
+          employeeId: attendance.employeeId,
+        },
+      })
+    );
+
     return NextResponse.json({ attendance }, { status: 201 });
   } catch (error: unknown) {
     console.error('Error recording attendance:', error);

@@ -28,6 +28,8 @@ export function registerSystemHandlers(io: UnifiedServer) {
         io.to('admin').emit('active_shifts', payload);
       } else if (channel === 'dashboard:upcoming-shifts') {
         io.to('admin').emit('upcoming_shifts', payload);
+      } else if (channel === 'dashboard:live-activity') {
+        io.to('admin').emit('new_dashboard:live_activity_event', payload);
       } else if (channel.startsWith('admin-notifications:admin:')) {
         const adminId = channel.split(':').pop();
         if (!adminId) {
@@ -63,7 +65,7 @@ export function registerSystemHandlers(io: UnifiedServer) {
     try {
       await sub.psubscribe('alerts:site:*');
       await sub.psubscribe('admin-notifications:admin:*');
-      await sub.subscribe('dashboard:active-shifts', 'dashboard:upcoming-shifts');
+      await sub.subscribe('dashboard:active-shifts', 'dashboard:upcoming-shifts', 'dashboard:live-activity');
       console.log('[Socket Redis Sub] Subscribed to alerts and dashboard channels');
     } catch (err) {
       console.error('[Socket Redis Sub] Subscription Failed:', err);

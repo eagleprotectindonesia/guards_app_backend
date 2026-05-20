@@ -9,6 +9,7 @@ import { useSession } from './session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 const CRITICAL_ALERT_LIMIT = 4;
+const LIVE_ACTIVITY_LIMIT = 4;
 
 type SliceStatus = 'idle' | 'loading' | 'ready' | 'error';
 
@@ -45,8 +46,10 @@ type SliceState<T> = {
 type NewDashboardStreamContextType = {
   criticalAlerts: SliceState<NewDashboardAlert[]>;
   shiftOverview: SliceState<ShiftOverviewData>;
+  liveActivityFeed: SliceState<NewDashboardLiveActivityItem[]>;
   refetchCriticalAlerts: () => void;
   refetchShiftOverview: () => void;
+  refetchLiveActivityFeed: () => void;
 };
 
 const NewDashboardStreamContext = createContext<NewDashboardStreamContextType | undefined>(undefined);
@@ -60,6 +63,17 @@ type ShiftOverviewData = {
   carryoverOnDuty: number;
   total: number;
   lastUpdatedAt: string;
+};
+
+export type NewDashboardLiveActivityItem = {
+  id: string;
+  kind: 'attendance' | 'checkin';
+  occurredAt: string;
+  guardName: string;
+  siteName: string;
+  status: string;
+  shiftId: string;
+  employeeId: string | null;
 };
 
 function severityRank(alert: NewDashboardAlert): number {
@@ -149,6 +163,10 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
       lastUpdatedAt: '',
     },
   });
+  const [liveActivityFeed, setLiveActivityFeed] = useState<SliceState<NewDashboardLiveActivityItem[]>>({
+    status: 'idle',
+    data: [],
+  });
 
   const emitCriticalAlertsRequest = useCallback(() => {
     if (!socket || !canViewAlerts) return;
@@ -158,6 +176,11 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
   const emitShiftOverviewRequest = useCallback(() => {
     if (!socket || !canViewAlerts) return;
     socket.emit('request_new_dashboard_backfill', { cards: ['shift_overview'] });
+  }, [socket, canViewAlerts]);
+
+  const emitLiveActivityFeedRequest = useCallback(() => {
+    if (!socket || !canViewAlerts) return;
+    socket.emit('request_new_dashboard_backfill', { cards: ['live_activity_feed'] });
   }, [socket, canViewAlerts]);
 
   const refetchCriticalAlerts = useCallback(() => {
@@ -182,6 +205,18 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     }));
 
     socket.emit('request_new_dashboard_backfill', { cards: ['shift_overview'] });
+  }, [socket, canViewAlerts]);
+
+  const refetchLiveActivityFeed = useCallback(() => {
+    if (!socket || !canViewAlerts) return;
+
+    setLiveActivityFeed(prev => ({
+      ...prev,
+      status: prev.data.length > 0 ? 'ready' : 'loading',
+      error: undefined,
+    }));
+
+    socket.emit('request_new_dashboard_backfill', { cards: ['live_activity_feed'] });
   }, [socket, canViewAlerts]);
 
   useEffect(() => {
@@ -212,14 +247,38 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
       });
     };
 
+    const handleLiveActivityBackfill = (payload: { items: NewDashboardLiveActivityItem[] }) => {
+      setLiveActivityFeed({
+        status: 'ready',
+        data: payload.items.slice(0, LIVE_ACTIVITY_LIMIT),
+        lastUpdatedAt: new Date().toISOString(),
+      });
+    };
+
+    const handleLiveActivityEvent = (payload: { item: NewDashboardLiveActivityItem }) => {
+      setLiveActivityFeed(prev => {
+        const merged = [payload.item, ...prev.data.filter(item => item.id !== payload.item.id)].slice(0, LIVE_ACTIVITY_LIMIT);
+        return {
+          ...prev,
+          status: 'ready',
+          data: merged,
+          lastUpdatedAt: new Date().toISOString(),
+        };
+      });
+    };
+
     socket.on('new_dashboard:critical_alerts', handleCriticalAlertsBackfill);
     socket.on('new_dashboard:shift_overview', handleShiftOverviewBackfill);
+    socket.on('new_dashboard:live_activity_feed', handleLiveActivityBackfill);
+    socket.on('new_dashboard:live_activity_event', handleLiveActivityEvent);
     socket.on('alert', handleAlertEvent);
     socket.on('upcoming_shifts', emitShiftOverviewRequest);
 
     return () => {
       socket.off('new_dashboard:critical_alerts', handleCriticalAlertsBackfill);
       socket.off('new_dashboard:shift_overview', handleShiftOverviewBackfill);
+      socket.off('new_dashboard:live_activity_feed', handleLiveActivityBackfill);
+      socket.off('new_dashboard:live_activity_event', handleLiveActivityEvent);
       socket.off('alert', handleAlertEvent);
       socket.off('upcoming_shifts', emitShiftOverviewRequest);
     };
@@ -232,7 +291,8 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
 
     emitCriticalAlertsRequest();
     emitShiftOverviewRequest();
-  }, [canViewAlerts, isConnected, emitCriticalAlertsRequest, emitShiftOverviewRequest]);
+    emitLiveActivityFeedRequest();
+  }, [canViewAlerts, isConnected, emitCriticalAlertsRequest, emitShiftOverviewRequest, emitLiveActivityFeedRequest]);
 
   const value: NewDashboardStreamContextType = {
     criticalAlerts: canViewAlerts ? criticalAlerts : { status: 'ready', data: [] },
@@ -251,8 +311,10 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
             lastUpdatedAt: '',
           },
         },
+    liveActivityFeed: canViewAlerts ? liveActivityFeed : { status: 'ready', data: [] },
     refetchCriticalAlerts,
     refetchShiftOverview,
+    refetchLiveActivityFeed,
   };
 
   return <NewDashboardStreamContext.Provider value={value}>{children}</NewDashboardStreamContext.Provider>;

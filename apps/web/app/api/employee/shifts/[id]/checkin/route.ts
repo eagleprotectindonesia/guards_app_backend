@@ -219,6 +219,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       await redis.publish(`alerts:site:${shift.siteId}`, JSON.stringify(payload));
     }
 
+    await redis.publish(
+      'dashboard:live-activity',
+      JSON.stringify({
+        item: {
+          id: `checkin:${checkin.id ?? `${shift.id}:${now.toISOString()}`}`,
+          kind: 'checkin',
+          occurredAt: now.toISOString(),
+          guardName: employee.fullName,
+          siteName: shift.site.name,
+          status,
+          shiftId: shift.id,
+          employeeId,
+        },
+      })
+    );
+
     return NextResponse.json({
       checkin,
       next_due_at: windowResult.nextSlotStart,

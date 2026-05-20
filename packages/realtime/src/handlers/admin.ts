@@ -2,6 +2,7 @@ import {
   countUnreadAdminNotifications,
   getActiveShiftsForDashboard,
   getOpenAlertsForDashboard,
+  getLiveActivityFeedForDashboard,
   getShiftOverviewForDashboard,
   getUpcomingShiftsForDashboard,
   listRecentAdminNotifications,
@@ -93,6 +94,11 @@ export function registerAdminHandlers(io: UnifiedServer, socket: UnifiedSocket) 
       if (cards.includes('shift_overview')) {
         const overview = await getShiftOverviewForDashboard(new Date());
         socket.emit('new_dashboard:shift_overview', overview);
+      }
+
+      if (cards.includes('live_activity_feed')) {
+        const items = await getLiveActivityFeedForDashboard({ limit: 4 });
+        socket.emit('new_dashboard:live_activity_feed', { items });
       }
     } catch (err) {
       console.error('New dashboard backfill error:', err);
