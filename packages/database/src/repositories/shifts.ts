@@ -588,6 +588,22 @@ function getShiftBulkDateKey(employeeId: string, date: string) {
   return `${employeeId}:${date}`;
 }
 
+function parseDateKeyStrict(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(date.getTime())) return null;
+  if (date.toISOString().slice(0, 10) !== value) return null;
+  return date;
+}
+
+function parseStrictInt(raw: string): number | null {
+  const value = raw.trim();
+  if (!/^\d+$/.test(value)) return null;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) return null;
+  return parsed;
+}
+
 function minDateKey(keys: Set<string>) {
   return Array.from(keys).sort((a, b) => a.localeCompare(b))[0];
 }
@@ -627,7 +643,7 @@ export async function processGuardShiftBulkImport(
 
   const [sites, shiftTypes, employees] = await Promise.all([
     prisma.site.findMany({
-      where: { deletedAt: null },
+      where: { deletedAt: null, status: true },
       select: { id: true, name: true },
     }),
     prisma.shiftType.findMany({
@@ -661,9 +677,7 @@ export async function processGuardShiftBulkImport(
       .map(employee => [employee.employeeNumber!.toUpperCase(), employee.id] as const)
   );
 
-  const datesAsDate = uniqueDates
-    .filter(value => /^\d{4}-\d{2}-\d{2}$/.test(value))
-    .map(value => new Date(`${value}T00:00:00Z`));
+  const datesAsDate = uniqueDates.map(parseDateKeyStrict).filter((date): date is Date => date !== null);
 
   const existingShifts = await prisma.shift.findMany({
     where: {
@@ -690,6 +704,7 @@ export async function processGuardShiftBulkImport(
 
   const seenKeys = new Set<string>();
   const now = options?.now ?? new Date();
+  const nowDateKey = now.toISOString().slice(0, 10);
   const createInputs: Prisma.ShiftCreateManyInput[] = [];
   const updates: Array<{
     id: string;
@@ -717,7 +732,8 @@ export async function processGuardShiftBulkImport(
       continue;
     }
 
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(row.date)) {
+    const rowDate = parseDateKeyStrict(row.date);
+    if (!rowDate) {
       errors.push(`Row ${row.rowNumber}: invalid date '${row.date}'. Expected YYYY-MM-DD.`);
       continue;
     }
@@ -737,6 +753,10 @@ export async function processGuardShiftBulkImport(
 
     const existingForKey = existingByKey.get(rowKey) ?? [];
     if (row.shiftTypeName.toLowerCase() === 'off') {
+      if (row.date < nowDateKey) {
+        pastDatesSkipped++;
+        continue;
+      }
       existingForKey.forEach(shift => deleteIds.add(shift.id));
       const existing = offDateKeysByEmployee.get(employeeId) ?? new Set<string>();
       existing.add(row.date);
@@ -751,13 +771,13 @@ export async function processGuardShiftBulkImport(
       continue;
     }
 
-    const interval = Number.parseInt(row.interval, 10);
-    const grace = Number.parseInt(row.grace, 10);
-    if (Number.isNaN(interval) || interval <= 0) {
+    const interval = parseStrictInt(row.interval);
+    const grace = parseStrictInt(row.grace);
+    if (interval === null || interval <= 0) {
       errors.push(`Row ${row.rowNumber}: interval '${row.interval}' must be a positive integer.`);
       continue;
     }
-    if (Number.isNaN(grace) || grace < 0) {
+    if (grace === null || grace < 0) {
       errors.push(`Row ${row.rowNumber}: grace '${row.grace}' must be a non-negative integer.`);
       continue;
     }
@@ -799,7 +819,7 @@ export async function processGuardShiftBulkImport(
         siteId,
         shiftTypeId: shiftType.id,
         employeeId,
-        date: new Date(`${row.date}T00:00:00Z`),
+        date: rowDate,
         startsAt,
         endsAt,
         requiredCheckinIntervalMins: interval,
@@ -826,7 +846,7 @@ export async function processGuardShiftBulkImport(
       employeeId,
       siteId,
       shiftTypeId: shiftType.id,
-      date: new Date(`${row.date}T00:00:00Z`),
+      date: rowDate,
       startsAt,
       endsAt,
       note: row.note ?? null,
@@ -936,6 +956,15 @@ export async function processGuardShiftBulkImport(
     const createdNotificationTargets: Array<{ shiftId: string; employeeId?: string | null }> = [];
 
     await prisma.$transaction(async tx => {
+      const employeeIdsToLock = Array.from(
+        new Set([...offDateKeysByEmployee.keys(), ...workingDateKeysByEmployee.keys()])
+      ).sort((a, b) => a.localeCompare(b));
+      if (employeeIdsToLock.length > 0) {
+        await tx.$queryRaw(
+          Prisma.sql`SELECT id FROM employees WHERE id IN (${Prisma.join(employeeIdsToLock)}) ORDER BY id FOR UPDATE`
+        );
+      }
+
       if (deleteIds.size > 0) {
         const shiftsToDelete = await tx.shift.findMany({
           where: { id: { in: Array.from(deleteIds) }, deletedAt: null },

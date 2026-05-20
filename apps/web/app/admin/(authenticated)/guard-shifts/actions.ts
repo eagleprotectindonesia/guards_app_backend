@@ -7,6 +7,7 @@ import { isBefore } from 'date-fns';
 import { ShiftStatus } from '@prisma/client';
 import { parseShiftTypeTimeOnDate } from '@repo/shared';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
+import { parse as parseCsv } from 'csv-parse/sync';
 import {
   checkOverlappingShift,
   createShiftWithChangelog,
@@ -297,7 +298,6 @@ export async function bulkCreateShifts(
     note: ['note'],
   };
 
-  const parseCsvLine = (line: string) => line.split(',').map(value => value.trim().replace(/^"|"$/g, ''));
   const normalizeHeader = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '_');
 
   if (!(file instanceof File)) {
@@ -305,13 +305,22 @@ export async function bulkCreateShifts(
   }
 
   const text = await file.text();
-  const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+  let records: string[][];
+  try {
+    records = parseCsv(text, {
+      bom: true,
+      skip_empty_lines: true,
+      trim: true,
+    }) as string[][];
+  } catch {
+    return { success: false, message: 'Invalid CSV format.' };
+  }
 
-  if (lines.length < 2) {
+  if (records.length < 2) {
     return { success: false, message: 'CSV file is empty or missing data.' };
   }
 
-  const header = parseCsvLine(lines[0]).map(normalizeHeader);
+  const header = records[0].map(value => String(value ?? '')).map(normalizeHeader);
   const headerIndexByCanonical = new Map<string, number>();
   for (const [canonical, aliases] of Object.entries(REQUIRED_HEADER_ALIASES)) {
     const idx = header.findIndex(value => aliases.includes(value));
@@ -340,8 +349,8 @@ export async function bulkCreateShifts(
   }> = [];
   const parseErrors: string[] = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    const cols = parseCsvLine(lines[i]);
+  for (let i = 1; i < records.length; i++) {
+    const cols = records[i].map(value => String(value ?? '').trim());
     const requiredIndexes = ['site', 'shift_type_name', 'date', 'employee_code', 'interval', 'grace'].map(
       key => headerIndexByCanonical.get(key) ?? -1
     );
