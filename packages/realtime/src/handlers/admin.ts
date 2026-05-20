@@ -5,6 +5,7 @@ import {
   getLiveActivityFeedForDashboard,
   getShiftOverviewForDashboard,
   getTotalIncidentsForDashboard,
+  getTotalAttendanceForDashboard,
   getUpcomingShiftsForDashboard,
   listRecentAdminNotifications,
   markAdminNotificationsAsRead,
@@ -105,6 +106,12 @@ export function registerAdminHandlers(io: UnifiedServer, socket: UnifiedSocket) 
       if (cards.includes('total_incidents')) {
         const incidents = await getTotalIncidentsForDashboard(new Date(), siteId);
         socket.emit('new_dashboard:total_incidents', incidents);
+      }
+
+      if (cards.includes('total_attendance')) {
+        const attendance = await getTotalAttendanceForDashboard(new Date(), siteId);
+
+        socket.emit('new_dashboard:total_attendance', attendance);
       }
     } catch (err) {
       console.error('New dashboard backfill error:', err);

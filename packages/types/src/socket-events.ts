@@ -22,7 +22,12 @@ export interface ServerToClientEvents {
   typing: (data: { employeeId: string; isTyping: boolean }) => void;
   conversation_locked: (data: { employeeId: string; lockedBy: string; expiresAt: number }) => void;
   group_new_message: (message: GroupChatMessage) => void;
-  group_messages_read: (data: { groupId: string; participantId: string; messageIds?: string[]; readAt: string }) => void;
+  group_messages_read: (data: {
+    groupId: string;
+    participantId: string;
+    messageIds?: string[];
+    readAt: string;
+  }) => void;
   group_typing: (data: { groupId: string; participantId: string; participantName: string; isTyping: boolean }) => void;
   group_member_added: (data: { groupId: string; participant: GroupChatParticipant }) => void;
   group_member_removed: (data: { groupId: string; participantId: string; removedByParticipantId?: string }) => void;
@@ -82,6 +87,15 @@ export interface ServerToClientEvents {
     deltaVsYesterday: number;
     lastUpdatedAt: string;
   }) => void;
+  'new_dashboard:total_attendance': (payload: {
+    dateKey: string;
+    attendanceRate: number;
+    attendedCount: number;
+    eligibleCount: number;
+    yesterdayAttendanceRate: number;
+    deltaVsYesterday: number;
+    lastUpdatedAt: string;
+  }) => void;
   admin_notification_created: (payload: { notification: AdminNotificationEventItem; unreadCount: number }) => void;
   admin_notifications_backfill: (payload: { notifications: AdminNotificationEventItem[]; unreadCount: number }) => void;
   admin_notifications_read: (payload: { readIds: string[]; unreadCount: number }) => void;
@@ -122,7 +136,7 @@ export interface ClientToServerEvents {
   subscribe_site: (siteId: string) => void;
   request_dashboard_backfill: (data: { siteId?: string }) => void;
   request_new_dashboard_backfill: (data: {
-    cards: ('critical_alerts' | 'shift_overview' | 'live_activity_feed' | 'total_incidents')[];
+    cards: ('critical_alerts' | 'shift_overview' | 'live_activity_feed' | 'total_incidents' | 'total_attendance')[];
     siteId?: string;
   }) => void;
   request_admin_notifications_backfill: (data: { limit?: number }) => void;

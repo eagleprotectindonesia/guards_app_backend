@@ -48,10 +48,12 @@ type NewDashboardStreamContextType = {
   shiftOverview: SliceState<ShiftOverviewData>;
   liveActivityFeed: SliceState<NewDashboardLiveActivityItem[]>;
   totalIncidents: SliceState<TotalIncidentsData>;
+  totalAttendance: SliceState<TotalAttendanceData>;
   refetchCriticalAlerts: () => void;
   refetchShiftOverview: () => void;
   refetchLiveActivityFeed: () => void;
   refetchTotalIncidents: () => void;
+  refetchTotalAttendance: () => void;
 };
 
 const NewDashboardStreamContext = createContext<NewDashboardStreamContextType | undefined>(undefined);
@@ -88,10 +90,18 @@ type TotalIncidentsData = {
   lastUpdatedAt: string;
 };
 
+type TotalAttendanceData = {
+  dateKey: string;
+  attendanceRate: number;
+  attendedCount: number;
+  eligibleCount: number;
+  yesterdayAttendanceRate: number;
+  deltaVsYesterday: number;
+  lastUpdatedAt: string;
+};
+
 function isIncidentAlert(alert: NewDashboardAlert): boolean {
-  return (
-    alert.severity === 'critical' && (alert.reason === 'missed_attendance' || alert.reason === 'missed_checkin')
-  );
+  return alert.severity === 'critical' && (alert.reason === 'missed_attendance' || alert.reason === 'missed_checkin');
 }
 
 function severityRank(alert: NewDashboardAlert): number {
@@ -197,6 +207,18 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
       lastUpdatedAt: '',
     },
   });
+  const [totalAttendance, setTotalAttendance] = useState<SliceState<TotalAttendanceData>>({
+    status: 'idle',
+    data: {
+      dateKey: '',
+      attendanceRate: 0,
+      attendedCount: 0,
+      eligibleCount: 0,
+      yesterdayAttendanceRate: 0,
+      deltaVsYesterday: 0,
+      lastUpdatedAt: '',
+    },
+  });
 
   const emitCriticalAlertsRequest = useCallback(() => {
     if (!socket || !canViewAlerts) return;
@@ -216,6 +238,11 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
   const emitTotalIncidentsRequest = useCallback(() => {
     if (!socket || !canViewAlerts) return;
     socket.emit('request_new_dashboard_backfill', { cards: ['total_incidents'] });
+  }, [socket, canViewAlerts]);
+
+  const emitTotalAttendanceRequest = useCallback(() => {
+    if (!socket || !canViewAlerts) return;
+    socket.emit('request_new_dashboard_backfill', { cards: ['total_attendance'] });
   }, [socket, canViewAlerts]);
 
   const refetchCriticalAlerts = useCallback(() => {
@@ -266,6 +293,18 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     socket.emit('request_new_dashboard_backfill', { cards: ['total_incidents'] });
   }, [socket, canViewAlerts]);
 
+  const refetchTotalAttendance = useCallback(() => {
+    if (!socket || !canViewAlerts) return;
+
+    setTotalAttendance(prev => ({
+      ...prev,
+      status: prev.data.dateKey ? 'ready' : 'loading',
+      error: undefined,
+    }));
+
+    socket.emit('request_new_dashboard_backfill', { cards: ['total_attendance'] });
+  }, [socket, canViewAlerts]);
+
   useEffect(() => {
     if (!socket) return;
 
@@ -293,6 +332,12 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
       if ('id' in event && !('type' in event) && isIncidentAlert(event)) {
         emitTotalIncidentsRequest();
       }
+
+      const alertReason =
+        'type' in event && 'alert' in event ? event.alert.reason : 'reason' in event ? event.reason : null;
+      if (alertReason === 'missed_attendance') {
+        emitTotalAttendanceRequest();
+      }
     };
 
     const handleShiftOverviewBackfill = (payload: ShiftOverviewData) => {
@@ -313,7 +358,10 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
 
     const handleLiveActivityEvent = (payload: { item: NewDashboardLiveActivityItem }) => {
       setLiveActivityFeed(prev => {
-        const merged = [payload.item, ...prev.data.filter(item => item.id !== payload.item.id)].slice(0, LIVE_ACTIVITY_LIMIT);
+        const merged = [payload.item, ...prev.data.filter(item => item.id !== payload.item.id)].slice(
+          0,
+          LIVE_ACTIVITY_LIMIT
+        );
         return {
           ...prev,
           status: 'ready',
@@ -321,10 +369,22 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
           lastUpdatedAt: new Date().toISOString(),
         };
       });
+
+      if (payload.item.kind === 'attendance') {
+        emitTotalAttendanceRequest();
+      }
     };
 
     const handleTotalIncidentsBackfill = (payload: TotalIncidentsData) => {
       setTotalIncidents({
+        status: 'ready',
+        data: payload,
+        lastUpdatedAt: new Date().toISOString(),
+      });
+    };
+
+    const handleTotalAttendanceBackfill = (payload: TotalAttendanceData) => {
+      setTotalAttendance({
         status: 'ready',
         data: payload,
         lastUpdatedAt: new Date().toISOString(),
@@ -336,6 +396,7 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     socket.on('new_dashboard:live_activity_feed', handleLiveActivityBackfill);
     socket.on('new_dashboard:live_activity_event', handleLiveActivityEvent);
     socket.on('new_dashboard:total_incidents', handleTotalIncidentsBackfill);
+    socket.on('new_dashboard:total_attendance', handleTotalAttendanceBackfill);
     socket.on('alert', handleAlertEvent);
     socket.on('upcoming_shifts', emitShiftOverviewRequest);
 
@@ -345,10 +406,11 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
       socket.off('new_dashboard:live_activity_feed', handleLiveActivityBackfill);
       socket.off('new_dashboard:live_activity_event', handleLiveActivityEvent);
       socket.off('new_dashboard:total_incidents', handleTotalIncidentsBackfill);
+      socket.off('new_dashboard:total_attendance', handleTotalAttendanceBackfill);
       socket.off('alert', handleAlertEvent);
       socket.off('upcoming_shifts', emitShiftOverviewRequest);
     };
-  }, [socket, emitShiftOverviewRequest, emitTotalIncidentsRequest]);
+  }, [socket, emitShiftOverviewRequest, emitTotalIncidentsRequest, emitTotalAttendanceRequest]);
 
   useEffect(() => {
     if (!canViewAlerts || !isConnected) {
@@ -359,6 +421,7 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     emitShiftOverviewRequest();
     emitLiveActivityFeedRequest();
     emitTotalIncidentsRequest();
+    emitTotalAttendanceRequest();
   }, [
     canViewAlerts,
     isConnected,
@@ -366,6 +429,7 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     emitShiftOverviewRequest,
     emitLiveActivityFeedRequest,
     emitTotalIncidentsRequest,
+    emitTotalAttendanceRequest,
   ]);
 
   const value: NewDashboardStreamContextType = {
@@ -400,10 +464,25 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
             lastUpdatedAt: '',
           },
         },
+    totalAttendance: canViewAlerts
+      ? totalAttendance
+      : {
+          status: 'ready',
+          data: {
+            dateKey: '',
+            attendanceRate: 0,
+            attendedCount: 0,
+            eligibleCount: 0,
+            yesterdayAttendanceRate: 0,
+            deltaVsYesterday: 0,
+            lastUpdatedAt: '',
+          },
+        },
     refetchCriticalAlerts,
     refetchShiftOverview,
     refetchLiveActivityFeed,
     refetchTotalIncidents,
+    refetchTotalAttendance,
   };
 
   return <NewDashboardStreamContext.Provider value={value}>{children}</NewDashboardStreamContext.Provider>;

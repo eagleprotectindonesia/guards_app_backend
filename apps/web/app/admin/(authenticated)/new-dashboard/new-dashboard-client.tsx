@@ -1,7 +1,17 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { AlertTriangle, Building2, CheckCircle2, Clock3, SendHorizontal, ShieldCheck, User, UserCheck, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  Building2,
+  CheckCircle2,
+  Clock3,
+  SendHorizontal,
+  ShieldCheck,
+  User,
+  UserCheck,
+  Users,
+} from 'lucide-react';
 import { format, isToday } from 'date-fns';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -230,19 +240,20 @@ function LiveActivityFeedCard() {
         </Link>
       </div>
 
-      {(liveActivityFeed.status === 'loading' || liveActivityFeed.status === 'idle') && liveActivityFeed.data.length === 0 && (
-        <div className="space-y-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <LoadingBlock className="h-8 w-8 rounded-full" />
-              <div className="flex-1 space-y-2">
-                <LoadingBlock className="h-3 w-full" />
-                <LoadingBlock className="h-2 w-16" />
+      {(liveActivityFeed.status === 'loading' || liveActivityFeed.status === 'idle') &&
+        liveActivityFeed.data.length === 0 && (
+          <div className="space-y-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <LoadingBlock className="h-8 w-8 rounded-full" />
+                <div className="flex-1 space-y-2">
+                  <LoadingBlock className="h-3 w-full" />
+                  <LoadingBlock className="h-2 w-16" />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
 
       {liveActivityFeed.status === 'ready' && liveActivityFeed.data.length === 0 && (
         <div className="h-[calc(100%-2.5rem)] flex items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
@@ -464,6 +475,62 @@ function TotalIncidentsCard() {
   );
 }
 
+function TodaysSummaryCard() {
+  const today = format(new Date(), 'd MMM yyyy');
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Today&apos;s Summary</p>
+      <div>
+        <p className="text-lg font-semibold text-foreground">{today}</p>
+        <p className="text-xs text-muted-foreground">Business Day</p>
+      </div>
+    </div>
+  );
+}
+
+function TotalAttendanceCard() {
+  const { totalAttendance } = useNewDashboardStream();
+  const isLoading =
+    (totalAttendance.status === 'idle' || totalAttendance.status === 'loading') && totalAttendance.data.dateKey === '';
+
+  const delta = totalAttendance.data.deltaVsYesterday;
+  const deltaLabel = delta > 0 ? `+${delta}` : `${delta}`;
+  const deltaClass =
+    delta > 0
+      ? 'text-green-600 dark:text-green-400'
+      : delta < 0
+        ? 'text-red-600 dark:text-red-400'
+        : 'text-muted-foreground';
+
+  return (
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total Attendance</p>
+
+      {isLoading && (
+        <div className="space-y-2">
+          <LoadingBlock className="h-7 w-16" />
+          <LoadingBlock className="h-3 w-24" />
+          <LoadingBlock className="h-3 w-20" />
+        </div>
+      )}
+
+      {!isLoading && (
+        <>
+          <div className="flex items-end justify-between">
+            <p className="text-3xl font-bold text-foreground">{`${totalAttendance.data.attendanceRate}%`}</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-500/10 text-green-600 dark:text-green-400">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
+          </div>
+          <p className={`text-xs font-medium ${deltaClass}`}>{`${deltaLabel} pts vs yesterday`}</p>
+          <p className="text-xs text-muted-foreground">{`${totalAttendance.data.attendedCount}/${totalAttendance.data.eligibleCount} shifts`}</p>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function NewDashboardClient() {
   const { activeSites, isDashboardInitialized } = useAlerts();
 
@@ -547,8 +614,10 @@ export default function NewDashboardClient() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <TodaysSummaryCard />
         <TotalIncidentsCard />
-        {Array.from({ length: 5 }).map((_, i) => (
+        <TotalAttendanceCard />
+        {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
             <LoadingBlock className="h-3 w-24" />
             <div className="flex items-end justify-between">
