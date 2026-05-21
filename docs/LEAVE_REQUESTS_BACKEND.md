@@ -143,6 +143,23 @@ Usage:
 
 - Date range is inclusive (`startDate` and `endDate` included).
 - Validation requires `startDate <= endDate`.
+- Annual leave entitlement cycle:
+  - Entitlement is `12` days per cycle.
+  - Eligibility starts only after employee completes 12 months from `dateOfJoining`.
+  - Current implementation mode is **calendar-year cycle**:
+    - cycle window: `Jan 1` to `Dec 31` (business timezone year).
+    - balance key: `employee_annual_leave_balances.year`.
+    - default per-year balance row `entitledDays` is policy-driven:
+      - pre-eligibility year: `0`
+      - eligibility year: prorated by remaining calendar days in year, rounded down
+      - later years: `12`
+    - `adjustedDays` is reserved for manual/admin adjustments (not eligibility sentinel).
+  - Tradeoff note:
+    - `Jan 1` cycle is simpler for payroll/reporting and matches current schema + deduction logic.
+    - anniversary cycle (per employee `dateOfJoining`) requires model and logic changes (cycle key no longer plain `year`), especially for spanning-request deductions, admin balance pages, and ledger grouping.
+  - Recommendation:
+    - keep `Jan 1` cycle as default now.
+    - if business later chooses anniversary cycle, implement as a new versioned policy/migration instead of mixing both behaviors.
 - Fixed-duration leave types are strict exact length:
   - `family_marriage` = 3 days
   - `family_child_marriage` = 2 days

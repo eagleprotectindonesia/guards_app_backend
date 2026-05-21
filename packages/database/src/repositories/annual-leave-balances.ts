@@ -1,5 +1,6 @@
 import { EmployeeRole, Prisma } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
+import { computeAnnualLeaveEntitledDays } from './annual-leave-policy';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 
@@ -63,6 +64,14 @@ function toAvailableDays(balance: {
 }
 
 async function getOrCreateAnnualLeaveBalance(employeeId: string, year: number, tx: Prisma.TransactionClient) {
+  const employee = await tx.employee.findUnique({
+    where: { id: employeeId },
+    select: { dateOfJoining: true },
+  });
+  if (!employee) {
+    throw new Error('Employee not found');
+  }
+  const entitledDays = computeAnnualLeaveEntitledDays({ dateOfJoining: employee.dateOfJoining, year });
   return tx.employeeAnnualLeaveBalance.upsert({
     where: {
       employeeId_year: {
@@ -74,7 +83,7 @@ async function getOrCreateAnnualLeaveBalance(employeeId: string, year: number, t
     create: {
       employeeId,
       year,
-      entitledDays: 12,
+      entitledDays,
       adjustedDays: 0,
       consumedDays: 0,
     },
@@ -163,6 +172,7 @@ export async function listPaginatedEmployeeAnnualLeaveBalancesForAdmin(params: {
         role: true,
         department: true,
         officeId: true,
+        dateOfJoining: true,
       },
       orderBy: {
         fullName: 'asc',
@@ -195,7 +205,7 @@ export async function listPaginatedEmployeeAnnualLeaveBalancesForAdmin(params: {
 
   const rows = employees.map(employee => {
     const balance = balanceByEmployeeId.get(employee.id);
-    const entitledDays = balance?.entitledDays ?? 12;
+    const entitledDays = balance?.entitledDays ?? computeAnnualLeaveEntitledDays({ dateOfJoining: employee.dateOfJoining, year: params.year });
     const adjustedDays = balance?.adjustedDays ?? 0;
     const consumedDays = balance?.consumedDays ?? 0;
 

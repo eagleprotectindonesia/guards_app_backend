@@ -15,6 +15,7 @@ import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
 import { resolveHolidayPolicyForEmployeeDate } from './holiday-calendar-entries';
 import { listEmployeeOnsiteDayOffDateKeysInRange } from './onsite-day-offs';
 import { listEmployeeOfficeDayOverridesForDates } from './office-day-overrides';
+import { computeAnnualLeaveEntitledDays } from './annual-leave-policy';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 export const OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR = 'Overlapping pending leave request already exists';
@@ -666,6 +667,14 @@ type AnnualLeaveConsumptionResult = {
 };
 
 async function getOrCreateAnnualLeaveBalance(employeeId: string, year: number, tx: Prisma.TransactionClient) {
+  const employee = await tx.employee.findUnique({
+    where: { id: employeeId },
+    select: { dateOfJoining: true },
+  });
+  if (!employee) {
+    throw new Error('Employee not found');
+  }
+  const entitledDays = computeAnnualLeaveEntitledDays({ dateOfJoining: employee.dateOfJoining, year });
   return tx.employeeAnnualLeaveBalance.upsert({
     where: {
       employeeId_year: {
@@ -677,7 +686,7 @@ async function getOrCreateAnnualLeaveBalance(employeeId: string, year: number, t
     create: {
       employeeId,
       year,
-      entitledDays: 12,
+      entitledDays,
       adjustedDays: 0,
       consumedDays: 0,
     },
@@ -693,6 +702,13 @@ export async function calculateAnnualLeaveConsumption(
 ): Promise<AnnualLeaveConsumptionResult> {
   if (params.dayKeys.length === 0) {
     return { deductedDays: 0, shortfallDays: 0 };
+  }
+  const employee = await (tx as TxLike).employee.findUnique({
+    where: { id: params.employeeId },
+    select: { dateOfJoining: true },
+  });
+  if (!employee) {
+    throw new Error('Employee not found');
   }
 
   const daysByYear = new Map<number, number>();
@@ -719,7 +735,9 @@ export async function calculateAnnualLeaveConsumption(
       },
     });
 
-    const available = balance ? Math.max(0, balance.entitledDays + balance.adjustedDays - balance.consumedDays) : 12; // Default entitlement if record doesn't exist yet
+    const available = balance
+      ? Math.max(0, balance.entitledDays + balance.adjustedDays - balance.consumedDays)
+      : computeAnnualLeaveEntitledDays({ dateOfJoining: employee.dateOfJoining, year });
 
     const requestedInYear = daysByYear.get(year) ?? 0;
     const canConsume = Math.min(requestedInYear, remainingToConsume, available);

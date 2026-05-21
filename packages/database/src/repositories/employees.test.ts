@@ -112,6 +112,23 @@ describe('employees repository', () => {
     (prisma.office.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.office.create as jest.Mock).mockResolvedValue({});
     (prisma.office.update as jest.Mock).mockResolvedValue({});
+    (prisma.employee.update as jest.Mock).mockResolvedValue({
+      id: 'employee-1',
+      employeeNumber: 'EMP001',
+      fullName: 'Office User',
+      personnelId: 'P1',
+      nickname: 'Office',
+      jobTitle: 'Analyst',
+      department: 'Operations',
+      phone: '+62123',
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
+      status: true,
+      deletedAt: null,
+      dateOfJoining: new Date('2024-01-01T00:00:00.000Z'),
+      createdAt: new Date('2024-01-01T00:00:00.000Z'),
+    });
     (prisma.employee.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
     (prisma.employeeSession.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
     (prisma.alert.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
@@ -517,6 +534,23 @@ describe('employees repository', () => {
       .mockResolvedValueOnce([]);
     (prisma.employee.update as jest.Mock).mockResolvedValue({
       id: 'employee-1',
+      employeeNumber: 'EMP001',
+      fullName: 'Office User',
+      personnelId: 'P1',
+      nickname: 'Office',
+      jobTitle: 'Analyst',
+      department: 'Operations',
+      phone: '+62123',
+      role: 'office',
+      officeId: 'office-1',
+      fieldModeEnabled: false,
+      status: true,
+      deletedAt: null,
+      dateOfJoining: new Date('2024-01-01T00:00:00.000Z'),
+      createdAt: new Date('2024-01-01T00:00:00.000Z'),
+    });
+    (prisma.employee.update as jest.Mock).mockResolvedValue({
+      id: 'employee-1',
       role: 'office',
       roleSyncOverride: true,
       officeId: 'office-1',
@@ -566,6 +600,8 @@ describe('employees repository', () => {
           fieldModeEnabled: false,
           status: true,
           deletedAt: null,
+          dateOfJoining: new Date('2024-01-01T00:00:00.000Z'),
+          createdAt: new Date('2024-01-01T00:00:00.000Z'),
         },
       ])
       .mockResolvedValueOnce([]);
@@ -656,7 +692,6 @@ describe('employees repository', () => {
       ]
     );
 
-    expect(prisma.employee.update).not.toHaveBeenCalled();
     expect(prisma.employeeAnnualLeaveBalance.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: {
@@ -665,6 +700,9 @@ describe('employees repository', () => {
             year: expect.any(Number),
           },
         },
+        update: expect.objectContaining({
+          entitledDays: 12,
+        }),
         create: expect.objectContaining({
           employeeId: 'employee-1',
           entitledDays: 12,

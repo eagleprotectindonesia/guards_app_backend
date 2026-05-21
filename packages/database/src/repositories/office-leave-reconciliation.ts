@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { projectLeavePolicyOutcome } from './leave-requests';
+import { computeAnnualLeaveEntitledDays } from './annual-leave-policy';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 
@@ -13,6 +14,14 @@ function dateToDateKey(date: Date) {
 }
 
 async function getOrCreateAnnualLeaveBalance(employeeId: string, year: number, tx: TxLike) {
+  const employee = await tx.employee.findUnique({
+    where: { id: employeeId },
+    select: { dateOfJoining: true },
+  });
+  if (!employee) {
+    throw new Error('Employee not found');
+  }
+  const entitledDays = computeAnnualLeaveEntitledDays({ dateOfJoining: employee.dateOfJoining, year });
   return tx.employeeAnnualLeaveBalance.upsert({
     where: {
       employeeId_year: {
@@ -24,7 +33,7 @@ async function getOrCreateAnnualLeaveBalance(employeeId: string, year: number, t
     create: {
       employeeId,
       year,
-      entitledDays: 12,
+      entitledDays,
       adjustedDays: 0,
       consumedDays: 0,
     },
