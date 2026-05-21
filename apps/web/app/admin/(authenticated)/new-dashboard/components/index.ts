@@ -6,6 +6,7 @@ export { InternalChatLiveCard } from './internal-chat-live-card';
 export { LiveActivityFeedCard } from './live-activity-feed-card';
 export { PlaceholderCard } from './placeholder-card';
 export { PlaceholderTopCard } from './placeholder-top-card';
+export { SitesMapCard } from './sites-map-card';
 export { ShiftOverviewCard } from './shift-overview-card';
 export { SystemStatusCard } from './system-status-card';
 export { TodaysSummaryCard } from './todays-summary-card';

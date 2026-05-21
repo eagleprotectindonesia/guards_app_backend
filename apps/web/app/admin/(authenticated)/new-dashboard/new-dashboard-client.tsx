@@ -1,5 +1,7 @@
 'use client';
 
+import { Site } from '@prisma/client';
+import type { Serialized } from '@/lib/server-utils';
 import { useAlerts } from '../context/alert-context';
 import { NewDashboardSkeleton } from '../components/loading/new-dashboard-skeleton';
 import { LoadingBlock } from '../components/loading/loading-block';
@@ -10,8 +12,8 @@ import {
   GuardStatusCard,
   InternalChatLiveCard,
   LiveActivityFeedCard,
-  PlaceholderCard,
   PlaceholderTopCard,
+  SitesMapCard,
   ShiftOverviewCard,
   SystemStatusCard,
   TodaysSummaryCard,
@@ -20,7 +22,11 @@ import {
   TotalIncidentsCard,
 } from './components';
 
-export default function NewDashboardClient() {
+type NewDashboardClientProps = {
+  initialSites: Serialized<Site>[];
+};
+
+export default function NewDashboardClient({ initialSites }: NewDashboardClientProps) {
   const { activeSites, isDashboardInitialized } = useAlerts();
 
   if (!isDashboardInitialized) {
@@ -58,10 +64,12 @@ export default function NewDashboardClient() {
         </div>
 
         <div className="col-span-12 space-y-4 lg:col-span-6">
-          <PlaceholderCard className="h-125 p-1" />
+          <SitesMapCard sites={initialSites} className="h-125 p-1" />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <LiveActivityFeedCard />
-            <PlaceholderCard className="h-64" />
+            <div className="rounded-xl border border-border bg-card p-4 shadow-sm h-64">
+              <LoadingBlock className="h-full w-full" />
+            </div>
           </div>
         </div>
 
