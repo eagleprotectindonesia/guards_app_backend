@@ -675,6 +675,167 @@ describe('employees repository', () => {
     );
   });
 
+  test('sync deactivates employee when external work_status is defined and not working', async () => {
+    (prisma.employee.findMany as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'employee-1',
+          employeeNumber: 'EMP001',
+          fullName: 'Office User',
+          personnelId: 'P1',
+          nickname: 'Office',
+          jobTitle: 'Analyst',
+          department: 'Operations',
+          phone: '+62123',
+          role: 'office',
+          officeId: 'office-1',
+          fieldModeEnabled: false,
+          status: true,
+          deletedAt: null,
+          dateOfJoining: new Date('2024-01-01T00:00:00.000Z'),
+          createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 'employee-1',
+          status: true,
+          employeeNumber: 'EMP001',
+          fullName: 'Office User',
+          role: 'office',
+        },
+      ]);
+
+    await syncEmployeesFromExternal(
+      { type: 'system' },
+      [
+        {
+          id: 'employee-1',
+          employee_number: 'EMP001',
+          personnel_id: 'P1',
+          work_status: 'resigned',
+          nickname: 'Office',
+          full_name: 'Office User',
+          job_title: 'Analyst',
+          department: 'Operations',
+          office_id: 'office-1',
+          office_name: 'HQ',
+          phone: '+62123',
+          date_of_joining: '2024-01-01T00:00:00.000Z',
+        },
+      ]
+    );
+
+    expect(prisma.employee.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ['employee-1'] } },
+        data: expect.objectContaining({
+          status: false,
+          deletedAt: expect.any(Date),
+        }),
+      })
+    );
+  });
+
+  test('sync keeps employee active when external work_status normalizes to working', async () => {
+    (prisma.employee.findMany as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'employee-1',
+          employeeNumber: 'EMP001',
+          fullName: 'Office User',
+          personnelId: 'P1',
+          nickname: 'Office',
+          jobTitle: 'Analyst',
+          department: 'Operations',
+          phone: '+62123',
+          role: 'office',
+          officeId: 'office-1',
+          fieldModeEnabled: false,
+          status: true,
+          deletedAt: null,
+          dateOfJoining: new Date('2024-01-01T00:00:00.000Z'),
+          createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await syncEmployeesFromExternal(
+      { type: 'system' },
+      [
+        {
+          id: 'employee-1',
+          employee_number: 'EMP001',
+          personnel_id: 'P1',
+          work_status: ' Working ',
+          nickname: 'Office',
+          full_name: 'Office User',
+          job_title: 'Analyst',
+          department: 'Operations',
+          office_id: 'office-1',
+          office_name: 'HQ',
+          phone: '+62123',
+          date_of_joining: '2024-01-01T00:00:00.000Z',
+        },
+      ]
+    );
+
+    expect(prisma.employee.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ['employee-1'] } },
+      })
+    );
+  });
+
+  test('sync keeps legacy behavior when external work_status is undefined', async () => {
+    (prisma.employee.findMany as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'employee-1',
+          employeeNumber: 'EMP001',
+          fullName: 'Office User',
+          personnelId: 'P1',
+          nickname: 'Office',
+          jobTitle: 'Analyst',
+          department: 'Operations',
+          phone: '+62123',
+          role: 'office',
+          officeId: 'office-1',
+          fieldModeEnabled: false,
+          status: true,
+          deletedAt: null,
+          dateOfJoining: new Date('2024-01-01T00:00:00.000Z'),
+          createdAt: new Date('2024-01-01T00:00:00.000Z'),
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    await syncEmployeesFromExternal(
+      { type: 'system' },
+      [
+        {
+          id: 'employee-1',
+          employee_number: 'EMP001',
+          personnel_id: 'P1',
+          nickname: 'Office',
+          full_name: 'Office User',
+          job_title: 'Analyst',
+          department: 'Operations',
+          office_id: 'office-1',
+          office_name: 'HQ',
+          phone: '+62123',
+          date_of_joining: '2024-01-01T00:00:00.000Z',
+        },
+      ]
+    );
+
+    expect(prisma.employee.updateMany).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: { in: ['employee-1'] } },
+      })
+    );
+  });
+
   test('sync keeps existing-id duplicate employee number winner and deactivates duplicate losers', async () => {
     (prisma.employee.findMany as jest.Mock)
       .mockResolvedValueOnce([

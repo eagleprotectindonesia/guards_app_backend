@@ -16,6 +16,7 @@ describe('employee shift normalization', () => {
     shiftType: { id: 'type-1', name: 'Morning', startTime: '08:00', endTime: '16:00' },
     employee: null,
     attendance: null,
+    missedCount: 0,
   } as const;
 
   test('parses valid serialized shift and check-in window dates', () => {
@@ -61,4 +62,3 @@ describe('employee shift normalization', () => {
     expect(parsed?.checkInWindow).toBeUndefined();
   });
 });
-

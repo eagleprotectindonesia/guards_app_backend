@@ -36,6 +36,12 @@ function resolveSyncedEmployeeRole(jobTitle?: string | null): EmployeeRole {
   return normalizeSyncStringValue(jobTitle) === 'security standby' ? 'on_site' : 'office';
 }
 
+function isExternallyActiveWorkStatus(workStatus?: string | null): boolean {
+  const normalizedStatus = normalizeSyncStringValue(workStatus);
+  if (!normalizedStatus) return true;
+  return normalizedStatus === 'working';
+}
+
 function getCurrentBusinessYear(now = new Date()) {
   return Number(
     new Intl.DateTimeFormat('en-US', {
@@ -998,7 +1004,17 @@ export async function syncEmployeesFromExternal(
     externalEmployees,
     existingEmployeeIds
   );
-  const activeExternalIds = canonicalEmployees.map(employee => employee.id);
+  const activeExternalIds = canonicalEmployees
+    .filter(employee => {
+      const isActive = isExternallyActiveWorkStatus(employee.work_status);
+      if (!isActive) {
+        console.log(
+          `[SyncEmployees] Employee id=${employee.id} excluded from active external list due to work_status="${employee.work_status}".`
+        );
+      }
+      return isActive;
+    })
+    .map(employee => employee.id);
   const duplicateWarningEntries: EmployeeSyncDuplicateWarningEntry[] = [];
 
   for (const [employeeNumber, loserIds] of duplicateLosersByEmployeeNumber.entries()) {
