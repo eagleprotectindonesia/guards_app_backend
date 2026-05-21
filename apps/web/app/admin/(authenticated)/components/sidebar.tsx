@@ -35,11 +35,13 @@ function DigitalClock({ isCollapsed }: { isCollapsed: boolean }) {
   if (!time) return null;
 
   return (
-    <div className={cn(
-      "mt-auto p-3 border-t border-border bg-accent/5 transition-all duration-300",
-      isCollapsed ? "items-center px-0" : ""
-    )}>
-      <div className={cn("flex items-start gap-3", isCollapsed ? "justify-center" : "")}>
+    <div
+      className={cn(
+        'mt-auto p-3 border-t border-border bg-accent/5 transition-all duration-300',
+        isCollapsed ? 'items-center px-0' : ''
+      )}
+    >
+      <div className={cn('flex items-start gap-3', isCollapsed ? 'justify-center' : '')}>
         <div className="p-2 rounded-lg bg-accent/10 text-muted-foreground shrink-0">
           <Clock className="w-5 h-5" />
         </div>
@@ -49,8 +51,12 @@ function DigitalClock({ isCollapsed }: { isCollapsed: boolean }) {
               System Time
             </span>
             <div className="flex flex-wrap items-baseline gap-x-2 text-sm font-medium text-foreground/90 tabular-nums leading-tight mt-1">
-              <span className="whitespace-nowrap">{time.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-              <span className="text-muted-foreground whitespace-nowrap">{time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+              <span className="whitespace-nowrap">
+                {time.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+              <span className="text-muted-foreground whitespace-nowrap">
+                {time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
             </div>
           </div>
         )}
@@ -73,7 +79,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
     const groups: Array<{ label: string; items: NavItem[] }> = [
       {
         label: 'Dashboard',
-        items: [byName.get('Dashboard'), byName.get('Live Operations')].filter(Boolean) as NavItem[],
+        items: [byName.get('Dashboard'), byName.get('New Dashboard')].filter(Boolean) as NavItem[],
       },
       {
         label: 'Office',

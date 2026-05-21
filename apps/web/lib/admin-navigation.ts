@@ -31,7 +31,7 @@ export interface NavGroup {
 export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
   return [
     { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'Live Operations', href: '/admin/new-dashboard', icon: LayoutDashboard },
+    { name: 'New Dashboard', href: '/admin/new-dashboard', icon: LayoutDashboard },
     { name: 'Sites', href: '/admin/sites', icon: MapPin, requiredPermission: 'sites:view' },
     { name: 'Offices', href: '/admin/offices', icon: Hotel, requiredPermission: 'offices:view' },
     ...(officeWorkSchedulesEnabled
@@ -82,10 +82,20 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
     },
     { name: 'Chat', href: '/admin/chat', icon: MessageSquare, requiredPermission: 'chat:view' },
     { name: 'Employees', href: '/admin/employees', icon: Users, requiredPermission: 'employees:view' },
-    { name: 'Guard Shift Types', href: '/admin/guard-shift-types', icon: Layers, requiredPermission: 'shift-types:view' },
+    {
+      name: 'Guard Shift Types',
+      href: '/admin/guard-shift-types',
+      icon: Layers,
+      requiredPermission: 'shift-types:view',
+    },
     { name: 'Guard Shifts', href: '/admin/guard-shifts', icon: Calendar, requiredPermission: 'shifts:view' },
     { name: 'Attendance', href: '/admin/attendance', icon: ClipboardCheck, requiredPermission: 'attendance:view' },
-    { name: 'Guard Checkins', href: '/admin/guard-checkins', icon: ClipboardCheck, requiredPermission: 'checkins:view' },
+    {
+      name: 'Guard Checkins',
+      href: '/admin/guard-checkins',
+      icon: ClipboardCheck,
+      requiredPermission: 'checkins:view',
+    },
     { name: 'Alerts', href: '/admin/alerts', icon: Bell, requiredPermission: 'alerts:view' },
   ];
 }
@@ -128,9 +138,7 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true): NavGroup[]
         byName.get('Holiday Calendar'),
         byName.get('Leave Requests'),
         byName.get('Leave Balances'),
-      ].filter(
-        Boolean
-      ) as NavItem[],
+      ].filter(Boolean) as NavItem[],
     },
     {
       label: 'System',
