@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 import { endOfDay, format, startOfDay } from 'date-fns';
 import {
   getOfficeAttendanceExportBatch,
+  getEmployeeOfficeDayOverrideChangelogsForDates,
+  getLatestOfficeShiftEditChangelogs,
   OFFICE_PAID_BREAK_MINUTES,
   getScheduledPaidMinutesForOfficeAttendance,
   listLeaveRequestsOverlappingOfficeAttendance,
@@ -45,6 +47,48 @@ function parseDateKey(value: string) {
 
 function toDateKey(value: Date) {
   return value.toISOString().slice(0, 10);
+}
+
+type OfficeShiftEditChangelog = {
+  action: string;
+  details: Prisma.JsonValue | null;
+  admin: {
+    name: string;
+  } | null;
+};
+
+type OfficeDayOverrideChangelog = {
+  action: string;
+  details: Prisma.JsonValue | null;
+  admin: {
+    name: string;
+  } | null;
+};
+
+type OfficeDayOverrideDetails = {
+  employeeId: string;
+  date: string;
+  overrideType: 'off' | 'shift_override';
+};
+
+function parseOfficeDayOverrideDetails(details: Prisma.JsonValue | null): OfficeDayOverrideDetails | null {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) {
+    return null;
+  }
+
+  const employeeId = (details as Record<string, unknown>).employeeId;
+  const date = (details as Record<string, unknown>).date;
+  const overrideType = (details as Record<string, unknown>).overrideType;
+
+  if (
+    typeof employeeId !== 'string' ||
+    typeof date !== 'string' ||
+    (overrideType !== 'off' && overrideType !== 'shift_override')
+  ) {
+    return null;
+  }
+
+  return { employeeId, date, overrideType };
 }
 
 export async function GET(request: NextRequest) {
@@ -132,6 +176,11 @@ export async function GET(request: NextRequest) {
                     endTime: att.officeShift.officeShiftType.endTime,
                   }
                 : null,
+              lastUpdatedBy: att.officeShift.lastUpdatedBy
+                ? {
+                    name: att.officeShift.lastUpdatedBy.name,
+                  }
+                : null,
             }
           : null,
       }))
@@ -145,8 +194,51 @@ export async function GET(request: NextRequest) {
   }
 
   const rows = await buildOfficeAttendanceDisplayRows(records, getScheduledPaidMinutesForOfficeAttendance);
+  const officeShiftIds = Array.from(new Set(records.map(record => record.officeShift?.id).filter((id): id is string => Boolean(id))));
+  const rowKeys = Array.from(new Set(rows.map(row => `${row.employeeId}|${row.businessDate}`)));
   const employeeIds = Array.from(new Set(rows.map(row => row.employeeId)));
-  const dateKeys = rows.map(row => row.businessDate);
+  const dateKeys = Array.from(new Set(rows.map(row => row.businessDate)));
+  const officeShiftEditChangelogs = await getLatestOfficeShiftEditChangelogs(officeShiftIds);
+  const officeDayOverrideChangelogs = await getEmployeeOfficeDayOverrideChangelogsForDates({
+    employeeIds,
+    dateKeys,
+  });
+  const latestOfficeShiftEditChangelogByShiftId = new Map<string, OfficeShiftEditChangelog>();
+  for (const changelog of officeShiftEditChangelogs) {
+    if (!latestOfficeShiftEditChangelogByShiftId.has(changelog.entityId)) {
+      latestOfficeShiftEditChangelogByShiftId.set(changelog.entityId, {
+        action: changelog.action,
+        details: changelog.details,
+        admin: changelog.admin,
+      });
+    }
+  }
+  const latestDayoffTransitionByRowKey = new Map<string, OfficeDayOverrideChangelog>();
+  const sawOffByRowKey = new Map<string, boolean>();
+  for (const changelog of officeDayOverrideChangelogs) {
+    const details = parseOfficeDayOverrideDetails(changelog.details);
+    if (!details) {
+      continue;
+    }
+
+    const rowKey = `${details.employeeId}|${details.date}`;
+    if (!rowKeys.includes(rowKey)) {
+      continue;
+    }
+
+    if (details.overrideType === 'off') {
+      sawOffByRowKey.set(rowKey, true);
+      continue;
+    }
+
+    if ((changelog.action === 'CREATE' || changelog.action === 'UPDATE') && sawOffByRowKey.get(rowKey)) {
+      latestDayoffTransitionByRowKey.set(rowKey, {
+        action: changelog.action,
+        details: changelog.details,
+        admin: changelog.admin,
+      });
+    }
+  }
   const minDateKey = dateKeys.reduce((min, key) => (key < min ? key : min), dateKeys[0]);
   const maxDateKey = dateKeys.reduce((max, key) => (key > max ? key : max), dateKeys[0]);
   const overlappingLeaveRequests =
@@ -263,6 +355,11 @@ export async function GET(request: NextRequest) {
           leaveType = 'Unpaid Leave';
           leaveStatus = matchingLeave?.status === 'rejected' ? 'Rejected' : 'None';
         }
+        const rowKey = `${row.employeeId}|${row.businessDate}`;
+        const dayoffTransition = latestDayoffTransitionByRowKey.get(rowKey);
+        const shiftEditChangelog = row.officeShift?.id ? latestOfficeShiftEditChangelogByShiftId.get(row.officeShift.id) : undefined;
+        const editedBy = dayoffTransition?.admin?.name || shiftEditChangelog?.admin?.name || '';
+        const editReason = dayoffTransition ? 'Dayoff changes' : shiftEditChangelog ? 'Shift changes' : '';
 
         chunk +=
           [
@@ -295,8 +392,8 @@ export async function GET(request: NextRequest) {
             formatOptionalNumber(earlyLeaveMinutes),
             isNonWorkingStatus ? '' : row.clockOutAt ? 'No' : 'Yes',
             '',
-            '',
-            '',
+            escapeCsv(editedBy),
+            escapeCsv(editReason),
           ].join(',') + '\n';
       }
 
