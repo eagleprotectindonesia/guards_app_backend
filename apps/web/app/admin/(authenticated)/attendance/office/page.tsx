@@ -5,7 +5,11 @@ import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
 import { getActiveEmployeesSummary, getActiveOffices } from '@repo/database';
-import { getScheduledPaidMinutesForOfficeAttendance, listOfficeAttendance } from '@repo/database';
+import {
+  getScheduledPaidMinutesForOfficeAttendance,
+  listOfficeAttendance,
+  resolveOfficeAttendanceContextForEmployee,
+} from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { canAccessOfficeAttendance } from '@/lib/auth/admin-visibility';
@@ -107,7 +111,8 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
 
   const unifiedAttendances = await buildOfficeAttendanceDisplayRows(
     serializedAttendances,
-    getScheduledPaidMinutesForOfficeAttendance
+    getScheduledPaidMinutesForOfficeAttendance,
+    resolveOfficeAttendanceContextForEmployee
   );
   const totalCount = unifiedAttendances.length;
   const paginatedAttendances = paginateOfficeAttendanceDisplayRows(unifiedAttendances, page, perPage);

@@ -8,6 +8,7 @@ import {
   OFFICE_PAID_BREAK_MINUTES,
   getScheduledPaidMinutesForOfficeAttendance,
   listLeaveRequestsOverlappingOfficeAttendance,
+  resolveOfficeAttendanceContextForEmployee,
 } from '@repo/database';
 import type { LeaveRequestReason, LeaveRequestStatus } from '@repo/types';
 import { adminHasPermission, getAdminAuthSession } from '@/lib/admin-auth';
@@ -39,6 +40,20 @@ function getWorkMinutes(clockInAt: string, clockOutAt: string | null) {
   const breakMinutes = durationMinutes > 5 * 60 ? OFFICE_PAID_BREAK_MINUTES : 0;
 
   return Math.max(0, durationMinutes - breakMinutes);
+}
+
+function getFallbackWorkMinutes(params: {
+  clockInAt: string;
+  businessDate: string;
+  scheduledWindowEnd: Date | null;
+  currentBusinessDateKey: string;
+}) {
+  const { clockInAt, businessDate, scheduledWindowEnd, currentBusinessDateKey } = params;
+  if (businessDate >= currentBusinessDateKey || !scheduledWindowEnd) {
+    return null;
+  }
+
+  return getWorkMinutes(clockInAt, scheduledWindowEnd.toISOString());
 }
 
 function parseDateKey(value: string) {
@@ -193,7 +208,11 @@ export async function GET(request: NextRequest) {
     cursor = batch[batch.length - 1].id;
   }
 
-  const rows = await buildOfficeAttendanceDisplayRows(records, getScheduledPaidMinutesForOfficeAttendance);
+  const rows = await buildOfficeAttendanceDisplayRows(
+    records,
+    getScheduledPaidMinutesForOfficeAttendance,
+    resolveOfficeAttendanceContextForEmployee
+  );
   const officeShiftIds = Array.from(new Set(records.map(record => record.officeShift?.id).filter((id): id is string => Boolean(id))));
   const rowKeys = Array.from(new Set(rows.map(row => `${row.employeeId}|${row.businessDate}`)));
   const employeeIds = Array.from(new Set(rows.map(row => row.employeeId)));
@@ -271,6 +290,7 @@ export async function GET(request: NextRequest) {
   }
 
   const scheduledMinutesCache = new Map<string, number>();
+  const attendanceContextCache = new Map<string, Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>>();
   const scheduledMinutesByRow = await Promise.all(
     rows.map(async row => {
       const key = `${row.employeeId}|${row.clockInAt}`;
@@ -284,6 +304,20 @@ export async function GET(request: NextRequest) {
       return scheduledMinutes;
     })
   );
+  const attendanceContextsByRow = await Promise.all(
+    rows.map(async row => {
+      const key = `${row.employeeId}|${row.clockInAt}`;
+      const cached = attendanceContextCache.get(key);
+      if (cached) {
+        return cached;
+      }
+
+      const attendanceContext = await resolveOfficeAttendanceContextForEmployee(row.employeeId, new Date(row.clockInAt));
+      attendanceContextCache.set(key, attendanceContext);
+      return attendanceContext;
+    })
+  );
+  const currentBusinessDateKey = toDateKey(new Date());
 
   const stream = new ReadableStream({
     start(controller) {
@@ -329,7 +363,16 @@ export async function GET(request: NextRequest) {
         const isNonWorkingStatus =
           row.displayStatus === 'absent' || row.displayStatus === 'leave' || row.displayStatus === 'pending_leave';
         const scheduledMinutes = scheduledMinutesByRow[index];
-        const workMinutes = isNonWorkingStatus ? null : getWorkMinutes(row.clockInAt, row.clockOutAt);
+        const fallbackWorkMinutes =
+          isNonWorkingStatus || row.clockOutAt
+            ? null
+            : getFallbackWorkMinutes({
+                clockInAt: row.clockInAt,
+                businessDate: row.businessDate,
+                scheduledWindowEnd: attendanceContextsByRow[index].windowEnd,
+                currentBusinessDateKey,
+              });
+        const workMinutes = isNonWorkingStatus ? null : getWorkMinutes(row.clockInAt, row.clockOutAt) ?? fallbackWorkMinutes;
         const overtimeMinutes = workMinutes == null ? null : Math.max(0, workMinutes - scheduledMinutes);
         const earlyLeaveMinutes = workMinutes == null ? null : Math.max(0, scheduledMinutes - workMinutes);
         const businessDate = new Date(`${row.businessDate}T00:00:00`);

@@ -8,6 +8,7 @@ import {
   getLatestOfficeShiftEditChangelogs,
   getScheduledPaidMinutesForOfficeAttendance,
   listLeaveRequestsOverlappingOfficeAttendance,
+  resolveOfficeAttendanceContextForEmployee,
 } from '@repo/database';
 import { canAccessOfficeAttendance } from '@/lib/auth/admin-visibility';
 
@@ -26,6 +27,7 @@ jest.mock('@repo/database', () => ({
   getLatestOfficeShiftEditChangelogs: jest.fn(),
   getScheduledPaidMinutesForOfficeAttendance: jest.fn(),
   listLeaveRequestsOverlappingOfficeAttendance: jest.fn(),
+  resolveOfficeAttendanceContextForEmployee: jest.fn(),
   BUSINESS_TIMEZONE: 'Asia/Makassar',
   OFFICE_PAID_BREAK_MINUTES: 55,
 }));
@@ -41,6 +43,7 @@ describe('GET /api/admin/office-attendance/export', () => {
     (getLatestOfficeShiftEditChangelogs as jest.Mock).mockResolvedValue([]);
     (getScheduledPaidMinutesForOfficeAttendance as jest.Mock).mockResolvedValue(8 * 60);
     (listLeaveRequestsOverlappingOfficeAttendance as jest.Mock).mockResolvedValue([]);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({ windowEnd: null });
   });
 
   test('returns 401 when admin session is missing', async () => {
@@ -346,6 +349,54 @@ describe('GET /api/admin/office-attendance/export', () => {
     expect(csv).toContain('"EMP-1","Jane Doe","Operations","Supervisor","HQ",2026-04-01');
     expect(csv).toContain('Leave Type,Leave Status,Status');
     expect(csv).toContain('clocked_in');
+  });
+
+  test('exports fallback paid hours and work minutes for previous-business-day open sessions', async () => {
+    (getAdminAuthSession as jest.Mock).mockResolvedValue({
+      permissions: ['attendance:view'],
+      isSuperAdmin: false,
+      rolePolicy: { attendance: { scope: 'all' } },
+    });
+    (adminHasPermission as jest.Mock).mockReturnValue(true);
+    (canAccessOfficeAttendance as jest.Mock).mockReturnValue(true);
+    (getScheduledPaidMinutesForOfficeAttendance as jest.Mock).mockResolvedValue(8 * 60);
+    (resolveOfficeAttendanceContextForEmployee as jest.Mock).mockResolvedValue({
+      windowEnd: new Date('2026-04-01T17:00:00.000Z'),
+    });
+    (getOfficeAttendanceExportBatch as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'in-open-past',
+          businessDate: new Date('2026-04-01T00:00:00.000Z'),
+          recordedAt: new Date('2026-04-01T08:05:00.000Z'),
+          status: 'present',
+          employeeId: 'employee-1',
+          officeId: 'office-1',
+          metadata: { distanceMeters: 12 },
+          office: { id: 'office-1', name: 'HQ' },
+          officeShift: {
+            id: 'shift-1',
+            officeShiftType: { name: 'Morning Shift', startTime: '08:00', endTime: '17:00' },
+          },
+          employee: {
+            id: 'employee-1',
+            fullName: 'Jane Doe',
+            employeeNumber: 'EMP-1',
+            department: 'Operations',
+            jobTitle: 'Supervisor',
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    const response = await GET(
+      new NextRequest('http://localhost/api/admin/office-attendance/export?startDate=2026-04-01&endDate=2026-04-01')
+    );
+    const csv = await readResponseText(response);
+
+    expect(response.status).toBe(200);
+    expect(csv).toContain('"8 hrs 0 mins",480,0,"","",clocked_in');
+    expect(csv).toContain(',Yes,,');
   });
 
   test('exports absent rows with session detail columns left blank', async () => {
