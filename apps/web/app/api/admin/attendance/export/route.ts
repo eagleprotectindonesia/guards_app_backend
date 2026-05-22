@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import {
   getAttendanceExportBatch,
+  getEmployeeOnsiteDayOffChangelogsForDates,
+  getLatestGuardShiftEditChangelogs,
   listLeaveRequestsOverlappingOfficeAttendance,
 } from '@repo/database';
 import type { LeaveRequestReason, LeaveRequestStatus } from '@repo/types';
@@ -87,6 +89,41 @@ function getDistanceMeters(
     Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return Math.round(earthRadiusMeters * c);
+}
+
+type ShiftEditChangelog = {
+  action: string;
+  admin: {
+    name: string;
+  } | null;
+};
+
+type OnsiteDayOffChangelog = {
+  action: string;
+  details: Prisma.JsonValue | null;
+  admin: {
+    name: string;
+  } | null;
+};
+
+type OnsiteDayOffDetails = {
+  employeeId: string;
+  date: string;
+};
+
+function parseOnsiteDayOffDetails(details: Prisma.JsonValue | null): OnsiteDayOffDetails | null {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) {
+    return null;
+  }
+
+  const employeeId = (details as Record<string, unknown>).employeeId;
+  const date = (details as Record<string, unknown>).date;
+
+  if (typeof employeeId !== 'string' || typeof date !== 'string') {
+    return null;
+  }
+
+  return { employeeId, date };
 }
 
 export async function GET(request: NextRequest) {
@@ -185,8 +222,59 @@ export async function GET(request: NextRequest) {
             new Set(batch.map(att => att.employeeId ?? att.employee?.id).filter((id): id is string => Boolean(id)))
           );
           const batchDateKeys = batch.map(att => toDateKey(att.shift.date));
+          const batchShiftIds = Array.from(
+            new Set(batch.map(att => att.shiftId ?? att.shift?.id).filter((id): id is string => Boolean(id)))
+          );
           const minBatchDateKey = batchDateKeys.reduce((min, key) => (key < min ? key : min), batchDateKeys[0]);
           const maxBatchDateKey = batchDateKeys.reduce((max, key) => (key > max ? key : max), batchDateKeys[0]);
+          const guardShiftEditChangelogs = await getLatestGuardShiftEditChangelogs(batchShiftIds);
+          const latestGuardShiftEditChangelogByShiftId = new Map<string, ShiftEditChangelog>();
+          for (const changelog of guardShiftEditChangelogs) {
+            if (!latestGuardShiftEditChangelogByShiftId.has(changelog.entityId)) {
+              latestGuardShiftEditChangelogByShiftId.set(changelog.entityId, {
+                action: changelog.action,
+                admin: changelog.admin,
+              });
+            }
+          }
+          const onsiteDayOffChangelogs = await getEmployeeOnsiteDayOffChangelogsForDates({
+            employeeIds: batchEmployeeIds,
+            dateKeys: Array.from(new Set(batchDateKeys)),
+          });
+          const batchRowKeys = new Set(
+            batch
+              .map(att => {
+                const employeeId = att.employeeId ?? att.employee?.id;
+                return employeeId ? `${employeeId}|${toDateKey(att.shift.date)}` : null;
+              })
+              .filter((key): key is string => Boolean(key))
+          );
+          const latestDayoffTransitionByRowKey = new Map<string, OnsiteDayOffChangelog>();
+          const sawOffByRowKey = new Map<string, boolean>();
+          for (const changelog of onsiteDayOffChangelogs) {
+            const details = parseOnsiteDayOffDetails(changelog.details);
+            if (!details) {
+              continue;
+            }
+
+            const rowKey = `${details.employeeId}|${details.date}`;
+            if (!batchRowKeys.has(rowKey)) {
+              continue;
+            }
+
+            if (changelog.action === 'CREATE' || changelog.action === 'UPDATE') {
+              sawOffByRowKey.set(rowKey, true);
+              continue;
+            }
+
+            if (changelog.action === 'DELETE' && sawOffByRowKey.get(rowKey)) {
+              latestDayoffTransitionByRowKey.set(rowKey, {
+                action: changelog.action,
+                details: changelog.details,
+                admin: changelog.admin,
+              });
+            }
+          }
           const overlappingLeaveRequests =
             batchEmployeeIds.length === 0
               ? []
@@ -289,6 +377,11 @@ export async function GET(request: NextRequest) {
               leaveType = 'Unpaid Leave';
               leaveStatus = 'None';
             }
+            const rowKey = employeeLookupId ? `${employeeLookupId}|${attendanceDateKey}` : '';
+            const dayoffTransition = rowKey ? latestDayoffTransitionByRowKey.get(rowKey) : undefined;
+            const shiftEditChangelog = latestGuardShiftEditChangelogByShiftId.get(att.shiftId ?? att.shift.id);
+            const editedBy = dayoffTransition?.admin?.name || shiftEditChangelog?.admin?.name || '';
+            const editReason = dayoffTransition ? 'Dayoff changes' : shiftEditChangelog ? 'Shift changes' : '';
 
             chunk +=
               [
@@ -321,8 +414,8 @@ export async function GET(request: NextRequest) {
                 formatOptionalNumber(earlyLeaveMinutes),
                 lastCheckinAt ? 'No' : 'Yes',
                 '',
-                '',
-                '',
+                escapeCsv(editedBy),
+                escapeCsv(editReason),
               ].join(',') + '\n';
           }
 

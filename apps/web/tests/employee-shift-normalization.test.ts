@@ -10,6 +10,7 @@ describe('employee shift normalization', () => {
     startsAt: '2026-05-20T08:00:00.000Z',
     endsAt: '2026-05-20T16:00:00.000Z',
     status: 'scheduled',
+    missedCount: 0,
     graceMinutes: 5,
     requiredCheckinIntervalMins: 60,
     site: { id: 'site-1', name: 'HQ' },
@@ -61,4 +62,3 @@ describe('employee shift normalization', () => {
     expect(parsed?.checkInWindow).toBeUndefined();
   });
 });
-
