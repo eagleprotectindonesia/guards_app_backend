@@ -4,6 +4,10 @@ import {
 } from '../app/admin/(authenticated)/attendance/office/office-attendance-display';
 import { SerializedOfficeAttendanceWithRelationsDto } from '../types/attendance';
 
+const defaultResolveAttendanceContext = async () => ({
+  windowEnd: null,
+});
+
 function buildAttendance(
   overrides: Partial<SerializedOfficeAttendanceWithRelationsDto>
 ): SerializedOfficeAttendanceWithRelationsDto {
@@ -40,7 +44,8 @@ describe('office attendance admin display', () => {
           metadata: { location: { lat: -5.1, lng: 119.4 }, distanceMeters: 18 },
         }),
       ],
-      async () => 8 * 60
+      async () => 8 * 60,
+      defaultResolveAttendanceContext
     );
 
     expect(rows).toHaveLength(1);
@@ -64,7 +69,8 @@ describe('office attendance admin display', () => {
           status: 'present',
         }),
       ],
-      async () => 8 * 60
+      async () => 8 * 60,
+      defaultResolveAttendanceContext
     );
 
     expect(rows).toHaveLength(1);
@@ -91,7 +97,8 @@ describe('office attendance admin display', () => {
           status: 'clocked_out',
         }),
       ],
-      async () => 8 * 60
+      async () => 8 * 60,
+      defaultResolveAttendanceContext
     );
 
     expect(rows[0]).toMatchObject({
@@ -115,7 +122,8 @@ describe('office attendance admin display', () => {
           status: 'clocked_out',
         }),
       ],
-      async () => 8 * 60
+      async () => 8 * 60,
+      defaultResolveAttendanceContext
     );
 
     expect(rows[0]).toMatchObject({
@@ -137,7 +145,8 @@ describe('office attendance admin display', () => {
           status: 'clocked_out',
         }),
       ],
-      async () => 8 * 60
+      async () => 8 * 60,
+      defaultResolveAttendanceContext
     );
 
     expect(rows[0]).toMatchObject({
@@ -159,7 +168,8 @@ describe('office attendance admin display', () => {
           status: 'clocked_out',
         }),
       ],
-      async () => 8 * 60
+      async () => 8 * 60,
+      defaultResolveAttendanceContext
     );
 
     expect(rows[0]).toMatchObject({
@@ -181,7 +191,8 @@ describe('office attendance admin display', () => {
           status: 'clocked_out',
         }),
       ],
-      async () => 7 * 60
+      async () => 7 * 60,
+      defaultResolveAttendanceContext
     );
 
     expect(rows).toHaveLength(1);
@@ -204,7 +215,8 @@ describe('office attendance admin display', () => {
           metadata: null,
         }),
       ],
-      async () => 8 * 60
+      async () => 8 * 60,
+      defaultResolveAttendanceContext
     );
 
     expect(rows).toHaveLength(1);
@@ -232,7 +244,8 @@ describe('office attendance admin display', () => {
           metadata: null,
         }),
       ],
-      async () => 8 * 60
+      async () => 8 * 60,
+      defaultResolveAttendanceContext
     );
 
     expect(rows).toHaveLength(1);
@@ -260,7 +273,8 @@ describe('office attendance admin display', () => {
           metadata: null,
         }),
       ],
-      async () => 8 * 60
+      async () => 8 * 60,
+      defaultResolveAttendanceContext
     );
 
     expect(rows).toHaveLength(1);
@@ -274,6 +288,76 @@ describe('office attendance admin display', () => {
       clockInMetadata: null,
       clockOutMetadata: null,
       latenessMins: null,
+    });
+  });
+
+  test('calculates fallback paid hours for a previous business day open session', async () => {
+    const rows = await buildOfficeAttendanceDisplayRows(
+      [
+        buildAttendance({
+          id: 'in-past-open',
+          recordedAt: '2026-03-28T01:00:00.000Z',
+          businessDate: '2026-03-28',
+          status: 'present',
+        }),
+      ],
+      async () => 8 * 60,
+      async () => ({
+        windowEnd: new Date('2026-03-28T09:00:00.000Z'),
+      }),
+      new Date('2026-03-29T02:00:00.000Z')
+    );
+
+    expect(rows[0]).toMatchObject({
+      id: 'in-past-open',
+      clockOutAt: null,
+      paidHours: '7 hrs 0 mins',
+      displayStatus: 'clocked_in',
+    });
+  });
+
+  test('keeps same-business-day open session unpaid', async () => {
+    const rows = await buildOfficeAttendanceDisplayRows(
+      [
+        buildAttendance({
+          id: 'in-same-day-open',
+          recordedAt: '2026-03-28T01:00:00.000Z',
+          businessDate: '2026-03-28',
+          status: 'present',
+        }),
+      ],
+      async () => 8 * 60,
+      async () => ({
+        windowEnd: new Date('2026-03-28T09:00:00.000Z'),
+      }),
+      new Date('2026-03-28T02:00:00.000Z')
+    );
+
+    expect(rows[0]).toMatchObject({
+      clockOutAt: null,
+      paidHours: null,
+      displayStatus: 'clocked_in',
+    });
+  });
+
+  test('keeps past open session unpaid when attendance context has no window end', async () => {
+    const rows = await buildOfficeAttendanceDisplayRows(
+      [
+        buildAttendance({
+          id: 'in-past-no-end',
+          recordedAt: '2026-03-28T01:00:00.000Z',
+          businessDate: '2026-03-28',
+          status: 'present',
+        }),
+      ],
+      async () => 8 * 60,
+      defaultResolveAttendanceContext,
+      new Date('2026-03-29T02:00:00.000Z')
+    );
+
+    expect(rows[0]).toMatchObject({
+      paidHours: null,
+      displayStatus: 'clocked_in',
     });
   });
 
@@ -294,7 +378,8 @@ describe('office attendance admin display', () => {
             metadata: { location: { lat: -5.2, lng: 119.5 }, distanceMeters: 14 },
           }),
         ],
-        async () => 7 * 60
+        async () => 7 * 60,
+        defaultResolveAttendanceContext
       ),
       1,
       10

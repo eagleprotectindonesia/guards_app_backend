@@ -5,6 +5,10 @@ import {
   SerializedOfficeAttendanceWithRelationsDto,
 } from '@/types/attendance';
 
+type OfficeAttendanceContextLike = {
+  windowEnd: Date | null;
+};
+
 function getDateParts(date: Date, timeZone: string) {
   const formatter = new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -57,6 +61,24 @@ function getActualPaidMinutes(clockInAt: string, clockOutAt: string | null) {
   const breakMinutes = durationMinutes > 5 * 60 ? OFFICE_PAID_BREAK_MINUTES : 0;
 
   return Math.max(0, durationMinutes - breakMinutes);
+}
+
+function getPastOpenSessionPaidMinutes(params: {
+  clockIn: SerializedOfficeAttendanceWithRelationsDto;
+  scheduledPaidMinutes: number;
+  currentBusinessDateKey: string;
+  attendanceContext: OfficeAttendanceContextLike;
+}) {
+  const { clockIn, scheduledPaidMinutes, currentBusinessDateKey, attendanceContext } = params;
+  const clockInAt = new Date(clockIn.recordedAt);
+  const businessDate = clockIn.businessDate ?? formatBusinessDate(clockInAt, BUSINESS_TIMEZONE);
+
+  if (businessDate >= currentBusinessDateKey || !attendanceContext.windowEnd) {
+    return null;
+  }
+
+  const actualPaidMinutes = getActualPaidMinutes(clockIn.recordedAt, attendanceContext.windowEnd.toISOString());
+  return actualPaidMinutes == null ? null : Math.min(actualPaidMinutes, scheduledPaidMinutes);
 }
 
 function toUnifiedRow(
@@ -222,7 +244,9 @@ export function unifyOfficeAttendanceForAdminDisplay(
 
 export async function buildOfficeAttendanceDisplayRows(
   attendances: SerializedOfficeAttendanceWithRelationsDto[],
-  getScheduledPaidMinutes: (employeeId: string, at: Date) => Promise<number>
+  getScheduledPaidMinutes: (employeeId: string, at: Date) => Promise<number>,
+  resolveAttendanceContext: (employeeId: string, at: Date) => Promise<OfficeAttendanceContextLike>,
+  now = new Date()
 ) {
   const sorted = attendances
     .slice()
@@ -230,6 +254,7 @@ export async function buildOfficeAttendanceDisplayRows(
 
   const openSessionsByEmployee = new Map<string, SerializedOfficeAttendanceWithRelationsDto[]>();
   const unifiedRows: SerializedOfficeAttendanceDisplayDto[] = [];
+  const currentBusinessDateKey = formatBusinessDate(now, BUSINESS_TIMEZONE);
 
   for (const attendance of sorted) {
     const employeeKey = attendance.employeeId ?? attendance.employee?.id ?? 'unknown';
@@ -280,7 +305,19 @@ export async function buildOfficeAttendanceDisplayRows(
 
   for (const employeeOpenSessions of openSessionsByEmployee.values()) {
     for (const clockIn of employeeOpenSessions) {
-      unifiedRows.push(toUnifiedRow(clockIn, null, null));
+      const clockInAt = new Date(clockIn.recordedAt);
+      const [scheduledPaidMinutes, attendanceContext] = await Promise.all([
+        getScheduledPaidMinutes(clockIn.employeeId, clockInAt),
+        resolveAttendanceContext(clockIn.employeeId, clockInAt),
+      ]);
+      const paidMinutes = getPastOpenSessionPaidMinutes({
+        clockIn,
+        scheduledPaidMinutes,
+        currentBusinessDateKey,
+        attendanceContext,
+      });
+
+      unifiedRows.push(toUnifiedRow(clockIn, null, paidMinutes));
     }
   }
 
