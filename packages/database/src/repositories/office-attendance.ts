@@ -61,11 +61,7 @@ export async function recordOfficeAttendance(params: {
 
     return { attendance, created: true as const };
   } catch (error) {
-    if (
-      officeShiftId &&
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (officeShiftId && error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       const existingAttendance = await prisma.officeAttendance.findFirst({
         where: {
           officeShiftId,
@@ -131,12 +127,15 @@ export async function ensureNoOfficeAttendanceConflictForLeaveRange(
   }
 }
 
-export async function upsertOfficeLeaveStatusesForDateKeys(params: {
-  employeeId: string;
-  dateKeys: string[];
-  status: 'pending_leave' | 'leave';
-  note: string;
-}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
+export async function upsertOfficeLeaveStatusesForDateKeys(
+  params: {
+    employeeId: string;
+    dateKeys: string[];
+    status: 'pending_leave' | 'leave';
+    note: string;
+  },
+  tx: Prisma.TransactionClient | typeof prisma = prisma
+) {
   for (const dateKey of params.dateKeys) {
     const recordedAt = dateKeyToDate(dateKey);
     const existing = await tx.officeAttendance.findMany({
@@ -178,11 +177,14 @@ export async function upsertOfficeLeaveStatusesForDateKeys(params: {
   }
 }
 
-export async function resolveRejectedPendingLeaveStatuses(params: {
-  employeeId: string;
-  dateKeys: string[];
-  now?: Date;
-}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
+export async function resolveRejectedPendingLeaveStatuses(
+  params: {
+    employeeId: string;
+    dateKeys: string[];
+    now?: Date;
+  },
+  tx: Prisma.TransactionClient | typeof prisma = prisma
+) {
   await resolvePendingLeaveStatusesByAction(
     {
       employeeId: params.employeeId,
@@ -194,11 +196,14 @@ export async function resolveRejectedPendingLeaveStatuses(params: {
   );
 }
 
-export async function resolveCancelledPendingLeaveStatuses(params: {
-  employeeId: string;
-  dateKeys: string[];
-  now?: Date;
-}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
+export async function resolveCancelledPendingLeaveStatuses(
+  params: {
+    employeeId: string;
+    dateKeys: string[];
+    now?: Date;
+  },
+  tx: Prisma.TransactionClient | typeof prisma = prisma
+) {
   await resolvePendingLeaveStatusesByAction(
     {
       employeeId: params.employeeId,
@@ -210,12 +215,15 @@ export async function resolveCancelledPendingLeaveStatuses(params: {
   );
 }
 
-async function resolvePendingLeaveStatusesByAction(params: {
-  employeeId: string;
-  dateKeys: string[];
-  now?: Date;
-  absentNote: string;
-}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
+async function resolvePendingLeaveStatusesByAction(
+  params: {
+    employeeId: string;
+    dateKeys: string[];
+    now?: Date;
+    absentNote: string;
+  },
+  tx: Prisma.TransactionClient | typeof prisma = prisma
+) {
   const now = params.now ?? new Date();
   const todayDateKey = getBusinessDayRange(now, BUSINESS_TIMEZONE).dateKey;
   const todayContext = params.dateKeys.includes(todayDateKey)
@@ -255,11 +263,14 @@ async function resolvePendingLeaveStatusesByAction(params: {
   }
 }
 
-export async function clearPendingOfficeLeaveStatusesForDateKeys(params: {
-  employeeId: string;
-  dateKeys: string[];
-  now?: Date;
-}, tx: Prisma.TransactionClient | typeof prisma = prisma) {
+export async function clearPendingOfficeLeaveStatusesForDateKeys(
+  params: {
+    employeeId: string;
+    dateKeys: string[];
+    now?: Date;
+  },
+  tx: Prisma.TransactionClient | typeof prisma = prisma
+) {
   await resolveCancelledPendingLeaveStatuses(
     {
       employeeId: params.employeeId,
@@ -380,7 +391,11 @@ export async function getTodayOfficeAttendance(employeeId: string, now = new Dat
   });
 }
 
-export async function getLatestOfficeAttendanceForDay(employeeId: string, now = new Date(), timeZone = BUSINESS_TIMEZONE) {
+export async function getLatestOfficeAttendanceForDay(
+  employeeId: string,
+  now = new Date(),
+  timeZone = BUSINESS_TIMEZONE
+) {
   const { dateKey } = getBusinessDayRange(now, timeZone);
   const businessDate = dateKeyToDate(dateKey);
 
@@ -504,9 +519,79 @@ export async function getOfficeAttendanceExportBatch(params: {
       officeShift: {
         include: {
           officeShiftType: true,
+          lastUpdatedBy: {
+            select: {
+              name: true,
+            },
+          },
         },
       },
     },
     ...(cursor && { skip: 1, cursor: { id: cursor } }),
+  });
+}
+
+export async function getLatestOfficeShiftEditChangelogs(officeShiftIds: string[]) {
+  if (officeShiftIds.length === 0) {
+    return [];
+  }
+
+  return prisma.changelog.findMany({
+    where: {
+      entityType: 'OfficeShift',
+      action: {
+        in: ['CREATE', 'UPDATE'],
+      },
+      entityId: {
+        in: officeShiftIds,
+      },
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    include: {
+      admin: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+}
+
+export async function getEmployeeOfficeDayOverrideChangelogsForDates(params: {
+  employeeIds: string[];
+  dateKeys: string[];
+}) {
+  const { employeeIds, dateKeys } = params;
+  if (employeeIds.length === 0 || dateKeys.length === 0) {
+    return [];
+  }
+
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT id
+    FROM changelogs
+    WHERE entity_type = 'EmployeeOfficeDayOverride'
+      AND details->>'employeeId' IN (${Prisma.join(employeeIds)})
+      AND details->>'date' IN (${Prisma.join(dateKeys)})
+    ORDER BY created_at ASC, id ASC
+  `);
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  return prisma.changelog.findMany({
+    where: {
+      id: {
+        in: rows.map(row => row.id),
+      },
+    },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    include: {
+      admin: {
+        select: {
+          name: true,
+        },
+      },
+    },
   });
 }

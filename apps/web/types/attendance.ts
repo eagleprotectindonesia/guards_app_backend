@@ -80,6 +80,9 @@ export type OfficeAttendanceWithRelationsDto = {
       startTime: string;
       endTime: string;
     } | null;
+    lastUpdatedBy?: {
+      name: string;
+    } | null;
   } | null;
   employee: AttendanceEmployeeSummary | null;
 };
@@ -117,6 +120,9 @@ export type OfficeAttendanceDisplayDto = {
       name: string;
       startTime: string;
       endTime: string;
+    } | null;
+    lastUpdatedBy?: {
+      name: string;
     } | null;
   } | null;
   employee: AttendanceEmployeeSummary | null;
