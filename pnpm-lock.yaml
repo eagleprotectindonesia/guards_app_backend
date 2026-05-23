@@ -544,10 +544,10 @@ importers:
       sharp:
         specifier: ^0.34.5
         version: 0.34.5
-      socket.io-client:
+      socket.io:
         specifier: ^4.8.3
         version: 4.8.3
-      socket.io:
+      socket.io-client:
         specifier: ^4.8.3
         version: 4.8.3
       swagger-ui-react:
@@ -572,15 +572,12 @@ importers:
       '@repo/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
-      '@repo/realtime':
-        specifier: workspace:*
-        version: link:../../packages/realtime
-      '@tailwindcss/postcss':
-        specifier: ^4
-        version: 4.2.1
       '@socket.io/redis-adapter':
         specifier: ^8.3.0
         version: 8.3.0(socket.io-adapter@2.5.6)
+      '@tailwindcss/postcss':
+        specifier: ^4
+        version: 4.2.1
       '@types/google.maps':
         specifier: ^3.58.1
         version: 3.58.1
@@ -2212,8 +2209,8 @@ packages:
   '@expo/html-elements@0.12.5':
     resolution: {integrity: sha512-28KWO88YKykKU7ke5sEQs5TivFRMs1Aktz13xxgqAf5rTgb+lka0VKVt3W2fG7ksbUQ407rtUqz7SEAq298NvQ==}
 
-  '@expo/html-elements@55.0.3':
-    resolution: {integrity: sha512-/adnZVHXZ9NaaR7z5bz9lIFmIvMX8ghEfWucAjwuUwcq4jFfgun6VYjhs/9s0j93EC1FQl9HXWnl8oGCxp0YZg==}
+  '@expo/html-elements@56.0.1':
+    resolution: {integrity: sha512-cy9LTItlr+7kkC5289kW4un6qW4JZ3THu348ExXiTJcDXQufR+N+OvYS/Bxgm/gChMhvT673bphp8FwfSgARBA==}
     peerDependencies:
       react: '*'
       react-native: '*'
@@ -11723,9 +11720,6 @@ packages:
   tailwindcss@4.2.1:
     resolution: {integrity: sha512-/tBrSQ36vCleJkAOsy9kbNTgaxvGbyOamC30PRePTQe/o1MFwEKHQk4Cn7BNGaPtjp+PuUrByJehM1hgxfq4sw==}
 
-  tailwindcss@4.3.0:
-    resolution: {integrity: sha512-y6nxMGB1nMW9R6k96e5gdIFzcfL/gTJRNaqGes1YvkLnPVXzWgbqFF2yLC0T8G774n24cx3Pe8XrKoniCOAH+Q==}
-
   tapable@2.3.0:
     resolution: {integrity: sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg==}
     engines: {node: '>=6'}
@@ -14372,7 +14366,7 @@ snapshots:
 
   '@expo/html-elements@0.12.5': {}
 
-  '@expo/html-elements@55.0.3(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.83.2(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.7)(react@19.2.3))(react@19.2.3)':
+  '@expo/html-elements@56.0.1(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.83.2(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.7)(react@19.2.3))(react@19.2.3)':
     dependencies:
       react: 19.2.3
       react-native: 0.83.2(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.7)(react@19.2.3)
@@ -15345,7 +15339,7 @@ snapshots:
 
   '@gluestack-ui/themed@1.1.73(b24b9be59d0bb5e8c2dd4d6c1eabae59)':
     dependencies:
-      '@expo/html-elements': 55.0.3(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.83.2(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.7)(react@19.2.3))(react@19.2.3)
+      '@expo/html-elements': 56.0.1(react-native-web@0.21.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-native@0.83.2(@babel/core@7.29.0)(@react-native-community/cli@20.1.2(typescript@5.9.3))(@types/react@19.2.7)(react@19.2.3))(react@19.2.3)
       '@gluestack-style/animation-resolver': 1.0.4(@gluestack-style/react@1.0.57)
       '@gluestack-style/legend-motion-animation-driver': 1.0.3(@gluestack-style/react@1.0.57)(@legendapp/motion@2.5.3(e20b24560752b79b0e2b6da0b8c246f1))
       '@gluestack-style/react': 1.0.57
@@ -27012,8 +27006,6 @@ snapshots:
       - yaml
 
   tailwindcss@4.2.1: {}
-
-  tailwindcss@4.3.0: {}
 
   tapable@2.3.0: {}
 

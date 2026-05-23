@@ -123,7 +123,7 @@ export function SitesMapCard({ sites, className = '' }: SitesMapCardProps) {
 
       const marker = new maplibregl.Marker({ color: '#ef4444' })
         .setLngLat([site.longitude, site.latitude])
-        .setPopup(new maplibregl.Popup({ offset: 14 }).setHTML(popupHtml))
+        .setPopup(new maplibregl.Popup({ offset: 14, className: 'sites-map-popup' }).setHTML(popupHtml))
         .addTo(map);
 
       markersRef.current.push(marker);
