@@ -40,9 +40,9 @@ export async function GET(request: NextRequest) {
     async start(controller) {
       const encoder = new TextEncoder();
       const headers = [
-        'Shift Type',
-        'Employee Name',
         'Employee ID',
+        'Employee Name',
+        'Shift Type',
         'Date',
         'Start Time',
         'End Time',
@@ -72,9 +72,9 @@ export async function GET(request: NextRequest) {
           for (const shift of officeShifts) {
             chunk +=
               [
-                escapeCsv(shift.officeShiftType.name),
-                escapeCsv(shift.employee.fullName),
                 escapeCsv(shift.employee.employeeNumber || ''),
+                escapeCsv(shift.employee.fullName),
+                escapeCsv(shift.officeShiftType.name),
                 escapeCsv(format(new Date(shift.startsAt), 'yyyy-MM-dd')),
                 escapeCsv(format(new Date(shift.startsAt), 'HH:mm')),
                 escapeCsv(format(new Date(shift.endsAt), 'HH:mm')),

@@ -39,11 +39,10 @@ export async function GET(request: NextRequest) {
 
       // Write Header
       const headers = [
-        'Shift ID',
+        'Employee ID',
+        'Employee Name',
         'Site',
         'Shift Type',
-        'Employee',
-        'Employee ID',
         'Date',
         'Start Time',
         'End Time',
@@ -98,11 +97,10 @@ export async function GET(request: NextRequest) {
 
             chunk +=
               [
-                escape(s.id),
+                escape(employeeId),
+                escape(employeeName),
                 escape(siteName),
                 escape(shiftTypeName),
-                escape(employeeName),
-                escape(employeeId),
                 escape(date),
                 escape(startTime),
                 escape(endTime),
