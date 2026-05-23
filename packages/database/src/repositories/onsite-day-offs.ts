@@ -6,6 +6,10 @@ function dateKeyToDate(dateKey: string) {
   return new Date(`${dateKey}T00:00:00Z`);
 }
 
+function dateToDateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
 export async function upsertEmployeeOnsiteDayOff(
   params: {
     employeeId: string;
@@ -25,16 +29,34 @@ export async function upsertEmployeeOnsiteDayOff(
   });
 
   if (existing) {
-    return tx.employeeOnsiteDayOff.update({
+    const updated = await tx.employeeOnsiteDayOff.update({
       where: { id: existing.id },
       data: {
         note: params.note ?? existing.note ?? null,
         ...(params.adminId ? { lastUpdatedById: params.adminId } : {}),
       },
     });
+
+    await tx.changelog.create({
+      data: {
+        action: 'UPDATE',
+        entityType: 'EmployeeOnsiteDayOff',
+        entityId: updated.id,
+        actor: params.adminId ? 'admin' : 'system',
+        actorId: params.adminId ?? undefined,
+        details: {
+          employeeId: params.employeeId,
+          date: params.date,
+          note: updated.note ?? null,
+          dayOffType: 'off',
+        },
+      },
+    });
+
+    return updated;
   }
 
-  return tx.employeeOnsiteDayOff.create({
+  const created = await tx.employeeOnsiteDayOff.create({
     data: {
       employeeId: params.employeeId,
       date: dateKeyToDate(params.date),
@@ -47,20 +69,67 @@ export async function upsertEmployeeOnsiteDayOff(
         : {}),
     },
   });
+
+  await tx.changelog.create({
+    data: {
+      action: 'CREATE',
+      entityType: 'EmployeeOnsiteDayOff',
+      entityId: created.id,
+      actor: params.adminId ? 'admin' : 'system',
+      actorId: params.adminId ?? undefined,
+      details: {
+        employeeId: params.employeeId,
+        date: params.date,
+        note: created.note ?? null,
+        dayOffType: 'off',
+      },
+    },
+  });
+
+  return created;
 }
 
 export async function deleteEmployeeOnsiteDayOffsByEmployeeAndDates(
   employeeId: string,
   dateKeys: string[],
+  adminIdOrTx?: string | TxLike,
   tx: TxLike = prisma
 ) {
   if (dateKeys.length === 0) return 0;
 
-  const result = await tx.employeeOnsiteDayOff.deleteMany({
+  const adminId = typeof adminIdOrTx === 'string' ? adminIdOrTx : undefined;
+  const client = typeof adminIdOrTx === 'string' ? tx : adminIdOrTx ?? tx;
+
+  const existing = await client.employeeOnsiteDayOff.findMany({
     where: {
       employeeId,
       date: { in: dateKeys.map(dateKeyToDate) },
     },
+  });
+
+  if (existing.length === 0) return 0;
+
+  const result = await client.employeeOnsiteDayOff.deleteMany({
+    where: {
+      employeeId,
+      date: { in: dateKeys.map(dateKeyToDate) },
+    },
+  });
+
+  await client.changelog.createMany({
+    data: existing.map(dayOff => ({
+      action: 'DELETE',
+      entityType: 'EmployeeOnsiteDayOff',
+      entityId: dayOff.id,
+      actor: adminId ? 'admin' : 'system',
+      actorId: adminId ?? undefined,
+      details: {
+        employeeId,
+        date: dateToDateKey(dayOff.date),
+        note: dayOff.note ?? null,
+        dayOffType: 'off',
+      },
+    })),
   });
 
   return result.count;

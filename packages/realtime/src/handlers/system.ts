@@ -43,7 +43,9 @@ export function registerSystemHandlers(io: UnifiedServer) {
           notification: {
             ...notification,
             readAt: notification?.readAt ? new Date(notification.readAt).toISOString() : null,
-            createdAt: notification?.createdAt ? new Date(notification.createdAt).toISOString() : new Date().toISOString(),
+            createdAt: notification?.createdAt
+              ? new Date(notification.createdAt).toISOString()
+              : new Date().toISOString(),
           },
           unreadCount,
         });

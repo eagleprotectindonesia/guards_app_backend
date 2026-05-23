@@ -10,13 +10,13 @@ describe('employee shift normalization', () => {
     startsAt: '2026-05-20T08:00:00.000Z',
     endsAt: '2026-05-20T16:00:00.000Z',
     status: 'scheduled',
+    missedCount: 0,
     graceMinutes: 5,
     requiredCheckinIntervalMins: 60,
     site: { id: 'site-1', name: 'HQ' },
     shiftType: { id: 'type-1', name: 'Morning', startTime: '08:00', endTime: '16:00' },
     employee: null,
     attendance: null,
-    missedCount: 0,
   } as const;
 
   test('parses valid serialized shift and check-in window dates', () => {

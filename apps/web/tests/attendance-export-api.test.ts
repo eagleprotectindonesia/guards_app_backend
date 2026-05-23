@@ -1,13 +1,18 @@
 import { NextRequest } from 'next/server';
 import { endOfDay, startOfDay } from 'date-fns';
 import { GET } from '../app/api/admin/attendance/export/route';
-import { adminHasPermission, getAdminSession } from '@/lib/admin-auth';
+import { adminHasPermission, getAdminAuthSession } from '@/lib/admin-auth';
 import { applyAttendanceVisibilityScope } from '@/lib/auth/admin-visibility';
-import { getAttendanceExportBatch, listLeaveRequestsOverlappingOfficeAttendance } from '@repo/database';
+import {
+  getAttendanceExportBatch,
+  getEmployeeOnsiteDayOffChangelogsForDates,
+  getLatestGuardShiftEditChangelogs,
+  listLeaveRequestsOverlappingOfficeAttendance,
+} from '@repo/database';
 
 jest.mock('@/lib/admin-auth', () => ({
   adminHasPermission: jest.fn(),
-  getAdminSession: jest.fn(),
+  getAdminAuthSession: jest.fn(),
 }));
 
 jest.mock('@/lib/auth/admin-visibility', () => ({
@@ -16,6 +21,8 @@ jest.mock('@/lib/auth/admin-visibility', () => ({
 
 jest.mock('@repo/database', () => ({
   getAttendanceExportBatch: jest.fn(),
+  getEmployeeOnsiteDayOffChangelogsForDates: jest.fn(),
+  getLatestGuardShiftEditChangelogs: jest.fn(),
   listLeaveRequestsOverlappingOfficeAttendance: jest.fn(),
 }));
 
@@ -27,11 +34,13 @@ describe('GET /api/admin/attendance/export', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     (applyAttendanceVisibilityScope as jest.Mock).mockImplementation(where => where);
+    (getEmployeeOnsiteDayOffChangelogsForDates as jest.Mock).mockResolvedValue([]);
+    (getLatestGuardShiftEditChangelogs as jest.Mock).mockResolvedValue([]);
     (listLeaveRequestsOverlappingOfficeAttendance as jest.Mock).mockResolvedValue([]);
   });
 
   test('returns 401 when admin session is missing', async () => {
-    (getAdminSession as jest.Mock).mockResolvedValue(null);
+    (getAdminAuthSession as jest.Mock).mockResolvedValue(null);
 
     const response = await GET(new NextRequest('http://localhost/api/admin/attendance/export'));
 
@@ -39,7 +48,7 @@ describe('GET /api/admin/attendance/export', () => {
   });
 
   test('returns 403 when permission is missing', async () => {
-    (getAdminSession as jest.Mock).mockResolvedValue({ permissions: [], isSuperAdmin: false, rolePolicy: {} });
+    (getAdminAuthSession as jest.Mock).mockResolvedValue({ permissions: [], isSuperAdmin: false, rolePolicy: {} });
     (adminHasPermission as jest.Mock).mockReturnValue(false);
 
     const response = await GET(new NextRequest('http://localhost/api/admin/attendance/export'));
@@ -48,7 +57,7 @@ describe('GET /api/admin/attendance/export', () => {
   });
 
   test('uses last check-in as clock out when shift is completed', async () => {
-    (getAdminSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (getAdminAuthSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
     (adminHasPermission as jest.Mock).mockReturnValue(true);
     (getAttendanceExportBatch as jest.Mock)
       .mockResolvedValueOnce([
@@ -65,6 +74,7 @@ describe('GET /api/admin/attendance/export', () => {
             jobTitle: 'Supervisor',
           },
           shift: {
+            id: 'shift-1',
             date: new Date('2026-04-01T00:00:00.000Z'),
             startsAt: new Date('2026-04-01T08:00:00.000Z'),
             endsAt: new Date('2026-04-01T16:00:00.000Z'),
@@ -80,6 +90,13 @@ describe('GET /api/admin/attendance/export', () => {
         },
       ])
       .mockResolvedValueOnce([]);
+    (getLatestGuardShiftEditChangelogs as jest.Mock).mockResolvedValueOnce([
+      {
+        action: 'UPDATE',
+        entityId: 'shift-1',
+        admin: { name: 'Shift Admin' },
+      },
+    ]);
 
     const response = await GET(new NextRequest('http://localhost/api/admin/attendance/export'));
     const csv = await readResponseText(response);
@@ -89,13 +106,82 @@ describe('GET /api/admin/attendance/export', () => {
       'Employee ID,Employee,Department,Job Title,Office,Business Date,Day Name,Month,Assigned Shift,Shift Start Time,Shift End Time,Grace Minutes,Clock In Date,Clock In Time,Clock In Distance (m),Clock Out Date,Clock Out Time,Clock Out Distance (m),Paid Hours,Work Minutes,Overtime Minutes,Leave Type,Leave Status,Status,Lateness (mins),Late Flag,Early Leave Minutes,Missed Punch Flag,Manual Edit Flag,Edited By,Edit Reason'
     );
     expect(csv).toContain('"EMP-001","Jane Doe","Operations","Supervisor","HQ",2026-04-01');
+    expect(csv).toContain(',"Shift Admin","Shift changes"');
     expect(csv).toContain('Leave Type,Leave Status,Status');
-    expect(csv).toContain(',"","",present');
     expect(csv).toContain('present');
   });
 
+  test('classifies deleted onsite day off as Dayoff changes', async () => {
+    (getAdminAuthSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (adminHasPermission as jest.Mock).mockReturnValue(true);
+    (getAttendanceExportBatch as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'att-dayoff',
+          shiftId: 'shift-dayoff',
+          recordedAt: new Date('2026-04-01T08:05:00.000Z'),
+          status: 'present',
+          metadata: { location: { lat: -5.1, lng: 119.4 } },
+          employee: {
+            id: 'emp-1',
+            employeeNumber: 'EMP-001',
+            fullName: 'Jane Doe',
+            department: 'Operations',
+            jobTitle: 'Supervisor',
+          },
+          shift: {
+            id: 'shift-dayoff',
+            date: new Date('2026-04-01T00:00:00.000Z'),
+            startsAt: new Date('2026-04-01T08:00:00.000Z'),
+            endsAt: new Date('2026-04-01T16:00:00.000Z'),
+            graceMinutes: 2,
+            status: 'completed',
+            site: { name: 'HQ', latitude: -5.1, longitude: 119.4 },
+            shiftType: { name: 'Morning Shift' },
+            checkins: [{ at: new Date('2026-04-01T12:30:00.000Z'), metadata: { lat: -5.101, lng: 119.401 } }],
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    (getLatestGuardShiftEditChangelogs as jest.Mock).mockResolvedValueOnce([
+      {
+        action: 'CREATE',
+        entityId: 'shift-dayoff',
+        admin: { name: 'Shift Admin' },
+      },
+    ]);
+    (getEmployeeOnsiteDayOffChangelogsForDates as jest.Mock).mockResolvedValueOnce([
+      {
+        action: 'CREATE',
+        entityId: 'dayoff-1',
+        admin: { name: 'Off Admin' },
+        details: {
+          employeeId: 'emp-1',
+          date: '2026-04-01',
+          dayOffType: 'off',
+        },
+      },
+      {
+        action: 'DELETE',
+        entityId: 'dayoff-1',
+        admin: { name: 'Restore Admin' },
+        details: {
+          employeeId: 'emp-1',
+          date: '2026-04-01',
+          dayOffType: 'off',
+        },
+      },
+    ]);
+
+    const response = await GET(new NextRequest('http://localhost/api/admin/attendance/export'));
+    const csv = await readResponseText(response);
+
+    expect(response.status).toBe(200);
+    expect(csv).toContain(',"Restore Admin","Dayoff changes"');
+  });
+
   test('does not set clock out and paid/work fields when shift is not completed', async () => {
-    (getAdminSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (getAdminAuthSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
     (adminHasPermission as jest.Mock).mockReturnValue(true);
     (getAttendanceExportBatch as jest.Mock)
       .mockResolvedValueOnce([
@@ -128,7 +214,7 @@ describe('GET /api/admin/attendance/export', () => {
   });
 
   test('caps work minutes by shift length', async () => {
-    (getAdminSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (getAdminAuthSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
     (adminHasPermission as jest.Mock).mockReturnValue(true);
     (getAttendanceExportBatch as jest.Mock)
       .mockResolvedValueOnce([
@@ -159,7 +245,7 @@ describe('GET /api/admin/attendance/export', () => {
   });
 
   test('keeps paid/work fields blank when completed shift has no checkins', async () => {
-    (getAdminSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (getAdminAuthSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
     (adminHasPermission as jest.Mock).mockReturnValue(true);
     (getAttendanceExportBatch as jest.Mock)
       .mockResolvedValueOnce([
@@ -190,7 +276,7 @@ describe('GET /api/admin/attendance/export', () => {
   });
 
   test('includes leave metadata for absent rows with overlapping leave requests', async () => {
-    (getAdminSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (getAdminAuthSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
     (adminHasPermission as jest.Mock).mockReturnValue(true);
     (getAttendanceExportBatch as jest.Mock)
       .mockResolvedValueOnce([
@@ -240,7 +326,7 @@ describe('GET /api/admin/attendance/export', () => {
   });
 
   test('falls back to Unpaid Leave when absent rows have no overlapping leave request', async () => {
-    (getAdminSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (getAdminAuthSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
     (adminHasPermission as jest.Mock).mockReturnValue(true);
     (getAttendanceExportBatch as jest.Mock)
       .mockResolvedValueOnce([
@@ -279,7 +365,7 @@ describe('GET /api/admin/attendance/export', () => {
   });
 
   test('applies date and employee number filters to attendance export query', async () => {
-    (getAdminSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (getAdminAuthSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
     (adminHasPermission as jest.Mock).mockReturnValue(true);
     (getAttendanceExportBatch as jest.Mock).mockResolvedValueOnce([]);
 

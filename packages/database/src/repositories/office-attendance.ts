@@ -540,7 +540,7 @@ export async function getLatestOfficeShiftEditChangelogs(officeShiftIds: string[
     where: {
       entityType: 'OfficeShift',
       action: {
-        in: ['CREATE', 'UPDATE'],
+        in: ['UPDATE'],
       },
       entityId: {
         in: officeShiftIds,

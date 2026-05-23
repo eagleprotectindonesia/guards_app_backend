@@ -116,6 +116,11 @@ export async function getAttendanceExportBatch(params: {
           employee: true,
           site: true,
           shiftType: true,
+          lastUpdatedBy: {
+            select: {
+              name: true,
+            },
+          },
           checkins: {
             select: {
               at: true,
@@ -127,5 +132,67 @@ export async function getAttendanceExportBatch(params: {
       employee: true,
     },
     ...(cursor && { skip: 1, cursor: { id: cursor } }),
+  });
+}
+
+export async function getLatestGuardShiftEditChangelogs(shiftIds: string[]) {
+  if (shiftIds.length === 0) {
+    return [];
+  }
+
+  return prisma.changelog.findMany({
+    where: {
+      entityType: 'Shift',
+      action: {
+        in: ['UPDATE'],
+      },
+      entityId: {
+        in: shiftIds,
+      },
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    include: {
+      admin: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+}
+
+export async function getEmployeeOnsiteDayOffChangelogsForDates(params: { employeeIds: string[]; dateKeys: string[] }) {
+  const { employeeIds, dateKeys } = params;
+  if (employeeIds.length === 0 || dateKeys.length === 0) {
+    return [];
+  }
+
+  const rows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT id
+    FROM changelogs
+    WHERE entity_type = 'EmployeeOnsiteDayOff'
+      AND details->>'employeeId' IN (${Prisma.join(employeeIds)})
+      AND details->>'date' IN (${Prisma.join(dateKeys)})
+    ORDER BY created_at ASC, id ASC
+  `);
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  return prisma.changelog.findMany({
+    where: {
+      id: {
+        in: rows.map(row => row.id),
+      },
+    },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    include: {
+      admin: {
+        select: {
+          name: true,
+        },
+      },
+    },
   });
 }
