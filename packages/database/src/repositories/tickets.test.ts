@@ -1,4 +1,5 @@
 import {
+  addTicketAttachments,
   canTransitionStatus,
   createTicket,
   updateTicketStatus,
@@ -20,6 +21,13 @@ jest.mock('../prisma/client', () => ({
     },
     ticketAssignedRole: {
       create: jest.fn(),
+    },
+    ticketMessage: {
+      findMany: jest.fn(),
+    },
+    ticketAttachment: {
+      createMany: jest.fn(),
+      findMany: jest.fn(),
     },
     ticketHistory: {
       create: jest.fn(),
@@ -113,5 +121,56 @@ describe('tickets repository', () => {
       })
     );
     expect(prisma.ticketHistory.create).toHaveBeenCalled();
+  });
+
+  test('reopen to acknowledged clears terminal timestamps', async () => {
+    (prisma.ticket.findUnique as jest.Mock).mockResolvedValue({
+      id: 'ticket-1',
+      status: 'CLOSED',
+      submitterAdminId: 'admin-9',
+    });
+    (prisma.ticket.update as jest.Mock).mockResolvedValue({
+      id: 'ticket-1',
+      status: 'ACKNOWLEDGED',
+    });
+
+    await updateTicketStatus({
+      ticketId: 'ticket-1',
+      nextStatus: 'ACKNOWLEDGED',
+      actorAdminId: 'admin-it',
+      actorRoleName: 'IT',
+      actorPermissions: [],
+      actorIsSuperAdmin: false,
+    });
+
+    expect(prisma.ticket.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          status: 'ACKNOWLEDGED',
+          solvedAt: null,
+          closedAt: null,
+          cannotResolveAt: null,
+        }),
+      })
+    );
+  });
+
+  test('addTicketAttachments rejects messageId outside ticket', async () => {
+    (prisma.ticketMessage.findMany as jest.Mock).mockResolvedValue([]);
+    await expect(
+      addTicketAttachments({
+        ticketId: 'ticket-1',
+        uploadedByAdminId: 'admin-1',
+        attachments: [
+          {
+            fileName: 'evidence.pdf',
+            fileSize: 1000,
+            mimeType: 'application/pdf',
+            s3Key: 'tickets/temp/admin-1/evidence.pdf',
+            messageId: 'msg-other',
+          },
+        ],
+      })
+    ).rejects.toThrow('messageId does not belong to the ticket');
   });
 });

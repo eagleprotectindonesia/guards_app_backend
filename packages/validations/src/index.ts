@@ -291,6 +291,25 @@ export const ticketMessageCreateSchema = z.object({
   body: z.string().trim().min(1, 'Message body is required'),
 });
 
+export const ticketMessageWithAttachmentsCreateSchema = ticketMessageCreateSchema.extend({
+  attachments: z.array(
+    z.object({
+      fileName: z.string().trim().min(1),
+      fileSize: z.number().int().positive().max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
+      mimeType: z
+        .string()
+        .trim()
+        .min(1)
+        .refine(value => value.startsWith('image/') || value.startsWith('video/') || value === 'application/pdf', {
+          message: 'Only image, video, and PDF attachments are allowed',
+        }),
+      s3Key: z.string().trim().min(1),
+      s3Bucket: z.string().trim().optional(),
+      publicUrl: z.string().url().optional(),
+    })
+  ).default([]),
+});
+
 export const ticketAttachmentMetadataSchema = z.object({
   fileName: z.string().trim().min(1),
   fileSize: z.number().int().positive().max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
@@ -312,6 +331,7 @@ export const ticketAttachmentMetadataSchema = z.object({
 });
 
 export const ticketAttachmentUploadRequestSchema = z.object({
+  ticketId: z.string().min(1),
   fileName: z.string().trim().min(1),
   contentType: z
     .string()

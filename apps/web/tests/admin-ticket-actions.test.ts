@@ -1,15 +1,18 @@
 import {
+  addTicketMessageWithAttachmentsAction,
   createTicketAction,
   updateTicketStatusAction,
   createTicketAttachmentUploadUrlAction,
 } from '../app/admin/(authenticated)/ticket/actions';
-import { createTicket, updateTicketStatus } from '@repo/database';
+import { createTicket, getTicketById, updateTicketStatus, addTicketMessageWithAttachments } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
-import { getPresignedUploadUrl } from '@/lib/s3';
+import { getPresignedUploadPostPolicy } from '@/lib/s3';
 
 jest.mock('@repo/database', () => ({
   createTicket: jest.fn(),
+  getTicketById: jest.fn(),
   updateTicketStatus: jest.fn(),
+  addTicketMessageWithAttachments: jest.fn(),
 }));
 
 jest.mock('@/lib/admin-auth', () => ({
@@ -17,7 +20,7 @@ jest.mock('@/lib/admin-auth', () => ({
 }));
 
 jest.mock('@/lib/s3', () => ({
-  getPresignedUploadUrl: jest.fn(),
+  getPresignedUploadPostPolicy: jest.fn(),
 }));
 
 jest.mock('next/cache', () => ({
@@ -74,6 +77,7 @@ describe('ticket actions', () => {
   test('createTicketAttachmentUploadUrlAction rejects oversized file', async () => {
     await expect(
       createTicketAttachmentUploadUrlAction({
+        ticketId: 'ticket-1',
         fileName: 'big.mp4',
         contentType: 'video/mp4',
         fileSize: 11 * 1024 * 1024,
@@ -82,15 +86,61 @@ describe('ticket actions', () => {
   });
 
   test('createTicketAttachmentUploadUrlAction requests presigned url', async () => {
-    (getPresignedUploadUrl as jest.Mock).mockResolvedValue({ uploadUrl: 'u', publicUrl: 'p', key: 'k' });
+    (getTicketById as jest.Mock).mockResolvedValue({ id: 'ticket-1' });
+    (getPresignedUploadPostPolicy as jest.Mock).mockResolvedValue({ url: 'u', fields: { key: 'k' }, key: 'k' });
 
     const result = await createTicketAttachmentUploadUrlAction({
+      ticketId: 'ticket-1',
       fileName: 'evidence.png',
       contentType: 'image/png',
       fileSize: 512000,
     });
 
-    expect(result).toEqual({ uploadUrl: 'u', publicUrl: 'p', key: 'k' });
-    expect(getPresignedUploadUrl).toHaveBeenCalled();
+    expect(result).toEqual({ url: 'u', fields: { key: 'k' }, key: 'k' });
+    expect(getPresignedUploadPostPolicy).toHaveBeenCalled();
+  });
+
+  test('addTicketMessageWithAttachmentsAction enforces key prefix ownership', async () => {
+    (getTicketById as jest.Mock).mockResolvedValue({ id: 'ticket-1' });
+    await expect(
+      addTicketMessageWithAttachmentsAction({
+        ticketId: 'ticket-1',
+        body: 'need help',
+        attachments: [
+          {
+            fileName: 'a.pdf',
+            fileSize: 1000,
+            mimeType: 'application/pdf',
+            s3Key: 'tickets/temp/admin-999/a.pdf',
+          },
+        ],
+      })
+    ).rejects.toThrow('outside allowed upload prefix');
+  });
+
+  test('addTicketMessageWithAttachmentsAction calls repository atomically', async () => {
+    (getTicketById as jest.Mock).mockResolvedValue({ id: 'ticket-1' });
+    (addTicketMessageWithAttachments as jest.Mock).mockResolvedValue({ message: { id: 'm1' }, attachments: [] });
+
+    const result = await addTicketMessageWithAttachmentsAction({
+      ticketId: 'ticket-1',
+      body: 'need help',
+      attachments: [
+        {
+          fileName: 'a.pdf',
+          fileSize: 1000,
+          mimeType: 'application/pdf',
+          s3Key: 'tickets/temp/admin-1/a.pdf',
+        },
+      ],
+    });
+
+    expect(result.message.id).toBe('m1');
+    expect(addTicketMessageWithAttachments).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ticketId: 'ticket-1',
+        adminId: 'admin-1',
+      })
+    );
   });
 });

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import {
   addTicketAttachments,
   addTicketMessage,
+  addTicketMessageWithAttachments,
   createTicket,
   getTicketById,
   getTicketHistory,
@@ -22,12 +23,13 @@ import {
   ticketCreateSchema,
   ticketListSchema,
   ticketMessageCreateSchema,
+  ticketMessageWithAttachmentsCreateSchema,
   ticketPriorityUpdateSchema,
   ticketStatusUpdateSchema,
 } from '@repo/validations';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { getPresignedUploadUrl } from '@/lib/s3';
+import { getPresignedUploadPostPolicy } from '@/lib/s3';
 
 function revalidateTicketPaths(ticketId?: string) {
   revalidatePath('/admin/ticket/dashboard');
@@ -112,6 +114,37 @@ export async function addTicketMessageAction(input: unknown) {
   return message;
 }
 
+export async function addTicketMessageWithAttachmentsAction(input: unknown) {
+  const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
+  const parsed = ticketMessageWithAttachmentsCreateSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message || 'Invalid message payload');
+  }
+
+  const ticket = await getTicketById(parsed.data.ticketId);
+  if (!ticket) {
+    throw new Error('Ticket not found');
+  }
+
+  const keyPrefix = `tickets/temp/${session.id}/`;
+  const invalidKey = parsed.data.attachments.find(attachment => !attachment.s3Key.startsWith(keyPrefix));
+  if (invalidKey) {
+    throw new Error('Attachment key is outside allowed upload prefix');
+  }
+
+  const result = await addTicketMessageWithAttachments({
+    ticketId: parsed.data.ticketId,
+    adminId: session.id,
+    body: parsed.data.body,
+    attachments: parsed.data.attachments.map(attachment => ({
+      ...attachment,
+      messageId: undefined,
+    })),
+  });
+  revalidateTicketPaths(parsed.data.ticketId);
+  return result;
+}
+
 export async function updateTicketStatusAction(input: unknown) {
   const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
   const parsed = ticketStatusUpdateSchema.safeParse(input);
@@ -164,22 +197,42 @@ export async function updateTicketAssignedRolesAction(input: unknown) {
 }
 
 export async function createTicketAttachmentUploadUrlAction(input: unknown) {
-  const session = await requirePermission(PERMISSIONS.TICKETS.CREATE);
+  const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
   const parsed = ticketAttachmentUploadRequestSchema.safeParse(input);
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message || 'Invalid upload payload');
   }
 
-  return getPresignedUploadUrl(parsed.data.fileName, parsed.data.contentType, {
+  const ticket = await getTicketById(parsed.data.ticketId);
+  if (!ticket) {
+    throw new Error('Ticket not found');
+  }
+
+  return getPresignedUploadPostPolicy(parsed.data.fileName, parsed.data.contentType, parsed.data.fileSize, {
     folder: `tickets/temp/${session.id}`,
   });
 }
 
 export async function attachUploadedFilesToTicketAction(ticketId: string, files: unknown) {
   const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
+  const ticket = await getTicketById(ticketId);
+  if (!ticket) {
+    throw new Error('Ticket not found');
+  }
+
   const parsed = ticketAttachmentMetadataSchema.array().safeParse(files);
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message || 'Invalid attachment payload');
+  }
+
+  if (parsed.data.some(file => file.messageId)) {
+    throw new Error('Use message attachment action for reply files');
+  }
+
+  const keyPrefix = `tickets/temp/${session.id}/`;
+  const invalidKey = parsed.data.find(file => !file.s3Key.startsWith(keyPrefix));
+  if (invalidKey) {
+    throw new Error('Attachment key is outside allowed upload prefix');
   }
 
   const attachments = await addTicketAttachments({

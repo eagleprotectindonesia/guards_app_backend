@@ -2,6 +2,7 @@ import { Prisma, TicketHistoryAction, TicketPriority, TicketStatus } from '@pris
 import { db as prisma } from '../prisma/client';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
+type TxCallback<T> = (tx: TxLike) => Promise<T>;
 
 export const TICKET_OPERATIONAL_EDITOR_PERMISSION = 'tickets:edit';
 
@@ -13,6 +14,13 @@ export type TicketAttachmentInput = {
   s3Bucket?: string;
   publicUrl?: string | null;
   messageId?: string | null;
+};
+
+export type TicketMessageWithAttachmentsInput = {
+  ticketId: string;
+  adminId: string;
+  body: string;
+  attachments?: TicketAttachmentInput[];
 };
 
 export type CreateTicketInput = {
@@ -107,6 +115,14 @@ function statusTimestampPatch(status: TicketStatus) {
   if (status === 'CLOSED') return { closedAt: new Date() };
   if (status === 'CANNOT_RESOLVE') return { cannotResolveAt: new Date() };
   return {};
+}
+
+function reopenTimestampPatch() {
+  return {
+    solvedAt: null,
+    closedAt: null,
+    cannotResolveAt: null,
+  };
 }
 
 export function canTransitionStatus(params: {
@@ -332,6 +348,9 @@ export async function updateTicketStatus(input: {
       where: { id: input.ticketId },
       data: {
         status: input.nextStatus,
+        ...((ticket.status === 'CLOSED' || ticket.status === 'CANNOT_RESOLVE') && input.nextStatus === 'ACKNOWLEDGED'
+          ? reopenTimestampPatch()
+          : {}),
         ...statusTimestampPatch(input.nextStatus),
       },
     });
@@ -452,6 +471,24 @@ export async function addTicketAttachments(input: {
   return withTransaction(tx, async trx => {
     if (input.attachments.length === 0) return [];
 
+    const messageIds = Array.from(
+      new Set(input.attachments.map(attachment => attachment.messageId).filter((value): value is string => Boolean(value)))
+    );
+    if (messageIds.length > 0) {
+      const ownedMessages = await trx.ticketMessage.findMany({
+        where: {
+          id: { in: messageIds },
+          ticketId: input.ticketId,
+        },
+        select: { id: true },
+      });
+      const ownedMessageIdSet = new Set(ownedMessages.map(message => message.id));
+      const invalidMessageId = messageIds.find(messageId => !ownedMessageIdSet.has(messageId));
+      if (invalidMessageId) {
+        throw new Error('Attachment messageId does not belong to the ticket');
+      }
+    }
+
     await trx.ticketAttachment.createMany({
       data: input.attachments.map(attachment => ({
         ticketId: input.ticketId,
@@ -488,6 +525,41 @@ export async function addTicketAttachments(input: {
   });
 }
 
+export async function addTicketMessageWithAttachments(input: TicketMessageWithAttachmentsInput, tx: TxLike = prisma) {
+  return withTransaction(tx, async trx => {
+    const message = await trx.ticketMessage.create({
+      data: {
+        ticketId: input.ticketId,
+        adminId: input.adminId,
+        body: input.body,
+      },
+    });
+
+    await createHistory(trx, {
+      ticketId: input.ticketId,
+      actorAdminId: input.adminId,
+      action: 'MESSAGE_ADDED',
+      toValue: message.id,
+    });
+
+    const attachments = input.attachments?.length
+      ? await addTicketAttachments(
+          {
+            ticketId: input.ticketId,
+            uploadedByAdminId: input.adminId,
+            attachments: input.attachments.map(attachment => ({
+              ...attachment,
+              messageId: message.id,
+            })),
+          },
+          trx
+        )
+      : [];
+
+    return { message, attachments };
+  });
+}
+
 export async function getTicketHistory(ticketId: string, tx: TxLike = prisma) {
   return tx.ticketHistory.findMany({
     where: { ticketId },
@@ -499,7 +571,7 @@ export async function getTicketHistory(ticketId: string, tx: TxLike = prisma) {
 }
 
 export { isITRole, isOperationalActor, OPERATIONAL_STATUSES };
-async function withTransaction<T>(tx: TxLike, callback: (_tx: TxLike) => Promise<T>) {
+async function withTransaction<T>(tx: TxLike, callback: TxCallback<T>) {
   if ('$transaction' in tx) {
     return tx.$transaction(trx => callback(trx as TxLike));
   }
