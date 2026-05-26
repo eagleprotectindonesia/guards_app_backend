@@ -239,6 +239,94 @@ export const updateDesignationSchema = createDesignationSchema;
 // --- System Settings ---
 export const updateSettingsSchema = z.record(z.string(), z.string());
 
+// --- Tickets ---
+export const TicketStatusEnum = z.enum([
+  'NEW',
+  'ACKNOWLEDGED',
+  'WAITING_INFORMATION',
+  'IN_PROGRESS',
+  'SOLVED',
+  'CLOSED',
+  'CANNOT_RESOLVE',
+]);
+
+export const TicketPriorityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH']);
+
+export const ticketCreateSchema = z.object({
+  title: z.string().trim().min(3, 'Title must be at least 3 characters'),
+  description: z.string().trim().min(1, 'Description is required'),
+  departmentRoleId: z.string().min(1, 'Department role is required'),
+  clientName: z.string().trim().min(1, 'Client name is required'),
+  clientContact: z.string().trim().min(1, 'Client contact is required'),
+  clientLocation: z.string().trim().min(1, 'Client location is required'),
+  priority: TicketPriorityEnum.default('MEDIUM'),
+});
+
+export const ticketListSchema = z.object({
+  search: z.string().trim().optional(),
+  statuses: z.array(TicketStatusEnum).optional(),
+  priorities: z.array(TicketPriorityEnum).optional(),
+  assignedRoleIds: z.array(z.string().min(1)).optional(),
+  cursor: z.string().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+});
+
+export const ticketStatusUpdateSchema = z.object({
+  ticketId: z.string().min(1),
+  status: TicketStatusEnum,
+});
+
+export const ticketPriorityUpdateSchema = z.object({
+  ticketId: z.string().min(1),
+  priority: TicketPriorityEnum,
+});
+
+export const ticketAssignedRolesUpdateSchema = z.object({
+  ticketId: z.string().min(1),
+  roleIds: z.array(z.string().min(1)),
+});
+
+export const ticketMessageCreateSchema = z.object({
+  ticketId: z.string().min(1),
+  body: z.string().trim().min(1, 'Message body is required'),
+});
+
+export const ticketAttachmentMetadataSchema = z.object({
+  fileName: z.string().trim().min(1),
+  fileSize: z.number().int().positive().max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
+  mimeType: z
+    .string()
+    .trim()
+    .min(1)
+    .refine(value => {
+      return (
+        value.startsWith('image/') ||
+        value.startsWith('video/') ||
+        value === 'application/pdf'
+      );
+    }, 'Only image, video, and PDF attachments are allowed'),
+  s3Key: z.string().trim().min(1),
+  s3Bucket: z.string().trim().optional(),
+  publicUrl: z.string().url().optional(),
+  messageId: z.string().optional(),
+});
+
+export const ticketAttachmentUploadRequestSchema = z.object({
+  fileName: z.string().trim().min(1),
+  contentType: z
+    .string()
+    .trim()
+    .min(1)
+    .refine(value => {
+      return (
+        value.startsWith('image/') ||
+        value.startsWith('video/') ||
+        value === 'application/pdf'
+      );
+    }, 'Only image, video, and PDF attachments are allowed'),
+  fileSize: z.number().int().positive().max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
+});
+
 const officeWorkScheduleDaySchema = z
   .object({
     weekday: z.number().int().min(0).max(6),

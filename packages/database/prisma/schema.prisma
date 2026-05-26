@@ -93,6 +93,32 @@ enum OfficeMemoScope {
   department
 }
 
+enum TicketStatus {
+  NEW
+  ACKNOWLEDGED
+  WAITING_INFORMATION
+  IN_PROGRESS
+  SOLVED
+  CLOSED
+  CANNOT_RESOLVE
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TicketHistoryAction {
+  CREATED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  ASSIGNMENT_CHANGED
+  MESSAGE_ADDED
+  ATTACHMENT_ADDED
+  REOPENED
+}
+
 model Permission {
   id          String   @id @default(uuid())
   action      String // e.g., "view", "create", "edit", "delete"
@@ -113,6 +139,8 @@ model Role {
   policy      Json?
   permissions Permission[] @relation("RolePermissions")
   admins      Admin[]
+  assignedTickets   TicketAssignedRole[]
+  departmentTickets Ticket[]             @relation("TicketDepartmentRole")
   isSystem    Boolean      @default(false) @map("is_system")
   createdAt   DateTime     @default(now()) @map("created_at")
   updatedAt   DateTime     @updatedAt @map("updated_at")
@@ -174,6 +202,10 @@ model Admin {
   sentMessages                                 ChatMessage[]
   chatConversationStates                       AdminChatConversationState[]
   notifications                                AdminNotification[]
+  submittedTickets                             Ticket[]                                @relation("TicketSubmitter")
+  ticketMessages                               TicketMessage[]
+  uploadedTicketAttachments                    TicketAttachment[]                       @relation("TicketUploadedBy")
+  ticketHistoryActions                         TicketHistory[]
 
   @@index([deletedAt])
   @@map("admins")
@@ -969,6 +1001,114 @@ model OfficeMemo {
   @@index([endDate])
   @@index([scope])
   @@map("office_memos")
+}
+
+model Ticket {
+  id               String         @id @default(uuid())
+  code             String         @unique
+  title            String
+  description      String         @db.Text
+  priority         TicketPriority @default(MEDIUM)
+  status           TicketStatus   @default(NEW)
+  submitterAdminId String         @map("submitter_admin_id")
+  departmentRoleId String?        @map("department_role_id")
+  clientName       String         @map("client_name")
+  clientContact    String         @map("client_contact")
+  clientLocation   String         @map("client_location")
+  solvedAt         DateTime?      @map("solved_at")
+  closedAt         DateTime?      @map("closed_at")
+  cannotResolveAt  DateTime?      @map("cannot_resolve_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  submitterAdmin Admin               @relation("TicketSubmitter", fields: [submitterAdminId], references: [id])
+  departmentRole Role?               @relation("TicketDepartmentRole", fields: [departmentRoleId], references: [id])
+  assignedRoles  TicketAssignedRole[]
+  messages       TicketMessage[]
+  attachments    TicketAttachment[]
+  history        TicketHistory[]
+
+  @@index([status, priority, createdAt])
+  @@index([submitterAdminId, createdAt])
+  @@index([departmentRoleId, createdAt])
+  @@index([createdAt, id])
+  @@map("tickets")
+}
+
+model TicketAssignedRole {
+  id        String   @id @default(uuid())
+  ticketId  String   @map("ticket_id")
+  roleId    String   @map("role_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, roleId])
+  @@index([roleId])
+  @@map("ticket_assigned_roles")
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid())
+  ticketId  String   @map("ticket_id")
+  adminId   String   @map("admin_id")
+  body      String   @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+
+  ticket      Ticket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  admin       Admin              @relation(fields: [adminId], references: [id])
+  attachments TicketAttachment[]
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_messages")
+}
+
+model TicketAttachment {
+  id                String   @id @default(uuid())
+  ticketId          String   @map("ticket_id")
+  messageId         String?  @map("message_id")
+  uploadedByAdminId String   @map("uploaded_by_admin_id")
+  fileName          String   @map("file_name")
+  fileSize          Int      @map("file_size")
+  mimeType          String   @map("mime_type")
+  s3Key             String   @map("s3_key")
+  s3Bucket          String   @map("s3_bucket")
+  publicUrl         String?  @map("public_url")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  ticket     Ticket         @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  message    TicketMessage? @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  uploadedBy Admin          @relation("TicketUploadedBy", fields: [uploadedByAdminId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@index([messageId])
+  @@map("ticket_attachments")
+}
+
+model TicketHistory {
+  id           String              @id @default(uuid())
+  ticketId     String              @map("ticket_id")
+  actorAdminId String?             @map("actor_admin_id")
+  action       TicketHistoryAction
+  fromValue    String?             @map("from_value")
+  toValue      String?             @map("to_value")
+  metadata     Json?
+  createdAt    DateTime            @default(now()) @map("created_at")
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actor  Admin? @relation(fields: [actorAdminId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_history")
+}
+
+model TicketCodeSequence {
+  id        String   @id @default("global")
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("ticket_code_sequences")
 }
 
 model SystemSetting {

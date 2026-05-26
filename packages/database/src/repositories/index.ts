@@ -35,3 +35,4 @@ export * from './onsite-day-offs';
 export * from './office-shift-types';
 export * from './office-shifts';
 export * from './office-work-schedules';
+export * from './tickets';
