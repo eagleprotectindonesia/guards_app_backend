@@ -2,8 +2,19 @@
 
 import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { ChevronDown, ChevronLeft, ChevronRight, Clock, LayoutDashboard } from 'lucide-react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  LayoutDashboard,
+  PlusSquare,
+  List,
+  UserRound,
+  Inbox,
+  Archive,
+} from 'lucide-react';
 import { cn } from '@repo/shared';
 import { ADMIN_SECONDARY_NAV_ITEMS, getAdminNavItems, type NavItem } from '@/lib/admin-navigation';
 import { useSession } from '../context/session-context';
@@ -70,11 +81,54 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const activeTab = getAdminTabFromPath(pathname);
   const { hasPermission } = useSession();
   const { unreadCount } = useAdminNotifications();
+  const currentUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
+  const [ticketCounters, setTicketCounters] = useState<{ all: number; my: number; unassigned: number; closed: number } | null>(null);
+
+  useEffect(() => {
+    if (activeTab !== 'ticket') return;
+    if (!hasPermission('tickets:view')) return;
+
+    let cancelled = false;
+    const loadCounters = async () => {
+      try {
+        const response = await fetch('/api/admin/tickets/counters', { method: 'GET', cache: 'no-store' });
+        if (!response.ok) return;
+        const data = (await response.json()) as { all: number; my: number; unassigned: number; closed: number };
+        if (!cancelled) {
+          setTicketCounters(data);
+        }
+      } catch (error) {
+        console.error('Failed to load ticket counters', error);
+      }
+    };
+
+    void loadCounters();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, hasPermission]);
 
   const navGroups = useMemo(() => {
+    if (activeTab === 'ticket') {
+      return [
+        {
+          label: 'Ticket Command Center',
+          items: [
+            { name: 'Dashboard', href: '/admin/ticket/dashboard', icon: LayoutDashboard },
+            { name: 'Create Ticket', href: '/admin/ticket/create', icon: PlusSquare },
+            { name: 'All Tickets', href: '/admin/ticket/dashboard?view=all', icon: List },
+            { name: 'My Tickets', href: '/admin/ticket/dashboard?view=my', icon: UserRound },
+            { name: 'Unassigned', href: '/admin/ticket/dashboard?view=unassigned', icon: Inbox },
+            { name: 'Closed Tickets', href: '/admin/ticket/dashboard?view=closed', icon: Archive },
+          ],
+        },
+      ];
+    }
+
     if (activeTab !== 'live') {
       return [
         {
@@ -137,6 +191,12 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   }, [activeTab, hasPermission, officeWorkSchedulesEnabled]);
 
   const isGroupCollapsed = (label: string) => collapsedGroups[label] ?? false;
+  const ticketCounterByHref: Record<string, number | undefined> = {
+    '/admin/ticket/dashboard?view=all': ticketCounters?.all,
+    '/admin/ticket/dashboard?view=my': ticketCounters?.my,
+    '/admin/ticket/dashboard?view=unassigned': ticketCounters?.unassigned,
+    '/admin/ticket/dashboard?view=closed': ticketCounters?.closed,
+  };
 
   return (
     <aside
@@ -213,8 +273,12 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
             {!isCollapsed && !isGroupCollapsed(group.label) && (
               <div className="space-y-1">
                 {group.items.map(item => {
-                  const isActive = pathname.startsWith(item.href);
+                  const isActive = item.href.includes('?')
+                    ? currentUrl === item.href
+                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
+                  const ticketCounter = ticketCounterByHref[item.href];
+                  const showTicketCounter = activeTab === 'ticket' && typeof ticketCounter === 'number';
 
                   return (
                     <AdminNavLink
@@ -248,6 +312,11 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                           {unreadCount > 99 ? '99+' : unreadCount}
                         </span>
                       )}
+                      {showTicketCounter && (
+                        <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                          {ticketCounter! > 99 ? '99+' : ticketCounter}
+                        </span>
+                      )}
                     </AdminNavLink>
                   );
                 })}
@@ -261,8 +330,12 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
             {isCollapsed && (
               <div className="space-y-1">
                 {group.items.map(item => {
-                  const isActive = pathname.startsWith(item.href);
+                  const isActive = item.href.includes('?')
+                    ? currentUrl === item.href
+                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
+                  const ticketCounter = ticketCounterByHref[item.href];
+                  const showTicketCounter = activeTab === 'ticket' && typeof ticketCounter === 'number';
 
                   return (
                     <AdminNavLink
@@ -285,6 +358,11 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       {showLeaveRequestsCounter && (
                         <span className="absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
                           {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                      {showTicketCounter && (
+                        <span className="absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                          {ticketCounter! > 99 ? '99+' : ticketCounter}
                         </span>
                       )}
                       <span className="opacity-0 w-0 hidden">{item.name}</span>

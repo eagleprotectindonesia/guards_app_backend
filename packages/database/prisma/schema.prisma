@@ -74,6 +74,9 @@ enum AdminOwnershipDomain {
 
 enum AdminNotificationType {
   leave_request_created
+  ticket_assigned_role
+  ticket_status_updated
+  ticket_message_added
 }
 
 enum HolidayCalendarType {

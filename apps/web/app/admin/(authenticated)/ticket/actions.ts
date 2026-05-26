@@ -5,9 +5,12 @@ import {
   addTicketAttachments,
   addTicketMessage,
   addTicketMessageWithAttachments,
+  createAdminNotifications,
   createTicket,
+  db,
   getTicketById,
   getTicketHistory,
+  getTicketSidebarCounts,
   listClosedTickets,
   listMyTickets,
   listTickets,
@@ -30,6 +33,8 @@ import {
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { getPresignedUploadPostPolicy } from '@/lib/s3';
+import { redis } from '@repo/database/redis';
+import { TicketStatus } from '@prisma/client';
 
 function revalidateTicketPaths(ticketId?: string) {
   revalidatePath('/admin/ticket/dashboard');
@@ -37,6 +42,81 @@ function revalidateTicketPaths(ticketId?: string) {
   if (ticketId) {
     revalidatePath(`/admin/ticket/${ticketId}`);
   }
+}
+
+async function publishAdminNotifications(notifications: { adminId: string }[]) {
+  await Promise.all(
+    notifications.map(notification =>
+      redis.publish(
+        `admin-notifications:admin:${notification.adminId}`,
+        JSON.stringify({
+          type: 'admin_notification_created',
+          notification,
+        })
+      )
+    )
+  );
+}
+
+async function notifyAssignedRoles(input: {
+  roleIds: string[];
+  actorAdminId: string;
+  type: 'ticket_assigned_role' | 'ticket_message_added';
+  title: string;
+  body: string;
+  targetPath: string;
+  ticketId: string;
+}) {
+  if (input.roleIds.length === 0) return;
+  const admins = await db.admin.findMany({
+    where: {
+      deletedAt: null,
+      roleId: { in: input.roleIds },
+      id: { not: input.actorAdminId },
+    },
+    select: { id: true },
+  });
+  const adminIds = Array.from(new Set(admins.map(item => item.id)));
+  if (adminIds.length === 0) return;
+  const notifications = await createAdminNotifications({
+    adminIds,
+    type: input.type,
+    title: input.title,
+    body: input.body,
+    payload: {
+      ticketId: input.ticketId,
+      targetPath: input.targetPath,
+    },
+  });
+  await publishAdminNotifications(notifications);
+}
+
+async function notifySubmitterOnStatusChange(input: {
+  actorAdminId: string;
+  ticketId: string;
+  status: TicketStatus;
+}) {
+  const ticket = await db.ticket.findUnique({
+    where: { id: input.ticketId },
+    select: { id: true, code: true, submitterAdminId: true },
+  });
+  if (!ticket || ticket.submitterAdminId === input.actorAdminId) return;
+
+  const notifications = await createAdminNotifications({
+    adminIds: [ticket.submitterAdminId],
+    type: 'ticket_status_updated',
+    title: `Ticket ${ticket.code} updated`,
+    body:
+      input.status === 'WAITING_INFORMATION'
+        ? 'IT team requested more information on your ticket.'
+        : `Ticket status changed to ${input.status}.`,
+    payload: {
+      ticketId: ticket.id,
+      targetPath: `/admin/ticket/dashboard?view=all&ticket=${ticket.id}`,
+      status: input.status,
+    },
+  });
+  await publishAdminNotifications(notifications);
 }
 
 export async function createTicketAction(input: unknown) {
@@ -90,6 +170,11 @@ export async function listClosedTicketsAction(input: unknown = {}) {
   return listClosedTickets(parsed.data);
 }
 
+export async function getTicketSidebarCountsAction() {
+  const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
+  return getTicketSidebarCounts(session.id);
+}
+
 export async function getTicketDetailAction(ticketId: string) {
   await requirePermission(PERMISSIONS.TICKETS.VIEW);
   const ticket = await getTicketById(ticketId);
@@ -110,6 +195,17 @@ export async function addTicketMessageAction(input: unknown) {
     adminId: session.id,
     body: parsed.data.body,
   });
+  const ticket = await getTicketById(parsed.data.ticketId);
+  const roleIds = ticket?.assignedRoles.map(item => item.roleId) ?? [];
+  await notifyAssignedRoles({
+    roleIds,
+    actorAdminId: session.id,
+    type: 'ticket_message_added',
+    title: `New message on ${ticket?.code ?? 'ticket'}`,
+    body: parsed.data.body.slice(0, 120),
+    targetPath: `/admin/ticket/dashboard?view=all&ticket=${parsed.data.ticketId}`,
+    ticketId: parsed.data.ticketId,
+  });
   revalidateTicketPaths(parsed.data.ticketId);
   return message;
 }
@@ -121,8 +217,8 @@ export async function addTicketMessageWithAttachmentsAction(input: unknown) {
     throw new Error(parsed.error.issues[0]?.message || 'Invalid message payload');
   }
 
-  const ticket = await getTicketById(parsed.data.ticketId);
-  if (!ticket) {
+  const existingTicket = await getTicketById(parsed.data.ticketId);
+  if (!existingTicket) {
     throw new Error('Ticket not found');
   }
 
@@ -140,6 +236,17 @@ export async function addTicketMessageWithAttachmentsAction(input: unknown) {
       ...attachment,
       messageId: undefined,
     })),
+  });
+  const ticket = await getTicketById(parsed.data.ticketId);
+  const roleIds = ticket?.assignedRoles.map(item => item.roleId) ?? [];
+  await notifyAssignedRoles({
+    roleIds,
+    actorAdminId: session.id,
+    type: 'ticket_message_added',
+    title: `New message on ${ticket?.code ?? 'ticket'}`,
+    body: parsed.data.body.slice(0, 120),
+    targetPath: `/admin/ticket/dashboard?view=all&ticket=${parsed.data.ticketId}`,
+    ticketId: parsed.data.ticketId,
   });
   revalidateTicketPaths(parsed.data.ticketId);
   return result;
@@ -159,6 +266,11 @@ export async function updateTicketStatusAction(input: unknown) {
     actorRoleName: session.roleName,
     actorIsSuperAdmin: session.isSuperAdmin,
     actorPermissions: session.permissions,
+  });
+  await notifySubmitterOnStatusChange({
+    actorAdminId: session.id,
+    ticketId: parsed.data.ticketId,
+    status: parsed.data.status,
   });
   revalidateTicketPaths(parsed.data.ticketId);
   return ticket;
@@ -191,6 +303,16 @@ export async function updateTicketAssignedRolesAction(input: unknown) {
     ticketId: parsed.data.ticketId,
     roleIds: parsed.data.roleIds,
     actorAdminId: session.id,
+  });
+  const ticket = await getTicketById(parsed.data.ticketId);
+  await notifyAssignedRoles({
+    roleIds: assignedRoles.map(item => item.roleId),
+    actorAdminId: session.id,
+    type: 'ticket_assigned_role',
+    title: `Assigned to ticket ${ticket?.code ?? ''}`.trim(),
+    body: ticket?.title ?? 'A ticket has been assigned to your role.',
+    targetPath: `/admin/ticket/dashboard?view=all&ticket=${parsed.data.ticketId}`,
+    ticketId: parsed.data.ticketId,
   });
   revalidateTicketPaths(parsed.data.ticketId);
   return assignedRoles;

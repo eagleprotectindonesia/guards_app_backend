@@ -52,6 +52,7 @@ export type TicketListCursor = {
 
 const OPERATIONAL_STATUSES: TicketStatus[] = ['ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CANNOT_RESOLVE'];
 const TERMINAL_STATUSES = new Set<TicketStatus>(['CLOSED', 'CANNOT_RESOLVE']);
+const CLOSED_VIEW_STATUSES: TicketStatus[] = ['SOLVED', 'CLOSED', 'CANNOT_RESOLVE'];
 
 function isITRole(roleName?: string | null) {
   return roleName?.trim().toLowerCase() === 'it';
@@ -316,7 +317,22 @@ export async function listUnassignedTickets(params: Omit<TicketListParams, 'unas
 }
 
 export async function listClosedTickets(params: Omit<TicketListParams, 'statuses'> = {}, tx: TxLike = prisma) {
-  return listTickets({ ...params, statuses: ['CLOSED'] }, tx);
+  return listTickets({ ...params, statuses: CLOSED_VIEW_STATUSES }, tx);
+}
+
+export async function getTicketSidebarCounts(adminId: string, tx: TxLike = prisma) {
+  const activeStatusFilter: Prisma.TicketWhereInput = {
+    status: { notIn: CLOSED_VIEW_STATUSES },
+  };
+
+  const [all, my, unassigned, closed] = await Promise.all([
+    tx.ticket.count({ where: activeStatusFilter }),
+    tx.ticket.count({ where: { ...activeStatusFilter, submitterAdminId: adminId } }),
+    tx.ticket.count({ where: { ...activeStatusFilter, assignedRoles: { none: {} } } }),
+    tx.ticket.count({ where: { status: { in: CLOSED_VIEW_STATUSES } } }),
+  ]);
+
+  return { all, my, unassigned, closed };
 }
 
 export async function updateTicketStatus(input: {

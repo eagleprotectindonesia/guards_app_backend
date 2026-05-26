@@ -7,7 +7,7 @@ import { ChatMessage, GroupChatMessage, GroupChatParticipant } from './index';
 export type AdminNotificationEventItem = {
   id: string;
   adminId: string;
-  type: 'leave_request_created';
+  type: 'leave_request_created' | 'ticket_assigned_role' | 'ticket_status_updated' | 'ticket_message_added';
   title: string;
   body: string;
   payload: any;
