@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { type ComponentType } from 'react';
+import { usePathname } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 import AlertNotifications from './alert-notifications';
 import AdminNotificationInbox from './admin-notification-inbox';
@@ -8,10 +9,13 @@ import { AdminSession } from '@/lib/admin-auth';
 import AdminProfileDropdown from './admin-profile-dropdown';
 import { Radio, Ticket, Users, Building2, FileSearch } from 'lucide-react';
 import { cn } from '@repo/shared';
+import { getAdminDashboardHref, getAdminTabFromPath, type AdminTabSlug } from '@/lib/admin-tab-routing';
+import { useAdminRouter } from '../context/admin-router';
 
 const HEADER_MENUS = [
   {
     id: 'live-operations',
+    tab: 'live',
     title: 'LIVE OPERATIONS',
     subtitle: 'Control Room',
     icon: Radio,
@@ -21,6 +25,7 @@ const HEADER_MENUS = [
   },
   {
     id: 'tickets',
+    tab: 'ticket',
     title: 'TICKET COMMAND CENTER',
     subtitle: 'Manage & Resolve',
     icon: Ticket,
@@ -30,6 +35,7 @@ const HEADER_MENUS = [
   },
   {
     id: 'workforce',
+    tab: 'workforce',
     title: 'WORKFORCE & HR',
     subtitle: 'People & Schedules',
     icon: Users,
@@ -39,6 +45,7 @@ const HEADER_MENUS = [
   },
   {
     id: 'clients',
+    tab: 'client',
     title: 'CLIENT & SITE MANAGEMENT',
     subtitle: 'Clients, Sites & Contracts',
     icon: Building2,
@@ -48,6 +55,7 @@ const HEADER_MENUS = [
   },
   {
     id: 'system',
+    tab: 'system',
     title: 'SYSTEM & AUDIT',
     subtitle: 'System Health & Logs',
     icon: FileSearch,
@@ -55,10 +63,21 @@ const HEADER_MENUS = [
     activeBg: 'bg-orange-500/10',
     activeBorder: 'border-orange-500/50',
   },
-];
+] as const satisfies ReadonlyArray<{
+  id: string;
+  tab: AdminTabSlug;
+  title: string;
+  subtitle: string;
+  icon: ComponentType<{ className?: string }>;
+  color: string;
+  activeBg: string;
+  activeBorder: string;
+}>;
 
 export default function Header({ currentAdmin }: { currentAdmin: AdminSession }) {
-  const [activeTab, setActiveTab] = useState('live-operations');
+  const pathname = usePathname();
+  const router = useAdminRouter();
+  const activeTab = getAdminTabFromPath(pathname);
 
   return (
     <header className="h-16 bg-card border-b border-border px-6 flex items-center justify-between sticky top-0 z-10">
@@ -67,13 +86,13 @@ export default function Header({ currentAdmin }: { currentAdmin: AdminSession })
 
       <div className="flex items-center gap-1.5 h-full py-2">
         {HEADER_MENUS.map((menu) => {
-          const isActive = activeTab === menu.id;
+          const isActive = activeTab === menu.tab;
           const Icon = menu.icon;
 
           return (
             <button
               key={menu.id}
-              onClick={() => setActiveTab(menu.id)}
+              onClick={() => router.push(getAdminDashboardHref(menu.tab))}
               className={cn(
                 "flex items-center gap-3 px-4 py-1.5 rounded-lg border border-transparent transition-all duration-200 group relative whitespace-nowrap",
                 isActive ? cn(menu.activeBg, menu.activeBorder, "ring-1 ring-primary/10 shadow-sm") : "hover:bg-accent/50"

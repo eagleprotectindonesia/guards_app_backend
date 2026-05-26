@@ -3,12 +3,13 @@
 import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { ChevronDown, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Clock, LayoutDashboard } from 'lucide-react';
 import { cn } from '@repo/shared';
 import { ADMIN_SECONDARY_NAV_ITEMS, getAdminNavItems, type NavItem } from '@/lib/admin-navigation';
 import { useSession } from '../context/session-context';
 import { AdminNavLink } from './admin-nav-link';
 import { useAdminNotifications } from '../context/admin-notification-context';
+import { getAdminDashboardHref, getAdminTabFromPath } from '@/lib/admin-tab-routing';
 
 type Props = {
   officeWorkSchedulesEnabled: boolean;
@@ -69,10 +70,20 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
+  const activeTab = getAdminTabFromPath(pathname);
   const { hasPermission } = useSession();
   const { unreadCount } = useAdminNotifications();
 
   const navGroups = useMemo(() => {
+    if (activeTab !== 'live') {
+      return [
+        {
+          label: 'Dashboard',
+          items: [{ name: 'Dashboard', href: getAdminDashboardHref(activeTab), icon: LayoutDashboard }],
+        },
+      ];
+    }
+
     const navItems = getAdminNavItems(officeWorkSchedulesEnabled);
     const byName = new Map(navItems.map(item => [item.name, item]));
 
@@ -123,7 +134,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
         items: group.items.filter(item => !item.requiredPermission || hasPermission(item.requiredPermission)),
       }))
       .filter(group => group.items.length > 0);
-  }, [hasPermission, officeWorkSchedulesEnabled]);
+  }, [activeTab, hasPermission, officeWorkSchedulesEnabled]);
 
   const isGroupCollapsed = (label: string) => collapsedGroups[label] ?? false;
 
@@ -137,7 +148,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-border relative group">
         <AdminNavLink
-          href="/admin/dashboard"
+          href={getAdminDashboardHref(activeTab)}
           className={cn(
             'flex items-center overflow-hidden transition-all duration-300',
             isCollapsed ? 'justify-center w-full' : 'w-full'

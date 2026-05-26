@@ -154,6 +154,11 @@ export const ADMIN_SECONDARY_NAV_ITEMS: NavItem[] = [
 ];
 
 export const ADMIN_LABEL_MAP: Record<string, string> = {
+  live: 'Live Operation',
+  ticket: 'Ticket',
+  workforce: 'Workforce',
+  client: 'Client',
+  system: 'System',
   dashboard: 'Dashboard',
   employees: 'Employees',
   sites: 'Sites',
