@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { useSocket } from '@/components/socket-provider';
 import { useSocketEvent } from './use-socket-event';
@@ -8,6 +8,7 @@ import { uploadToS3 } from '@/lib/upload';
 import { optimizeImage } from '@/lib/image-utils';
 import { toast } from 'react-hot-toast';
 import { ChatInboxItem } from '@repo/types';
+import { useChatNotificationAudio } from '@/hooks/admin-chat/use-chat-notification-audio';
 
 type GroupListItem = {
   participant: { id: string; role: string; unreadCount: number };
@@ -97,7 +98,7 @@ interface UseAdminGroupChatOptions {
 export function useAdminGroupChat(options: UseAdminGroupChatOptions = {}) {
   const { socket, isConnected } = useSocket();
   const queryClient = useQueryClient();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { playNotificationSound } = useChatNotificationAudio();
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeView, setActiveView] = useState<'inbox' | 'unread' | 'archived'>('inbox');
@@ -111,41 +112,6 @@ export function useAdminGroupChat(options: UseAdminGroupChatOptions = {}) {
   const [createGroupDescription, setCreateGroupDescription] = useState('');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
   const [selectedAdminIds, setSelectedAdminIds] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio('/audios/chat.wav');
-    }
-
-    const unlockAudio = () => {
-      if (audioRef.current) {
-        audioRef.current
-          .play()
-          .then(() => {
-            audioRef.current?.pause();
-            if (audioRef.current) audioRef.current.currentTime = 0;
-            document.removeEventListener('click', unlockAudio);
-            document.removeEventListener('keydown', unlockAudio);
-          })
-          .catch(() => {});
-      }
-    };
-
-    document.addEventListener('click', unlockAudio);
-    document.addEventListener('keydown', unlockAudio);
-
-    return () => {
-      document.removeEventListener('click', unlockAudio);
-      document.removeEventListener('keydown', unlockAudio);
-    };
-  }, []);
-
-  const playNotificationSound = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.play().catch(err => console.error('Failed to play group chat sound', err));
-    }
-  }, []);
 
   const groupsQuery = useInfiniteQuery({
     queryKey: ['admin', 'group-chat', 'groups', activeView, searchTerm],
