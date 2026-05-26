@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AppState, AppStateStatus } from 'react-native';
 import { setAudioModeAsync, useAudioPlayer } from 'expo-audio';
@@ -64,10 +64,10 @@ export function useChatTabUnread() {
 
   const unreadCount = directUnreadCount + groupUnreadCount;
 
-  const refreshAll = () => {
+  const refreshAll = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.chat.unread });
     queryClient.invalidateQueries({ queryKey: queryKeys.chat.groupList });
-  };
+  }, [queryClient]);
 
   useSocketEvent(socket, 'new_message', (message: ChatMessage) => {
     if (message.sender !== 'admin') return;
@@ -109,7 +109,7 @@ export function useChatTabUnread() {
     return () => {
       subscription.remove();
     };
-  }, [queryClient]);
+  }, [refreshAll]);
 
   return {
     unreadCount,

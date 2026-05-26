@@ -499,7 +499,7 @@ export async function getTicketHistory(ticketId: string, tx: TxLike = prisma) {
 }
 
 export { isITRole, isOperationalActor, OPERATIONAL_STATUSES };
-async function withTransaction<T>(tx: TxLike, callback: (trx: TxLike) => Promise<T>) {
+async function withTransaction<T>(tx: TxLike, callback: (_tx: TxLike) => Promise<T>) {
   if ('$transaction' in tx) {
     return tx.$transaction(trx => callback(trx as TxLike));
   }

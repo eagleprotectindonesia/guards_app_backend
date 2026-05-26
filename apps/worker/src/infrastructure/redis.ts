@@ -23,6 +23,13 @@ export function getRedisConnection(): Redis {
   return sharedConnection;
 }
 
+export function getBullMqConnectionOptions() {
+  return {
+    url: REDIS_URL,
+    maxRetriesPerRequest: null,
+  };
+}
+
 /**
  * Returns a shared ioredis subscriber connection.
  * ioredis handles subscription mode by blocking the connection,
