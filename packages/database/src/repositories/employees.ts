@@ -34,7 +34,8 @@ function normalizeSyncStringValue(value?: string | null): string {
 }
 
 function resolveSyncedEmployeeRole(jobTitle?: string | null): EmployeeRole {
-  return normalizeSyncStringValue(jobTitle) === 'security standby' ? 'on_site' : 'office';
+  const normalizedTitle = normalizeSyncStringValue(jobTitle);
+  return normalizedTitle.includes('security') ? 'on_site' : 'office';
 }
 
 function isExternallyActiveWorkStatus(workStatus?: string | null): boolean {
