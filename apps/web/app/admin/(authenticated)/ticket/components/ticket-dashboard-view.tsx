@@ -1,54 +1,22 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { type ChangeEvent, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { addTicketMessageAction, getTicketDetailAction, updateTicketStatusAction } from '../actions';
 import { toast } from 'react-hot-toast';
-
-type TicketListItem = {
-  id: string;
-  code: string;
-  title: string;
-  clientName: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH';
-  status: 'NEW' | 'ACKNOWLEDGED' | 'WAITING_INFORMATION' | 'IN_PROGRESS' | 'SOLVED' | 'CLOSED' | 'CANNOT_RESOLVE';
-  createdAt: string;
-};
-
-type TicketMessage = {
-  id: string;
-  body: string;
-  admin?: { name?: string | null } | null;
-};
-
-type TicketDetail = {
-  id: string;
-  code: string;
-  title: string;
-  description: string;
-  clientName: string;
-  clientContact: string;
-  clientLocation: string;
-  status: TicketListItem['status'];
-  messages: TicketMessage[];
-};
-
-type TicketHistoryItem = {
-  id: string;
-  action: string;
-  fromValue?: string | null;
-  toValue?: string | null;
-  actor?: { name?: string | null } | null;
-};
-
-type TicketDetailResult = {
-  ticket: TicketDetail;
-  history: TicketHistoryItem[];
-};
+import {
+  addTicketMessageAction,
+  addTicketMessageWithAttachmentsAction,
+  createTicketAttachmentUploadUrlAction,
+  getTicketDetailAction,
+  updateTicketStatusAction,
+} from '../actions';
+import { uploadFileWithPresignedPost } from '@/lib/s3-presigned-post-upload';
+import { TicketListPanel } from './ticket-list-panel';
+import { TicketDetailHeader } from './ticket-detail-header';
+import { TicketTabContent } from './ticket-tab-content';
+import type { TicketDetailResult, TicketListItem } from './ticket-dashboard-types';
+import { AlertCircle } from 'lucide-react';
 
 type Props = {
   initialView: string;
@@ -58,31 +26,17 @@ type Props = {
   initialHasMore: boolean;
 };
 
-const STATUS_ACTIONS: Array<{ label: string; status: TicketListItem['status'] }> = [
-  { label: 'Acknowledge', status: 'ACKNOWLEDGED' },
-  { label: 'Waiting Information', status: 'WAITING_INFORMATION' },
-  { label: 'In Progress', status: 'IN_PROGRESS' },
-  { label: 'Mark Solved', status: 'SOLVED' },
-  { label: 'Cannot Resolve', status: 'CANNOT_RESOLVE' },
-  { label: 'Close / Cancel', status: 'CLOSED' },
-];
-
-function badgeClass(status: string) {
-  if (status === 'NEW') return 'bg-blue-500/20 text-blue-300';
-  if (status === 'IN_PROGRESS') return 'bg-amber-500/20 text-amber-300';
-  if (status === 'WAITING_INFORMATION') return 'bg-purple-500/20 text-purple-300';
-  if (status === 'SOLVED') return 'bg-emerald-500/20 text-emerald-300';
-  if (status === 'CLOSED') return 'bg-slate-500/30 text-slate-200';
-  if (status === 'CANNOT_RESOLVE') return 'bg-rose-500/20 text-rose-300';
-  return 'bg-cyan-500/20 text-cyan-300';
-}
-
 export function TicketDashboardView({ initialItems, requestedTicketId }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(requestedTicketId ?? initialItems[0]?.id ?? null);
   const [detail, setDetail] = useState<TicketDetailResult | null>(null);
   const [message, setMessage] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'details' | 'discussion' | 'attachments' | 'history'>('discussion');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -104,15 +58,80 @@ export function TicketDashboardView({ initialItems, requestedTicketId }: Props) 
   const selectedTicket = detail?.ticket?.id === selectedId ? detail.ticket : null;
   const history = detail?.history ?? [];
 
+  function validateFile(file: File) {
+    const maxSize = 10 * 1024 * 1024;
+    const allowed = file.type.startsWith('image/') || file.type.startsWith('video/') || file.type === 'application/pdf';
+    if (!allowed) {
+      return `Unsupported file type: ${file.name}`;
+    }
+    if (file.size > maxSize) {
+      return `File too large (max 10MB): ${file.name}`;
+    }
+    return null;
+  }
+
+  function onPickFiles(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+    const nextValid: File[] = [];
+    for (const file of files) {
+      const error = validateFile(file);
+      if (error) {
+        toast.error(error);
+        continue;
+      }
+      nextValid.push(file);
+    }
+    setSelectedFiles(prev => [...prev, ...nextValid]);
+    event.currentTarget.value = '';
+  }
+
+  function removeSelectedFile(index: number) {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  }
+
   async function submitMessage() {
     if (!selectedId || !message.trim()) return;
+    if (isSendingMessage) return;
+    setIsSendingMessage(true);
     try {
-      await addTicketMessageAction({ ticketId: selectedId, body: message.trim() });
+      if (selectedFiles.length === 0) {
+        await addTicketMessageAction({ ticketId: selectedId, body: message.trim() });
+      } else {
+        const uploaded = await Promise.all(
+          selectedFiles.map(async file => {
+            const uploadPolicy = await createTicketAttachmentUploadUrlAction({
+              ticketId: selectedId,
+              fileName: file.name,
+              contentType: file.type,
+              fileSize: file.size,
+            });
+            await uploadFileWithPresignedPost(uploadPolicy, file);
+
+            return {
+              fileName: file.name,
+              fileSize: file.size,
+              mimeType: file.type,
+              s3Key: uploadPolicy.key,
+              s3Bucket: typeof uploadPolicy.fields['bucket'] === 'string' ? uploadPolicy.fields['bucket'] : undefined,
+            };
+          })
+        );
+
+        await addTicketMessageWithAttachmentsAction({
+          ticketId: selectedId,
+          body: message.trim(),
+          attachments: uploaded,
+        });
+      }
       setMessage('');
+      setSelectedFiles([]);
       const next = await getTicketDetailAction(selectedId);
       setDetail(next);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to send message');
+    } finally {
+      setIsSendingMessage(false);
     }
   }
 
@@ -128,126 +147,54 @@ export function TicketDashboardView({ initialItems, requestedTicketId }: Props) 
     }
   }
 
+  const filteredItems = initialItems.filter(
+    item =>
+      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.clientName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
-    <div className="grid grid-cols-12 gap-4 h-[calc(100vh-180px)]">
-      <Card className="col-span-4 p-3 bg-card/80 border-border/50">
-        <h2 className="text-lg font-semibold mb-3">All Tickets</h2>
-        <ScrollArea className="h-[calc(100vh-260px)] pr-2">
-          <div className="space-y-2">
-            {initialItems.map(item => (
-              <button
-                key={item.id}
-                onClick={() => setSelectedId(item.id)}
-                className={`w-full text-left rounded-lg border p-3 transition ${
-                  selectedId === item.id ? 'border-purple-500 bg-purple-500/10' : 'border-border hover:bg-accent/30'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">{item.code}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded ${badgeClass(item.priority)}`}>{item.priority}</span>
-                </div>
-                <p className="font-medium mt-1">{item.title}</p>
-                <p className="text-sm text-muted-foreground mt-1">Client: {item.clientName}</p>
-                <div className="mt-2">
-                  <span className={`text-xs px-2 py-0.5 rounded ${badgeClass(item.status)}`}>{item.status}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </ScrollArea>
-      </Card>
+    <div className="grid grid-cols-12 gap-6 h-[calc(100vh-140px)] -mt-2">
+      <TicketListPanel
+        items={filteredItems}
+        selectedId={selectedId}
+        searchTerm={searchTerm}
+        onSearchTermChange={setSearchTerm}
+        onSelectTicket={setSelectedId}
+      />
 
-      <Card className="col-span-8 p-4 bg-card/80 border-border/50">
+      <Card className="col-span-8 flex flex-col bg-[#12141C] border-[#1F222F]/60 overflow-hidden rounded-xl shadow-xl">
         {!selectedTicket ? (
-          <div className="h-full grid place-items-center text-muted-foreground">Select a ticket to view details.</div>
+          <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8">
+            <AlertCircle className="w-12 h-12 text-zinc-600 mb-3 animate-pulse" />
+            <p className="text-sm">Select a ticket to view details.</p>
+          </div>
         ) : (
-          <div className="h-full flex flex-col">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-2xl font-semibold">{selectedTicket.code}</h2>
-                <p className="text-muted-foreground mt-1">{selectedTicket.title}</p>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline">More</Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {STATUS_ACTIONS.map(action => (
-                    <DropdownMenuItem key={action.status} onClick={() => updateStatus(action.status)}>
-                      {action.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+          <div className="h-full flex flex-col overflow-hidden">
+            <TicketDetailHeader
+              ticket={selectedTicket}
+              activeTab={activeTab}
+              onBack={() => setSelectedId(null)}
+              onUpdateStatus={updateStatus}
+              onTabChange={setActiveTab}
+            />
 
-            <div className="grid grid-cols-2 gap-3 mt-4">
-              <Card className="p-3 bg-background/50 border-border/50">
-                <p className="text-xs text-muted-foreground">Client Name</p>
-                <p className="font-medium">{selectedTicket.clientName}</p>
-              </Card>
-              <Card className="p-3 bg-background/50 border-border/50">
-                <p className="text-xs text-muted-foreground">Client Contact</p>
-                <p className="font-medium">{selectedTicket.clientContact}</p>
-              </Card>
-              <Card className="p-3 bg-background/50 border-border/50">
-                <p className="text-xs text-muted-foreground">Client Location</p>
-                <p className="font-medium">{selectedTicket.clientLocation}</p>
-              </Card>
-              <Card className="p-3 bg-background/50 border-border/50">
-                <p className="text-xs text-muted-foreground">Status</p>
-                <p className="font-medium">{selectedTicket.status}</p>
-              </Card>
-            </div>
-
-            <Card className="mt-4 p-3 bg-background/50 border-border/50">
-              <p className="text-sm font-medium mb-2">Description</p>
-              <p className="text-sm text-muted-foreground">{selectedTicket.description}</p>
-            </Card>
-
-            <div className="grid grid-cols-2 gap-3 mt-4 min-h-0 flex-1">
-              <Card className="p-3 bg-background/50 border-border/50 min-h-0">
-                <p className="text-sm font-medium mb-2">Discussion</p>
-                <ScrollArea className="h-56">
-                  <div className="space-y-2">
-                    {selectedTicket.messages.map((msg: TicketMessage) => (
-                      <div key={msg.id} className="rounded border border-border/60 p-2">
-                        <p className="text-sm font-medium">{msg.admin?.name ?? 'Admin'}</p>
-                        <p className="text-sm text-muted-foreground mt-1">{msg.body}</p>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-                <div className="mt-3 flex gap-2">
-                  <input
-                    className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm"
-                    placeholder="Type your message..."
-                    value={message}
-                    onChange={e => setMessage(e.target.value)}
-                  />
-                  <Button onClick={submitMessage} disabled={isPending}>
-                    Send
-                  </Button>
-                </div>
-              </Card>
-
-              <Card className="p-3 bg-background/50 border-border/50 min-h-0">
-                <p className="text-sm font-medium mb-2">History</p>
-                <ScrollArea className="h-[320px]">
-                  <div className="space-y-2">
-                    {history.map((item: TicketHistoryItem) => (
-                      <div key={item.id} className="rounded border border-border/60 p-2">
-                        <p className="text-sm">
-                          <span className="font-medium">{item.actor?.name ?? 'System'}</span> {item.action}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {item.fromValue ? `${item.fromValue} -> ${item.toValue}` : item.toValue ?? '-'}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </Card>
+            <div className="flex-1 min-h-0 bg-[#0B0C10]/20 flex flex-col">
+              <TicketTabContent
+                activeTab={activeTab}
+                ticket={selectedTicket}
+                history={history}
+                message={message}
+                selectedFiles={selectedFiles}
+                isSendingMessage={isSendingMessage}
+                isPending={isPending}
+                fileInputRef={fileInputRef}
+                onMessageChange={setMessage}
+                onPickFiles={onPickFiles}
+                onRemoveSelectedFile={removeSelectedFile}
+                onSubmitMessage={submitMessage}
+              />
             </div>
           </div>
         )}

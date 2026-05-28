@@ -278,7 +278,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                     : pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
                   const ticketCounter = ticketCounterByHref[item.href];
-                  const showTicketCounter = activeTab === 'ticket' && typeof ticketCounter === 'number';
+                  const showTicketCounter = activeTab === 'ticket' && typeof ticketCounter === 'number' && ticketCounter > 0;
 
                   return (
                     <AdminNavLink
@@ -288,7 +288,9 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                         isActive
-                          ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
+                          ? activeTab === 'ticket'
+                            ? 'bg-purple-500/10 text-purple-400 dark:bg-purple-950/30 dark:text-purple-400 border border-purple-500/20'
+                            : 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
                           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                         isCollapsed && 'justify-center px-2'
                       )}
@@ -296,7 +298,11 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       <item.icon
                         className={cn(
                           'w-5 h-5 shrink-0',
-                          isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+                          isActive
+                            ? activeTab === 'ticket'
+                              ? 'text-purple-400'
+                              : 'text-red-600 dark:text-red-400'
+                            : 'text-muted-foreground'
                         )}
                       />
                       <span
@@ -313,7 +319,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                         </span>
                       )}
                       {showTicketCounter && (
-                        <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                        <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
                           {ticketCounter! > 99 ? '99+' : ticketCounter}
                         </span>
                       )}
@@ -335,7 +341,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                     : pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
                   const ticketCounter = ticketCounterByHref[item.href];
-                  const showTicketCounter = activeTab === 'ticket' && typeof ticketCounter === 'number';
+                  const showTicketCounter = activeTab === 'ticket' && typeof ticketCounter === 'number' && ticketCounter > 0;
 
                   return (
                     <AdminNavLink
@@ -345,14 +351,20 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors justify-center px-2',
                         isActive
-                          ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
+                          ? activeTab === 'ticket'
+                            ? 'bg-purple-500/10 text-purple-400 dark:bg-purple-950/30 dark:text-purple-400 border border-purple-500/20'
+                            : 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
                           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                       )}
                     >
                       <item.icon
                         className={cn(
                           'w-5 h-5 shrink-0',
-                          isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+                          isActive
+                            ? activeTab === 'ticket'
+                              ? 'text-purple-400'
+                              : 'text-red-600 dark:text-red-400'
+                            : 'text-muted-foreground'
                         )}
                       />
                       {showLeaveRequestsCounter && (
@@ -361,7 +373,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                         </span>
                       )}
                       {showTicketCounter && (
-                        <span className="absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                        <span className="absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
                           {ticketCounter! > 99 ? '99+' : ticketCounter}
                         </span>
                       )}

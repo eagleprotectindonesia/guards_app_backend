@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { createTicketAction, createTicketAttachmentUploadUrlAction, attachUploadedFilesToTicketAction } from '../actions';
 import { toast } from 'react-hot-toast';
+import { uploadFileWithPresignedPost } from '@/lib/s3-presigned-post-upload';
 
 type RoleOption = { id: string; name: string };
 
@@ -33,22 +34,7 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
       contentType: file.type,
       fileSize: file.size,
     });
-
-    const form = new FormData();
-    Object.entries(policy.fields).forEach(([key, value]) => {
-      form.append(key, value);
-    });
-    form.append('Content-Type', file.type);
-    form.append('file', file);
-
-    const upload = await fetch(policy.url, {
-      method: 'POST',
-      body: form,
-    });
-
-    if (!upload.ok) {
-      throw new Error(`Failed to upload ${file.name}`);
-    }
+    await uploadFileWithPresignedPost(policy, file);
 
     return {
       fileName: file.name,

@@ -32,7 +32,7 @@ import {
 } from '@repo/validations';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { getPresignedUploadPostPolicy } from '@/lib/s3';
+import { getCachedPresignedDownloadUrl, getPresignedUploadPostPolicy } from '@/lib/s3';
 import { redis } from '@repo/database/redis';
 import { TicketStatus } from '@prisma/client';
 
@@ -180,7 +180,35 @@ export async function getTicketDetailAction(ticketId: string) {
   const ticket = await getTicketById(ticketId);
   if (!ticket) throw new Error('Ticket not found');
   const history = await getTicketHistory(ticketId);
-  return { ticket, history };
+
+  const enrichAttachmentUrl = async <T extends { publicUrl: string | null; s3Key: string }>(attachment: T) => {
+    if (attachment.publicUrl) return attachment;
+    try {
+      const publicUrl = await getCachedPresignedDownloadUrl(attachment.s3Key);
+      return { ...attachment, publicUrl };
+    } catch {
+      return attachment;
+    }
+  };
+
+  const [attachments, messages] = await Promise.all([
+    Promise.all(ticket.attachments.map(enrichAttachmentUrl)),
+    Promise.all(
+      ticket.messages.map(async message => ({
+        ...message,
+        attachments: await Promise.all(message.attachments.map(enrichAttachmentUrl)),
+      }))
+    ),
+  ]);
+
+  return {
+    ticket: {
+      ...ticket,
+      attachments,
+      messages,
+    },
+    history,
+  };
 }
 
 export async function addTicketMessageAction(input: unknown) {
@@ -332,7 +360,10 @@ export async function createTicketAttachmentUploadUrlAction(input: unknown) {
 
   return getPresignedUploadPostPolicy(parsed.data.fileName, parsed.data.contentType, parsed.data.fileSize, {
     folder: `tickets/temp/${session.id}`,
-  });
+  }).then(result => ({
+    ...result,
+    uploadMethod: 'POST' as const,
+  }));
 }
 
 export async function attachUploadedFilesToTicketAction(ticketId: string, files: unknown) {
