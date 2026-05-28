@@ -18,18 +18,23 @@ type TicketDetailHeaderProps = {
   onUpdateStatus: (status: TicketListItem['status']) => void;
   onTabChange: (tab: 'details' | 'discussion' | 'attachments' | 'history') => void;
   canClaim: boolean;
+  isClaimedByCurrentUser: boolean;
+  canEdit: boolean;
+  canUseMore: boolean;
+  allowedStatusActions: TicketListItem['status'][];
   isClaiming: boolean;
   onClaimTicket: () => void;
 };
 
-const STATUS_ACTIONS: Array<{ label: string; status: TicketListItem['status'] }> = [
-  { label: 'Acknowledge', status: 'ACKNOWLEDGED' },
-  { label: 'Waiting Information', status: 'WAITING_INFORMATION' },
-  { label: 'In Progress', status: 'IN_PROGRESS' },
-  { label: 'Mark Solved', status: 'SOLVED' },
-  { label: 'Cannot Resolve', status: 'CANNOT_RESOLVE' },
-  { label: 'Close / Cancel', status: 'CLOSED' },
-];
+function statusActionLabel(status: TicketListItem['status']) {
+  if (status === 'WAITING_INFORMATION') return 'Waiting Information';
+  if (status === 'IN_PROGRESS') return 'In Progress';
+  if (status === 'SOLVED') return 'Mark Solved';
+  if (status === 'CANNOT_RESOLVE') return 'Cannot Resolve';
+  if (status === 'CLOSED') return 'Close / Cancel';
+  if (status === 'ACKNOWLEDGED') return 'Acknowledge';
+  return status.replace('_', ' ');
+}
 
 export function TicketDetailHeader({
   ticket,
@@ -38,6 +43,10 @@ export function TicketDetailHeader({
   onUpdateStatus,
   onTabChange,
   canClaim,
+  isClaimedByCurrentUser,
+  canEdit,
+  canUseMore,
+  allowedStatusActions,
   isClaiming,
   onClaimTicket,
 }: TicketDetailHeaderProps) {
@@ -58,44 +67,48 @@ export function TicketDetailHeader({
               variant="outline"
               size="sm"
               className="border-[#1F222F] bg-transparent text-white hover:bg-zinc-800/50 h-9 px-3.5 text-xs rounded-lg font-semibold"
-              disabled={!canClaim || isClaiming}
+              disabled={!canClaim || isClaiming || isClaimedByCurrentUser}
               onClick={onClaimTicket}
             >
-              {isClaiming ? 'Claiming...' : ticket.assignedAdmin?.id ? 'Re-claim Ticket' : 'Claim Ticket'}
+              {isClaiming ? 'Claiming...' : isClaimedByCurrentUser ? 'Claimed By You' : ticket.assignedAdmin?.id ? 'Re-claim Ticket' : 'Claim Ticket'}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="bg-[#5B3BF5] hover:bg-[#4d32cf] text-white border-transparent flex items-center gap-1.5 px-3.5 h-9 font-semibold text-xs rounded-lg transition-colors"
-              onClick={() => toast.success('Edit ticket details functionality is available.')}
-            >
-              <Pencil className="w-3.5 h-3.5" />
-              Edit Ticket
-            </Button>
+            {canEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-[#5B3BF5] hover:bg-[#4d32cf] text-white border-transparent flex items-center gap-1.5 px-3.5 h-9 font-semibold text-xs rounded-lg transition-colors"
+                onClick={() => toast.success('Edit ticket details functionality is available.')}
+              >
+                <Pencil className="w-3.5 h-3.5" />
+                Edit Ticket
+              </Button>
+            )}
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="border-[#1F222F] bg-transparent text-white hover:bg-zinc-800/50 h-9 px-3.5 text-xs rounded-lg flex items-center gap-1 font-semibold"
-                >
-                  <MoreHorizontal className="w-4 h-4" />
-                  More
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-[#12141C] border-[#1F222F] text-zinc-200">
-                {STATUS_ACTIONS.map(action => (
-                  <DropdownMenuItem
-                    key={action.status}
-                    onClick={() => onUpdateStatus(action.status)}
-                    className="hover:bg-purple-500/10 hover:text-white focus:bg-purple-500/10 focus:text-white cursor-pointer"
+            {canUseMore && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-[#1F222F] bg-transparent text-white hover:bg-zinc-800/50 h-9 px-3.5 text-xs rounded-lg flex items-center gap-1 font-semibold"
                   >
-                    {action.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+                    <MoreHorizontal className="w-4 h-4" />
+                    More
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-[#12141C] border-[#1F222F] text-zinc-200">
+                  {allowedStatusActions.map(status => (
+                    <DropdownMenuItem
+                      key={status}
+                      onClick={() => onUpdateStatus(status)}
+                      className="hover:bg-purple-500/10 hover:text-white focus:bg-purple-500/10 focus:text-white cursor-pointer"
+                    >
+                      {statusActionLabel(status)}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
 

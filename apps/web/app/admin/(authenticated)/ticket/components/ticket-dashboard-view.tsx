@@ -197,6 +197,10 @@ export function TicketDashboardView({ initialItems, requestedTicketId }: Props) 
               onUpdateStatus={updateStatus}
               onTabChange={setActiveTab}
               canClaim={Boolean(detail?.canClaim)}
+              isClaimedByCurrentUser={Boolean(detail?.isClaimedByCurrentUser)}
+              canEdit={Boolean(detail?.canEdit)}
+              canUseMore={Boolean(detail?.canUseMore)}
+              allowedStatusActions={detail?.allowedStatusActions ?? []}
               isClaiming={isClaiming}
               onClaimTicket={claimSelectedTicket}
             />

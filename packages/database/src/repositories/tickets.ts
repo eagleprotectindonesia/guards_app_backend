@@ -47,7 +47,8 @@ export type TicketListParams = {
 
 export type ClaimTicketInput = {
   ticketId: string;
-  actorAdminId: string;
+  actorAdminId?: string;
+  actorEmployeeId?: string;
   actorRoleId?: string | null;
   actorIsSuperAdmin?: boolean;
 };
@@ -133,6 +134,24 @@ function reopenTimestampPatch() {
   };
 }
 
+async function resolveDepartmentTargetEmployees(roleName: string, tx: TxLike) {
+  const keyword = roleName.trim();
+  if (!keyword) {
+    return { keyword: '', employees: [] as Array<{ id: string }> };
+  }
+
+  const employees = await tx.employee.findMany({
+    where: {
+      deletedAt: null,
+      status: true,
+      department: { contains: keyword, mode: 'insensitive' },
+    },
+    select: { id: true },
+  });
+
+  return { keyword, employees };
+}
+
 export function canTransitionStatus(params: {
   currentStatus: TicketStatus;
   nextStatus: TicketStatus;
@@ -177,6 +196,7 @@ async function createHistory(
   input: {
     ticketId: string;
     actorAdminId?: string | null;
+    actorEmployeeId?: string | null;
     action: TicketHistoryAction;
     fromValue?: string | null;
     toValue?: string | null;
@@ -187,6 +207,7 @@ async function createHistory(
     data: {
       ticketId: input.ticketId,
       actorAdminId: input.actorAdminId ?? null,
+      actorEmployeeId: input.actorEmployeeId ?? null,
       action: input.action,
       fromValue: input.fromValue ?? null,
       toValue: input.toValue ?? null,
@@ -197,6 +218,15 @@ async function createHistory(
 
 export async function createTicket(input: CreateTicketInput, tx: TxLike = prisma) {
   return withTransaction(tx, async trx => {
+    const departmentRole = await trx.role.findUnique({
+      where: { id: input.departmentRoleId },
+      select: { name: true },
+    });
+    if (!departmentRole) {
+      throw new Error('Department role not found');
+    }
+
+    const targetEmployees = await resolveDepartmentTargetEmployees(departmentRole.name, trx);
     const code = await nextTicketCode(input.departmentRoleId, trx);
 
     const ticket = await trx.ticket.create({
@@ -220,12 +250,28 @@ export async function createTicket(input: CreateTicketInput, tx: TxLike = prisma
       },
     });
 
+    if (targetEmployees.employees.length > 0) {
+      await trx.ticketAssignedEmployee.createMany({
+        data: targetEmployees.employees.map(employee => ({
+          ticketId: ticket.id,
+          employeeId: employee.id,
+          matchKeyword: targetEmployees.keyword,
+        })),
+      });
+    }
+
     await createHistory(trx, {
       ticketId: ticket.id,
       actorAdminId: input.submitterAdminId,
       action: 'CREATED',
       toValue: ticket.status,
-      metadata: { code, priority: ticket.priority, departmentRoleId: input.departmentRoleId },
+      metadata: {
+        code,
+        priority: ticket.priority,
+        departmentRoleId: input.departmentRoleId,
+        employeeDepartmentKeyword: targetEmployees.keyword,
+        assignedEmployeeCount: targetEmployees.employees.length,
+      },
     });
 
     await createHistory(trx, {
@@ -245,9 +291,18 @@ export async function getTicketById(id: string, tx: TxLike = prisma) {
     where: { id },
     include: {
       submitterAdmin: { select: { id: true, name: true, roleId: true } },
-      assignedAdmin: { select: { id: true, name: true, roleId: true } },
+      claimedByAdmin: { select: { id: true, name: true, roleId: true } },
+      claimedByEmployee: { select: { id: true, fullName: true, department: true } },
       departmentRole: { select: { id: true, name: true } },
       assignedRoles: { include: { role: { select: { id: true, name: true } } } },
+      assignedEmployees: {
+        include: {
+          employee: {
+            select: { id: true, fullName: true, department: true },
+          },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
       messages: {
         include: {
           admin: { select: { id: true, name: true, roleId: true } },
@@ -301,7 +356,8 @@ export async function listTickets(params: TicketListParams = {}, tx: TxLike = pr
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     include: {
       submitterAdmin: { select: { id: true, name: true } },
-      assignedAdmin: { select: { id: true, name: true } },
+      claimedByAdmin: { select: { id: true, name: true } },
+      claimedByEmployee: { select: { id: true, fullName: true } },
       assignedRoles: { include: { role: { select: { id: true, name: true } } } },
     },
   });
@@ -463,44 +519,156 @@ export async function updateTicketAssignedRoles(input: {
   });
 }
 
+export async function listTicketAssignedEmployees(ticketId: string, tx: TxLike = prisma) {
+  return tx.ticketAssignedEmployee.findMany({
+    where: { ticketId },
+    include: {
+      employee: {
+        select: { id: true, fullName: true, department: true },
+      },
+    },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+  });
+}
+
+export async function refreshTicketAssignedEmployees(ticketId: string, tx: TxLike = prisma) {
+  return withTransaction(tx, async trx => {
+    const ticket = await trx.ticket.findUnique({
+      where: { id: ticketId },
+      include: {
+        departmentRole: { select: { name: true } },
+      },
+    });
+    if (!ticket) {
+      throw new Error('Ticket not found');
+    }
+    if (!ticket.departmentRole?.name) {
+      throw new Error('Ticket department role not found');
+    }
+
+    const targetEmployees = await resolveDepartmentTargetEmployees(ticket.departmentRole.name, trx);
+
+    await trx.ticketAssignedEmployee.deleteMany({ where: { ticketId } });
+    if (targetEmployees.employees.length > 0) {
+      await trx.ticketAssignedEmployee.createMany({
+        data: targetEmployees.employees.map(employee => ({
+          ticketId,
+          employeeId: employee.id,
+          matchKeyword: targetEmployees.keyword,
+        })),
+      });
+    }
+
+    await createHistory(trx, {
+      ticketId,
+      action: 'ASSIGNMENT_CHANGED',
+      metadata: {
+        assignmentType: 'employee_department_refresh',
+        employeeDepartmentKeyword: targetEmployees.keyword,
+        assignedEmployeeCount: targetEmployees.employees.length,
+      },
+    });
+
+    return listTicketAssignedEmployees(ticketId, trx);
+  });
+}
+
 export async function claimTicket(input: ClaimTicketInput, tx: TxLike = prisma) {
   return withTransaction(tx, async trx => {
+    const isAdminClaim = Boolean(input.actorAdminId);
+    const isEmployeeClaim = Boolean(input.actorEmployeeId);
+    if (isAdminClaim === isEmployeeClaim) {
+      throw new Error('Claim actor must be exactly one of admin or employee');
+    }
+
     const ticket = await trx.ticket.findUnique({
       where: { id: input.ticketId },
       select: {
         id: true,
-        assignedAdminId: true,
+        status: true,
+        claimedByType: true,
+        claimedByAdminId: true,
+        claimedByEmployeeId: true,
         departmentRoleId: true,
+        assignedEmployees: {
+          select: { employeeId: true },
+        },
       },
     });
     if (!ticket) throw new Error('Ticket not found');
-    if (!ticket.departmentRoleId) throw new Error('Ticket department is not set');
 
-    const canClaim = Boolean(input.actorIsSuperAdmin || input.actorRoleId === ticket.departmentRoleId);
-    if (!canClaim) {
-      throw new Error('Only admins in the ticket department can claim this ticket');
+    if (isAdminClaim) {
+      if (!ticket.departmentRoleId) throw new Error('Ticket department is not set');
+      const canClaim = Boolean(input.actorIsSuperAdmin || input.actorRoleId === ticket.departmentRoleId);
+      if (!canClaim) {
+        throw new Error('Only admins in the ticket department can claim this ticket');
+      }
+    } else {
+      const canClaim = ticket.assignedEmployees.some(item => item.employeeId === input.actorEmployeeId);
+      if (!canClaim) {
+        throw new Error('Only targeted employees can claim this ticket');
+      }
+    }
+
+    const nextClaimKey = isAdminClaim ? `ADMIN:${input.actorAdminId}` : `EMPLOYEE:${input.actorEmployeeId}`;
+    const prevClaimKey =
+      ticket.claimedByType === 'ADMIN'
+        ? `ADMIN:${ticket.claimedByAdminId}`
+        : ticket.claimedByType === 'EMPLOYEE'
+          ? `EMPLOYEE:${ticket.claimedByEmployeeId}`
+          : null;
+    if (prevClaimKey === nextClaimKey) {
+      throw new Error('Ticket is already claimed by you');
     }
 
     const updated = await trx.ticket.update({
       where: { id: input.ticketId },
-      data: { assignedAdminId: input.actorAdminId },
+      data: isAdminClaim
+        ? {
+            claimedByType: 'ADMIN',
+            claimedByAdminId: input.actorAdminId,
+            claimedByEmployeeId: null,
+            claimedAt: new Date(),
+          }
+        : {
+            claimedByType: 'EMPLOYEE',
+            claimedByEmployeeId: input.actorEmployeeId,
+            claimedByAdminId: null,
+            claimedAt: new Date(),
+          },
       include: {
-        assignedAdmin: { select: { id: true, name: true, roleId: true } },
+        claimedByAdmin: { select: { id: true, name: true, roleId: true } },
+        claimedByEmployee: { select: { id: true, fullName: true, department: true } },
       },
     });
 
-    if (ticket.assignedAdminId !== input.actorAdminId) {
+    await createHistory(trx, {
+      ticketId: input.ticketId,
+      actorAdminId: input.actorAdminId ?? null,
+      actorEmployeeId: input.actorEmployeeId ?? null,
+      action: 'ASSIGNMENT_CHANGED',
+      fromValue: prevClaimKey,
+      toValue: nextClaimKey,
+      metadata: {
+        claimType: isAdminClaim ? 'ADMIN' : 'EMPLOYEE',
+        previousClaim: prevClaimKey,
+        nextClaim: nextClaimKey,
+      },
+    });
+
+    if (ticket.status === 'NEW') {
+      await trx.ticket.update({
+        where: { id: input.ticketId },
+        data: { status: 'ACKNOWLEDGED' },
+      });
       await createHistory(trx, {
         ticketId: input.ticketId,
-        actorAdminId: input.actorAdminId,
-        action: 'ASSIGNMENT_CHANGED',
-        fromValue: ticket.assignedAdminId,
-        toValue: input.actorAdminId,
-        metadata: {
-          assigneeType: 'admin',
-          previousAssignedAdminId: ticket.assignedAdminId,
-          nextAssignedAdminId: input.actorAdminId,
-        },
+        actorAdminId: input.actorAdminId ?? null,
+        actorEmployeeId: input.actorEmployeeId ?? null,
+        action: 'STATUS_CHANGED',
+        fromValue: 'NEW',
+        toValue: 'ACKNOWLEDGED',
+        metadata: { reason: 'auto_ack_on_claim' },
       });
     }
 

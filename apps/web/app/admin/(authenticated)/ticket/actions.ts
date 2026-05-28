@@ -37,6 +37,9 @@ import { getCachedPresignedDownloadUrl, getPresignedUploadPostPolicy } from '@/l
 import { redis } from '@repo/database/redis';
 import { TicketStatus } from '@prisma/client';
 
+const SUBMITTER_STATUS_ACTIONS: TicketStatus[] = ['CLOSED'];
+const CLAIMANT_STATUS_ACTIONS: TicketStatus[] = ['WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CANNOT_RESOLVE'];
+
 function revalidateTicketPaths(ticketId?: string) {
   revalidatePath('/admin/ticket/dashboard');
   revalidatePath('/admin/ticket/create');
@@ -188,6 +191,12 @@ export async function getTicketDetailAction(ticketId: string) {
   const canClaim = Boolean(
     session.isSuperAdmin || (ticket.departmentRoleId && actor?.roleId && actor.roleId === ticket.departmentRoleId)
   );
+  const isSubmitter = ticket.submitterAdminId === session.id;
+  const isClaimant = ticket.claimedByType === 'ADMIN' && ticket.claimedByAdminId === session.id;
+  const isClaimedByCurrentUser = ticket.claimedByType === 'ADMIN' && ticket.claimedByAdminId === session.id;
+  const allowedStatusActions = isSubmitter ? SUBMITTER_STATUS_ACTIONS : isClaimant ? CLAIMANT_STATUS_ACTIONS : [];
+  const canEdit = isSubmitter;
+  const canUseMore = allowedStatusActions.length > 0;
 
   const enrichAttachmentUrl = async <T extends { publicUrl: string | null; s3Key: string }>(attachment: T) => {
     if (attachment.publicUrl) return attachment;
@@ -212,11 +221,18 @@ export async function getTicketDetailAction(ticketId: string) {
   return {
     ticket: {
       ...ticket,
+      assignedAdmin: ticket.claimedByType === 'ADMIN' ? ticket.claimedByAdmin : null,
       attachments,
       messages,
     },
     history,
-    canClaim,
+    canClaim: canClaim && !isClaimedByCurrentUser,
+    isClaimedByCurrentUser,
+    isSubmitter,
+    isClaimant,
+    canEdit,
+    canUseMore,
+    allowedStatusActions,
   };
 }
 
@@ -312,6 +328,25 @@ export async function updateTicketStatusAction(input: unknown) {
   const parsed = ticketStatusUpdateSchema.safeParse(input);
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message || 'Invalid status payload');
+  }
+  const currentTicket = await db.ticket.findUnique({
+    where: { id: parsed.data.ticketId },
+    select: {
+      id: true,
+      submitterAdminId: true,
+      claimedByType: true,
+      claimedByAdminId: true,
+    },
+  });
+  if (!currentTicket) {
+    throw new Error('Ticket not found');
+  }
+
+  const isSubmitter = currentTicket.submitterAdminId === session.id;
+  const isClaimant = currentTicket.claimedByType === 'ADMIN' && currentTicket.claimedByAdminId === session.id;
+  const allowedStatusActions = isSubmitter ? SUBMITTER_STATUS_ACTIONS : isClaimant ? CLAIMANT_STATUS_ACTIONS : [];
+  if (!allowedStatusActions.includes(parsed.data.status)) {
+    throw new Error('You are not allowed to perform this status action');
   }
 
   const ticket = await updateTicketStatus({

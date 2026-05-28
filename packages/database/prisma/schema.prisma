@@ -112,6 +112,11 @@ enum TicketPriority {
   HIGH
 }
 
+enum TicketClaimantType {
+  ADMIN
+  EMPLOYEE
+}
+
 enum TicketHistoryAction {
   CREATED
   STATUS_CHANGED
@@ -206,7 +211,7 @@ model Admin {
   chatConversationStates                       AdminChatConversationState[]
   notifications                                AdminNotification[]
   submittedTickets                             Ticket[]                                @relation("TicketSubmitter")
-  claimedTickets                               Ticket[]                                @relation("TicketAssignee")
+  claimedTickets                               Ticket[]                                @relation("TicketClaimedByAdmin")
   ticketMessages                               TicketMessage[]
   uploadedTicketAttachments                    TicketAttachment[]                       @relation("TicketUploadedBy")
   ticketHistoryActions                         TicketHistory[]
@@ -515,6 +520,9 @@ model Employee {
   leaveRequests                 EmployeeLeaveRequest[]
   annualLeaveBalances           EmployeeAnnualLeaveBalance[]
   leaveLedgerEntries            EmployeeLeaveLedgerEntry[]
+  assignedTickets               TicketAssignedEmployee[]
+  claimedTickets                Ticket[]                                @relation("TicketClaimedByEmployee")
+  ticketHistoryActions          TicketHistory[]                         @relation("TicketHistoryActorEmployee")
 
   @@index([status])
   @@index([deletedAt])
@@ -1015,7 +1023,10 @@ model Ticket {
   priority         TicketPriority @default(MEDIUM)
   status           TicketStatus   @default(NEW)
   submitterAdminId String         @map("submitter_admin_id")
-  assignedAdminId  String?        @map("assigned_admin_id")
+  claimedByType    TicketClaimantType? @map("claimed_by_type")
+  claimedByAdminId String?        @map("claimed_by_admin_id")
+  claimedByEmployeeId String?     @map("claimed_by_employee_id")
+  claimedAt        DateTime?      @map("claimed_at")
   departmentRoleId String?        @map("department_role_id")
   clientName       String         @map("client_name")
   clientContact    String         @map("client_contact")
@@ -1027,16 +1038,19 @@ model Ticket {
   updatedAt        DateTime       @updatedAt @map("updated_at")
 
   submitterAdmin Admin               @relation("TicketSubmitter", fields: [submitterAdminId], references: [id])
-  assignedAdmin  Admin?              @relation("TicketAssignee", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  claimedByAdmin Admin?              @relation("TicketClaimedByAdmin", fields: [claimedByAdminId], references: [id], onDelete: SetNull)
+  claimedByEmployee Employee?        @relation("TicketClaimedByEmployee", fields: [claimedByEmployeeId], references: [id], onDelete: SetNull)
   departmentRole Role?               @relation("TicketDepartmentRole", fields: [departmentRoleId], references: [id])
   assignedRoles  TicketAssignedRole[]
+  assignedEmployees TicketAssignedEmployee[]
   messages       TicketMessage[]
   attachments    TicketAttachment[]
   history        TicketHistory[]
 
   @@index([status, priority, createdAt])
   @@index([submitterAdminId, createdAt])
-  @@index([assignedAdminId, createdAt])
+  @@index([claimedByAdminId, createdAt])
+  @@index([claimedByEmployeeId, createdAt])
   @@index([departmentRoleId, createdAt])
   @@index([createdAt, id])
   @@map("tickets")
@@ -1054,6 +1068,22 @@ model TicketAssignedRole {
   @@unique([ticketId, roleId])
   @@index([roleId])
   @@map("ticket_assigned_roles")
+}
+
+model TicketAssignedEmployee {
+  id           String   @id @default(uuid())
+  ticketId     String   @map("ticket_id")
+  employeeId   String   @map("employee_id")
+  matchKeyword String   @map("match_keyword")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ticket   Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([ticketId, employeeId])
+  @@index([employeeId])
+  @@index([ticketId, createdAt])
+  @@map("ticket_assigned_employees")
 }
 
 model TicketMessage {
@@ -1097,6 +1127,7 @@ model TicketHistory {
   id           String              @id @default(uuid())
   ticketId     String              @map("ticket_id")
   actorAdminId String?             @map("actor_admin_id")
+  actorEmployeeId String?          @map("actor_employee_id")
   action       TicketHistoryAction
   fromValue    String?             @map("from_value")
   toValue      String?             @map("to_value")
@@ -1105,6 +1136,7 @@ model TicketHistory {
 
   ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   actor  Admin? @relation(fields: [actorAdminId], references: [id])
+  actorEmployee Employee? @relation("TicketHistoryActorEmployee", fields: [actorEmployeeId], references: [id])
 
   @@index([ticketId, createdAt])
   @@map("ticket_history")

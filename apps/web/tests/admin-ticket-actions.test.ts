@@ -1,10 +1,11 @@
 import {
   addTicketMessageWithAttachmentsAction,
+  claimTicketAction,
   createTicketAction,
   updateTicketStatusAction,
   createTicketAttachmentUploadUrlAction,
 } from '../app/admin/(authenticated)/ticket/actions';
-import { createTicket, getTicketById, updateTicketStatus, addTicketMessageWithAttachments } from '@repo/database';
+import { addTicketMessageWithAttachments, claimTicket, createTicket, db, getTicketById, updateTicketStatus } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { getPresignedUploadPostPolicy } from '@/lib/s3';
 
@@ -13,6 +14,15 @@ jest.mock('@repo/database', () => ({
   getTicketById: jest.fn(),
   updateTicketStatus: jest.fn(),
   addTicketMessageWithAttachments: jest.fn(),
+  claimTicket: jest.fn(),
+  db: {
+    admin: {
+      findUnique: jest.fn(),
+    },
+    ticket: {
+      findUnique: jest.fn(),
+    },
+  },
 }));
 
 jest.mock('@/lib/admin-auth', () => ({
@@ -61,6 +71,13 @@ describe('ticket actions', () => {
   });
 
   test('updateTicketStatusAction passes actor context', async () => {
+    (db.ticket.findUnique as jest.Mock).mockResolvedValue({
+      id: 'ticket-1',
+      submitterAdminId: 'admin-1',
+      claimedByType: 'ADMIN',
+      claimedByAdminId: 'admin-2',
+      code: 'IT_2026_05_0001',
+    });
     (updateTicketStatus as jest.Mock).mockResolvedValue({ id: 'ticket-1', status: 'CLOSED' });
 
     await updateTicketStatusAction({ ticketId: 'ticket-1', status: 'CLOSED' });
@@ -142,5 +159,20 @@ describe('ticket actions', () => {
         adminId: 'admin-1',
       })
     );
+  });
+
+  test('claimTicketAction enforces department claim context', async () => {
+    (db.admin.findUnique as jest.Mock).mockResolvedValue({ roleId: 'role-it' });
+    (claimTicket as jest.Mock).mockResolvedValue({ id: 'ticket-1', claimedByType: 'ADMIN', claimedByAdminId: 'admin-1' });
+
+    const result = await claimTicketAction('ticket-1');
+
+    expect(result.id).toBe('ticket-1');
+    expect(claimTicket).toHaveBeenCalledWith({
+      ticketId: 'ticket-1',
+      actorAdminId: 'admin-1',
+      actorRoleId: 'role-it',
+      actorIsSuperAdmin: false,
+    });
   });
 });
