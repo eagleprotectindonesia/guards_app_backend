@@ -40,7 +40,9 @@ export type TicketListParams = {
   priorities?: TicketPriority[];
   assignedRoleIds?: string[];
   submitterAdminId?: string;
-  unassignedOnly?: boolean;
+  claimedByAdminId?: string;
+  claimedByType?: 'ADMIN' | 'EMPLOYEE';
+  unclaimedOnly?: boolean;
   cursor?: string;
   limit?: number;
 };
@@ -60,7 +62,9 @@ export type TicketListCursor = {
 
 const OPERATIONAL_STATUSES: TicketStatus[] = ['ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CANNOT_RESOLVE'];
 const TERMINAL_STATUSES = new Set<TicketStatus>(['CLOSED', 'CANNOT_RESOLVE']);
-const CLOSED_VIEW_STATUSES: TicketStatus[] = ['SOLVED', 'CLOSED', 'CANNOT_RESOLVE'];
+const CLOSED_VIEW_STATUSES: TicketStatus[] = ['CLOSED'];
+const ACTIVE_VIEW_EXCLUDED_STATUSES: TicketStatus[] = ['CLOSED', 'CANNOT_RESOLVE'];
+const ACTIVE_VIEW_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'];
 
 function isITRole(roleName?: string | null) {
   return roleName?.trim().toLowerCase() === 'it';
@@ -338,8 +342,10 @@ export async function listTickets(params: TicketListParams = {}, tx: TxLike = pr
     ...(params.statuses?.length ? { status: { in: params.statuses } } : {}),
     ...(params.priorities?.length ? { priority: { in: params.priorities } } : {}),
     ...(params.submitterAdminId ? { submitterAdminId: params.submitterAdminId } : {}),
+    ...(params.claimedByType ? { claimedByType: params.claimedByType } : {}),
+    ...(params.claimedByAdminId ? { claimedByAdminId: params.claimedByAdminId } : {}),
     ...(params.assignedRoleIds?.length ? { assignedRoles: { some: { roleId: { in: params.assignedRoleIds } } } } : {}),
-    ...(params.unassignedOnly ? { assignedRoles: { none: {} } } : {}),
+    ...(params.unclaimedOnly ? { claimedByType: null } : {}),
     ...(cursor
       ? {
           OR: [
@@ -374,11 +380,24 @@ export async function listTickets(params: TicketListParams = {}, tx: TxLike = pr
 }
 
 export async function listMyTickets(adminId: string, params: Omit<TicketListParams, 'submitterAdminId'> = {}, tx: TxLike = prisma) {
-  return listTickets({ ...params, submitterAdminId: adminId }, tx);
+  return listTickets({
+    ...params,
+    claimedByType: 'ADMIN',
+    claimedByAdminId: adminId,
+    statuses: params.statuses?.length
+      ? params.statuses.filter(status => !ACTIVE_VIEW_EXCLUDED_STATUSES.includes(status))
+      : ACTIVE_VIEW_STATUSES,
+  }, tx);
 }
 
-export async function listUnassignedTickets(params: Omit<TicketListParams, 'unassignedOnly'> = {}, tx: TxLike = prisma) {
-  return listTickets({ ...params, unassignedOnly: true }, tx);
+export async function listUnassignedTickets(params: Omit<TicketListParams, 'unclaimedOnly'> = {}, tx: TxLike = prisma) {
+  return listTickets({
+    ...params,
+    unclaimedOnly: true,
+    statuses: params.statuses?.length
+      ? params.statuses.filter(status => !ACTIVE_VIEW_EXCLUDED_STATUSES.includes(status))
+      : ACTIVE_VIEW_STATUSES,
+  }, tx);
 }
 
 export async function listClosedTickets(params: Omit<TicketListParams, 'statuses'> = {}, tx: TxLike = prisma) {
@@ -392,8 +411,21 @@ export async function getTicketSidebarCounts(adminId: string, tx: TxLike = prism
 
   const [all, my, unassigned, closed] = await Promise.all([
     tx.ticket.count({ where: activeStatusFilter }),
-    tx.ticket.count({ where: { ...activeStatusFilter, submitterAdminId: adminId } }),
-    tx.ticket.count({ where: { ...activeStatusFilter, assignedRoles: { none: {} } } }),
+    tx.ticket.count({
+      where: {
+        ...activeStatusFilter,
+        status: { notIn: ACTIVE_VIEW_EXCLUDED_STATUSES },
+        claimedByType: 'ADMIN',
+        claimedByAdminId: adminId,
+      },
+    }),
+    tx.ticket.count({
+      where: {
+        ...activeStatusFilter,
+        status: { notIn: ACTIVE_VIEW_EXCLUDED_STATUSES },
+        claimedByType: null,
+      },
+    }),
     tx.ticket.count({ where: { status: { in: CLOSED_VIEW_STATUSES } } }),
   ]);
 

@@ -4,7 +4,7 @@ import type { Serialized } from '@/lib/server-utils';
 import { updateOffice } from '../actions';
 import { ActionState } from '@/types/actions';
 import { UpdateOfficeInput } from '@repo/validations';
-import { useActionState, useEffect, useState, useCallback, useRef } from 'react';
+import { startTransition, useActionState, useEffect, useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { APIProvider, Map, Marker, useMapsLibrary, MapMouseEvent, useMap } from '@vis.gl/react-google-maps';
 import { Office } from '@prisma/client';
@@ -80,12 +80,10 @@ function MapComponent({
   );
 
   useEffect(() => {
-    setMarkerPosition(initialPosition);
-  }, [initialPosition]);
-
-  useEffect(() => {
-    setMarkerPosition(initialPosition);
-    setShouldUpdate(true);
+    startTransition(() => {
+      setMarkerPosition(initialPosition);
+      setShouldUpdate(true);
+    });
   }, [initialPosition.lat, initialPosition.lng]);
 
   return (

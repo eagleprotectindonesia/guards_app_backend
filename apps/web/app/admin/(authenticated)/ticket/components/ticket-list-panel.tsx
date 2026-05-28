@@ -7,6 +7,7 @@ import { badgeClass } from './ticket-dashboard-utils';
 import type { TicketListItem } from './ticket-dashboard-types';
 
 type TicketListPanelProps = {
+  title: string;
   items: TicketListItem[];
   selectedId: string | null;
   searchTerm: string;
@@ -14,11 +15,11 @@ type TicketListPanelProps = {
   onSelectTicket: (ticketId: string) => void;
 };
 
-export function TicketListPanel({ items, selectedId, searchTerm, onSearchTermChange, onSelectTicket }: TicketListPanelProps) {
+export function TicketListPanel({ title, items, selectedId, searchTerm, onSearchTermChange, onSelectTicket }: TicketListPanelProps) {
   return (
     <Card className="col-span-4 flex flex-col bg-[#12141C] border-[#1F222F]/60 overflow-hidden rounded-xl shadow-xl">
       <div className="p-4 border-b border-[#1F222F]/60 flex items-center justify-between bg-[#12141C]/50 backdrop-blur-sm">
-        <h2 className="text-lg font-bold text-white tracking-wide">All Tickets</h2>
+        <h2 className="text-lg font-bold text-white tracking-wide">{title}</h2>
         <div className="flex gap-2">
           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-white hover:bg-zinc-800/50">
             <Filter className="w-4 h-4" />

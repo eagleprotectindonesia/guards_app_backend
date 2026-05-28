@@ -5,7 +5,7 @@ import type { Serialized } from '@/lib/server-utils';
 import { createSite, updateSite } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateSiteInput } from '@repo/validations';
-import { useActionState, useEffect, useState, useCallback, useRef } from 'react';
+import { startTransition, useActionState, useEffect, useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { APIProvider, Map, Marker, useMapsLibrary, MapMouseEvent, useMap } from '@vis.gl/react-google-maps';
 import { Site } from '@prisma/client';
@@ -90,15 +90,12 @@ function MapComponent({
     [geocodeLatLng]
   );
 
-  // Update marker position when initial position changes, only on mount/initial load
-  useEffect(() => {
-    setMarkerPosition(initialPosition);
-  }, [initialPosition]);
-
   // Effect to handle external position updates (from search) with zoom
   useEffect(() => {
-    setMarkerPosition(initialPosition);
-    setShouldUpdate(true); // This will trigger zoom only when position comes from search
+    startTransition(() => {
+      setMarkerPosition(initialPosition);
+      setShouldUpdate(true); // This will trigger zoom only when position comes from search
+    });
   }, [initialPosition.lat, initialPosition.lng]); // Only when coordinates change, not on address changes
 
   return (

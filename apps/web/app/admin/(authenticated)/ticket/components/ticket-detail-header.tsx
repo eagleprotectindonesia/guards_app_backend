@@ -5,7 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, Pencil, MoreHorizontal } from 'lucide-react';
+import { X, Pencil, MoreHorizontal } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@repo/shared';
 import { badgeClass, formatDate } from './ticket-dashboard-utils';
@@ -54,15 +54,18 @@ export function TicketDetailHeader({
     <>
       <div className="p-5 border-b border-[#1F222F]/60 bg-[#12141C]">
         <div className="flex items-center justify-between mb-3">
-          <button
-            onClick={onBack}
-            className="flex items-center gap-1.5 text-xs font-semibold text-zinc-400 hover:text-white transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Back
-          </button>
+          <div />
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-[#1F222F] bg-transparent text-white hover:bg-zinc-800/50 h-9 px-3.5 text-xs rounded-lg font-semibold"
+              onClick={onBack}
+            >
+              <X className="w-3.5 h-3.5 mr-1" />
+              Close
+            </Button>
             <Button
               variant="outline"
               size="sm"

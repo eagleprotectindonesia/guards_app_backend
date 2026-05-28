@@ -17,7 +17,6 @@ import { TicketListPanel } from './ticket-list-panel';
 import { TicketDetailHeader } from './ticket-detail-header';
 import { TicketTabContent } from './ticket-tab-content';
 import type { TicketDetailResult, TicketListItem } from './ticket-dashboard-types';
-import { AlertCircle } from 'lucide-react';
 
 type Props = {
   initialView: string;
@@ -27,7 +26,7 @@ type Props = {
   initialHasMore: boolean;
 };
 
-export function TicketDashboardView({ initialItems, requestedTicketId }: Props) {
+export function TicketDashboardView({ initialView, initialItems, requestedTicketId }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(requestedTicketId ?? initialItems[0]?.id ?? null);
@@ -56,6 +55,11 @@ export function TicketDashboardView({ initialItems, requestedTicketId }: Props) 
       cancelled = true;
     };
   }, [selectedId]);
+
+  useEffect(() => {
+    setSelectedId(null);
+    setDetail(null);
+  }, [initialView]);
 
   const selectedTicket = detail?.ticket?.id === selectedId ? detail.ticket : null;
   const history = detail?.history ?? [];
@@ -172,9 +176,17 @@ export function TicketDashboardView({ initialItems, requestedTicketId }: Props) 
       item.clientName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  const listTitleByView: Record<string, string> = {
+    all: 'All Tickets',
+    my: 'My Tickets',
+    unassigned: 'Unassigned Tickets',
+    closed: 'Closed Tickets',
+  };
+
   return (
     <div className="grid grid-cols-12 gap-6 h-[calc(100vh-140px)] -mt-2">
       <TicketListPanel
+        title={listTitleByView[initialView] ?? 'Tickets'}
         items={filteredItems}
         selectedId={selectedId}
         searchTerm={searchTerm}
@@ -182,13 +194,8 @@ export function TicketDashboardView({ initialItems, requestedTicketId }: Props) 
         onSelectTicket={setSelectedId}
       />
 
-      <Card className="col-span-8 flex flex-col bg-[#12141C] border-[#1F222F]/60 overflow-hidden rounded-xl shadow-xl">
-        {!selectedTicket ? (
-          <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8">
-            <AlertCircle className="w-12 h-12 text-zinc-600 mb-3 animate-pulse" />
-            <p className="text-sm">Select a ticket to view details.</p>
-          </div>
-        ) : (
+      {selectedTicket && (
+        <Card className="col-span-8 flex flex-col bg-[#12141C] border-[#1F222F]/60 overflow-hidden rounded-xl shadow-xl">
           <div className="h-full flex flex-col overflow-hidden">
             <TicketDetailHeader
               ticket={selectedTicket}
@@ -222,8 +229,8 @@ export function TicketDashboardView({ initialItems, requestedTicketId }: Props) 
               />
             </div>
           </div>
-        )}
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }

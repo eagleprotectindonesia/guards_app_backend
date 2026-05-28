@@ -3,6 +3,10 @@ import {
   canTransitionStatus,
   claimTicket,
   createTicket,
+  getTicketSidebarCounts,
+  listClosedTickets,
+  listMyTickets,
+  listUnassignedTickets,
   updateTicketStatus,
 } from './tickets';
 import { db as prisma } from '../prisma/client';
@@ -21,6 +25,8 @@ jest.mock('../prisma/client', () => ({
     ticket: {
       create: jest.fn(),
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
       update: jest.fn(),
     },
     ticketAssignedRole: {
@@ -335,6 +341,84 @@ describe('tickets repository', () => {
           action: 'STATUS_CHANGED',
           fromValue: 'NEW',
           toValue: 'ACKNOWLEDGED',
+        }),
+      })
+    );
+  });
+
+  test('listMyTickets filters by admin claimant and active statuses', async () => {
+    (prisma.ticket.findMany as jest.Mock).mockResolvedValue([]);
+    await listMyTickets('admin-7');
+
+    expect(prisma.ticket.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          claimedByType: 'ADMIN',
+          claimedByAdminId: 'admin-7',
+          status: { in: ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'] },
+        }),
+      })
+    );
+  });
+
+  test('listUnassignedTickets filters by unclaimed tickets', async () => {
+    (prisma.ticket.findMany as jest.Mock).mockResolvedValue([]);
+    await listUnassignedTickets();
+
+    expect(prisma.ticket.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          claimedByType: null,
+        }),
+      })
+    );
+  });
+
+  test('listClosedTickets only includes CLOSED status', async () => {
+    (prisma.ticket.findMany as jest.Mock).mockResolvedValue([]);
+    await listClosedTickets();
+
+    expect(prisma.ticket.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { in: ['CLOSED'] },
+        }),
+      })
+    );
+  });
+
+  test('getTicketSidebarCounts uses claim-based and closed-only counters', async () => {
+    (prisma.ticket.count as jest.Mock)
+      .mockResolvedValueOnce(10)
+      .mockResolvedValueOnce(3)
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(2);
+
+    const counts = await getTicketSidebarCounts('admin-9');
+
+    expect(counts).toEqual({ all: 10, my: 3, unassigned: 4, closed: 2 });
+    expect(prisma.ticket.count).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          claimedByType: 'ADMIN',
+          claimedByAdminId: 'admin-9',
+        }),
+      })
+    );
+    expect(prisma.ticket.count).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          claimedByType: null,
+        }),
+      })
+    );
+    expect(prisma.ticket.count).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          status: { in: ['CLOSED'] },
         }),
       })
     );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { startTransition, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import AlertFeed, { AlertWithRelations } from '../components/alert-feed';
 import PaginationNav from '../components/pagination-nav';
@@ -45,37 +45,39 @@ export default function AdminAlertsPage() {
 
     const data = lastAlertEvent;
 
-    if ('type' in data) {
-      if (data.type === 'alert_created') {
-        // Only prepend if we are on the first page
+    startTransition(() => {
+      if ('type' in data) {
+        if (data.type === 'alert_created') {
+          // Only prepend if we are on the first page
+          if (page === 1) {
+            setAlerts(prev => {
+              if (prev.find(a => a.id === data.alert.id)) return prev;
+              // Add new alert to the top
+              const newAlerts = [data.alert, ...prev];
+              return newAlerts;
+            });
+            setTotalCount(prev => prev + 1);
+          } else {
+            // If not on page 1, just increment total count
+            setTotalCount(prev => prev + 1);
+          }
+        } else if (data.type === 'alert_updated') {
+          setAlerts(prev => prev.map(a => (a.id === data.alert.id ? data.alert : a)));
+        } else if (data.type === 'alert_deleted') {
+          setAlerts(prev => prev.filter(a => a.id !== data.alertId));
+          setTotalCount(prev => Math.max(0, prev - 1));
+        }
+      } else if ('id' in data) {
+        // Fallback logic for raw alert object
         if (page === 1) {
           setAlerts(prev => {
-            if (prev.find(a => a.id === data.alert.id)) return prev;
-            // Add new alert to the top
-            const newAlerts = [data.alert, ...prev];
-            return newAlerts;
+            if (prev.find(a => a.id === data.id)) return prev;
+            return [data, ...prev];
           });
           setTotalCount(prev => prev + 1);
-        } else {
-          // If not on page 1, just increment total count
-          setTotalCount(prev => prev + 1);
         }
-      } else if (data.type === 'alert_updated') {
-        setAlerts(prev => prev.map(a => (a.id === data.alert.id ? data.alert : a)));
-      } else if (data.type === 'alert_deleted') {
-        setAlerts(prev => prev.filter(a => a.id !== data.alertId));
-        setTotalCount(prev => Math.max(0, prev - 1));
       }
-    } else if ('id' in data) {
-      // Fallback logic for raw alert object
-      if (page === 1) {
-        setAlerts(prev => {
-          if (prev.find(a => a.id === data.id)) return prev;
-          return [data, ...prev];
-        });
-        setTotalCount(prev => prev + 1);
-      }
-    }
+    });
   }, [lastAlertEvent, page]);
 
   const handleAcknowledge = async (alertId: string) => {
