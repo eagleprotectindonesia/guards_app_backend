@@ -206,6 +206,7 @@ model Admin {
   chatConversationStates                       AdminChatConversationState[]
   notifications                                AdminNotification[]
   submittedTickets                             Ticket[]                                @relation("TicketSubmitter")
+  claimedTickets                               Ticket[]                                @relation("TicketAssignee")
   ticketMessages                               TicketMessage[]
   uploadedTicketAttachments                    TicketAttachment[]                       @relation("TicketUploadedBy")
   ticketHistoryActions                         TicketHistory[]
@@ -1014,6 +1015,7 @@ model Ticket {
   priority         TicketPriority @default(MEDIUM)
   status           TicketStatus   @default(NEW)
   submitterAdminId String         @map("submitter_admin_id")
+  assignedAdminId  String?        @map("assigned_admin_id")
   departmentRoleId String?        @map("department_role_id")
   clientName       String         @map("client_name")
   clientContact    String         @map("client_contact")
@@ -1025,6 +1027,7 @@ model Ticket {
   updatedAt        DateTime       @updatedAt @map("updated_at")
 
   submitterAdmin Admin               @relation("TicketSubmitter", fields: [submitterAdminId], references: [id])
+  assignedAdmin  Admin?              @relation("TicketAssignee", fields: [assignedAdminId], references: [id], onDelete: SetNull)
   departmentRole Role?               @relation("TicketDepartmentRole", fields: [departmentRoleId], references: [id])
   assignedRoles  TicketAssignedRole[]
   messages       TicketMessage[]
@@ -1033,6 +1036,7 @@ model Ticket {
 
   @@index([status, priority, createdAt])
   @@index([submitterAdminId, createdAt])
+  @@index([assignedAdminId, createdAt])
   @@index([departmentRoleId, createdAt])
   @@index([createdAt, id])
   @@map("tickets")

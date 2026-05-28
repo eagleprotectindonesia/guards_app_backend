@@ -118,9 +118,8 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
         {
           label: 'Ticket Command Center',
           items: [
-            { name: 'Dashboard', href: '/admin/ticket/dashboard', icon: LayoutDashboard },
-            { name: 'Create Ticket', href: '/admin/ticket/create', icon: PlusSquare },
             { name: 'All Tickets', href: '/admin/ticket/dashboard?view=all', icon: List },
+            { name: 'Create Ticket', href: '/admin/ticket/create', icon: PlusSquare },
             { name: 'My Tickets', href: '/admin/ticket/dashboard?view=my', icon: UserRound },
             { name: 'Unassigned', href: '/admin/ticket/dashboard?view=unassigned', icon: Inbox },
             { name: 'Closed Tickets', href: '/admin/ticket/dashboard?view=closed', icon: Archive },

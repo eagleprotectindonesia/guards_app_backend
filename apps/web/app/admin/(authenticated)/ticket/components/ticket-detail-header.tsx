@@ -17,6 +17,9 @@ type TicketDetailHeaderProps = {
   onBack: () => void;
   onUpdateStatus: (status: TicketListItem['status']) => void;
   onTabChange: (tab: 'details' | 'discussion' | 'attachments' | 'history') => void;
+  canClaim: boolean;
+  isClaiming: boolean;
+  onClaimTicket: () => void;
 };
 
 const STATUS_ACTIONS: Array<{ label: string; status: TicketListItem['status'] }> = [
@@ -28,7 +31,16 @@ const STATUS_ACTIONS: Array<{ label: string; status: TicketListItem['status'] }>
   { label: 'Close / Cancel', status: 'CLOSED' },
 ];
 
-export function TicketDetailHeader({ ticket, activeTab, onBack, onUpdateStatus, onTabChange }: TicketDetailHeaderProps) {
+export function TicketDetailHeader({
+  ticket,
+  activeTab,
+  onBack,
+  onUpdateStatus,
+  onTabChange,
+  canClaim,
+  isClaiming,
+  onClaimTicket,
+}: TicketDetailHeaderProps) {
   return (
     <>
       <div className="p-5 border-b border-[#1F222F]/60 bg-[#12141C]">
@@ -42,6 +54,15 @@ export function TicketDetailHeader({ ticket, activeTab, onBack, onUpdateStatus, 
           </button>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-[#1F222F] bg-transparent text-white hover:bg-zinc-800/50 h-9 px-3.5 text-xs rounded-lg font-semibold"
+              disabled={!canClaim || isClaiming}
+              onClick={onClaimTicket}
+            >
+              {isClaiming ? 'Claiming...' : ticket.assignedAdmin?.id ? 'Re-claim Ticket' : 'Claim Ticket'}
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -134,7 +155,12 @@ export function TicketDetailHeader({ ticket, activeTab, onBack, onUpdateStatus, 
           </div>
 
           <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Assigned To</span>
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Assigned Person</span>
+            <span className="text-sm font-semibold text-zinc-200 block truncate">{ticket.assignedAdmin?.name || '-'}</span>
+          </div>
+
+          <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Assigned Role</span>
             <span className="text-sm font-semibold text-zinc-200 block truncate" title={ticket.assignedRoles?.map(r => r.role.name).join(', ')}>
               {ticket.assignedRoles?.map(r => r.role.name).join(', ') || '-'}
             </span>

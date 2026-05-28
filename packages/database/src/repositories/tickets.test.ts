@@ -1,6 +1,7 @@
 import {
   addTicketAttachments,
   canTransitionStatus,
+  claimTicket,
   createTicket,
   updateTicketStatus,
 } from './tickets';
@@ -172,5 +173,58 @@ describe('tickets repository', () => {
         ],
       })
     ).rejects.toThrow('messageId does not belong to the ticket');
+  });
+
+  test('claimTicket rejects actor outside department', async () => {
+    (prisma.ticket.findUnique as jest.Mock).mockResolvedValue({
+      id: 'ticket-1',
+      assignedAdminId: null,
+      departmentRoleId: 'role-it',
+    });
+
+    await expect(
+      claimTicket({
+        ticketId: 'ticket-1',
+        actorAdminId: 'admin-2',
+        actorRoleId: 'role-hr',
+        actorIsSuperAdmin: false,
+      })
+    ).rejects.toThrow('Only admins in the ticket department can claim this ticket');
+  });
+
+  test('claimTicket reassigns and writes assignment history', async () => {
+    (prisma.ticket.findUnique as jest.Mock).mockResolvedValue({
+      id: 'ticket-1',
+      assignedAdminId: 'admin-9',
+      departmentRoleId: 'role-it',
+    });
+    (prisma.ticket.update as jest.Mock).mockResolvedValue({
+      id: 'ticket-1',
+      assignedAdminId: 'admin-1',
+      assignedAdmin: { id: 'admin-1', name: 'IT Admin', roleId: 'role-it' },
+    });
+
+    await claimTicket({
+      ticketId: 'ticket-1',
+      actorAdminId: 'admin-1',
+      actorRoleId: 'role-it',
+      actorIsSuperAdmin: false,
+    });
+
+    expect(prisma.ticket.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'ticket-1' },
+        data: { assignedAdminId: 'admin-1' },
+      })
+    );
+    expect(prisma.ticketHistory.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'ASSIGNMENT_CHANGED',
+          fromValue: 'admin-9',
+          toValue: 'admin-1',
+        }),
+      })
+    );
   });
 });

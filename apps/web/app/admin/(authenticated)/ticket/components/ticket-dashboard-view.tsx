@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import {
   addTicketMessageAction,
   addTicketMessageWithAttachmentsAction,
+  claimTicketAction,
   createTicketAttachmentUploadUrlAction,
   getTicketDetailAction,
   updateTicketStatusAction,
@@ -34,6 +35,7 @@ export function TicketDashboardView({ initialItems, requestedTicketId }: Props) 
   const [message, setMessage] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'details' | 'discussion' | 'attachments' | 'history'>('discussion');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -147,6 +149,22 @@ export function TicketDashboardView({ initialItems, requestedTicketId }: Props) 
     }
   }
 
+  async function claimSelectedTicket() {
+    if (!selectedId || isClaiming) return;
+    setIsClaiming(true);
+    try {
+      await claimTicketAction(selectedId);
+      const next = await getTicketDetailAction(selectedId);
+      setDetail(next);
+      router.refresh();
+      toast.success('Ticket claimed');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to claim ticket');
+    } finally {
+      setIsClaiming(false);
+    }
+  }
+
   const filteredItems = initialItems.filter(
     item =>
       item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -178,6 +196,9 @@ export function TicketDashboardView({ initialItems, requestedTicketId }: Props) 
               onBack={() => setSelectedId(null)}
               onUpdateStatus={updateStatus}
               onTabChange={setActiveTab}
+              canClaim={Boolean(detail?.canClaim)}
+              isClaiming={isClaiming}
+              onClaimTicket={claimSelectedTicket}
             />
 
             <div className="flex-1 min-h-0 bg-[#0B0C10]/20 flex flex-col">

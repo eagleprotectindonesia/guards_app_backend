@@ -37,6 +37,7 @@ export type TicketDetail = {
   priority: TicketListItem['priority'];
   createdAt: string | Date;
   submitterAdmin?: { name?: string | null } | null;
+  assignedAdmin?: { id?: string; name?: string | null } | null;
   departmentRole?: { name?: string | null } | null;
   assignedRoles?: Array<{ role: { name: string } }>;
   messages: TicketMessage[];
@@ -55,4 +56,5 @@ export type TicketHistoryItem = {
 export type TicketDetailResult = {
   ticket: TicketDetail;
   history: TicketHistoryItem[];
+  canClaim?: boolean;
 };

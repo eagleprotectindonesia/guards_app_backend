@@ -7,6 +7,7 @@ import {
   addTicketMessageWithAttachments,
   createAdminNotifications,
   createTicket,
+  claimTicket,
   db,
   getTicketById,
   getTicketHistory,
@@ -176,10 +177,17 @@ export async function getTicketSidebarCountsAction() {
 }
 
 export async function getTicketDetailAction(ticketId: string) {
-  await requirePermission(PERMISSIONS.TICKETS.VIEW);
+  const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
   const ticket = await getTicketById(ticketId);
   if (!ticket) throw new Error('Ticket not found');
   const history = await getTicketHistory(ticketId);
+  const actor = await db.admin.findUnique({
+    where: { id: session.id },
+    select: { roleId: true },
+  });
+  const canClaim = Boolean(
+    session.isSuperAdmin || (ticket.departmentRoleId && actor?.roleId && actor.roleId === ticket.departmentRoleId)
+  );
 
   const enrichAttachmentUrl = async <T extends { publicUrl: string | null; s3Key: string }>(attachment: T) => {
     if (attachment.publicUrl) return attachment;
@@ -208,7 +216,26 @@ export async function getTicketDetailAction(ticketId: string) {
       messages,
     },
     history,
+    canClaim,
   };
+}
+
+export async function claimTicketAction(ticketId: string) {
+  const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
+  const actor = await db.admin.findUnique({
+    where: { id: session.id },
+    select: { roleId: true },
+  });
+
+  const ticket = await claimTicket({
+    ticketId,
+    actorAdminId: session.id,
+    actorRoleId: actor?.roleId ?? null,
+    actorIsSuperAdmin: session.isSuperAdmin,
+  });
+
+  revalidateTicketPaths(ticketId);
+  return ticket;
 }
 
 export async function addTicketMessageAction(input: unknown) {
