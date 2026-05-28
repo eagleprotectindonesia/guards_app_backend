@@ -45,9 +45,9 @@ export function TicketTabContent({
     return (
       <ScrollArea className="flex-1 min-h-0 p-5">
         <div className="space-y-4 max-w-3xl">
-          <div className="bg-[#151821] border border-[#1F222F]/40 p-5 rounded-xl">
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2.5">Description</h3>
-            <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
+          <div className="bg-muted/20 border border-border/40 p-5 rounded-xl">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-2.5">Description</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
           </div>
         </div>
       </ScrollArea>
@@ -82,10 +82,10 @@ export function TicketTabContent({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2 mb-1.5">
-                      <span className="text-xs font-bold text-white">{msg.admin?.name ?? 'Admin'}</span>
-                      <span className="text-[10px] text-zinc-500">{formatDate(msg.createdAt)}</span>
+                      <span className="text-xs font-bold text-foreground">{msg.admin?.name ?? 'Admin'}</span>
+                      <span className="text-[10px] text-muted-foreground">{formatDate(msg.createdAt)}</span>
                     </div>
-                    <div className="bg-[#1A1D26] border border-[#1F222F]/40 p-3.5 rounded-r-xl rounded-bl-xl text-sm text-zinc-200 leading-relaxed max-w-2xl whitespace-pre-wrap animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    <div className="bg-muted/10 border border-border/40 p-3.5 rounded-r-xl rounded-bl-xl text-sm text-foreground leading-relaxed max-w-2xl whitespace-pre-wrap animate-in fade-in slide-in-from-bottom-2 duration-200">
                       {msg.body}
                     </div>
 
@@ -97,26 +97,26 @@ export function TicketTabContent({
                               <img
                                 src={att.publicUrl}
                                 alt={att.fileName}
-                                className="w-full max-h-52 object-cover rounded-xl border border-[#1F222F] bg-[#0B0C10]"
+                                className="w-full max-h-52 object-cover rounded-xl border border-border bg-background"
                               />
                             )}
                             {att.publicUrl && isVideoMimeType(att.mimeType) && (
                               <video
                                 src={att.publicUrl}
                                 controls
-                                className="w-full max-h-52 rounded-xl border border-[#1F222F] bg-black"
+                                className="w-full max-h-52 rounded-xl border border-border bg-background"
                               />
                             )}
-                            <div className="flex items-center justify-between bg-[#11131A] border border-[#1F222F] rounded-xl p-3 hover:border-purple-500/40 transition-colors">
+                            <div className="flex items-center justify-between bg-muted/10 border border-border rounded-xl p-3 hover:border-purple-500/40 transition-colors">
                               <div className="flex items-center gap-2.5 min-w-0">
                                 <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 shrink-0">
                                   <FileText className="w-4 h-4" />
                                 </div>
                                 <div className="min-w-0">
-                                  <p className="text-xs font-bold text-white truncate w-44" title={att.fileName}>
+                                  <p className="text-xs font-bold text-foreground truncate w-44" title={att.fileName}>
                                     {att.fileName}
                                   </p>
-                                  <p className="text-[10px] text-zinc-500">{formatFileSize(att.fileSize)}</p>
+                                  <p className="text-[10px] text-muted-foreground">{formatFileSize(att.fileSize)}</p>
                                 </div>
                               </div>
                               {att.publicUrl && (
@@ -125,7 +125,7 @@ export function TicketTabContent({
                                   download
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors shrink-0"
+                                  className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
                                 >
                                   <Download className="w-4 h-4" />
                                 </a>
@@ -142,23 +142,23 @@ export function TicketTabContent({
           </div>
         </ScrollArea>
 
-        <div className="sticky bottom-0 z-10 p-4 border-t border-[#1F222F]/60 bg-[#12141C]">
+        <div className="sticky bottom-0 z-10 p-4 border-t border-border/60 bg-card">
           <div className="max-w-5xl mx-auto space-y-2.5">
             {selectedFiles.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {selectedFiles.map((file, index) => (
                   <div
                     key={`${file.name}-${file.size}-${index}`}
-                    className="inline-flex items-center gap-2 rounded-lg border border-[#1F222F] bg-[#0B0C10] px-2.5 py-1.5 text-xs text-zinc-300"
+                    className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground"
                   >
                     <span className="max-w-[220px] truncate" title={file.name}>
                       {file.name}
                     </span>
-                    <span className="text-zinc-500">{formatFileSize(file.size)}</span>
+                    <span className="text-muted-foreground">{formatFileSize(file.size)}</span>
                     <button
                       type="button"
                       onClick={() => onRemoveSelectedFile(index)}
-                      className="rounded p-0.5 text-zinc-500 hover:text-white hover:bg-zinc-800"
+                      className="rounded p-0.5 text-muted-foreground hover:text-foreground hover:bg-accent"
                       aria-label={`Remove ${file.name}`}
                     >
                       <X className="w-3.5 h-3.5" />
@@ -181,19 +181,19 @@ export function TicketTabContent({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="absolute left-2 text-zinc-400 hover:text-white hover:bg-zinc-800/80 h-8 w-8 rounded-lg"
+                  className="absolute left-2 text-muted-foreground hover:text-foreground hover:bg-accent h-8 w-8 rounded-lg"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Paperclip className="w-4 h-4" />
                 </Button>
                 <input
-                  className="w-full rounded-xl border border-[#1F222F] bg-[#0B0C10] pl-11 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-purple-500 transition-colors"
+                  className="w-full rounded-xl border border-border bg-background pl-11 pr-4 py-2.5 text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:border-purple-500 transition-colors"
                   placeholder="Type your message..."
                   value={message}
                   onChange={e => onMessageChange(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
-                      onSubmitMessage();
+                       onSubmitMessage();
                     }
                   }}
                 />
@@ -201,7 +201,7 @@ export function TicketTabContent({
               <Button
                 onClick={onSubmitMessage}
                 disabled={isPending || isSendingMessage || !message.trim()}
-                className="bg-[#5B3BF5] hover:bg-[#4d32cf] text-white h-10 w-10 p-0 rounded-full flex items-center justify-center shrink-0 shadow-lg shadow-purple-500/10 transition-all active:scale-95 disabled:opacity-50"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white h-10 w-10 p-0 rounded-full flex items-center justify-center shrink-0 shadow-lg shadow-purple-500/10 transition-all active:scale-95 disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
               </Button>
@@ -220,17 +220,17 @@ export function TicketTabContent({
             {ticket.attachments.map(att => (
               <div
                 key={att.id}
-                className="flex items-center justify-between bg-[#151821] border border-[#1F222F]/40 rounded-xl p-3.5 hover:border-purple-500/40 transition-colors"
+                className="flex items-center justify-between bg-muted/25 border border-border/40 rounded-xl p-3.5 hover:border-purple-500/40 transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="p-2.5 rounded-lg bg-purple-500/10 text-purple-400 shrink-0">
                     <FileText className="w-5 h-5" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-white truncate w-40" title={att.fileName}>
+                    <p className="text-sm font-bold text-foreground truncate w-40" title={att.fileName}>
                       {att.fileName}
                     </p>
-                    <p className="text-xs text-zinc-500 mt-0.5">{formatFileSize(att.fileSize)}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{formatFileSize(att.fileSize)}</p>
                   </div>
                 </div>
                 {att.publicUrl && (
@@ -239,7 +239,7 @@ export function TicketTabContent({
                     download
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors shrink-0"
+                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
                   >
                     <Download className="w-4 h-4" />
                   </a>
@@ -248,8 +248,8 @@ export function TicketTabContent({
             ))}
           </div>
         ) : (
-          <div className="h-48 flex flex-col items-center justify-center text-zinc-500">
-            <FileText className="w-8 h-8 text-zinc-700 mb-2" />
+          <div className="h-48 flex flex-col items-center justify-center text-muted-foreground">
+            <FileText className="w-8 h-8 text-muted-foreground/60 mb-2" />
             <p className="text-xs">No attachments uploaded for this ticket yet.</p>
           </div>
         )}
@@ -261,19 +261,19 @@ export function TicketTabContent({
     <ScrollArea className="flex-1 min-h-0 p-5">
       <div className="space-y-4">
         {history.map(item => (
-          <div key={item.id} className="bg-[#151821] border border-[#1F222F]/40 p-4 rounded-xl flex gap-3">
-            <div className="p-2 rounded-lg bg-zinc-800/40 text-zinc-400 h-9 w-9 flex items-center justify-center shrink-0">
+          <div key={item.id} className="bg-muted/20 border border-border/40 p-4 rounded-xl flex gap-3">
+            <div className="p-2 rounded-lg bg-muted/40 text-muted-foreground h-9 w-9 flex items-center justify-center shrink-0">
               <Clock className="w-4 h-4" />
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline justify-between gap-2 flex-wrap">
-                <p className="text-sm font-semibold text-white">
-                  <span className="text-purple-400">{item.actor?.name ?? 'System'}</span> {item.action.replace('_', ' ')}
+                <p className="text-sm font-semibold text-foreground">
+                  <span className="text-purple-500">{item.actor?.name ?? 'System'}</span> {item.action.replace('_', ' ')}
                 </p>
-                <span className="text-[10px] text-zinc-500">{formatDate(item.createdAt)}</span>
+                <span className="text-[10px] text-muted-foreground">{formatDate(item.createdAt)}</span>
               </div>
               {(item.fromValue || item.toValue) && (
-                <p className="text-xs text-zinc-400 mt-1.5 bg-[#0B0C10]/40 px-2.5 py-1.5 rounded-lg border border-[#1F222F]/20 font-mono inline-block">
+                <p className="text-xs text-muted-foreground mt-1.5 bg-muted/30 px-2.5 py-1.5 rounded-lg border border-border/20 font-mono inline-block">
                   {item.fromValue ? `${item.fromValue} ➔ ${item.toValue}` : (item.toValue ?? '-')}
                 </p>
               )}

@@ -52,7 +52,7 @@ export function TicketDetailHeader({
 }: TicketDetailHeaderProps) {
   return (
     <>
-      <div className="p-5 border-b border-[#1F222F]/60 bg-[#12141C]">
+      <div className="p-5 border-b border-border/60 bg-card">
         <div className="flex items-center justify-between mb-3">
           <div />
 
@@ -60,7 +60,7 @@ export function TicketDetailHeader({
             <Button
               variant="outline"
               size="sm"
-              className="border-[#1F222F] bg-transparent text-white hover:bg-zinc-800/50 h-9 px-3.5 text-xs rounded-lg font-semibold"
+              className="border-border bg-transparent text-foreground hover:bg-accent h-9 px-3.5 text-xs rounded-lg font-semibold"
               disabled={!canClaim || isClaiming || isClaimedByCurrentUser}
               onClick={onClaimTicket}
             >
@@ -76,7 +76,7 @@ export function TicketDetailHeader({
               <Button
                 variant="outline"
                 size="sm"
-                className="bg-[#5B3BF5] hover:bg-[#4d32cf] text-white border-transparent flex items-center gap-1.5 px-3.5 h-9 font-semibold text-xs rounded-lg transition-colors"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white border-transparent flex items-center gap-1.5 px-3.5 h-9 font-semibold text-xs rounded-lg transition-colors"
                 onClick={() => toast.success('Edit ticket details functionality is available.')}
               >
                 <Pencil className="w-3.5 h-3.5" />
@@ -90,18 +90,18 @@ export function TicketDetailHeader({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="border-[#1F222F] bg-transparent text-white hover:bg-zinc-800/50 h-9 px-3.5 text-xs rounded-lg flex items-center gap-1 font-semibold"
+                    className="border-border bg-transparent text-foreground hover:bg-accent h-9 px-3.5 text-xs rounded-lg flex items-center gap-1 font-semibold"
                   >
                     <MoreHorizontal className="w-4 h-4" />
                     More
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-[#12141C] border-[#1F222F] text-zinc-200">
+                <DropdownMenuContent align="end" className="bg-card border-border text-foreground">
                   {allowedStatusActions.map(status => (
                     <DropdownMenuItem
                       key={status}
                       onClick={() => onUpdateStatus(status)}
-                      className="hover:bg-purple-500/10 hover:text-white focus:bg-purple-500/10 focus:text-white cursor-pointer"
+                      className="hover:bg-purple-500/10 hover:text-foreground focus:bg-purple-500/10 focus:text-foreground cursor-pointer"
                     >
                       {statusActionLabel(status)}
                     </DropdownMenuItem>
@@ -112,7 +112,7 @@ export function TicketDetailHeader({
             <Button
               variant="outline"
               size="sm"
-              className="border-[#1F222F] bg-transparent text-white hover:bg-zinc-800/50 h-9 w-9 p-0 rounded-lg"
+              className="border-border bg-transparent text-foreground hover:bg-accent h-9 w-9 p-0 rounded-lg"
               onClick={onBack}
               aria-label="Close detail"
               title="Close detail"
@@ -123,7 +123,7 @@ export function TicketDetailHeader({
         </div>
 
         <div className="flex items-baseline gap-3 flex-wrap">
-          <h1 className="text-2xl font-bold text-white tracking-wide">{ticket.code}</h1>
+          <h1 className="text-2xl font-bold text-foreground tracking-wide">{ticket.code}</h1>
           <span
             className={cn(
               'text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider',
@@ -145,70 +145,70 @@ export function TicketDetailHeader({
             {ticket.status.replace('_', ' ')}
           </span>
         </div>
-        <p className="text-zinc-400 text-sm mt-2 font-medium tracking-wide">{ticket.title}</p>
+        <p className="text-muted-foreground text-sm mt-2 font-medium tracking-wide">{ticket.title}</p>
       </div>
 
-      <div className="p-5 bg-[#0B0C10]/40 border-b border-[#1F222F]/40">
+      <div className="p-5 bg-muted/30 border-b border-border/40">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Created By</span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate">
+          <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Created By</span>
+            <span className="text-sm font-semibold text-foreground block truncate">
               {ticket.submitterAdmin?.name || 'System'}
             </span>
           </div>
 
-          <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">
+          <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
               Created Date
             </span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate">{formatDate(ticket.createdAt)}</span>
+            <span className="text-sm font-semibold text-foreground block truncate">{formatDate(ticket.createdAt)}</span>
           </div>
 
-          <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Client Name</span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate">{ticket.clientName || '-'}</span>
+          <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Client Name</span>
+            <span className="text-sm font-semibold text-foreground block truncate">{ticket.clientName || '-'}</span>
           </div>
 
-          <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">
+          <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
               Client Location
             </span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate" title={ticket.clientLocation}>
+            <span className="text-sm font-semibold text-foreground block truncate" title={ticket.clientLocation}>
               {ticket.clientLocation || '-'}
             </span>
           </div>
 
-          <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Department</span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate">
+          <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Department</span>
+            <span className="text-sm font-semibold text-foreground block truncate">
               {ticket.departmentRole?.name || '-'}
             </span>
           </div>
 
-          <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Assigned To</span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate">
+          <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Assigned To</span>
+            <span className="text-sm font-semibold text-foreground block truncate">
               {ticket.assignedAdmin?.name || '-'}
             </span>
           </div>
 
-          <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">
+          <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
               Client Contact
             </span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate">{ticket.clientContact || '-'}</span>
+            <span className="text-sm font-semibold text-foreground block truncate">{ticket.clientContact || '-'}</span>
           </div>
 
-          <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Status</span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate">
+          <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Status</span>
+            <span className="text-sm font-semibold text-foreground block truncate">
               {ticket.status.replace('_', ' ')}
             </span>
           </div>
         </div>
       </div>
 
-      <div className="px-5 border-b border-[#1F222F]/60 flex items-center bg-[#12141C] shrink-0">
+      <div className="px-5 border-b border-border/60 flex items-center bg-card shrink-0">
         <div className="flex gap-6">
           {(['details', 'discussion', 'attachments', 'history'] as const).map(tabKey => {
             const isActive = activeTab === tabKey;
@@ -224,8 +224,8 @@ export function TicketDetailHeader({
                 className={cn(
                   'py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all relative',
                   isActive
-                    ? 'border-purple-500 text-purple-400 font-extrabold'
-                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                    ? 'border-purple-500 text-purple-500 font-extrabold'
+                    : 'border-transparent text-muted-foreground hover:text-foreground'
                 )}
               >
                 {label}

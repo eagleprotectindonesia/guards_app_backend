@@ -96,47 +96,47 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
     <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-8 items-start px-4 py-8">
       {/* Left Column (Breadcrumb/Title) */}
       <div className="md:col-span-2 space-y-2 mt-4">
-        <h1 className="text-3xl font-bold text-white tracking-tight">Create Ticket</h1>
-        <div className="flex items-center gap-2 text-sm text-slate-400">
+        <h1 className="text-3xl font-bold text-foreground tracking-tight">Create Ticket</h1>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>Ticket Command Center</span>
-          <span className="text-slate-600">&gt;</span>
+          <span className="text-muted-foreground/60">&gt;</span>
           <span className="text-indigo-400">Create Ticket</span>
         </div>
       </div>
 
       {/* Right Column (Form) */}
-      <Card className="md:col-span-3 p-6 bg-[#0f121d] border-slate-800 text-slate-100 shadow-xl">
+      <Card className="md:col-span-3 p-6 bg-card border-border text-foreground shadow-xl">
         {/* CREATE TICKET SECTION */}
         <div className="space-y-4">
           <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Create Ticket</div>
           <div className="grid grid-cols-2 gap-4">
             <label className="space-y-1">
-              <span className="text-xs text-slate-400 font-medium">Created By</span>
+              <span className="text-xs text-muted-foreground font-medium">Created By</span>
               <input
                 value={adminName}
                 readOnly
-                className="w-full rounded border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-300 focus:outline-none"
+                className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-muted-foreground focus:outline-none"
               />
             </label>
             <label className="space-y-1">
-              <span className="text-xs text-slate-400 font-medium">
+              <span className="text-xs text-muted-foreground font-medium">
                 Department <span className="text-red-500">*</span>
               </span>
               <select
                 value={selectedDept}
                 onChange={e => setSelectedDept(e.target.value as 'HR' | 'IT')}
-                className="w-full rounded border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
               >
                 <option value="HR">HR</option>
                 <option value="IT">IT</option>
               </select>
             </label>
             <label className="space-y-1">
-              <span className="text-xs text-slate-400 font-medium">Priority</span>
+              <span className="text-xs text-muted-foreground font-medium">Priority</span>
               <select
                 value={priority}
                 onChange={e => setPriority(e.target.value as 'LOW' | 'MEDIUM' | 'HIGH')}
-                className="w-full rounded border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
               >
                 <option value="LOW">Low</option>
                 <option value="MEDIUM">Medium</option>
@@ -147,39 +147,39 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
         </div>
 
         {/* CLIENT INFORMATION SECTION */}
-        <div className="mt-8 pt-6 border-t border-slate-800 space-y-4">
+        <div className="mt-8 pt-6 border-t border-border space-y-4">
           <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Client Information</div>
           <div className="grid grid-cols-2 gap-4">
             <label className="space-y-1">
-              <span className="text-xs text-slate-400 font-medium">
+              <span className="text-xs text-muted-foreground font-medium">
                 Client Name <span className="text-red-500">*</span>
               </span>
               <input
                 value={clientName}
                 onChange={e => setClientName(e.target.value)}
-                className="w-full rounded border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
                 placeholder="Enter client name"
               />
             </label>
             <label className="space-y-1">
-              <span className="text-xs text-slate-400 font-medium">
+              <span className="text-xs text-muted-foreground font-medium">
                 Client Contact Number <span className="text-red-500">*</span>
               </span>
               <input
                 value={clientContact}
                 onChange={e => setClientContact(e.target.value)}
-                className="w-full rounded border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
                 placeholder="Enter contact number"
               />
             </label>
             <label className="space-y-1 col-span-2">
-              <span className="text-xs text-slate-400 font-medium">
+              <span className="text-xs text-muted-foreground font-medium">
                 Client Location <span className="text-red-500">*</span>
               </span>
               <input
                 value={clientLocation}
                 onChange={e => setClientLocation(e.target.value)}
-                className="w-full rounded border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-indigo-500"
+                className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
                 placeholder="Enter location / site name"
               />
             </label>
@@ -187,23 +187,23 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
         </div>
 
         {/* PROBLEM INFORMATION SECTION */}
-        <div className="mt-8 pt-6 border-t border-slate-800 space-y-4">
+        <div className="mt-8 pt-6 border-t border-border space-y-4">
           <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Problem Information</div>
           <div className="grid grid-cols-2 gap-4">
             <label className="space-y-1 col-span-2">
-              <span className="text-xs text-slate-400 font-medium">
+              <span className="text-xs text-muted-foreground font-medium">
                 Problem <span className="text-red-500">*</span>
               </span>
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                className="w-full rounded border border-slate-800 bg-slate-950 px-3 py-2 text-sm text-slate-100 min-h-[120px] focus:outline-none focus:border-indigo-500"
+                className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground min-h-[120px] focus:outline-none focus:border-indigo-500"
                 placeholder="Describe the problem in detail..."
               />
             </label>
             <div className="col-span-2 space-y-1">
-              <span className="text-xs text-slate-400 font-medium">Attachments</span>
-              <div className="border border-dashed border-slate-800 rounded-lg p-6 bg-slate-950/50 hover:bg-slate-950 transition cursor-pointer flex flex-col items-center justify-center gap-2 relative">
+              <span className="text-xs text-muted-foreground font-medium">Attachments</span>
+              <div className="border border-dashed border-border rounded-lg p-6 bg-background/50 hover:bg-background transition cursor-pointer flex flex-col items-center justify-center gap-2 relative">
                 <input
                   type="file"
                   multiple
@@ -211,7 +211,7 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
                   onChange={e => setFiles(Array.from(e.target.files ?? []))}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 />
-                <svg className="w-8 h-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-8 h-8 text-muted-foreground/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -219,8 +219,8 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
                     d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
                   />
                 </svg>
-                <div className="text-sm font-medium text-slate-300">Click to upload or drag and drop</div>
-                <div className="text-xs text-slate-500">Images, Videos, PDF (Max 10MB)</div>
+                <div className="text-sm font-medium text-foreground/80">Click to upload or drag and drop</div>
+                <div className="text-xs text-muted-foreground/60">Images, Videos, PDF (Max 10MB)</div>
               </div>
               {files.length > 0 && (
                 <div className="mt-2 space-y-1">
@@ -238,7 +238,7 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
         <div className="flex justify-end gap-2 mt-6">
           <Button
             variant="outline"
-            className="border-slate-800 text-slate-300 hover:bg-slate-900 hover:text-white"
+            className="border-border text-muted-foreground hover:bg-accent hover:text-foreground"
             onClick={() => router.push('/admin/ticket/dashboard')}
           >
             Cancel

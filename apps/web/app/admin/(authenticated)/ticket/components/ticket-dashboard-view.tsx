@@ -196,7 +196,7 @@ export function TicketDashboardView({ initialView, initialItems, requestedTicket
       />
 
       {selectedTicket && (
-        <Card className="col-span-8 flex flex-col bg-[#12141C] border-[#1F222F]/60 overflow-hidden rounded-xl shadow-xl">
+        <Card className="col-span-8 flex flex-col bg-card border-border/60 overflow-hidden rounded-xl shadow-xl">
           <div className="h-full flex flex-col overflow-hidden">
             <TicketDetailHeader
               ticket={selectedTicket}
@@ -213,7 +213,7 @@ export function TicketDashboardView({ initialView, initialItems, requestedTicket
               onClaimTicket={claimSelectedTicket}
             />
 
-            <div className="flex-1 min-h-0 bg-[#0B0C10]/20 flex flex-col">
+            <div className="flex-1 min-h-0 bg-muted/10 flex flex-col">
               <TicketTabContent
                 activeTab={activeTab}
                 ticket={selectedTicket}
