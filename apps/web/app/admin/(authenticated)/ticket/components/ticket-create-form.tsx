@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,6 +25,20 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
   const [clientLocation, setClientLocation] = useState('');
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
   const [files, setFiles] = useState<File[]>([]);
+  const previews = useMemo(
+    () =>
+      files.map(file => ({
+        file,
+        url: URL.createObjectURL(file),
+      })),
+    [files]
+  );
+
+  useEffect(() => {
+    return () => {
+      previews.forEach(preview => URL.revokeObjectURL(preview.url));
+    };
+  }, [previews]);
 
   async function uploadFile(file: File, ticketId: string) {
     const policy = await createTicketAttachmentUploadUrlAction({
@@ -228,6 +242,28 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
                     <p key={i} className="text-xs text-emerald-500 font-medium flex items-center gap-1">
                       ✓ {file.name} ({Math.round(file.size / 1024)} KB)
                     </p>
+                  ))}
+                </div>
+              )}
+              {previews.length > 0 && (
+                <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {previews.map(({ file, url }, index) => (
+                    <div key={`${file.name}-${file.size}-${index}`} className="rounded-md border border-border bg-background p-2 space-y-2">
+                      {file.type.startsWith('image/') && (
+                        <img src={url} alt={file.name} className="h-24 w-full object-cover rounded" />
+                      )}
+                      {file.type.startsWith('video/') && (
+                        <video src={url} controls className="h-24 w-full object-cover rounded" />
+                      )}
+                      {!file.type.startsWith('image/') && !file.type.startsWith('video/') && (
+                        <div className="h-24 w-full rounded border border-dashed border-border flex items-center justify-center text-xs text-muted-foreground">
+                          PDF Preview
+                        </div>
+                      )}
+                      <p className="text-[11px] text-foreground truncate" title={file.name}>
+                        {file.name}
+                      </p>
+                    </div>
                   ))}
                 </div>
               )}
