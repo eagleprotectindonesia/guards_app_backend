@@ -57,6 +57,7 @@ export function TicketDashboardView({ initialView, initialItems, requestedTicket
   }, [selectedId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedId(null);
     setDetail(null);
   }, [initialView]);

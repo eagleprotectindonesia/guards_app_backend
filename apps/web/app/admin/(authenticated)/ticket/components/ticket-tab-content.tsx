@@ -43,7 +43,7 @@ export function TicketTabContent({
 }: TicketTabContentProps) {
   if (activeTab === 'details') {
     return (
-      <ScrollArea className="flex-1 p-5">
+      <ScrollArea className="flex-1 min-h-0 p-5">
         <div className="space-y-4 max-w-3xl">
           <div className="bg-[#151821] border border-[#1F222F]/40 p-5 rounded-xl">
             <h3 className="text-sm font-bold text-white uppercase tracking-wider mb-2.5">Description</h3>
@@ -57,7 +57,7 @@ export function TicketTabContent({
   if (activeTab === 'discussion') {
     return (
       <div className="flex-1 flex flex-col min-h-0">
-        <ScrollArea className="flex-1 p-5">
+        <ScrollArea className="flex-1 min-h-0 p-5">
           <div className="space-y-6 pb-40">
             {ticket.messages.map(msg => {
               const initials = msg.admin?.name
@@ -214,7 +214,7 @@ export function TicketTabContent({
 
   if (activeTab === 'attachments') {
     return (
-      <ScrollArea className="flex-1 p-5">
+      <ScrollArea className="flex-1 min-h-0 p-5">
         {ticket.attachments && ticket.attachments.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             {ticket.attachments.map(att => (
@@ -258,7 +258,7 @@ export function TicketTabContent({
   }
 
   return (
-    <ScrollArea className="flex-1 p-5">
+    <ScrollArea className="flex-1 min-h-0 p-5">
       <div className="space-y-4">
         {history.map(item => (
           <div key={item.id} className="bg-[#151821] border border-[#1F222F]/40 p-4 rounded-xl flex gap-3">

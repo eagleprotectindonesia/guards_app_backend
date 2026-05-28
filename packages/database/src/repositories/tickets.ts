@@ -60,7 +60,13 @@ export type TicketListCursor = {
   id: string;
 };
 
-const OPERATIONAL_STATUSES: TicketStatus[] = ['ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CANNOT_RESOLVE'];
+const OPERATIONAL_STATUSES: TicketStatus[] = [
+  'ACKNOWLEDGED',
+  'WAITING_INFORMATION',
+  'IN_PROGRESS',
+  'SOLVED',
+  'CANNOT_RESOLVE',
+];
 const TERMINAL_STATUSES = new Set<TicketStatus>(['CLOSED', 'CANNOT_RESOLVE']);
 const CLOSED_VIEW_STATUSES: TicketStatus[] = ['CLOSED'];
 const ACTIVE_VIEW_EXCLUDED_STATUSES: TicketStatus[] = ['CLOSED', 'CANNOT_RESOLVE'];
@@ -71,7 +77,9 @@ function isITRole(roleName?: string | null) {
 }
 
 function isOperationalActor(input: { roleName?: string | null; isSuperAdmin?: boolean; permissions?: string[] }) {
-  return Boolean(input.isSuperAdmin || isITRole(input.roleName) || input.permissions?.includes(TICKET_OPERATIONAL_EDITOR_PERMISSION));
+  return Boolean(
+    input.isSuperAdmin || isITRole(input.roleName) || input.permissions?.includes(TICKET_OPERATIONAL_EDITOR_PERMISSION)
+  );
 }
 
 function encodeCursor(value: TicketListCursor) {
@@ -95,7 +103,10 @@ function toDepartmentCode(roleName: string) {
 
   if (words.length === 0) return 'TKT';
   if (words.length === 1) return words[0]!.slice(0, 6);
-  return words.map(word => word[0]).join('').slice(0, 6);
+  return words
+    .map(word => word[0])
+    .join('')
+    .slice(0, 6);
 }
 
 async function nextTicketCode(roleId: string, tx: TxLike) {
@@ -174,7 +185,10 @@ export function canTransitionStatus(params: {
   }
 
   if (nextStatus === 'CLOSED') {
-    if (isSubmitter && ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'].includes(currentStatus)) {
+    if (
+      isSubmitter &&
+      ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'].includes(currentStatus)
+    ) {
       return true;
     }
     return operationalActor && !TERMINAL_STATUSES.has(currentStatus);
@@ -379,25 +393,35 @@ export async function listTickets(params: TicketListParams = {}, tx: TxLike = pr
   };
 }
 
-export async function listMyTickets(adminId: string, params: Omit<TicketListParams, 'submitterAdminId'> = {}, tx: TxLike = prisma) {
-  return listTickets({
-    ...params,
-    claimedByType: 'ADMIN',
-    claimedByAdminId: adminId,
-    statuses: params.statuses?.length
-      ? params.statuses.filter(status => !ACTIVE_VIEW_EXCLUDED_STATUSES.includes(status))
-      : ACTIVE_VIEW_STATUSES,
-  }, tx);
+export async function listMyTickets(
+  adminId: string,
+  params: Omit<TicketListParams, 'submitterAdminId'> = {},
+  tx: TxLike = prisma
+) {
+  return listTickets(
+    {
+      ...params,
+      claimedByType: 'ADMIN',
+      claimedByAdminId: adminId,
+      statuses: params.statuses?.length
+        ? params.statuses.filter(status => !ACTIVE_VIEW_EXCLUDED_STATUSES.includes(status))
+        : ACTIVE_VIEW_STATUSES,
+    },
+    tx
+  );
 }
 
 export async function listUnassignedTickets(params: Omit<TicketListParams, 'unclaimedOnly'> = {}, tx: TxLike = prisma) {
-  return listTickets({
-    ...params,
-    unclaimedOnly: true,
-    statuses: params.statuses?.length
-      ? params.statuses.filter(status => !ACTIVE_VIEW_EXCLUDED_STATUSES.includes(status))
-      : ACTIVE_VIEW_STATUSES,
-  }, tx);
+  return listTickets(
+    {
+      ...params,
+      unclaimedOnly: true,
+      statuses: params.statuses?.length
+        ? params.statuses.filter(status => !ACTIVE_VIEW_EXCLUDED_STATUSES.includes(status))
+        : ACTIVE_VIEW_STATUSES,
+    },
+    tx
+  );
 }
 
 export async function listClosedTickets(params: Omit<TicketListParams, 'statuses'> = {}, tx: TxLike = prisma) {
@@ -432,14 +456,17 @@ export async function getTicketSidebarCounts(adminId: string, tx: TxLike = prism
   return { all, my, unassigned, closed };
 }
 
-export async function updateTicketStatus(input: {
-  ticketId: string;
-  nextStatus: TicketStatus;
-  actorAdminId: string;
-  actorRoleName?: string | null;
-  actorIsSuperAdmin?: boolean;
-  actorPermissions?: string[];
-}, tx: TxLike = prisma) {
+export async function updateTicketStatus(
+  input: {
+    ticketId: string;
+    nextStatus: TicketStatus;
+    actorAdminId: string;
+    actorRoleName?: string | null;
+    actorIsSuperAdmin?: boolean;
+    actorPermissions?: string[];
+  },
+  tx: TxLike = prisma
+) {
   return withTransaction(tx, async trx => {
     const ticket = await trx.ticket.findUnique({
       where: { id: input.ticketId },
@@ -480,11 +507,14 @@ export async function updateTicketStatus(input: {
   });
 }
 
-export async function updateTicketPriority(input: {
-  ticketId: string;
-  priority: TicketPriority;
-  actorAdminId: string;
-}, tx: TxLike = prisma) {
+export async function updateTicketPriority(
+  input: {
+    ticketId: string;
+    priority: TicketPriority;
+    actorAdminId: string;
+  },
+  tx: TxLike = prisma
+) {
   return withTransaction(tx, async trx => {
     const ticket = await trx.ticket.findUnique({
       where: { id: input.ticketId },
@@ -511,11 +541,14 @@ export async function updateTicketPriority(input: {
   });
 }
 
-export async function updateTicketAssignedRoles(input: {
-  ticketId: string;
-  roleIds: string[];
-  actorAdminId: string;
-}, tx: TxLike = prisma) {
+export async function updateTicketAssignedRoles(
+  input: {
+    ticketId: string;
+    roleIds: string[];
+    actorAdminId: string;
+  },
+  tx: TxLike = prisma
+) {
   return withTransaction(tx, async trx => {
     const uniqueRoleIds = Array.from(new Set(input.roleIds));
 
@@ -631,7 +664,7 @@ export async function claimTicket(input: ClaimTicketInput, tx: TxLike = prisma) 
 
     if (isAdminClaim) {
       if (!ticket.departmentRoleId) throw new Error('Ticket department is not set');
-      const canClaim = Boolean(input.actorIsSuperAdmin || input.actorRoleId === ticket.departmentRoleId);
+      const canClaim = Boolean(input.actorRoleId === ticket.departmentRoleId);
       if (!canClaim) {
         throw new Error('Only admins in the ticket department can claim this ticket');
       }
@@ -708,11 +741,14 @@ export async function claimTicket(input: ClaimTicketInput, tx: TxLike = prisma) 
   });
 }
 
-export async function addTicketMessage(input: {
-  ticketId: string;
-  adminId: string;
-  body: string;
-}, tx: TxLike = prisma) {
+export async function addTicketMessage(
+  input: {
+    ticketId: string;
+    adminId: string;
+    body: string;
+  },
+  tx: TxLike = prisma
+) {
   return withTransaction(tx, async trx => {
     const message = await trx.ticketMessage.create({
       data: {
@@ -733,16 +769,21 @@ export async function addTicketMessage(input: {
   });
 }
 
-export async function addTicketAttachments(input: {
-  ticketId: string;
-  uploadedByAdminId: string;
-  attachments: TicketAttachmentInput[];
-}, tx: TxLike = prisma) {
+export async function addTicketAttachments(
+  input: {
+    ticketId: string;
+    uploadedByAdminId: string;
+    attachments: TicketAttachmentInput[];
+  },
+  tx: TxLike = prisma
+) {
   return withTransaction(tx, async trx => {
     if (input.attachments.length === 0) return [];
 
     const messageIds = Array.from(
-      new Set(input.attachments.map(attachment => attachment.messageId).filter((value): value is string => Boolean(value)))
+      new Set(
+        input.attachments.map(attachment => attachment.messageId).filter((value): value is string => Boolean(value))
+      )
     );
     if (messageIds.length > 0) {
       const ownedMessages = await trx.ticketMessage.findMany({

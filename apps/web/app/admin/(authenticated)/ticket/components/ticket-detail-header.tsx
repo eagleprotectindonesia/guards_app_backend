@@ -61,19 +61,16 @@ export function TicketDetailHeader({
               variant="outline"
               size="sm"
               className="border-[#1F222F] bg-transparent text-white hover:bg-zinc-800/50 h-9 px-3.5 text-xs rounded-lg font-semibold"
-              onClick={onBack}
-            >
-              <X className="w-3.5 h-3.5 mr-1" />
-              Close
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-[#1F222F] bg-transparent text-white hover:bg-zinc-800/50 h-9 px-3.5 text-xs rounded-lg font-semibold"
               disabled={!canClaim || isClaiming || isClaimedByCurrentUser}
               onClick={onClaimTicket}
             >
-              {isClaiming ? 'Claiming...' : isClaimedByCurrentUser ? 'Claimed By You' : ticket.assignedAdmin?.id ? 'Re-claim Ticket' : 'Claim Ticket'}
+              {isClaiming
+                ? 'Claiming...'
+                : isClaimedByCurrentUser
+                  ? 'Claimed By You'
+                  : ticket.assignedAdmin?.id
+                    ? 'Re-claim Ticket'
+                    : 'Claim Ticket'}
             </Button>
             {canEdit && (
               <Button
@@ -112,6 +109,16 @@ export function TicketDetailHeader({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-[#1F222F] bg-transparent text-white hover:bg-zinc-800/50 h-9 w-9 p-0 rounded-lg"
+              onClick={onBack}
+              aria-label="Close detail"
+              title="Close detail"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           </div>
         </div>
 
@@ -145,11 +152,15 @@ export function TicketDetailHeader({
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Created By</span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate">{ticket.submitterAdmin?.name || 'System'}</span>
+            <span className="text-sm font-semibold text-zinc-200 block truncate">
+              {ticket.submitterAdmin?.name || 'System'}
+            </span>
           </div>
 
           <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Created Date</span>
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">
+              Created Date
+            </span>
             <span className="text-sm font-semibold text-zinc-200 block truncate">{formatDate(ticket.createdAt)}</span>
           </div>
 
@@ -159,7 +170,9 @@ export function TicketDetailHeader({
           </div>
 
           <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Client Location</span>
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">
+              Client Location
+            </span>
             <span className="text-sm font-semibold text-zinc-200 block truncate" title={ticket.clientLocation}>
               {ticket.clientLocation || '-'}
             </span>
@@ -167,29 +180,30 @@ export function TicketDetailHeader({
 
           <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Department</span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate">{ticket.departmentRole?.name || '-'}</span>
-          </div>
-
-          <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Assigned Person</span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate">{ticket.assignedAdmin?.name || '-'}</span>
-          </div>
-
-          <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Assigned Role</span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate" title={ticket.assignedRoles?.map(r => r.role.name).join(', ')}>
-              {ticket.assignedRoles?.map(r => r.role.name).join(', ') || '-'}
+            <span className="text-sm font-semibold text-zinc-200 block truncate">
+              {ticket.departmentRole?.name || '-'}
             </span>
           </div>
 
           <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Client Contact</span>
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Assigned To</span>
+            <span className="text-sm font-semibold text-zinc-200 block truncate">
+              {ticket.assignedAdmin?.name || '-'}
+            </span>
+          </div>
+
+          <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">
+              Client Contact
+            </span>
             <span className="text-sm font-semibold text-zinc-200 block truncate">{ticket.clientContact || '-'}</span>
           </div>
 
           <div className="bg-[#151821] border border-[#1F222F]/45 p-3.5 rounded-xl">
             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider block mb-1">Status</span>
-            <span className="text-sm font-semibold text-zinc-200 block truncate">{ticket.status.replace('_', ' ')}</span>
+            <span className="text-sm font-semibold text-zinc-200 block truncate">
+              {ticket.status.replace('_', ' ')}
+            </span>
           </div>
         </div>
       </div>
@@ -209,7 +223,9 @@ export function TicketDetailHeader({
                 onClick={() => onTabChange(tabKey)}
                 className={cn(
                   'py-3 text-xs font-bold uppercase tracking-wider border-b-2 transition-all relative',
-                  isActive ? 'border-purple-500 text-purple-400 font-extrabold' : 'border-transparent text-zinc-400 hover:text-zinc-200'
+                  isActive
+                    ? 'border-purple-500 text-purple-400 font-extrabold'
+                    : 'border-transparent text-zinc-400 hover:text-zinc-200'
                 )}
               >
                 {label}
