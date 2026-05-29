@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Clock,
   LayoutDashboard,
+  BarChart3,
   PlusSquare,
   List,
   UserRound,
@@ -118,11 +119,12 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
         {
           label: 'Ticket Command Center',
           items: [
-            { name: 'All Tickets', href: '/admin/ticket/dashboard?view=all', icon: List },
+            { name: 'Dashboard', href: '/admin/ticket/dashboard', icon: BarChart3 },
+            { name: 'All Tickets', href: '/admin/ticket/all', icon: List },
             { name: 'Create Ticket', href: '/admin/ticket/create', icon: PlusSquare },
-            { name: 'My Tickets', href: '/admin/ticket/dashboard?view=my', icon: UserRound },
-            { name: 'Unassigned', href: '/admin/ticket/dashboard?view=unassigned', icon: Inbox },
-            { name: 'Closed Tickets', href: '/admin/ticket/dashboard?view=closed', icon: Archive },
+            { name: 'My Tickets', href: '/admin/ticket/my', icon: UserRound },
+            { name: 'Unassigned', href: '/admin/ticket/unassigned', icon: Inbox },
+            { name: 'Closed Tickets', href: '/admin/ticket/closed', icon: Archive },
           ],
         },
       ];
@@ -191,10 +193,10 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
 
   const isGroupCollapsed = (label: string) => collapsedGroups[label] ?? false;
   const ticketCounterByHref: Record<string, number | undefined> = {
-    '/admin/ticket/dashboard?view=all': ticketCounters?.all,
-    '/admin/ticket/dashboard?view=my': ticketCounters?.my,
-    '/admin/ticket/dashboard?view=unassigned': ticketCounters?.unassigned,
-    '/admin/ticket/dashboard?view=closed': ticketCounters?.closed,
+    '/admin/ticket/all': ticketCounters?.all,
+    '/admin/ticket/my': ticketCounters?.my,
+    '/admin/ticket/unassigned': ticketCounters?.unassigned,
+    '/admin/ticket/closed': ticketCounters?.closed,
   };
 
   return (

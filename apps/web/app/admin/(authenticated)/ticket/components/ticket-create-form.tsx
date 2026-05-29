@@ -97,7 +97,7 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
           }
 
           toast.success('Ticket created');
-          router.push(`/admin/ticket/dashboard?view=all&ticket=${ticket.id}`);
+          router.push(`/admin/ticket/all?ticket=${ticket.id}`);
           router.refresh();
         } catch (error) {
           toast.error(error instanceof Error ? error.message : 'Failed to create ticket');
@@ -275,7 +275,7 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
           <Button
             variant="outline"
             className="border-border text-muted-foreground hover:bg-accent hover:text-foreground"
-            onClick={() => router.push('/admin/ticket/dashboard')}
+            onClick={() => router.push('/admin/ticket/all')}
           >
             Cancel
           </Button>

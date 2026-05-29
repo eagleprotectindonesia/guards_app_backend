@@ -26,7 +26,7 @@ type Props = {
   initialHasMore: boolean;
 };
 
-export function TicketDashboardView({ initialView, initialItems, requestedTicketId }: Props) {
+export function TicketWorkspaceView({ initialView, initialItems, requestedTicketId }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(requestedTicketId ?? initialItems[0]?.id ?? null);

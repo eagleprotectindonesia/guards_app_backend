@@ -42,6 +42,10 @@ const CLAIMANT_STATUS_ACTIONS: TicketStatus[] = ['WAITING_INFORMATION', 'IN_PROG
 
 function revalidateTicketPaths(ticketId?: string) {
   revalidatePath('/admin/ticket/dashboard');
+  revalidatePath('/admin/ticket/all');
+  revalidatePath('/admin/ticket/my');
+  revalidatePath('/admin/ticket/unassigned');
+  revalidatePath('/admin/ticket/closed');
   revalidatePath('/admin/ticket/create');
   if (ticketId) {
     revalidatePath(`/admin/ticket/${ticketId}`);
@@ -116,7 +120,7 @@ async function notifySubmitterOnStatusChange(input: {
         : `Ticket status changed to ${input.status}.`,
     payload: {
       ticketId: ticket.id,
-      targetPath: `/admin/ticket/dashboard?view=all&ticket=${ticket.id}`,
+      targetPath: `/admin/ticket/all?ticket=${ticket.id}`,
       status: input.status,
     },
   });
@@ -274,7 +278,7 @@ export async function addTicketMessageAction(input: unknown) {
     type: 'ticket_message_added',
     title: `New message on ${ticket?.code ?? 'ticket'}`,
     body: parsed.data.body.slice(0, 120),
-    targetPath: `/admin/ticket/dashboard?view=all&ticket=${parsed.data.ticketId}`,
+    targetPath: `/admin/ticket/all?ticket=${parsed.data.ticketId}`,
     ticketId: parsed.data.ticketId,
   });
   revalidateTicketPaths(parsed.data.ticketId);
@@ -316,7 +320,7 @@ export async function addTicketMessageWithAttachmentsAction(input: unknown) {
     type: 'ticket_message_added',
     title: `New message on ${ticket?.code ?? 'ticket'}`,
     body: parsed.data.body.slice(0, 120),
-    targetPath: `/admin/ticket/dashboard?view=all&ticket=${parsed.data.ticketId}`,
+    targetPath: `/admin/ticket/all?ticket=${parsed.data.ticketId}`,
     ticketId: parsed.data.ticketId,
   });
   revalidateTicketPaths(parsed.data.ticketId);
@@ -401,7 +405,7 @@ export async function updateTicketAssignedRolesAction(input: unknown) {
     type: 'ticket_assigned_role',
     title: `Assigned to ticket ${ticket?.code ?? ''}`.trim(),
     body: ticket?.title ?? 'A ticket has been assigned to your role.',
-    targetPath: `/admin/ticket/dashboard?view=all&ticket=${parsed.data.ticketId}`,
+    targetPath: `/admin/ticket/all?ticket=${parsed.data.ticketId}`,
     ticketId: parsed.data.ticketId,
   });
   revalidateTicketPaths(parsed.data.ticketId);
