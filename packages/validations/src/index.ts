@@ -198,6 +198,7 @@ export const checkInSchema = z.object({
 export const EmployeeAccessScopeEnum = z.enum(['all', 'on_site_only']);
 export const AttendanceAccessScopeEnum = z.enum(['all', 'shift_only']);
 export const LeaveAnnualApproverEnum = z.enum(['manager', 'hr']);
+export const TicketDepartmentEnum = z.enum(['HR', 'IT', 'CS']);
 
 export const rolePolicySchema = z.object({
   employees: z.object({
@@ -209,6 +210,7 @@ export const rolePolicySchema = z.object({
   leaveRequests: z.object({
     annualApprover: LeaveAnnualApproverEnum,
   }),
+  ticketDepartment: TicketDepartmentEnum.optional(),
 });
 
 export const createRoleSchema = z.object({
@@ -257,16 +259,19 @@ export const TicketPriorityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH']);
 export const ticketCreateSchema = z.object({
   title: z.string().trim().min(3, 'Title must be at least 3 characters'),
   description: z.string().trim().min(1, 'Description is required'),
-  departmentRoleId: z.string().min(1, 'Department role is required'),
+  department: TicketDepartmentEnum,
   clientName: z.string().trim().min(1, 'Client name is required'),
   clientContact: z.string().trim().min(1, 'Client contact is required'),
   clientLocation: z.string().trim().min(1, 'Client location is required'),
   resolutionTargetHours: z
     .number()
     .int('Resolution target must be a whole number of hours')
-    .refine(value => ticketResolutionTargetHourOptions.includes(value as (typeof ticketResolutionTargetHourOptions)[number]), {
-      message: 'Resolution target must match one of the supported presets',
-    }),
+    .refine(
+      value => ticketResolutionTargetHourOptions.includes(value as (typeof ticketResolutionTargetHourOptions)[number]),
+      {
+        message: 'Resolution target must match one of the supported presets',
+      }
+    ),
   priority: TicketPriorityEnum.default('MEDIUM'),
 });
 
@@ -300,37 +305,43 @@ export const ticketMessageCreateSchema = z.object({
 });
 
 export const ticketMessageWithAttachmentsCreateSchema = ticketMessageCreateSchema.extend({
-  attachments: z.array(
-    z.object({
-      fileName: z.string().trim().min(1),
-      fileSize: z.number().int().positive().max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
-      mimeType: z
-        .string()
-        .trim()
-        .min(1)
-        .refine(value => value.startsWith('image/') || value.startsWith('video/') || value === 'application/pdf', {
-          message: 'Only image, video, and PDF attachments are allowed',
-        }),
-      s3Key: z.string().trim().min(1),
-      s3Bucket: z.string().trim().optional(),
-      publicUrl: z.string().url().optional(),
-    })
-  ).default([]),
+  attachments: z
+    .array(
+      z.object({
+        fileName: z.string().trim().min(1),
+        fileSize: z
+          .number()
+          .int()
+          .positive()
+          .max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
+        mimeType: z
+          .string()
+          .trim()
+          .min(1)
+          .refine(value => value.startsWith('image/') || value.startsWith('video/') || value === 'application/pdf', {
+            message: 'Only image, video, and PDF attachments are allowed',
+          }),
+        s3Key: z.string().trim().min(1),
+        s3Bucket: z.string().trim().optional(),
+        publicUrl: z.string().url().optional(),
+      })
+    )
+    .default([]),
 });
 
 export const ticketAttachmentMetadataSchema = z.object({
   fileName: z.string().trim().min(1),
-  fileSize: z.number().int().positive().max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
+  fileSize: z
+    .number()
+    .int()
+    .positive()
+    .max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
   mimeType: z
     .string()
     .trim()
     .min(1)
     .refine(value => {
-      return (
-        value.startsWith('image/') ||
-        value.startsWith('video/') ||
-        value === 'application/pdf'
-      );
+      return value.startsWith('image/') || value.startsWith('video/') || value === 'application/pdf';
     }, 'Only image, video, and PDF attachments are allowed'),
   s3Key: z.string().trim().min(1),
   s3Bucket: z.string().trim().optional(),
@@ -346,13 +357,13 @@ export const ticketAttachmentUploadRequestSchema = z.object({
     .trim()
     .min(1)
     .refine(value => {
-      return (
-        value.startsWith('image/') ||
-        value.startsWith('video/') ||
-        value === 'application/pdf'
-      );
+      return value.startsWith('image/') || value.startsWith('video/') || value === 'application/pdf';
     }, 'Only image, video, and PDF attachments are allowed'),
-  fileSize: z.number().int().positive().max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
+  fileSize: z
+    .number()
+    .int()
+    .positive()
+    .max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
 });
 
 const officeWorkScheduleDaySchema = z

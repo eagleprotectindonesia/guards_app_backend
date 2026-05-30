@@ -8,19 +8,17 @@ import { createTicketAction, createTicketAttachmentUploadUrlAction, attachUpload
 import { toast } from 'react-hot-toast';
 import { uploadFileWithPresignedPost } from '@/lib/s3-presigned-post-upload';
 import { ticketResolutionTargetHourOptions } from '@repo/validations';
-
-type RoleOption = { id: string; name: string };
+import { TICKET_DEPARTMENT_OPTIONS, type TicketDepartment } from '@/lib/ticket-department-roles';
 
 type Props = {
   adminName: string;
-  roleOptions: RoleOption[];
 };
 
-export function TicketCreateForm({ adminName, roleOptions }: Props) {
+export function TicketCreateForm({ adminName }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [description, setDescription] = useState('');
-  const [selectedDept, setSelectedDept] = useState<'HR' | 'IT'>('IT');
+  const [selectedDepartment, setSelectedDepartment] = useState<TicketDepartment>(TICKET_DEPARTMENT_OPTIONS[0]);
   const [clientName, setClientName] = useState('');
   const [clientContact, setClientContact] = useState('');
   const [clientLocation, setClientLocation] = useState('');
@@ -65,16 +63,6 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
       toast.error('Description / Problem is required');
       return;
     }
-
-    const matchedRole = roleOptions.find(
-      role => role.name.toLowerCase() === selectedDept.toLowerCase()
-    );
-
-    if (!matchedRole) {
-      toast.error(`The department role for '${selectedDept}' does not exist in the database. Please create it first.`);
-      return;
-    }
-
     let generatedTitle = description.trim().split('\n')[0]?.trim().slice(0, 80) || 'New Ticket';
     if (generatedTitle.length < 3) {
       generatedTitle = generatedTitle.padEnd(3, '.');
@@ -86,7 +74,7 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
           const ticket = await createTicketAction({
             title: generatedTitle,
             description,
-            departmentRoleId: matchedRole.id,
+            department: selectedDepartment,
             clientName,
             clientContact,
             clientLocation,
@@ -140,12 +128,15 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
                 Department <span className="text-red-500">*</span>
               </span>
               <select
-                value={selectedDept}
-                onChange={e => setSelectedDept(e.target.value as 'HR' | 'IT')}
+                value={selectedDepartment}
+                onChange={e => setSelectedDepartment(e.target.value as TicketDepartment)}
                 className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
               >
-                <option value="HR">HR</option>
-                <option value="IT">IT</option>
+                {TICKET_DEPARTMENT_OPTIONS.map(department => (
+                  <option key={department} value={department}>
+                    {department}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="space-y-1">

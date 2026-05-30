@@ -110,10 +110,28 @@ function toDepartmentCode(roleName: string) {
     .slice(0, 6);
 }
 
+function toTicketDepartmentCode(departmentName: string) {
+  const normalized = departmentName
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '');
+  return normalized.slice(0, 6) || 'TKT';
+}
+
+function resolveTicketCodePrefix(role: { name: string; policy?: Prisma.JsonValue | null }) {
+  const policy = role.policy;
+  if (policy && typeof policy === 'object' && !Array.isArray(policy)) {
+    const ticketDepartment = (policy as Prisma.JsonObject).ticketDepartment;
+    if (typeof ticketDepartment === 'string' && ticketDepartment.trim().length > 0) {
+      return toTicketDepartmentCode(ticketDepartment);
+    }
+  }
+  return toDepartmentCode(role.name);
+}
+
 async function nextTicketCode(roleId: string, tx: TxLike) {
   const role = await tx.role.findUnique({
     where: { id: roleId },
-    select: { name: true },
+    select: { name: true, policy: true },
   });
 
   if (!role) {
@@ -130,7 +148,7 @@ async function nextTicketCode(roleId: string, tx: TxLike) {
   const year = now.getUTCFullYear();
   const month = String(now.getUTCMonth() + 1).padStart(2, '0');
   const serial = String(sequence.value).padStart(4, '0');
-  const prefix = toDepartmentCode(role.name);
+  const prefix = resolveTicketCodePrefix(role);
 
   return `${prefix}_${year}_${month}_${serial}`;
 }

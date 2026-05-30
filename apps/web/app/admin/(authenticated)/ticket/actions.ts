@@ -134,8 +134,37 @@ export async function createTicketAction(input: unknown) {
     throw new Error(parsed.error.issues[0]?.message || 'Invalid ticket payload');
   }
 
+  const departmentRoles = await db.role.findMany({
+    where: {
+      policy: {
+        path: ['ticketDepartment'],
+        equals: parsed.data.department,
+      },
+    },
+    select: { id: true, name: true },
+  });
+
+  if (departmentRoles.length === 0) {
+    throw new Error(
+      `Department role for '${parsed.data.department}' is not configured. Create or update a role and set ticket department to '${parsed.data.department}'.`
+    );
+  }
+
+  if (departmentRoles.length > 1) {
+    throw new Error(
+      `Multiple roles are configured for '${parsed.data.department}'. Keep exactly one role per ticket department.`
+    );
+  }
+
   const ticket = await createTicket({
-    ...parsed.data,
+    title: parsed.data.title,
+    description: parsed.data.description,
+    resolutionTargetHours: parsed.data.resolutionTargetHours,
+    priority: parsed.data.priority,
+    departmentRoleId: departmentRoles[0]!.id,
+    clientName: parsed.data.clientName,
+    clientContact: parsed.data.clientContact,
+    clientLocation: parsed.data.clientLocation,
     submitterAdminId: session.id,
   });
   revalidateTicketPaths(ticket.id);

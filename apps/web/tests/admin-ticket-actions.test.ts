@@ -22,6 +22,9 @@ jest.mock('@repo/database', () => ({
     ticket: {
       findUnique: jest.fn(),
     },
+    role: {
+      findMany: jest.fn(),
+    },
   },
 }));
 
@@ -46,6 +49,7 @@ describe('ticket actions', () => {
       isSuperAdmin: false,
       permissions: ['tickets:view', 'tickets:create'],
     });
+    (db.role.findMany as jest.Mock).mockResolvedValue([{ id: 'role-it', name: 'IT Role' }]);
   });
 
   test('createTicketAction validates and forwards payload', async () => {
@@ -54,7 +58,7 @@ describe('ticket actions', () => {
     const ticket = await createTicketAction({
       title: 'Network outage',
       description: 'Office internet down',
-      departmentRoleId: 'role-it',
+      department: 'IT',
       clientName: 'Acme',
       clientContact: '+62811',
       clientLocation: 'Makassar',
@@ -66,10 +70,52 @@ describe('ticket actions', () => {
     expect(createTicket).toHaveBeenCalledWith(
       expect.objectContaining({
         submitterAdminId: 'admin-1',
+        departmentRoleId: 'role-it',
         resolutionTargetHours: 4,
         priority: 'HIGH',
       })
     );
+  });
+
+  test('createTicketAction rejects when department role is missing', async () => {
+    (db.role.findMany as jest.Mock).mockResolvedValue([]);
+
+    await expect(
+      createTicketAction({
+        title: 'Network outage',
+        description: 'Office internet down',
+        department: 'IT',
+        clientName: 'Acme',
+        clientContact: '+62811',
+        clientLocation: 'Makassar',
+        resolutionTargetHours: 4,
+        priority: 'HIGH',
+      })
+    ).rejects.toThrow("Department role for 'IT' is not configured");
+
+    expect(createTicket).not.toHaveBeenCalled();
+  });
+
+  test('createTicketAction rejects when multiple roles are mapped to a department', async () => {
+    (db.role.findMany as jest.Mock).mockResolvedValue([
+      { id: 'role-it-1', name: 'IT L1' },
+      { id: 'role-it-2', name: 'IT L2' },
+    ]);
+
+    await expect(
+      createTicketAction({
+        title: 'Network outage',
+        description: 'Office internet down',
+        department: 'IT',
+        clientName: 'Acme',
+        clientContact: '+62811',
+        clientLocation: 'Makassar',
+        resolutionTargetHours: 4,
+        priority: 'HIGH',
+      })
+    ).rejects.toThrow("Multiple roles are configured for 'IT'");
+
+    expect(createTicket).not.toHaveBeenCalled();
   });
 
   test('updateTicketStatusAction passes actor context', async () => {

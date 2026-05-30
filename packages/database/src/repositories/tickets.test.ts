@@ -58,7 +58,10 @@ describe('tickets repository', () => {
   });
 
   test('createTicket creates ticket, default assignment, and history entries', async () => {
-    (prisma.role.findUnique as jest.Mock).mockResolvedValue({ name: 'IT' });
+    (prisma.role.findUnique as jest.Mock).mockResolvedValue({
+      name: 'IT Head',
+      policy: { ticketDepartment: 'IT' },
+    });
     (prisma.employee.findMany as jest.Mock).mockResolvedValue([{ id: 'emp-1' }, { id: 'emp-2' }]);
     (prisma.ticketCodeSequence.upsert as jest.Mock).mockResolvedValue({ value: 17 });
     (prisma.ticket.create as jest.Mock).mockResolvedValue({
@@ -100,7 +103,7 @@ describe('tickets repository', () => {
   });
 
   test('createTicket skips employee assignment when no department matches', async () => {
-    (prisma.role.findUnique as jest.Mock).mockResolvedValue({ name: 'Finance' });
+    (prisma.role.findUnique as jest.Mock).mockResolvedValue({ name: 'Finance', policy: null });
     (prisma.employee.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.ticketCodeSequence.upsert as jest.Mock).mockResolvedValue({ value: 18 });
     (prisma.ticket.create as jest.Mock).mockResolvedValue({
