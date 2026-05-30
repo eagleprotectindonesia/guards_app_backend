@@ -4,7 +4,18 @@ import { useMemo, type ComponentType } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Search, ChevronLeft, ChevronRight, SlidersHorizontal, MoreVertical, Ticket, ShieldCheck, CircleDashed, CheckCircle2, TriangleAlert } from 'lucide-react';
+import {
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  SlidersHorizontal,
+  MoreVertical,
+  Ticket,
+  ShieldCheck,
+  CircleDashed,
+  CheckCircle2,
+  TriangleAlert,
+} from 'lucide-react';
 import { cn } from '@repo/shared';
 import { badgeClass } from './ticket-dashboard-utils';
 
@@ -43,7 +54,7 @@ type Props = {
   totalCount: number;
   filters: {
     q: string;
-    departmentRoleId: string;
+    department: string;
     status: string;
     priority: string;
     assignee: string;
@@ -62,7 +73,15 @@ function priorityClass(priority: DashboardRow['priority']) {
   return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
 }
 
-const STATUS_OPTIONS = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CLOSED', 'CANNOT_RESOLVE'] as const;
+const STATUS_OPTIONS = [
+  'NEW',
+  'ACKNOWLEDGED',
+  'WAITING_INFORMATION',
+  'IN_PROGRESS',
+  'SOLVED',
+  'CLOSED',
+  'CANNOT_RESOLVE',
+] as const;
 const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH'] as const;
 
 function toStatusLabel(value: string) {
@@ -104,7 +123,9 @@ export function TicketOverviewDashboard({ metrics, rows, totalCount, filters, op
             <Card key={metric.label} className="border-border/60 bg-card/95 p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div className="space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{metric.label}</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                    {metric.label}
+                  </p>
                   <p className="text-4xl font-bold tracking-tight text-foreground">{metric.value}</p>
                   <p className="text-xs text-muted-foreground">{metric.hint}</p>
                 </div>
@@ -134,11 +155,11 @@ export function TicketOverviewDashboard({ metrics, rows, totalCount, filters, op
             </div>
             <div className="relative">
               <select
-                value={filters.departmentRoleId}
-                onChange={event => setParam('departmentRoleId', event.target.value)}
+                value={filters.department}
+                onChange={event => setParam('department', event.target.value)}
                 className="h-11 w-full appearance-none rounded-lg border border-border bg-background px-3 pr-9 text-sm text-foreground focus:outline-none"
               >
-                <option value="">Category (Department)</option>
+                <option value="">Category</option>
                 {options.departments.map(option => (
                   <option key={option.value} value={option.value}>
                     {option.label}
@@ -242,24 +263,45 @@ export function TicketOverviewDashboard({ metrics, rows, totalCount, filters, op
                       <div className="mt-1 text-xs text-muted-foreground">{row.clientLocation}</div>
                     </td>
                     <td className="px-4 py-4">
-                      <span className={cn('inline-flex rounded-md border px-2 py-1 text-xs font-medium', priorityClass(row.priority))}>
+                      <span
+                        className={cn(
+                          'inline-flex rounded-md border px-2 py-1 text-xs font-medium',
+                          priorityClass(row.priority)
+                        )}
+                      >
                         {row.priority}
                       </span>
                     </td>
                     <td className="px-4 py-4">
-                      <span className={cn('inline-flex rounded-md border px-2 py-1 text-xs font-medium', badgeClass(row.status))}>
+                      <span
+                        className={cn(
+                          'inline-flex rounded-md border px-2 py-1 text-xs font-medium',
+                          badgeClass(row.status)
+                        )}
+                      >
                         {row.status.replace('_', ' ')}
                       </span>
                     </td>
                     <td className="px-4 py-4 text-foreground">{row.assignedTo}</td>
                     <td className="px-4 py-4 text-foreground">
-                      <div>{new Date(row.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</div>
+                      <div>
+                        {new Date(row.createdAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {new Date(row.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        {new Date(row.createdAt).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                        })}
                       </div>
                     </td>
                     <td className="px-4 py-4 text-right">
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      >
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </td>
@@ -271,15 +313,33 @@ export function TicketOverviewDashboard({ metrics, rows, totalCount, filters, op
         </div>
 
         <div className="flex flex-col gap-3 border-t border-border/60 px-4 py-4 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
-          <p>Showing {rows.length === 0 ? 0 : 1} to {rows.length} of {totalCount} tickets</p>
+          <p>
+            Showing {rows.length === 0 ? 0 : 1} to {rows.length} of {totalCount} tickets
+          </p>
           <div className="flex items-center gap-2">
-            <Button type="button" variant="outline" size="icon" className="h-8 w-8 border-border bg-background" disabled>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 border-border bg-background"
+              disabled
+            >
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <Button type="button" variant="outline" className="h-8 min-w-8 border-purple-500/30 bg-purple-500/10 px-3 text-purple-400 hover:bg-purple-500/20">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-8 min-w-8 border-purple-500/30 bg-purple-500/10 px-3 text-purple-400 hover:bg-purple-500/20"
+            >
               1
             </Button>
-            <Button type="button" variant="outline" size="icon" className="h-8 w-8 border-border bg-background" disabled>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-8 w-8 border-border bg-background"
+              disabled
+            >
               <ChevronRight className="h-4 w-4" />
             </Button>
           </div>

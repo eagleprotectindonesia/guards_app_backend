@@ -2,6 +2,7 @@ import { db, Prisma } from '@repo/database';
 import { TicketPriority, TicketStatus } from '@prisma/client';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import { TICKET_DEPARTMENT_OPTIONS, type TicketDepartment } from '@/lib/ticket-department-roles';
 import { TicketOverviewDashboard, type OverviewMetric } from '../components/ticket-overview-dashboard';
 
 export const dynamic = 'force-dynamic';
@@ -29,6 +30,18 @@ function asPriority(value: string | string[] | undefined): TicketPriority | unde
   return allowed.includes(candidate as TicketPriority) ? (candidate as TicketPriority) : undefined;
 }
 
+function asDepartment(value: string | string[] | undefined): TicketDepartment | undefined {
+  const candidate = firstParam(value);
+  return TICKET_DEPARTMENT_OPTIONS.includes(candidate as TicketDepartment) ? (candidate as TicketDepartment) : undefined;
+}
+
+function getTicketDepartmentFromPolicy(policy: Prisma.JsonValue | null | undefined): TicketDepartment | undefined {
+  if (!policy || typeof policy !== 'object' || Array.isArray(policy)) return undefined;
+  const raw = (policy as Prisma.JsonObject).ticketDepartment;
+  if (typeof raw !== 'string') return undefined;
+  return TICKET_DEPARTMENT_OPTIONS.includes(raw as TicketDepartment) ? (raw as TicketDepartment) : undefined;
+}
+
 function parseAssignee(value: string | string[] | undefined) {
   const candidate = firstParam(value);
   if (!candidate) return null;
@@ -45,7 +58,7 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
   const today = startOfToday();
   const activeStatuses = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS'] as const;
   const search = firstParam(query.q)?.trim() || undefined;
-  const departmentRoleId = firstParam(query.departmentRoleId) || undefined;
+  const department = asDepartment(query.department);
   const status = asStatus(query.status);
   const priority = asPriority(query.priority);
   const assignee = parseAssignee(query.assignee);
@@ -62,7 +75,18 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
           ],
         }
       : {}),
-    ...(departmentRoleId ? { departmentRoleId } : {}),
+    ...(department
+      ? {
+          departmentRole: {
+            is: {
+              policy: {
+                path: ['ticketDepartment'],
+                equals: department,
+              },
+            },
+          },
+        }
+      : {}),
     ...(status ? { status } : {}),
     ...(priority ? { priority } : {}),
     ...(assignee?.type === 'UNASSIGNED'
@@ -74,7 +98,7 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
           : {}),
   };
 
-  const [totalTickets, openTickets, inProgressTickets, resolvedToday, slaBreachedRows, filteredCount, recentTickets, departmentRows, claimedAdmins, claimedEmployees] = await Promise.all([
+  const [totalTickets, openTickets, inProgressTickets, resolvedToday, slaBreachedRows, filteredCount, recentTickets, claimedAdmins, claimedEmployees] = await Promise.all([
     db.ticket.count(),
     db.ticket.count({
       where: {
@@ -106,17 +130,9 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 8,
       include: {
-        departmentRole: { select: { id: true, name: true } },
+        departmentRole: { select: { id: true, name: true, policy: true } },
         claimedByAdmin: { select: { name: true } },
         claimedByEmployee: { select: { fullName: true } },
-      },
-    }),
-    db.ticket.findMany({
-      where: { departmentRoleId: { not: null } },
-      distinct: ['departmentRoleId'],
-      select: {
-        departmentRoleId: true,
-        departmentRole: { select: { name: true } },
       },
     }),
     db.admin.findMany({
@@ -135,13 +151,10 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
     }),
   ]);
 
-  const departmentOptions = departmentRows
-    .filter(item => item.departmentRoleId && item.departmentRole?.name)
-    .map(item => ({
-      value: item.departmentRoleId as string,
-      label: item.departmentRole?.name as string,
-    }))
-    .sort((a, b) => a.label.localeCompare(b.label));
+  const departmentOptions = TICKET_DEPARTMENT_OPTIONS.map(item => ({
+    value: item,
+    label: item,
+  }));
 
   const assigneeOptions = [
     ...claimedAdmins.map(item => ({ value: `admin:${item.id}`, label: item.name })),
@@ -150,18 +163,22 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
   ];
   const slaBreachedTickets = Number(slaBreachedRows[0]?.count ?? 0);
 
-  const rows = recentTickets.map(ticket => ({
-    id: ticket.id,
-    code: ticket.code,
-    title: ticket.title,
-    category: ticket.departmentRole?.name ?? 'General',
-    clientName: ticket.clientName,
-    clientLocation: ticket.clientLocation,
-    priority: ticket.priority,
-    status: ticket.status,
-    assignedTo: ticket.claimedByAdmin?.name ?? ticket.claimedByEmployee?.fullName ?? 'Unassigned',
-    createdAt: ticket.createdAt.toISOString(),
-  }));
+  const rows = recentTickets.map(ticket => {
+    const ticketDepartment = getTicketDepartmentFromPolicy(ticket.departmentRole?.policy);
+
+    return {
+      id: ticket.id,
+      code: ticket.code,
+      title: ticket.title,
+      category: ticketDepartment ?? ticket.departmentRole?.name ?? 'General',
+      clientName: ticket.clientName,
+      clientLocation: ticket.clientLocation,
+      priority: ticket.priority,
+      status: ticket.status,
+      assignedTo: ticket.claimedByAdmin?.name ?? ticket.claimedByEmployee?.fullName ?? 'Unassigned',
+      createdAt: ticket.createdAt.toISOString(),
+    };
+  });
 
   const metrics: OverviewMetric[] = [
     {
@@ -208,7 +225,7 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
       totalCount={filteredCount}
       filters={{
         q: search ?? '',
-        departmentRoleId: departmentRoleId ?? '',
+        department: department ?? '',
         status: status ?? '',
         priority: priority ?? '',
         assignee: firstParam(query.assignee) ?? '',
