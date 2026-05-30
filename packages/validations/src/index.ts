@@ -2,6 +2,8 @@ import { z } from 'zod';
 import { isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js';
 import { isValidShiftTypeTime } from '@repo/shared';
 
+export const ticketResolutionTargetHourOptions = [1, 4, 8, 24] as const;
+
 export const ShiftStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 'missed', 'cancelled']);
 
 export const EmployeeTitleEnum = z.enum(['Mr', 'Miss', 'Mrs']);
@@ -259,6 +261,12 @@ export const ticketCreateSchema = z.object({
   clientName: z.string().trim().min(1, 'Client name is required'),
   clientContact: z.string().trim().min(1, 'Client contact is required'),
   clientLocation: z.string().trim().min(1, 'Client location is required'),
+  resolutionTargetHours: z
+    .number()
+    .int('Resolution target must be a whole number of hours')
+    .refine(value => ticketResolutionTargetHourOptions.includes(value as (typeof ticketResolutionTargetHourOptions)[number]), {
+      message: 'Resolution target must match one of the supported presets',
+    }),
   priority: TicketPriorityEnum.default('MEDIUM'),
 });
 

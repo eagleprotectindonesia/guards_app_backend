@@ -33,6 +33,7 @@ export type TicketDetail = {
   clientName: string;
   clientContact: string;
   clientLocation: string;
+  resolutionTargetHours: number;
   status: TicketListItem['status'];
   priority: TicketListItem['priority'];
   createdAt: string | Date;

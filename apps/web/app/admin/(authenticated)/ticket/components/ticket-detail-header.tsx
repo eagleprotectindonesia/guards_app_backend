@@ -5,7 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { X, Pencil, MoreHorizontal } from 'lucide-react';
+import { X, Pencil, MoreHorizontal, Clock } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { cn } from '@repo/shared';
 import { badgeClass, formatDate } from './ticket-dashboard-utils';
@@ -34,6 +34,12 @@ function statusActionLabel(status: TicketListItem['status']) {
   if (status === 'CLOSED') return 'Close / Cancel';
   if (status === 'ACKNOWLEDGED') return 'Acknowledge';
   return status.replace('_', ' ');
+}
+
+function formatResolutionDeadline(createdAt: string | Date, resolutionTargetHours: number) {
+  const createdAtDate = new Date(createdAt);
+  const deadline = new Date(createdAtDate.getTime() + resolutionTargetHours * 60 * 60 * 1000);
+  return formatDate(deadline);
 }
 
 export function TicketDetailHeader({
@@ -144,6 +150,10 @@ export function TicketDetailHeader({
           >
             {ticket.status.replace('_', ' ')}
           </span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-400">
+            <Clock className="h-3.5 w-3.5" />
+            Due {formatResolutionDeadline(ticket.createdAt, ticket.resolutionTargetHours)}
+          </span>
         </div>
         <p className="text-muted-foreground text-sm mt-2 font-medium tracking-wide">{ticket.title}</p>
       </div>
@@ -151,7 +161,9 @@ export function TicketDetailHeader({
       <div className="p-5 bg-muted/30 border-b border-border/40">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Created By</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+              Created By
+            </span>
             <span className="text-sm font-semibold text-foreground block truncate">
               {ticket.submitterAdmin?.name || 'System'}
             </span>
@@ -165,7 +177,9 @@ export function TicketDetailHeader({
           </div>
 
           <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Client Name</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+              Client Name
+            </span>
             <span className="text-sm font-semibold text-foreground block truncate">{ticket.clientName || '-'}</span>
           </div>
 
@@ -179,14 +193,18 @@ export function TicketDetailHeader({
           </div>
 
           <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Department</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+              Department
+            </span>
             <span className="text-sm font-semibold text-foreground block truncate">
               {ticket.departmentRole?.name || '-'}
             </span>
           </div>
 
           <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Assigned To</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+              Assigned To
+            </span>
             <span className="text-sm font-semibold text-foreground block truncate">
               {ticket.assignedAdmin?.name || '-'}
             </span>
@@ -200,7 +218,9 @@ export function TicketDetailHeader({
           </div>
 
           <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">Status</span>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
+              Status
+            </span>
             <span className="text-sm font-semibold text-foreground block truncate">
               {ticket.status.replace('_', ' ')}
             </span>

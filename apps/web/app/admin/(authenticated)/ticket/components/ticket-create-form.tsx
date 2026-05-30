@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { createTicketAction, createTicketAttachmentUploadUrlAction, attachUploadedFilesToTicketAction } from '../actions';
 import { toast } from 'react-hot-toast';
 import { uploadFileWithPresignedPost } from '@/lib/s3-presigned-post-upload';
+import { ticketResolutionTargetHourOptions } from '@repo/validations';
 
 type RoleOption = { id: string; name: string };
 
@@ -23,6 +24,7 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
   const [clientName, setClientName] = useState('');
   const [clientContact, setClientContact] = useState('');
   const [clientLocation, setClientLocation] = useState('');
+  const [resolutionTargetHours, setResolutionTargetHours] = useState<(typeof ticketResolutionTargetHourOptions)[number]>(4);
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
   const [files, setFiles] = useState<File[]>([]);
   const previews = useMemo(
@@ -88,6 +90,7 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
             clientName,
             clientContact,
             clientLocation,
+            resolutionTargetHours,
             priority,
           });
 
@@ -155,6 +158,22 @@ export function TicketCreateForm({ adminName, roleOptions }: Props) {
                 <option value="LOW">Low</option>
                 <option value="MEDIUM">Medium</option>
                 <option value="HIGH">High</option>
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="text-xs text-muted-foreground font-medium">
+                Promised Resolution Time <span className="text-red-500">*</span>
+              </span>
+              <select
+                value={String(resolutionTargetHours)}
+                onChange={e => setResolutionTargetHours(Number(e.target.value) as (typeof ticketResolutionTargetHourOptions)[number])}
+                className="w-full rounded border border-border bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:border-indigo-500"
+              >
+                {ticketResolutionTargetHourOptions.map(hours => (
+                  <option key={hours} value={hours}>
+                    {hours} {hours === 1 ? 'hour' : 'hours'}
+                  </option>
+                ))}
               </select>
             </label>
           </div>

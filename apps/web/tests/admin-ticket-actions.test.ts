@@ -58,6 +58,7 @@ describe('ticket actions', () => {
       clientName: 'Acme',
       clientContact: '+62811',
       clientLocation: 'Makassar',
+      resolutionTargetHours: 4,
       priority: 'HIGH',
     });
 
@@ -65,6 +66,7 @@ describe('ticket actions', () => {
     expect(createTicket).toHaveBeenCalledWith(
       expect.objectContaining({
         submitterAdminId: 'admin-1',
+        resolutionTargetHours: 4,
         priority: 'HIGH',
       })
     );

@@ -71,6 +71,7 @@ describe('tickets repository', () => {
     await createTicket({
       title: 'VPN down',
       description: 'VPN cannot connect',
+      resolutionTargetHours: 4,
       priority: 'MEDIUM',
       submitterAdminId: 'admin-1',
       departmentRoleId: 'role-it',
@@ -79,7 +80,13 @@ describe('tickets repository', () => {
       clientLocation: 'Jakarta',
     });
 
-    expect(prisma.ticket.create).toHaveBeenCalled();
+    expect(prisma.ticket.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          resolutionTargetHours: 4,
+        }),
+      })
+    );
     expect(prisma.ticketAssignedRole.create).toHaveBeenCalledWith({
       data: { ticketId: 'ticket-1', roleId: 'role-it' },
     });
@@ -106,6 +113,7 @@ describe('tickets repository', () => {
     await createTicket({
       title: 'Payroll issue',
       description: 'Incorrect payroll export',
+      resolutionTargetHours: 8,
       priority: 'MEDIUM',
       submitterAdminId: 'admin-2',
       departmentRoleId: 'role-finance',

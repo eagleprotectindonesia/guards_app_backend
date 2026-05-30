@@ -26,6 +26,7 @@ export type TicketMessageWithAttachmentsInput = {
 export type CreateTicketInput = {
   title: string;
   description: string;
+  resolutionTargetHours: number;
   priority: TicketPriority;
   submitterAdminId: string;
   departmentRoleId: string;
@@ -252,6 +253,7 @@ export async function createTicket(input: CreateTicketInput, tx: TxLike = prisma
         code,
         title: input.title,
         description: input.description,
+        resolutionTargetHours: input.resolutionTargetHours,
         priority: input.priority,
         submitterAdminId: input.submitterAdminId,
         departmentRoleId: input.departmentRoleId,
@@ -286,6 +288,7 @@ export async function createTicket(input: CreateTicketInput, tx: TxLike = prisma
       metadata: {
         code,
         priority: ticket.priority,
+        resolutionTargetHours: input.resolutionTargetHours,
         departmentRoleId: input.departmentRoleId,
         employeeDepartmentKeyword: targetEmployees.keyword,
         assignedEmployeeCount: targetEmployees.employees.length,
