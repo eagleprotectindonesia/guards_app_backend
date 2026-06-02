@@ -102,16 +102,7 @@ function ClientLocationMapPreview({
   onPlaceSelect: (address: string, lat: number, lng: number) => void;
 }) {
   const geocodingLib = useMapsLibrary('geocoding');
-  const [markerPosition, setMarkerPosition] = useState<google.maps.LatLngLiteral>(
-    position ?? DEFAULT_LOCATION_POSITION
-  );
-  const [shouldUpdate, setShouldUpdate] = useState(Boolean(position));
-
-  useEffect(() => {
-    const nextPosition = position ?? DEFAULT_LOCATION_POSITION;
-    setMarkerPosition(nextPosition);
-    setShouldUpdate(Boolean(position));
-  }, [position?.lat, position?.lng]);
+  const markerPosition = position ?? DEFAULT_LOCATION_POSITION;
 
   const geocodeLatLng = useCallback(
     async (latLng: google.maps.LatLngLiteral) => {
@@ -141,8 +132,6 @@ function ClientLocationMapPreview({
         lat: event.detail.latLng.lat,
         lng: event.detail.latLng.lng,
       };
-      setMarkerPosition(nextPosition);
-      setShouldUpdate(false);
       void geocodeLatLng(nextPosition);
     },
     [geocodeLatLng]
@@ -161,7 +150,7 @@ function ClientLocationMapPreview({
           mapId="DEMO_MAP_ID"
         >
           {position && <Marker position={markerPosition} />}
-          <MapUpdater center={markerPosition} zoom={15} shouldUpdate={shouldUpdate} />
+          <MapUpdater center={markerPosition} zoom={15} shouldUpdate={Boolean(position)} />
         </Map>
       </div>
       <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-background px-3 py-2 text-xs text-muted-foreground">

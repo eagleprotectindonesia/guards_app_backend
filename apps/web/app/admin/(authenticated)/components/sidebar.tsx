@@ -3,25 +3,14 @@
 import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
 import { usePathname, useSearchParams } from 'next/navigation';
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  LayoutDashboard,
-  BarChart3,
-  PlusSquare,
-  List,
-  UserRound,
-  Inbox,
-  Archive,
-} from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { cn } from '@repo/shared';
-import { ADMIN_SECONDARY_NAV_ITEMS, getAdminNavItems, type NavItem } from '@/lib/admin-navigation';
+import { getAdminNavGroups } from '@/lib/admin-navigation';
 import { useSession } from '../context/session-context';
 import { AdminNavLink } from './admin-nav-link';
 import { useAdminNotifications } from '../context/admin-notification-context';
 import { getAdminDashboardHref, getAdminTabFromPath } from '@/lib/admin-tab-routing';
+import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 
 type Props = {
   officeWorkSchedulesEnabled: boolean;
@@ -83,14 +72,14 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeTab = getAdminTabFromPath(pathname);
+  const routeTab = getAdminTabFromPath(pathname);
+  const { selectedTab } = useAdminDashboardTab();
   const { hasPermission } = useSession();
   const { unreadCount } = useAdminNotifications();
   const currentUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
   const [ticketCounters, setTicketCounters] = useState<{ all: number; my: number; unassigned: number; closed: number } | null>(null);
 
   useEffect(() => {
-    if (activeTab !== 'ticket') return;
     if (!hasPermission('tickets:view')) return;
 
     let cancelled = false;
@@ -111,85 +100,16 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [activeTab, hasPermission]);
+  }, [hasPermission]);
 
   const navGroups = useMemo(() => {
-    if (activeTab === 'ticket') {
-      return [
-        {
-          label: 'Ticket Command Center',
-          items: [
-            { name: 'Dashboard', href: '/admin/ticket/dashboard', icon: BarChart3 },
-            { name: 'All Tickets', href: '/admin/ticket/all', icon: List },
-            { name: 'Create Ticket', href: '/admin/ticket/create', icon: PlusSquare },
-            { name: 'My Tickets', href: '/admin/ticket/my', icon: UserRound },
-            { name: 'Unassigned', href: '/admin/ticket/unassigned', icon: Inbox },
-            { name: 'Closed Tickets', href: '/admin/ticket/closed', icon: Archive },
-          ],
-        },
-      ];
-    }
-
-    if (activeTab !== 'live') {
-      return [
-        {
-          label: 'Dashboard',
-          items: [{ name: 'Dashboard', href: getAdminDashboardHref(activeTab), icon: LayoutDashboard }],
-        },
-      ];
-    }
-
-    const navItems = getAdminNavItems(officeWorkSchedulesEnabled);
-    const byName = new Map(navItems.map(item => [item.name, item]));
-
-    const groups: Array<{ label: string; items: NavItem[] }> = [
-      {
-        label: 'Dashboard',
-        items: [byName.get('Dashboard'), byName.get('New Dashboard')].filter(Boolean) as NavItem[],
-      },
-      {
-        label: 'Office',
-        items: [
-          byName.get('Offices'),
-          byName.get('Office Schedules'),
-          byName.get('Office Shift Types'),
-          byName.get('Office Shifts'),
-        ].filter(Boolean) as NavItem[],
-      },
-      {
-        label: 'Guard',
-        items: [
-          byName.get('Sites'),
-          byName.get('Guard Shift Types'),
-          byName.get('Guard Shifts'),
-          byName.get('Guard Checkins'),
-          byName.get('Alerts'),
-          byName.get('Chat'),
-        ].filter(Boolean) as NavItem[],
-      },
-      {
-        label: 'Employee Management',
-        items: [
-          byName.get('Employees'),
-          byName.get('Attendance'),
-          byName.get('Holiday Calendar'),
-          byName.get('Leave Requests'),
-          byName.get('Office Memos'),
-        ].filter(Boolean) as NavItem[],
-      },
-      {
-        label: 'System',
-        items: ADMIN_SECONDARY_NAV_ITEMS,
-      },
-    ];
-
-    return groups
+    return getAdminNavGroups(officeWorkSchedulesEnabled, selectedTab)
       .map(group => ({
         ...group,
         items: group.items.filter(item => !item.requiredPermission || hasPermission(item.requiredPermission)),
       }))
       .filter(group => group.items.length > 0);
-  }, [activeTab, hasPermission, officeWorkSchedulesEnabled]);
+  }, [hasPermission, officeWorkSchedulesEnabled, selectedTab]);
 
   const isGroupCollapsed = (label: string) => collapsedGroups[label] ?? false;
   const ticketCounterByHref: Record<string, number | undefined> = {
@@ -209,7 +129,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-border relative group">
         <AdminNavLink
-          href={getAdminDashboardHref(activeTab)}
+          href={getAdminDashboardHref(selectedTab)}
           className={cn(
             'flex items-center overflow-hidden transition-all duration-300',
             isCollapsed ? 'justify-center w-full' : 'w-full'
@@ -279,7 +199,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                     : pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
                   const ticketCounter = ticketCounterByHref[item.href];
-                  const showTicketCounter = activeTab === 'ticket' && typeof ticketCounter === 'number' && ticketCounter > 0;
+                  const showTicketCounter = typeof ticketCounter === 'number' && ticketCounter > 0;
 
                   return (
                     <AdminNavLink
@@ -289,7 +209,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                         isActive
-                          ? activeTab === 'ticket'
+                          ? routeTab === 'ticket'
                             ? 'bg-purple-500/10 text-purple-400 dark:bg-purple-950/30 dark:text-purple-400 border border-purple-500/20'
                             : 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
                           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
@@ -300,7 +220,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                         className={cn(
                           'w-5 h-5 shrink-0',
                           isActive
-                            ? activeTab === 'ticket'
+                          ? routeTab === 'ticket'
                               ? 'text-purple-400'
                               : 'text-red-600 dark:text-red-400'
                             : 'text-muted-foreground'
@@ -342,7 +262,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                     : pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
                   const ticketCounter = ticketCounterByHref[item.href];
-                  const showTicketCounter = activeTab === 'ticket' && typeof ticketCounter === 'number' && ticketCounter > 0;
+                  const showTicketCounter = typeof ticketCounter === 'number' && ticketCounter > 0;
 
                   return (
                     <AdminNavLink
@@ -352,7 +272,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors justify-center px-2',
                         isActive
-                          ? activeTab === 'ticket'
+                          ? routeTab === 'ticket'
                             ? 'bg-purple-500/10 text-purple-400 dark:bg-purple-950/30 dark:text-purple-400 border border-purple-500/20'
                             : 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
                           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
@@ -362,7 +282,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                         className={cn(
                           'w-5 h-5 shrink-0',
                           isActive
-                            ? activeTab === 'ticket'
+                            ? routeTab === 'ticket'
                               ? 'text-purple-400'
                               : 'text-red-600 dark:text-red-400'
                             : 'text-muted-foreground'

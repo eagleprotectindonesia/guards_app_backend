@@ -13,11 +13,12 @@ import React from 'react';
 import { Home } from 'lucide-react';
 import { ADMIN_LABEL_MAP } from '@/lib/admin-navigation';
 import { AdminNavLink } from './admin-nav-link';
-import { getAdminDashboardHref, getAdminTabFromPath } from '@/lib/admin-tab-routing';
+import { getAdminDashboardHref } from '@/lib/admin-tab-routing';
+import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 
 export function AdminBreadcrumb() {
   const pathname = usePathname();
-  const activeTab = getAdminTabFromPath(pathname);
+  const { selectedTab } = useAdminDashboardTab();
 
   if (pathname === '/admin/new-dashboard') {
     return null;
@@ -36,7 +37,7 @@ export function AdminBreadcrumb() {
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
             <AdminNavLink
-              href={getAdminDashboardHref(activeTab)}
+              href={getAdminDashboardHref(selectedTab)}
               className="flex items-center gap-1"
             >
               <Home className="h-4 w-4" />

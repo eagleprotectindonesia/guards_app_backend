@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
+import { getAdminDashboardHref } from '@/lib/admin-tab-routing';
 
 export default function Verify2FA() {
   const [code, setCode] = useState('');
@@ -40,7 +41,7 @@ export default function Verify2FA() {
       }
 
       // Successful verification
-      router.push('/admin/dashboard');
+      router.push(getAdminDashboardHref('live'));
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);

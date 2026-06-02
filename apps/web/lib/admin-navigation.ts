@@ -6,6 +6,11 @@ import {
   Bell,
   Layers,
   ClipboardCheck,
+  PlusSquare,
+  List,
+  UserRound,
+  Inbox,
+  Archive,
   UserCog,
   Settings,
   Hotel,
@@ -15,6 +20,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { PermissionCode } from './auth/permissions';
+import { getAdminDashboardHref, type AdminTabSlug } from './admin-tab-routing';
 
 export interface NavItem {
   name: string;
@@ -28,10 +34,17 @@ export interface NavGroup {
   items: NavItem[];
 }
 
+export const ADMIN_TICKET_NAV_ITEMS: NavItem[] = [
+  { name: 'All Tickets', href: '/admin/ticket/all', icon: List, requiredPermission: 'tickets:view' },
+  { name: 'Create Ticket', href: '/admin/ticket/create', icon: PlusSquare, requiredPermission: 'tickets:create' },
+  { name: 'My Tickets', href: '/admin/ticket/my', icon: UserRound, requiredPermission: 'tickets:view' },
+  { name: 'Unassigned', href: '/admin/ticket/unassigned', icon: Inbox, requiredPermission: 'tickets:view' },
+  { name: 'Closed Tickets', href: '/admin/ticket/closed', icon: Archive, requiredPermission: 'tickets:view' },
+];
+
 export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
   return [
-    { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
-    { name: 'New Dashboard', href: '/admin/new-dashboard', icon: LayoutDashboard },
+    { name: 'Dashboard', href: '/admin/new-dashboard', icon: LayoutDashboard },
     { name: 'Sites', href: '/admin/sites', icon: MapPin, requiredPermission: 'sites:view' },
     { name: 'Offices', href: '/admin/offices', icon: Hotel, requiredPermission: 'offices:view' },
     ...(officeWorkSchedulesEnabled
@@ -100,14 +113,18 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
   ];
 }
 
-export function getAdminNavGroups(officeWorkSchedulesEnabled = true): NavGroup[] {
+export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: AdminTabSlug = 'live'): NavGroup[] {
   const allItems = getAdminNavItems(officeWorkSchedulesEnabled);
   const byName = new Map(allItems.map(item => [item.name, item]));
 
   return [
     {
       label: 'Dashboard',
-      items: [byName.get('Dashboard')].filter(Boolean) as NavItem[],
+      items: [{ name: 'Dashboard', href: getAdminDashboardHref(activeTab), icon: LayoutDashboard }],
+    },
+    {
+      label: 'Ticket',
+      items: ADMIN_TICKET_NAV_ITEMS,
     },
     {
       label: 'Office',
@@ -142,7 +159,7 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true): NavGroup[]
     },
     {
       label: 'System',
-      items: [byName.get('Admins'), byName.get('Roles'), byName.get('Settings')].filter(Boolean) as NavItem[],
+      items: ADMIN_SECONDARY_NAV_ITEMS,
     },
   ].filter(group => group.items.length > 0);
 }

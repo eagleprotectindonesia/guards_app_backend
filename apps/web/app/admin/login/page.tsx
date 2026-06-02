@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { PasswordInput } from '@/components/ui/password-input';
+import { getAdminDashboardHref } from '@/lib/admin-tab-routing';
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
@@ -35,8 +36,8 @@ export default function AdminLogin() {
         return;
       }
 
-      // Assuming successful login, redirect to admin dashboard
-      router.push('/admin/dashboard');
+      // Assuming successful login, redirect to the live admin dashboard
+      router.push(getAdminDashboardHref('live'));
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);

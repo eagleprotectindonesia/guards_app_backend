@@ -1,7 +1,6 @@
 'use client';
 
 import { type ComponentType } from 'react';
-import { usePathname } from 'next/navigation';
 import { ModeToggle } from '@/components/mode-toggle';
 import AlertNotifications from './alert-notifications';
 import AdminNotificationInbox from './admin-notification-inbox';
@@ -9,8 +8,8 @@ import { AdminSession } from '@/lib/admin-auth';
 import AdminProfileDropdown from './admin-profile-dropdown';
 import { Radio, Ticket, Users, Building2, FileSearch } from 'lucide-react';
 import { cn } from '@repo/shared';
-import { getAdminDashboardHref, getAdminTabFromPath, type AdminTabSlug } from '@/lib/admin-tab-routing';
-import { useAdminRouter } from '../context/admin-router';
+import { type AdminTabSlug } from '@/lib/admin-tab-routing';
+import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 
 const HEADER_MENUS = [
   {
@@ -75,9 +74,7 @@ const HEADER_MENUS = [
 }>;
 
 export default function Header({ currentAdmin }: { currentAdmin: AdminSession }) {
-  const pathname = usePathname();
-  const router = useAdminRouter();
-  const activeTab = getAdminTabFromPath(pathname);
+  const { selectedTab, setSelectedTab } = useAdminDashboardTab();
 
   return (
     <header className="h-16 bg-card border-b border-border px-6 flex items-center justify-between sticky top-0 z-10">
@@ -86,13 +83,15 @@ export default function Header({ currentAdmin }: { currentAdmin: AdminSession })
 
       <div className="flex items-center gap-1.5 h-full py-2">
         {HEADER_MENUS.map((menu) => {
-          const isActive = activeTab === menu.tab;
+          const isActive = selectedTab === menu.tab;
           const Icon = menu.icon;
 
           return (
             <button
               key={menu.id}
-              onClick={() => router.push(getAdminDashboardHref(menu.tab))}
+              onClick={() => {
+                setSelectedTab(menu.tab);
+              }}
               className={cn(
                 "flex items-center gap-3 px-4 py-1.5 rounded-lg border border-transparent transition-all duration-200 group relative whitespace-nowrap",
                 isActive ? cn(menu.activeBg, menu.activeBorder, "ring-1 ring-primary/10 shadow-sm") : "hover:bg-accent/50"

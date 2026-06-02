@@ -8,12 +8,13 @@ import { cn } from '@repo/shared';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { usePathname } from 'next/navigation';
 import { AdminNavLink } from './admin-nav-link';
-import { getAdminDashboardHref, getAdminTabFromPath, isDashboardPath } from '@/lib/admin-tab-routing';
+import { getAdminDashboardHref, isDashboardPath } from '@/lib/admin-tab-routing';
+import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 
 export default function AlertNotifications() {
   const { isMuted, setIsMuted, alerts, isAlertsInitialized } = useAlerts();
   const pathname = usePathname();
-  const activeTab = getAdminTabFromPath(pathname);
+  const { selectedTab } = useAdminDashboardTab();
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const activeAlerts = alerts.filter(
@@ -127,7 +128,7 @@ export default function AlertNotifications() {
           <div className="flex flex-col gap-2">
             <Button asChild className="w-full bg-red-600 hover:bg-red-700 text-white border-0">
               <AdminNavLink
-                href={getAdminDashboardHref(activeTab)}
+                href={getAdminDashboardHref(selectedTab)}
                 className="w-full"
               >
                 Go to Dashboard
