@@ -77,9 +77,12 @@ type TicketOverviewSidebar = {
   }>;
   slaStatus: {
     met: number;
+    pending: number;
     breached: number;
     total: number;
     metPercentage: number;
+    pendingPercentage: number;
+    breachedPercentage: number;
   };
 };
 
@@ -256,10 +259,11 @@ export function TicketOverviewDashboard({ metrics, sidebar, rows, totalCount, fi
     () => ({
       background: buildConicGradient([
         { value: sidebar.slaStatus.met, color: '#22c55e' },
+        { value: sidebar.slaStatus.pending, color: '#f59e0b' },
         { value: sidebar.slaStatus.breached, color: '#ef4444' },
       ]),
     }),
-    [sidebar.slaStatus.breached, sidebar.slaStatus.met]
+    [sidebar.slaStatus.breached, sidebar.slaStatus.met, sidebar.slaStatus.pending]
   );
 
   function setParam(key: string, value: string) {
@@ -670,6 +674,13 @@ export function TicketOverviewDashboard({ metrics, sidebar, rows, totalCount, fi
                     <span className="text-muted-foreground">Met</span>
                   </div>
                   <span className="font-medium text-foreground">{sidebar.slaStatus.met}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                    <span className="text-muted-foreground">Pending</span>
+                  </div>
+                  <span className="font-medium text-foreground">{sidebar.slaStatus.pending}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">

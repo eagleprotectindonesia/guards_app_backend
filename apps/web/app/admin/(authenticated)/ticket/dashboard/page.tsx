@@ -102,7 +102,6 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
   const query = await searchParams;
 
   const today = startOfToday();
-  const activeStatuses = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS'] as const;
   const search = firstParam(query.q)?.trim() || undefined;
   const department = asDepartment(query.department);
   const status = asStatus(query.status);
@@ -149,7 +148,6 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
     openTickets,
     inProgressTickets,
     resolvedToday,
-    slaBreachedRows,
     filteredCount,
     recentTickets,
     claimedAdmins,
@@ -173,12 +171,6 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
         OR: [{ solvedAt: { gte: today } }, { closedAt: { gte: today } }],
       },
     }),
-    db.$queryRaw<Array<{ count: bigint | number }>>(Prisma.sql`
-      SELECT COUNT(*)::bigint AS count
-      FROM tickets
-      WHERE status IN (${Prisma.join(activeStatuses)})
-        AND created_at + (resolution_target_hours * INTERVAL '1 hour') < NOW()
-    `),
     db.ticket.count({ where }),
     db.ticket.findMany({
       where,
@@ -224,7 +216,7 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
     ...claimedEmployees.map(item => ({ value: `employee:${item.id}`, label: item.fullName })),
     { value: 'unassigned', label: 'Unassigned' },
   ];
-  const slaBreachedTickets = Number(slaBreachedRows[0]?.count ?? 0);
+  const slaBreachedTickets = sidebar.slaStatus.breached;
   const totalTicketDelta = totalTickets - comparisonStats.yesterdayTotal;
   const resolvedTodayDelta = resolvedToday - comparisonStats.yesterdayResolved;
   const openTicketHint = getOpenTicketHint(openTickets);

@@ -78,9 +78,12 @@ export type TicketDashboardSidebarStats = {
   categories: TicketDashboardCategoryStat[];
   slaStatus: {
     met: number;
+    pending: number;
     breached: number;
     total: number;
     metPercentage: number;
+    pendingPercentage: number;
+    breachedPercentage: number;
   };
 };
 
@@ -101,6 +104,8 @@ const CLOSED_VIEW_STATUSES: TicketStatus[] = ['CLOSED'];
 const ACTIVE_VIEW_EXCLUDED_STATUSES: TicketStatus[] = ['CLOSED', 'CANNOT_RESOLVE'];
 const ACTIVE_VIEW_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'];
 const SUBMITTED_OPEN_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'];
+const SLA_ACTIVE_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS'];
+const SLA_TERMINAL_STATUSES = new Set<TicketStatus>(['SOLVED', 'CLOSED', 'CANNOT_RESOLVE']);
 
 function isITRole(roleName?: string | null) {
   return roleName?.trim().toLowerCase() === 'it';
@@ -192,6 +197,73 @@ function reopenTimestampPatch() {
     solvedAt: null,
     closedAt: null,
     cannotResolveAt: null,
+  };
+}
+
+function getTicketSlaDeadline(createdAt: Date, resolutionTargetHours: number) {
+  return new Date(createdAt.getTime() + resolutionTargetHours * 60 * 60 * 1000);
+}
+
+function getTicketCompletionAt(ticket: {
+  status: TicketStatus;
+  solvedAt: Date | null;
+  closedAt: Date | null;
+  cannotResolveAt: Date | null;
+  updatedAt: Date;
+}) {
+  if (ticket.status === 'SOLVED') return ticket.solvedAt ?? ticket.updatedAt;
+  if (ticket.status === 'CLOSED') return ticket.closedAt ?? ticket.updatedAt;
+  if (ticket.status === 'CANNOT_RESOLVE') return ticket.cannotResolveAt ?? ticket.updatedAt;
+  return null;
+}
+
+function summarizeTicketSlaStatus(
+  tickets: Array<{
+    status: TicketStatus;
+    createdAt: Date;
+    updatedAt: Date;
+    resolutionTargetHours: number;
+    solvedAt: Date | null;
+    closedAt: Date | null;
+    cannotResolveAt: Date | null;
+  }>,
+  now: Date = new Date()
+) {
+  let met = 0;
+  let pending = 0;
+  let breached = 0;
+
+  for (const ticket of tickets) {
+    const deadline = getTicketSlaDeadline(ticket.createdAt, ticket.resolutionTargetHours);
+
+    if (SLA_ACTIVE_STATUSES.includes(ticket.status)) {
+      if (deadline.getTime() < now.getTime()) {
+        breached += 1;
+      } else {
+        pending += 1;
+      }
+      continue;
+    }
+
+    if (SLA_TERMINAL_STATUSES.has(ticket.status)) {
+      const completionAt = getTicketCompletionAt(ticket);
+      if (completionAt && completionAt.getTime() <= deadline.getTime()) {
+        met += 1;
+      } else {
+        breached += 1;
+      }
+    }
+  }
+
+  const total = met + pending + breached;
+  return {
+    met,
+    pending,
+    breached,
+    total,
+    metPercentage: total > 0 ? Math.round((met / total) * 100) : 0,
+    pendingPercentage: total > 0 ? Math.round((pending / total) * 100) : 0,
+    breachedPercentage: total > 0 ? Math.round((breached / total) * 100) : 0,
   };
 }
 
@@ -509,14 +581,13 @@ export async function getTicketDashboardSidebarStats(
     adminId: string;
     categories: readonly string[];
     startOfToday?: Date;
+    now?: Date;
   },
   tx: TxLike = prisma
 ): Promise<TicketDashboardSidebarStats> {
   const today = input.startOfToday ?? new Date(new Date().setHours(0, 0, 0, 0));
-  const activeStatuses = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS'] as const;
 
-  const [total, myOpenSubmitted, unassigned, resolvedToday, slaBreachedRows, categoryCounts] = await Promise.all([
-    tx.ticket.count(),
+  const [myOpenSubmitted, unassigned, resolvedToday, categoryCounts, slaTickets] = await Promise.all([
     tx.ticket.count({
       where: {
         submitterAdminId: input.adminId,
@@ -534,12 +605,6 @@ export async function getTicketDashboardSidebarStats(
         OR: [{ solvedAt: { gte: today } }, { closedAt: { gte: today } }],
       },
     }),
-    tx.$queryRaw<Array<{ count: bigint | number }>>(Prisma.sql`
-      SELECT COUNT(*)::bigint AS count
-      FROM tickets
-      WHERE status IN (${Prisma.join(activeStatuses)})
-        AND created_at + (resolution_target_hours * INTERVAL '1 hour') < NOW()
-    `),
     Promise.all(
       input.categories.map(category =>
         tx.ticket.count({
@@ -556,7 +621,20 @@ export async function getTicketDashboardSidebarStats(
         })
       )
     ),
+    tx.ticket.findMany({
+      select: {
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        resolutionTargetHours: true,
+        solvedAt: true,
+        closedAt: true,
+        cannotResolveAt: true,
+      },
+    }),
   ]);
+
+  const slaStatus = summarizeTicketSlaStatus(slaTickets, input.now);
 
   const categories = input.categories.map((category, index) => {
     const count = categoryCounts[index] ?? 0;
@@ -564,27 +642,19 @@ export async function getTicketDashboardSidebarStats(
       value: category,
       label: category,
       count,
-      percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+      percentage: slaStatus.total > 0 ? Math.round((count / slaStatus.total) * 100) : 0,
     };
   });
-
-  const slaBreached = Number(slaBreachedRows[0]?.count ?? 0);
-  const met = Math.max(total - slaBreached, 0);
 
   return {
     shortcuts: {
       myOpenSubmitted,
       unassigned,
-      slaBreached,
+      slaBreached: slaStatus.breached,
       resolvedToday,
     },
     categories,
-    slaStatus: {
-      met,
-      breached: slaBreached,
-      total,
-      metPercentage: total > 0 ? Math.round((met / total) * 100) : 0,
-    },
+    slaStatus,
   };
 }
 

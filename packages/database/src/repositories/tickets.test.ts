@@ -440,19 +440,65 @@ describe('tickets repository', () => {
 
   test('getTicketDashboardSidebarStats counts submitted open tickets and zero-fills categories', async () => {
     (prisma.ticket.count as jest.Mock)
-      .mockResolvedValueOnce(20)
       .mockResolvedValueOnce(6)
       .mockResolvedValueOnce(5)
       .mockResolvedValueOnce(4)
-      .mockResolvedValueOnce(9)
+      .mockResolvedValueOnce(2)
       .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(3);
-    (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ count: 2 }]);
+      .mockResolvedValueOnce(1);
+    (prisma.ticket.findMany as jest.Mock).mockResolvedValue([
+      {
+        status: 'NEW',
+        createdAt: new Date('2026-06-02T08:00:00.000Z'),
+        updatedAt: new Date('2026-06-02T08:00:00.000Z'),
+        resolutionTargetHours: 4,
+        solvedAt: null,
+        closedAt: null,
+        cannotResolveAt: null,
+      },
+      {
+        status: 'IN_PROGRESS',
+        createdAt: new Date('2026-06-02T07:00:00.000Z'),
+        updatedAt: new Date('2026-06-02T07:30:00.000Z'),
+        resolutionTargetHours: 2,
+        solvedAt: null,
+        closedAt: null,
+        cannotResolveAt: null,
+      },
+      {
+        status: 'SOLVED',
+        createdAt: new Date('2026-06-01T07:00:00.000Z'),
+        updatedAt: new Date('2026-06-01T08:00:00.000Z'),
+        resolutionTargetHours: 2,
+        solvedAt: new Date('2026-06-01T08:30:00.000Z'),
+        closedAt: null,
+        cannotResolveAt: null,
+      },
+      {
+        status: 'CLOSED',
+        createdAt: new Date('2026-06-01T01:00:00.000Z'),
+        updatedAt: new Date('2026-06-01T03:00:00.000Z'),
+        resolutionTargetHours: 4,
+        solvedAt: null,
+        closedAt: new Date('2026-06-01T03:00:00.000Z'),
+        cannotResolveAt: null,
+      },
+      {
+        status: 'CANNOT_RESOLVE',
+        createdAt: new Date('2026-06-01T01:00:00.000Z'),
+        updatedAt: new Date('2026-06-01T02:00:00.000Z'),
+        resolutionTargetHours: 3,
+        solvedAt: null,
+        closedAt: null,
+        cannotResolveAt: new Date('2026-06-01T02:30:00.000Z'),
+      },
+    ]);
 
     const stats = await getTicketDashboardSidebarStats({
       adminId: 'admin-5',
       categories: ['HR', 'IT', 'CS'],
       startOfToday: new Date('2026-06-02T00:00:00.000Z'),
+      now: new Date('2026-06-02T10:00:00.000Z'),
     });
 
     expect(stats.shortcuts).toEqual({
@@ -462,18 +508,21 @@ describe('tickets repository', () => {
       resolvedToday: 4,
     });
     expect(stats.categories).toEqual([
-      { value: 'HR', label: 'HR', count: 9, percentage: 45 },
+      { value: 'HR', label: 'HR', count: 2, percentage: 40 },
       { value: 'IT', label: 'IT', count: 0, percentage: 0 },
-      { value: 'CS', label: 'CS', count: 3, percentage: 15 },
+      { value: 'CS', label: 'CS', count: 1, percentage: 20 },
     ]);
     expect(stats.slaStatus).toEqual({
-      met: 18,
+      met: 2,
+      pending: 1,
       breached: 2,
-      total: 20,
-      metPercentage: 90,
+      total: 5,
+      metPercentage: 40,
+      pendingPercentage: 20,
+      breachedPercentage: 40,
     });
     expect(prisma.ticket.count).toHaveBeenNthCalledWith(
-      2,
+      1,
       expect.objectContaining({
         where: expect.objectContaining({
           submitterAdminId: 'admin-5',
@@ -485,22 +534,22 @@ describe('tickets repository', () => {
 
   test('getTicketDashboardSidebarStats excludes terminal statuses from unassigned count', async () => {
     (prisma.ticket.count as jest.Mock)
-      .mockResolvedValueOnce(8)
       .mockResolvedValueOnce(1)
       .mockResolvedValueOnce(2)
       .mockResolvedValueOnce(0)
       .mockResolvedValueOnce(4)
       .mockResolvedValueOnce(2)
       .mockResolvedValueOnce(2);
-    (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ count: 1 }]);
+    (prisma.ticket.findMany as jest.Mock).mockResolvedValue([]);
 
     await getTicketDashboardSidebarStats({
       adminId: 'admin-7',
       categories: ['HR', 'IT', 'CS'],
+      now: new Date('2026-06-02T10:00:00.000Z'),
     });
 
     expect(prisma.ticket.count).toHaveBeenNthCalledWith(
-      3,
+      2,
       expect.objectContaining({
         where: expect.objectContaining({
           claimedByType: null,
@@ -508,6 +557,41 @@ describe('tickets repository', () => {
         }),
       })
     );
+  });
+
+  test('getTicketDashboardSidebarStats keeps active tickets before deadline out of met', async () => {
+    (prisma.ticket.count as jest.Mock)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(0);
+    (prisma.ticket.findMany as jest.Mock).mockResolvedValue([
+      {
+        status: 'NEW',
+        createdAt: new Date('2026-06-02T08:00:00.000Z'),
+        updatedAt: new Date('2026-06-02T08:00:00.000Z'),
+        resolutionTargetHours: 4,
+        solvedAt: null,
+        closedAt: null,
+        cannotResolveAt: null,
+      },
+    ]);
+
+    const stats = await getTicketDashboardSidebarStats({
+      adminId: 'admin-7',
+      categories: [],
+      startOfToday: new Date('2026-06-02T00:00:00.000Z'),
+      now: new Date('2026-06-02T10:00:00.000Z'),
+    });
+
+    expect(stats.slaStatus).toEqual({
+      met: 0,
+      pending: 1,
+      breached: 0,
+      total: 1,
+      metPercentage: 0,
+      pendingPercentage: 100,
+      breachedPercentage: 0,
+    });
   });
 
   test('getTicketDashboardComparisonStats returns yesterday created and resolved counts', async () => {
