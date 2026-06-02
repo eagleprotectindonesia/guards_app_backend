@@ -40,6 +40,7 @@ type OverviewMetric = {
   label: string;
   value: number;
   hint: string;
+  hintTone?: 'neutral' | 'positive' | 'warning' | 'critical';
   icon: keyof typeof METRIC_ICONS;
   accentClass: string;
 };
@@ -287,32 +288,28 @@ export function TicketOverviewDashboard({ metrics, sidebar, rows, totalCount, fi
           <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-5">
             {metrics.map(metric => {
               const Icon: ComponentType<{ className?: string }> = METRIC_ICONS[metric.icon];
-              
-              // Map values and trend styles to match the reference image
+
               let valueColorClass = 'text-foreground';
               let hintColorClass = 'text-muted-foreground';
-              let hintText = metric.hint;
 
               if (metric.icon === 'ticket') {
                 valueColorClass = 'text-sky-400';
-                hintColorClass = 'text-emerald-400 font-medium flex items-center gap-1';
-                hintText = '↑ 12% vs yesterday';
               } else if (metric.icon === 'shield') {
                 valueColorClass = 'text-amber-500';
-                hintColorClass = 'text-muted-foreground/80';
-                hintText = 'Requires Attention';
               } else if (metric.icon === 'progress') {
                 valueColorClass = 'text-emerald-500';
-                hintColorClass = 'text-muted-foreground/80';
-                hintText = 'Active';
               } else if (metric.icon === 'resolved') {
                 valueColorClass = 'text-violet-400';
-                hintColorClass = 'text-emerald-400 font-medium flex items-center gap-1';
-                hintText = '↑ 6% vs yesterday';
               } else if (metric.icon === 'breach') {
                 valueColorClass = 'text-rose-500';
+              }
+
+              if (metric.hintTone === 'positive') {
+                hintColorClass = 'text-emerald-400 font-medium';
+              } else if (metric.hintTone === 'warning') {
+                hintColorClass = 'text-amber-400 font-medium';
+              } else if (metric.hintTone === 'critical') {
                 hintColorClass = 'text-rose-400 font-medium';
-                hintText = 'Critical';
               }
 
               return (
@@ -326,7 +323,7 @@ export function TicketOverviewDashboard({ metrics, sidebar, rows, totalCount, fi
                         {metric.label}
                       </p>
                       <p className={cn('text-3xl font-extrabold tracking-tight', valueColorClass)}>{metric.value}</p>
-                      <p className={cn('text-xs', hintColorClass)}>{hintText}</p>
+                      <p className={cn('text-xs', hintColorClass)}>{metric.hint}</p>
                     </div>
                   </div>
                 </Card>

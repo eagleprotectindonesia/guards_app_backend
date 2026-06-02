@@ -84,6 +84,11 @@ export type TicketDashboardSidebarStats = {
   };
 };
 
+export type TicketDashboardComparisonStats = {
+  yesterdayTotal: number;
+  yesterdayResolved: number;
+};
+
 const OPERATIONAL_STATUSES: TicketStatus[] = [
   'ACKNOWLEDGED',
   'WAITING_INFORMATION',
@@ -580,6 +585,51 @@ export async function getTicketDashboardSidebarStats(
       total,
       metPercentage: total > 0 ? Math.round((met / total) * 100) : 0,
     },
+  };
+}
+
+export async function getTicketDashboardComparisonStats(
+  input: {
+    startOfToday?: Date;
+  } = {},
+  tx: TxLike = prisma
+): Promise<TicketDashboardComparisonStats> {
+  const startOfToday = input.startOfToday ?? new Date(new Date().setHours(0, 0, 0, 0));
+  const startOfYesterday = new Date(startOfToday);
+  startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+
+  const [yesterdayTotal, yesterdayResolved] = await Promise.all([
+    tx.ticket.count({
+      where: {
+        createdAt: {
+          gte: startOfYesterday,
+          lt: startOfToday,
+        },
+      },
+    }),
+    tx.ticket.count({
+      where: {
+        OR: [
+          {
+            solvedAt: {
+              gte: startOfYesterday,
+              lt: startOfToday,
+            },
+          },
+          {
+            closedAt: {
+              gte: startOfYesterday,
+              lt: startOfToday,
+            },
+          },
+        ],
+      },
+    }),
+  ]);
+
+  return {
+    yesterdayTotal,
+    yesterdayResolved,
   };
 }
 

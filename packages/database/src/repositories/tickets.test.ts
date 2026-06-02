@@ -3,6 +3,7 @@ import {
   canTransitionStatus,
   claimTicket,
   createTicket,
+  getTicketDashboardComparisonStats,
   getTicketDashboardSidebarStats,
   getTicketSidebarCounts,
   listClosedTickets,
@@ -507,5 +508,43 @@ describe('tickets repository', () => {
         }),
       })
     );
+  });
+
+  test('getTicketDashboardComparisonStats returns yesterday created and resolved counts', async () => {
+    (prisma.ticket.count as jest.Mock).mockResolvedValueOnce(7).mockResolvedValueOnce(3);
+
+    const startOfToday = new Date('2026-06-02T00:00:00.000Z');
+    const stats = await getTicketDashboardComparisonStats({ startOfToday });
+
+    expect(stats).toEqual({
+      yesterdayTotal: 7,
+      yesterdayResolved: 3,
+    });
+    expect(prisma.ticket.count).toHaveBeenNthCalledWith(1, {
+      where: {
+        createdAt: {
+          gte: new Date('2026-06-01T00:00:00.000Z'),
+          lt: startOfToday,
+        },
+      },
+    });
+    expect(prisma.ticket.count).toHaveBeenNthCalledWith(2, {
+      where: {
+        OR: [
+          {
+            solvedAt: {
+              gte: new Date('2026-06-01T00:00:00.000Z'),
+              lt: startOfToday,
+            },
+          },
+          {
+            closedAt: {
+              gte: new Date('2026-06-01T00:00:00.000Z'),
+              lt: startOfToday,
+            },
+          },
+        ],
+      },
+    });
   });
 });

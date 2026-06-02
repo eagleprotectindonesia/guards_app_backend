@@ -1,4 +1,4 @@
-import { db, getTicketDashboardSidebarStats, Prisma } from '@repo/database';
+import { db, getTicketDashboardComparisonStats, getTicketDashboardSidebarStats, Prisma } from '@repo/database';
 import { TicketPriority, TicketStatus } from '@prisma/client';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
@@ -14,6 +14,38 @@ export const dynamic = 'force-dynamic';
 function startOfToday() {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function formatDelta(delta: number) {
+  if (delta > 0) return `+${delta} vs yesterday`;
+  if (delta < 0) return `${delta} vs yesterday`;
+  return 'No change vs yesterday';
+}
+
+function getOpenTicketHint(openTickets: number): { hint: string; hintTone: OverviewMetric['hintTone'] } {
+  if (openTickets >= 10) {
+    return { hint: 'Queue requires immediate action', hintTone: 'critical' };
+  }
+  if (openTickets >= 5) {
+    return { hint: 'Queue needs attention', hintTone: 'warning' };
+  }
+  return { hint: 'Queue under control', hintTone: 'positive' };
+}
+
+function getResolvedTodayHint(delta: number): { hint: string; hintTone: OverviewMetric['hintTone'] } {
+  if (delta > 0) return { hint: `+${delta} vs yesterday`, hintTone: 'positive' };
+  if (delta < 0) return { hint: `${delta} vs yesterday`, hintTone: 'warning' };
+  return { hint: 'Same as yesterday', hintTone: 'neutral' };
+}
+
+function getSlaBreachHint(slaBreachedTickets: number): { hint: string; hintTone: OverviewMetric['hintTone'] } {
+  if (slaBreachedTickets >= 4) {
+    return { hint: 'SLA breach critical', hintTone: 'critical' };
+  }
+  if (slaBreachedTickets >= 1) {
+    return { hint: 'SLA risk emerging', hintTone: 'warning' };
+  }
+  return { hint: 'All tickets within SLA', hintTone: 'positive' };
 }
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
@@ -123,6 +155,7 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
     claimedAdmins,
     claimedEmployees,
     sidebar,
+    comparisonStats,
   ] = await Promise.all([
     db.ticket.count(),
     db.ticket.count({
@@ -176,6 +209,9 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
       categories: TICKET_DEPARTMENT_OPTIONS,
       startOfToday: today,
     }),
+    getTicketDashboardComparisonStats({
+      startOfToday: today,
+    }),
   ]);
 
   const departmentOptions = TICKET_DEPARTMENT_OPTIONS.map(item => ({
@@ -189,6 +225,11 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
     { value: 'unassigned', label: 'Unassigned' },
   ];
   const slaBreachedTickets = Number(slaBreachedRows[0]?.count ?? 0);
+  const totalTicketDelta = totalTickets - comparisonStats.yesterdayTotal;
+  const resolvedTodayDelta = resolvedToday - comparisonStats.yesterdayResolved;
+  const openTicketHint = getOpenTicketHint(openTickets);
+  const resolvedTodayHint = getResolvedTodayHint(resolvedTodayDelta);
+  const slaBreachHint = getSlaBreachHint(slaBreachedTickets);
 
   const rows = recentTickets.map(ticket => {
     const ticketDepartment = getTicketDepartmentFromPolicy(ticket.departmentRole?.policy);
@@ -215,35 +256,45 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
     {
       label: 'Total Tickets',
       value: totalTickets,
-      hint: 'All recorded tickets',
+      hint: formatDelta(totalTicketDelta),
+      hintTone: totalTicketDelta > 0 ? 'warning' : totalTicketDelta < 0 ? 'positive' : 'neutral',
       icon: 'ticket',
       accentClass: 'border-blue-500/20 bg-blue-500/10 text-blue-400',
     },
     {
       label: 'Open Tickets',
       value: openTickets,
-      hint: 'Awaiting active handling',
+      hint: openTicketHint.hint,
+      hintTone: openTicketHint.hintTone,
       icon: 'shield',
       accentClass: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
     },
     {
       label: 'In Progress',
       value: inProgressTickets,
-      hint: 'Currently being worked',
+      hint:
+        inProgressTickets === 0
+          ? 'No tickets being worked'
+          : inProgressTickets === 1
+            ? '1 ticket actively handled'
+            : `${inProgressTickets} tickets actively handled`,
+      hintTone: 'neutral',
       icon: 'progress',
       accentClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
     },
     {
       label: 'Resolved Today',
       value: resolvedToday,
-      hint: 'Solved or closed since midnight',
+      hint: resolvedTodayHint.hint,
+      hintTone: resolvedTodayHint.hintTone,
       icon: 'resolved',
       accentClass: 'border-violet-500/20 bg-violet-500/10 text-violet-400',
     },
     {
       label: 'SLA Breach',
       value: slaBreachedTickets,
-      hint: 'Overdue unresolved tickets',
+      hint: slaBreachHint.hint,
+      hintTone: slaBreachHint.hintTone,
       icon: 'breach',
       accentClass: 'border-rose-500/20 bg-rose-500/10 text-rose-400',
     },
