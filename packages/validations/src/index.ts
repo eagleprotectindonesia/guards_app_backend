@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js';
 import { isValidShiftTypeTime } from '@repo/shared';
+import { hasVisibleText } from './rich-text';
+export { hasVisibleText, stripHtmlToText } from './rich-text';
 
 export const ticketResolutionTargetHourOptions = [1, 4, 8, 24] as const;
 
@@ -258,7 +260,7 @@ export const TicketPriorityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH']);
 
 export const ticketCreateSchema = z.object({
   title: z.string().trim().min(3, 'Title must be at least 3 characters'),
-  description: z.string().trim().min(1, 'Description is required'),
+  description: z.string().refine(value => hasVisibleText(value), { message: 'Description is required' }),
   department: TicketDepartmentEnum,
   clientName: z.string().trim().min(1, 'Client name is required'),
   clientContact: z.string().trim().min(1, 'Client contact is required'),

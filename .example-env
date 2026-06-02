@@ -17,6 +17,9 @@ JWT_SECRET="your_secure_jwt_secret_here"
 # Google Maps
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=""
 
+# TinyMCE
+NEXT_PUBLIC_TINYMCE_API_KEY=""
+
 # Business Logic
 REQUIRE_MOBILE_GUARD_LOGIN="false"
 

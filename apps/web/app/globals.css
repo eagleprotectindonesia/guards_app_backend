@@ -194,3 +194,54 @@
 .maplibregl-popup.sites-map-popup.maplibregl-popup-anchor-right .maplibregl-popup-tip {
   border-left-color: var(--popover) !important;
 }
+
+.ticket-rich-text {
+  color: var(--muted-foreground);
+  line-height: 1.7;
+  white-space: normal;
+}
+
+.ticket-rich-text p {
+  margin: 0 0 0.75rem;
+}
+
+.ticket-rich-text p:last-child {
+  margin-bottom: 0;
+}
+
+.ticket-rich-text ul,
+.ticket-rich-text ol {
+  margin: 0.75rem 0;
+  padding-left: 1.5rem;
+}
+
+.ticket-rich-text li {
+  margin: 0.25rem 0;
+}
+
+.ticket-rich-text a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.ticket-rich-text strong,
+.ticket-rich-text b {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.ticket-rich-text blockquote {
+  margin: 0.75rem 0;
+  padding-left: 1rem;
+  border-left: 3px solid var(--border);
+  color: var(--foreground);
+}
+
+.ticket-rich-text pre {
+  margin: 0.75rem 0;
+  overflow-x: auto;
+  border-radius: 0.5rem;
+  background: var(--muted);
+  padding: 0.75rem;
+  color: var(--foreground);
+}

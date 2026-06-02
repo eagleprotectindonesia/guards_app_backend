@@ -1,6 +1,7 @@
 import { type ChangeEvent, type RefObject } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import { RichTextViewer } from '@/components/ui/rich-text-viewer';
 import { cn } from '@repo/shared';
 import { Paperclip, Send, Download, FileText, Clock, X } from 'lucide-react';
 import {
@@ -47,7 +48,7 @@ export function TicketTabContent({
         <div className="space-y-4 max-w-3xl">
           <div className="bg-muted/20 border border-border/40 p-5 rounded-xl">
             <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-2.5">Description</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
+            <RichTextViewer html={ticket.description} className="text-sm" fallback="No description provided." />
           </div>
         </div>
       </ScrollArea>
@@ -193,7 +194,7 @@ export function TicketTabContent({
                   onChange={e => onMessageChange(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
-                       onSubmitMessage();
+                      onSubmitMessage();
                     }
                   }}
                 />
@@ -268,7 +269,8 @@ export function TicketTabContent({
             <div className="flex-1 min-w-0">
               <div className="flex items-baseline justify-between gap-2 flex-wrap">
                 <p className="text-sm font-semibold text-foreground">
-                  <span className="text-purple-500">{item.actor?.name ?? 'System'}</span> {item.action.replace('_', ' ')}
+                  <span className="text-purple-500">{item.actor?.name ?? 'System'}</span>{' '}
+                  {item.action.replace('_', ' ')}
                 </p>
                 <span className="text-[10px] text-muted-foreground">{formatDate(item.createdAt)}</span>
               </div>
