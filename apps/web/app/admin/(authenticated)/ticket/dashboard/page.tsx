@@ -1,9 +1,13 @@
-import { db, Prisma } from '@repo/database';
+import { db, getTicketDashboardSidebarStats, Prisma } from '@repo/database';
 import { TicketPriority, TicketStatus } from '@prisma/client';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { TICKET_DEPARTMENT_OPTIONS, type TicketDepartment } from '@/lib/ticket-department-roles';
-import { TicketOverviewDashboard, type OverviewMetric } from '../components/ticket-overview-dashboard';
+import {
+  TicketOverviewDashboard,
+  type OverviewMetric,
+  type TicketOverviewSidebar,
+} from '../components/ticket-overview-dashboard';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +24,15 @@ function firstParam(value: string | string[] | undefined) {
 
 function asStatus(value: string | string[] | undefined): TicketStatus | undefined {
   const candidate = firstParam(value);
-  const allowed: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CLOSED', 'CANNOT_RESOLVE'];
+  const allowed: TicketStatus[] = [
+    'NEW',
+    'ACKNOWLEDGED',
+    'WAITING_INFORMATION',
+    'IN_PROGRESS',
+    'SOLVED',
+    'CLOSED',
+    'CANNOT_RESOLVE',
+  ];
   return allowed.includes(candidate as TicketStatus) ? (candidate as TicketStatus) : undefined;
 }
 
@@ -32,7 +44,9 @@ function asPriority(value: string | string[] | undefined): TicketPriority | unde
 
 function asDepartment(value: string | string[] | undefined): TicketDepartment | undefined {
   const candidate = firstParam(value);
-  return TICKET_DEPARTMENT_OPTIONS.includes(candidate as TicketDepartment) ? (candidate as TicketDepartment) : undefined;
+  return TICKET_DEPARTMENT_OPTIONS.includes(candidate as TicketDepartment)
+    ? (candidate as TicketDepartment)
+    : undefined;
 }
 
 function getTicketDepartmentFromPolicy(policy: Prisma.JsonValue | null | undefined): TicketDepartment | undefined {
@@ -52,7 +66,7 @@ function parseAssignee(value: string | string[] | undefined) {
 }
 
 export default async function TicketDashboardPage({ searchParams }: { searchParams: SearchParams }) {
-  await requirePermission(PERMISSIONS.TICKETS.VIEW);
+  const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
   const query = await searchParams;
 
   const today = startOfToday();
@@ -98,7 +112,18 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
           : {}),
   };
 
-  const [totalTickets, openTickets, inProgressTickets, resolvedToday, slaBreachedRows, filteredCount, recentTickets, claimedAdmins, claimedEmployees] = await Promise.all([
+  const [
+    totalTickets,
+    openTickets,
+    inProgressTickets,
+    resolvedToday,
+    slaBreachedRows,
+    filteredCount,
+    recentTickets,
+    claimedAdmins,
+    claimedEmployees,
+    sidebar,
+  ] = await Promise.all([
     db.ticket.count(),
     db.ticket.count({
       where: {
@@ -112,10 +137,7 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
     }),
     db.ticket.count({
       where: {
-        OR: [
-          { solvedAt: { gte: today } },
-          { closedAt: { gte: today } },
-        ],
+        OR: [{ solvedAt: { gte: today } }, { closedAt: { gte: today } }],
       },
     }),
     db.$queryRaw<Array<{ count: bigint | number }>>(Prisma.sql`
@@ -149,6 +171,11 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
       orderBy: { fullName: 'asc' },
       select: { id: true, fullName: true },
     }),
+    getTicketDashboardSidebarStats({
+      adminId: session.id,
+      categories: TICKET_DEPARTMENT_OPTIONS,
+      startOfToday: today,
+    }),
   ]);
 
   const departmentOptions = TICKET_DEPARTMENT_OPTIONS.map(item => ({
@@ -177,6 +204,10 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
       status: ticket.status,
       assignedTo: ticket.claimedByAdmin?.name ?? ticket.claimedByEmployee?.fullName ?? 'Unassigned',
       createdAt: ticket.createdAt.toISOString(),
+      resolutionTargetHours: ticket.resolutionTargetHours,
+      solvedAt: ticket.solvedAt?.toISOString() ?? null,
+      closedAt: ticket.closedAt?.toISOString() ?? null,
+      cannotResolveAt: ticket.cannotResolveAt?.toISOString() ?? null,
     };
   });
 
@@ -218,9 +249,16 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
     },
   ];
 
+  const sidebarProps: TicketOverviewSidebar = {
+    shortcuts: sidebar.shortcuts,
+    categories: sidebar.categories,
+    slaStatus: sidebar.slaStatus,
+  };
+
   return (
     <TicketOverviewDashboard
       metrics={metrics}
+      sidebar={sidebarProps}
       rows={rows}
       totalCount={filteredCount}
       filters={{

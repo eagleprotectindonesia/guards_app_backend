@@ -61,6 +61,29 @@ export type TicketListCursor = {
   id: string;
 };
 
+export type TicketDashboardCategoryStat = {
+  value: string;
+  label: string;
+  count: number;
+  percentage: number;
+};
+
+export type TicketDashboardSidebarStats = {
+  shortcuts: {
+    myOpenSubmitted: number;
+    unassigned: number;
+    slaBreached: number;
+    resolvedToday: number;
+  };
+  categories: TicketDashboardCategoryStat[];
+  slaStatus: {
+    met: number;
+    breached: number;
+    total: number;
+    metPercentage: number;
+  };
+};
+
 const OPERATIONAL_STATUSES: TicketStatus[] = [
   'ACKNOWLEDGED',
   'WAITING_INFORMATION',
@@ -72,6 +95,7 @@ const TERMINAL_STATUSES = new Set<TicketStatus>(['CLOSED', 'CANNOT_RESOLVE']);
 const CLOSED_VIEW_STATUSES: TicketStatus[] = ['CLOSED'];
 const ACTIVE_VIEW_EXCLUDED_STATUSES: TicketStatus[] = ['CLOSED', 'CANNOT_RESOLVE'];
 const ACTIVE_VIEW_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'];
+const SUBMITTED_OPEN_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'];
 
 function isITRole(roleName?: string | null) {
   return roleName?.trim().toLowerCase() === 'it';
@@ -111,9 +135,7 @@ function toDepartmentCode(roleName: string) {
 }
 
 function toTicketDepartmentCode(departmentName: string) {
-  const normalized = departmentName
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '');
+  const normalized = departmentName.toUpperCase().replace(/[^A-Z0-9]+/g, '');
   return normalized.slice(0, 6) || 'TKT';
 }
 
@@ -475,6 +497,90 @@ export async function getTicketSidebarCounts(adminId: string, tx: TxLike = prism
   ]);
 
   return { all, my, unassigned, closed };
+}
+
+export async function getTicketDashboardSidebarStats(
+  input: {
+    adminId: string;
+    categories: readonly string[];
+    startOfToday?: Date;
+  },
+  tx: TxLike = prisma
+): Promise<TicketDashboardSidebarStats> {
+  const today = input.startOfToday ?? new Date(new Date().setHours(0, 0, 0, 0));
+  const activeStatuses = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS'] as const;
+
+  const [total, myOpenSubmitted, unassigned, resolvedToday, slaBreachedRows, categoryCounts] = await Promise.all([
+    tx.ticket.count(),
+    tx.ticket.count({
+      where: {
+        submitterAdminId: input.adminId,
+        status: { in: SUBMITTED_OPEN_STATUSES },
+      },
+    }),
+    tx.ticket.count({
+      where: {
+        claimedByType: null,
+        status: { notIn: ACTIVE_VIEW_EXCLUDED_STATUSES },
+      },
+    }),
+    tx.ticket.count({
+      where: {
+        OR: [{ solvedAt: { gte: today } }, { closedAt: { gte: today } }],
+      },
+    }),
+    tx.$queryRaw<Array<{ count: bigint | number }>>(Prisma.sql`
+      SELECT COUNT(*)::bigint AS count
+      FROM tickets
+      WHERE status IN (${Prisma.join(activeStatuses)})
+        AND created_at + (resolution_target_hours * INTERVAL '1 hour') < NOW()
+    `),
+    Promise.all(
+      input.categories.map(category =>
+        tx.ticket.count({
+          where: {
+            departmentRole: {
+              is: {
+                policy: {
+                  path: ['ticketDepartment'],
+                  equals: category,
+                },
+              },
+            },
+          },
+        })
+      )
+    ),
+  ]);
+
+  const categories = input.categories.map((category, index) => {
+    const count = categoryCounts[index] ?? 0;
+    return {
+      value: category,
+      label: category,
+      count,
+      percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+    };
+  });
+
+  const slaBreached = Number(slaBreachedRows[0]?.count ?? 0);
+  const met = Math.max(total - slaBreached, 0);
+
+  return {
+    shortcuts: {
+      myOpenSubmitted,
+      unassigned,
+      slaBreached,
+      resolvedToday,
+    },
+    categories,
+    slaStatus: {
+      met,
+      breached: slaBreached,
+      total,
+      metPercentage: total > 0 ? Math.round((met / total) * 100) : 0,
+    },
+  };
 }
 
 export async function updateTicketStatus(

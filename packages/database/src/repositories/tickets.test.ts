@@ -3,6 +3,7 @@ import {
   canTransitionStatus,
   claimTicket,
   createTicket,
+  getTicketDashboardSidebarStats,
   getTicketSidebarCounts,
   listClosedTickets,
   listMyTickets,
@@ -47,6 +48,7 @@ jest.mock('../prisma/client', () => ({
     ticketHistory: {
       create: jest.fn(),
     },
+    $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   },
 }));
@@ -430,6 +432,78 @@ describe('tickets repository', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           status: { in: ['CLOSED'] },
+        }),
+      })
+    );
+  });
+
+  test('getTicketDashboardSidebarStats counts submitted open tickets and zero-fills categories', async () => {
+    (prisma.ticket.count as jest.Mock)
+      .mockResolvedValueOnce(20)
+      .mockResolvedValueOnce(6)
+      .mockResolvedValueOnce(5)
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(9)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(3);
+    (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ count: 2 }]);
+
+    const stats = await getTicketDashboardSidebarStats({
+      adminId: 'admin-5',
+      categories: ['HR', 'IT', 'CS'],
+      startOfToday: new Date('2026-06-02T00:00:00.000Z'),
+    });
+
+    expect(stats.shortcuts).toEqual({
+      myOpenSubmitted: 6,
+      unassigned: 5,
+      slaBreached: 2,
+      resolvedToday: 4,
+    });
+    expect(stats.categories).toEqual([
+      { value: 'HR', label: 'HR', count: 9, percentage: 45 },
+      { value: 'IT', label: 'IT', count: 0, percentage: 0 },
+      { value: 'CS', label: 'CS', count: 3, percentage: 15 },
+    ]);
+    expect(stats.slaStatus).toEqual({
+      met: 18,
+      breached: 2,
+      total: 20,
+      metPercentage: 90,
+    });
+    expect(prisma.ticket.count).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          submitterAdminId: 'admin-5',
+          status: { in: ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'] },
+        }),
+      })
+    );
+  });
+
+  test('getTicketDashboardSidebarStats excludes terminal statuses from unassigned count', async () => {
+    (prisma.ticket.count as jest.Mock)
+      .mockResolvedValueOnce(8)
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(0)
+      .mockResolvedValueOnce(4)
+      .mockResolvedValueOnce(2)
+      .mockResolvedValueOnce(2);
+    (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ count: 1 }]);
+
+    await getTicketDashboardSidebarStats({
+      adminId: 'admin-7',
+      categories: ['HR', 'IT', 'CS'],
+    });
+
+    expect(prisma.ticket.count).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          claimedByType: null,
+          status: { notIn: ['CLOSED', 'CANNOT_RESOLVE'] },
         }),
       })
     );
