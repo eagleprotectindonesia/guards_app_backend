@@ -53,6 +53,7 @@ export async function renderTicketWorkspacePage(view: WorkspaceView, searchParam
 
   return (
     <TicketWorkspaceView
+      key={view}
       initialView={view}
       initialSearch={search ?? ''}
       requestedTicketId={ticketId}

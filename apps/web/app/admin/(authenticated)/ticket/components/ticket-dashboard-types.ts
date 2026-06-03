@@ -39,7 +39,7 @@ export type TicketDetail = {
   createdAt: string | Date;
   submitterAdmin?: { name?: string | null } | null;
   assignedAdmin?: { id?: string; name?: string | null } | null;
-  departmentRole?: { name?: string | null } | null;
+  departmentRole?: { name?: string | null; policy?: unknown | null } | null;
   assignedRoles?: Array<{ role: { name: string } }>;
   messages: TicketMessage[];
   attachments: TicketAttachment[];

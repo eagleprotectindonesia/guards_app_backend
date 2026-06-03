@@ -56,6 +56,15 @@ export function TicketDetailHeader({
   isClaiming,
   onClaimTicket,
 }: TicketDetailHeaderProps) {
+  const policy = ticket.departmentRole?.policy;
+  let departmentName = ticket.departmentRole?.name || '-';
+  if (policy && typeof policy === 'object' && !Array.isArray(policy)) {
+    const ticketDept = (policy as Record<string, unknown>).ticketDepartment;
+    if (typeof ticketDept === 'string' && ticketDept.trim().length > 0) {
+      departmentName = ticketDept;
+    }
+  }
+
   return (
     <>
       <div className="p-5 border-b border-border/60 bg-card">
@@ -197,7 +206,7 @@ export function TicketDetailHeader({
               Department
             </span>
             <span className="text-sm font-semibold text-foreground block truncate">
-              {ticket.departmentRole?.name || '-'}
+              {departmentName}
             </span>
           </div>
 

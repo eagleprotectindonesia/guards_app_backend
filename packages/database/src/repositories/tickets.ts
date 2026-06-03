@@ -431,7 +431,7 @@ export async function getTicketById(id: string, tx: TxLike = prisma) {
       submitterAdmin: { select: { id: true, name: true, roleId: true } },
       claimedByAdmin: { select: { id: true, name: true, roleId: true } },
       claimedByEmployee: { select: { id: true, fullName: true, department: true } },
-      departmentRole: { select: { id: true, name: true } },
+      departmentRole: { select: { id: true, name: true, policy: true } },
       assignedRoles: { include: { role: { select: { id: true, name: true } } } },
       assignedEmployees: {
         include: {

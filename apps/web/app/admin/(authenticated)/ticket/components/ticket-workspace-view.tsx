@@ -56,11 +56,7 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
     };
   }, [selectedId]);
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectedId(null);
-    setDetail(null);
-  }, [initialView]);
+
 
   const selectedTicket = detail?.ticket?.id === selectedId ? detail.ticket : null;
   const history = detail?.history ?? [];
