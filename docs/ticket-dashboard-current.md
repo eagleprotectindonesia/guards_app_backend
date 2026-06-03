@@ -283,7 +283,6 @@ This is used for real-time admin notification delivery.
 
 - `initialView` and `initialHasMore` are passed into `TicketDashboardView` from the route wrapper, but the current client component does not use them yet.
 - The ticket list search is local to the currently loaded page of items.
-- The `Edit Ticket` button in the header is currently a stub that only shows a toast.
 - `requestedTicketId` is respected only on initial mount; changing the URL later does not automatically sync selection in the current component.
 - `useTransition()` is used for the initial detail fetch, but the component still relies on local state for the selected ticket payload.
 
@@ -297,4 +296,3 @@ This is used for real-time admin notification delivery.
 - `apps/web/app/admin/(authenticated)/ticket/components/ticket-tab-content.tsx`
 - `apps/web/app/admin/(authenticated)/ticket/components/ticket-dashboard-types.ts`
 - `apps/web/app/admin/(authenticated)/ticket/components/ticket-dashboard-utils.ts`
-

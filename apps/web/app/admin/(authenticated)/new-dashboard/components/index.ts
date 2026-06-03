@@ -4,6 +4,7 @@ export { CriticalAlertsCard } from './critical-alerts-card';
 export { GuardStatusCard } from './guard-status-card';
 export { InternalChatLiveCard } from './internal-chat-live-card';
 export { LiveActivityFeedCard } from './live-activity-feed-card';
+export { OpenTicketsCard } from './open-tickets-card';
 export { PlaceholderCard } from './placeholder-card';
 export { PlaceholderTopCard } from './placeholder-top-card';
 export { SitesMapCard } from './sites-map-card';

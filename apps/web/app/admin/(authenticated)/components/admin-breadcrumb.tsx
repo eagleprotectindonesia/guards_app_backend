@@ -20,7 +20,7 @@ export function AdminBreadcrumb() {
   const pathname = usePathname();
   const { selectedTab } = useAdminDashboardTab();
 
-  if (pathname === '/admin/new-dashboard') {
+  if (pathname.includes('dashboard')) {
     return null;
   }
 
@@ -36,10 +36,7 @@ export function AdminBreadcrumb() {
       <BreadcrumbList>
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
-            <AdminNavLink
-              href={getAdminDashboardHref(selectedTab)}
-              className="flex items-center gap-1"
-            >
+            <AdminNavLink href={getAdminDashboardHref(selectedTab)} className="flex items-center gap-1">
               <Home className="h-4 w-4" />
               <span className="sr-only">Home</span>
             </AdminNavLink>
@@ -59,10 +56,7 @@ export function AdminBreadcrumb() {
                   <BreadcrumbPage>{label}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink asChild>
-                    <AdminNavLink
-                      href={href}
-                      className="opacity-100"
-                    >
+                    <AdminNavLink href={href} className="opacity-100">
                       {label}
                     </AdminNavLink>
                   </BreadcrumbLink>

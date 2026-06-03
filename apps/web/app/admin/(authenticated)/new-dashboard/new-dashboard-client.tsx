@@ -12,6 +12,7 @@ import {
   GuardStatusCard,
   InternalChatLiveCard,
   LiveActivityFeedCard,
+  OpenTicketsCard,
   PlaceholderTopCard,
   SitesMapCard,
   ShiftOverviewCard,
@@ -24,9 +25,10 @@ import {
 
 type NewDashboardClientProps = {
   initialSites: Serialized<Site>[];
+  initialOpenTickets: number;
 };
 
-export default function NewDashboardClient({ initialSites }: NewDashboardClientProps) {
+export default function NewDashboardClient({ initialSites, initialOpenTickets }: NewDashboardClientProps) {
   const { activeSites, isDashboardInitialized } = useAlerts();
 
   if (!isDashboardInitialized) {
@@ -48,7 +50,8 @@ export default function NewDashboardClient({ initialSites }: NewDashboardClientP
 
         <ActiveSitesCard activeSitesCount={activeSitesCount} />
 
-        <PlaceholderTopCard />
+        <OpenTicketsCard openTicketsCount={initialOpenTickets} />
+
         <PlaceholderTopCard />
         <PlaceholderTopCard />
         <PlaceholderTopCard />

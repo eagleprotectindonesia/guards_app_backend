@@ -87,7 +87,7 @@ export function TicketDetailHeader({
                     ? 'Re-claim Ticket'
                     : 'Claim Ticket'}
             </Button>
-            {canEdit && (
+            {/* {canEdit && (
               <Button
                 variant="outline"
                 size="sm"
@@ -97,7 +97,7 @@ export function TicketDetailHeader({
                 <Pencil className="w-3.5 h-3.5" />
                 Edit Ticket
               </Button>
-            )}
+            )} */}
 
             {canUseMore && (
               <DropdownMenu>
@@ -205,9 +205,7 @@ export function TicketDetailHeader({
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
               Department
             </span>
-            <span className="text-sm font-semibold text-foreground block truncate">
-              {departmentName}
-            </span>
+            <span className="text-sm font-semibold text-foreground block truncate">{departmentName}</span>
           </div>
 
           <div className="bg-muted/20 border border-border/45 p-3.5 rounded-xl">
