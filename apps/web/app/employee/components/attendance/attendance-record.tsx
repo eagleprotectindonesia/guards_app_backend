@@ -45,10 +45,22 @@ export function AttendanceRecord({ shift, onAttendanceRecorded, setStatus, curre
         shiftId: shift.id,
         hasAttendance: !!shift.attendance,
         mutationPending: attendanceMutation.isPending,
+        originalError: error && typeof error === 'object' ? error : undefined,
         ...extra,
       });
       scope.setContext('client', context);
-      Sentry.captureException(error instanceof Error ? error : new Error(String(error)));
+
+      let exception: unknown = error;
+      if (!(error instanceof Error)) {
+        if (error && typeof error === 'object') {
+          const errPayload = error as Record<string, unknown>;
+          const msg = String(errPayload.message || errPayload.error || errPayload.code || JSON.stringify(error));
+          exception = new Error(msg);
+        } else {
+          exception = new Error(String(error));
+        }
+      }
+      Sentry.captureException(exception);
     });
   };
 
