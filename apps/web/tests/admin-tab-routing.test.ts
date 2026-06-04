@@ -25,6 +25,10 @@ describe('admin tab routing', () => {
     expect(getSelectedAdminDashboardTab('/admin/new-dashboard', new URLSearchParams())).toBe('live');
   });
 
+  test('reads the selected dashboard tab from the pathname even if not a dashboard path', () => {
+    expect(getSelectedAdminDashboardTab('/admin/ticket/all', new URLSearchParams())).toBe('ticket');
+  });
+
   test('sanitizes invalid dashboard tab values to live', () => {
     expect(getSelectedAdminDashboardTab('/admin/sites', new URLSearchParams('dashboardTab=bogus'))).toBe('live');
   });

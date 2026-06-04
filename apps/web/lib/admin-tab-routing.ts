@@ -46,8 +46,13 @@ export function getSelectedAdminDashboardTab(pathname: string, searchParams: Sea
     return 'live';
   }
 
+  const pathTab = getAdminTabFromPath(pathname);
+  if (pathTab !== 'live') {
+    return pathTab;
+  }
+
   if (isDashboardPath(pathname)) {
-    return getAdminTabFromPath(pathname);
+    return pathTab;
   }
 
   return 'live';

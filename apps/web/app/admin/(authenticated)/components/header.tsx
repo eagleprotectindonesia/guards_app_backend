@@ -8,7 +8,8 @@ import { AdminSession } from '@/lib/admin-auth';
 import AdminProfileDropdown from './admin-profile-dropdown';
 import { Radio, Ticket, Users, Building2, FileSearch } from 'lucide-react';
 import { cn } from '@repo/shared';
-import { type AdminTabSlug } from '@/lib/admin-tab-routing';
+import Link from 'next/link';
+import { type AdminTabSlug, getAdminDashboardHref } from '@/lib/admin-tab-routing';
 import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 
 const HEADER_MENUS = [
@@ -74,7 +75,7 @@ const HEADER_MENUS = [
 }>;
 
 export default function Header({ currentAdmin }: { currentAdmin: AdminSession }) {
-  const { selectedTab, setSelectedTab } = useAdminDashboardTab();
+  const { selectedTab } = useAdminDashboardTab();
 
   return (
     <header className="h-16 bg-card border-b border-border px-6 flex items-center justify-between sticky top-0 z-10">
@@ -87,11 +88,9 @@ export default function Header({ currentAdmin }: { currentAdmin: AdminSession })
           const Icon = menu.icon;
 
           return (
-            <button
+            <Link
               key={menu.id}
-              onClick={() => {
-                setSelectedTab(menu.tab);
-              }}
+              href={getAdminDashboardHref(menu.tab)}
               className={cn(
                 "flex items-center gap-3 px-4 py-1.5 rounded-lg border border-transparent transition-all duration-200 group relative whitespace-nowrap",
                 isActive ? cn(menu.activeBg, menu.activeBorder, "ring-1 ring-primary/10 shadow-sm") : "hover:bg-accent/50"
@@ -117,7 +116,7 @@ export default function Header({ currentAdmin }: { currentAdmin: AdminSession })
                   {menu.subtitle}
                 </span>
               </div>
-            </button>
+            </Link>
           );
         })}
       </div>

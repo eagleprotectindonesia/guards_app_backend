@@ -54,6 +54,7 @@ export type TicketOverviewFilters = {
   status: string;
   priority: string;
   assignee: string;
+  sla?: string;
 };
 
 export type TicketOverviewOptions = {

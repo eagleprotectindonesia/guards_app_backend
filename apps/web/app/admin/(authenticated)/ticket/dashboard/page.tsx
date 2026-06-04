@@ -97,6 +97,47 @@ function parseAssignee(value: string | string[] | undefined) {
   return null;
 }
 
+function getTicketSlaStatus(
+  ticket: {
+    status: TicketStatus;
+    createdAt: Date;
+    resolutionTargetHours: number;
+    solvedAt: Date | null;
+    closedAt: Date | null;
+    cannotResolveAt: Date | null;
+    updatedAt: Date;
+  },
+  now: Date = new Date()
+): 'met' | 'pending' | 'breached' {
+  const deadline = new Date(ticket.createdAt.getTime() + ticket.resolutionTargetHours * 60 * 60 * 1000);
+
+  const SLA_ACTIVE_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS'];
+  const SLA_TERMINAL_STATUSES = new Set<TicketStatus>(['SOLVED', 'CLOSED', 'CANNOT_RESOLVE']);
+
+  if (SLA_ACTIVE_STATUSES.includes(ticket.status)) {
+    if (deadline.getTime() < now.getTime()) {
+      return 'breached';
+    } else {
+      return 'pending';
+    }
+  }
+
+  if (SLA_TERMINAL_STATUSES.has(ticket.status)) {
+    let completionAt = ticket.updatedAt;
+    if (ticket.status === 'SOLVED' && ticket.solvedAt) completionAt = ticket.solvedAt;
+    else if (ticket.status === 'CLOSED' && ticket.closedAt) completionAt = ticket.closedAt;
+    else if (ticket.status === 'CANNOT_RESOLVE' && ticket.cannotResolveAt) completionAt = ticket.cannotResolveAt;
+
+    if (completionAt.getTime() <= deadline.getTime()) {
+      return 'met';
+    } else {
+      return 'breached';
+    }
+  }
+
+  return 'pending';
+}
+
 export default async function TicketDashboardPage({ searchParams }: { searchParams: SearchParams }) {
   const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
   const query = await searchParams;
@@ -107,6 +148,7 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
   const status = asStatus(query.status);
   const priority = asPriority(query.priority);
   const assignee = parseAssignee(query.assignee);
+  const sla = firstParam(query.sla);
 
   const where: Prisma.TicketWhereInput = {
     ...(search
@@ -143,13 +185,47 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
           : {}),
   };
 
+  const ticketsAndCountPromise = (async () => {
+    if (sla === 'met' || sla === 'pending' || sla === 'breached') {
+      const allFilteredTickets = await db.ticket.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        include: {
+          departmentRole: { select: { id: true, name: true, policy: true } },
+          claimedByAdmin: { select: { name: true } },
+          claimedByEmployee: { select: { fullName: true } },
+        },
+      });
+      const now = new Date();
+      const matched = allFilteredTickets.filter(t => getTicketSlaStatus(t, now) === sla);
+      return {
+        count: matched.length,
+        tickets: matched.slice(0, 8),
+      };
+    } else {
+      const [count, tickets] = await Promise.all([
+        db.ticket.count({ where }),
+        db.ticket.findMany({
+          where,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: 8,
+          include: {
+            departmentRole: { select: { id: true, name: true, policy: true } },
+            claimedByAdmin: { select: { name: true } },
+            claimedByEmployee: { select: { fullName: true } },
+          },
+        }),
+      ]);
+      return { count, tickets };
+    }
+  })();
+
   const [
     totalTickets,
     openTickets,
     inProgressTickets,
     resolvedToday,
-    filteredCount,
-    recentTickets,
+    ticketsAndCount,
     claimedAdmins,
     claimedEmployees,
     sidebar,
@@ -171,17 +247,7 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
         OR: [{ solvedAt: { gte: today } }, { closedAt: { gte: today } }],
       },
     }),
-    db.ticket.count({ where }),
-    db.ticket.findMany({
-      where,
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: 8,
-      include: {
-        departmentRole: { select: { id: true, name: true, policy: true } },
-        claimedByAdmin: { select: { name: true } },
-        claimedByEmployee: { select: { fullName: true } },
-      },
-    }),
+    ticketsAndCountPromise,
     db.admin.findMany({
       where: {
         claimedTickets: { some: {} },
@@ -206,6 +272,8 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
     }),
   ]);
 
+  const filteredCount = ticketsAndCount.count;
+  const recentTickets = ticketsAndCount.tickets;
   const departmentOptions = TICKET_DEPARTMENT_OPTIONS.map(item => ({
     value: item,
     label: item,
@@ -310,6 +378,7 @@ export default async function TicketDashboardPage({ searchParams }: { searchPara
         status: status ?? '',
         priority: priority ?? '',
         assignee: firstParam(query.assignee) ?? '',
+        sla: sla ?? '',
       }}
       options={{
         departments: departmentOptions,

@@ -26,62 +26,75 @@ function DonutChart({ total, label, background }: { total: number; label: string
 }
 
 export function TicketOverviewSidebarPanel({ sidebar }: Props) {
+  const shortcutItems = [
+    {
+      label: 'Create New Ticket',
+      icon: Plus,
+      href: '/admin/ticket/create',
+    },
+    {
+      label: 'My Open Tickets',
+      value: sidebar.shortcuts.myOpenSubmitted,
+      icon: FileStack,
+      href: '/admin/ticket/my',
+    },
+    {
+      label: 'Unassigned Tickets',
+      value: sidebar.shortcuts.unassigned,
+      icon: Inbox,
+      href: '/admin/ticket/unassigned',
+    },
+    {
+      label: 'SLA Breached',
+      value: sidebar.shortcuts.slaBreached,
+      icon: Clock3,
+      href: '/admin/ticket/dashboard?sla=breached',
+    },
+    {
+      label: "Today's Resolved",
+      value: sidebar.shortcuts.resolvedToday,
+      icon: CircleCheckBig,
+    },
+  ];
+
   return (
     <div className="space-y-4">
       <Card className="border-[#1f2432] bg-[#11141d] p-4 shadow-md">
         <SidebarSectionTitle>Ticket Shortcuts</SidebarSectionTitle>
         <div className="mt-3 space-y-1.5">
-          <Link
-            href="/admin/ticket/create"
-            className="flex items-center justify-between rounded-xl border border-border/40 bg-background/50 px-3 py-2 text-sm transition-colors hover:bg-zinc-800/40"
-          >
-            <span className="flex items-center gap-3 font-medium text-foreground">
-              <span className="rounded-lg border border-border/40 bg-zinc-900/60 p-1 text-muted-foreground">
-                <Plus className="h-4 w-4" />
-              </span>
-              Create New Ticket
-            </span>
-          </Link>
-
-          {[
-            {
-              label: 'My Open Tickets',
-              value: sidebar.shortcuts.myOpenSubmitted,
-              icon: FileStack,
-            },
-            {
-              label: 'Unassigned Tickets',
-              value: sidebar.shortcuts.unassigned,
-              icon: Inbox,
-            },
-            {
-              label: 'SLA Breached',
-              value: sidebar.shortcuts.slaBreached,
-              icon: Clock3,
-            },
-            {
-              label: "Today's Resolved",
-              value: sidebar.shortcuts.resolvedToday,
-              icon: CircleCheckBig,
-            },
-          ].map(item => {
+          {shortcutItems.map(item => {
             const Icon = item.icon;
-            return (
-              <div
-                key={item.label}
-                className="flex items-center justify-between rounded-xl border border-border/40 bg-background/30 px-3 py-2"
-              >
-                <span className="flex items-center gap-3 text-sm text-foreground">
+            const content = (
+              <>
+                <span className={`flex items-center gap-3 text-sm text-foreground ${item.href ? 'font-medium' : ''}`}>
                   <span className="rounded-lg border border-border/40 bg-zinc-900/60 p-1 text-muted-foreground">
                     <Icon className="h-4 w-4" />
                   </span>
                   {item.label}
                 </span>
-                {item.value > 0 && (
+                {item.value !== undefined && item.value > 0 && (
                   <span className="inline-flex min-w-8 justify-center rounded-full bg-rose-500 px-2 py-0.5 text-xs font-semibold text-white">
                     {item.value}
                   </span>
                 )}
+              </>
+            );
+
+            const className = item.href
+              ? 'flex items-center justify-between rounded-xl border border-border/40 bg-background/50 px-3 py-2 text-sm transition-colors hover:bg-zinc-800/40'
+              : 'flex items-center justify-between rounded-xl border border-border/40 bg-background/30 px-3 py-2 text-sm';
+
+            if (item.href) {
+              return (
+                <Link key={item.label} href={item.href} className={className}>
+                  {content}
+                </Link>
+              );
+            }
+
+            return (
+              <div key={item.label} className={className}>
+                {content}
               </div>
             );
           })}

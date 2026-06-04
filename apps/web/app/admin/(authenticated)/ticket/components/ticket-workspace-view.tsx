@@ -1,9 +1,11 @@
 'use client';
 
-import { type ChangeEvent, useEffect, useRef, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
+import { type ChangeEvent, useRef, useState, useTransition } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { toast } from 'react-hot-toast';
+import { Loader2 } from 'lucide-react';
 import {
   addTicketMessageAction,
   addTicketMessageWithAttachmentsAction,
@@ -24,13 +26,40 @@ type Props = {
   requestedTicketId?: string;
   initialItems: TicketListItem[];
   initialHasMore: boolean;
+  initialDetail: TicketDetailResult | null;
 };
 
-export function TicketWorkspaceView({ initialView, initialItems, requestedTicketId }: Props) {
+export function TicketWorkspaceView({ initialView, initialItems, requestedTicketId, initialDetail }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
-  const [selectedId, setSelectedId] = useState<string | null>(requestedTicketId ?? initialItems[0]?.id ?? null);
-  const [detail, setDetail] = useState<TicketDetailResult | null>(null);
+  const queryClient = useQueryClient();
+  const initialSelectedId = requestedTicketId ?? initialItems[0]?.id ?? null;
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
+
+  const { data: detail = null, isLoading: isDetailLoading } = useQuery<TicketDetailResult | null>({
+    queryKey: ['ticket', selectedId],
+    queryFn: async () => {
+      if (!selectedId) return null;
+      return getTicketDetailAction(selectedId);
+    },
+    enabled: !!selectedId,
+    initialData: selectedId && initialDetail && selectedId === initialDetail.ticket.id ? initialDetail : undefined,
+  });
+
+  const syncSelectedIdToUrl = (id: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (id) {
+      params.set('ticket', id);
+    } else {
+      params.delete('ticket');
+    }
+    startTransition(() => {
+      const query = params.toString();
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    });
+  };
   const [message, setMessage] = useState('');
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
@@ -39,26 +68,25 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
   const [activeTab, setActiveTab] = useState<'details' | 'discussion' | 'attachments' | 'history'>('discussion');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => {
-    if (!selectedId) return;
-    let cancelled = false;
+  function handleSelectTicket(id: string | null) {
+    setSelectedId(id);
+    setMessage('');
+    setSelectedFiles([]);
+    setActiveTab('discussion');
+    syncSelectedIdToUrl(id);
+  }
+
+  function refreshWorkspace() {
     startTransition(() => {
-      void getTicketDetailAction(selectedId)
-        .then(result => {
-          if (!cancelled) setDetail(result);
-        })
-        .catch(() => {
-          if (!cancelled) setDetail(null);
-        });
+      router.refresh();
     });
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId]);
+  }
 
+  async function refreshSelectedTicketDetail(ticketId: string) {
+    await queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
+  }
 
-
-  const selectedTicket = detail?.ticket?.id === selectedId ? detail.ticket : null;
+  const selectedTicket = detail?.ticket ?? null;
   const history = detail?.history ?? [];
 
   function validateFile(file: File) {
@@ -129,8 +157,8 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
       }
       setMessage('');
       setSelectedFiles([]);
-      const next = await getTicketDetailAction(selectedId);
-      setDetail(next);
+      await refreshSelectedTicketDetail(selectedId);
+      refreshWorkspace();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to send message');
     } finally {
@@ -142,9 +170,8 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
     if (!selectedId) return;
     try {
       await updateTicketStatusAction({ ticketId: selectedId, status });
-      const next = await getTicketDetailAction(selectedId);
-      setDetail(next);
-      router.refresh();
+      await refreshSelectedTicketDetail(selectedId);
+      refreshWorkspace();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update status');
     }
@@ -155,9 +182,8 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
     setIsClaiming(true);
     try {
       await claimTicketAction(selectedId);
-      const next = await getTicketDetailAction(selectedId);
-      setDetail(next);
-      router.refresh();
+      await refreshSelectedTicketDetail(selectedId);
+      refreshWorkspace();
       toast.success('Ticket claimed');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to claim ticket');
@@ -188,44 +214,53 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
         selectedId={selectedId}
         searchTerm={searchTerm}
         onSearchTermChange={setSearchTerm}
-        onSelectTicket={setSelectedId}
+        onSelectTicket={handleSelectTicket}
       />
 
-      {selectedTicket && (
+      {selectedId && (
         <Card className="col-span-8 flex flex-col bg-card border-border/60 overflow-hidden rounded-xl shadow-xl">
-          <div className="h-full flex flex-col overflow-hidden">
-            <TicketDetailHeader
-              ticket={selectedTicket}
-              activeTab={activeTab}
-              onBack={() => setSelectedId(null)}
-              onUpdateStatus={updateStatus}
-              onTabChange={setActiveTab}
-              canClaim={Boolean(detail?.canClaim)}
-              isClaimedByCurrentUser={Boolean(detail?.isClaimedByCurrentUser)}
-              canEdit={Boolean(detail?.canEdit)}
-              canUseMore={Boolean(detail?.canUseMore)}
-              allowedStatusActions={detail?.allowedStatusActions ?? []}
-              isClaiming={isClaiming}
-              onClaimTicket={claimSelectedTicket}
-            />
-
-            <div className="flex-1 min-h-0 bg-muted/10 flex flex-col">
-              <TicketTabContent
-                activeTab={activeTab}
+          {selectedTicket ? (
+            <div className="h-full flex flex-col overflow-hidden">
+              <TicketDetailHeader
                 ticket={selectedTicket}
-                history={history}
-                message={message}
-                selectedFiles={selectedFiles}
-                isSendingMessage={isSendingMessage}
-                isPending={isPending}
-                fileInputRef={fileInputRef}
-                onMessageChange={setMessage}
-                onPickFiles={onPickFiles}
-                onRemoveSelectedFile={removeSelectedFile}
-                onSubmitMessage={submitMessage}
+                activeTab={activeTab}
+                onBack={() => handleSelectTicket(null)}
+                onUpdateStatus={updateStatus}
+                onTabChange={setActiveTab}
+                canClaim={Boolean(detail?.canClaim)}
+                isClaimedByCurrentUser={Boolean(detail?.isClaimedByCurrentUser)}
+                canEdit={Boolean(detail?.canEdit)}
+                canUseMore={Boolean(detail?.canUseMore)}
+                allowedStatusActions={detail?.allowedStatusActions ?? []}
+                isClaiming={isClaiming}
+                onClaimTicket={claimSelectedTicket}
               />
+
+              <div className="flex-1 min-h-0 bg-muted/10 flex flex-col">
+                <TicketTabContent
+                  activeTab={activeTab}
+                  ticket={selectedTicket}
+                  history={history}
+                  message={message}
+                  selectedFiles={selectedFiles}
+                  isSendingMessage={isSendingMessage}
+                  isPending={isPending}
+                  fileInputRef={fileInputRef}
+                  onMessageChange={setMessage}
+                  onPickFiles={onPickFiles}
+                  onRemoveSelectedFile={removeSelectedFile}
+                  onSubmitMessage={submitMessage}
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex h-full items-center justify-center bg-muted/10">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <Loader2 className={`h-4 w-4 ${isDetailLoading ? 'animate-spin' : ''}`} />
+                <span>{isDetailLoading ? 'Loading ticket details...' : 'Select a ticket to view details.'}</span>
+              </div>
+            </div>
+          )}
         </Card>
       )}
     </div>

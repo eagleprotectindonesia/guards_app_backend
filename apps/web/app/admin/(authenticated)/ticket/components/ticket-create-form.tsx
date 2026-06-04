@@ -270,9 +270,9 @@ export function TicketCreateForm({ adminName }: Props) {
 
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}>
-      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-5 gap-8 items-start px-4 py-8">
-        {/* Left Column (Breadcrumb/Title) */}
-        <div className="md:col-span-2 space-y-2 mt-4">
+      <div className="max-w-4xl mx-auto space-y-6 px-4 py-8">
+        {/* Header section (Title & Breadcrumbs) */}
+        <div className="space-y-1">
           <h1 className="text-3xl font-bold text-foreground tracking-tight">Create Ticket</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Ticket Command Center</span>
@@ -281,8 +281,8 @@ export function TicketCreateForm({ adminName }: Props) {
           </div>
         </div>
 
-        {/* Right Column (Form) */}
-        <Card className="md:col-span-3 p-6 bg-card border-border text-foreground shadow-xl">
+        {/* Form Card */}
+        <Card className="p-6 bg-card border-border text-foreground shadow-xl">
           {/* CREATE TICKET SECTION */}
           <div className="space-y-4">
             <div className="text-xs font-bold text-indigo-400 uppercase tracking-wider">Create Ticket</div>
@@ -422,11 +422,11 @@ export function TicketCreateForm({ adminName }: Props) {
                 <span className="text-xs text-muted-foreground font-medium">Attachments</span>
                 <div className="border border-dashed border-border rounded-lg p-6 bg-background/50 hover:bg-background transition cursor-pointer flex flex-col items-center justify-center gap-2 relative">
                   <input
-                    type="file"
-                    multiple
-                    accept="image/*,video/*,application/pdf"
-                    onChange={e => setFiles(Array.from(e.target.files ?? []))}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                     type="file"
+                     multiple
+                     accept="image/*,video/*,application/pdf"
+                     onChange={e => setFiles(Array.from(e.target.files ?? []))}
+                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
                   <svg
                     className="w-8 h-8 text-muted-foreground/60"

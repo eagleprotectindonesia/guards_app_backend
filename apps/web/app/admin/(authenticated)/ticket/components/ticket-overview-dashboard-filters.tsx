@@ -94,6 +94,13 @@ export function TicketOverviewFilters({ filters, options, onSearch, onFilterChan
           ))}
         </FilterBlock>
 
+        <FilterBlock label="SLA Status" value={filters.sla || ''} onChange={value => onFilterChange('sla', value)}>
+          <option value="">All SLA Status</option>
+          <option value="met">Met</option>
+          <option value="pending">Pending</option>
+          <option value="breached">Breached / Overdue</option>
+        </FilterBlock>
+
         <FilterBlock label="Assigned To" value={filters.assignee} onChange={value => onFilterChange('assignee', value)}>
           <option value="">All Users</option>
           {options.assignees.map(option => (

@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { serialize } from '@/lib/server-utils';
 import { TicketWorkspaceView } from './ticket-workspace-view';
+import { getTicketDetailAction } from '../actions';
 
 type WorkspaceView = 'all' | 'my' | 'unassigned' | 'closed';
 
@@ -51,6 +52,16 @@ export async function renderTicketWorkspacePage(view: WorkspaceView, searchParam
           ? await listClosedTickets(listParams)
           : await listTickets(listParams);
 
+  const targetTicketId = ticketId ?? listResult.items[0]?.id ?? undefined;
+  let initialDetail = null;
+  if (targetTicketId) {
+    try {
+      initialDetail = await getTicketDetailAction(targetTicketId);
+    } catch (e) {
+      console.error('Failed to prefetch ticket detail on server', e);
+    }
+  }
+
   return (
     <TicketWorkspaceView
       key={view}
@@ -59,6 +70,7 @@ export async function renderTicketWorkspacePage(view: WorkspaceView, searchParam
       requestedTicketId={ticketId}
       initialItems={serialize(listResult.items)}
       initialHasMore={listResult.hasMore}
+      initialDetail={initialDetail ? serialize(initialDetail) : null}
     />
   );
 }

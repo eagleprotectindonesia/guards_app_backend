@@ -5,6 +5,13 @@ import { cn } from '@repo/shared';
 import { badgeClass } from './ticket-dashboard-utils';
 import { getCategoryStyle, getStatusLabel, priorityClass } from './ticket-overview-dashboard.utils';
 import type { DashboardRow } from './ticket-overview-dashboard.types';
+import Link from 'next/link';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 type Props = {
   rows: DashboardRow[];
@@ -127,14 +134,25 @@ export function TicketOverviewTable({ rows, totalCount }: Props) {
                   </td>
                   <td className="px-5 py-4">{renderSlaDue(row)}</td>
                   <td className="px-5 py-4 text-right">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-muted-foreground/80 hover:text-foreground hover:bg-zinc-800/40"
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground/80 hover:text-foreground hover:bg-zinc-800/40"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="bg-[#11141d] border-[#1f2432] text-zinc-100">
+                        <DropdownMenuItem asChild className="hover:bg-purple-500/10 hover:text-foreground focus:bg-purple-500/10 focus:text-foreground cursor-pointer">
+                          <Link href={`/admin/ticket/all?ticket=${row.id}`}>
+                            Open
+                          </Link>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
               ))
