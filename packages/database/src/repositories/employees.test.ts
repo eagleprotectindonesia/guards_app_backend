@@ -508,6 +508,47 @@ describe('employees repository', () => {
     );
   });
 
+  test('sync sets on_site when department contains security even if job title does not', async () => {
+    (prisma.employee.findMany as jest.Mock)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    (prisma.employee.create as jest.Mock).mockResolvedValue({
+      id: 'employee-1',
+      role: 'on_site',
+      officeId: null,
+      status: true,
+      mustChangePassword: true,
+    });
+
+    await syncEmployeesFromExternal(
+      { type: 'system' },
+      [
+        {
+          id: 'employee-1',
+          employee_number: 'EMP001',
+          personnel_id: 'P1',
+          nickname: 'Guard',
+          full_name: 'Guard User',
+          job_title: 'Analyst',
+          department: 'Security Operations',
+          office_id: null,
+          office_name: null,
+          phone: '+62123',
+          date_of_joining: '2024-01-01T00:00:00.000Z',
+        },
+      ]
+    );
+
+    expect(prisma.employee.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          role: 'on_site',
+          roleSyncOverride: false,
+        }),
+      })
+    );
+  });
+
   test('sync does not auto-update role when roleSyncOverride is true', async () => {
     (prisma.employee.findMany as jest.Mock)
       .mockResolvedValueOnce([

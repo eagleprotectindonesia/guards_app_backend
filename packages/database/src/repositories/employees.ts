@@ -33,9 +33,11 @@ function normalizeSyncStringValue(value?: string | null): string {
   return (value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
-function resolveSyncedEmployeeRole(jobTitle?: string | null): EmployeeRole {
+function resolveSyncedEmployeeRole(jobTitle?: string | null, department?: string | null): EmployeeRole {
   const normalizedTitle = normalizeSyncStringValue(jobTitle);
-  return normalizedTitle.includes('security') ? 'on_site' : 'office';
+  const normalizedDepartment = normalizeSyncStringValue(department);
+
+  return normalizedTitle.includes('security') || normalizedDepartment.includes('security') ? 'on_site' : 'office';
 }
 
 function isExternallyActiveWorkStatus(workStatus?: string | null): boolean {
@@ -968,7 +970,7 @@ export async function syncEmployeesFromExternal(
   const autoSeedStaffTitles: string[] = [];
 
   for (const ext of externalEmployees) {
-    const role: EmployeeRole = resolveSyncedEmployeeRole(ext.job_title);
+    const role: EmployeeRole = resolveSyncedEmployeeRole(ext.job_title, ext.department);
 
     if (role !== 'office') continue;
 
@@ -1031,7 +1033,7 @@ export async function syncEmployeesFromExternal(
   const currentBusinessYear = getCurrentBusinessYear();
 
   for (const ext of canonicalEmployees) {
-    const role: EmployeeRole = resolveSyncedEmployeeRole(ext.job_title);
+    const role: EmployeeRole = resolveSyncedEmployeeRole(ext.job_title, ext.department);
     const existing = existingMap.get(ext.id);
 
     if (!existing) {

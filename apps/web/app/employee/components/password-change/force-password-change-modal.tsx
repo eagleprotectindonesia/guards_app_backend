@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 
 interface ChangePasswordError {
   message?: string;
-  errors?: Array<{ field: string; message: string }>;
+  errors?: Record<string, string[]>;
 }
 
 export function ForcePasswordChangeModal({ mustChange }: { mustChange: boolean }) {
@@ -63,9 +63,9 @@ export function ForcePasswordChangeModal({ mustChange }: { mustChange: boolean }
               required
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             />
-            {errorData?.errors?.find((e) => e.field === 'currentPassword') && (
+            {errorData?.errors?.currentPassword?.[0] && (
               <p className="text-red-500 text-xs mt-1">
-                {errorData.errors.find((e) => e.field === 'currentPassword')?.message}
+                {errorData.errors.currentPassword[0]}
               </p>
             )}
           </div>
@@ -82,9 +82,9 @@ export function ForcePasswordChangeModal({ mustChange }: { mustChange: boolean }
               required
               className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
             />
-            {errorData?.errors?.find((e) => e.field === 'newPassword') && (
+            {errorData?.errors?.newPassword?.[0] && (
               <p className="text-red-500 text-xs mt-1">
-                {errorData.errors.find((e) => e.field === 'newPassword')?.message}
+                {errorData.errors.newPassword[0]}
               </p>
             )}
           </div>

@@ -10,7 +10,7 @@ import { Lock, RefreshCcw, Radio } from 'lucide-react';
 
 interface ChangePasswordError {
   message?: string;
-  errors?: Array<{ field: string; message: string }>;
+  errors?: Record<string, string[]>;
 }
 
 type PasswordChangeFormProps = {
@@ -94,6 +94,11 @@ export function PasswordChangeForm({ onClose, isOpen, mutation }: PasswordChange
                 wrapperClassName="w-full"
               />
             </div>
+            {errorData?.errors?.currentPassword?.[0] && (
+              <p className="text-red-500 text-xs mt-1 pl-1 flex items-center gap-1">
+                <Radio size={12} /> {errorData.errors.currentPassword[0]}
+              </p>
+            )}
           </div>
 
           {/* New Password */}
@@ -143,9 +148,9 @@ export function PasswordChangeForm({ onClose, isOpen, mutation }: PasswordChange
                 <Radio size={12} /> {validationError}
               </p>
             )}
-            {errorData?.errors?.find(e => e.field === 'newPassword') && (
+            {errorData?.errors?.newPassword?.[0] && (
               <p className="text-red-500 text-xs mt-1 pl-1 flex items-center gap-1">
-                <Radio size={12} /> {errorData.errors.find(e => e.field === 'newPassword')?.message}
+                <Radio size={12} /> {errorData.errors.newPassword[0]}
               </p>
             )}
             {mutation.isError && errorData?.message && !errorData?.errors && (

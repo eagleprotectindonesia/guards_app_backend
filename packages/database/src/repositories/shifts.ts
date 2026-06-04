@@ -808,9 +808,9 @@ export async function processGuardShiftBulkImport(
         );
         continue;
       }
-      if (durationInMins < 2 * interval) {
+      if (durationInMins < interval) {
         errors.push(
-          `Row ${row.rowNumber}: shift duration (${durationInMins} mins) must allow at least 2 check-in slots for interval ${interval}.`
+          `Row ${row.rowNumber}: shift duration (${durationInMins} mins) must allow at least 1 check-in slot for interval ${interval}.`
         );
         continue;
       }
