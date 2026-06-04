@@ -475,3 +475,147 @@ export async function sendLeaveRequestStatusPushNotification(params: {
     };
   }
 }
+
+export type TicketPushNotificationReason = 'firebase_unavailable' | 'no_tokens' | 'sent' | 'send_error';
+
+export type TicketPushNotificationResult = {
+  attempted: boolean;
+  tokenCount: number;
+  successCount: number;
+  failureCount: number;
+  staleTokenCount: number;
+  reason: TicketPushNotificationReason;
+};
+
+const TICKET_NOTIFICATION_CHANNEL_ID = 'ticket_updates_v1';
+
+export async function sendTicketCreatedPushNotification(params: {
+  employeeId: string;
+  ticketId: string;
+  ticketCode: string;
+  title: string;
+}): Promise<TicketPushNotificationResult> {
+  const { employeeId, ticketId, ticketCode, title: ticketTitle } = params;
+  const title = `New Ticket assigned: ${ticketCode}`;
+  const body = ticketTitle || 'A new ticket has been assigned to your department.';
+
+  if (!firebaseAdmin.apps.length) {
+    console.warn('[FCM] Ticket push skipped: Firebase Admin SDK not initialized', {
+      employeeId,
+      ticketId,
+      ticketCode,
+    });
+    return {
+      attempted: false,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      staleTokenCount: 0,
+      reason: 'firebase_unavailable',
+    };
+  }
+
+  try {
+    const tokensResult = await getEmployeeFcmTokens(employeeId);
+    if (tokensResult.length === 0) {
+      console.info('[FCM] Ticket push skipped: no registered tokens', {
+        employeeId,
+        ticketId,
+        ticketCode,
+      });
+      return {
+        attempted: false,
+        tokenCount: 0,
+        successCount: 0,
+        failureCount: 0,
+        staleTokenCount: 0,
+        reason: 'no_tokens',
+      };
+    }
+
+    const tokenStrings = tokensResult.map(t => t.token);
+    const androidNotification = {
+      title,
+      body,
+      channelId: TICKET_NOTIFICATION_CHANNEL_ID,
+      sound: 'default',
+    };
+    const message = {
+      notification: { title, body },
+      android: {
+        priority: 'high' as const,
+        notification: androidNotification,
+      },
+      apns: {
+        headers: { 'apns-priority': '10' },
+        payload: {
+          aps: {
+            alert: { title, body },
+            sound: 'default',
+            'content-available': 1,
+          },
+        },
+      },
+      data: {
+        type: 'ticket_created',
+        ticketId: String(ticketId),
+        ticketCode: String(ticketCode),
+        ticketTitle: String(ticketTitle),
+        targetPath: `/tickets?id=${ticketId}`,
+      },
+      webpush: {
+        fcmOptions: {
+          link: `${WEB_APP_URL}/employee/tickets?id=${ticketId}`,
+        },
+      },
+      tokens: tokenStrings,
+    };
+
+    const response = await firebaseAdmin.messaging().sendEachForMulticast(message);
+    let staleTokenCount = 0;
+    if (response.failureCount > 0) {
+      const failedTokens: string[] = [];
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          const errorCode = resp.error?.code;
+          console.warn('[FCM] Ticket push token delivery failed', {
+            employeeId,
+            ticketId,
+            tokenSuffix: maskToken(tokenStrings[idx]),
+            errorCode,
+          });
+          if (
+            errorCode === 'messaging/invalid-registration-token' ||
+            errorCode === 'messaging/registration-token-not-registered'
+          ) {
+            failedTokens.push(tokenStrings[idx]);
+          }
+        }
+      });
+      if (failedTokens.length > 0) {
+        staleTokenCount = failedTokens.length;
+        await removeStaleFcmTokens(failedTokens);
+      }
+    }
+
+    return {
+      attempted: true,
+      tokenCount: tokenStrings.length,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+      staleTokenCount,
+      reason: 'sent',
+    };
+  } catch (error) {
+    console.error(`[FCM] Error sending ticket push notification to employee ${employeeId}:`, error);
+    return {
+      attempted: true,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      staleTokenCount: 0,
+      reason: 'send_error',
+    };
+  }
+}
+

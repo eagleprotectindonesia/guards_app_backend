@@ -267,9 +267,33 @@ function summarizeTicketSlaStatus(
   };
 }
 
-async function resolveDepartmentTargetEmployees(roleName: string, tx: TxLike) {
-  const keyword = roleName.trim();
-  if (!keyword) {
+async function resolveDepartmentTargetEmployees(
+  roleName: string,
+  ticketDepartment: string | null | undefined,
+  tx: TxLike
+) {
+  let queryDepts: string[] = [];
+  let keyword = '';
+
+  if (ticketDepartment) {
+    keyword = ticketDepartment;
+    if (ticketDepartment === 'HR') {
+      queryDepts = ['HR', 'Human Resources'];
+    } else if (ticketDepartment === 'IT') {
+      queryDepts = ['IT', 'IT Department', 'Information Technology'];
+    } else if (ticketDepartment === 'CS') {
+      queryDepts = ['CS', 'Customer Service', 'Customer Support'];
+    } else {
+      queryDepts = [ticketDepartment];
+    }
+  } else {
+    keyword = roleName.trim();
+    if (keyword) {
+      queryDepts = [keyword];
+    }
+  }
+
+  if (queryDepts.length === 0) {
     return { keyword: '', employees: [] as Array<{ id: string }> };
   }
 
@@ -277,7 +301,9 @@ async function resolveDepartmentTargetEmployees(roleName: string, tx: TxLike) {
     where: {
       deletedAt: null,
       status: true,
-      department: { contains: keyword, mode: 'insensitive' },
+      OR: queryDepts.map(dept => ({
+        department: { contains: dept, mode: 'insensitive' },
+      })),
     },
     select: { id: true },
   });
@@ -356,13 +382,15 @@ export async function createTicket(input: CreateTicketInput, tx: TxLike = prisma
   return withTransaction(tx, async trx => {
     const departmentRole = await trx.role.findUnique({
       where: { id: input.departmentRoleId },
-      select: { name: true },
+      select: { name: true, policy: true },
     });
     if (!departmentRole) {
       throw new Error('Department role not found');
     }
 
-    const targetEmployees = await resolveDepartmentTargetEmployees(departmentRole.name, trx);
+    const policyObj = departmentRole.policy as { ticketDepartment?: string } | null;
+    const ticketDepartment = policyObj?.ticketDepartment;
+    const targetEmployees = await resolveDepartmentTargetEmployees(departmentRole.name, ticketDepartment, trx);
     const code = await nextTicketCode(input.departmentRoleId, trx);
 
     const ticket = await trx.ticket.create({
@@ -848,7 +876,7 @@ export async function refreshTicketAssignedEmployees(ticketId: string, tx: TxLik
     const ticket = await trx.ticket.findUnique({
       where: { id: ticketId },
       include: {
-        departmentRole: { select: { name: true } },
+        departmentRole: { select: { name: true, policy: true } },
       },
     });
     if (!ticket) {
@@ -858,7 +886,10 @@ export async function refreshTicketAssignedEmployees(ticketId: string, tx: TxLik
       throw new Error('Ticket department role not found');
     }
 
-    const targetEmployees = await resolveDepartmentTargetEmployees(ticket.departmentRole.name, trx);
+    const policyObj = ticket.departmentRole.policy as { ticketDepartment?: string } | null;
+    const ticketDepartment = policyObj?.ticketDepartment;
+
+    const targetEmployees = await resolveDepartmentTargetEmployees(ticket.departmentRole.name, ticketDepartment, trx);
 
     await trx.ticketAssignedEmployee.deleteMany({ where: { ticketId } });
     if (targetEmployees.employees.length > 0) {

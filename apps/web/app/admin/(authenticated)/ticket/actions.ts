@@ -36,6 +36,7 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 import { getCachedPresignedDownloadUrl, getPresignedUploadPostPolicy } from '@/lib/s3';
 import { redis } from '@repo/database/redis';
 import { TicketStatus } from '@prisma/client';
+import { sendTicketCreatedPushNotification } from '@/lib/fcm';
 
 const SUBMITTER_STATUS_ACTIONS: TicketStatus[] = ['CLOSED'];
 const CLAIMANT_STATUS_ACTIONS: TicketStatus[] = ['WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CANNOT_RESOLVE'];
@@ -167,6 +168,26 @@ export async function createTicketAction(input: unknown) {
     clientLocation: parsed.data.clientLocation,
     submitterAdminId: session.id,
   });
+
+  const assignedEmployees = await db.ticketAssignedEmployee.findMany({
+    where: { ticketId: ticket.id },
+    select: { employeeId: true },
+  });
+
+  assignedEmployees.forEach(ae => {
+    void sendTicketCreatedPushNotification({
+      employeeId: ae.employeeId,
+      ticketId: ticket.id,
+      ticketCode: ticket.code,
+      title: ticket.title,
+    }).catch(err => {
+      console.error(
+        `[Push Notification] Failed to send to employee ${ae.employeeId} for ticket ${ticket.code}:`,
+        err
+      );
+    });
+  });
+
   revalidateTicketPaths(ticket.id);
   return ticket;
 }

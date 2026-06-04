@@ -8,6 +8,11 @@ import {
 import { addTicketMessageWithAttachments, claimTicket, createTicket, db, getTicketById, updateTicketStatus } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { getPresignedUploadPostPolicy } from '@/lib/s3';
+import { sendTicketCreatedPushNotification } from '@/lib/fcm';
+
+jest.mock('@/lib/fcm', () => ({
+  sendTicketCreatedPushNotification: jest.fn(),
+}));
 
 jest.mock('@repo/database', () => ({
   createTicket: jest.fn(),
@@ -23,6 +28,9 @@ jest.mock('@repo/database', () => ({
       findUnique: jest.fn(),
     },
     role: {
+      findMany: jest.fn(),
+    },
+    ticketAssignedEmployee: {
       findMany: jest.fn(),
     },
   },
@@ -50,6 +58,7 @@ describe('ticket actions', () => {
       permissions: ['tickets:view', 'tickets:create'],
     });
     (db.role.findMany as jest.Mock).mockResolvedValue([{ id: 'role-it', name: 'IT Role' }]);
+    (db.ticketAssignedEmployee.findMany as jest.Mock).mockResolvedValue([]);
   });
 
   test('createTicketAction validates and forwards payload', async () => {
@@ -75,6 +84,37 @@ describe('ticket actions', () => {
         priority: 'HIGH',
       })
     );
+  });
+
+  test('createTicketAction triggers push notification for assigned employees', async () => {
+    (createTicket as jest.Mock).mockResolvedValue({
+      id: 'ticket-1',
+      code: 'IT_2026_05_0001',
+      title: 'Network outage',
+    });
+    (db.ticketAssignedEmployee.findMany as jest.Mock).mockResolvedValue([
+      { employeeId: 'emp-1' },
+      { employeeId: 'emp-2' },
+    ]);
+
+    await createTicketAction({
+      title: 'Network outage',
+      description: 'Office internet down',
+      department: 'IT',
+      clientName: 'Acme',
+      clientContact: '+62811',
+      clientLocation: 'Makassar',
+      resolutionTargetHours: 4,
+      priority: 'HIGH',
+    });
+
+    expect(sendTicketCreatedPushNotification).toHaveBeenCalledTimes(2);
+    expect(sendTicketCreatedPushNotification).toHaveBeenCalledWith({
+      employeeId: 'emp-1',
+      ticketId: 'ticket-1',
+      ticketCode: 'IT_2026_05_0001',
+      title: 'Network outage',
+    });
   });
 
   test('createTicketAction rejects when department role is missing', async () => {
