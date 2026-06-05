@@ -1479,13 +1479,13 @@ export async function getUpcomingShifts(now: Date, take = 50) {
 }
 
 /**
- * Fetches the active shift (including 5-min lead-up) and upcoming shifts for an employee.
+ * Fetches the active shift (including 30-min lead-up) and upcoming shifts for an employee.
  * Addresses soft-delete and overlap ordering.
  */
 export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now: Date) {
-  const LEADUP_MS = 5 * 60000;
+  const LEADUP_MS = 30 * 60000;
 
-  // Find shifts that are either currently active or starting within the next 5 minutes
+  // Find shifts that are either currently active or starting within the next 30 minutes
   // Ordered by startsAt asc to pick the current shift first (if multiple are in range during handovers)
   const activeShift = await prisma.shift.findFirst({
     where: {
@@ -1493,7 +1493,7 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
       deletedAt: null,
       OR: [
         {
-          // For scheduled shifts, we only show them if they are current (within 5 min buffer)
+          // For scheduled shifts, we only show them if they are current (within 30 min buffer)
           status: 'scheduled',
           startsAt: { lte: new Date(now.getTime() + LEADUP_MS) },
           endsAt: { gte: new Date(now.getTime() - LEADUP_MS) },
