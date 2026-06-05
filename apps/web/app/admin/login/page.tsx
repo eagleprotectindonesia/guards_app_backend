@@ -37,7 +37,7 @@ export default function AdminLogin() {
       }
 
       // Assuming successful login, redirect to the live admin dashboard
-      router.push(getAdminDashboardHref('live'));
+      router.push(getAdminDashboardHref('dashboard'));
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);

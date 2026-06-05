@@ -113,7 +113,7 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
   ];
 }
 
-export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: AdminTabSlug = 'live'): NavGroup[] {
+export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: AdminTabSlug = 'guard'): NavGroup[] {
   const allItems = getAdminNavItems(officeWorkSchedulesEnabled);
   const byName = new Map(allItems.map(item => [item.name, item]));
 
@@ -171,7 +171,7 @@ export const ADMIN_SECONDARY_NAV_ITEMS: NavItem[] = [
 ];
 
 export const ADMIN_LABEL_MAP: Record<string, string> = {
-  live: 'Live Operation',
+  guard: 'Guard Operations',
   ticket: 'Ticket',
   workforce: 'Workforce',
   client: 'Client',

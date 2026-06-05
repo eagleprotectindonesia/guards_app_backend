@@ -14,11 +14,11 @@ export default async function TabDashboardPage({ params }: PageProps) {
   const { tab } = await params;
 
   if (!isAdminTabSlug(tab)) {
-    redirect('/admin/new-dashboard');
+    redirect('/admin/dashboard');
   }
 
-  if (tab === 'live') {
-    redirect('/admin/new-dashboard');
+  if (tab === 'guard') {
+    redirect('/admin/dashboard?dashboardTab=guard');
   }
 
   if (tab === 'ticket') {

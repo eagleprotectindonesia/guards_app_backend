@@ -1,4 +1,4 @@
-export const ADMIN_TAB_SLUGS = ['live', 'ticket', 'workforce', 'client', 'system'] as const;
+export const ADMIN_TAB_SLUGS = ['dashboard', 'guard', 'ticket', 'workforce', 'client', 'system'] as const;
 export const ADMIN_DASHBOARD_TAB_QUERY_KEY = 'dashboardTab';
 
 export type AdminTabSlug = (typeof ADMIN_TAB_SLUGS)[number];
@@ -37,7 +37,7 @@ export function getAdminTabFromPath(pathname: string): AdminTabSlug {
     return tabSegment;
   }
 
-  return 'live';
+  return 'guard';
 }
 
 export function getSelectedAdminDashboardTab(pathname: string, searchParams: SearchParamsLike): AdminTabSlug {
@@ -47,11 +47,11 @@ export function getSelectedAdminDashboardTab(pathname: string, searchParams: Sea
   }
 
   if (searchParams.has(ADMIN_DASHBOARD_TAB_QUERY_KEY)) {
-    return 'live';
+    return 'guard';
   }
 
   const pathTab = getAdminTabFromPath(pathname);
-  if (pathTab !== 'live') {
+  if (pathTab !== 'guard') {
     return pathTab;
   }
 
@@ -59,7 +59,7 @@ export function getSelectedAdminDashboardTab(pathname: string, searchParams: Sea
     return pathTab;
   }
 
-  return 'live';
+  return 'guard';
 }
 
 function parseHref(href: string) {
@@ -93,8 +93,8 @@ export function appendDashboardTabToHref(href: string, tab: AdminTabSlug, force 
 }
 
 export function getAdminDashboardHref(tab: AdminTabSlug): string {
-  if (tab === 'live') {
-    return appendDashboardTabToHref('/admin/new-dashboard', tab, true);
+  if (tab === 'dashboard' || tab === 'guard') {
+    return appendDashboardTabToHref('/admin/dashboard', tab, true);
   }
   if (tab === 'workforce') {
     return appendDashboardTabToHref('/admin/hr', tab, true);

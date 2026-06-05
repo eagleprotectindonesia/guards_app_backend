@@ -6,7 +6,7 @@ import AlertNotifications from './alert-notifications';
 import AdminNotificationInbox from './admin-notification-inbox';
 import { AdminSession } from '@/lib/admin-auth';
 import AdminProfileDropdown from './admin-profile-dropdown';
-import { Radio, Ticket, Users, Building2, FileSearch } from 'lucide-react';
+import { Radio, Ticket, Users, Building2, FileSearch, Activity } from 'lucide-react';
 import { cn } from '@repo/shared';
 import Link from 'next/link';
 import { type AdminTabSlug, getAdminDashboardHref } from '@/lib/admin-tab-routing';
@@ -14,9 +14,19 @@ import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 
 const HEADER_MENUS = [
   {
-    id: 'live-operations',
-    tab: 'live',
+    id: 'dashboard',
+    tab: 'dashboard',
     title: 'LIVE OPERATIONS',
+    subtitle: 'System Overview',
+    icon: Activity,
+    color: 'text-indigo-500',
+    activeBg: 'bg-indigo-500/10',
+    activeBorder: 'border-indigo-500/50',
+  },
+  {
+    id: 'live-operations',
+    tab: 'guard',
+    title: 'GUARD OPERATIONS',
     subtitle: 'Control Room',
     icon: Radio,
     color: 'text-red-500',

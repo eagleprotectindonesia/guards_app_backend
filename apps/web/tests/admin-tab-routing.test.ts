@@ -8,7 +8,8 @@ import { ADMIN_TICKET_NAV_ITEMS, getAdminNavGroups } from '../lib/admin-navigati
 
 describe('admin tab routing', () => {
   test('encodes the selected dashboard tab in dashboard hrefs', () => {
-    expect(getAdminDashboardHref('live')).toBe('/admin/new-dashboard?dashboardTab=live');
+    expect(getAdminDashboardHref('dashboard')).toBe('/admin/dashboard?dashboardTab=dashboard');
+    expect(getAdminDashboardHref('guard')).toBe('/admin/dashboard?dashboardTab=guard');
     expect(getAdminDashboardHref('ticket')).toBe('/admin/ticket/dashboard?dashboardTab=ticket');
   });
 
@@ -21,8 +22,9 @@ describe('admin tab routing', () => {
   });
 
   test('falls back to the dashboard route when the query param is missing', () => {
+    expect(getSelectedAdminDashboardTab('/admin/dashboard', new URLSearchParams())).toBe('dashboard');
     expect(getSelectedAdminDashboardTab('/admin/ticket/dashboard', new URLSearchParams())).toBe('ticket');
-    expect(getSelectedAdminDashboardTab('/admin/new-dashboard', new URLSearchParams())).toBe('live');
+    expect(getSelectedAdminDashboardTab('/admin/new-dashboard', new URLSearchParams())).toBe('guard');
   });
 
   test('reads the selected dashboard tab from the pathname even if not a dashboard path', () => {
@@ -30,10 +32,11 @@ describe('admin tab routing', () => {
   });
 
   test('sanitizes invalid dashboard tab values to live', () => {
-    expect(getSelectedAdminDashboardTab('/admin/sites', new URLSearchParams('dashboardTab=bogus'))).toBe('live');
+    expect(getSelectedAdminDashboardTab('/admin/sites', new URLSearchParams('dashboardTab=bogus'))).toBe('guard');
   });
 
   test('treats the new dashboard path as a dashboard route', () => {
+    expect(isDashboardPath('/admin/dashboard')).toBe(true);
     expect(isDashboardPath('/admin/new-dashboard')).toBe(true);
   });
 

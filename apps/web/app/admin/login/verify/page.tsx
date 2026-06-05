@@ -41,7 +41,7 @@ export default function Verify2FA() {
       }
 
       // Successful verification
-      router.push(getAdminDashboardHref('live'));
+      router.push(getAdminDashboardHref('dashboard'));
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message);
