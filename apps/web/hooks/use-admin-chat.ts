@@ -54,7 +54,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
   const [archivedEmployeeIds, setArchivedEmployeeIds] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
 
-  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { playNotificationSound } = useChatNotificationAudio();
   const { selectedFiles, previews, isOptimizing, handleFileChange, removeFile, clearFiles } = useAdminChatAttachments();
 

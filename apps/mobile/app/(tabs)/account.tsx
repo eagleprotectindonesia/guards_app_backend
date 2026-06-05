@@ -7,7 +7,7 @@ import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { LogOut, Key, ChevronRight, Fingerprint, Calendar, Bell } from 'lucide-react-native';
+import { LogOut, Key, ChevronRight, Fingerprint, Calendar, Bell, Tag } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
@@ -22,6 +22,7 @@ import PasswordConfirmationModal from '../../src/components/PasswordConfirmation
 import { LinearGradient } from 'expo-linear-gradient';
 import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
 import { useProfile } from '../../src/hooks/useProfile';
+import { isTicketEnabledDepartment } from '@repo/shared';
 import { useAnnouncements } from '../../src/hooks/useAnnouncements';
 import AnnouncementBell from '../../src/components/AnnouncementBell';
 
@@ -241,6 +242,23 @@ export default function AccountScreen() {
                     <ChevronRight size={18} color="#666666" />
                   </Box>
                 </TouchableOpacity>
+
+                {/* Department Tickets */}
+                {isTicketEnabledDepartment(employee?.department) && (
+                  <TouchableOpacity onPress={() => router.push('/tickets')} activeOpacity={0.7}>
+                    <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
+                      <HStack space="md" className="items-center">
+                        <Box className="w-10 h-10 rounded-xl bg-[#FF9500]/10 items-center justify-center border border-[#FF9500]/20">
+                          <Tag size={20} color="#FF9500" />
+                        </Box>
+                        <Text size="sm" className="font-semibold text-white">
+                          {t('tickets.menuTitle', 'Department Tickets')}
+                        </Text>
+                      </HStack>
+                      <ChevronRight size={18} color="#666666" />
+                    </Box>
+                  </TouchableOpacity>
+                )}
 
                 {/* Biometrics */}
                 {isBiometricAvailable && (

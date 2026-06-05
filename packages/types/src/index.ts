@@ -394,4 +394,36 @@ export interface ChatInboxItem {
   } | null;
 }
 
+export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type TicketStatus = 'NEW' | 'ACKNOWLEDGED' | 'WAITING_INFORMATION' | 'IN_PROGRESS' | 'SOLVED' | 'CLOSED' | 'CANNOT_RESOLVE';
+export type TicketClaimantType = 'ADMIN' | 'EMPLOYEE';
+
+export interface Ticket {
+  id: string;
+  code: string;
+  title: string;
+  description: string;
+  resolutionTargetHours: number;
+  priority: TicketPriority;
+  status: TicketStatus;
+  submitterAdminId: string;
+  claimedByType: TicketClaimantType | null;
+  claimedByAdminId: string | null;
+  claimedByEmployeeId: string | null;
+  claimedAt: string | Date | null;
+  departmentRoleId: string | null;
+  clientName: string;
+  clientContact: string;
+  clientLocation: string;
+  solvedAt: string | Date | null;
+  closedAt: string | Date | null;
+  cannotResolveAt: string | Date | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  submitterAdmin?: { id: string; name: string };
+  claimedByAdmin?: { id: string; name: string } | null;
+  claimedByEmployee?: { id: string; fullName: string } | null;
+}
+
 export * from './socket-events';
+

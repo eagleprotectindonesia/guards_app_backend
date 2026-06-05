@@ -24,4 +24,7 @@ export const queryKeys = {
   announcements: {
     list: ['announcements'] as const,
   },
+  tickets: {
+    list: ['tickets'] as const,
+  },
 };

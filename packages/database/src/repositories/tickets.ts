@@ -1,5 +1,6 @@
 import { Prisma, TicketHistoryAction, TicketPriority, TicketStatus } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
+import { TICKET_DEPARTMENT_MAPPINGS } from '@repo/shared';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 type TxCallback<T> = (tx: TxLike) => Promise<T>;
@@ -40,6 +41,7 @@ export type TicketListParams = {
   statuses?: TicketStatus[];
   priorities?: TicketPriority[];
   assignedRoleIds?: string[];
+  assignedEmployeeId?: string;
   submitterAdminId?: string;
   claimedByAdminId?: string;
   claimedByType?: 'ADMIN' | 'EMPLOYEE';
@@ -278,12 +280,9 @@ async function resolveDepartmentTargetEmployees(
 
   if (ticketDepartment) {
     keyword = ticketDepartment;
-    if (ticketDepartment === 'HR') {
-      queryDepts = ['HR', 'Human Resources'];
-    } else if (ticketDepartment === 'IT') {
-      queryDepts = ['IT', 'IT Department', 'Information Technology'];
-    } else if (ticketDepartment === 'CS') {
-      queryDepts = ['CS', 'Customer Service', 'Customer Support'];
+    const mapped = TICKET_DEPARTMENT_MAPPINGS[ticketDepartment.toUpperCase()];
+    if (mapped) {
+      queryDepts = mapped;
     } else {
       queryDepts = [ticketDepartment];
     }
@@ -508,6 +507,7 @@ export async function listTickets(params: TicketListParams = {}, tx: TxLike = pr
     ...(params.claimedByType ? { claimedByType: params.claimedByType } : {}),
     ...(params.claimedByAdminId ? { claimedByAdminId: params.claimedByAdminId } : {}),
     ...(params.assignedRoleIds?.length ? { assignedRoles: { some: { roleId: { in: params.assignedRoleIds } } } } : {}),
+    ...(params.assignedEmployeeId ? { assignedEmployees: { some: { employeeId: params.assignedEmployeeId } } } : {}),
     ...(params.unclaimedOnly ? { claimedByType: null } : {}),
     ...(cursor
       ? {

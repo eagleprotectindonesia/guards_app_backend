@@ -7,6 +7,7 @@ import {
   getTicketDashboardSidebarStats,
   getTicketSidebarCounts,
   listClosedTickets,
+  listTickets,
   listMyTickets,
   listUnassignedTickets,
   updateTicketStatus,
@@ -630,5 +631,18 @@ describe('tickets repository', () => {
         ],
       },
     });
+  });
+
+  test('listTickets filters by assignedEmployeeId', async () => {
+    (prisma.ticket.findMany as jest.Mock).mockResolvedValue([]);
+    await listTickets({ assignedEmployeeId: 'emp-123' });
+
+    expect(prisma.ticket.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          assignedEmployees: { some: { employeeId: 'emp-123' } },
+        }),
+      })
+    );
   });
 });

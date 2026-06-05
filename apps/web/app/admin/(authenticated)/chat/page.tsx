@@ -8,7 +8,7 @@ export default async function AdminChatPage() {
   await requirePermission(PERMISSIONS.CHAT.VIEW);
 
   return (
-    <div className="max-w-[1600px] mx-auto">
+    <div className="max-w-400 mx-auto">
       <Suspense fallback={<AdminChatSkeleton />}>
         <AdminChatClient />
       </Suspense>

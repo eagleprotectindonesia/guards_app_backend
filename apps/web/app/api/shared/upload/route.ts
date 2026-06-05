@@ -3,7 +3,7 @@ import { uploadFile } from '@/lib/s3';
 
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
+    const formData = (await req.formData()) as unknown as { get: (key: string) => unknown };
     const file = formData.get('file') as File | null;
     const folder = (formData.get('folder') as string) || 'uploads';
     const conversationId = formData.get('conversationId') as string | null;

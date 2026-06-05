@@ -398,5 +398,30 @@
       "attachmentPickFailed": "Failed to pick attachments",
       "attachmentUploadFailed": "Failed to upload attachments"
     }
+  },
+  "tickets": {
+    "title": "Tickets",
+    "menuTitle": "Department Tickets",
+    "noTickets": "No tickets found for your department",
+    "priority": "Priority",
+    "status": "Status",
+    "createdBy": "Created By",
+    "createdDate": "Created Date",
+    "loading": "Loading tickets...",
+    "priorityLabel": {
+      "LOW": "Low",
+      "MEDIUM": "Medium",
+      "HIGH": "High",
+      "CRITICAL": "Critical"
+    },
+    "statusLabel": {
+      "NEW": "New",
+      "ACKNOWLEDGED": "Acknowledged",
+      "WAITING_INFORMATION": "Waiting Info",
+      "IN_PROGRESS": "In Progress",
+      "SOLVED": "Solved",
+      "CLOSED": "Closed",
+      "CANNOT_RESOLVE": "Cannot Resolve"
+    }
   }
 }

@@ -31,7 +31,7 @@ export function TodayShiftsOverview({ completed, ongoing, upcoming }: Props) {
     <Card className="border-[#1f2432] bg-[#11141d] shadow-md">
       <CardHeader className="border-b border-[#1f2432] pb-4">
         <div className="space-y-1">
-          <CardTitle className="text-lg font-bold text-foreground">Today's Shift Overview</CardTitle>
+          <CardTitle className="text-lg font-bold text-foreground">{"Today's Shift Overview"}</CardTitle>
           <CardDescription className="text-xs text-muted-foreground">
             Real-time status breakdown of guard shifts scheduled for today.
           </CardDescription>
