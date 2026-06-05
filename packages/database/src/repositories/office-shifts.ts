@@ -767,3 +767,55 @@ export async function getUpcomingOfficeShiftsOverview(at = new Date()) {
   };
 }
 
+export async function getTodayOfficeShiftsOverview(at = new Date()) {
+  const todayRange = getBusinessDayRange(at, BUSINESS_TIMEZONE);
+
+  const [completed, ongoing, upcoming] = await Promise.all([
+    prisma.officeShift.count({
+      where: {
+        deletedAt: null,
+        endsAt: {
+          lte: at,
+          gte: todayRange.start,
+        },
+        status: {
+          not: 'cancelled' as ShiftStatus,
+        },
+      },
+    }),
+    prisma.officeShift.count({
+      where: {
+        deletedAt: null,
+        startsAt: {
+          lte: at,
+        },
+        endsAt: {
+          gt: at,
+        },
+        status: {
+          not: 'cancelled' as ShiftStatus,
+        },
+      },
+    }),
+    prisma.officeShift.count({
+      where: {
+        deletedAt: null,
+        startsAt: {
+          gt: at,
+          lt: todayRange.end,
+        },
+        status: {
+          not: 'cancelled' as ShiftStatus,
+        },
+      },
+    }),
+  ]);
+
+  return {
+    completed,
+    ongoing,
+    upcoming,
+  };
+}
+
+

@@ -22,12 +22,14 @@ import {
   getPendingLeaveRequestsCount,
   getLeaveApprovedTodayCount,
   getLeaveRejectedTodayCount,
-  getUpcomingOfficeShiftsOverview
+  getUpcomingOfficeShiftsOverview,
+  getTodayOfficeShiftsOverview
 } from '@repo/database';
 import { HRMetrics } from './components/hr-metrics';
 import { AttendanceTrendChart } from './components/attendance-trend-chart';
 import { LeaveRequestOverview } from './components/leave-request-overview';
 import { UpcomingShiftsOverview } from './components/upcoming-shifts-overview';
+import { TodayShiftsOverview } from './components/today-shifts-overview';
 import { cn } from '@repo/shared';
 
 export const dynamic = 'force-dynamic';
@@ -49,7 +51,8 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
     pendingLeaveCount,
     leaveApprovedTodayCount,
     leaveRejectedTodayCount,
-    upcomingShifts
+    upcomingShifts,
+    todayShifts
   ] = await Promise.all([
     getTotalEmployeeCount(),
     getActiveLeavesCountForDate(),
@@ -61,6 +64,7 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
     getLeaveApprovedTodayCount(),
     getLeaveRejectedTodayCount(),
     getUpcomingOfficeShiftsOverview(new Date()),
+    getTodayOfficeShiftsOverview(new Date()),
   ]);
 
   const leaveStats = [
@@ -219,6 +223,13 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
 
         {/* Right Column - Activity Feed & Calendar (Span 1) */}
         <div className="space-y-6">
+          {/* Today's Shift Overview */}
+          <TodayShiftsOverview
+            completed={todayShifts.completed}
+            ongoing={todayShifts.ongoing}
+            upcoming={todayShifts.upcoming}
+          />
+
           {/* Recent Activity / Audit Log Card */}
           <Card className="border-[#1f2432] bg-[#11141d] shadow-md">
             <CardHeader className="border-b border-[#1f2432] pb-4">
