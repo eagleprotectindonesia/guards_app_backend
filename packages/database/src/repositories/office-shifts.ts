@@ -709,3 +709,61 @@ export async function deleteOfficeShiftsByEmployeeAndDates(
 
   return shiftIds.length;
 }
+
+export async function getUpcomingOfficeShiftsOverview(at = new Date()) {
+  const todayRange = getBusinessDayRange(at, BUSINESS_TIMEZONE);
+  
+  const tomorrow = new Date(at);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowRange = getBusinessDayRange(tomorrow, BUSINESS_TIMEZONE);
+
+  const sevenDays = new Date(at);
+  sevenDays.setDate(sevenDays.getDate() + 7);
+  const sevenDaysRange = getBusinessDayRange(sevenDays, BUSINESS_TIMEZONE);
+
+  const [todayUpcoming, tomorrowCount, next7Days] = await Promise.all([
+    prisma.officeShift.count({
+      where: {
+        deletedAt: null,
+        startsAt: {
+          gt: at,
+          lt: todayRange.end,
+        },
+        status: {
+          not: 'cancelled' as ShiftStatus,
+        },
+      },
+    }),
+    prisma.officeShift.count({
+      where: {
+        deletedAt: null,
+        startsAt: {
+          gte: tomorrowRange.start,
+          lt: tomorrowRange.end,
+        },
+        status: {
+          not: 'cancelled' as ShiftStatus,
+        },
+      },
+    }),
+    prisma.officeShift.count({
+      where: {
+        deletedAt: null,
+        startsAt: {
+          gte: todayRange.start,
+          lt: sevenDaysRange.end,
+        },
+        status: {
+          not: 'cancelled' as ShiftStatus,
+        },
+      },
+    }),
+  ]);
+
+  return {
+    todayUpcoming,
+    tomorrow: tomorrowCount,
+    next7Days,
+  };
+}
+

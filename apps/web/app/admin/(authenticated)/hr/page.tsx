@@ -12,14 +12,56 @@ import {
   UserX,
   MapPin
 } from 'lucide-react';
-import { cn } from '@repo/shared';
-import { getTotalEmployeeCount } from '@repo/database';
+import { 
+  getTotalEmployeeCount, 
+  getActiveLeavesCountForDate, 
+  getOfficePresentCountForDate, 
+  getOfficeLateCountForDate, 
+  getOfficeAbsentCountForDate, 
+  getOfficeWeeklyAttendanceTrend,
+  getPendingLeaveRequestsCount,
+  getLeaveApprovedTodayCount,
+  getLeaveRejectedTodayCount,
+  getUpcomingOfficeShiftsOverview
+} from '@repo/database';
 import { HRMetrics } from './components/hr-metrics';
+import { AttendanceTrendChart } from './components/attendance-trend-chart';
+import { LeaveRequestOverview } from './components/leave-request-overview';
+import { UpcomingShiftsOverview } from './components/upcoming-shifts-overview';
+import { cn } from '@repo/shared';
 
 export const dynamic = 'force-dynamic';
 
-export default async function HRDashboardPage() {
-  const totalEmployees = await getTotalEmployeeCount();
+type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
+
+export default async function HRDashboardPage({ searchParams }: { searchParams: SearchParams }) {
+  const query = await searchParams;
+  const daysParam = query.days ? parseInt(Array.isArray(query.days) ? query.days[0] : query.days, 10) : 7;
+  const days = daysParam === 30 ? 30 : 7;
+
+  const [
+    totalEmployees,
+    activeLeavesCount,
+    officePresentCount,
+    officeLateCount,
+    officeAbsentCount,
+    officeWeeklyTrend,
+    pendingLeaveCount,
+    leaveApprovedTodayCount,
+    leaveRejectedTodayCount,
+    upcomingShifts
+  ] = await Promise.all([
+    getTotalEmployeeCount(),
+    getActiveLeavesCountForDate(),
+    getOfficePresentCountForDate(),
+    getOfficeLateCountForDate(),
+    getOfficeAbsentCountForDate(),
+    getOfficeWeeklyAttendanceTrend(new Date(), days),
+    getPendingLeaveRequestsCount(),
+    getLeaveApprovedTodayCount(),
+    getLeaveRejectedTodayCount(),
+    getUpcomingOfficeShiftsOverview(new Date()),
+  ]);
 
   const leaveStats = [
     { label: 'Pending Approval', count: 12, percentage: 35, color: 'bg-amber-500', textColor: 'text-amber-400' },
@@ -61,13 +103,38 @@ export default async function HRDashboardPage() {
       {/* Metric Cards */}
       <HRMetrics
         totalEmployees={totalEmployees}
-        activeOnDutyCount={42}
-        onLeaveTodayCount={8}
-        pendingLeaveCount={12}
+        onLeaveTodayCount={activeLeavesCount}
+        officePresentCount={officePresentCount}
+        officeLateCount={officeLateCount}
+        officeAbsentCount={officeAbsentCount}
       />
+
+      {/* Row 2: Attendance Overview and Placeholders */}
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        {/* Column 1: Leave Request Overview */}
+        <LeaveRequestOverview
+          pendingCount={pendingLeaveCount}
+          approvedTodayCount={leaveApprovedTodayCount}
+          rejectedTodayCount={leaveRejectedTodayCount}
+          onLeaveTodayCount={activeLeavesCount}
+        />
+
+        {/* Column 2-3: Attendance Overview Trend Chart */}
+        <div className="md:col-span-2">
+          <AttendanceTrendChart data={officeWeeklyTrend} currentDays={days} />
+        </div>
+
+        {/* Column 4: Upcoming Shifts Overview */}
+        <UpcomingShiftsOverview
+          todayUpcoming={upcomingShifts.todayUpcoming}
+          tomorrow={upcomingShifts.tomorrow}
+          next7Days={upcomingShifts.next7Days}
+        />
+      </div>
 
       {/* Main Grid Content */}
       <div className="grid gap-6 xl:grid-cols-3">
+
         {/* Left Column - Shift summaries and Leaves (Span 2) */}
         <div className="space-y-6 xl:col-span-2">
           {/* Shift Schedule & Attendance Overview Card */}

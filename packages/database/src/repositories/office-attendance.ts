@@ -5,6 +5,7 @@ import { resolveOfficeAttendanceContextForEmployee } from './office-attendance-c
 import { getSystemSetting } from './settings';
 import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
 import { getOfficeDayOverrideAnchorDates, resolveOfficeDayOverrideAnchorsForEmployee } from './office-day-overrides';
+import { redis } from '../redis/client';
 
 export async function getOfficeAttendanceById(id: string) {
   return prisma.officeAttendance.findUnique({
@@ -594,4 +595,107 @@ export async function getEmployeeOfficeDayOverrideChangelogsForDates(params: {
       },
     },
   });
+}
+
+export async function getOfficePresentCountForDate(date: Date = new Date()): Promise<number> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  return prisma.officeAttendance.count({
+    where: {
+      status: { in: ['present', 'late', 'clocked_out'] },
+      recordedAt: { gte: startOfDay, lte: endOfDay },
+    },
+  });
+}
+
+export async function getOfficeLateCountForDate(date: Date = new Date()): Promise<number> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  return prisma.officeAttendance.count({
+    where: {
+      status: 'late',
+      recordedAt: { gte: startOfDay, lte: endOfDay },
+    },
+  });
+}
+
+export async function getOfficeAbsentCountForDate(date: Date = new Date()): Promise<number> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  return prisma.officeAttendance.count({
+    where: {
+      status: 'absent',
+      recordedAt: { gte: startOfDay, lte: endOfDay },
+    },
+  });
+}
+
+export async function getDailyAttendanceStats(date: Date): Promise<{ present: number; late: number; absent: number }> {
+  const dateStr = date.toISOString().slice(0, 10);
+  const cacheKey = `office-attendance:daily:${dateStr}`;
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const isPastDay = dateStr < todayStr;
+
+  if (isPastDay) {
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        // Fall through
+      }
+    }
+  }
+
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  const attendances = await prisma.officeAttendance.findMany({
+    where: {
+      recordedAt: { gte: startOfDay, lte: endOfDay },
+      status: { in: ['present', 'late', 'absent', 'clocked_out'] },
+    },
+    select: {
+      status: true,
+    },
+  });
+
+  const stats = { present: 0, late: 0, absent: 0 };
+  for (const att of attendances) {
+    if (att.status === 'present' || att.status === 'clocked_out') {
+      stats.present++;
+    } else if (att.status === 'late') {
+      stats.late++;
+    } else if (att.status === 'absent') {
+      stats.absent++;
+    }
+  }
+
+  if (isPastDay) {
+    await redis.set(cacheKey, JSON.stringify(stats), 'EX', 2592000); // 30 days
+  } else {
+    await redis.set(cacheKey, JSON.stringify(stats), 'EX', 60); // 60 seconds
+  }
+
+  return stats;
+}
+
+export async function getOfficeWeeklyAttendanceTrend(endDate: Date = new Date(), days: number = 7): Promise<Array<{ date: string; present: number; late: number; absent: number }>> {
+  const result: Array<{ date: string; present: number; late: number; absent: number }> = [];
+
+  for (let i = days - 1; i >= 0; i--) {
+    const targetDate = new Date(endDate.getTime() - i * 24 * 60 * 60 * 1000);
+    const dateLabel = targetDate.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
+    const stats = await getDailyAttendanceStats(targetDate);
+    result.push({
+      date: dateLabel,
+      ...stats,
+    });
+  }
+
+  return result;
 }

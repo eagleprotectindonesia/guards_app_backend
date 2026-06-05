@@ -1,21 +1,27 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { Users, UserCheck, CalendarDays, ClipboardList } from 'lucide-react';
+import { Users, UserCheck, CalendarDays, Clock, UserX } from 'lucide-react';
 import { cn } from '@repo/shared';
 
 type HRMetricsProps = {
   totalEmployees: number;
-  activeOnDutyCount: number;
   onLeaveTodayCount: number;
-  pendingLeaveCount: number;
+  officePresentCount: number;
+  officeLateCount: number;
+  officeAbsentCount: number;
 };
 
 export function HRMetrics({
   totalEmployees,
-  activeOnDutyCount,
   onLeaveTodayCount,
-  pendingLeaveCount,
+  officePresentCount,
+  officeLateCount,
+  officeAbsentCount,
 }: HRMetricsProps) {
+  const leavePercentage = totalEmployees > 0
+    ? ((onLeaveTodayCount / totalEmployees) * 100).toFixed(1)
+    : '0.0';
+
   const metricsList = [
     {
       label: 'Total Employees',
@@ -27,36 +33,45 @@ export function HRMetrics({
       iconColor: 'text-sky-400',
     },
     {
-      label: 'Active On-Duty',
-      value: activeOnDutyCount.toString(),
-      hint: '95.4% shift coverage today',
+      label: 'Present Today',
+      value: officePresentCount.toString(),
+      hint: 'Office staff checked-in',
       hintTone: 'positive',
       icon: UserCheck,
-      accentClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-      iconColor: 'text-emerald-400',
+      accentClass: 'border-teal-500/20 bg-teal-500/10 text-teal-400',
+      iconColor: 'text-teal-400',
     },
     {
-      label: 'On Leave Today',
-      value: onLeaveTodayCount.toString(),
-      hint: '5 planned, 3 unplanned',
-      hintTone: 'neutral',
-      icon: CalendarDays,
+      label: 'Late Today',
+      value: officeLateCount.toString(),
+      hint: 'Arrived after schedule',
+      hintTone: 'warning',
+      icon: Clock,
       accentClass: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
       iconColor: 'text-amber-500',
     },
     {
-      label: 'Pending Leave Requests',
-      value: pendingLeaveCount.toString(),
-      hint: 'Requires manager review',
-      hintTone: 'warning',
-      icon: ClipboardList,
+      label: 'Absent Today',
+      value: officeAbsentCount.toString(),
+      hint: 'Not present or checked-in',
+      hintTone: 'critical',
+      icon: UserX,
+      accentClass: 'border-rose-500/20 bg-rose-500/10 text-rose-400',
+      iconColor: 'text-rose-500',
+    },
+    {
+      label: 'On Leave Today',
+      value: onLeaveTodayCount.toString(),
+      hint: `${leavePercentage}% of total workforce`,
+      hintTone: 'neutral',
+      icon: CalendarDays,
       accentClass: 'border-purple-500/20 bg-purple-500/10 text-purple-400',
       iconColor: 'text-purple-400',
     },
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
       {metricsList.map((metric) => {
         const Icon = metric.icon;
         return (

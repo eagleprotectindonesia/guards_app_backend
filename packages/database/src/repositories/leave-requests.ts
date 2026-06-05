@@ -1632,3 +1632,51 @@ export async function cancelOverlappingPendingLeaveRequestsByAttendance(params: 
 
   return { cancelledCount: requests.length };
 }
+
+export async function getActiveLeavesCountForDate(date: Date = new Date()): Promise<number> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  return prisma.employeeLeaveRequest.count({
+    where: {
+      status: 'approved',
+      startDate: { lte: endOfDay },
+      endDate: { gte: startOfDay },
+    },
+  });
+}
+
+export async function getPendingLeaveRequestsCount(): Promise<number> {
+  return prisma.employeeLeaveRequest.count({
+    where: {
+      status: { in: ['pending', 'pending_hr', 'pending_manager'] },
+    },
+  });
+}
+
+export async function getLeaveApprovedTodayCount(date: Date = new Date()): Promise<number> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  return prisma.employeeLeaveRequest.count({
+    where: {
+      status: 'approved',
+      OR: [
+        { hrApprovedAt: { gte: startOfDay, lte: endOfDay } },
+        { managerApprovedAt: { gte: startOfDay, lte: endOfDay } },
+      ],
+    },
+  });
+}
+
+export async function getLeaveRejectedTodayCount(date: Date = new Date()): Promise<number> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  return prisma.employeeLeaveRequest.count({
+    where: {
+      status: 'rejected',
+      reviewedAt: { gte: startOfDay, lte: endOfDay },
+    },
+  });
+}
