@@ -25,6 +25,10 @@ export default async function TabDashboardPage({ params }: PageProps) {
     redirect('/admin/ticket/dashboard');
   }
 
+  if (tab === 'workforce') {
+    redirect('/admin/hr');
+  }
+
   const sites = await getAllSites();
   return <AdminDashboard initialSites={serialize(sites)} />;
 }

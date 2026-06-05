@@ -1274,3 +1274,12 @@ export async function syncEmployeesFromExternal(
     deactivated: deactivatedCount,
   };
 }
+
+export async function getTotalEmployeeCount(): Promise<number> {
+  return prisma.employee.count({
+    where: {
+      deletedAt: null,
+      status: true,
+    },
+  });
+}

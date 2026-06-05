@@ -29,6 +29,10 @@ export function getAdminTabFromPath(pathname: string): AdminTabSlug {
   const segments = pathname.split('/').filter(Boolean);
   const tabSegment = segments[1];
 
+  if (tabSegment === 'hr') {
+    return 'workforce';
+  }
+
   if (tabSegment && isAdminTabSlug(tabSegment)) {
     return tabSegment;
   }
@@ -91,6 +95,9 @@ export function appendDashboardTabToHref(href: string, tab: AdminTabSlug, force 
 export function getAdminDashboardHref(tab: AdminTabSlug): string {
   if (tab === 'live') {
     return appendDashboardTabToHref('/admin/new-dashboard', tab, true);
+  }
+  if (tab === 'workforce') {
+    return appendDashboardTabToHref('/admin/hr', tab, true);
   }
 
   return appendDashboardTabToHref(`/admin/${tab}/dashboard`, tab, true);
