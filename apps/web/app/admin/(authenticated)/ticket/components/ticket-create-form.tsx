@@ -379,7 +379,7 @@ export function TicketCreateForm({ adminName }: Props) {
                   defaultValue={clientContact}
                   onChange={value => setClientContact(value || '')}
                   placeholder="Enter contact number"
-                  maxNationalDigits={12}
+                  maxLength={18}
                 />
               </label>
               <label className="space-y-1 col-span-2">
@@ -422,11 +422,11 @@ export function TicketCreateForm({ adminName }: Props) {
                 <span className="text-xs text-muted-foreground font-medium">Attachments</span>
                 <div className="border border-dashed border-border rounded-lg p-6 bg-background/50 hover:bg-background transition cursor-pointer flex flex-col items-center justify-center gap-2 relative">
                   <input
-                     type="file"
-                     multiple
-                     accept="image/*,video/*,application/pdf"
-                     onChange={e => setFiles(Array.from(e.target.files ?? []))}
-                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                    type="file"
+                    multiple
+                    accept="image/*,video/*,application/pdf"
+                    onChange={e => setFiles(Array.from(e.target.files ?? []))}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
                   <svg
                     className="w-8 h-8 text-muted-foreground/60"

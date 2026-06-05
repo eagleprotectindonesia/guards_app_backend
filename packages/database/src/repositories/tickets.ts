@@ -179,10 +179,11 @@ async function nextTicketCode(roleId: string, tx: TxLike) {
   const now = new Date();
   const year = now.getUTCFullYear();
   const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-  const serial = String(sequence.value).padStart(4, '0');
+  const day = String(now.getUTCDate()).padStart(2, '0');
+  const serial = String(sequence.value).padStart(3, '0');
   const prefix = resolveTicketCodePrefix(role);
 
-  return `${prefix}_${year}_${month}_${serial}`;
+  return `${prefix}-${year}-${month}-${day}-T${serial}`;
 }
 
 function statusTimestampPatch(status: TicketStatus) {

@@ -28,6 +28,7 @@ type UploadFolderOptions = {
   conversationId?: string;
   messageId?: string;
   fileType?: string;
+  ticketId?: string;
 };
 
 function sanitizeFallbackFileName(fileName: string) {
@@ -37,7 +38,7 @@ function sanitizeFallbackFileName(fileName: string) {
     .replace(/^\.+/, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
-    .replace(/^-+/, '')
+    .replace(/-+$/, '')
     .trim();
 
   return normalized || 'file';
@@ -64,6 +65,32 @@ function buildS3ObjectKey(fileName: string, options: UploadFolderOptions, contex
       fileName,
       fileType: options.fileType || null,
     });
+  }
+
+  if (folder === 'tickets' || folder.startsWith('tickets')) {
+    const ext = fileName.includes('.') ? fileName.split('.').pop() : '';
+    const uuid = crypto.randomUUID();
+    const env = process.env.NODE_ENV === 'production' ? 'prod' : process.env.NODE_ENV || 'development';
+    
+    let fileType = options.fileType;
+    if (!fileType && ext) {
+      const lowerExt = ext.toLowerCase();
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(lowerExt)) {
+        fileType = 'image';
+      } else if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(lowerExt)) {
+        fileType = 'video';
+      } else if (lowerExt === 'pdf') {
+        fileType = 'pdf';
+      }
+    }
+    fileType = fileType || 'file';
+
+    const ticketId = options.ticketId || 'temp';
+
+    if (options.messageId) {
+      return `tickets/env=${env}/ticket_${ticketId}/msg_${options.messageId}/${fileType}/${uuid}${ext ? '.' + ext : ''}`;
+    }
+    return `tickets/env=${env}/ticket_${ticketId}/${fileType}/${uuid}${ext ? '.' + ext : ''}`;
   }
 
   const safeFileName = sanitizeFallbackFileName(fileName);

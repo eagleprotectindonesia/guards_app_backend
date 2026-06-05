@@ -235,7 +235,7 @@ describe('ticket actions', () => {
           fileName: 'a.pdf',
           fileSize: 1000,
           mimeType: 'application/pdf',
-          s3Key: 'tickets/temp/admin-1/a.pdf',
+          s3Key: 'tickets/env=test/ticket_ticket-1/pdf/mock-uuid.pdf',
         },
       ],
     });

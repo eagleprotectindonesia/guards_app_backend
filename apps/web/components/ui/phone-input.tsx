@@ -14,7 +14,6 @@ interface PhoneInputProps {
   placeholder?: string;
   required?: boolean;
   maxLength?: number;
-  maxNationalDigits?: number;
 }
 
 const PhoneInput: React.FC<PhoneInputProps> = ({
@@ -26,22 +25,10 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   placeholder,
   required,
   maxLength,
-  maxNationalDigits = 12,
 }) => {
   const [value, setValue] = useState<Value | undefined>(defaultValue as Value | undefined);
 
   const handleChange = (newValue?: Value) => {
-    if (newValue) {
-      try {
-        const parsed = parsePhoneNumberWithError(newValue);
-        if (parsed.nationalNumber.length > maxNationalDigits) {
-          return;
-        }
-      } catch {
-        // Allow intermediate typing states that are not yet parseable.
-      }
-    }
-
     setValue(newValue);
     if (onChange) {
       onChange(newValue);

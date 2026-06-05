@@ -347,7 +347,8 @@ export async function addTicketMessageWithAttachmentsAction(input: unknown) {
     throw new Error('Ticket not found');
   }
 
-  const keyPrefix = `tickets/temp/${session.id}/`;
+  const env = process.env.NODE_ENV === 'production' ? 'prod' : process.env.NODE_ENV || 'development';
+  const keyPrefix = `tickets/env=${env}/ticket_${parsed.data.ticketId}/`;
   const invalidKey = parsed.data.attachments.find(attachment => !attachment.s3Key.startsWith(keyPrefix));
   if (invalidKey) {
     throw new Error('Attachment key is outside allowed upload prefix');
@@ -475,7 +476,8 @@ export async function createTicketAttachmentUploadUrlAction(input: unknown) {
   }
 
   return getPresignedUploadPostPolicy(parsed.data.fileName, parsed.data.contentType, parsed.data.fileSize, {
-    folder: `tickets/temp/${session.id}`,
+    folder: 'tickets',
+    ticketId: parsed.data.ticketId,
   }).then(result => ({
     ...result,
     uploadMethod: 'POST' as const,
@@ -498,7 +500,8 @@ export async function attachUploadedFilesToTicketAction(ticketId: string, files:
     throw new Error('Use message attachment action for reply files');
   }
 
-  const keyPrefix = `tickets/temp/${session.id}/`;
+  const env = process.env.NODE_ENV === 'production' ? 'prod' : process.env.NODE_ENV || 'development';
+  const keyPrefix = `tickets/env=${env}/ticket_${ticketId}/`;
   const invalidKey = parsed.data.find(file => !file.s3Key.startsWith(keyPrefix));
   if (invalidKey) {
     throw new Error('Attachment key is outside allowed upload prefix');

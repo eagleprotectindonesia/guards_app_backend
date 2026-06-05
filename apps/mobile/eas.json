@@ -5,17 +5,14 @@
   },
   "build": {
     "development": {
-      "node": "20.19.4",
       "developmentClient": true,
       "distribution": "internal",
       "env": {
         "npm_config_engine_strict": "false",
-        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1",
         "APP_VARIANT": "development"
       }
     },
     "preview": {
-      "node": "20.19.4",
       "distribution": "internal",
       "channel": "preview",
       "android": {
@@ -23,13 +20,11 @@
       },
       "env": {
         "npm_config_engine_strict": "false",
-        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1",
         "EXPO_PUBLIC_API_URL": "https://crm.eagleprotect.id",
         "APP_VARIANT": "preview"
       }
     },
     "preview-staging": {
-      "node": "20.19.4",
       "distribution": "internal",
       "channel": "preview-staging",
       "android": {
@@ -37,12 +32,10 @@
       },
       "env": {
         "npm_config_engine_strict": "false",
-        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1",
         "APP_VARIANT": "staging"
       }
     },
     "production": {
-      "node": "20.19.4",
       "channel": "production",
       "autoIncrement": true,
       "env": {
