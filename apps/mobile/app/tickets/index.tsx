@@ -19,7 +19,8 @@ import {
   User,
   MapPin,
   Phone,
-  AlertCircle
+  AlertCircle,
+  MessageSquare
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMyTickets } from '../../src/hooks/useTickets';
@@ -300,6 +301,19 @@ export default function TicketsScreen() {
                           </HStack>
                         </VStack>
                       </VStack>
+
+                      {/* Open Discussion Button */}
+                      <TouchableOpacity
+                        onPress={() => router.push(`/tickets/${ticket.id}`)}
+                        className="mt-2 py-3.5 rounded-2xl items-center justify-center border border-white/10 active:opacity-90 flex-row"
+                        style={{ backgroundColor: PRIMARY_RED }}
+                        activeOpacity={0.8}
+                      >
+                        <MessageSquare size={16} color="white" style={{ marginRight: 8 }} />
+                        <Text className="text-white font-bold text-sm">
+                          {t('tickets.openDiscussion', 'Open Discussion')}
+                        </Text>
+                      </TouchableOpacity>
                     </VStack>
                   )}
                 </BlurView>

@@ -472,6 +472,7 @@ export async function getTicketById(id: string, tx: TxLike = prisma) {
       messages: {
         include: {
           admin: { select: { id: true, name: true, roleId: true } },
+          employee: { select: { id: true, fullName: true, department: true } },
           attachments: true,
         },
         orderBy: { createdAt: 'asc' },
@@ -1048,6 +1049,34 @@ export async function addTicketMessage(
   });
 }
 
+export async function addEmployeeTicketMessage(
+  input: {
+    ticketId: string;
+    employeeId: string;
+    body: string;
+  },
+  tx: TxLike = prisma
+) {
+  return withTransaction(tx, async trx => {
+    const message = await trx.ticketMessage.create({
+      data: {
+        ticketId: input.ticketId,
+        employeeId: input.employeeId,
+        body: input.body,
+      },
+    });
+
+    await createHistory(trx, {
+      ticketId: input.ticketId,
+      actorEmployeeId: input.employeeId,
+      action: 'MESSAGE_ADDED',
+      toValue: message.id,
+    });
+
+    return message;
+  });
+}
+
 export async function addTicketAttachments(
   input: {
     ticketId: string;
@@ -1155,6 +1184,7 @@ export async function getTicketHistory(ticketId: string, tx: TxLike = prisma) {
     where: { ticketId },
     include: {
       actor: { select: { id: true, name: true, roleId: true } },
+      actorEmployee: { select: { id: true, fullName: true, department: true } },
     },
     orderBy: { createdAt: 'asc' },
   });

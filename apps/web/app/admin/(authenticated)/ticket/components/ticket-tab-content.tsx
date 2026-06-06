@@ -70,15 +70,15 @@ export function TicketTabContent({
           <ScrollArea className="flex-1 min-h-0 p-5">
             <div className="space-y-6 pb-40">
               {ticket.messages.map(msg => {
-                const initials = msg.admin?.name
-                  ? msg.admin.name
-                      .split(' ')
-                      .map(n => n[0])
-                      .join('')
-                      .slice(0, 2)
-                      .toUpperCase()
-                  : 'SA';
-                const avatarColorClass = getInitialsColor(msg.admin?.name || 'Admin');
+                const displayName = msg.admin?.name ?? msg.employee?.fullName ?? 'User';
+                const isEmployee = !msg.admin && !!msg.employee;
+                const initials = displayName
+                  .split(' ')
+                  .map(n => n[0])
+                  .join('')
+                  .slice(0, 2)
+                  .toUpperCase();
+                const avatarColorClass = getInitialsColor(displayName);
 
                 return (
                   <div key={msg.id} className="flex items-start gap-3.5 group">
@@ -92,7 +92,14 @@ export function TicketTabContent({
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-baseline gap-2 mb-1.5">
-                        <span className="text-xs font-bold text-foreground">{msg.admin?.name ?? 'Admin'}</span>
+                        <span className="text-xs font-bold text-foreground">
+                          {displayName}
+                          {isEmployee && (
+                            <span className="ml-1 text-[10px] font-normal text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded border border-border/10">
+                              Guard
+                            </span>
+                          )}
+                        </span>
                         <span className="text-[10px] text-muted-foreground">{formatDate(msg.createdAt)}</span>
                       </div>
                       <div className="bg-muted/10 border border-border/40 p-3.5 rounded-r-xl rounded-bl-xl text-sm text-foreground leading-relaxed max-w-2xl whitespace-pre-wrap animate-in fade-in slide-in-from-bottom-2 duration-200">

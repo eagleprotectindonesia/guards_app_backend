@@ -21,6 +21,7 @@ export type TicketMessage = {
   id: string;
   body: string;
   admin?: { name?: string | null } | null;
+  employee?: { fullName?: string | null } | null;
   createdAt: string | Date;
   attachments?: TicketAttachment[];
 };
