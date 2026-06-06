@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { Ticket } from '@repo/types';
 import { queryKeys } from '../api/queryKeys';
+import { useAuth } from '../contexts/AuthContext';
 
 type TicketsResponse = {
   items: Ticket[];
@@ -79,6 +80,21 @@ export function useClaimTicket(id: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: [...queryKeys.tickets.list, id] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.tickets.list });
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.tickets.list, 'unassigned-count'] });
     },
+  });
+}
+
+
+
+export function useUnassignedTicketsCount() {
+  const { isAuthenticated } = useAuth();
+  return useQuery<{ count: number }>({
+    queryKey: [...queryKeys.tickets.list, 'unassigned-count'],
+    queryFn: async () => {
+      const res = await client.get('/api/employee/my/tickets/unassigned-count');
+      return res.data as { count: number };
+    },
+    enabled: isAuthenticated,
   });
 }

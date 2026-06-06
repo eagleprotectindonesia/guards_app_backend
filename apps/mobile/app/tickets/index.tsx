@@ -24,6 +24,7 @@ import {
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMyTickets } from '../../src/hooks/useTickets';
+import { RichTextViewer } from '../../src/components/RichTextViewer';
 import { format } from 'date-fns';
 import { id, enUS } from 'date-fns/locale';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -208,12 +209,14 @@ export default function TicketsScreen() {
                     <VStack space="md" className="mt-4 pt-4 border-t border-white/5">
                       {/* Description */}
                       <VStack space="xs">
-                        <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
+                        <Text className="text-[#666] font-bold uppercase tracking-[1px] mb-2" size="2xs">
                           {t('tickets.description', 'Description')}
                         </Text>
-                        <Text className="text-[#D1D1D1] leading-5" size="sm">
-                          {ticket.description}
-                        </Text>
+                        <RichTextViewer
+                          html={ticket.description}
+                          defaultTextColor="#D1D1D1"
+                          fallback={t('tickets.noDescription', 'No description provided.')}
+                        />
                       </VStack>
 
                       {/* Status and Created Info */}

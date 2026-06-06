@@ -25,17 +25,13 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTicketDetail, useSendTicketMessage, useClaimTicket } from '../../src/hooks/useTickets';
 import { useProfile } from '../../src/hooks/useProfile';
+import { RichTextViewer } from '../../src/components/RichTextViewer';
 import { format } from 'date-fns';
 import { id as dateId, enUS } from 'date-fns/locale';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TicketPriority, TicketStatus } from '@repo/types';
 
 const PRIMARY_RED = '#FF3B30';
-
-function stripHtml(html: string) {
-  if (!html) return '';
-  return html.replace(/<[^>]*>/g, '').trim();
-}
 
 function getInitials(name: string) {
   if (!name) return 'US';
@@ -307,12 +303,14 @@ export default function TicketDetailScreen() {
               {/* Description Card */}
               <Box style={styles.card}>
                 <VStack space="xs">
-                  <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
+                  <Text className="text-[#666] font-bold uppercase tracking-[1px] mb-2" size="2xs">
                     {t('tickets.description', 'Description')}
                   </Text>
-                  <Text className="text-[#D1D1D1] leading-6" size="sm">
-                    {stripHtml(ticket.description) || t('tickets.noDescription', 'No description provided.')}
-                  </Text>
+                  <RichTextViewer
+                    html={ticket.description}
+                    defaultTextColor="#D1D1D1"
+                    fallback={t('tickets.noDescription', 'No description provided.')}
+                  />
                 </VStack>
               </Box>
 
