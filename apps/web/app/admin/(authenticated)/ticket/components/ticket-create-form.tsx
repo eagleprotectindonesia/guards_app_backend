@@ -16,6 +16,7 @@ import PhoneInput from '@/components/ui/phone-input';
 import { TinyMceEditor } from '@/components/ui/tinymce-editor';
 import { stripHtmlToText, ticketResolutionTargetHourOptions } from '@repo/validations';
 import { TICKET_DEPARTMENT_OPTIONS, type TicketDepartment } from '@/lib/ticket-department-roles';
+import Modal from '../../components/modal';
 
 type Props = {
   adminName: string;
@@ -176,6 +177,7 @@ export function TicketCreateForm({ adminName }: Props) {
   const [currentDateTime] = useState(() => new Date().toLocaleString());
   const [priority, setPriority] = useState<'LOW' | 'MEDIUM' | 'HIGH'>('MEDIUM');
   const [files, setFiles] = useState<File[]>([]);
+  const [activePreview, setActivePreview] = useState<{ file: File; url: string } | null>(null);
   const clientLocationPosition = useMemo(
     () =>
       clientLocationLatitude != null && clientLocationLongitude != null
@@ -197,6 +199,10 @@ export function TicketCreateForm({ adminName }: Props) {
       previews.forEach(preview => URL.revokeObjectURL(preview.url));
     };
   }, [previews]);
+
+  const removeFile = useCallback((indexToRemove: number) => {
+    setFiles(prev => prev.filter((_, i) => i !== indexToRemove));
+  }, []);
 
   async function uploadFile(file: File, ticketId: string) {
     const policy = await createTicketAttachmentUploadUrlAction({
@@ -234,6 +240,13 @@ export function TicketCreateForm({ adminName }: Props) {
       toast.error('Description / Problem is required');
       return;
     }
+
+    const digits = clientContact.replace(/\D/g, '');
+    if (digits.length < 7) {
+      toast.error('Client contact number must contain at least 7 digits');
+      return;
+    }
+
     let generatedTitle = descriptionText.split('\n')[0]?.trim().slice(0, 80) || 'New Ticket';
     if (generatedTitle.length < 3) {
       generatedTitle = generatedTitle.padEnd(3, '.');
@@ -425,7 +438,11 @@ export function TicketCreateForm({ adminName }: Props) {
                     type="file"
                     multiple
                     accept="image/*,video/*,application/pdf"
-                    onChange={e => setFiles(Array.from(e.target.files ?? []))}
+                    onChange={e => {
+                      const selected = Array.from(e.target.files ?? []);
+                      setFiles(prev => [...prev, ...selected]);
+                      e.target.value = '';
+                    }}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
                   <svg
@@ -444,22 +461,28 @@ export function TicketCreateForm({ adminName }: Props) {
                   <div className="text-sm font-medium text-foreground/80">Click to upload or drag and drop</div>
                   <div className="text-xs text-muted-foreground/60">Images, Videos, PDF (Max 10MB)</div>
                 </div>
-                {files.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {files.map((file, i) => (
-                      <p key={i} className="text-xs text-emerald-500 font-medium flex items-center gap-1">
-                        ✓ {file.name} ({Math.round(file.size / 1024)} KB)
-                      </p>
-                    ))}
-                  </div>
-                )}
+
                 {previews.length > 0 && (
                   <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-3">
                     {previews.map(({ file, url }, index) => (
                       <div
                         key={`${file.name}-${file.size}-${index}`}
-                        className="rounded-md border border-border bg-background p-2 space-y-2"
+                        className="rounded-md border border-border bg-background p-2 space-y-2 relative group cursor-pointer hover:border-indigo-500 hover:shadow-sm transition-all"
+                        onClick={() => setActivePreview({ file, url })}
                       >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFile(index);
+                          }}
+                          className="absolute top-3 right-3 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition shadow-sm z-10"
+                          title="Remove file"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
                         {file.type.startsWith('image/') && (
                           <img src={url} alt={file.name} className="h-24 w-full object-cover rounded" />
                         )}
@@ -471,7 +494,7 @@ export function TicketCreateForm({ adminName }: Props) {
                             PDF Preview
                           </div>
                         )}
-                        <p className="text-[11px] text-foreground truncate" title={file.name}>
+                        <p className="text-[11px] text-foreground truncate pr-6" title={file.name}>
                           {file.name}
                         </p>
                       </div>
@@ -501,8 +524,59 @@ export function TicketCreateForm({ adminName }: Props) {
               Create Ticket
             </Button>
           </div>
-        </Card>
+         </Card>
       </div>
+
+      {activePreview && (
+        <Modal
+          isOpen={!!activePreview}
+          onClose={() => setActivePreview(null)}
+          title={activePreview.file.name}
+          maxWidthClassName="max-w-3xl"
+        >
+          <div className="p-6 flex flex-col items-center justify-center bg-background text-foreground min-h-[300px]">
+            {activePreview.file.type.startsWith('image/') && (
+              <img
+                src={activePreview.url}
+                alt={activePreview.file.name}
+                className="max-h-[60vh] object-contain rounded-lg border border-border bg-muted/20"
+              />
+            )}
+            {activePreview.file.type.startsWith('video/') && (
+              <video
+                src={activePreview.url}
+                controls
+                className="max-h-[60vh] w-full object-contain rounded-lg border border-border bg-black"
+              />
+            )}
+            {!activePreview.file.type.startsWith('image/') && !activePreview.file.type.startsWith('video/') && (
+              <div className="flex flex-col items-center justify-center p-8 border border-dashed border-border rounded-lg bg-muted/10 w-full">
+                <svg className="w-16 h-16 text-muted-foreground mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                </svg>
+                <p className="text-sm font-medium text-center break-all">{activePreview.file.name}</p>
+                <p className="text-xs text-muted-foreground mt-1">({Math.round(activePreview.file.size / 1024)} KB)</p>
+                <a
+                  href={activePreview.url}
+                  download={activePreview.file.name}
+                  className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-sm font-medium transition"
+                >
+                  Download File
+                </a>
+              </div>
+            )}
+            <div className="w-full flex justify-end gap-2 mt-6">
+              <Button
+                variant="outline"
+                className="border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+                onClick={() => setActivePreview(null)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </APIProvider>
   );
 }

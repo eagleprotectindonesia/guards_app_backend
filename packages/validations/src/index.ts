@@ -263,7 +263,19 @@ export const ticketCreateSchema = z.object({
   description: z.string().refine(value => hasVisibleText(value), { message: 'Description is required' }),
   department: TicketDepartmentEnum,
   clientName: z.string().trim().min(1, 'Client name is required'),
-  clientContact: z.string().trim().min(1, 'Client contact is required'),
+  clientContact: z
+    .string()
+    .trim()
+    .min(1, 'Client contact is required')
+    .refine(
+      value => {
+        const digits = value.replace(/\D/g, '');
+        return digits.length >= 7;
+      },
+      {
+        message: 'Client contact number must contain at least 7 digits',
+      }
+    ),
   clientLocation: z.string().trim().min(1, 'Client location is required'),
   resolutionTargetHours: z
     .number()
