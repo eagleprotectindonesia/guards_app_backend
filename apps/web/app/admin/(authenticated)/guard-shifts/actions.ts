@@ -65,9 +65,9 @@ export async function createShift(
       };
     }
 
-    if (durationInMins < 2 * requiredCheckinIntervalMins) {
+    if (durationInMins < requiredCheckinIntervalMins) {
       return {
-        message: `Guard shift duration (${durationInMins} mins) must allow for at least 2 check-in slots. Please reduce the check-in interval.`,
+        message: `Guard shift duration (${durationInMins} mins) must allow for at least 1 check-in slots. Please reduce the check-in interval.`,
         success: false,
       };
     }
@@ -178,9 +178,9 @@ export async function updateShift(
       };
     }
 
-    if (durationInMins < 2 * requiredCheckinIntervalMins) {
+    if (durationInMins < requiredCheckinIntervalMins) {
       return {
-        message: `Guard shift duration (${durationInMins} mins) must allow for at least 2 check-in slots. Please reduce the check-in interval.`,
+        message: `Guard shift duration (${durationInMins} mins) must allow for at least 1 check-in slots. Please reduce the check-in interval.`,
         success: false,
       };
     }
