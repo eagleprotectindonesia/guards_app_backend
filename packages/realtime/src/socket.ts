@@ -86,6 +86,14 @@ export function initRealtimeSocket(
       registerChatHandlers(io, socket);
     }
 
+    socket.on('subscribe_ticket', (ticketId: string) => {
+      socket.join(`ticket:${ticketId}`);
+    });
+
+    socket.on('unsubscribe_ticket', (ticketId: string) => {
+      socket.leave(`ticket:${ticketId}`);
+    });
+
     // socket.on('disconnect', () => {
     //   console.log('[SocketServer] Disconnected', {
     //     type: auth.type,

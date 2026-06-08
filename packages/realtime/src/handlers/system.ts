@@ -49,6 +49,15 @@ export function registerSystemHandlers(io: UnifiedServer) {
           },
           unreadCount,
         });
+      } else if (channel === 'events:tickets') {
+        const { type, data } = payload;
+        if (type === 'ticket:created') {
+          io.to('admin').emit('ticket_created', data);
+        } else if (type === 'ticket:status_updated') {
+          io.to('admin').to(`ticket:${data.ticketId}`).emit('ticket_status_updated', data);
+        } else if (type === 'ticket:message_created') {
+          io.to('admin').to(`ticket:${data.ticketId}`).emit('ticket_message_added', data);
+        }
       }
     } catch (err) {
       console.error('[Socket Redis Sub] Parse Error:', err, 'Message:', message);
@@ -67,8 +76,13 @@ export function registerSystemHandlers(io: UnifiedServer) {
     try {
       await sub.psubscribe('alerts:site:*');
       await sub.psubscribe('admin-notifications:admin:*');
-      await sub.subscribe('dashboard:active-shifts', 'dashboard:upcoming-shifts', 'dashboard:live-activity');
-      console.log('[Socket Redis Sub] Subscribed to alerts and dashboard channels');
+      await sub.subscribe(
+        'dashboard:active-shifts',
+        'dashboard:upcoming-shifts',
+        'dashboard:live-activity',
+        'events:tickets'
+      );
+      console.log('[Socket Redis Sub] Subscribed to alerts, dashboard, and ticket channels');
     } catch (err) {
       console.error('[Socket Redis Sub] Subscription Failed:', err);
     }

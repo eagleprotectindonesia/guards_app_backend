@@ -1,6 +1,7 @@
 import { Prisma, TicketHistoryAction, TicketPriority, TicketStatus } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { TICKET_DEPARTMENT_MAPPINGS } from '@repo/shared';
+import { redis } from '../redis/client';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 type TxCallback<T> = (tx: TxLike) => Promise<T>;
@@ -386,7 +387,7 @@ async function createHistory(
 }
 
 export async function createTicket(input: CreateTicketInput, tx: TxLike = prisma) {
-  return withTransaction(tx, async trx => {
+  const ticket = await withTransaction(tx, async trx => {
     const departmentRole = await trx.role.findUnique({
       where: { id: input.departmentRoleId },
       select: { name: true, policy: true },
@@ -457,6 +458,20 @@ export async function createTicket(input: CreateTicketInput, tx: TxLike = prisma
 
     return ticket;
   });
+
+  try {
+    await redis.publish(
+      'events:tickets',
+      JSON.stringify({
+        type: 'ticket:created',
+        data: { ticket }
+      })
+    );
+  } catch (err) {
+    console.error('Failed to publish ticket created event to Redis:', err);
+  }
+
+  return ticket;
 }
 
 export async function getTicketById(id: string, tx: TxLike = prisma) {
@@ -753,7 +768,7 @@ export async function updateTicketStatus(
   },
   tx: TxLike = prisma
 ) {
-  return withTransaction(tx, async trx => {
+  const updated = await withTransaction(tx, async trx => {
     const ticket = await trx.ticket.findUnique({
       where: { id: input.ticketId },
       select: { id: true, status: true, submitterAdminId: true },
@@ -797,6 +812,24 @@ export async function updateTicketStatus(
 
     return updated;
   });
+
+  try {
+    await redis.publish(
+      'events:tickets',
+      JSON.stringify({
+        type: 'ticket:status_updated',
+        data: {
+          ticketId: updated.id,
+          status: updated.status,
+          ticket: updated
+        }
+      })
+    );
+  } catch (err) {
+    console.error('Failed to publish ticket status updated event to Redis:', err);
+  }
+
+  return updated;
 }
 
 export async function updateTicketPriority(
@@ -934,7 +967,8 @@ export async function refreshTicketAssignedEmployees(ticketId: string, tx: TxLik
 }
 
 export async function claimTicket(input: ClaimTicketInput, tx: TxLike = prisma) {
-  return withTransaction(tx, async trx => {
+  let statusChanged = false;
+  const updated = await withTransaction(tx, async trx => {
     const isAdminClaim = Boolean(input.actorAdminId);
     const isEmployeeClaim = Boolean(input.actorEmployeeId);
     if (isAdminClaim === isEmployeeClaim) {
@@ -1017,6 +1051,7 @@ export async function claimTicket(input: ClaimTicketInput, tx: TxLike = prisma) 
     });
 
     if (ticket.status === 'NEW') {
+      statusChanged = true;
       await trx.ticket.update({
         where: { id: input.ticketId },
         data: { status: 'ACKNOWLEDGED' },
@@ -1034,6 +1069,27 @@ export async function claimTicket(input: ClaimTicketInput, tx: TxLike = prisma) 
 
     return updated;
   });
+
+  if (statusChanged) {
+    updated.status = 'ACKNOWLEDGED';
+    try {
+      await redis.publish(
+        'events:tickets',
+        JSON.stringify({
+          type: 'ticket:status_updated',
+          data: {
+            ticketId: updated.id,
+            status: 'ACKNOWLEDGED',
+            ticket: updated
+          }
+        })
+      );
+    } catch (err) {
+      console.error('Failed to publish ticket status updated event to Redis:', err);
+    }
+  }
+
+  return updated;
 }
 
 export async function addTicketMessage(
@@ -1044,7 +1100,7 @@ export async function addTicketMessage(
   },
   tx: TxLike = prisma
 ) {
-  return withTransaction(tx, async trx => {
+  const message = await withTransaction(tx, async trx => {
     const message = await trx.ticketMessage.create({
       data: {
         ticketId: input.ticketId,
@@ -1062,6 +1118,24 @@ export async function addTicketMessage(
 
     return message;
   });
+
+  try {
+    await redis.publish(
+      'events:tickets',
+      JSON.stringify({
+        type: 'ticket:message_created',
+        data: {
+          ticketId: message.ticketId,
+          messageId: message.id,
+          message
+        }
+      })
+    );
+  } catch (err) {
+    console.error('Failed to publish ticket message created event to Redis:', err);
+  }
+
+  return message;
 }
 
 export async function addEmployeeTicketMessage(
@@ -1072,7 +1146,7 @@ export async function addEmployeeTicketMessage(
   },
   tx: TxLike = prisma
 ) {
-  return withTransaction(tx, async trx => {
+  const message = await withTransaction(tx, async trx => {
     const message = await trx.ticketMessage.create({
       data: {
         ticketId: input.ticketId,
@@ -1090,6 +1164,24 @@ export async function addEmployeeTicketMessage(
 
     return message;
   });
+
+  try {
+    await redis.publish(
+      'events:tickets',
+      JSON.stringify({
+        type: 'ticket:message_created',
+        data: {
+          ticketId: message.ticketId,
+          messageId: message.id,
+          message
+        }
+      })
+    );
+  } catch (err) {
+    console.error('Failed to publish ticket message created event to Redis:', err);
+  }
+
+  return message;
 }
 
 export async function addTicketAttachments(
@@ -1173,7 +1265,7 @@ export async function addEmployeeTicketMessageWithAttachments(
   input: EmployeeTicketMessageWithAttachmentsInput,
   tx: TxLike = prisma
 ) {
-  return withTransaction(tx, async trx => {
+  const result = await withTransaction(tx, async trx => {
     const message = await trx.ticketMessage.create({
       data: {
         ticketId: input.ticketId,
@@ -1205,10 +1297,31 @@ export async function addEmployeeTicketMessageWithAttachments(
 
     return { message, attachments };
   });
+
+  try {
+    await redis.publish(
+      'events:tickets',
+      JSON.stringify({
+        type: 'ticket:message_created',
+        data: {
+          ticketId: result.message.ticketId,
+          messageId: result.message.id,
+          message: {
+            ...result.message,
+            attachments: result.attachments
+          }
+        }
+      })
+    );
+  } catch (err) {
+    console.error('Failed to publish ticket message created event to Redis:', err);
+  }
+
+  return result;
 }
 
 export async function addTicketMessageWithAttachments(input: TicketMessageWithAttachmentsInput, tx: TxLike = prisma) {
-  return withTransaction(tx, async trx => {
+  const result = await withTransaction(tx, async trx => {
     const message = await trx.ticketMessage.create({
       data: {
         ticketId: input.ticketId,
@@ -1240,6 +1353,27 @@ export async function addTicketMessageWithAttachments(input: TicketMessageWithAt
 
     return { message, attachments };
   });
+
+  try {
+    await redis.publish(
+      'events:tickets',
+      JSON.stringify({
+        type: 'ticket:message_created',
+        data: {
+          ticketId: result.message.ticketId,
+          messageId: result.message.id,
+          message: {
+            ...result.message,
+            attachments: result.attachments
+          }
+        }
+      })
+    );
+  } catch (err) {
+    console.error('Failed to publish ticket message created event to Redis:', err);
+  }
+
+  return result;
 }
 
 export async function updateTicketStatusByEmployee(
@@ -1250,7 +1384,7 @@ export async function updateTicketStatusByEmployee(
   },
   tx: TxLike = prisma
 ) {
-  return withTransaction(tx, async trx => {
+  const updated = await withTransaction(tx, async trx => {
     const ticket = await trx.ticket.findUnique({
       where: { id: input.ticketId },
       select: {
@@ -1288,6 +1422,24 @@ export async function updateTicketStatusByEmployee(
 
     return updated;
   });
+
+  try {
+    await redis.publish(
+      'events:tickets',
+      JSON.stringify({
+        type: 'ticket:status_updated',
+        data: {
+          ticketId: updated.id,
+          status: updated.status,
+          ticket: updated
+        }
+      })
+    );
+  } catch (err) {
+    console.error('Failed to publish ticket status updated event to Redis:', err);
+  }
+
+  return updated;
 }
 
 export async function getTicketHistory(ticketId: string, tx: TxLike = prisma) {

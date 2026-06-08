@@ -15,6 +15,12 @@ import {
 } from './tickets';
 import { db as prisma } from '../prisma/client';
 
+jest.mock('../redis/client', () => ({
+  redis: {
+    publish: jest.fn(),
+  },
+}));
+
 jest.mock('../prisma/client', () => ({
   db: {
     role: {

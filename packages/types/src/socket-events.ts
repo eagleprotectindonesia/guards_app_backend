@@ -117,6 +117,11 @@ export interface ServerToClientEvents {
   'auth:force_logout': (data: { reason: string }) => void;
   'shift:updated': (data: { shiftId: string }) => void;
   error: (data: { message: string }) => void;
+
+  // Ticket events
+  ticket_created: (payload: { ticket: any }) => void;
+  ticket_status_updated: (payload: { ticketId: string; status: string; ticket: any }) => void;
+  ticket_message_added: (payload: { ticketId: string; message: any }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -161,6 +166,10 @@ export interface ClientToServerEvents {
   }) => void;
   request_admin_notifications_backfill: (data: { limit?: number }) => void;
   mark_admin_notifications_read: (data: { notificationIds: string[] }) => void;
+
+  // Ticket events
+  subscribe_ticket: (ticketId: string) => void;
+  unsubscribe_ticket: (ticketId: string) => void;
 }
 
 export interface InterServerEvents {
