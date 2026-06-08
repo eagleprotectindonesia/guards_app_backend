@@ -1,8 +1,10 @@
 'use client';
 
-import { type ChangeEvent, useRef, useState, useTransition } from 'react';
+import { type ChangeEvent, useRef, useState, useTransition, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSocket } from '@/components/socket-provider';
+import { useSocketEvent } from '@/hooks/use-socket-event';
 import { Card } from '@/components/ui/card';
 import { toast } from 'react-hot-toast';
 import { Loader2 } from 'lucide-react';
@@ -37,6 +39,38 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
   const queryClient = useQueryClient();
   const initialSelectedId = requestedTicketId ?? initialItems[0]?.id ?? null;
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
+  const { socket } = useSocket();
+
+  // Subscribe/unsubscribe to the ticket room based on the selected ticket
+  useEffect(() => {
+    if (!socket || !selectedId) return;
+
+    socket.emit('subscribe_ticket', selectedId);
+
+    return () => {
+      socket.emit('unsubscribe_ticket', selectedId);
+    };
+  }, [socket, selectedId]);
+
+  // Handle real-time ticket events
+  useSocketEvent('ticket_created', () => {
+    refreshWorkspace();
+  });
+
+  useSocketEvent('ticket_status_updated', payload => {
+    const { ticketId } = payload;
+    if (ticketId === selectedId) {
+      refreshSelectedTicketDetail(ticketId);
+    }
+    refreshWorkspace();
+  });
+
+  useSocketEvent('ticket_message_added', payload => {
+    const { ticketId } = payload;
+    if (ticketId === selectedId) {
+      refreshSelectedTicketDetail(ticketId);
+    }
+  });
 
   const { data: detail = null, isLoading: isDetailLoading } = useQuery<TicketDetailResult | null>({
     queryKey: ['ticket', selectedId],

@@ -20,10 +20,11 @@ import {
   MapPin,
   Phone,
   AlertCircle,
-  MessageSquare,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMyTickets } from '../../src/hooks/useTickets';
+import { useSocket } from '../../src/hooks/useSocket';
+import { useSocketEvent } from '../../src/hooks/useSocketEvent';
 import { RichTextViewer } from '../../src/components/RichTextViewer';
 import { format } from 'date-fns';
 import { id, enUS } from 'date-fns/locale';
@@ -40,6 +41,15 @@ export default function TicketsScreen() {
   const { data, isLoading, refetch, isRefetching } = useMyTickets();
   const tickets = data?.items ?? [];
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { socket } = useSocket();
+
+  useSocketEvent(socket, 'ticket_created', () => {
+    refetch();
+  });
+
+  useSocketEvent(socket, 'ticket_status_updated', () => {
+    refetch();
+  });
 
   const dateLocale = i18n.language === 'id' ? id : enUS;
 

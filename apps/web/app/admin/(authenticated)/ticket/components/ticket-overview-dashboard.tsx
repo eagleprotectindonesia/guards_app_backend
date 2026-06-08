@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useSocketEvent } from '@/hooks/use-socket-event';
 import type { TicketOverviewDashboardProps } from './ticket-overview-dashboard.types';
 import { TicketOverviewMetrics } from './ticket-overview-dashboard-metrics';
 import { TicketOverviewFilters } from './ticket-overview-dashboard-filters';
@@ -14,6 +15,19 @@ export function TicketOverviewDashboard({ metrics, sidebar, rows, totalCount, fi
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+
+  // Listen to real-time ticket events to refresh server-fetched metrics/data
+  useSocketEvent('ticket_created', () => {
+    router.refresh();
+  });
+
+  useSocketEvent('ticket_status_updated', () => {
+    router.refresh();
+  });
+
+  useSocketEvent('ticket_message_added', () => {
+    router.refresh();
+  });
 
   const paramsBase = useMemo(() => new URLSearchParams(searchParams.toString()), [searchParams]);
 

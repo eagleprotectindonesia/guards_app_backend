@@ -1,5 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ScrollView, TouchableOpacity, StyleSheet, TextInput, Platform, Keyboard, Linking, View, Alert, Image } from 'react-native';
+import {
+  ScrollView,
+  TouchableOpacity,
+  StyleSheet,
+  TextInput,
+  Platform,
+  Keyboard,
+  Linking,
+  View,
+  Alert,
+  Image,
+} from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
@@ -25,7 +36,14 @@ import {
   X,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTicketDetail, useSendTicketMessage, useClaimTicket, useUpdateTicketStatus } from '../../src/hooks/useTickets';
+import {
+  useTicketDetail,
+  useSendTicketMessage,
+  useClaimTicket,
+  useUpdateTicketStatus,
+} from '../../src/hooks/useTickets';
+import { useSocket } from '../../src/hooks/useSocket';
+import { useSocketEvent } from '../../src/hooks/useSocketEvent';
 import { useProfile } from '../../src/hooks/useProfile';
 import { RichTextViewer } from '../../src/components/RichTextViewer';
 import { format } from 'date-fns';
@@ -73,20 +91,45 @@ export default function TicketDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const insets = useSafeAreaInsets();
 
-  const { data, isLoading } = useTicketDetail(id);
+  const { data, isLoading, refetch } = useTicketDetail(id);
   const sendMsgMutation = useSendTicketMessage(id);
   const claimMutation = useClaimTicket(id);
   const updateStatusMutation = useUpdateTicketStatus(id);
   const { data: profileData } = useProfile();
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket || !id) return;
+
+    socket.emit('subscribe_ticket', id);
+
+    return () => {
+      socket.emit('unsubscribe_ticket', id);
+    };
+  }, [socket, id]);
+
+  useSocketEvent(socket, 'ticket_status_updated', payload => {
+    if (payload.ticketId === id) {
+      refetch();
+    }
+  });
+
+  useSocketEvent(socket, 'ticket_message_added', payload => {
+    if (payload.ticketId === id) {
+      refetch();
+    }
+  });
 
   const [activeTab, setActiveTab] = useState<'details' | 'discussion' | 'attachments'>('discussion');
   const [messageText, setMessageText] = useState('');
-  const [selectedAttachments, setSelectedAttachments] = useState<{
-    uri: string;
-    name: string;
-    mimeType: string;
-    fileSize: number;
-  }[]>([]);
+  const [selectedAttachments, setSelectedAttachments] = useState<
+    {
+      uri: string;
+      name: string;
+      mimeType: string;
+      fileSize: number;
+    }[]
+  >([]);
   const [isUploading, setIsUploading] = useState(false);
   const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
@@ -290,7 +333,7 @@ export default function TicketDetailScreen() {
 
   const handleStatusUpdate = (nextStatus: TicketStatus) => {
     updateStatusMutation.mutate(nextStatus, {
-      onError: (error) => {
+      onError: error => {
         console.error('Failed to update ticket status', error);
         Alert.alert(
           t('common.errorTitle', 'Error'),
@@ -398,17 +441,13 @@ export default function TicketDetailScreen() {
                 {t('tickets.claimedByYou', 'Claimed By You')}
               </Text>
             </Box>
-            
+
             <HStack space="xs" className="w-full justify-between mt-1">
               {(['IN_PROGRESS', 'SOLVED', 'CANNOT_RESOLVE'] as const).map(statusOption => {
                 const isActive = ticket.status === statusOption;
                 const statusColor =
-                  statusOption === 'IN_PROGRESS'
-                    ? '#FF9500'
-                    : statusOption === 'SOLVED'
-                      ? '#34C759'
-                      : '#FF3B30';
-                
+                  statusOption === 'IN_PROGRESS' ? '#FF9500' : statusOption === 'SOLVED' ? '#34C759' : '#FF3B30';
+
                 const label =
                   statusOption === 'IN_PROGRESS'
                     ? t('tickets.statusLabel.IN_PROGRESS', 'In Progress')
@@ -674,63 +713,67 @@ export default function TicketDetailScreen() {
                             </Text>
 
                             {/* Message Attachments */}
-                            {message.attachments && message.attachments.length > 0 && (() => {
-                              const images = message.attachments.filter(att => att.mimeType?.startsWith('image/'));
-                              const otherFiles = message.attachments.filter(att => !att.mimeType?.startsWith('image/'));
-                              return (
-                                <VStack space="md" className="mt-3 pt-2 border-t border-white/5">
-                                  {images.length > 0 && (
-                                    <HStack className="flex-wrap gap-2">
-                                      {images.map(img => {
-                                        const isSingle = images.length === 1;
-                                        return (
+                            {message.attachments &&
+                              message.attachments.length > 0 &&
+                              (() => {
+                                const images = message.attachments.filter(att => att.mimeType?.startsWith('image/'));
+                                const otherFiles = message.attachments.filter(
+                                  att => !att.mimeType?.startsWith('image/')
+                                );
+                                return (
+                                  <VStack space="md" className="mt-3 pt-2 border-t border-white/5">
+                                    {images.length > 0 && (
+                                      <HStack className="flex-wrap gap-2">
+                                        {images.map(img => {
+                                          const isSingle = images.length === 1;
+                                          return (
+                                            <TouchableOpacity
+                                              key={img.id}
+                                              onPress={() => openImageViewer(allDiscussionImages, img.publicUrl ?? '')}
+                                              style={{
+                                                width: isSingle ? 220 : 100,
+                                                height: isSingle ? 150 : 100,
+                                                borderRadius: 12,
+                                                overflow: 'hidden',
+                                                borderWidth: 1,
+                                                borderColor: 'rgba(255, 255, 255, 0.1)',
+                                              }}
+                                            >
+                                              <Image
+                                                source={{ uri: img.publicUrl ?? '' }}
+                                                style={{ width: '100%', height: '100%' }}
+                                                resizeMode="cover"
+                                              />
+                                            </TouchableOpacity>
+                                          );
+                                        })}
+                                      </HStack>
+                                    )}
+                                    {otherFiles.length > 0 && (
+                                      <VStack space="xs">
+                                        {otherFiles.map(att => (
                                           <TouchableOpacity
-                                            key={img.id}
-                                            onPress={() => openImageViewer(allDiscussionImages, img.publicUrl ?? '')}
-                                            style={{
-                                              width: isSingle ? 220 : 100,
-                                              height: isSingle ? 150 : 100,
-                                              borderRadius: 12,
-                                              overflow: 'hidden',
-                                              borderWidth: 1,
-                                              borderColor: 'rgba(255, 255, 255, 0.1)',
-                                            }}
+                                            key={att.id}
+                                            onPress={() => handleOpenUrl(att.publicUrl)}
+                                            className="flex-row items-center bg-black/30 p-2.5 rounded-xl border border-white/5"
                                           >
-                                            <Image
-                                              source={{ uri: img.publicUrl ?? '' }}
-                                              style={{ width: '100%', height: '100%' }}
-                                              resizeMode="cover"
-                                            />
+                                            <FileText size={16} color="#A0A0A0" />
+                                            <VStack className="flex-1 ml-2 mr-4">
+                                              <Text className="text-white font-medium truncate" size="2xs">
+                                                {att.fileName}
+                                              </Text>
+                                              <Text className="text-[#666]" size="2xs">
+                                                {formatFileSize(att.fileSize)}
+                                              </Text>
+                                            </VStack>
+                                            <Download size={14} color="white" />
                                           </TouchableOpacity>
-                                        );
-                                      })}
-                                    </HStack>
-                                  )}
-                                  {otherFiles.length > 0 && (
-                                    <VStack space="xs">
-                                      {otherFiles.map(att => (
-                                        <TouchableOpacity
-                                          key={att.id}
-                                          onPress={() => handleOpenUrl(att.publicUrl)}
-                                          className="flex-row items-center bg-black/30 p-2.5 rounded-xl border border-white/5"
-                                        >
-                                          <FileText size={16} color="#A0A0A0" />
-                                          <VStack className="flex-1 ml-2 mr-4">
-                                            <Text className="text-white font-medium truncate" size="2xs">
-                                              {att.fileName}
-                                            </Text>
-                                            <Text className="text-[#666]" size="2xs">
-                                              {formatFileSize(att.fileSize)}
-                                            </Text>
-                                          </VStack>
-                                          <Download size={14} color="white" />
-                                        </TouchableOpacity>
-                                      ))}
-                                    </VStack>
-                                  )}
-                                </VStack>
-                              );
-                            })()}
+                                        ))}
+                                      </VStack>
+                                    )}
+                                  </VStack>
+                                );
+                              })()}
                           </Box>
                         </VStack>
                       </HStack>
@@ -751,7 +794,11 @@ export default function TicketDetailScreen() {
                         <Box key={`${file.name}-${index}`} className="relative mr-2 my-1">
                           {isImage ? (
                             <Box className="w-16 h-16 rounded-xl overflow-hidden border border-white/10 bg-white/5">
-                              <Image source={{ uri: file.uri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                              <Image
+                                source={{ uri: file.uri }}
+                                style={{ width: '100%', height: '100%' }}
+                                resizeMode="cover"
+                              />
                             </Box>
                           ) : (
                             <Box className="h-16 px-3 bg-white/5 border border-white/10 rounded-xl flex-row items-center justify-center">
@@ -803,7 +850,7 @@ export default function TicketDetailScreen() {
                   onPress={pickAttachments}
                   disabled={sendMsgMutation.isPending || isUploading}
                   className="w-10 h-10 rounded-xl bg-white/5 items-center justify-center border border-white/10 mr-2"
-                  style={{ opacity: (sendMsgMutation.isPending || isUploading) ? 0.5 : 1 }}
+                  style={{ opacity: sendMsgMutation.isPending || isUploading ? 0.5 : 1 }}
                 >
                   <Paperclip size={18} color="white" />
                 </TouchableOpacity>
@@ -819,11 +866,16 @@ export default function TicketDetailScreen() {
                 />
                 <TouchableOpacity
                   onPress={handleSend}
-                  disabled={(!messageText.trim() && selectedAttachments.length === 0) || sendMsgMutation.isPending || isUploading}
+                  disabled={
+                    (!messageText.trim() && selectedAttachments.length === 0) ||
+                    sendMsgMutation.isPending ||
+                    isUploading
+                  }
                   className="w-11 h-11 rounded-full items-center justify-center active:scale-95"
                   style={{
-                    backgroundColor: (messageText.trim() || selectedAttachments.length > 0) ? PRIMARY_RED : 'rgba(255, 255, 255, 0.05)',
-                    opacity: (sendMsgMutation.isPending || isUploading) ? 0.6 : 1,
+                    backgroundColor:
+                      messageText.trim() || selectedAttachments.length > 0 ? PRIMARY_RED : 'rgba(255, 255, 255, 0.05)',
+                    opacity: sendMsgMutation.isPending || isUploading ? 0.6 : 1,
                   }}
                 >
                   {sendMsgMutation.isPending || isUploading ? (
@@ -855,79 +907,84 @@ export default function TicketDetailScreen() {
                   {t('tickets.noAttachments', 'No attachments uploaded.')}
                 </Text>
               </Center>
-            ) : (() => {
-              const images = ticket.attachments.filter(att => att.mimeType?.startsWith('image/'));
-              const otherFiles = ticket.attachments.filter(att => !att.mimeType?.startsWith('image/'));
-              return (
-                <VStack space="lg">
-                  {/* Images Grid */}
-                  {images.length > 0 && (
-                    <VStack space="xs">
-                      <Text className="text-[#666] font-bold uppercase tracking-[1px] mb-1.5" size="2xs">
-                        {t('tickets.images', 'Images')}
-                      </Text>
-                      <View className="flex-row flex-wrap bg-[#121212]/40 p-4 rounded-2xl border border-white/5" style={{ gap: 8 }}>
-                        {images.map(img => (
-                          <TouchableOpacity
-                            key={img.id}
-                            onPress={() => openImageViewer(allTicketImages, img.publicUrl ?? '')}
-                            style={{
-                              width: '31%',
-                              aspectRatio: 1,
-                              borderRadius: 12,
-                              overflow: 'hidden',
-                              borderWidth: 1,
-                              borderColor: 'rgba(255, 255, 255, 0.08)',
-                              backgroundColor: 'rgba(255, 255, 255, 0.02)',
-                            }}
-                          >
-                            <Image
-                              source={{ uri: img.publicUrl ?? '' }}
-                              style={{ width: '100%', height: '100%' }}
-                              resizeMode="cover"
-                            />
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    </VStack>
-                  )}
-
-                  {/* Documents List */}
-                  {otherFiles.length > 0 && (
-                    <VStack space="xs">
-                      <Text className="text-[#666] font-bold uppercase tracking-[1px] mb-1.5" size="2xs">
-                        {t('tickets.documents', 'Documents')}
-                      </Text>
-                      <VStack space="md">
-                        {otherFiles.map(att => (
-                          <TouchableOpacity
-                            key={att.id}
-                            onPress={() => handleOpenUrl(att.publicUrl)}
-                            style={styles.card}
-                            className="flex-row items-center justify-between"
-                          >
-                            <HStack space="md" className="items-center flex-1 mr-4">
-                              <Box className="p-3 bg-white/5 rounded-xl border border-white/5">
-                                <FileText size={20} color="#FF9500" />
-                              </Box>
-                              <VStack className="flex-1">
-                                <Text className="text-white font-semibold truncate" size="sm">
-                                  {att.fileName}
-                                </Text>
-                                <Text className="text-[#666]" size="xs">
-                                  {formatFileSize(att.fileSize)}
-                                </Text>
-                              </VStack>
-                            </HStack>
-                            <Download size={18} color="white" />
-                          </TouchableOpacity>
-                        ))}
+            ) : (
+              (() => {
+                const images = ticket.attachments.filter(att => att.mimeType?.startsWith('image/'));
+                const otherFiles = ticket.attachments.filter(att => !att.mimeType?.startsWith('image/'));
+                return (
+                  <VStack space="lg">
+                    {/* Images Grid */}
+                    {images.length > 0 && (
+                      <VStack space="xs">
+                        <Text className="text-[#666] font-bold uppercase tracking-[1px] mb-1.5" size="2xs">
+                          {t('tickets.images', 'Images')}
+                        </Text>
+                        <View
+                          className="flex-row flex-wrap bg-[#121212]/40 p-4 rounded-2xl border border-white/5"
+                          style={{ gap: 8 }}
+                        >
+                          {images.map(img => (
+                            <TouchableOpacity
+                              key={img.id}
+                              onPress={() => openImageViewer(allTicketImages, img.publicUrl ?? '')}
+                              style={{
+                                width: '31%',
+                                aspectRatio: 1,
+                                borderRadius: 12,
+                                overflow: 'hidden',
+                                borderWidth: 1,
+                                borderColor: 'rgba(255, 255, 255, 0.08)',
+                                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                              }}
+                            >
+                              <Image
+                                source={{ uri: img.publicUrl ?? '' }}
+                                style={{ width: '100%', height: '100%' }}
+                                resizeMode="cover"
+                              />
+                            </TouchableOpacity>
+                          ))}
+                        </View>
                       </VStack>
-                    </VStack>
-                  )}
-                </VStack>
-              );
-            })()}
+                    )}
+
+                    {/* Documents List */}
+                    {otherFiles.length > 0 && (
+                      <VStack space="xs">
+                        <Text className="text-[#666] font-bold uppercase tracking-[1px] mb-1.5" size="2xs">
+                          {t('tickets.documents', 'Documents')}
+                        </Text>
+                        <VStack space="md">
+                          {otherFiles.map(att => (
+                            <TouchableOpacity
+                              key={att.id}
+                              onPress={() => handleOpenUrl(att.publicUrl)}
+                              style={styles.card}
+                              className="flex-row items-center justify-between"
+                            >
+                              <HStack space="md" className="items-center flex-1 mr-4">
+                                <Box className="p-3 bg-white/5 rounded-xl border border-white/5">
+                                  <FileText size={20} color="#FF9500" />
+                                </Box>
+                                <VStack className="flex-1">
+                                  <Text className="text-white font-semibold truncate" size="sm">
+                                    {att.fileName}
+                                  </Text>
+                                  <Text className="text-[#666]" size="xs">
+                                    {formatFileSize(att.fileSize)}
+                                  </Text>
+                                </VStack>
+                              </HStack>
+                              <Download size={18} color="white" />
+                            </TouchableOpacity>
+                          ))}
+                        </VStack>
+                      </VStack>
+                    )}
+                  </VStack>
+                );
+              })()
+            )}
           </ScrollView>
         )}
       </View>
