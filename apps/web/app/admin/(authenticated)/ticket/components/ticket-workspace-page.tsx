@@ -17,7 +17,7 @@ function normalizeArrayParam(value: string | string[] | undefined) {
 }
 
 function asStatusList(value: string | string[] | undefined): TicketStatus[] {
-  const allowed: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CLOSED', 'CANNOT_RESOLVE'];
+  const allowed: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CLOSED', 'CANNOT_RESOLVE', 'CANCELLED'];
   return normalizeArrayParam(value).filter((item): item is TicketStatus => allowed.includes(item as TicketStatus));
 }
 

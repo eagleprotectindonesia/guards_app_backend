@@ -166,10 +166,10 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
     }
   }
 
-  async function updateStatus(status: TicketListItem['status']) {
+  async function updateStatus(status: TicketListItem['status'], cancellationNote?: string) {
     if (!selectedId) return;
     try {
-      await updateTicketStatusAction({ ticketId: selectedId, status });
+      await updateTicketStatusAction({ ticketId: selectedId, status, cancellationNote });
       await refreshSelectedTicketDetail(selectedId);
       refreshWorkspace();
     } catch (error) {

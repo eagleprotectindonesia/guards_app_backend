@@ -6,6 +6,7 @@ export function badgeClass(status: string) {
   if (status === 'SOLVED') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
   if (status === 'CLOSED') return 'bg-zinc-600/10 text-zinc-400 border-zinc-500/20';
   if (status === 'CANNOT_RESOLVE') return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+  if (status === 'CANCELLED') return 'bg-red-500/10 text-red-400 border-red-500/20';
   return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
 }
 

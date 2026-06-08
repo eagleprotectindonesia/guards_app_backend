@@ -20,7 +20,11 @@ type Props = {
 
 function renderSlaDue(row: DashboardRow) {
   const isCompleted =
-    ['SOLVED', 'CLOSED', 'CANNOT_RESOLVE'].includes(row.status) || !!row.solvedAt || !!row.closedAt || !!row.cannotResolveAt;
+    ['SOLVED', 'CLOSED', 'CANNOT_RESOLVE', 'CANCELLED'].includes(row.status) ||
+    !!row.solvedAt ||
+    !!row.closedAt ||
+    !!row.cannotResolveAt ||
+    !!row.cancelledAt;
   if (isCompleted) {
     return (
       <span className="inline-flex rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-400">

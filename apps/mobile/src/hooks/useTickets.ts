@@ -15,7 +15,7 @@ export interface TicketMessage {
   body: string;
   createdAt: string;
   admin?: { id: string; name: string } | null;
-  employee?: { id: string; fullName: string } | null;
+  employee?: { id: string; fullName: string; employeeNumber?: string | null } | null;
   attachments?: {
     id: string;
     fileName: string;

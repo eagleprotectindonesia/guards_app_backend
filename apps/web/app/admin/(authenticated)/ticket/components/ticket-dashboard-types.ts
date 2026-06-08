@@ -4,7 +4,7 @@ export type TicketListItem = {
   title: string;
   clientName: string;
   priority: 'LOW' | 'MEDIUM' | 'HIGH';
-  status: 'NEW' | 'ACKNOWLEDGED' | 'WAITING_INFORMATION' | 'IN_PROGRESS' | 'SOLVED' | 'CLOSED' | 'CANNOT_RESOLVE';
+  status: 'NEW' | 'ACKNOWLEDGED' | 'WAITING_INFORMATION' | 'IN_PROGRESS' | 'SOLVED' | 'CLOSED' | 'CANNOT_RESOLVE' | 'CANCELLED';
   createdAt: string;
 };
 
@@ -38,6 +38,11 @@ export type TicketDetail = {
   status: TicketListItem['status'];
   priority: TicketListItem['priority'];
   createdAt: string | Date;
+  solvedAt?: string | Date | null;
+  closedAt?: string | Date | null;
+  cannotResolveAt?: string | Date | null;
+  cancelledAt?: string | Date | null;
+  cancellationNote?: string | null;
   submitterAdmin?: { name?: string | null } | null;
   assignedAdmin?: { id?: string; name?: string | null } | null;
   assignedEmployee?: { id?: string; fullName?: string | null } | null;

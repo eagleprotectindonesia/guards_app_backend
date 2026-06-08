@@ -395,7 +395,7 @@ export interface ChatInboxItem {
 }
 
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type TicketStatus = 'NEW' | 'ACKNOWLEDGED' | 'WAITING_INFORMATION' | 'IN_PROGRESS' | 'SOLVED' | 'CLOSED' | 'CANNOT_RESOLVE';
+export type TicketStatus = 'NEW' | 'ACKNOWLEDGED' | 'WAITING_INFORMATION' | 'IN_PROGRESS' | 'SOLVED' | 'CLOSED' | 'CANNOT_RESOLVE' | 'CANCELLED';
 export type TicketClaimantType = 'ADMIN' | 'EMPLOYEE';
 
 export interface Ticket {
@@ -418,6 +418,8 @@ export interface Ticket {
   solvedAt: string | Date | null;
   closedAt: string | Date | null;
   cannotResolveAt: string | Date | null;
+  cancelledAt: string | Date | null;
+  cancellationNote: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
   submitterAdmin?: { id: string; name: string };

@@ -22,6 +22,7 @@ export type DashboardRow = {
   solvedAt?: string | null;
   closedAt?: string | null;
   cannotResolveAt?: string | null;
+  cancelledAt?: string | null;
 };
 
 export type TicketOverviewSidebar = {

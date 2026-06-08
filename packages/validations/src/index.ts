@@ -254,6 +254,7 @@ export const TicketStatusEnum = z.enum([
   'SOLVED',
   'CLOSED',
   'CANNOT_RESOLVE',
+  'CANCELLED',
 ]);
 
 export const TicketPriorityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH']);
@@ -301,6 +302,7 @@ export const ticketListSchema = z.object({
 export const ticketStatusUpdateSchema = z.object({
   ticketId: z.string().min(1),
   status: TicketStatusEnum,
+  cancellationNote: z.string().optional(),
 });
 
 export const ticketPriorityUpdateSchema = z.object({

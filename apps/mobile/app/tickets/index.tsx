@@ -79,6 +79,8 @@ export default function TicketsScreen() {
         return { color: '#34C759', label: t('tickets.statusLabel.SOLVED', 'Solved') };
       case 'CLOSED':
         return { color: '#8E8E93', label: t('tickets.statusLabel.CLOSED', 'Closed') };
+      case 'CANCELLED':
+        return { color: '#FF3B30', label: t('tickets.statusLabel.CANCELLED', 'Cancelled') };
       case 'CANNOT_RESOLVE':
       default:
         return { color: '#FF3B30', label: t('tickets.statusLabel.CANNOT_RESOLVE', 'Cannot Resolve') };

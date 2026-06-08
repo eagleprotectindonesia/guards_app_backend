@@ -19,6 +19,7 @@ export const STATUS_OPTIONS = [
   'SOLVED',
   'CLOSED',
   'CANNOT_RESOLVE',
+  'CANCELLED',
 ] as const;
 
 export const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH'] as const;
@@ -40,6 +41,7 @@ export function getStatusLabel(status: string) {
   if (status === 'SOLVED') return 'Resolved';
   if (status === 'CLOSED') return 'Closed';
   if (status === 'CANNOT_RESOLVE') return 'Unresolved';
+  if (status === 'CANCELLED') return 'Cancelled';
   return status.replaceAll('_', ' ');
 }
 

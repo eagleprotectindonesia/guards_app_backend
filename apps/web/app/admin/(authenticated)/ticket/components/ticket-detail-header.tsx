@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -5,8 +6,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { X, Pencil, MoreHorizontal, Clock } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { X, MoreHorizontal, Clock } from 'lucide-react';
 import { cn } from '@repo/shared';
 import { badgeClass, formatDate } from './ticket-dashboard-utils';
 import type { TicketDetail, TicketListItem } from './ticket-dashboard-types';
@@ -15,7 +22,7 @@ type TicketDetailHeaderProps = {
   ticket: TicketDetail;
   activeTab: 'details' | 'discussion' | 'attachments' | 'history';
   onBack: () => void;
-  onUpdateStatus: (status: TicketListItem['status']) => void;
+  onUpdateStatus: (status: TicketListItem['status'], cancellationNote?: string) => void;
   onTabChange: (tab: 'details' | 'discussion' | 'attachments' | 'history') => void;
   canClaim: boolean;
   isClaimedByCurrentUser: boolean;
@@ -31,7 +38,8 @@ function statusActionLabel(status: TicketListItem['status']) {
   if (status === 'IN_PROGRESS') return 'In Progress';
   if (status === 'SOLVED') return 'Mark Solved';
   if (status === 'CANNOT_RESOLVE') return 'Cannot Resolve';
-  if (status === 'CLOSED') return 'Close / Cancel';
+  if (status === 'CLOSED') return 'Close Ticket';
+  if (status === 'CANCELLED') return 'Cancel Ticket';
   if (status === 'ACKNOWLEDGED') return 'Acknowledge';
   return status.replace('_', ' ');
 }
@@ -50,12 +58,14 @@ export function TicketDetailHeader({
   onTabChange,
   canClaim,
   isClaimedByCurrentUser,
-  canEdit,
   canUseMore,
   allowedStatusActions,
   isClaiming,
   onClaimTicket,
 }: TicketDetailHeaderProps) {
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [cancelNote, setCancelNote] = useState('');
+
   const policy = ticket.departmentRole?.policy;
   let departmentName = ticket.departmentRole?.name || '-';
   if (policy && typeof policy === 'object' && !Array.isArray(policy)) {
@@ -115,7 +125,13 @@ export function TicketDetailHeader({
                   {allowedStatusActions.map(status => (
                     <DropdownMenuItem
                       key={status}
-                      onClick={() => onUpdateStatus(status)}
+                      onClick={() => {
+                        if (status === 'CANCELLED') {
+                          setIsCancelDialogOpen(true);
+                        } else {
+                          onUpdateStatus(status);
+                        }
+                      }}
                       className="hover:bg-purple-500/10 hover:text-foreground focus:bg-purple-500/10 focus:text-foreground cursor-pointer"
                     >
                       {statusActionLabel(status)}
@@ -261,6 +277,50 @@ export function TicketDetailHeader({
           })}
         </div>
       </div>
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <DialogContent className="bg-card border-border text-foreground">
+          <DialogHeader>
+            <DialogTitle>Cancel Ticket</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <label htmlFor="cancel-note" className="block text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
+              Reason for Cancellation <span className="text-rose-500">*</span>
+            </label>
+            <textarea
+              id="cancel-note"
+              value={cancelNote}
+              onChange={e => setCancelNote(e.target.value)}
+              rows={4}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none placeholder:text-muted-foreground text-sm"
+              placeholder="Please provide a reason for cancelling this ticket..."
+              required
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCancelDialogOpen(false);
+                setCancelNote('');
+              }}
+              className="border-border bg-transparent text-foreground hover:bg-accent text-xs font-semibold rounded-lg h-9"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={!cancelNote.trim()}
+              onClick={() => {
+                onUpdateStatus('CANCELLED', cancelNote);
+                setIsCancelDialogOpen(false);
+                setCancelNote('');
+              }}
+              className="bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg h-9"
+            >
+              Confirm Cancellation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

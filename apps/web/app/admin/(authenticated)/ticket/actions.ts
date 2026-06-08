@@ -38,8 +38,8 @@ import { redis } from '@repo/database/redis';
 import { TicketStatus } from '@prisma/client';
 import { sendTicketCreatedPushNotification } from '@/lib/fcm';
 
-const SUBMITTER_STATUS_ACTIONS: TicketStatus[] = ['CLOSED'];
-const CLAIMANT_STATUS_ACTIONS: TicketStatus[] = ['WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CANNOT_RESOLVE'];
+const SUBMITTER_STATUS_ACTIONS: TicketStatus[] = ['CLOSED', 'CANCELLED'];
+const CLAIMANT_STATUS_ACTIONS: TicketStatus[] = ['WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CANNOT_RESOLVE', 'CANCELLED'];
 
 function revalidateTicketPaths(ticketId?: string) {
   revalidatePath('/admin/ticket/dashboard');
@@ -412,6 +412,7 @@ export async function updateTicketStatusAction(input: unknown) {
     actorRoleName: session.roleName,
     actorIsSuperAdmin: session.isSuperAdmin,
     actorPermissions: session.permissions,
+    cancellationNote: parsed.data.cancellationNote,
   });
   await notifySubmitterOnStatusChange({
     actorAdminId: session.id,

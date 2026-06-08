@@ -448,7 +448,8 @@
       "IN_PROGRESS": "Sedang Diproses",
       "SOLVED": "Terselesaikan",
       "CLOSED": "Ditutup",
-      "CANNOT_RESOLVE": "Tidak Dapat Diselesaikan"
+      "CANNOT_RESOLVE": "Tidak Dapat Diselesaikan",
+      "CANCELLED": "Dibatalkan"
     }
   }
 }

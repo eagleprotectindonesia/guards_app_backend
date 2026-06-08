@@ -15,7 +15,7 @@ export async function GET() {
           some: { employeeId: employee.id },
         },
         claimedByEmployeeId: null,
-        status: { notIn: ['CLOSED', 'SOLVED', 'CANNOT_RESOLVE'] },
+        status: { notIn: ['CLOSED', 'SOLVED', 'CANNOT_RESOLVE', 'CANCELLED'] },
       },
     });
 

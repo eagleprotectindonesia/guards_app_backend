@@ -104,6 +104,7 @@ enum TicketStatus {
   SOLVED
   CLOSED
   CANNOT_RESOLVE
+  CANCELLED
 }
 
 enum TicketPriority {
@@ -1037,6 +1038,8 @@ model Ticket {
   solvedAt              DateTime?           @map("solved_at") @db.Timestamptz(6)
   closedAt              DateTime?           @map("closed_at") @db.Timestamptz(6)
   cannotResolveAt       DateTime?           @map("cannot_resolve_at") @db.Timestamptz(6)
+  cancelledAt           DateTime?           @map("cancelled_at") @db.Timestamptz(6)
+  cancellationNote      String?             @map("cancellation_note") @db.Text
   createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 

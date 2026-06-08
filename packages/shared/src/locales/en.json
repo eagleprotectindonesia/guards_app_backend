@@ -448,7 +448,8 @@
       "IN_PROGRESS": "In Progress",
       "SOLVED": "Solved",
       "CLOSED": "Closed",
-      "CANNOT_RESOLVE": "Cannot Resolve"
+      "CANNOT_RESOLVE": "Cannot Resolve",
+      "CANCELLED": "Cancelled"
     }
   }
 }

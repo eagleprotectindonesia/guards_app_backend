@@ -101,13 +101,13 @@ const OPERATIONAL_STATUSES: TicketStatus[] = [
   'SOLVED',
   'CANNOT_RESOLVE',
 ];
-const TERMINAL_STATUSES = new Set<TicketStatus>(['CLOSED', 'CANNOT_RESOLVE']);
-const CLOSED_VIEW_STATUSES: TicketStatus[] = ['CLOSED'];
-const ACTIVE_VIEW_EXCLUDED_STATUSES: TicketStatus[] = ['CLOSED', 'CANNOT_RESOLVE'];
+const TERMINAL_STATUSES = new Set<TicketStatus>(['CLOSED', 'CANNOT_RESOLVE', 'CANCELLED']);
+const CLOSED_VIEW_STATUSES: TicketStatus[] = ['CLOSED', 'CANCELLED'];
+const ACTIVE_VIEW_EXCLUDED_STATUSES: TicketStatus[] = ['CLOSED', 'CANNOT_RESOLVE', 'CANCELLED'];
 const ACTIVE_VIEW_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'];
 const SUBMITTED_OPEN_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'];
 const SLA_ACTIVE_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS'];
-const SLA_TERMINAL_STATUSES = new Set<TicketStatus>(['SOLVED', 'CLOSED', 'CANNOT_RESOLVE']);
+const SLA_TERMINAL_STATUSES = new Set<TicketStatus>(['SOLVED', 'CLOSED', 'CANNOT_RESOLVE', 'CANCELLED']);
 
 function isITRole(roleName?: string | null) {
   return roleName?.trim().toLowerCase() === 'it';
@@ -192,6 +192,7 @@ function statusTimestampPatch(status: TicketStatus) {
   if (status === 'SOLVED') return { solvedAt: new Date() };
   if (status === 'CLOSED') return { closedAt: new Date() };
   if (status === 'CANNOT_RESOLVE') return { cannotResolveAt: new Date() };
+  if (status === 'CANCELLED') return { cancelledAt: new Date() };
   return {};
 }
 
@@ -200,6 +201,8 @@ function reopenTimestampPatch() {
     solvedAt: null,
     closedAt: null,
     cannotResolveAt: null,
+    cancelledAt: null,
+    cancellationNote: null,
   };
 }
 
@@ -212,11 +215,13 @@ function getTicketCompletionAt(ticket: {
   solvedAt: Date | null;
   closedAt: Date | null;
   cannotResolveAt: Date | null;
+  cancelledAt: Date | null;
   updatedAt: Date;
 }) {
   if (ticket.status === 'SOLVED') return ticket.solvedAt ?? ticket.updatedAt;
   if (ticket.status === 'CLOSED') return ticket.closedAt ?? ticket.updatedAt;
   if (ticket.status === 'CANNOT_RESOLVE') return ticket.cannotResolveAt ?? ticket.updatedAt;
+  if (ticket.status === 'CANCELLED') return ticket.cancelledAt ?? ticket.updatedAt;
   return null;
 }
 
@@ -229,6 +234,7 @@ function summarizeTicketSlaStatus(
     solvedAt: Date | null;
     closedAt: Date | null;
     cannotResolveAt: Date | null;
+    cancelledAt: Date | null;
   }>,
   now: Date = new Date()
 ) {
@@ -328,7 +334,7 @@ export function canTransitionStatus(params: {
     return operationalActor;
   }
 
-  if (nextStatus === 'CLOSED') {
+  if (nextStatus === 'CLOSED' || nextStatus === 'CANCELLED') {
     if (
       isSubmitter &&
       ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'].includes(currentStatus)
@@ -348,6 +354,7 @@ export function canTransitionStatus(params: {
     SOLVED: [],
     CLOSED: ['ACKNOWLEDGED'],
     CANNOT_RESOLVE: ['ACKNOWLEDGED'],
+    CANCELLED: ['ACKNOWLEDGED'],
   };
 
   return allowedTransitions[currentStatus]?.includes(nextStatus) ?? false;
@@ -660,6 +667,7 @@ export async function getTicketDashboardSidebarStats(
         solvedAt: true,
         closedAt: true,
         cannotResolveAt: true,
+        cancelledAt: true,
       },
     }),
   ]);
@@ -741,6 +749,7 @@ export async function updateTicketStatus(
     actorRoleName?: string | null;
     actorIsSuperAdmin?: boolean;
     actorPermissions?: string[];
+    cancellationNote?: string;
   },
   tx: TxLike = prisma
 ) {
@@ -750,6 +759,10 @@ export async function updateTicketStatus(
       select: { id: true, status: true, submitterAdminId: true },
     });
     if (!ticket) throw new Error('Ticket not found');
+
+    if (input.nextStatus === 'CANCELLED' && !input.cancellationNote?.trim()) {
+      throw new Error('Cancellation note is required');
+    }
 
     const canTransition = canTransitionStatus({
       currentStatus: ticket.status,
@@ -765,19 +778,21 @@ export async function updateTicketStatus(
       where: { id: input.ticketId },
       data: {
         status: input.nextStatus,
-        ...((ticket.status === 'CLOSED' || ticket.status === 'CANNOT_RESOLVE') && input.nextStatus === 'ACKNOWLEDGED'
+        ...((ticket.status === 'CLOSED' || ticket.status === 'CANNOT_RESOLVE' || ticket.status === 'CANCELLED') && input.nextStatus === 'ACKNOWLEDGED'
           ? reopenTimestampPatch()
           : {}),
         ...statusTimestampPatch(input.nextStatus),
+        ...(input.nextStatus === 'CANCELLED' ? { cancellationNote: input.cancellationNote } : {}),
       },
     });
 
     await createHistory(trx, {
       ticketId: input.ticketId,
       actorAdminId: input.actorAdminId,
-      action: ticket.status === 'CLOSED' || ticket.status === 'CANNOT_RESOLVE' ? 'REOPENED' : 'STATUS_CHANGED',
+      action: ticket.status === 'CLOSED' || ticket.status === 'CANNOT_RESOLVE' || ticket.status === 'CANCELLED' ? 'REOPENED' : 'STATUS_CHANGED',
       fromValue: ticket.status,
       toValue: input.nextStatus,
+      metadata: input.nextStatus === 'CANCELLED' ? { cancellationNote: input.cancellationNote } : undefined,
     });
 
     return updated;

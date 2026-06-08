@@ -227,6 +227,8 @@ export default function TicketDetailScreen() {
         return { color: '#34C759', label: t('tickets.statusLabel.SOLVED', 'Solved') };
       case 'CLOSED':
         return { color: '#8E8E93', label: t('tickets.statusLabel.CLOSED', 'Closed') };
+      case 'CANCELLED':
+        return { color: '#FF3B30', label: t('tickets.statusLabel.CANCELLED', 'Cancelled') };
       case 'CANNOT_RESOLVE':
       default:
         return { color: '#FF3B30', label: t('tickets.statusLabel.CANNOT_RESOLVE', 'Cannot Resolve') };
@@ -651,7 +653,7 @@ export default function TicketDetailScreen() {
                             {isGuard && (
                               <Box className="bg-white/5 px-1.5 py-0.2 rounded border border-white/10 ml-1">
                                 <Text className="text-[#A0A0A0] font-bold text-[8px] uppercase">
-                                  {t('tickets.badgeGuard', 'Guard')}
+                                  {message.employee?.employeeNumber || t('tickets.badgeGuard', 'Guard')}
                                 </Text>
                               </Box>
                             )}
