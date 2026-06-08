@@ -1442,6 +1442,71 @@ export async function markOverdueScheduledShiftsAsMissed(now: Date, batchSize = 
   );
 }
 
+/**
+ * Transitions 'in_progress' shifts that have ended at least `thresholdMins` ago to 'completed' status.
+ * Also auto-resolves any open alerts for these shifts.
+ */
+export async function autoCompleteOverdueInProgressShifts(
+  now: Date,
+  thresholdMins = 60,
+  batchSize = 200
+) {
+  const thresholdMs = thresholdMins * 60000;
+  const cutoff = new Date(now.getTime() - thresholdMs);
+
+  return prisma.$transaction(
+    async tx => {
+      // 1. Select a batch of candidate shifts
+      const overdueShifts = await tx.shift.findMany({
+        where: {
+          status: 'in_progress',
+          endsAt: { lte: cutoff },
+          deletedAt: null,
+          employeeId: { not: null },
+        },
+        select: { id: true, siteId: true },
+        orderBy: { endsAt: 'asc' },
+        take: batchSize,
+      });
+
+      if (overdueShifts.length === 0) {
+        return { updatedShiftIds: [], resolvedAlerts: [] };
+      }
+
+      const shiftIds = overdueShifts.map(s => s.id);
+
+      // 2. Update selected shifts to status = 'completed'
+      await tx.shift.updateMany({
+        where: { id: { in: shiftIds } },
+        data: { status: 'completed' },
+      });
+
+      // 3. Resolve open related alerts for those shift IDs
+      const resolvedAlerts = await tx.alert.updateManyAndReturn({
+        where: {
+          shiftId: { in: shiftIds },
+          resolvedAt: null,
+        },
+        data: {
+          resolvedAt: now,
+          resolutionType: 'auto',
+          resolutionNote: `Auto-resolved: shift ended and was auto-completed ${thresholdMins} minutes past end time`,
+        },
+        include: {
+          site: true,
+          shift: { include: { employee: { include: { office: { select: { name: true } } } }, shiftType: true } },
+        },
+      });
+
+      return {
+        updatedShiftIds: shiftIds,
+        resolvedAlerts,
+      };
+    },
+    { timeout: 15000 }
+  );
+}
+
 export async function getShiftsUpdates(ids: string[]) {
   return prisma.shift.findMany({
     where: {
