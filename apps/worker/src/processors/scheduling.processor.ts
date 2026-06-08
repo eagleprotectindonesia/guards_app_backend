@@ -9,6 +9,7 @@ import {
   createMissedCheckinAlert,
   getSystemSetting,
   markOverdueScheduledShiftsAsMissed,
+  autoCompleteOverdueInProgressShifts,
 } from '@repo/database';
 import { Job } from 'bullmq';
 import { getRedisConnection } from '../infrastructure/redis';
@@ -92,6 +93,7 @@ export class SchedulingProcessor {
 
       // 1. Handle overdue scheduled shifts (Clean up stale rows before sync)
       await this.handleOverdueScheduledShifts(now);
+      await this.handleOverdueInProgressShifts(now);
 
       // 2. Sync Data (Active Shifts)
       const isFullSync = await this.syncActiveShifts(now, nowMs);
@@ -111,6 +113,51 @@ export class SchedulingProcessor {
       }
     } catch (error) {
       console.error(`[SchedulingProcessor] Tick error:`, error);
+    }
+  }
+
+  private async handleOverdueInProgressShifts(now: Date) {
+    const BATCH_SIZE = 200;
+    let hasMore = true;
+    let totalUpdated = 0;
+
+    while (hasMore) {
+      const { updatedShiftIds, resolvedAlerts } = await autoCompleteOverdueInProgressShifts(
+        now,
+        60, // 1 hour threshold
+        BATCH_SIZE
+      );
+
+      if (updatedShiftIds.length === 0) {
+        hasMore = false;
+        continue;
+      }
+
+      totalUpdated += updatedShiftIds.length;
+      console.log(
+        `[SchedulingProcessor] Transitioned ${updatedShiftIds.length} overdue in-progress shifts to COMPLETED.`
+      );
+
+      // Update in-memory cache/state immediately
+      for (const id of updatedShiftIds) {
+        this.cachedShifts.delete(id);
+        this.shiftStates.delete(id);
+      }
+
+      // Publish alert resolution events for the resolved alerts
+      for (const alert of resolvedAlerts) {
+        const payload = { type: 'alert_updated', alert };
+        await this.publish(`alerts:site:${alert.siteId}`, payload);
+      }
+
+      if (updatedShiftIds.length < BATCH_SIZE) {
+        hasMore = false;
+      }
+    }
+
+    if (totalUpdated > 0) {
+      // Trigger full sync broadcast next
+      this.needsFullSync = true;
     }
   }
 

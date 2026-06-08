@@ -1,4 +1,4 @@
-import { getActiveShifts, getActiveShiftsForDashboard, markOverdueScheduledShiftsAsMissed } from './shifts';
+import { getActiveShifts, getActiveShiftsForDashboard, markOverdueScheduledShiftsAsMissed, autoCompleteOverdueInProgressShifts } from './shifts';
 import { db as prisma } from '../prisma/client';
 
 jest.mock('../prisma/client', () => ({
@@ -77,6 +77,80 @@ describe('markOverdueScheduledShiftsAsMissed', () => {
     (prisma.shift.findMany as jest.Mock).mockResolvedValue([]);
 
     const result = await markOverdueScheduledShiftsAsMissed(now);
+
+    expect(result.updatedShiftIds).toEqual([]);
+    expect(result.resolvedAlerts).toEqual([]);
+  });
+});
+
+describe('autoCompleteOverdueInProgressShifts', () => {
+  const now = new Date();
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('should transition overdue in_progress shifts to completed and resolve alerts', async () => {
+    const mockShifts = [
+      { id: 'shift-3', siteId: 'site-2' },
+      { id: 'shift-4', siteId: 'site-2' },
+    ];
+
+    const mockResolvedAlerts = [
+      { id: 'alert-2', siteId: 'site-2' },
+    ];
+
+    (prisma.$transaction as jest.Mock).mockImplementation(async (cb) => {
+      return cb(prisma);
+    });
+
+    (prisma.shift.findMany as jest.Mock).mockResolvedValue(mockShifts);
+    (prisma.shift.updateMany as jest.Mock).mockResolvedValue({ count: 2 });
+    (prisma.alert.updateManyAndReturn as jest.Mock).mockResolvedValue(mockResolvedAlerts);
+
+    const thresholdMins = 60;
+    const thresholdMs = thresholdMins * 60000;
+    const expectedCutoff = new Date(now.getTime() - thresholdMs);
+
+    const result = await autoCompleteOverdueInProgressShifts(now, thresholdMins);
+
+    expect(prisma.shift.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        status: 'in_progress',
+        endsAt: { lte: expectedCutoff },
+        deletedAt: null,
+        employeeId: { not: null },
+      },
+    }));
+
+    expect(prisma.shift.updateMany).toHaveBeenCalledWith({
+      where: { id: { in: ['shift-3', 'shift-4'] } },
+      data: { status: 'completed' },
+    });
+
+    expect(prisma.alert.updateManyAndReturn).toHaveBeenCalledWith(expect.objectContaining({
+      where: {
+        shiftId: { in: ['shift-3', 'shift-4'] },
+        resolvedAt: null,
+      },
+      data: expect.objectContaining({
+        resolutionType: 'auto',
+        resolutionNote: `Auto-resolved: shift ended and was auto-completed ${thresholdMins} minutes past end time`,
+      }),
+    }));
+
+    expect(result.updatedShiftIds).toEqual(['shift-3', 'shift-4']);
+    expect(result.resolvedAlerts).toEqual(mockResolvedAlerts);
+  });
+
+  it('should return empty result if no overdue shifts found', async () => {
+    (prisma.$transaction as jest.Mock).mockImplementation(async (cb) => {
+      return cb(prisma);
+    });
+
+    (prisma.shift.findMany as jest.Mock).mockResolvedValue([]);
+
+    const result = await autoCompleteOverdueInProgressShifts(now);
 
     expect(result.updatedShiftIds).toEqual([]);
     expect(result.resolvedAlerts).toEqual([]);
