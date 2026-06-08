@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { ScrollView, TouchableOpacity, StyleSheet, TextInput, Platform, Keyboard, Linking, View } from 'react-native';
+import { ScrollView, TouchableOpacity, StyleSheet, TextInput, Platform, Keyboard, Linking, View, Alert } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
@@ -21,6 +21,8 @@ import {
   Send,
   FileText,
   Download,
+  Paperclip,
+  X,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTicketDetail, useSendTicketMessage, useClaimTicket } from '../../src/hooks/useTickets';
@@ -30,6 +32,9 @@ import { format } from 'date-fns';
 import { id as dateId, enUS } from 'date-fns/locale';
 import { LinearGradient } from 'expo-linear-gradient';
 import { TicketPriority, TicketStatus } from '@repo/types';
+import * as ImagePicker from 'expo-image-picker';
+import * as DocumentPicker from 'expo-document-picker';
+import { uploadToS3 } from '../../src/api/upload';
 
 const PRIMARY_RED = '#FF3B30';
 
@@ -74,6 +79,73 @@ export default function TicketDetailScreen() {
 
   const [activeTab, setActiveTab] = useState<'details' | 'discussion' | 'attachments'>('discussion');
   const [messageText, setMessageText] = useState('');
+  const [selectedAttachments, setSelectedAttachments] = useState<{
+    uri: string;
+    name: string;
+    mimeType: string;
+    fileSize: number;
+  }[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const pickImages = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: true,
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets) {
+        const mapped = result.assets.map(asset => ({
+          uri: asset.uri,
+          name: asset.fileName || `image_${Date.now()}.${asset.mimeType?.split('/')[1] || 'jpg'}`,
+          mimeType: asset.mimeType || 'image/jpeg',
+          fileSize: asset.fileSize || 0,
+        }));
+        setSelectedAttachments(prev => [...prev, ...mapped]);
+      }
+    } catch (error) {
+      console.error('Error picking image attachments:', error);
+    }
+  };
+
+  const pickPdfs = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/pdf',
+        multiple: true,
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets) {
+        const mapped = result.assets.map(asset => ({
+          uri: asset.uri,
+          name: asset.name || `document_${Date.now()}.pdf`,
+          mimeType: asset.mimeType || 'application/pdf',
+          fileSize: asset.size || 0,
+        }));
+        setSelectedAttachments(prev => [...prev, ...mapped]);
+      }
+    } catch (error) {
+      console.error('Error picking pdf attachments:', error);
+    }
+  };
+
+  const pickAttachments = () => {
+    Alert.alert(
+      t('tickets.attachmentType.title', 'Select Attachment Type'),
+      t('tickets.attachmentType.message', 'Choose the file type to attach'),
+      [
+        { text: t('common.cancel', 'Cancel'), style: 'cancel' },
+        { text: t('tickets.attachmentType.image', 'Image'), onPress: pickImages },
+        { text: t('tickets.attachmentType.pdf', 'PDF'), onPress: pickPdfs },
+      ]
+    );
+  };
+
+  const removeAttachment = (index: number) => {
+    setSelectedAttachments(prev => prev.filter((_, i) => i !== index));
+  };
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -131,15 +203,57 @@ export default function TicketDetailScreen() {
     }
   };
 
-  const handleSend = () => {
-    console.log('Sending message:', messageText);
-    if (!messageText.trim()) return;
-    sendMsgMutation.mutate(messageText.trim(), {
-      onSuccess: () => {
-        setMessageText('');
-        Keyboard.dismiss();
-      },
-    });
+  const handleSend = async () => {
+    if (!messageText.trim() && selectedAttachments.length === 0) return;
+
+    setIsUploading(true);
+    try {
+      const uploaded = await Promise.all(
+        selectedAttachments.map(async (asset, index) => {
+          const res = await uploadToS3(
+            asset.uri,
+            asset.name || `ticket_att_${Date.now()}_${index}`,
+            asset.mimeType,
+            asset.fileSize || 0,
+            {
+              folder: 'tickets',
+              ticketId: id,
+            }
+          );
+          return {
+            fileName: res.fileName,
+            fileSize: res.size,
+            mimeType: res.contentType,
+            s3Key: res.key,
+            s3Bucket: 'unknown',
+          };
+        })
+      );
+
+      sendMsgMutation.mutate(
+        {
+          body: messageText.trim() || t('tickets.sentAttachment', 'Sent an attachment'),
+          attachments: uploaded,
+        },
+        {
+          onSuccess: () => {
+            setMessageText('');
+            setSelectedAttachments([]);
+            Keyboard.dismiss();
+          },
+          onSettled: () => {
+            setIsUploading(false);
+          },
+        }
+      );
+    } catch (err) {
+      console.error('Failed to upload attachments / send message', err);
+      setIsUploading(false);
+      Alert.alert(
+        t('common.errorTitle', 'Error'),
+        t('tickets.error.sendFailed', 'Failed to upload attachments or send message')
+      );
+    }
   };
 
   const handleOpenUrl = (url?: string | null) => {
@@ -504,14 +618,48 @@ export default function TicketDetailScreen() {
               )}
             </ScrollView>
 
+            {/* Selected Attachments list */}
+            {selectedAttachments.length > 0 && (
+              <Box className="px-4 py-2 border-t border-white/5 bg-black">
+                <HStack space="xs" className="flex-wrap">
+                  {selectedAttachments.map((file, index) => (
+                    <Box
+                      key={`${file.name}-${index}`}
+                      className="bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 flex-row items-center mr-2 mb-2"
+                    >
+                      <FileText size={14} color="#A0A0A0" />
+                      <Text className="text-white font-medium ml-1.5 max-w-[150px] truncate" size="xs">
+                        {file.name}
+                      </Text>
+                      <TouchableOpacity
+                        onPress={() => removeAttachment(index)}
+                        className="ml-2 bg-white/10 rounded-full p-0.5"
+                      >
+                        <X size={12} color="white" />
+                      </TouchableOpacity>
+                    </Box>
+                  ))}
+                </HStack>
+              </Box>
+            )}
+
             {/* Input Bar */}
             <Box
               style={{ paddingBottom: insets.bottom + 10 }}
               className="p-4 bg-black border-t border-white/5 flex-row items-center"
             >
+              <TouchableOpacity
+                onPress={pickAttachments}
+                disabled={sendMsgMutation.isPending || isUploading}
+                className="w-10 h-10 rounded-xl bg-white/5 items-center justify-center border border-white/10 mr-2"
+                style={{ opacity: (sendMsgMutation.isPending || isUploading) ? 0.5 : 1 }}
+              >
+                <Paperclip size={18} color="white" />
+              </TouchableOpacity>
               <TextInput
                 value={messageText}
                 onChangeText={setMessageText}
+                editable={!sendMsgMutation.isPending && !isUploading}
                 placeholder={t('tickets.typeMessage', 'Type your message...')}
                 placeholderTextColor="#666"
                 className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white text-sm mr-3 focus:border-brand-500"
@@ -520,14 +668,14 @@ export default function TicketDetailScreen() {
               />
               <TouchableOpacity
                 onPress={handleSend}
-                disabled={!messageText.trim() || sendMsgMutation.isPending}
+                disabled={(!messageText.trim() && selectedAttachments.length === 0) || sendMsgMutation.isPending || isUploading}
                 className="w-11 h-11 rounded-full items-center justify-center active:scale-95"
                 style={{
-                  backgroundColor: messageText.trim() ? PRIMARY_RED : 'rgba(255, 255, 255, 0.05)',
-                  opacity: sendMsgMutation.isPending ? 0.6 : 1,
+                  backgroundColor: (messageText.trim() || selectedAttachments.length > 0) ? PRIMARY_RED : 'rgba(255, 255, 255, 0.05)',
+                  opacity: (sendMsgMutation.isPending || isUploading) ? 0.6 : 1,
                 }}
               >
-                {sendMsgMutation.isPending ? (
+                {sendMsgMutation.isPending || isUploading ? (
                   <Spinner size="small" className="text-white" />
                 ) : (
                   <Send size={18} color="white" />

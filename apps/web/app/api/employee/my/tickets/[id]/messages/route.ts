@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { getTicketById, addEmployeeTicketMessage } from '@repo/database';
+import { getTicketById, addEmployeeTicketMessage, addEmployeeTicketMessageWithAttachments } from '@repo/database';
+import { ticketMessageWithAttachmentsCreateSchema } from '@repo/validations';
 
 export async function POST(
   req: Request,
@@ -27,17 +28,46 @@ export async function POST(
     }
 
     const bodyData = await req.json();
-    const messageBody = bodyData.body?.trim();
+    const parsed = ticketMessageWithAttachmentsCreateSchema.safeParse({
+      ticketId,
+      body: bodyData.body,
+      attachments: bodyData.attachments || [],
+    });
 
-    if (!messageBody) {
-      return NextResponse.json({ error: 'Message body is required' }, { status: 400 });
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: parsed.error.issues[0]?.message || 'Invalid message payload' },
+        { status: 400 }
+      );
     }
 
-    const message = await addEmployeeTicketMessage({
-      ticketId,
-      employeeId: employee.id,
-      body: messageBody,
-    });
+    // Validate key prefix for attachments
+    const env = process.env.NODE_ENV === 'production' ? 'prod' : process.env.NODE_ENV || 'development';
+    const keyPrefix = `tickets/env=${env}/ticket_${ticketId}/`;
+    const invalidKey = parsed.data.attachments.find(attachment => !attachment.s3Key.startsWith(keyPrefix));
+    if (invalidKey) {
+      return NextResponse.json(
+        { error: 'Attachment key is outside allowed upload prefix' },
+        { status: 400 }
+      );
+    }
+
+    let message;
+    if (parsed.data.attachments.length === 0) {
+      message = await addEmployeeTicketMessage({
+        ticketId,
+        employeeId: employee.id,
+        body: parsed.data.body,
+      });
+    } else {
+      const result = await addEmployeeTicketMessageWithAttachments({
+        ticketId,
+        employeeId: employee.id,
+        body: parsed.data.body,
+        attachments: parsed.data.attachments,
+      });
+      message = result.message;
+    }
 
     return NextResponse.json({ success: true, message });
   } catch (error) {

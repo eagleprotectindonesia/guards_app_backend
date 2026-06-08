@@ -14,6 +14,7 @@ export interface UploadOptions {
   conversationId?: string;
   messageId?: string;
   fileType?: string;
+  ticketId?: string;
 }
 
 export interface UploadResponse {

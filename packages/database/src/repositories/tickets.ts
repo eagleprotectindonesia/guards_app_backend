@@ -1080,7 +1080,8 @@ export async function addEmployeeTicketMessage(
 export async function addTicketAttachments(
   input: {
     ticketId: string;
-    uploadedByAdminId: string;
+    uploadedByAdminId?: string;
+    uploadedByEmployeeId?: string;
     attachments: TicketAttachmentInput[];
   },
   tx: TxLike = prisma
@@ -1112,7 +1113,8 @@ export async function addTicketAttachments(
       data: input.attachments.map(attachment => ({
         ticketId: input.ticketId,
         messageId: attachment.messageId ?? null,
-        uploadedByAdminId: input.uploadedByAdminId,
+        uploadedByAdminId: input.uploadedByAdminId ?? null,
+        uploadedByEmployeeId: input.uploadedByEmployeeId ?? null,
         fileName: attachment.fileName,
         fileSize: attachment.fileSize,
         mimeType: attachment.mimeType,
@@ -1126,7 +1128,8 @@ export async function addTicketAttachments(
       input.attachments.map(attachment =>
         createHistory(trx, {
           ticketId: input.ticketId,
-          actorAdminId: input.uploadedByAdminId,
+          actorAdminId: input.uploadedByAdminId ?? null,
+          actorEmployeeId: input.uploadedByEmployeeId ?? null,
           action: 'ATTACHMENT_ADDED',
           toValue: attachment.s3Key,
           metadata: { fileName: attachment.fileName, messageId: attachment.messageId ?? null },
@@ -1141,6 +1144,51 @@ export async function addTicketAttachments(
       },
       orderBy: { createdAt: 'asc' },
     });
+  });
+}
+
+export type EmployeeTicketMessageWithAttachmentsInput = {
+  ticketId: string;
+  employeeId: string;
+  body: string;
+  attachments?: TicketAttachmentInput[];
+};
+
+export async function addEmployeeTicketMessageWithAttachments(
+  input: EmployeeTicketMessageWithAttachmentsInput,
+  tx: TxLike = prisma
+) {
+  return withTransaction(tx, async trx => {
+    const message = await trx.ticketMessage.create({
+      data: {
+        ticketId: input.ticketId,
+        employeeId: input.employeeId,
+        body: input.body,
+      },
+    });
+
+    await createHistory(trx, {
+      ticketId: input.ticketId,
+      actorEmployeeId: input.employeeId,
+      action: 'MESSAGE_ADDED',
+      toValue: message.id,
+    });
+
+    const attachments = input.attachments?.length
+      ? await addTicketAttachments(
+          {
+            ticketId: input.ticketId,
+            uploadedByEmployeeId: input.employeeId,
+            attachments: input.attachments.map(attachment => ({
+              ...attachment,
+              messageId: message.id,
+            })),
+          },
+          trx
+        )
+      : [];
+
+    return { message, attachments };
   });
 }
 

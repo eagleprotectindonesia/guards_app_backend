@@ -60,8 +60,8 @@ export function useTicketDetail(id: string) {
 export function useSendTicketMessage(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (body: string) => {
-      const res = await client.post(`/api/employee/my/tickets/${id}/messages`, { body });
+    mutationFn: async ({ body, attachments }: { body: string; attachments?: any[] }) => {
+      const res = await client.post(`/api/employee/my/tickets/${id}/messages`, { body, attachments });
       return res.data;
     },
     onSuccess: () => {

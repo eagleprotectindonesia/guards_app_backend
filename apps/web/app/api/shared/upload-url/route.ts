@@ -11,6 +11,7 @@ export async function POST(req: NextRequest) {
       conversationId,
       messageId,
       fileType,
+      ticketId,
     } = await req.json();
 
     if (!fileName || !contentType) {
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
       conversationId,
       messageId,
       fileType,
+      ticketId,
     });
 
     return NextResponse.json({
