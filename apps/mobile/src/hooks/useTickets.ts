@@ -85,6 +85,20 @@ export function useClaimTicket(id: string) {
   });
 }
 
+export function useUpdateTicketStatus(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (status: Ticket['status']) => {
+      const res = await client.patch(`/api/employee/my/tickets/${id}`, { status });
+      return res.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: [...queryKeys.tickets.list, id] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.tickets.list });
+    },
+  });
+}
+
 
 
 export function useUnassignedTicketsCount() {

@@ -472,7 +472,7 @@ export async function getTicketById(id: string, tx: TxLike = prisma) {
       messages: {
         include: {
           admin: { select: { id: true, name: true, roleId: true } },
-          employee: { select: { id: true, fullName: true, department: true } },
+          employee: { select: { id: true, fullName: true, employeeNumber: true, department: true } },
           attachments: true,
         },
         orderBy: { createdAt: 'asc' },
@@ -1224,6 +1224,54 @@ export async function addTicketMessageWithAttachments(input: TicketMessageWithAt
       : [];
 
     return { message, attachments };
+  });
+}
+
+export async function updateTicketStatusByEmployee(
+  input: {
+    ticketId: string;
+    nextStatus: TicketStatus;
+    actorEmployeeId: string;
+  },
+  tx: TxLike = prisma
+) {
+  return withTransaction(tx, async trx => {
+    const ticket = await trx.ticket.findUnique({
+      where: { id: input.ticketId },
+      select: {
+        id: true,
+        status: true,
+        claimedByEmployeeId: true,
+      },
+    });
+    if (!ticket) throw new Error('Ticket not found');
+
+    if (ticket.claimedByEmployeeId !== input.actorEmployeeId) {
+      throw new Error('Only the employee who claimed the ticket can change its status');
+    }
+
+    const allowedStatuses: TicketStatus[] = ['IN_PROGRESS', 'SOLVED', 'CANNOT_RESOLVE'];
+    if (!allowedStatuses.includes(input.nextStatus)) {
+      throw new Error(`Employee can only change status to ${allowedStatuses.join(', ')}`);
+    }
+
+    const updated = await trx.ticket.update({
+      where: { id: input.ticketId },
+      data: {
+        status: input.nextStatus,
+        ...statusTimestampPatch(input.nextStatus),
+      },
+    });
+
+    await createHistory(trx, {
+      ticketId: input.ticketId,
+      actorEmployeeId: input.actorEmployeeId,
+      action: 'STATUS_CHANGED',
+      fromValue: ticket.status,
+      toValue: input.nextStatus,
+    });
+
+    return updated;
   });
 }
 

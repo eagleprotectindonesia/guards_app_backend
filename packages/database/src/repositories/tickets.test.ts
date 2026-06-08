@@ -11,6 +11,7 @@ import {
   listMyTickets,
   listUnassignedTickets,
   updateTicketStatus,
+  updateTicketStatusByEmployee,
 } from './tickets';
 import { db as prisma } from '../prisma/client';
 
@@ -645,4 +646,77 @@ describe('tickets repository', () => {
       })
     );
   });
+
+  describe('updateTicketStatusByEmployee', () => {
+    test('updates status and creates history when claimed by the employee', async () => {
+      (prisma.ticket.findUnique as jest.Mock).mockResolvedValue({
+        id: 'ticket-1',
+        status: 'ACKNOWLEDGED',
+        claimedByEmployeeId: 'emp-123',
+      });
+      (prisma.ticket.update as jest.Mock).mockResolvedValue({
+        id: 'ticket-1',
+        status: 'IN_PROGRESS',
+      });
+
+      await updateTicketStatusByEmployee({
+        ticketId: 'ticket-1',
+        nextStatus: 'IN_PROGRESS',
+        actorEmployeeId: 'emp-123',
+      });
+
+      expect(prisma.ticket.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'ticket-1' },
+          data: expect.objectContaining({
+            status: 'IN_PROGRESS',
+          }),
+        })
+      );
+      expect(prisma.ticketHistory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            ticketId: 'ticket-1',
+            actorEmployeeId: 'emp-123',
+            action: 'STATUS_CHANGED',
+            fromValue: 'ACKNOWLEDGED',
+            toValue: 'IN_PROGRESS',
+          }),
+        })
+      );
+    });
+
+    test('rejects when ticket is not claimed by the requesting employee', async () => {
+      (prisma.ticket.findUnique as jest.Mock).mockResolvedValue({
+        id: 'ticket-1',
+        status: 'ACKNOWLEDGED',
+        claimedByEmployeeId: 'emp-456',
+      });
+
+      await expect(
+        updateTicketStatusByEmployee({
+          ticketId: 'ticket-1',
+          nextStatus: 'IN_PROGRESS',
+          actorEmployeeId: 'emp-123',
+        })
+      ).rejects.toThrow('Only the employee who claimed the ticket can change its status');
+    });
+
+    test('rejects when transition status is not allowed for employee', async () => {
+      (prisma.ticket.findUnique as jest.Mock).mockResolvedValue({
+        id: 'ticket-1',
+        status: 'ACKNOWLEDGED',
+        claimedByEmployeeId: 'emp-123',
+      });
+
+      await expect(
+        updateTicketStatusByEmployee({
+          ticketId: 'ticket-1',
+          nextStatus: 'CLOSED',
+          actorEmployeeId: 'emp-123',
+        })
+      ).rejects.toThrow('Employee can only change status to IN_PROGRESS, SOLVED, CANNOT_RESOLVE');
+    });
+  });
 });
+

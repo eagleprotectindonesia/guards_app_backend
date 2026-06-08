@@ -21,7 +21,7 @@ export type TicketMessage = {
   id: string;
   body: string;
   admin?: { name?: string | null } | null;
-  employee?: { fullName?: string | null } | null;
+  employee?: { fullName?: string | null; employeeNumber?: string | null } | null;
   createdAt: string | Date;
   attachments?: TicketAttachment[];
 };
@@ -40,6 +40,7 @@ export type TicketDetail = {
   createdAt: string | Date;
   submitterAdmin?: { name?: string | null } | null;
   assignedAdmin?: { id?: string; name?: string | null } | null;
+  assignedEmployee?: { id?: string; fullName?: string | null } | null;
   departmentRole?: { name?: string | null; policy?: unknown | null } | null;
   assignedRoles?: Array<{ role: { name: string } }>;
   messages: TicketMessage[];

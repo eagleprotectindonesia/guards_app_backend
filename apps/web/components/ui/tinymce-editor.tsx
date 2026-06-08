@@ -63,6 +63,9 @@ export function TinyMceEditor({
       .mce-content-body[data-mce-placeholder]:not(.mce-visualblocks)::before {
         color: #9ca3af !important;
         opacity: 1 !important;
+        left: 12px !important;
+        top: 12px !important;
+        pointer-events: none !important;
       }
     `
     : `
@@ -92,6 +95,9 @@ export function TinyMceEditor({
       .mce-content-body[data-mce-placeholder]:not(.mce-visualblocks)::before {
         color: #6b7280 !important;
         opacity: 1 !important;
+        left: 12px !important;
+        top: 12px !important;
+        pointer-events: none !important;
       }
     `;
 

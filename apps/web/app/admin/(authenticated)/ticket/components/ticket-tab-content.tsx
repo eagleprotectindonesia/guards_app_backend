@@ -96,7 +96,7 @@ export function TicketTabContent({
                           {displayName}
                           {isEmployee && (
                             <span className="ml-1 text-[10px] font-normal text-muted-foreground bg-muted/30 px-1.5 py-0.5 rounded border border-border/10">
-                              Guard
+                              {msg.employee?.employeeNumber || 'Employee'}
                             </span>
                           )}
                         </span>

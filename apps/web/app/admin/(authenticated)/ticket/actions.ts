@@ -276,6 +276,7 @@ export async function getTicketDetailAction(ticketId: string) {
     ticket: {
       ...ticket,
       assignedAdmin: ticket.claimedByType === 'ADMIN' ? ticket.claimedByAdmin : null,
+      assignedEmployee: ticket.claimedByType === 'EMPLOYEE' ? ticket.claimedByEmployee : null,
       attachments,
       messages,
     },

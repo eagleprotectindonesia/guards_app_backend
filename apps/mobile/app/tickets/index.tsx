@@ -20,7 +20,7 @@ import {
   MapPin,
   Phone,
   AlertCircle,
-  MessageSquare
+  MessageSquare,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMyTickets } from '../../src/hooks/useTickets';
@@ -46,14 +46,22 @@ export default function TicketsScreen() {
   const getPriorityConfig = (priority: TicketPriority) => {
     switch (priority) {
       case 'CRITICAL':
-        return { color: '#FF3B30', bgColor: 'rgba(255, 59, 48, 0.1)', label: t('tickets.priorityLabel.CRITICAL', 'Critical') };
+        return {
+          color: '#FF3B30',
+          bgColor: 'rgba(255, 59, 48, 0.1)',
+          label: t('tickets.priorityLabel.CRITICAL', 'Critical'),
+        };
       case 'HIGH':
         return { color: '#FF9500', bgColor: 'rgba(255, 149, 0, 0.1)', label: t('tickets.priorityLabel.HIGH', 'High') };
       case 'LOW':
         return { color: '#30B0C7', bgColor: 'rgba(48, 176, 199, 0.1)', label: t('tickets.priorityLabel.LOW', 'Low') };
       case 'MEDIUM':
       default:
-        return { color: '#007AFF', bgColor: 'rgba(0, 122, 255, 0.1)', label: t('tickets.priorityLabel.MEDIUM', 'Medium') };
+        return {
+          color: '#007AFF',
+          bgColor: 'rgba(0, 122, 255, 0.1)',
+          label: t('tickets.priorityLabel.MEDIUM', 'Medium'),
+        };
     }
   };
 
@@ -85,19 +93,13 @@ export default function TicketsScreen() {
     <Box className="flex-1 bg-black">
       {/* Background Ambient Glow */}
       <Box className="absolute top-0 left-0 right-0 h-[300px] opacity-20">
-        <LinearGradient
-          colors={['rgba(255, 149, 0, 0.15)', 'transparent']}
-          style={{ flex: 1 }}
-        />
+        <LinearGradient colors={['rgba(255, 149, 0, 0.15)', 'transparent']} style={{ flex: 1 }} />
       </Box>
 
       {/* Header */}
-      <Box 
-        style={{ paddingTop: insets.top + 10 }} 
-        className="px-6 pb-4 flex-row items-center"
-      >
-        <TouchableOpacity 
-          onPress={() => router.back()} 
+      <Box style={{ paddingTop: insets.top + 10 }} className="px-6 pb-4 flex-row items-center">
+        <TouchableOpacity
+          onPress={() => router.back()}
           className="w-10 h-10 rounded-full bg-white/5 items-center justify-center border border-white/10 mr-4"
         >
           <ChevronLeft size={24} color="white" />
@@ -113,13 +115,7 @@ export default function TicketsScreen() {
           paddingHorizontal: 24,
           paddingBottom: 40,
         }}
-        refreshControl={
-          <RefreshControl
-            refreshing={isRefetching}
-            onRefresh={refetch}
-            tintColor={PRIMARY_RED}
-          />
-        }
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={PRIMARY_RED} />}
       >
         {isLoading ? (
           <Center className="py-20">
@@ -139,18 +135,13 @@ export default function TicketsScreen() {
           </Center>
         ) : (
           <VStack space="md" className="mt-4">
-            {tickets.map((ticket) => {
+            {tickets.map(ticket => {
               const isExpanded = expandedId === ticket.id;
               const priorityConfig = getPriorityConfig(ticket.priority);
               const statusConfig = getStatusConfig(ticket.status);
 
               return (
-                <BlurView 
-                  key={ticket.id}
-                  intensity={20}
-                  tint="dark"
-                  style={styles.ticketCard}
-                >
+                <BlurView key={ticket.id} intensity={20} tint="dark" style={styles.ticketCard}>
                   <TouchableOpacity onPress={() => toggleExpand(ticket.id)} activeOpacity={0.9}>
                     <VStack space="sm">
                       {/* Code and Priority Badge */}
@@ -158,12 +149,15 @@ export default function TicketsScreen() {
                         <Text className="text-[#FF9500] font-mono font-bold tracking-[0.5px]" size="sm">
                           {ticket.code}
                         </Text>
-                        
-                        <Box 
+
+                        <Box
                           style={{ backgroundColor: priorityConfig.bgColor }}
                           className="px-2.5 py-1 rounded-full border border-white/5"
                         >
-                          <Text style={{ color: priorityConfig.color }} className="font-bold text-[10px] uppercase tracking-[0.5px]">
+                          <Text
+                            style={{ color: priorityConfig.color }}
+                            className="font-bold text-[10px] uppercase tracking-[0.5px]"
+                          >
                             {priorityConfig.label}
                           </Text>
                         </Box>
@@ -187,10 +181,7 @@ export default function TicketsScreen() {
                       {!isExpanded && (
                         <HStack className="justify-between items-center mt-2">
                           <HStack space="xs" className="items-center">
-                            <Box 
-                              style={{ backgroundColor: statusConfig.color }}
-                              className="w-2 h-2 rounded-full"
-                            />
+                            <Box style={{ backgroundColor: statusConfig.color }} className="w-2 h-2 rounded-full" />
                             <Text className="text-[#A0A0A0]" size="2xs">
                               {statusConfig.label}
                             </Text>
@@ -226,10 +217,7 @@ export default function TicketsScreen() {
                             {t('tickets.status', 'Status')}
                           </Text>
                           <HStack space="xs" className="items-center">
-                            <Box 
-                              style={{ backgroundColor: statusConfig.color }}
-                              className="w-2.5 h-2.5 rounded-full"
-                            />
+                            <Box style={{ backgroundColor: statusConfig.color }} className="w-2.5 h-2.5 rounded-full" />
                             <Text style={{ color: statusConfig.color }} className="font-bold uppercase" size="xs">
                               {statusConfig.label}
                             </Text>
@@ -254,14 +242,16 @@ export default function TicketsScreen() {
                         <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
                           {t('tickets.details', 'Ticket Details')}
                         </Text>
-                        
+
                         <VStack space="sm" className="bg-white/5 p-4 rounded-2xl">
                           {/* Submitter */}
                           {ticket.submitterAdmin && (
                             <HStack space="md" className="items-center">
                               <User size={16} color="#A0A0A0" />
                               <Text size="xs" className="text-[#D1D1D1]">
-                                <Text className="font-bold text-[#A0A0A0]">{t('tickets.createdBy', 'Created By')}: </Text>
+                                <Text className="font-bold text-[#A0A0A0]">
+                                  {t('tickets.createdBy', 'Created By')}:{' '}
+                                </Text>
                                 {ticket.submitterAdmin.name}
                               </Text>
                             </HStack>
@@ -271,7 +261,9 @@ export default function TicketsScreen() {
                           <HStack space="md" className="items-center">
                             <Clock size={16} color="#A0A0A0" />
                             <Text size="xs" className="text-[#D1D1D1]">
-                              <Text className="font-bold text-[#A0A0A0]">{t('tickets.targetHours', 'SLA Target')}: </Text>
+                              <Text className="font-bold text-[#A0A0A0]">
+                                {t('tickets.targetHours', 'SLA Target')}:{' '}
+                              </Text>
                               {ticket.resolutionTargetHours} {t('tickets.hours', 'hours')}
                             </Text>
                           </HStack>
@@ -289,7 +281,9 @@ export default function TicketsScreen() {
                           <HStack space="md" className="items-center">
                             <Phone size={16} color="#A0A0A0" />
                             <Text size="xs" className="text-[#D1D1D1]">
-                              <Text className="font-bold text-[#A0A0A0]">{t('tickets.clientContact', 'Contact')}: </Text>
+                              <Text className="font-bold text-[#A0A0A0]">
+                                {t('tickets.clientContact', 'Contact')}:{' '}
+                              </Text>
                               {ticket.clientContact}
                             </Text>
                           </HStack>
@@ -312,7 +306,6 @@ export default function TicketsScreen() {
                         style={{ backgroundColor: PRIMARY_RED }}
                         activeOpacity={0.8}
                       >
-                        <MessageSquare size={16} color="white" style={{ marginRight: 8 }} />
                         <Text className="text-white font-bold text-sm">
                           {t('tickets.openDiscussion', 'Open Discussion')}
                         </Text>

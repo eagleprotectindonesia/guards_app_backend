@@ -83,7 +83,7 @@ export function TicketDetailHeader({
                 ? 'Claiming...'
                 : isClaimedByCurrentUser
                   ? 'Claimed By You'
-                  : ticket.assignedAdmin?.id
+                  : (ticket.assignedAdmin?.id || ticket.assignedEmployee?.id)
                     ? 'Re-claim Ticket'
                     : 'Claim Ticket'}
             </Button>
@@ -213,7 +213,7 @@ export function TicketDetailHeader({
               Assigned To
             </span>
             <span className="text-sm font-semibold text-foreground block truncate">
-              {ticket.assignedAdmin?.name || '-'}
+              {ticket.assignedAdmin?.name || ticket.assignedEmployee?.fullName || '-'}
             </span>
           </div>
 

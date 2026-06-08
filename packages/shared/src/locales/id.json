@@ -443,7 +443,7 @@
     },
     "statusLabel": {
       "NEW": "Baru",
-      "ACKNOWLEDGED": "Diakui",
+      "ACKNOWLEDGED": "Sudah diambil",
       "WAITING_INFORMATION": "Menunggu Informasi",
       "IN_PROGRESS": "Sedang Diproses",
       "SOLVED": "Terselesaikan",
