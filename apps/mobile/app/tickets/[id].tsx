@@ -794,44 +794,55 @@ export default function TicketDetailScreen() {
             )}
 
             {/* Input Bar */}
-            <Box
-              style={{ paddingBottom: insets.bottom + 10 }}
-              className="p-4 bg-black border-t border-white/5 flex-row items-center"
-            >
-              <TouchableOpacity
-                onPress={pickAttachments}
-                disabled={sendMsgMutation.isPending || isUploading}
-                className="w-10 h-10 rounded-xl bg-white/5 items-center justify-center border border-white/10 mr-2"
-                style={{ opacity: (sendMsgMutation.isPending || isUploading) ? 0.5 : 1 }}
+            {!['CLOSED', 'CANCELLED', 'CANNOT_RESOLVE'].includes(ticket.status) ? (
+              <Box
+                style={{ paddingBottom: insets.bottom + 10 }}
+                className="p-4 bg-black border-t border-white/5 flex-row items-center"
               >
-                <Paperclip size={18} color="white" />
-              </TouchableOpacity>
-              <TextInput
-                value={messageText}
-                onChangeText={setMessageText}
-                editable={!sendMsgMutation.isPending && !isUploading}
-                placeholder={t('tickets.typeMessage', 'Type your message...')}
-                placeholderTextColor="#666"
-                className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white text-sm mr-3 focus:border-brand-500"
-                multiline
-                style={{ maxHeight: 100 }}
-              />
-              <TouchableOpacity
-                onPress={handleSend}
-                disabled={(!messageText.trim() && selectedAttachments.length === 0) || sendMsgMutation.isPending || isUploading}
-                className="w-11 h-11 rounded-full items-center justify-center active:scale-95"
-                style={{
-                  backgroundColor: (messageText.trim() || selectedAttachments.length > 0) ? PRIMARY_RED : 'rgba(255, 255, 255, 0.05)',
-                  opacity: (sendMsgMutation.isPending || isUploading) ? 0.6 : 1,
-                }}
+                <TouchableOpacity
+                  onPress={pickAttachments}
+                  disabled={sendMsgMutation.isPending || isUploading}
+                  className="w-10 h-10 rounded-xl bg-white/5 items-center justify-center border border-white/10 mr-2"
+                  style={{ opacity: (sendMsgMutation.isPending || isUploading) ? 0.5 : 1 }}
+                >
+                  <Paperclip size={18} color="white" />
+                </TouchableOpacity>
+                <TextInput
+                  value={messageText}
+                  onChangeText={setMessageText}
+                  editable={!sendMsgMutation.isPending && !isUploading}
+                  placeholder={t('tickets.typeMessage', 'Type your message...')}
+                  placeholderTextColor="#666"
+                  className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 text-white text-sm mr-3 focus:border-brand-500"
+                  multiline
+                  style={{ maxHeight: 100 }}
+                />
+                <TouchableOpacity
+                  onPress={handleSend}
+                  disabled={(!messageText.trim() && selectedAttachments.length === 0) || sendMsgMutation.isPending || isUploading}
+                  className="w-11 h-11 rounded-full items-center justify-center active:scale-95"
+                  style={{
+                    backgroundColor: (messageText.trim() || selectedAttachments.length > 0) ? PRIMARY_RED : 'rgba(255, 255, 255, 0.05)',
+                    opacity: (sendMsgMutation.isPending || isUploading) ? 0.6 : 1,
+                  }}
+                >
+                  {sendMsgMutation.isPending || isUploading ? (
+                    <Spinner size="small" className="text-white" />
+                  ) : (
+                    <Send size={18} color="white" />
+                  )}
+                </TouchableOpacity>
+              </Box>
+            ) : (
+              <Box
+                style={{ paddingBottom: insets.bottom + 16 }}
+                className="p-4 bg-black border-t border-white/5 items-center justify-center"
               >
-                {sendMsgMutation.isPending || isUploading ? (
-                  <Spinner size="small" className="text-white" />
-                ) : (
-                  <Send size={18} color="white" />
-                )}
-              </TouchableOpacity>
-            </Box>
+                <Text className="text-[#666] text-xs font-semibold uppercase tracking-[0.5px]">
+                  {t('tickets.discussionDisabled', 'Discussion is disabled for this ticket.')}
+                </Text>
+              </Box>
+            )}
           </VStack>
         )}
 

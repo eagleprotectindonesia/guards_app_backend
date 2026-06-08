@@ -65,6 +65,7 @@ export type TicketDetailResult = {
   ticket: TicketDetail;
   history: TicketHistoryItem[];
   canClaim?: boolean;
+  hasClaimRole?: boolean;
   isClaimedByCurrentUser?: boolean;
   isSubmitter?: boolean;
   isClaimant?: boolean;

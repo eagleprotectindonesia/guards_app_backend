@@ -228,6 +228,7 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
                 onUpdateStatus={updateStatus}
                 onTabChange={setActiveTab}
                 canClaim={Boolean(detail?.canClaim)}
+                hasClaimRole={Boolean(detail?.hasClaimRole)}
                 isClaimedByCurrentUser={Boolean(detail?.isClaimedByCurrentUser)}
                 canEdit={Boolean(detail?.canEdit)}
                 canUseMore={Boolean(detail?.canUseMore)}

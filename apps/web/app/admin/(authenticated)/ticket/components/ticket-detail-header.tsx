@@ -25,6 +25,7 @@ type TicketDetailHeaderProps = {
   onUpdateStatus: (status: TicketListItem['status'], cancellationNote?: string) => void;
   onTabChange: (tab: 'details' | 'discussion' | 'attachments' | 'history') => void;
   canClaim: boolean;
+  hasClaimRole: boolean;
   isClaimedByCurrentUser: boolean;
   canEdit: boolean;
   canUseMore: boolean;
@@ -57,6 +58,7 @@ export function TicketDetailHeader({
   onUpdateStatus,
   onTabChange,
   canClaim,
+  hasClaimRole,
   isClaimedByCurrentUser,
   canUseMore,
   allowedStatusActions,
@@ -82,21 +84,23 @@ export function TicketDetailHeader({
           <div />
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-border bg-transparent text-foreground hover:bg-accent h-9 px-3.5 text-xs rounded-lg font-semibold"
-              disabled={!canClaim || isClaiming || isClaimedByCurrentUser}
-              onClick={onClaimTicket}
-            >
-              {isClaiming
-                ? 'Claiming...'
-                : isClaimedByCurrentUser
-                  ? 'Claimed By You'
-                  : (ticket.assignedAdmin?.id || ticket.assignedEmployee?.id)
-                    ? 'Re-claim Ticket'
-                    : 'Claim Ticket'}
-            </Button>
+            {(hasClaimRole || isClaimedByCurrentUser) && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-border bg-transparent text-foreground hover:bg-accent h-9 px-3.5 text-xs rounded-lg font-semibold"
+                disabled={!canClaim || isClaiming || isClaimedByCurrentUser}
+                onClick={onClaimTicket}
+              >
+                {isClaiming
+                  ? 'Claiming...'
+                  : isClaimedByCurrentUser
+                    ? 'Claimed By You'
+                    : (ticket.assignedAdmin?.id || ticket.assignedEmployee?.id)
+                      ? 'Re-claim Ticket'
+                      : 'Claim Ticket'}
+              </Button>
+            )}
             {/* {canEdit && (
               <Button
                 variant="outline"
@@ -109,36 +113,49 @@ export function TicketDetailHeader({
               </Button>
             )} */}
 
-            {canUseMore && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="border-border bg-transparent text-foreground hover:bg-accent h-9 px-3.5 text-xs rounded-lg flex items-center gap-1 font-semibold"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                    More
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-card border-border text-foreground">
-                  {allowedStatusActions.map(status => (
-                    <DropdownMenuItem
-                      key={status}
-                      onClick={() => {
-                        if (status === 'CANCELLED') {
-                          setIsCancelDialogOpen(true);
-                        } else {
-                          onUpdateStatus(status);
-                        }
-                      }}
-                      className="hover:bg-purple-500/10 hover:text-foreground focus:bg-purple-500/10 focus:text-foreground cursor-pointer"
+            {['CLOSED', 'CANCELLED'].includes(ticket.status) ? (
+              allowedStatusActions.includes('ACKNOWLEDGED') && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-border bg-transparent text-foreground hover:bg-accent h-9 px-3.5 text-xs rounded-lg font-semibold"
+                  onClick={() => onUpdateStatus('ACKNOWLEDGED')}
+                >
+                  Reopen Ticket
+                </Button>
+              )
+            ) : (
+              canUseMore && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-border bg-transparent text-foreground hover:bg-accent h-9 px-3.5 text-xs rounded-lg flex items-center gap-1 font-semibold"
                     >
-                      {statusActionLabel(status)}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                      <MoreHorizontal className="w-4 h-4" />
+                      More
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-card border-border text-foreground">
+                    {allowedStatusActions.map(status => (
+                      <DropdownMenuItem
+                        key={status}
+                        onClick={() => {
+                          if (status === 'CANCELLED') {
+                            setIsCancelDialogOpen(true);
+                          } else {
+                            onUpdateStatus(status);
+                          }
+                        }}
+                        className="hover:bg-purple-500/10 hover:text-foreground focus:bg-purple-500/10 focus:text-foreground cursor-pointer"
+                      >
+                        {statusActionLabel(status)}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )
             )}
             <Button
               variant="outline"

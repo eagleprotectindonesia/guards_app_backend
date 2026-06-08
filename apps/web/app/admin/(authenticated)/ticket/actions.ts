@@ -243,7 +243,7 @@ export async function getTicketDetailAction(ticketId: string) {
     select: { roleId: true },
   });
   const canClaim = Boolean(
-    session.isSuperAdmin || (ticket.departmentRoleId && actor?.roleId && actor.roleId === ticket.departmentRoleId)
+    ticket.departmentRoleId && actor?.roleId && actor.roleId === ticket.departmentRoleId
   );
   const isSubmitter = ticket.submitterAdminId === session.id;
   const isClaimant = ticket.claimedByType === 'ADMIN' && ticket.claimedByAdminId === session.id;
@@ -282,6 +282,7 @@ export async function getTicketDetailAction(ticketId: string) {
     },
     history,
     canClaim: canClaim && !isClaimedByCurrentUser,
+    hasClaimRole: canClaim,
     isClaimedByCurrentUser,
     isSubmitter,
     isClaimant,
