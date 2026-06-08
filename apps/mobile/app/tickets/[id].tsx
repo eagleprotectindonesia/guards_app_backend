@@ -434,7 +434,15 @@ export default function TicketDetailScreen() {
         </HStack>
 
         {/* Claim Ticket Row */}
-        {ticket.claimedByEmployeeId === currentEmployeeId ? (
+        {ticket.status === 'CLOSED' || ticket.status === 'CANCELLED' ? (
+          <Box className="mt-3 bg-white/5 py-2.5 rounded-xl items-center justify-center border border-white/10">
+            <Text className="text-[#A0A0A0] font-bold text-xs uppercase tracking-wider">
+              {ticket.status === 'CLOSED'
+                ? t('tickets.statusLabel.CLOSED', 'Closed')
+                : t('tickets.statusLabel.CANCELLED', 'Cancelled')}
+            </Text>
+          </Box>
+        ) : ticket.claimedByEmployeeId === currentEmployeeId ? (
           <VStack space="sm" className="mt-3">
             <Box className="bg-emerald-500/10 py-2 rounded-xl items-center justify-center border border-emerald-500/20">
               <Text className="text-emerald-400 font-bold text-xs uppercase tracking-wider">

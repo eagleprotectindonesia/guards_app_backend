@@ -22,7 +22,7 @@ import {
   AlertCircle,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useMyTickets } from '../../src/hooks/useTickets';
+import { useMyTickets, useClaimTicket } from '../../src/hooks/useTickets';
 import { useSocket } from '../../src/hooks/useSocket';
 import { useSocketEvent } from '../../src/hooks/useSocketEvent';
 import { RichTextViewer } from '../../src/components/RichTextViewer';
@@ -30,28 +30,21 @@ import { format } from 'date-fns';
 import { id, enUS } from 'date-fns/locale';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import { TicketPriority, TicketStatus } from '@repo/types';
+import { TicketPriority, TicketStatus, Ticket } from '@repo/types';
 
 const PRIMARY_RED = '#FF3B30';
 
-export default function TicketsScreen() {
-  const { t, i18n } = useTranslation();
+interface TicketCardProps {
+  ticket: Ticket;
+  isExpanded: boolean;
+  onToggle: () => void;
+  dateLocale: any;
+}
+
+function TicketCard({ ticket, isExpanded, onToggle, dateLocale }: TicketCardProps) {
+  const { t } = useTranslation();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-  const { data, isLoading, refetch, isRefetching } = useMyTickets();
-  const tickets = data?.items ?? [];
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const { socket } = useSocket();
-
-  useSocketEvent(socket, 'ticket_created', () => {
-    refetch();
-  });
-
-  useSocketEvent(socket, 'ticket_status_updated', () => {
-    refetch();
-  });
-
-  const dateLocale = i18n.language === 'id' ? id : enUS;
+  const claimMutation = useClaimTicket(ticket.id);
 
   const getPriorityConfig = (priority: TicketPriority) => {
     switch (priority) {
@@ -96,6 +89,237 @@ export default function TicketsScreen() {
         return { color: '#FF3B30', label: t('tickets.statusLabel.CANNOT_RESOLVE', 'Cannot Resolve') };
     }
   };
+
+  const priorityConfig = getPriorityConfig(ticket.priority);
+  const statusConfig = getStatusConfig(ticket.status);
+  const isUnclaimed = !ticket.claimedByEmployeeId && !ticket.claimedByAdminId;
+  const isClosedOrCancelled = ticket.status === 'CLOSED' || ticket.status === 'CANCELLED';
+  const showClaimButton = isUnclaimed && !isClosedOrCancelled;
+
+  return (
+    <BlurView intensity={20} tint="dark" style={styles.ticketCard}>
+      <TouchableOpacity onPress={onToggle} activeOpacity={0.9}>
+        <VStack space="sm">
+          {/* Code and Priority Badge */}
+          <HStack className="justify-between items-center">
+            <Text className="text-[#FF9500] font-mono font-bold tracking-[0.5px]" size="sm">
+              {ticket.code}
+            </Text>
+
+            <Box
+              style={{ backgroundColor: priorityConfig.bgColor }}
+              className="px-2.5 py-1 rounded-full border border-white/5"
+            >
+              <Text
+                style={{ color: priorityConfig.color }}
+                className="font-bold text-[10px] uppercase tracking-[0.5px]"
+              >
+                {priorityConfig.label}
+              </Text>
+            </Box>
+          </HStack>
+
+          {/* Title & Chevron */}
+          <HStack className="justify-between items-start" space="sm">
+            <Heading size="md" className="text-white font-semibold flex-1 leading-6">
+              {ticket.title}
+            </Heading>
+            <Box className="mt-1">
+              {isExpanded ? (
+                <ChevronUp size={20} color="#666666" />
+              ) : (
+                <ChevronDown size={20} color="#666666" />
+              )}
+            </Box>
+          </HStack>
+
+          {/* Summary fields when closed */}
+          {!isExpanded && (
+            <HStack className="justify-between items-center mt-2">
+              <HStack space="xs" className="items-center">
+                <Box style={{ backgroundColor: statusConfig.color }} className="w-2 h-2 rounded-full" />
+                <Text className="text-[#A0A0A0]" size="2xs">
+                  {statusConfig.label}
+                </Text>
+              </HStack>
+
+              <Text className="text-[#666]" size="2xs">
+                {format(new Date(ticket.createdAt), 'dd MMM yyyy', { locale: dateLocale })}
+              </Text>
+            </HStack>
+          )}
+        </VStack>
+      </TouchableOpacity>
+
+      {/* Expanded Content */}
+      {isExpanded && (
+        <VStack space="md" className="mt-4 pt-4 border-t border-white/5">
+          {/* Description */}
+          <VStack space="xs">
+            <Text className="text-[#666] font-bold uppercase tracking-[1px] mb-2" size="2xs">
+              {t('tickets.description', 'Description')}
+            </Text>
+            <RichTextViewer
+              html={ticket.description}
+              defaultTextColor="#D1D1D1"
+              fallback={t('tickets.noDescription', 'No description provided.')}
+            />
+          </VStack>
+
+          {/* Status and Created Info */}
+          <HStack className="justify-between items-center bg-white/5 p-3 rounded-2xl">
+            <VStack space="xs">
+              <Text className="text-[#666] font-bold uppercase tracking-[1.5px]" size="2xs">
+                {t('tickets.status', 'Status')}
+              </Text>
+              <HStack space="xs" className="items-center">
+                <Box style={{ backgroundColor: statusConfig.color }} className="w-2.5 h-2.5 rounded-full" />
+                <Text style={{ color: statusConfig.color }} className="font-bold uppercase" size="xs">
+                  {statusConfig.label}
+                </Text>
+              </HStack>
+            </VStack>
+
+            <VStack space="xs" className="items-end">
+              <Text className="text-[#666] font-bold uppercase tracking-[1.5px]" size="2xs">
+                {t('tickets.createdDate', 'Created Date')}
+              </Text>
+              <HStack space="xs" className="items-center">
+                <Calendar size={12} color="#A0A0A0" />
+                <Text className="text-white font-medium" size="xs">
+                  {format(new Date(ticket.createdAt), 'dd MMM yyyy', { locale: dateLocale })}
+                </Text>
+              </HStack>
+            </VStack>
+          </HStack>
+
+          {/* Details / Client and Target info */}
+          <VStack space="xs">
+            <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
+              {t('tickets.details', 'Ticket Details')}
+            </Text>
+
+            <VStack space="sm" className="bg-white/5 p-4 rounded-2xl">
+              {/* Submitter */}
+              {ticket.submitterAdmin && (
+                <HStack space="md" className="items-center">
+                  <User size={16} color="#A0A0A0" />
+                  <Text size="xs" className="text-[#D1D1D1]">
+                    <Text className="font-bold text-[#A0A0A0]">
+                      {t('tickets.createdBy', 'Created By')}:{' '}
+                    </Text>
+                    {ticket.submitterAdmin.name}
+                  </Text>
+                </HStack>
+              )}
+
+              {/* Target hours */}
+              <HStack space="md" className="items-center">
+                <Clock size={16} color="#A0A0A0" />
+                <Text size="xs" className="text-[#D1D1D1]">
+                  <Text className="font-bold text-[#A0A0A0]">
+                    {t('tickets.targetHours', 'SLA Target')}:{' '}
+                  </Text>
+                  {ticket.resolutionTargetHours} {t('tickets.hours', 'hours')}
+                </Text>
+              </HStack>
+
+              {/* Client Name */}
+              <HStack space="md" className="items-center">
+                <AlertCircle size={16} color="#A0A0A0" />
+                <Text size="xs" className="text-[#D1D1D1]">
+                  <Text className="font-bold text-[#A0A0A0]">{t('tickets.clientName', 'Client')}: </Text>
+                  {ticket.clientName}
+                </Text>
+              </HStack>
+
+              {/* Client Contact */}
+              <HStack space="md" className="items-center">
+                <Phone size={16} color="#A0A0A0" />
+                <Text size="xs" className="text-[#D1D1D1]">
+                  <Text className="font-bold text-[#A0A0A0]">
+                    {t('tickets.clientContact', 'Contact')}:{' '}
+                  </Text>
+                  {ticket.clientContact}
+                </Text>
+              </HStack>
+
+              {/* Location */}
+              <HStack space="md" className="items-center">
+                <MapPin size={16} color="#A0A0A0" />
+                <Text size="xs" className="text-[#D1D1D1]">
+                  <Text className="font-bold text-[#A0A0A0]">{t('tickets.location', 'Location')}: </Text>
+                  {ticket.clientLocation}
+                </Text>
+              </HStack>
+            </VStack>
+          </VStack>
+
+          {showClaimButton ? (
+            <HStack space="md" className="mt-2 w-full">
+              {/* Claim Ticket Button */}
+              <TouchableOpacity
+                onPress={() => claimMutation.mutate()}
+                disabled={claimMutation.isPending}
+                className="flex-1 py-3.5 rounded-2xl items-center justify-center active:scale-95 flex-row border border-white/5"
+                style={{ backgroundColor: '#FF3B30', opacity: claimMutation.isPending ? 0.6 : 1 }}
+                activeOpacity={0.8}
+              >
+                <Text className="text-white font-bold text-sm uppercase tracking-wider">
+                  {claimMutation.isPending
+                    ? t('tickets.claiming', 'CLAIMING...')
+                    : t('tickets.claimTicket', 'CLAIM TICKET')}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Open Discussion Button (Outline/Secondary style when unclaimed) */}
+              <TouchableOpacity
+                onPress={() => router.push(`/tickets/${ticket.id}`)}
+                className="flex-1 py-3.5 rounded-2xl items-center justify-center border border-white/10 active:opacity-90 flex-row bg-white/5"
+                activeOpacity={0.8}
+              >
+                <Text className="text-[#D1D1D1] font-bold text-sm">
+                  {t('tickets.openDiscussion', 'Open Discussion')}
+                </Text>
+              </TouchableOpacity>
+            </HStack>
+          ) : (
+            /* Open Discussion Button (Solid brand red, occupies full width when claimed) */
+            <TouchableOpacity
+              onPress={() => router.push(`/tickets/${ticket.id}`)}
+              className="mt-2 py-3.5 rounded-2xl items-center justify-center border border-white/10 active:opacity-90 flex-row"
+              style={{ backgroundColor: PRIMARY_RED }}
+              activeOpacity={0.8}
+            >
+              <Text className="text-white font-bold text-sm">
+                {t('tickets.openDiscussion', 'Open Discussion')}
+              </Text>
+            </TouchableOpacity>
+          )}
+        </VStack>
+      )}
+    </BlurView>
+  );
+}
+
+export default function TicketsScreen() {
+  const { t, i18n } = useTranslation();
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { data, isLoading, refetch, isRefetching } = useMyTickets();
+  const tickets = data?.items ?? [];
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { socket } = useSocket();
+
+  useSocketEvent(socket, 'ticket_created', () => {
+    refetch();
+  });
+
+  useSocketEvent(socket, 'ticket_status_updated', () => {
+    refetch();
+  });
+
+  const dateLocale = i18n.language === 'id' ? id : enUS;
 
   const toggleExpand = (id: string) => {
     setExpandedId(prev => (prev === id ? null : id));
@@ -147,186 +371,15 @@ export default function TicketsScreen() {
           </Center>
         ) : (
           <VStack space="md" className="mt-4">
-            {tickets.map(ticket => {
-              const isExpanded = expandedId === ticket.id;
-              const priorityConfig = getPriorityConfig(ticket.priority);
-              const statusConfig = getStatusConfig(ticket.status);
-
-              return (
-                <BlurView key={ticket.id} intensity={20} tint="dark" style={styles.ticketCard}>
-                  <TouchableOpacity onPress={() => toggleExpand(ticket.id)} activeOpacity={0.9}>
-                    <VStack space="sm">
-                      {/* Code and Priority Badge */}
-                      <HStack className="justify-between items-center">
-                        <Text className="text-[#FF9500] font-mono font-bold tracking-[0.5px]" size="sm">
-                          {ticket.code}
-                        </Text>
-
-                        <Box
-                          style={{ backgroundColor: priorityConfig.bgColor }}
-                          className="px-2.5 py-1 rounded-full border border-white/5"
-                        >
-                          <Text
-                            style={{ color: priorityConfig.color }}
-                            className="font-bold text-[10px] uppercase tracking-[0.5px]"
-                          >
-                            {priorityConfig.label}
-                          </Text>
-                        </Box>
-                      </HStack>
-
-                      {/* Title & Chevron */}
-                      <HStack className="justify-between items-start" space="sm">
-                        <Heading size="md" className="text-white font-semibold flex-1 leading-6">
-                          {ticket.title}
-                        </Heading>
-                        <Box className="mt-1">
-                          {isExpanded ? (
-                            <ChevronUp size={20} color="#666666" />
-                          ) : (
-                            <ChevronDown size={20} color="#666666" />
-                          )}
-                        </Box>
-                      </HStack>
-
-                      {/* Summary fields when closed */}
-                      {!isExpanded && (
-                        <HStack className="justify-between items-center mt-2">
-                          <HStack space="xs" className="items-center">
-                            <Box style={{ backgroundColor: statusConfig.color }} className="w-2 h-2 rounded-full" />
-                            <Text className="text-[#A0A0A0]" size="2xs">
-                              {statusConfig.label}
-                            </Text>
-                          </HStack>
-
-                          <Text className="text-[#666]" size="2xs">
-                            {format(new Date(ticket.createdAt), 'dd MMM yyyy', { locale: dateLocale })}
-                          </Text>
-                        </HStack>
-                      )}
-                    </VStack>
-                  </TouchableOpacity>
-
-                  {/* Expanded Content */}
-                  {isExpanded && (
-                    <VStack space="md" className="mt-4 pt-4 border-t border-white/5">
-                      {/* Description */}
-                      <VStack space="xs">
-                        <Text className="text-[#666] font-bold uppercase tracking-[1px] mb-2" size="2xs">
-                          {t('tickets.description', 'Description')}
-                        </Text>
-                        <RichTextViewer
-                          html={ticket.description}
-                          defaultTextColor="#D1D1D1"
-                          fallback={t('tickets.noDescription', 'No description provided.')}
-                        />
-                      </VStack>
-
-                      {/* Status and Created Info */}
-                      <HStack className="justify-between items-center bg-white/5 p-3 rounded-2xl">
-                        <VStack space="xs">
-                          <Text className="text-[#666] font-bold uppercase tracking-[1.5px]" size="2xs">
-                            {t('tickets.status', 'Status')}
-                          </Text>
-                          <HStack space="xs" className="items-center">
-                            <Box style={{ backgroundColor: statusConfig.color }} className="w-2.5 h-2.5 rounded-full" />
-                            <Text style={{ color: statusConfig.color }} className="font-bold uppercase" size="xs">
-                              {statusConfig.label}
-                            </Text>
-                          </HStack>
-                        </VStack>
-
-                        <VStack space="xs" className="items-end">
-                          <Text className="text-[#666] font-bold uppercase tracking-[1.5px]" size="2xs">
-                            {t('tickets.createdDate', 'Created Date')}
-                          </Text>
-                          <HStack space="xs" className="items-center">
-                            <Calendar size={12} color="#A0A0A0" />
-                            <Text className="text-white font-medium" size="xs">
-                              {format(new Date(ticket.createdAt), 'dd MMM yyyy', { locale: dateLocale })}
-                            </Text>
-                          </HStack>
-                        </VStack>
-                      </HStack>
-
-                      {/* Details / Client and Target info */}
-                      <VStack space="xs">
-                        <Text className="text-[#666] font-bold uppercase tracking-[1px]" size="2xs">
-                          {t('tickets.details', 'Ticket Details')}
-                        </Text>
-
-                        <VStack space="sm" className="bg-white/5 p-4 rounded-2xl">
-                          {/* Submitter */}
-                          {ticket.submitterAdmin && (
-                            <HStack space="md" className="items-center">
-                              <User size={16} color="#A0A0A0" />
-                              <Text size="xs" className="text-[#D1D1D1]">
-                                <Text className="font-bold text-[#A0A0A0]">
-                                  {t('tickets.createdBy', 'Created By')}:{' '}
-                                </Text>
-                                {ticket.submitterAdmin.name}
-                              </Text>
-                            </HStack>
-                          )}
-
-                          {/* Target hours */}
-                          <HStack space="md" className="items-center">
-                            <Clock size={16} color="#A0A0A0" />
-                            <Text size="xs" className="text-[#D1D1D1]">
-                              <Text className="font-bold text-[#A0A0A0]">
-                                {t('tickets.targetHours', 'SLA Target')}:{' '}
-                              </Text>
-                              {ticket.resolutionTargetHours} {t('tickets.hours', 'hours')}
-                            </Text>
-                          </HStack>
-
-                          {/* Client Name */}
-                          <HStack space="md" className="items-center">
-                            <AlertCircle size={16} color="#A0A0A0" />
-                            <Text size="xs" className="text-[#D1D1D1]">
-                              <Text className="font-bold text-[#A0A0A0]">{t('tickets.clientName', 'Client')}: </Text>
-                              {ticket.clientName}
-                            </Text>
-                          </HStack>
-
-                          {/* Client Contact */}
-                          <HStack space="md" className="items-center">
-                            <Phone size={16} color="#A0A0A0" />
-                            <Text size="xs" className="text-[#D1D1D1]">
-                              <Text className="font-bold text-[#A0A0A0]">
-                                {t('tickets.clientContact', 'Contact')}:{' '}
-                              </Text>
-                              {ticket.clientContact}
-                            </Text>
-                          </HStack>
-
-                          {/* Location */}
-                          <HStack space="md" className="items-center">
-                            <MapPin size={16} color="#A0A0A0" />
-                            <Text size="xs" className="text-[#D1D1D1]">
-                              <Text className="font-bold text-[#A0A0A0]">{t('tickets.location', 'Location')}: </Text>
-                              {ticket.clientLocation}
-                            </Text>
-                          </HStack>
-                        </VStack>
-                      </VStack>
-
-                      {/* Open Discussion Button */}
-                      <TouchableOpacity
-                        onPress={() => router.push(`/tickets/${ticket.id}`)}
-                        className="mt-2 py-3.5 rounded-2xl items-center justify-center border border-white/10 active:opacity-90 flex-row"
-                        style={{ backgroundColor: PRIMARY_RED }}
-                        activeOpacity={0.8}
-                      >
-                        <Text className="text-white font-bold text-sm">
-                          {t('tickets.openDiscussion', 'Open Discussion')}
-                        </Text>
-                      </TouchableOpacity>
-                    </VStack>
-                  )}
-                </BlurView>
-              );
-            })}
+            {tickets.map(ticket => (
+              <TicketCard
+                key={ticket.id}
+                ticket={ticket}
+                isExpanded={expandedId === ticket.id}
+                onToggle={() => toggleExpand(ticket.id)}
+                dateLocale={dateLocale}
+              />
+            ))}
           </VStack>
         )}
       </ScrollView>
