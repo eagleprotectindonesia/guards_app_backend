@@ -387,3 +387,77 @@ export async function checkSiteRelations(id: string) {
     hasAlerts: !!alert,
   };
 }
+
+export async function getTotalClientsCount() {
+  const uniqueClients = await prisma.site.findMany({
+    where: {
+      deletedAt: null,
+      NOT: [
+        { clientName: null },
+        { clientName: '' },
+      ],
+    },
+    distinct: ['clientName'],
+    select: {
+      clientName: true,
+    },
+  });
+  return uniqueClients.length;
+}
+
+export async function getSiteAssignmentDashboardMetrics(now: Date = new Date()) {
+  const windowEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const [totalSites, assignedSiteRows] = await Promise.all([
+    prisma.site.count({
+      where: {
+        deletedAt: null,
+      },
+    }),
+    prisma.shift.findMany({
+      where: {
+        deletedAt: null,
+        status: 'scheduled',
+        startsAt: {
+          gte: now,
+          lt: windowEnd,
+        },
+        site: {
+          deletedAt: null,
+        },
+      },
+      distinct: ['siteId'],
+      select: {
+        siteId: true,
+      },
+    }),
+  ]);
+
+  const assignedSites = assignedSiteRows.length;
+
+  return {
+    totalSites,
+    assignedSites,
+    unassignedSites: totalSites - assignedSites,
+  };
+}
+
+export async function getClientSiteDashboardMetrics() {
+  const [totalSites, activeSites, inactiveSites, totalPosts, activeGeofences, totalClients] = await Promise.all([
+    prisma.site.count({ where: { deletedAt: null } }),
+    prisma.site.count({ where: { status: true, deletedAt: null } }),
+    prisma.site.count({ where: { status: false, deletedAt: null } }),
+    prisma.sitePost.count({ where: { status: true, deletedAt: null } }),
+    prisma.site.count({ where: { geofenceStatus: true, deletedAt: null } }),
+    getTotalClientsCount(),
+  ]);
+
+  return {
+    totalClients,
+    totalSites,
+    activeSites,
+    inactiveSites,
+    totalPosts,
+    activeGeofences,
+  };
+}

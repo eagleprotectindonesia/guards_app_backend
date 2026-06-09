@@ -29,6 +29,10 @@ export default async function TabDashboardPage({ params }: PageProps) {
     redirect('/admin/hr');
   }
 
+  if (tab === 'client') {
+    redirect('/admin/client/dashboard');
+  }
+
   const sites = await getAllSites();
   return <AdminDashboard initialSites={serialize(sites)} />;
 }
