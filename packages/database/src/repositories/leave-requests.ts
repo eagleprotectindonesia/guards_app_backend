@@ -9,6 +9,7 @@ import {
 } from './office-attendance';
 import { redis } from '../redis/client';
 import { createLeaveRequestCreatedAdminNotifications } from './admin-notifications';
+import { logHrActivity } from './hr-activities';
 import { enqueueEmailEvent } from '../email-events';
 import { getSystemSetting } from './settings';
 import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
@@ -355,7 +356,7 @@ export async function createEmployeeLeaveRequest(
   const requiresDocument = params.reason === 'special_miscarriage';
   const employee = await targetTx.employee.findUnique({
     where: { id: params.employeeId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, fullName: true },
   });
   if (!employee) {
     throw new Error('Employee not found');
@@ -444,6 +445,14 @@ export async function createEmployeeLeaveRequest(
         status: 'pending',
       },
     },
+  });
+
+  // Log HR activity
+  await logHrActivity({
+    id: `leave_request:${created.id}`,
+    type: 'leave_request_created',
+    employeeName: employee.fullName,
+    details: `${params.reason.toUpperCase().replace('_', ' ')} Leave requested: ${new Date(params.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(params.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
   });
 
   const createdNotifications = await createLeaveRequestCreatedAdminNotifications(

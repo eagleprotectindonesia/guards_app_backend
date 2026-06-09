@@ -2,6 +2,7 @@ import { Prisma, ShiftStatus } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange, OFFICE_PAID_BREAK_MINUTES } from './office-work-schedules';
 import { deleteEmployeeOfficeDayOverridesByEmployeeAndDates } from './office-day-overrides';
+import { logHrActivity } from './hr-activities';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 
@@ -304,6 +305,14 @@ export async function createOfficeShiftWithChangelog(
     },
   });
 
+  // Log HR activity
+  await logHrActivity({
+    id: `office_shift:${created.id}`,
+    type: 'office_shift_created',
+    employeeName: created.employee.fullName,
+    details: `Shift scheduled: ${created.officeShiftType.name} on ${new Date(created.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+  });
+
   return created;
 }
 
@@ -519,6 +528,16 @@ export async function bulkCreateOfficeShiftsWithChangelog(
         },
       })),
     });
+
+    // Log HR activities
+    for (const shift of results) {
+      await logHrActivity({
+        id: `office_shift:${shift.id}`,
+        type: 'office_shift_created',
+        employeeName: shift.employee.fullName,
+        details: `Shift scheduled: ${shift.officeShiftType.name} on ${new Date(shift.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+      });
+    }
 
     return results;
   };

@@ -58,6 +58,8 @@ export function registerSystemHandlers(io: UnifiedServer) {
         } else if (type === 'ticket:message_created') {
           io.to('admin').to(`ticket:${data.ticketId}`).emit('ticket_message_added', data);
         }
+      } else if (channel === 'events:hr-activities') {
+        io.to('admin').emit('hr_live_activity', payload);
       }
     } catch (err) {
       console.error('[Socket Redis Sub] Parse Error:', err, 'Message:', message);
@@ -80,9 +82,10 @@ export function registerSystemHandlers(io: UnifiedServer) {
         'dashboard:active-shifts',
         'dashboard:upcoming-shifts',
         'dashboard:live-activity',
-        'events:tickets'
+        'events:tickets',
+        'events:hr-activities'
       );
-      console.log('[Socket Redis Sub] Subscribed to alerts, dashboard, and ticket channels');
+      console.log('[Socket Redis Sub] Subscribed to alerts, dashboard, ticket, and HR activity channels');
     } catch (err) {
       console.error('[Socket Redis Sub] Subscription Failed:', err);
     }
