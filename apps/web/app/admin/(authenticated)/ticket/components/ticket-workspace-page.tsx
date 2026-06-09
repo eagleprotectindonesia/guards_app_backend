@@ -1,4 +1,4 @@
-import { listClosedTickets, listMyTickets, listTickets, listUnassignedTickets } from '@repo/database';
+import { listClosedTickets, listTickets, listUnassignedTickets } from '@repo/database';
 import { TicketPriority, TicketStatus } from '@prisma/client';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
@@ -27,7 +27,7 @@ function asPriorityList(value: string | string[] | undefined): TicketPriority[] 
 }
 
 export async function renderTicketWorkspacePage(view: WorkspaceView, searchParams: SearchParams) {
-  const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
+  await requirePermission(PERMISSIONS.TICKETS.VIEW);
   const query = await searchParams;
   const ticketId = typeof query.ticket === 'string' ? query.ticket : undefined;
   const search = typeof query.q === 'string' ? query.q : undefined;
@@ -45,7 +45,13 @@ export async function renderTicketWorkspacePage(view: WorkspaceView, searchParam
 
   const listResult =
     view === 'my'
-      ? await listMyTickets(session.id, listParams)
+      ? await listTickets({
+          ...listParams,
+          claimedOnly: true,
+          statuses: listParams.statuses
+            ? listParams.statuses.filter(status => status !== 'CLOSED' && status !== 'CANCELLED')
+            : ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CANNOT_RESOLVE'],
+        })
       : view === 'unassigned'
         ? await listUnassignedTickets(listParams)
         : view === 'closed'

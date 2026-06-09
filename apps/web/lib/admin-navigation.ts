@@ -37,7 +37,7 @@ export interface NavGroup {
 export const ADMIN_TICKET_NAV_ITEMS: NavItem[] = [
   { name: 'All Tickets', href: '/admin/ticket/all', icon: List, requiredPermission: 'tickets:view' },
   { name: 'Create Ticket', href: '/admin/ticket/create', icon: PlusSquare, requiredPermission: 'tickets:create' },
-  { name: 'My Tickets', href: '/admin/ticket/my', icon: UserRound, requiredPermission: 'tickets:view' },
+  { name: 'Acknowledged', href: '/admin/ticket/my', icon: UserRound, requiredPermission: 'tickets:view' },
   { name: 'Unassigned', href: '/admin/ticket/unassigned', icon: Inbox, requiredPermission: 'tickets:view' },
   { name: 'Closed Tickets', href: '/admin/ticket/closed', icon: Archive, requiredPermission: 'tickets:view' },
 ];

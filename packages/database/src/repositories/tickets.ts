@@ -47,6 +47,7 @@ export type TicketListParams = {
   claimedByAdminId?: string;
   claimedByType?: 'ADMIN' | 'EMPLOYEE';
   unclaimedOnly?: boolean;
+  claimedOnly?: boolean;
   cursor?: string;
   limit?: number;
 };
@@ -532,6 +533,7 @@ export async function listTickets(params: TicketListParams = {}, tx: TxLike = pr
     ...(params.assignedRoleIds?.length ? { assignedRoles: { some: { roleId: { in: params.assignedRoleIds } } } } : {}),
     ...(params.assignedEmployeeId ? { assignedEmployees: { some: { employeeId: params.assignedEmployeeId } } } : {}),
     ...(params.unclaimedOnly ? { claimedByType: null } : {}),
+    ...(params.claimedOnly ? { claimedByType: { not: null } } : {}),
     ...(cursor
       ? {
           OR: [
