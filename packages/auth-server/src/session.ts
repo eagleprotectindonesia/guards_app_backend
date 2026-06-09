@@ -26,6 +26,8 @@ export interface SessionResult {
   email?: string | null;
   profileImage?: string | null;
   user?: unknown;
+  sessionId?: string | null;
+  exp?: number | null;
 }
 
 function createInvalidSessionResult(reason: SessionResult['reason']): SessionResult {
@@ -52,6 +54,7 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
       guardId?: string;
       tokenVersion?: number;
       sessionId?: string;
+      exp?: number;
     };
 
     try {
@@ -186,6 +189,8 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
             roleName,
             permissions,
             rolePolicy,
+            sessionId: sessionId || null,
+            exp: decoded.exp || null,
           };
         }
 
@@ -214,6 +219,8 @@ export async function verifySession(token: string, type: UserRole): Promise<Sess
         name,
         email,
         profileImage,
+        sessionId: sessionId || null,
+        exp: decoded.exp || null,
       };
     }
 

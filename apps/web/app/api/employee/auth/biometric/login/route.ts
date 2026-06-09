@@ -1,11 +1,8 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import jwt from 'jsonwebtoken';
-import { prisma, getEmployeeSessionExpiry } from '@repo/database';
-import { redis } from '@repo/database/redis';
+import { prisma } from '@repo/database';
 import { z } from 'zod';
-import { cookies } from 'next/headers';
-import { AUTH_COOKIES, AUTH_COOKIE_SECURE, getJwtSecret } from '@/lib/auth/constants';
+import { createEmployeeSession } from '@/lib/auth/session-helper';
 
 const loginSchema = z.object({
   biometricToken: z.string().min(1),
@@ -41,64 +38,10 @@ export async function POST(req: Request) {
 
     const employee = storedToken.employee;
 
-    const expiresAt = getEmployeeSessionExpiry();
-    const session = await prisma.$transaction(async tx => {
-      await tx.employeeSession.updateMany({
-        where: {
-          employeeId: employee.id,
-          revokedAt: null,
-          expiresAt: { gt: new Date() },
-        },
-        data: {
-          revokedAt: new Date(),
-        },
-      });
-
-      return tx.employeeSession.create({
-        data: {
-          employeeId: employee.id,
-          clientType: 'mobile',
-          deviceInfo: 'Biometric Login',
-          expiresAt,
-        },
-      });
-    });
-
-    try {
-      await redis.xadd(
-        `employee:stream:${employee.id}`,
-        'MAXLEN',
-        '~',
-        100,
-        '*',
-        'type',
-        'session_revoked',
-        'reason',
-        'logged_in_elsewhere',
-        'sessionId',
-        session.id
-      );
-    } catch (error) {
-      console.error('Failed to publish biometric session revocation event:', error);
-    }
-
-    // Generate JWT
-    const token = jwt.sign(
-      { 
-        employeeId: employee.id, 
-        sessionId: session.id,
-        clientType: 'mobile' 
-      }, 
-      getJwtSecret(), 
-      { expiresIn: '1d' }
-    );
-    
-    // Set cookie if needed (for hybrid apps), but primarily return JSON for mobile
-    (await cookies()).set(AUTH_COOKIES.EMPLOYEE, token, {
-      httpOnly: true,
-      secure: AUTH_COOKIE_SECURE,
-      maxAge: 60 * 60 * 24,
-      path: '/',
+    const { token } = await createEmployeeSession({
+      employeeId: employee.id,
+      clientType: 'mobile',
+      deviceInfo: 'Biometric Login',
     });
 
     return NextResponse.json({

@@ -60,6 +60,22 @@ client.interceptors.request.use(
   error => Promise.reject(error)
 );
 
+// Response Interceptor to capture refreshed tokens
+client.interceptors.response.use(
+  async response => {
+    const newToken = response.headers['x-new-token'];
+    if (newToken) {
+      console.log('[Axios Client] Captured refreshed token from x-new-token header');
+      authTokenCache = newToken;
+      await storage.setItem(STORAGE_KEYS.USER_TOKEN, newToken);
+    }
+    return response;
+  },
+  error => {
+    return Promise.reject(error);
+  }
+);
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

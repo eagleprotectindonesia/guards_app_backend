@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
-import { cookies, headers } from 'next/headers';
-import jwt from 'jsonwebtoken';
-import { prisma, getEmployeeSessionExpiry } from '@repo/database';
-import { redis } from '@repo/database/redis';
+import { headers } from 'next/headers';
+import { prisma } from '@repo/database';
 import { z } from 'zod';
 import { DEFAULT_PASSWORD, verifyPassword } from '@repo/database';
-import { AUTH_COOKIES, AUTH_COOKIE_SECURE, getJwtSecret } from '@/lib/auth/constants';
+import { createEmployeeSession } from '@/lib/auth/session-helper';
 
 type EmployeeClientType = 'mobile' | 'pwa';
 
@@ -70,48 +68,12 @@ export async function POST(req: Request) {
     const headersList = await headers();
     const clientType = getClientType(headersList);
     const deviceInfo = headersList.get('user-agent');
-    const expiresAt = getEmployeeSessionExpiry();
 
-    const session = await prisma.$transaction(async tx => {
-      await tx.employeeSession.updateMany({
-        where: {
-          employeeId: employee.id,
-          revokedAt: null,
-          expiresAt: { gt: new Date() },
-        },
-        data: {
-          revokedAt: new Date(),
-        },
-      });
-
-      return tx.employeeSession.create({
-        data: {
-          employeeId: employee.id,
-          clientType,
-          deviceInfo,
-          expiresAt,
-        },
-      });
+    const { token } = await createEmployeeSession({
+      employeeId: employee.id,
+      clientType,
+      deviceInfo: deviceInfo || 'Unknown Device',
     });
-
-    // Notify other active sessions to logout via Redis Stream
-    try {
-      await redis.xadd(
-        `employee:stream:${employee.id}`,
-        'MAXLEN',
-        '~',
-        100,
-        '*',
-        'type',
-        'session_revoked',
-        'reason',
-        'logged_in_elsewhere',
-        'sessionId',
-        session.id
-      );
-    } catch (error) {
-      console.error('Failed to publish session revocation event:', error);
-    }
 
     const mustChangePassword = employee.mustChangePassword || password === DEFAULT_PASSWORD;
 
@@ -121,25 +83,6 @@ export async function POST(req: Request) {
         data: { mustChangePassword: mustChangePassword },
       });
     }
-
-    // Generate JWT token with session identity and client type
-    const token = jwt.sign(
-      {
-        employeeId: employee.id,
-        sessionId: session.id,
-        clientType,
-      },
-      getJwtSecret(),
-      { expiresIn: '1d' }
-    );
-
-    // Set HTTP-only cookie
-    (await cookies()).set(AUTH_COOKIES.EMPLOYEE, token, {
-      httpOnly: true,
-      secure: AUTH_COOKIE_SECURE,
-      maxAge: 60 * 60 * 24, // 1 day
-      path: '/',
-    });
 
     return NextResponse.json(
       {
