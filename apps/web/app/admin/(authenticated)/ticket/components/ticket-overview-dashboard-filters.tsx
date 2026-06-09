@@ -1,15 +1,15 @@
+'use client';
+
+import { useMemo } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useDebouncedCallback } from 'use-debounce';
 import type { ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
-import { ChevronDown, Search, SlidersHorizontal } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 import { PRIORITY_OPTIONS, STATUS_OPTIONS, toStatusLabel } from './ticket-overview-dashboard.utils';
-import type { TicketOverviewFilters, TicketOverviewOptions } from './ticket-overview-dashboard.types';
+import type { TicketOverviewOptions } from './ticket-overview-dashboard.types';
 
 type Props = {
-  filters: TicketOverviewFilters;
   options: TicketOverviewOptions;
-  onSearch: (value: string) => void;
-  onFilterChange: (key: keyof TicketOverviewFilters, value: string) => void;
 };
 
 function FilterBlock({
@@ -40,10 +40,40 @@ function FilterBlock({
   );
 }
 
-export function TicketOverviewFilters({ filters, options, onSearch, onFilterChange }: Props) {
+export function TicketOverviewFilters({ options }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const paramsBase = useMemo(() => new URLSearchParams(searchParams.toString()), [searchParams]);
+
+  function setParam(key: string, value: string) {
+    const next = new URLSearchParams(paramsBase.toString());
+    if (value) {
+      next.set(key, value);
+    } else {
+      next.delete(key);
+    }
+    router.push(next.toString() ? `${pathname}?${next.toString()}` : pathname);
+  }
+
   const handleSearch = useDebouncedCallback((value: string) => {
-    onSearch(value);
+    setParam('q', value.trim());
   }, 500);
+
+  const filters = {
+    q: searchParams.get('q') ?? '',
+    department: searchParams.get('department') ?? '',
+    status: searchParams.get('status') ?? '',
+    priority: searchParams.get('priority') ?? '',
+    assignee: searchParams.get('assignee') ?? '',
+    sla: searchParams.get('sla') ?? '',
+  };
+
+  const onFilterChange = (key: string, value: string) => {
+    setParam(key, value);
+  };
+
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between w-full">
