@@ -1,3 +1,5 @@
+import https from 'node:https';
+
 export interface PanicSubscriptionStats {
   total: number;
   active: number;
@@ -28,23 +30,39 @@ async function fetchPanicApi<T>(endpoint: string): Promise<T> {
   // Remove trailing slash if present, then combine with the endpoint
   const url = `${PANIC_APP_URL.replace(/\/$/, '')}${endpoint}`;
 
-  try {
-    const response = await fetch(url, {
+  return new Promise((resolve, reject) => {
+    const options: https.RequestOptions = {
       headers: {
         'x-api-key': PANIC_APP_API_KEY,
       },
-      cache: 'no-store',
-    } as any);
+      rejectUnauthorized: false, // Equivalent to curl -k (bypass SSL verification)
+    };
 
-    if (!response.ok) {
-      throw new Error(`Failed to fetch from Panic API (${endpoint}): ${response.status} ${response.statusText}`);
-    }
+    const req = https.get(url, options, res => {
+      if (res.statusCode && (res.statusCode < 200 || res.statusCode >= 300)) {
+        reject(new Error(`Failed to fetch from Panic API (${endpoint}): ${res.statusCode} ${res.statusMessage}`));
+        return;
+      }
 
-    return (await response.json()) as T;
-  } catch (error) {
-    console.error(`Error in Panic API call (${endpoint}):`, error);
-    throw error;
-  }
+      let data = '';
+      res.on('data', chunk => {
+        data += chunk;
+      });
+
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(data) as T);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    });
+
+    req.on('error', error => {
+      console.error(`Error in Panic API call (${endpoint}):`, error);
+      reject(error);
+    });
+  });
 }
 
 /**

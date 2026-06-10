@@ -75,6 +75,11 @@ export function initRealtimeSocket(
     //   socketId: socket.id,
     // });
 
+    const activeSocketsKey = 'system:active_sockets';
+    void redis.hset(activeSocketsKey, socket.id, auth.id).catch(err => {
+      console.error('[SocketServer] Redis hset error:', err);
+    });
+
     // Register Handlers
     if (auth.type === 'admin') {
       registerAdminHandlers(io, socket);
@@ -94,15 +99,11 @@ export function initRealtimeSocket(
       socket.leave(`ticket:${ticketId}`);
     });
 
-    // socket.on('disconnect', () => {
-    //   console.log('[SocketServer] Disconnected', {
-    //     type: auth.type,
-    //     id: auth.id,
-    //     clientType: auth.clientType ?? null,
-    //     sessionId: auth.sessionId ?? null,
-    //     socketId: socket.id,
-    //   });
-    // });
+    socket.on('disconnect', () => {
+      void redis.hdel(activeSocketsKey, socket.id).catch(err => {
+        console.error('[SocketServer] Redis hdel error:', err);
+      });
+    });
   });
 
   return io;
