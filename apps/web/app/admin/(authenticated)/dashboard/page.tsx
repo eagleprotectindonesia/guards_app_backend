@@ -37,12 +37,12 @@ export default async function DashboardPage(props: PageProps) {
       redis.get('webhooks:unresolved_panics'),
     ]);
 
-    let initialPanicCount = 0;
+    let initialPanicAlerts: any[] = [];
     if (unresolvedPanicsStr) {
       try {
         const unresolvedPanics = JSON.parse(unresolvedPanicsStr);
         if (Array.isArray(unresolvedPanics)) {
-          initialPanicCount = unresolvedPanics.filter((p: any) => p.status === 'unresolved').length;
+          initialPanicAlerts = unresolvedPanics.filter((p: any) => p.status === 'unresolved');
         }
       } catch (e) {
         console.error('Failed to parse unresolved panics from redis:', e);
@@ -53,7 +53,7 @@ export default async function DashboardPage(props: PageProps) {
       <NewDashboardClient
         initialSites={serialize(activeSites)}
         initialOpenTickets={openTicketsCount}
-        initialPanicCount={initialPanicCount}
+        initialPanicAlerts={initialPanicAlerts}
       />
     );
   }

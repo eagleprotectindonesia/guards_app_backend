@@ -29,21 +29,21 @@ import {
 type NewDashboardClientProps = {
   initialSites: Serialized<Site>[];
   initialOpenTickets: number;
-  initialPanicCount?: number;
+  initialPanicAlerts?: any[];
 };
 
 export default function NewDashboardClient({
   initialSites,
   initialOpenTickets,
-  initialPanicCount = 0,
+  initialPanicAlerts = [],
 }: NewDashboardClientProps) {
   const { activeSites, isDashboardInitialized } = useAlerts();
-  const [panicCount, setPanicCount] = useState(initialPanicCount);
+  const [panicAlerts, setPanicAlerts] = useState<any[]>(initialPanicAlerts);
 
   useSocketEvent('new_dashboard:panic_alerts', (payload) => {
     if (payload && Array.isArray(payload.unresolvedPanics)) {
-      const unresolvedCount = payload.unresolvedPanics.filter((p: any) => p.status === 'unresolved').length;
-      setPanicCount(unresolvedCount);
+      const unresolved = payload.unresolvedPanics.filter((p: any) => p.status === 'unresolved');
+      setPanicAlerts(unresolved);
     }
   });
 
@@ -68,7 +68,7 @@ export default function NewDashboardClient({
 
         <OpenTicketsCard openTicketsCount={initialOpenTickets} />
 
-        <SOSAlertsCard count={panicCount} />
+        <SOSAlertsCard count={panicAlerts.length} />
         <PlaceholderTopCard />
         <PlaceholderTopCard />
       </div>
@@ -93,7 +93,7 @@ export default function NewDashboardClient({
         </div>
 
         <div className="col-span-12 space-y-4 lg:col-span-3">
-          <CriticalAlertsCard />
+          <CriticalAlertsCard panicAlerts={panicAlerts} />
           <InternalChatLiveCard />
         </div>
       </div>
