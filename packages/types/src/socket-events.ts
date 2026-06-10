@@ -123,6 +123,7 @@ export interface ServerToClientEvents {
   ticket_status_updated: (payload: { ticketId: string; status: string; ticket: any }) => void;
   ticket_message_added: (payload: { ticketId: string; message: any }) => void;
   hr_live_activity: (payload: unknown) => void;
+  'new_dashboard:panic_alerts': (payload: { unresolvedPanics: any[] }) => void;
 }
 
 export interface ClientToServerEvents {

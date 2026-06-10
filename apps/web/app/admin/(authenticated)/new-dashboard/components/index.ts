@@ -14,3 +14,5 @@ export { TodaysSummaryCard } from './todays-summary-card';
 export { TopSitesByActivityCard } from './top-sites-by-activity-card';
 export { TotalAttendanceCard } from './total-attendance-card';
 export { TotalIncidentsCard } from './total-incidents-card';
+export { SOSAlertsCard } from './sos-alerts-card';
+

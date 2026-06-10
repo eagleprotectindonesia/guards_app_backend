@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { Site } from '@prisma/client';
 import type { Serialized } from '@/lib/server-utils';
 import { useAlerts } from '../context/alert-context';
 import { NewDashboardSkeleton } from '../components/loading/new-dashboard-skeleton';
 import { LoadingBlock } from '../components/loading/loading-block';
+import { useSocketEvent } from '@/hooks/use-socket-event';
 import {
   ActiveGuardsCard,
   ActiveSitesCard,
@@ -21,15 +23,29 @@ import {
   TopSitesByActivityCard,
   TotalAttendanceCard,
   TotalIncidentsCard,
+  SOSAlertsCard,
 } from './components';
 
 type NewDashboardClientProps = {
   initialSites: Serialized<Site>[];
   initialOpenTickets: number;
+  initialPanicCount?: number;
 };
 
-export default function NewDashboardClient({ initialSites, initialOpenTickets }: NewDashboardClientProps) {
+export default function NewDashboardClient({
+  initialSites,
+  initialOpenTickets,
+  initialPanicCount = 0,
+}: NewDashboardClientProps) {
   const { activeSites, isDashboardInitialized } = useAlerts();
+  const [panicCount, setPanicCount] = useState(initialPanicCount);
+
+  useSocketEvent('new_dashboard:panic_alerts', (payload) => {
+    if (payload && Array.isArray(payload.unresolvedPanics)) {
+      const unresolvedCount = payload.unresolvedPanics.filter((p: any) => p.status === 'unresolved').length;
+      setPanicCount(unresolvedCount);
+    }
+  });
 
   if (!isDashboardInitialized) {
     return <NewDashboardSkeleton />;
@@ -52,7 +68,7 @@ export default function NewDashboardClient({ initialSites, initialOpenTickets }:
 
         <OpenTicketsCard openTicketsCount={initialOpenTickets} />
 
-        <PlaceholderTopCard />
+        <SOSAlertsCard count={panicCount} />
         <PlaceholderTopCard />
         <PlaceholderTopCard />
       </div>

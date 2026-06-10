@@ -1,4 +1,5 @@
 import { getAllSites, getActiveSites, db } from '@repo/database';
+import { redis } from '@repo/database/redis';
 import { serialize } from '@/lib/server-utils';
 import AdminDashboard from './dashboard-client';
 import NewDashboardClient from '../new-dashboard/new-dashboard-client';
@@ -26,19 +27,33 @@ export default async function DashboardPage(props: PageProps) {
   const tab = getDashboardTabFromSearchParams(searchParams);
 
   if (tab === 'guard') {
-    const [activeSites, openTicketsCount] = await Promise.all([
+    const [activeSites, openTicketsCount, unresolvedPanicsStr] = await Promise.all([
       getActiveSites(),
       db.ticket.count({
         where: {
           status: { in: ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION'] },
         },
       }),
+      redis.get('webhooks:unresolved_panics'),
     ]);
+
+    let initialPanicCount = 0;
+    if (unresolvedPanicsStr) {
+      try {
+        const unresolvedPanics = JSON.parse(unresolvedPanicsStr);
+        if (Array.isArray(unresolvedPanics)) {
+          initialPanicCount = unresolvedPanics.filter((p: any) => p.status === 'unresolved').length;
+        }
+      } catch (e) {
+        console.error('Failed to parse unresolved panics from redis:', e);
+      }
+    }
 
     return (
       <NewDashboardClient
         initialSites={serialize(activeSites)}
         initialOpenTickets={openTicketsCount}
+        initialPanicCount={initialPanicCount}
       />
     );
   }

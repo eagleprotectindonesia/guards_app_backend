@@ -5,14 +5,15 @@ import {
   MapPin,
   Layers,
   ShieldCheck,
-  ShieldAlert,
   CalendarClock,
   MapPinned,
+  FileCheck,
 } from 'lucide-react';
 import {
   getClientSiteDashboardMetrics,
   getSiteAssignmentDashboardMetrics,
-  prisma
+  prisma,
+  getPanicSubscriptionStats,
 } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
@@ -25,7 +26,7 @@ export const dynamic = 'force-dynamic';
 export default async function ClientSiteDashboardPage() {
   await requirePermission(PERMISSIONS.SITES.VIEW);
 
-  const [metrics, assignmentMetrics, recentSites] = await Promise.all([
+  const [metrics, assignmentMetrics, recentSites, subscriptionStats] = await Promise.all([
     getClientSiteDashboardMetrics(),
     getSiteAssignmentDashboardMetrics(),
     prisma.site.findMany({
@@ -48,7 +49,14 @@ export default async function ClientSiteDashboardPage() {
         },
       },
     }),
+    getPanicSubscriptionStats().catch((err) => {
+      console.error('Error fetching panic subscription stats:', err);
+      return null;
+    }),
   ]);
+
+  const activeContractsCount = subscriptionStats?.data?.subscriptions?.active;
+  const endingIn30DaysCount = subscriptionStats?.data?.subscriptions?.endingIn30Days;
 
   const metricsList = [
     {
@@ -88,13 +96,15 @@ export default async function ClientSiteDashboardPage() {
       iconColor: 'text-emerald-400',
     },
     {
-      label: 'Inactive Sites',
-      value: metrics.inactiveSites.toString(),
-      hint: 'Temporarily suspended',
-      hintTone: 'critical',
-      icon: ShieldAlert,
-      accentClass: 'border-rose-500/20 bg-rose-500/10 text-rose-400',
-      iconColor: 'text-rose-500',
+      label: 'active contracts',
+      value: activeContractsCount !== undefined ? activeContractsCount.toString() : 'N/A',
+      hint: activeContractsCount !== undefined
+        ? `${endingIn30DaysCount} ending in 30 days`
+        : 'Failed to fetch',
+      hintTone: activeContractsCount !== undefined ? 'neutral' : 'critical',
+      icon: FileCheck,
+      accentClass: 'border-indigo-500/20 bg-indigo-500/10 text-indigo-400',
+      iconColor: 'text-indigo-400',
     },
   ];
 

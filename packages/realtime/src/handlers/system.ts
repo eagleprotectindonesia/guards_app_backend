@@ -60,6 +60,8 @@ export function registerSystemHandlers(io: UnifiedServer) {
         }
       } else if (channel === 'events:hr-activities') {
         io.to('admin').emit('hr_live_activity', payload);
+      } else if (channel === 'webhooks:panic') {
+        io.to('admin').emit('new_dashboard:panic_alerts', payload);
       }
     } catch (err) {
       console.error('[Socket Redis Sub] Parse Error:', err, 'Message:', message);
@@ -83,9 +85,10 @@ export function registerSystemHandlers(io: UnifiedServer) {
         'dashboard:upcoming-shifts',
         'dashboard:live-activity',
         'events:tickets',
-        'events:hr-activities'
+        'events:hr-activities',
+        'webhooks:panic'
       );
-      console.log('[Socket Redis Sub] Subscribed to alerts, dashboard, ticket, and HR activity channels');
+      console.log('[Socket Redis Sub] Subscribed to alerts, dashboard, ticket, HR activity, and panic channels');
     } catch (err) {
       console.error('[Socket Redis Sub] Subscription Failed:', err);
     }
