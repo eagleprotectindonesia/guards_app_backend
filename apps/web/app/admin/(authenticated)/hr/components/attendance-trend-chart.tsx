@@ -50,20 +50,20 @@ export function AttendanceTrendChart({ data, currentDays }: Props) {
   });
 
   return (
-    <Card className="border-[#1f2432] bg-[#11141d] shadow-md w-full h-full">
-      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-[#1f2432] pb-4 gap-4">
+    <Card className="border-border/60 bg-card shadow-md w-full h-full">
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border/45 pb-4 gap-4">
         <div className="space-y-1">
           <CardTitle className="text-lg font-bold text-foreground">Attendance Overview</CardTitle>
           <CardDescription className="text-xs text-muted-foreground">
             {currentDays}-day status distribution and check-in trend analysis.
           </CardDescription>
         </div>
-        <div className="flex items-center gap-1.5 bg-[#161a25] p-1 rounded-lg border border-[#1f2432]">
+        <div className="flex items-center gap-1.5 bg-muted p-1 rounded-lg border border-border/40">
           <button
             onClick={() => handleDaysChange(7)}
             className={cn(
               "px-3 py-1 text-[11px] font-semibold rounded-md transition-colors",
-              currentDays === 7 ? "bg-[#1f2432] text-foreground" : "text-muted-foreground hover:text-foreground"
+              currentDays === 7 ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             )}
           >
             7 Days
@@ -72,7 +72,7 @@ export function AttendanceTrendChart({ data, currentDays }: Props) {
             onClick={() => handleDaysChange(30)}
             className={cn(
               "px-3 py-1 text-[11px] font-semibold rounded-md transition-colors",
-              currentDays === 30 ? "bg-[#1f2432] text-foreground" : "text-muted-foreground hover:text-foreground"
+              currentDays === 30 ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             )}
           >
             30 Days
@@ -86,7 +86,7 @@ export function AttendanceTrendChart({ data, currentDays }: Props) {
               data={chartData}
               margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" stroke="#1f2432" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-border/40" vertical={false} />
               <XAxis 
                 dataKey="formattedDate" 
                 stroke="#64748b" 
@@ -103,10 +103,10 @@ export function AttendanceTrendChart({ data, currentDays }: Props) {
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#1b2130',
-                  borderColor: '#2f374c',
+                  backgroundColor: 'hsl(var(--popover))',
+                  borderColor: 'hsl(var(--border))',
                   borderRadius: '8px',
-                  color: '#f8fafc',
+                  color: 'hsl(var(--popover-foreground))',
                   fontSize: '11px',
                 }}
                 labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}

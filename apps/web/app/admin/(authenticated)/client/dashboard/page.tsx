@@ -65,8 +65,8 @@ export default async function ClientSiteDashboardPage() {
       hint: 'Distinct client companies',
       hintTone: 'neutral',
       icon: Building2,
-      accentClass: 'border-blue-500/20 bg-blue-500/10 text-blue-400',
-      iconColor: 'text-sky-400',
+      accentClass: 'border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      iconColor: 'text-sky-600 dark:text-sky-400',
     },
     {
       label: 'Active Sites',
@@ -74,8 +74,8 @@ export default async function ClientSiteDashboardPage() {
       hint: `${((metrics.activeSites / (metrics.totalSites || 1)) * 100).toFixed(1)}% of total sites`,
       hintTone: 'positive',
       icon: MapPin,
-      accentClass: 'border-teal-500/20 bg-teal-500/10 text-teal-400',
-      iconColor: 'text-teal-400',
+      accentClass: 'border-teal-500/20 bg-teal-500/10 text-teal-600 dark:text-teal-400',
+      iconColor: 'text-teal-600 dark:text-teal-400',
     },
     {
       label: 'Site Posts',
@@ -83,8 +83,8 @@ export default async function ClientSiteDashboardPage() {
       hint: 'Configured checkpoints',
       hintTone: 'neutral',
       icon: Layers,
-      accentClass: 'border-purple-500/20 bg-purple-500/10 text-purple-400',
-      iconColor: 'text-purple-400',
+      accentClass: 'border-purple-500/20 bg-purple-500/10 text-purple-600 dark:text-purple-400',
+      iconColor: 'text-purple-600 dark:text-purple-400',
     },
     {
       label: 'Active Geofences',
@@ -92,8 +92,8 @@ export default async function ClientSiteDashboardPage() {
       hint: `${((metrics.activeGeofences / (metrics.totalSites || 1)) * 100).toFixed(1)}% geofenced`,
       hintTone: 'warning',
       icon: ShieldCheck,
-      accentClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-      iconColor: 'text-emerald-400',
+      accentClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
     },
     {
       label: 'active contracts',
@@ -103,8 +103,8 @@ export default async function ClientSiteDashboardPage() {
         : 'Failed to fetch',
       hintTone: activeContractsCount !== undefined ? 'neutral' : 'critical',
       icon: FileCheck,
-      accentClass: 'border-indigo-500/20 bg-indigo-500/10 text-indigo-400',
-      iconColor: 'text-indigo-400',
+      accentClass: 'border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+      iconColor: 'text-indigo-600 dark:text-indigo-400',
     },
   ];
 
@@ -113,16 +113,16 @@ export default async function ClientSiteDashboardPage() {
       label: 'Assigned Sites',
       value: assignmentMetrics.assignedSites,
       icon: CalendarClock,
-      iconClass: 'text-sky-400',
-      accentClass: 'border-sky-500/20 bg-sky-500/10',
+      iconClass: 'text-sky-600 dark:text-sky-400',
+      accentClass: 'border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400',
       hint: `${((assignmentMetrics.assignedSites / (assignmentMetrics.totalSites || 1)) * 100).toFixed(1)}% of total sites`,
     },
     {
       label: 'Unassigned Sites',
       value: assignmentMetrics.unassignedSites,
       icon: MapPinned,
-      iconClass: 'text-amber-400',
-      accentClass: 'border-amber-500/20 bg-amber-500/10',
+      iconClass: 'text-amber-600 dark:text-amber-400',
+      accentClass: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400',
       hint: `${((assignmentMetrics.unassignedSites / (assignmentMetrics.totalSites || 1)) * 100).toFixed(1)}% without a scheduled shift`,
     },
   ];
@@ -144,7 +144,7 @@ export default async function ClientSiteDashboardPage() {
         {metricsList.map((metric) => {
           const Icon = metric.icon;
           return (
-            <Card key={metric.label} className="border-[#1f2432] bg-[#11141d] p-5 shadow-md hover:border-[#2f374c] transition-colors flex flex-col gap-0 justify-between">
+            <Card key={metric.label} className="border-border/60 bg-card p-5 shadow-md hover:border-purple-500/40 transition-colors flex flex-col gap-0 justify-between">
               <div className="flex items-center gap-4">
                 <div className={`rounded-xl border p-3 shrink-0 ${metric.accentClass}`}>
                   <Icon className="h-5 w-5" />
@@ -153,11 +153,11 @@ export default async function ClientSiteDashboardPage() {
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">{metric.label}</p>
                   <p className={`text-3xl font-extrabold tracking-tight ${metric.iconColor}`}>{metric.value}</p>
                   <p className={`text-xs font-medium ${
-                    metric.hintTone === 'positive' && 'text-emerald-400'
+                    metric.hintTone === 'positive' && 'text-emerald-600 dark:text-emerald-400'
                   } ${
-                    metric.hintTone === 'warning' && 'text-amber-400'
+                    metric.hintTone === 'warning' && 'text-amber-600 dark:text-amber-400'
                   } ${
-                    metric.hintTone === 'critical' && 'text-rose-400'
+                    metric.hintTone === 'critical' && 'text-rose-600 dark:text-rose-400'
                   } ${
                     metric.hintTone === 'neutral' && 'text-muted-foreground'
                   }`}>{metric.hint}</p>
@@ -171,8 +171,8 @@ export default async function ClientSiteDashboardPage() {
       {/* Row 2: Grid Content */}
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {/* Column 1: Site Status Overview */}
-        <Card className="border-[#1f2432] bg-[#11141d] shadow-md flex flex-col justify-between">
-          <CardHeader className="border-b border-[#1f2432] pb-4">
+        <Card className="border-border/60 bg-card shadow-md flex flex-col justify-between">
+          <CardHeader className="border-b border-border/45 pb-4">
             <div className="space-y-1">
               <CardTitle className="text-lg font-bold text-foreground">Site Status Overview</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
@@ -186,8 +186,8 @@ export default async function ClientSiteDashboardPage() {
         </Card>
 
         {/* Column 2: Site Assignment */}
-        <Card className="border-[#1f2432] bg-[#11141d] shadow-md flex flex-col justify-between">
-          <CardHeader className="border-b border-[#1f2432] pb-4">
+        <Card className="border-border/60 bg-card shadow-md flex flex-col justify-between">
+          <CardHeader className="border-b border-border/45 pb-4">
             <div className="space-y-1">
               <CardTitle className="text-lg font-bold text-foreground">Site Assignment</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
@@ -209,15 +209,15 @@ export default async function ClientSiteDashboardPage() {
                     className={`flex items-center justify-between rounded-xl border p-4 ${stat.accentClass}`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="rounded-lg border border-white/10 bg-[#161a25]/40 p-2 shrink-0">
-                        <Icon className={`h-4 w-4 ${stat.iconClass}`} />
+                      <div className="rounded-lg border border-border/40 bg-muted p-2 shrink-0">
+                        <Icon className="h-4 w-4" />
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-foreground">{stat.label}</p>
                         <p className="text-[10px] text-muted-foreground">{stat.hint}</p>
                       </div>
                     </div>
-                    <span className={`text-2xl font-extrabold tabular-nums ${stat.iconClass}`}>{stat.value}</span>
+                    <span className={`text-2xl font-extrabold tabular-nums`}>{stat.value}</span>
                   </div>
                 );
               })}
@@ -226,8 +226,8 @@ export default async function ClientSiteDashboardPage() {
         </Card>
 
         {/* Column 3: Recently Added Sites */}
-        <Card className="border-[#1f2432] bg-[#11141d] shadow-md flex flex-col justify-between">
-          <CardHeader className="border-b border-[#1f2432] pb-4">
+        <Card className="border-border/60 bg-card shadow-md flex flex-col justify-between">
+          <CardHeader className="border-b border-border/45 pb-4">
             <div className="space-y-1">
               <CardTitle className="text-lg font-bold text-foreground">Recently Added Sites</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
@@ -243,7 +243,7 @@ export default async function ClientSiteDashboardPage() {
             ) : (
               <div className="space-y-4">
                 {recentSites.map((site) => (
-                  <div key={site.id} className="flex items-center justify-between p-3 rounded-lg border border-[#1f2432]/60 bg-[#161a25]/20">
+                  <div key={site.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20">
                     <div className="space-y-0.5 min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{site.name}</p>
                       <p className="text-[10px] text-muted-foreground">
@@ -252,7 +252,7 @@ export default async function ClientSiteDashboardPage() {
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
-                        site.status ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                        site.status ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
                       }`}>
                         {site.status ? 'Active' : 'Inactive'}
                       </span>

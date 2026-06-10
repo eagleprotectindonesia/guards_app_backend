@@ -25,9 +25,9 @@ export const STATUS_OPTIONS = [
 export const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH'] as const;
 
 export function priorityClass(priority: DashboardRow['priority']) {
-  if (priority === 'HIGH') return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-  if (priority === 'MEDIUM') return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-  return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+  if (priority === 'HIGH') return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20';
+  if (priority === 'MEDIUM') return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
+  return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
 }
 
 export function toStatusLabel(value: string) {
@@ -48,24 +48,24 @@ export function getStatusLabel(status: string) {
 export function getCategoryStyle(category: string) {
   const normalized = category.toLowerCase();
   if (normalized.includes('it') || normalized.includes('tech') || normalized.includes('support')) {
-    return 'border-sky-500/20 bg-sky-500/10 text-sky-400';
+    return 'border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400';
   }
   if (normalized.includes('medical') || normalized.includes('health') || normalized.includes('safety')) {
-    return 'border-violet-500/20 bg-violet-500/10 text-violet-400';
+    return 'border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-400';
   }
   if (normalized.includes('site') || normalized.includes('property') || normalized.includes('access')) {
-    return 'border-amber-500/20 bg-amber-500/10 text-amber-400';
+    return 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400';
   }
   if (normalized.includes('equipment') || normalized.includes('device') || normalized.includes('damage')) {
-    return 'border-orange-500/20 bg-orange-500/10 text-orange-400';
+    return 'border-orange-500/20 bg-orange-500/10 text-orange-600 dark:text-orange-400';
   }
   if (normalized.includes('hr') || normalized.includes('staff') || normalized.includes('request')) {
-    return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400';
+    return 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
   }
   if (normalized.includes('incident') || normalized.includes('report') || normalized.includes('emergency')) {
-    return 'border-rose-500/20 bg-rose-500/10 text-rose-400';
+    return 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400';
   }
-  return 'border-zinc-500/20 bg-zinc-500/10 text-zinc-400';
+  return 'border-zinc-500/20 bg-zinc-500/10 text-zinc-600 dark:text-zinc-400';
 }
 
 export function buildConicGradient(segments: Array<{ value: number; color: string }>) {

@@ -1,13 +1,13 @@
 export function badgeClass(status: string) {
-  if (status === 'NEW') return 'bg-blue-500/10 text-blue-400 border-blue-500/20';
-  if (status === 'ACKNOWLEDGED') return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
-  if (status === 'IN_PROGRESS') return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-  if (status === 'WAITING_INFORMATION') return 'bg-purple-500/10 text-purple-400 border-purple-500/20';
-  if (status === 'SOLVED') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
-  if (status === 'CLOSED') return 'bg-zinc-600/10 text-zinc-400 border-zinc-500/20';
-  if (status === 'CANNOT_RESOLVE') return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-  if (status === 'CANCELLED') return 'bg-red-500/10 text-red-400 border-red-500/20';
-  return 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20';
+  if (status === 'NEW') return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
+  if (status === 'ACKNOWLEDGED') return 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20';
+  if (status === 'IN_PROGRESS') return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
+  if (status === 'WAITING_INFORMATION') return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
+  if (status === 'SOLVED') return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+  if (status === 'CLOSED') return 'bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border-zinc-500/20';
+  if (status === 'CANNOT_RESOLVE') return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20';
+  if (status === 'CANCELLED') return 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20';
+  return 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20';
 }
 
 export function formatDate(dateStr?: string | Date) {

@@ -8,17 +8,17 @@ type Props = {
 };
 
 function getMetricValueColor(icon: OverviewMetric['icon']) {
-  if (icon === 'ticket') return 'text-sky-400';
-  if (icon === 'shield') return 'text-amber-500';
-  if (icon === 'progress') return 'text-emerald-500';
-  if (icon === 'resolved') return 'text-violet-400';
-  return 'text-rose-500';
+  if (icon === 'ticket') return 'text-sky-600 dark:text-sky-400';
+  if (icon === 'shield') return 'text-amber-600 dark:text-amber-500';
+  if (icon === 'progress') return 'text-emerald-600 dark:text-emerald-500';
+  if (icon === 'resolved') return 'text-violet-600 dark:text-violet-400';
+  return 'text-rose-600 dark:text-rose-500';
 }
 
 function getMetricHintColor(hintTone: OverviewMetric['hintTone']) {
-  if (hintTone === 'positive') return 'text-emerald-400 font-medium';
-  if (hintTone === 'warning') return 'text-amber-400 font-medium';
-  if (hintTone === 'critical') return 'text-rose-400 font-medium';
+  if (hintTone === 'positive') return 'text-emerald-600 dark:text-emerald-400 font-semibold';
+  if (hintTone === 'warning') return 'text-amber-600 dark:text-amber-400 font-semibold';
+  if (hintTone === 'critical') return 'text-rose-600 dark:text-rose-400 font-semibold';
   return 'text-muted-foreground';
 }
 
@@ -29,7 +29,7 @@ export function TicketOverviewMetrics({ metrics }: Props) {
         const Icon = METRIC_ICONS[metric.icon];
 
         return (
-          <Card key={metric.label} className="border-[#1f2432] bg-[#11141d] p-5 shadow-md hover:border-[#2f374c] transition-colors">
+          <Card key={metric.label} className="border-border/60 bg-card p-5 shadow-md hover:border-purple-500/40 transition-colors">
             <div className="flex items-center gap-4">
               <div className={cn('rounded-xl border p-3 shrink-0', metric.accentClass)}>
                 <Icon className="h-5 w-5" />

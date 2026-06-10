@@ -22,8 +22,8 @@ export default async function SystemDashboardPage() {
       hint: 'All Systems Running',
       hintTone: 'positive',
       icon: ShieldCheck,
-      accentClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-      valueColor: 'text-emerald-400',
+      accentClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      valueColor: 'text-emerald-600 dark:text-emerald-400',
     },
     {
       label: 'Uptime',
@@ -31,8 +31,8 @@ export default async function SystemDashboardPage() {
       hint: 'Last 30 Days',
       hintTone: 'positive',
       icon: Clock,
-      accentClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-      valueColor: 'text-emerald-400',
+      accentClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+      valueColor: 'text-emerald-600 dark:text-emerald-400',
     },
     {
       label: 'Active Users',
@@ -40,8 +40,8 @@ export default async function SystemDashboardPage() {
       hint: 'Online Now',
       hintTone: 'info',
       icon: Users,
-      accentClass: 'border-blue-500/20 bg-blue-500/10 text-blue-400',
-      valueColor: 'text-sky-400',
+      accentClass: 'border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      valueColor: 'text-sky-600 dark:text-sky-400',
     },
     {
       label: 'Failed Sync',
@@ -49,8 +49,8 @@ export default async function SystemDashboardPage() {
       hint: 'Last 24 Hours',
       hintTone: 'critical',
       icon: RefreshCw,
-      accentClass: 'border-rose-500/20 bg-rose-500/10 text-rose-400',
-      valueColor: 'text-rose-500',
+      accentClass: 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400',
+      valueColor: 'text-rose-600 dark:text-rose-500',
     },
   ];
 
@@ -73,7 +73,7 @@ export default async function SystemDashboardPage() {
           return (
             <Card
               key={metric.label}
-              className="border-[#1f2432] bg-[#11141d] p-5 shadow-md hover:border-[#2f374c] transition-colors flex flex-col gap-0 justify-between"
+              className="border-border/60 bg-card p-5 shadow-md hover:border-purple-500/40 transition-colors flex flex-col gap-0 justify-between"
             >
               <div className="flex items-center gap-4">
                 <div className={cn('rounded-xl border p-3 shrink-0', metric.accentClass)}>
@@ -95,9 +95,9 @@ export default async function SystemDashboardPage() {
                   <p
                     className={cn(
                       'text-xs font-medium',
-                      metric.hintTone === 'positive' && 'text-emerald-400',
-                      metric.hintTone === 'info' && 'text-sky-400',
-                      metric.hintTone === 'critical' && 'text-rose-400',
+                      metric.hintTone === 'positive' && 'text-emerald-600 dark:text-emerald-400',
+                      metric.hintTone === 'info' && 'text-sky-600 dark:text-sky-400',
+                      metric.hintTone === 'critical' && 'text-rose-600 dark:text-rose-400',
                       metric.hintTone === 'neutral' && 'text-muted-foreground'
                     )}
                   >
@@ -113,25 +113,25 @@ export default async function SystemDashboardPage() {
       {/* 2nd Row: System Panels */}
       <div className="grid gap-6 md:grid-cols-3">
         {/* Panel 1: System Health */}
-        <Card className="border-[#1f2432] bg-[#11141d] p-5 shadow-md flex flex-col justify-between">
+        <Card className="border-border/60 bg-card p-5 shadow-md flex flex-col justify-between">
           <div>
             <h3 className="text-lg font-bold text-foreground mb-4">System Health</h3>
-            <div className="divide-y divide-[#1f2432]/60">
+            <div className="divide-y divide-border/40">
               <div className="flex items-center justify-between py-3">
                 <span className="text-sm font-medium text-muted-foreground">Web Application</span>
-                <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+                <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   Healthy
                 </span>
               </div>
               <div className="flex items-center justify-between py-3">
                 <span className="text-sm font-medium text-muted-foreground">API Services</span>
-                <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+                <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   Healthy
                 </span>
               </div>
               <div className="flex items-center justify-between py-3">
                 <span className="text-sm font-medium text-muted-foreground">Database</span>
-                <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+                <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   Healthy
                 </span>
               </div>
@@ -140,18 +140,18 @@ export default async function SystemDashboardPage() {
         </Card>
 
         {/* Panel 2: API & Integration Status */}
-        <Card className="border-[#1f2432] bg-[#11141d] p-5 shadow-md flex flex-col justify-between">
+        <Card className="border-border/60 bg-card p-5 shadow-md flex flex-col justify-between">
           <div>
             <h3 className="text-lg font-bold text-foreground mb-4">API & Integration Status</h3>
-            <div className="divide-y divide-[#1f2432]/60">
+            <div className="divide-y divide-border/40">
               <div className="flex items-center justify-between py-3">
                 <span className="text-sm font-medium text-muted-foreground">MindCore API</span>
                 {process.env.EXTERNAL_EMPLOYEE_API_KEY ? (
-                  <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+                  <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     Connected
                   </span>
                 ) : (
-                  <span className="inline-flex items-center rounded-md bg-rose-500/10 px-2.5 py-0.5 text-xs font-semibold text-rose-400 border border-rose-500/20">
+                  <span className="inline-flex items-center rounded-md bg-rose-500/10 px-2.5 py-0.5 text-xs font-semibold text-rose-600 dark:text-rose-400 border border-rose-500/20">
                     Disconnected
                   </span>
                 )}
@@ -159,11 +159,11 @@ export default async function SystemDashboardPage() {
               <div className="flex items-center justify-between py-3">
                 <span className="text-sm font-medium text-muted-foreground">Panic App</span>
                 {process.env.PANIC_APP_API_KEY ? (
-                  <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+                  <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                     Connected
                   </span>
                 ) : (
-                  <span className="inline-flex items-center rounded-md bg-rose-500/10 px-2.5 py-0.5 text-xs font-semibold text-rose-400 border border-rose-500/20">
+                  <span className="inline-flex items-center rounded-md bg-rose-500/10 px-2.5 py-0.5 text-xs font-semibold text-rose-600 dark:text-rose-400 border border-rose-500/20">
                     Disconnected
                   </span>
                 )}
@@ -173,10 +173,10 @@ export default async function SystemDashboardPage() {
         </Card>
 
         {/* Panel 3: Data Sync Status */}
-        <Card className="border-[#1f2432] bg-[#11141d] p-5 shadow-md flex flex-col justify-between">
+        <Card className="border-border/60 bg-card p-5 shadow-md flex flex-col justify-between">
           <div>
             <h3 className="text-lg font-bold text-foreground mb-4">Data Sync Status</h3>
-            <div className="divide-y divide-[#1f2432]/60">
+            <div className="divide-y divide-border/40">
               <div className="flex items-center justify-between py-3">
                 <div className="flex flex-col gap-0.5">
                   <span className="text-sm font-medium text-foreground">Employee Sync</span>
@@ -187,7 +187,7 @@ export default async function SystemDashboardPage() {
                       : 'Never'}
                   </span>
                 </div>
-                <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-400 border border-emerald-500/20">
+                <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2.5 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
                   Success
                 </span>
               </div>

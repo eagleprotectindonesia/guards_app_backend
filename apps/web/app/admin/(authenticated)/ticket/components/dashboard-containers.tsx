@@ -179,7 +179,7 @@ export async function DashboardMetricsContainer() {
       hint: formatDelta(totalTicketDelta),
       hintTone: totalTicketDelta > 0 ? 'warning' : totalTicketDelta < 0 ? 'positive' : 'neutral',
       icon: 'ticket',
-      accentClass: 'border-blue-500/20 bg-blue-500/10 text-blue-400',
+      accentClass: 'border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400',
     },
     {
       label: 'Open Tickets',
@@ -187,7 +187,7 @@ export async function DashboardMetricsContainer() {
       hint: openTicketHint.hint,
       hintTone: openTicketHint.hintTone,
       icon: 'shield',
-      accentClass: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
+      accentClass: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400',
     },
     {
       label: 'In Progress',
@@ -200,7 +200,7 @@ export async function DashboardMetricsContainer() {
             : `${inProgressTickets} tickets actively handled`,
       hintTone: 'neutral',
       icon: 'progress',
-      accentClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
+      accentClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
     },
     {
       label: 'Resolved Today',
@@ -208,7 +208,7 @@ export async function DashboardMetricsContainer() {
       hint: resolvedTodayHint.hint,
       hintTone: resolvedTodayHint.hintTone,
       icon: 'resolved',
-      accentClass: 'border-violet-500/20 bg-violet-500/10 text-violet-400',
+      accentClass: 'border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-400',
     },
     {
       label: 'SLA Breach',
@@ -216,7 +216,7 @@ export async function DashboardMetricsContainer() {
       hint: slaBreachHint.hint,
       hintTone: slaBreachHint.hintTone,
       icon: 'breach',
-      accentClass: 'border-rose-500/20 bg-rose-500/10 text-rose-400',
+      accentClass: 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400',
     },
   ];
 

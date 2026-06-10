@@ -29,8 +29,8 @@ export function HRMetrics({
       hint: 'Registered staff members',
       hintTone: 'neutral',
       icon: Users,
-      accentClass: 'border-blue-500/20 bg-blue-500/10 text-blue-400',
-      iconColor: 'text-sky-400',
+      accentClass: 'border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      iconColor: 'text-sky-600 dark:text-sky-400',
     },
     {
       label: 'Present Today',
@@ -38,8 +38,8 @@ export function HRMetrics({
       hint: 'Office staff checked-in',
       hintTone: 'positive',
       icon: UserCheck,
-      accentClass: 'border-teal-500/20 bg-teal-500/10 text-teal-400',
-      iconColor: 'text-teal-400',
+      accentClass: 'border-teal-500/20 bg-teal-500/10 text-teal-600 dark:text-teal-400',
+      iconColor: 'text-teal-600 dark:text-teal-400',
     },
     {
       label: 'Late Today',
@@ -47,8 +47,8 @@ export function HRMetrics({
       hint: 'Arrived after schedule',
       hintTone: 'warning',
       icon: Clock,
-      accentClass: 'border-amber-500/20 bg-amber-500/10 text-amber-400',
-      iconColor: 'text-amber-500',
+      accentClass: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400',
+      iconColor: 'text-amber-600 dark:text-amber-500',
     },
     {
       label: 'Absent Today',
@@ -56,8 +56,8 @@ export function HRMetrics({
       hint: 'Not present or checked-in',
       hintTone: 'critical',
       icon: UserX,
-      accentClass: 'border-rose-500/20 bg-rose-500/10 text-rose-400',
-      iconColor: 'text-rose-500',
+      accentClass: 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400',
+      iconColor: 'text-rose-600 dark:text-rose-500',
     },
     {
       label: 'On Leave Today',
@@ -65,8 +65,8 @@ export function HRMetrics({
       hint: `${leavePercentage}% of total workforce`,
       hintTone: 'neutral',
       icon: CalendarDays,
-      accentClass: 'border-purple-500/20 bg-purple-500/10 text-purple-400',
-      iconColor: 'text-purple-400',
+      accentClass: 'border-purple-500/20 bg-purple-500/10 text-purple-600 dark:text-purple-400',
+      iconColor: 'text-purple-600 dark:text-purple-400',
     },
   ];
 
@@ -75,7 +75,7 @@ export function HRMetrics({
       {metricsList.map((metric) => {
         const Icon = metric.icon;
         return (
-          <Card key={metric.label} className="border-[#1f2432] bg-[#11141d] p-5 shadow-md hover:border-[#2f374c] transition-colors flex flex-col gap-0 justify-between">
+          <Card key={metric.label} className="border-border/60 bg-card p-5 shadow-md hover:border-purple-500/40 transition-colors flex flex-col gap-0 justify-between">
             <div className="flex items-center gap-4">
               <div className={cn('rounded-xl border p-3 shrink-0', metric.accentClass)}>
                 <Icon className="h-5 w-5" />
@@ -85,9 +85,9 @@ export function HRMetrics({
                 <p className={cn('text-3xl font-extrabold tracking-tight', metric.iconColor)}>{metric.value}</p>
                 <p className={cn(
                   'text-xs font-medium',
-                  metric.hintTone === 'positive' && 'text-emerald-400',
-                  metric.hintTone === 'warning' && 'text-amber-400',
-                  metric.hintTone === 'critical' && 'text-rose-400',
+                  metric.hintTone === 'positive' && 'text-emerald-600 dark:text-emerald-400',
+                  metric.hintTone === 'warning' && 'text-amber-600 dark:text-amber-400',
+                  metric.hintTone === 'critical' && 'text-rose-600 dark:text-rose-400',
                   metric.hintTone === 'neutral' && 'text-muted-foreground'
                 )}>{metric.hint}</p>
               </div>

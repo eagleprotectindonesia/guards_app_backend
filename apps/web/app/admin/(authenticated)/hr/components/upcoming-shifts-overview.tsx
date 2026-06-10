@@ -18,7 +18,7 @@ export function UpcomingShiftsOverview({
       label: 'Today Upcoming',
       value: todayUpcoming,
       icon: CalendarClock,
-      color: 'text-amber-400',
+      color: 'text-amber-600 dark:text-amber-400',
       bgClass: 'bg-amber-500/10 border-amber-500/20',
       desc: 'Remaining shifts today',
     },
@@ -26,7 +26,7 @@ export function UpcomingShiftsOverview({
       label: 'Tomorrow',
       value: tomorrow,
       icon: Calendar,
-      color: 'text-sky-400',
+      color: 'text-sky-600 dark:text-sky-400',
       bgClass: 'bg-sky-500/10 border-sky-500/20',
       desc: 'Scheduled for tomorrow',
     },
@@ -34,15 +34,15 @@ export function UpcomingShiftsOverview({
       label: 'Next 7 Days',
       value: next7Days,
       icon: CalendarDays,
-      color: 'text-purple-400',
+      color: 'text-purple-600 dark:text-purple-400',
       bgClass: 'bg-purple-500/10 border-purple-500/20',
       desc: 'Weekly total shifts',
     },
   ];
 
   return (
-    <Card className="border-[#1f2432] bg-[#11141d] shadow-md w-full h-full min-h-[320px] flex flex-col justify-between">
-      <CardHeader className="border-b border-[#1f2432] pb-4">
+    <Card className="border-border/60 bg-card shadow-md w-full h-full min-h-[320px] flex flex-col justify-between">
+      <CardHeader className="border-b border-border/45 pb-4">
         <div className="space-y-1">
           <CardTitle className="text-lg font-bold text-foreground">Upcoming Shifts</CardTitle>
           <CardDescription className="text-xs text-muted-foreground">Overview of upcoming guard shift assignments.</CardDescription>

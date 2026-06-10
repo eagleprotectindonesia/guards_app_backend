@@ -30,7 +30,7 @@ function FilterBlock({
         <select
           value={value}
           onChange={event => onChange(event.target.value)}
-          className="h-10 w-full appearance-none rounded-lg border border-border/80 bg-zinc-950/40 px-3 pr-9 text-sm text-foreground focus:outline-none focus:border-border transition-colors"
+          className="h-10 w-full appearance-none rounded-lg border border-border/80 bg-background px-3 pr-9 text-sm text-foreground focus:outline-none focus:border-border transition-colors"
         >
           {children}
         </select>
@@ -88,7 +88,7 @@ export function TicketOverviewFilters({ options }: Props) {
             }
           }}
           placeholder="Search tickets by ID, subject, or client..."
-          className="h-10 w-full rounded-lg border border-border/80 bg-zinc-950/40 pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-border transition-colors"
+          className="h-10 w-full rounded-lg border border-border/80 bg-background pl-10 pr-4 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:border-border transition-colors"
         />
       </div>
 

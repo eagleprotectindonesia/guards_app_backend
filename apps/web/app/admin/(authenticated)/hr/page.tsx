@@ -113,8 +113,8 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
         />
 
         {/* Schedule Management Card */}
-        <Card className="border-[#1f2432] bg-[#11141d] shadow-md flex flex-col justify-between">
-          <CardHeader className="border-b border-[#1f2432] pb-4">
+        <Card className="border-border/60 bg-card shadow-md flex flex-col justify-between">
+          <CardHeader className="border-b border-border/45 pb-4">
             <div className="space-y-1">
               <CardTitle className="text-lg font-bold text-foreground">Schedule Management</CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
@@ -125,7 +125,7 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
           <CardContent className="pt-6 flex-1 flex flex-col justify-center gap-4">
             <a
               href="/admin/office-shifts"
-              className="flex items-center justify-between p-4 rounded-xl border border-[#1f2432]/60 bg-[#161a25]/20 hover:bg-[#161a25]/40 hover:border-[#1f2432] text-foreground transition-all duration-200 group"
+              className="flex items-center justify-between p-4 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/40 hover:border-border text-foreground transition-all duration-200 group"
             >
               <div className="flex flex-col gap-0.5">
                 <span className="text-sm font-semibold text-foreground">View Office Shifts</span>
@@ -135,7 +135,7 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
             </a>
             <a
               href="/admin/office-shifts?bulk=true"
-              className="flex items-center justify-between p-4 rounded-xl border border-[#1f2432]/60 bg-[#161a25]/20 hover:bg-[#161a25]/40 hover:border-[#1f2432] text-foreground transition-all duration-200 group"
+              className="flex items-center justify-between p-4 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/40 hover:border-border text-foreground transition-all duration-200 group"
             >
               <div className="flex flex-col gap-0.5">
                 <span className="text-sm font-semibold text-foreground">Bulk Create Office Shifts</span>

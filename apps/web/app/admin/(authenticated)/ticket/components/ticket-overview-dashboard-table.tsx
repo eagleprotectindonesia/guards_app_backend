@@ -27,7 +27,7 @@ function renderSlaDue(row: DashboardRow) {
     !!row.cancelledAt;
   if (isCompleted) {
     return (
-      <span className="inline-flex rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-400">
+      <span className="inline-flex rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
         Completed
       </span>
     );
@@ -42,11 +42,11 @@ function renderSlaDue(row: DashboardRow) {
   const now = new Date();
   const diffMs = dueTime.getTime() - now.getTime();
 
-  let colorClass = 'text-emerald-400 font-medium';
+  let colorClass = 'text-emerald-600 dark:text-emerald-400 font-medium';
   if (diffMs < 0) {
-    colorClass = 'text-rose-500 font-semibold';
+    colorClass = 'text-rose-600 dark:text-rose-500 font-semibold';
   } else if (diffMs < 2 * 60 * 60 * 1000) {
-    colorClass = 'text-amber-500 font-medium';
+    colorClass = 'text-amber-600 dark:text-amber-500 font-medium';
   }
 
   return (
@@ -70,10 +70,10 @@ function renderSlaDue(row: DashboardRow) {
 
 export function TicketOverviewTable({ rows, totalCount }: Props) {
   return (
-    <Card className="overflow-hidden border-[#1f2432] bg-[#11141d] shadow-md flex flex-col justify-between min-h-[580px]">
+    <Card className="overflow-hidden border-border/60 bg-card shadow-md flex flex-col justify-between min-h-[580px]">
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
-          <thead className="bg-zinc-950/40 text-left">
+          <thead className="bg-muted/50 text-left">
             <tr className="border-b border-border/40 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
               <th className="px-5 py-4 font-bold">Ticket ID</th>
               <th className="px-5 py-4 font-bold">Subject</th>
@@ -96,10 +96,10 @@ export function TicketOverviewTable({ rows, totalCount }: Props) {
               </tr>
             ) : (
               rows.map(row => (
-                <tr key={row.id} className="border-b border-border/25 align-middle transition-colors hover:bg-zinc-900/20">
+                <tr key={row.id} className="border-b border-border/25 align-middle transition-colors hover:bg-muted/30">
                   <td className="px-5 py-4 font-mono text-xs font-semibold text-muted-foreground/80">{row.code}</td>
                   <td className="px-5 py-4 text-foreground">
-                    <div className="max-w-[260px] truncate font-medium text-zinc-100">{row.title}</div>
+                    <div className="max-w-[260px] truncate font-medium text-foreground">{row.title}</div>
                   </td>
                   <td className="px-5 py-4">
                     <span className={cn('inline-flex rounded-md border px-2 py-0.5 text-xs font-semibold', getCategoryStyle(row.category))}>
@@ -107,7 +107,7 @@ export function TicketOverviewTable({ rows, totalCount }: Props) {
                     </span>
                   </td>
                   <td className="px-5 py-4 text-foreground">
-                    <div className="font-semibold text-zinc-100">{row.clientName}</div>
+                    <div className="font-semibold text-foreground">{row.clientName}</div>
                     <div className="mt-0.5 text-xs text-muted-foreground/80">{row.clientLocation}</div>
                   </td>
                   <td className="px-5 py-4">
@@ -120,9 +120,9 @@ export function TicketOverviewTable({ rows, totalCount }: Props) {
                       {getStatusLabel(row.status)}
                     </span>
                   </td>
-                  <td className="px-5 py-4 font-medium text-zinc-300">{row.assignedTo}</td>
+                  <td className="px-5 py-4 font-medium text-foreground/80">{row.assignedTo}</td>
                   <td className="px-5 py-4 text-foreground">
-                    <div className="font-medium text-zinc-200">
+                    <div className="font-medium text-foreground">
                       {new Date(row.createdAt).toLocaleTimeString('en-GB', {
                         hour: '2-digit',
                         minute: '2-digit',
@@ -144,12 +144,12 @@ export function TicketOverviewTable({ rows, totalCount }: Props) {
                           type="button"
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground/80 hover:text-foreground hover:bg-zinc-800/40"
+                          className="h-8 w-8 text-muted-foreground/80 hover:text-foreground hover:bg-accent"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="bg-[#11141d] border-[#1f2432] text-zinc-100">
+                      <DropdownMenuContent align="end" className="bg-card border-border text-foreground">
                         <DropdownMenuItem asChild className="hover:bg-purple-500/10 hover:text-foreground focus:bg-purple-500/10 focus:text-foreground cursor-pointer">
                           <Link href={`/admin/ticket/all?ticket=${row.id}`}>
                             Open
@@ -176,7 +176,7 @@ export function TicketOverviewTable({ rows, totalCount }: Props) {
           <Button
             type="button"
             variant="outline"
-            className="h-8 min-w-8 border-purple-500/30 bg-purple-500/10 px-3 text-purple-400 hover:bg-purple-500/20"
+            className="h-8 min-w-8 border-purple-500/30 bg-purple-500/10 px-3 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20"
           >
             1
           </Button>

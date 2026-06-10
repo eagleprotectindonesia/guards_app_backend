@@ -59,7 +59,7 @@ export function TicketOverviewSidebarPanel({ sidebar }: Props) {
 
   return (
     <div className="space-y-4">
-      <Card className="border-[#1f2432] bg-[#11141d] p-4 shadow-md">
+      <Card className="border-border/60 bg-card p-4 shadow-md">
         <SidebarSectionTitle>Ticket Shortcuts</SidebarSectionTitle>
         <div className="mt-3 space-y-1.5">
           {shortcutItems.map(item => {
@@ -67,7 +67,7 @@ export function TicketOverviewSidebarPanel({ sidebar }: Props) {
             const content = (
               <>
                 <span className={`flex items-center gap-3 text-sm text-foreground ${item.href ? 'font-medium' : ''}`}>
-                  <span className="rounded-lg border border-border/40 bg-zinc-900/60 p-1 text-muted-foreground">
+                  <span className="rounded-lg border border-border/40 bg-muted p-1 text-muted-foreground">
                     <Icon className="h-4 w-4" />
                   </span>
                   {item.label}
@@ -81,7 +81,7 @@ export function TicketOverviewSidebarPanel({ sidebar }: Props) {
             );
 
             const className = item.href
-              ? 'flex items-center justify-between rounded-xl border border-border/40 bg-background/50 px-3 py-2 text-sm transition-colors hover:bg-zinc-800/40'
+              ? 'flex items-center justify-between rounded-xl border border-border/40 bg-background/50 px-3 py-2 text-sm transition-colors hover:bg-accent'
               : 'flex items-center justify-between rounded-xl border border-border/40 bg-background/30 px-3 py-2 text-sm';
 
             if (item.href) {
@@ -101,7 +101,7 @@ export function TicketOverviewSidebarPanel({ sidebar }: Props) {
         </div>
       </Card>
 
-      <Card className="border-[#1f2432] bg-[#11141d] p-4 shadow-md">
+      <Card className="border-border/60 bg-card p-4 shadow-md">
         <SidebarSectionTitle>Tickets By Category</SidebarSectionTitle>
         <div className="mt-3 space-y-3">
           <DonutChart
@@ -133,7 +133,7 @@ export function TicketOverviewSidebarPanel({ sidebar }: Props) {
         </div>
       </Card>
 
-      <Card className="border-[#1f2432] bg-[#11141d] p-4 shadow-md">
+      <Card className="border-border/60 bg-card p-4 shadow-md">
         <SidebarSectionTitle>SLA Status</SidebarSectionTitle>
         <div className="mt-3 space-y-3">
           <DonutChart

@@ -48,8 +48,8 @@ export function HrLiveFeed({ initialActivities }: Props) {
   }, [socket]);
 
   return (
-    <Card className="border-[#1f2432] bg-[#11141d] shadow-md flex flex-col h-full justify-between">
-      <CardHeader className="border-b border-[#1f2432] pb-4 flex flex-row items-center justify-between">
+    <Card className="border-border/60 bg-card shadow-md flex flex-col h-full justify-between">
+      <CardHeader className="border-b border-border/45 pb-4 flex flex-row items-center justify-between">
         <div className="space-y-1">
           <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
             <Activity className="h-4.5 w-4.5 text-blue-500 animate-pulse animate-duration-1000" />
@@ -75,13 +75,13 @@ export function HrLiveFeed({ initialActivities }: Props) {
             {activities.map((activity) => {
               const isLeave = activity.type === 'leave_request_created';
               const Icon = isLeave ? Calendar : Briefcase;
-              const iconColor = isLeave ? 'text-amber-400' : 'text-sky-400';
+              const iconColor = isLeave ? 'text-amber-600 dark:text-amber-400' : 'text-sky-600 dark:text-sky-400';
               const bgClass = isLeave ? 'bg-amber-500/10 border-amber-500/20' : 'bg-sky-500/10 border-sky-500/20';
 
               return (
                 <div
                   key={activity.id}
-                  className="flex items-start gap-3 p-3 rounded-xl border border-white/[0.03] bg-white/[0.01] hover:bg-white/[0.02] hover:border-white/[0.06] transition-all duration-200"
+                  className="flex items-start gap-3 p-3 rounded-xl border border-border/40 bg-muted/10 hover:bg-muted/20 hover:border-border/60 transition-all duration-200"
                 >
                   <div className={`p-2 rounded-lg ${bgClass} shrink-0 border`}>
                     <Icon className={`h-4 w-4 ${iconColor}`} />

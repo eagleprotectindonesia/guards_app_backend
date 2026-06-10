@@ -25,11 +25,11 @@ export function TodayShiftsOverview({ completed, ongoing, upcoming }: Props) {
         { name: 'Ongoing', value: ongoing, color: '#0ea5e9' },    // sky-500
         { name: 'Upcoming', value: upcoming, color: '#f59e0b' },   // amber-500
       ]
-    : [{ name: 'No Shifts', value: 1, color: '#1c2130' }];
+    : [{ name: 'No Shifts', value: 1, color: 'hsl(var(--muted))' }];
 
   return (
-    <Card className="border-[#1f2432] bg-[#11141d] shadow-md">
-      <CardHeader className="border-b border-[#1f2432] pb-4">
+    <Card className="border-border/60 bg-card shadow-md">
+      <CardHeader className="border-b border-border/45 pb-4">
         <div className="space-y-1">
           <CardTitle className="text-lg font-bold text-foreground">{"Today's Shift Overview"}</CardTitle>
           <CardDescription className="text-xs text-muted-foreground">
@@ -74,7 +74,7 @@ export function TodayShiftsOverview({ completed, ongoing, upcoming }: Props) {
             {/* Completed */}
             <div className="flex items-center justify-between p-2 rounded-xl border border-emerald-500/10 bg-emerald-500/5 hover:bg-emerald-500/[0.07] transition-all duration-200">
               <div className="flex items-center gap-2">
-                <div className="p-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                <div className="p-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                 </div>
                 <div>
@@ -91,7 +91,7 @@ export function TodayShiftsOverview({ completed, ongoing, upcoming }: Props) {
             {/* Ongoing */}
             <div className="flex items-center justify-between p-2 rounded-xl border border-sky-500/10 bg-sky-500/5 hover:bg-sky-500/[0.07] transition-all duration-200">
               <div className="flex items-center gap-2">
-                <div className="p-1 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-400">
+                <div className="p-1 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-600 dark:text-sky-400">
                   <PlayCircle className="h-3.5 w-3.5" />
                 </div>
                 <div>
@@ -108,7 +108,7 @@ export function TodayShiftsOverview({ completed, ongoing, upcoming }: Props) {
             {/* Upcoming */}
             <div className="flex items-center justify-between p-2 rounded-xl border border-amber-500/10 bg-amber-500/5 hover:bg-amber-500/[0.07] transition-all duration-200">
               <div className="flex items-center gap-2">
-                <div className="p-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                <div className="p-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
                   <CalendarClock className="h-3.5 w-3.5" />
                 </div>
                 <div>

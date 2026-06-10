@@ -136,10 +136,10 @@ export function TicketListPanel({
                     className={cn(
                       'text-[10px] font-bold px-2 py-0.5 rounded-full border tracking-wide uppercase',
                       item.priority === 'HIGH'
-                        ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                         : item.priority === 'MEDIUM'
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                     )}
                   >
                     {item.priority}
@@ -210,10 +210,10 @@ export function TicketListPanel({
                     className={cn(
                       'text-[10px] font-bold px-2 py-0.5 rounded-full border tracking-wide uppercase',
                       priority === 'HIGH'
-                        ? 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                        ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20'
                         : priority === 'MEDIUM'
-                          ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                          : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                          ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
                     )}
                   >
                     {priority}

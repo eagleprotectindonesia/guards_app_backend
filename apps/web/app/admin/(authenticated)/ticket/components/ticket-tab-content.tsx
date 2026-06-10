@@ -155,7 +155,7 @@ export function TicketTabContent({
                                 }
                               >
                                 <div className="flex items-center gap-2.5 min-w-0">
-                                  <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400 shrink-0">
+                                  <div className="p-2 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0">
                                     <FileText className="w-4 h-4" />
                                   </div>
                                   <div className="min-w-0">
@@ -283,7 +283,7 @@ export function TicketTabContent({
                   }
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="p-2.5 rounded-lg bg-purple-500/10 text-purple-400 shrink-0">
+                    <div className="p-2.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 shrink-0">
                       <FileText className="w-5 h-5" />
                     </div>
                     <div className="min-w-0">

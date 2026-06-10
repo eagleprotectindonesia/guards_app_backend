@@ -20,35 +20,35 @@ export function LeaveRequestOverview({
       label: 'Pending Approval',
       value: pendingCount,
       icon: ClipboardList,
-      color: 'text-amber-400',
+      color: 'text-amber-600 dark:text-amber-400',
       bgClass: 'bg-amber-500/10 border-amber-500/20',
     },
     {
       label: 'Approved Today',
       value: approvedTodayCount,
       icon: CheckCircle,
-      color: 'text-emerald-400',
+      color: 'text-emerald-600 dark:text-emerald-400',
       bgClass: 'bg-emerald-500/10 border-emerald-500/20',
     },
     {
       label: 'Rejected Today',
       value: rejectedTodayCount,
       icon: XCircle,
-      color: 'text-rose-400',
+      color: 'text-rose-600 dark:text-rose-400',
       bgClass: 'bg-rose-500/10 border-rose-500/20',
     },
     {
       label: 'On Leave Today',
       value: onLeaveTodayCount,
       icon: Calendar,
-      color: 'text-sky-400',
+      color: 'text-sky-600 dark:text-sky-400',
       bgClass: 'bg-sky-500/10 border-sky-500/20',
     },
   ];
 
   return (
-    <Card className="border-[#1f2432] bg-[#11141d] shadow-md w-full h-full min-h-[320px] flex flex-col justify-between">
-      <CardHeader className="border-b border-[#1f2432] pb-4">
+    <Card className="border-border/60 bg-card shadow-md w-full h-full min-h-[320px] flex flex-col justify-between">
+      <CardHeader className="border-b border-border/45 pb-4">
         <div className="space-y-1">
           <CardTitle className="text-lg font-bold text-foreground">Leave Requests</CardTitle>
           <CardDescription className="text-xs text-muted-foreground">Daily leave request metrics and approvals.</CardDescription>
