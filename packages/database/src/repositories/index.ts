@@ -37,4 +37,5 @@ export * from './office-shifts';
 export * from './office-work-schedules';
 export * from './tickets';
 export * from './hr-activities';
+export * from './changelogs';
 
