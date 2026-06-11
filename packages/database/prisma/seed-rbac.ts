@@ -39,6 +39,17 @@ async function main() {
     }
   }
 
+  // Add individual dashboard view permissions (view-only)
+  const dashboardResources = ['dashboard-guard', 'dashboard-hr', 'dashboard-client', 'dashboard-system'];
+  for (const resource of dashboardResources) {
+    permissionsToCreate.push({
+      resource,
+      action: 'view',
+      code: `${resource}:view`,
+      description: `Can view ${resource}`,
+    });
+  }
+
   // Use upsert to avoid duplicates
   for (const entry of permissionsToCreate) {
     await (prisma.permission as any).upsert({
@@ -90,6 +101,10 @@ async function main() {
       code: {
         in: [
           'dashboard:view',
+          'dashboard-guard:view',
+          'dashboard-hr:view',
+          'dashboard-client:view',
+          'dashboard-system:view',
           'employees:view',
           'employees:create',
           'employees:edit',

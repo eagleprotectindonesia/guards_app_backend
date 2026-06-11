@@ -5,6 +5,7 @@ import AdminDashboard from './dashboard-client';
 import NewDashboardClient from '../new-dashboard/new-dashboard-client';
 import { getDashboardTabFromSearchParams } from '@/lib/admin-tab-routing';
 import { PanicAlert } from '@repo/types';
+import { requirePermission } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,7 @@ export default async function DashboardPage(props: PageProps) {
   const tab = getDashboardTabFromSearchParams(searchParams);
 
   if (tab === 'guard') {
+    await requirePermission('dashboard-guard:view');
     const [activeSites, openTicketsCount, unresolvedPanicsStr] = await Promise.all([
       getActiveSites(),
       db.ticket.count({
@@ -60,6 +62,7 @@ export default async function DashboardPage(props: PageProps) {
   }
 
   // Default fallback dashboard (tab === 'dashboard' or otherwise)
+  await requirePermission('dashboard:view');
   const sites = await getAllSites();
   return <AdminDashboard initialSites={serialize(sites)} />;
 }

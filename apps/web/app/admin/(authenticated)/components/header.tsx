@@ -11,6 +11,17 @@ import { cn } from '@repo/shared';
 import Link from 'next/link';
 import { type AdminTabSlug, getAdminDashboardHref } from '@/lib/admin-tab-routing';
 import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
+import { useSession } from '../context/session-context';
+import { PermissionCode } from '@/lib/auth/permissions';
+
+const TAB_PERMISSIONS: Record<AdminTabSlug, PermissionCode> = {
+  dashboard: 'dashboard:view',
+  guard: 'dashboard-guard:view',
+  ticket: 'tickets:view',
+  workforce: 'dashboard-hr:view',
+  client: 'dashboard-client:view',
+  system: 'dashboard-system:view',
+};
 
 const HEADER_MENUS = [
   {
@@ -86,6 +97,9 @@ const HEADER_MENUS = [
 
 export default function Header({ currentAdmin }: { currentAdmin: AdminSession }) {
   const { selectedTab } = useAdminDashboardTab();
+  const { hasPermission } = useSession();
+
+  const visibleMenus = HEADER_MENUS.filter((menu) => hasPermission(TAB_PERMISSIONS[menu.tab]));
 
   return (
     <header className="h-16 bg-card border-b border-border px-6 flex items-center justify-between sticky top-0 z-10">
@@ -93,7 +107,7 @@ export default function Header({ currentAdmin }: { currentAdmin: AdminSession })
       <div className="flex-1 hidden lg:block" />
 
       <div className="flex items-center gap-1.5 h-full py-2">
-        {HEADER_MENUS.map((menu) => {
+        {visibleMenus.map((menu) => {
           const isActive = selectedTab === menu.tab;
           const Icon = menu.icon;
 

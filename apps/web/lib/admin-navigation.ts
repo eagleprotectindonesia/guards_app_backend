@@ -117,10 +117,30 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: 
   const allItems = getAdminNavItems(officeWorkSchedulesEnabled);
   const byName = new Map(allItems.map(item => [item.name, item]));
 
+  let dashboardPermission: PermissionCode = 'dashboard:view';
+  if (activeTab === 'guard') {
+    dashboardPermission = 'dashboard-guard:view';
+  } else if (activeTab === 'ticket') {
+    dashboardPermission = 'tickets:view';
+  } else if (activeTab === 'workforce') {
+    dashboardPermission = 'dashboard-hr:view';
+  } else if (activeTab === 'client') {
+    dashboardPermission = 'dashboard-client:view';
+  } else if (activeTab === 'system') {
+    dashboardPermission = 'dashboard-system:view';
+  }
+
   return [
     {
       label: 'Dashboard',
-      items: [{ name: 'Dashboard', href: getAdminDashboardHref(activeTab), icon: LayoutDashboard }],
+      items: [
+        {
+          name: 'Dashboard',
+          href: getAdminDashboardHref(activeTab),
+          icon: LayoutDashboard,
+          requiredPermission: dashboardPermission,
+        },
+      ],
     },
     {
       label: 'Ticket',

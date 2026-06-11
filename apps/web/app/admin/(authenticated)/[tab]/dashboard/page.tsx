@@ -3,6 +3,7 @@ import { getAllSites } from '@repo/database';
 import { serialize } from '@/lib/server-utils';
 import AdminDashboard from '../../dashboard/dashboard-client';
 import { isAdminTabSlug } from '@/lib/admin-tab-routing';
+import { requirePermission } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,6 +32,12 @@ export default async function TabDashboardPage({ params }: PageProps) {
 
   if (tab === 'client') {
     redirect('/admin/client/dashboard');
+  }
+
+  if (tab === 'dashboard') {
+    await requirePermission('dashboard:view');
+  } else {
+    await requirePermission('dashboard-system:view');
   }
 
   const sites = await getAllSites();

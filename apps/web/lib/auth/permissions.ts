@@ -20,6 +20,10 @@ export const RESOURCES = [
   'roles',
   'system-settings',
   'dashboard',
+  'dashboard-guard',
+  'dashboard-hr',
+  'dashboard-client',
+  'dashboard-system',
   'departments',
   'designations',
   'chat',
@@ -161,6 +165,18 @@ export const PERMISSIONS = {
     CREATE: 'tickets:create',
     EDIT: 'tickets:edit',
     DELETE: 'tickets:delete',
+  },
+  GUARD_DASHBOARD: {
+    VIEW: 'dashboard-guard:view',
+  },
+  HR_DASHBOARD: {
+    VIEW: 'dashboard-hr:view',
+  },
+  CLIENT_DASHBOARD: {
+    VIEW: 'dashboard-client:view',
+  },
+  SYSTEM_DASHBOARD: {
+    VIEW: 'dashboard-system:view',
   },
 } satisfies Record<string, Record<string, PermissionCode>>;
 

@@ -21,12 +21,14 @@ import { LeaveRequestOverview } from './components/leave-request-overview';
 import { UpcomingShiftsOverview } from './components/upcoming-shifts-overview';
 import { TodayShiftsOverview } from './components/today-shifts-overview';
 import { HrLiveFeed } from './components/hr-live-feed';
+import { requirePermission } from '@/lib/admin-auth';
 
 export const dynamic = 'force-dynamic';
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 export default async function HRDashboardPage({ searchParams }: { searchParams: SearchParams }) {
+  await requirePermission('dashboard-hr:view');
   const query = await searchParams;
   const daysParam = query.days ? parseInt(Array.isArray(query.days) ? query.days[0] : query.days, 10) : 7;
   const days = daysParam === 30 ? 30 : 7;

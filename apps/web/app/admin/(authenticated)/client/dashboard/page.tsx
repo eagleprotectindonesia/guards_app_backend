@@ -16,7 +16,7 @@ import SiteAssignmentChart from './components/site-assignment-chart';
 export const dynamic = 'force-dynamic';
 
 export default async function ClientSiteDashboardPage() {
-  await requirePermission(PERMISSIONS.SITES.VIEW);
+  await requirePermission(PERMISSIONS.CLIENT_DASHBOARD.VIEW);
 
   const [metrics, assignmentMetrics, recentSites, subscriptionStats] = await Promise.all([
     getClientSiteDashboardMetrics(),
