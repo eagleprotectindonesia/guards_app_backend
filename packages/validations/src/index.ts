@@ -647,3 +647,23 @@ export type HolidayCalendarScopeInput = z.infer<typeof holidayCalendarScopeSchem
 export type HolidayCalendarEntryInput = z.infer<typeof holidayCalendarEntrySchema>;
 export type OfficeMemoScopeInput = z.infer<typeof officeMemoScopeSchema>;
 export type OfficeMemoInput = z.infer<typeof officeMemoSchema>;
+
+// --- Webhooks / Panic ---
+export const panicAlertSchema = z.object({
+  id: z.number(),
+  userId: z.number(),
+  firstName: z.string(),
+  lastName: z.string(),
+  latitude: z.coerce.number(),
+  longitude: z.coerce.number(),
+  status: z.string(),
+  createdAt: z.string(),
+});
+
+export const panicWebhookPayloadSchema = z.object({
+  event: z.string(),
+  unresolvedPanics: z.array(panicAlertSchema),
+});
+
+export type PanicAlertInput = z.infer<typeof panicAlertSchema>;
+export type PanicWebhookPayloadInput = z.infer<typeof panicWebhookPayloadSchema>;

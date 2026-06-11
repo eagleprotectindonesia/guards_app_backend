@@ -7,6 +7,7 @@ import { useAlerts } from '../context/alert-context';
 import { NewDashboardSkeleton } from '../components/loading/new-dashboard-skeleton';
 import { LoadingBlock } from '../components/loading/loading-block';
 import { useSocketEvent } from '@/hooks/use-socket-event';
+import { PanicAlert } from '@repo/types';
 import {
   ActiveGuardsCard,
   ActiveSitesCard,
@@ -29,7 +30,7 @@ import {
 type NewDashboardClientProps = {
   initialSites: Serialized<Site>[];
   initialOpenTickets: number;
-  initialPanicAlerts?: any[];
+  initialPanicAlerts?: PanicAlert[];
 };
 
 export default function NewDashboardClient({
@@ -38,11 +39,11 @@ export default function NewDashboardClient({
   initialPanicAlerts = [],
 }: NewDashboardClientProps) {
   const { activeSites, isDashboardInitialized } = useAlerts();
-  const [panicAlerts, setPanicAlerts] = useState<any[]>(initialPanicAlerts);
+  const [panicAlerts, setPanicAlerts] = useState<PanicAlert[]>(initialPanicAlerts);
 
   useSocketEvent('new_dashboard:panic_alerts', (payload) => {
     if (payload && Array.isArray(payload.unresolvedPanics)) {
-      const unresolved = payload.unresolvedPanics.filter((p: any) => p.status === 'unresolved');
+      const unresolved = payload.unresolvedPanics.filter((p: PanicAlert) => p.status === 'unresolved');
       setPanicAlerts(unresolved);
     }
   });
@@ -83,7 +84,7 @@ export default function NewDashboardClient({
         </div>
 
         <div className="col-span-12 space-y-4 lg:col-span-6">
-          <SitesMapCard sites={initialSites} className="h-125 p-1" />
+          <SitesMapCard sites={initialSites} panicAlerts={panicAlerts} className="h-125 p-1" />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <LiveActivityFeedCard />
             <div className="rounded-xl border border-border bg-card p-4 shadow-sm h-64">

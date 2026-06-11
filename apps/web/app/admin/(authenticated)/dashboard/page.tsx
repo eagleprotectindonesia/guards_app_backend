@@ -4,6 +4,7 @@ import { serialize } from '@/lib/server-utils';
 import AdminDashboard from './dashboard-client';
 import NewDashboardClient from '../new-dashboard/new-dashboard-client';
 import { getDashboardTabFromSearchParams } from '@/lib/admin-tab-routing';
+import { PanicAlert } from '@repo/types';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,12 +38,12 @@ export default async function DashboardPage(props: PageProps) {
       redis.get('webhooks:unresolved_panics'),
     ]);
 
-    let initialPanicAlerts: any[] = [];
+    let initialPanicAlerts: PanicAlert[] = [];
     if (unresolvedPanicsStr) {
       try {
         const unresolvedPanics = JSON.parse(unresolvedPanicsStr);
         if (Array.isArray(unresolvedPanics)) {
-          initialPanicAlerts = unresolvedPanics.filter((p: any) => p.status === 'unresolved');
+          initialPanicAlerts = unresolvedPanics.filter((p: PanicAlert) => p.status === 'unresolved');
         }
       } catch (e) {
         console.error('Failed to parse unresolved panics from redis:', e);

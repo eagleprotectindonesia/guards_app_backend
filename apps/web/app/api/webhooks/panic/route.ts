@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { redis } from '@repo/database/redis';
+import { panicWebhookPayloadSchema } from '@repo/validations';
+import { ZodError } from 'zod';
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { unresolvedPanics } = body;
-
-    if (!unresolvedPanics || !Array.isArray(unresolvedPanics)) {
-      return NextResponse.json(
-        { error: 'Invalid payload: unresolvedPanics must be an array' },
-        { status: 400 }
-      );
-    }
+    const json = await request.json();
+    const result = panicWebhookPayloadSchema.parse(json);
+    const { unresolvedPanics } = result;
 
     // Store the unresolvedPanics in redis (overwriting the cache value)
     await redis.set('webhooks:unresolved_panics', JSON.stringify(unresolvedPanics));
@@ -25,10 +21,10 @@ export async function POST(request: NextRequest) {
       count: unresolvedPanics.length,
     });
   } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json({ error: error.issues }, { status: 400 });
+    }
     console.error('Error in panic webhook handler:', error);
-    return NextResponse.json(
-      { error: 'Internal Server Error' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

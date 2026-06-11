@@ -427,5 +427,21 @@ export interface Ticket {
   claimedByEmployee?: { id: string; fullName: string } | null;
 }
 
+export interface PanicAlert {
+  id: number;
+  userId: number;
+  firstName: string;
+  lastName: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+  createdAt: string;
+}
+
+export interface PanicWebhookPayload {
+  event: string;
+  unresolvedPanics: PanicAlert[];
+}
+
 export * from './socket-events';
 
