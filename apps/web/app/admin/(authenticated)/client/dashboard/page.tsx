@@ -1,14 +1,6 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import {
-  Building2,
-  MapPin,
-  Layers,
-  ShieldCheck,
-  CalendarClock,
-  MapPinned,
-  FileCheck,
-} from 'lucide-react';
+import { Building2, MapPin, Layers, ShieldCheck, CalendarClock, MapPinned, FileCheck } from 'lucide-react';
 import {
   getClientSiteDashboardMetrics,
   getSiteAssignmentDashboardMetrics,
@@ -49,7 +41,7 @@ export default async function ClientSiteDashboardPage() {
         },
       },
     }),
-    getPanicSubscriptionStats().catch((err) => {
+    getPanicSubscriptionStats().catch(err => {
       console.error('Error fetching panic subscription stats:', err);
       return null;
     }),
@@ -86,21 +78,19 @@ export default async function ClientSiteDashboardPage() {
       accentClass: 'border-purple-500/20 bg-purple-500/10 text-purple-600 dark:text-purple-400',
       iconColor: 'text-purple-600 dark:text-purple-400',
     },
-    {
-      label: 'Active Geofences',
-      value: metrics.activeGeofences.toString(),
-      hint: `${((metrics.activeGeofences / (metrics.totalSites || 1)) * 100).toFixed(1)}% geofenced`,
-      hintTone: 'warning',
-      icon: ShieldCheck,
-      accentClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-      iconColor: 'text-emerald-600 dark:text-emerald-400',
-    },
+    // {
+    //   label: 'Active Geofences',
+    //   value: metrics.activeGeofences.toString(),
+    //   hint: `${((metrics.activeGeofences / (metrics.totalSites || 1)) * 100).toFixed(1)}% geofenced`,
+    //   hintTone: 'warning',
+    //   icon: ShieldCheck,
+    //   accentClass: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+    //   iconColor: 'text-emerald-600 dark:text-emerald-400',
+    // },
     {
       label: 'active contracts',
       value: activeContractsCount !== undefined ? activeContractsCount.toString() : 'N/A',
-      hint: activeContractsCount !== undefined
-        ? `${endingIn30DaysCount} ending in 30 days`
-        : 'Failed to fetch',
+      hint: activeContractsCount !== undefined ? `${endingIn30DaysCount} ending in 30 days` : 'Failed to fetch',
       hintTone: activeContractsCount !== undefined ? 'neutral' : 'critical',
       icon: FileCheck,
       accentClass: 'border-indigo-500/20 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
@@ -140,27 +130,32 @@ export default async function ClientSiteDashboardPage() {
       </div>
 
       {/* Row 1: 5 Metric Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {metricsList.map((metric) => {
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {metricsList.map(metric => {
           const Icon = metric.icon;
           return (
-            <Card key={metric.label} className="border-border/60 bg-card p-5 shadow-md hover:border-purple-500/40 transition-colors flex flex-col gap-0 justify-between">
+            <Card
+              key={metric.label}
+              className="border-border/60 bg-card p-5 shadow-md hover:border-purple-500/40 transition-colors flex flex-col gap-0 justify-between"
+            >
               <div className="flex items-center gap-4">
                 <div className={`rounded-xl border p-3 shrink-0 ${metric.accentClass}`}>
                   <Icon className="h-5 w-5" />
                 </div>
                 <div className="space-y-1 min-w-0">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">{metric.label}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
+                    {metric.label}
+                  </p>
                   <p className={`text-3xl font-extrabold tracking-tight ${metric.iconColor}`}>{metric.value}</p>
-                  <p className={`text-xs font-medium ${
-                    metric.hintTone === 'positive' && 'text-emerald-600 dark:text-emerald-400'
-                  } ${
-                    metric.hintTone === 'warning' && 'text-amber-600 dark:text-amber-400'
-                  } ${
-                    metric.hintTone === 'critical' && 'text-rose-600 dark:text-rose-400'
-                  } ${
-                    metric.hintTone === 'neutral' && 'text-muted-foreground'
-                  }`}>{metric.hint}</p>
+                  <p
+                    className={`text-xs font-medium ${
+                      metric.hintTone === 'positive' && 'text-emerald-600 dark:text-emerald-400'
+                    } ${metric.hintTone === 'warning' && 'text-amber-600 dark:text-amber-400'} ${
+                      metric.hintTone === 'critical' && 'text-rose-600 dark:text-rose-400'
+                    } ${metric.hintTone === 'neutral' && 'text-muted-foreground'}`}
+                  >
+                    {metric.hint}
+                  </p>
                 </div>
               </div>
             </Card>
@@ -201,7 +196,7 @@ export default async function ClientSiteDashboardPage() {
               unassigned={assignmentMetrics.unassignedSites}
             />
             <div className="grid gap-3">
-              {assignmentStats.map((stat) => {
+              {assignmentStats.map(stat => {
                 const Icon = stat.icon;
                 return (
                   <div
@@ -242,8 +237,11 @@ export default async function ClientSiteDashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {recentSites.map((site) => (
-                  <div key={site.id} className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20">
+                {recentSites.map(site => (
+                  <div
+                    key={site.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/20"
+                  >
                     <div className="space-y-0.5 min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">{site.name}</p>
                       <p className="text-[10px] text-muted-foreground">
@@ -251,9 +249,13 @@ export default async function ClientSiteDashboardPage() {
                       </p>
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
-                        site.status ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium ${
+                          site.status
+                            ? 'bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/20'
+                            : 'bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20'
+                        }`}
+                      >
                         {site.status ? 'Active' : 'Inactive'}
                       </span>
                       <span className="text-[9px] text-muted-foreground/60">

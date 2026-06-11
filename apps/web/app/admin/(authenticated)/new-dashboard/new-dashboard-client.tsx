@@ -41,7 +41,7 @@ export default function NewDashboardClient({
   const { activeSites, isDashboardInitialized } = useAlerts();
   const [panicAlerts, setPanicAlerts] = useState<PanicAlert[]>(initialPanicAlerts);
 
-  useSocketEvent('new_dashboard:panic_alerts', (payload) => {
+  useSocketEvent('new_dashboard:panic_alerts', payload => {
     if (payload && Array.isArray(payload.unresolvedPanics)) {
       const unresolved = payload.unresolvedPanics.filter((p: PanicAlert) => p.status === 'unresolved');
       setPanicAlerts(unresolved);
@@ -62,7 +62,7 @@ export default function NewDashboardClient({
 
   return (
     <div className="w-full space-y-4 p-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         <ActiveGuardsCard onDutyCount={onDutyCount} />
 
         <ActiveSitesCard activeSitesCount={activeSitesCount} />
@@ -70,8 +70,8 @@ export default function NewDashboardClient({
         <OpenTicketsCard openTicketsCount={initialOpenTickets} />
 
         <SOSAlertsCard count={panicAlerts.length} />
-        <PlaceholderTopCard />
-        <PlaceholderTopCard />
+        {/* <PlaceholderTopCard /> */}
+        {/* <PlaceholderTopCard /> */}
       </div>
 
       <div className="grid grid-cols-12 gap-4">
@@ -85,12 +85,13 @@ export default function NewDashboardClient({
 
         <div className="col-span-12 space-y-4 lg:col-span-6">
           <SitesMapCard sites={initialSites} panicAlerts={panicAlerts} className="h-125 p-1" />
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <LiveActivityFeedCard />
+          {/* <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <LiveActivityFeedCard />
             <div className="rounded-xl border border-border bg-card p-4 shadow-sm h-64">
               <LoadingBlock className="h-full w-full" />
             </div>
-          </div>
+          </div> */}
         </div>
 
         <div className="col-span-12 space-y-4 lg:col-span-3">
@@ -99,11 +100,11 @@ export default function NewDashboardClient({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
         <TodaysSummaryCard />
-        <TotalIncidentsCard />
+        <TotalIncidentsCard panicAlerts={panicAlerts} />
         <TotalAttendanceCard />
-        {Array.from({ length: 2 }).map((_, i) => (
+        {/* {Array.from({ length: 2 }).map((_, i) => (
           <div key={i} className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
             <LoadingBlock className="h-3 w-24" />
             <div className="flex items-end justify-between">
@@ -114,7 +115,7 @@ export default function NewDashboardClient({
               <LoadingBlock className="h-8 w-24 rounded" />
             </div>
           </div>
-        ))}
+        ))} */}
         <SystemStatusCard />
       </div>
     </div>

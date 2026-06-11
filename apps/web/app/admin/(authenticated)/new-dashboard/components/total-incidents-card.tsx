@@ -1,12 +1,18 @@
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { useNewDashboardStream } from '../../context/new-dashboard-stream-context';
 import { LoadingBlock } from '../../components/loading/loading-block';
+import { PanicAlert } from '@repo/types';
 
-export function TotalIncidentsCard() {
+type TotalIncidentsCardProps = {
+  panicAlerts?: PanicAlert[];
+};
+
+export function TotalIncidentsCard({ panicAlerts = [] }: TotalIncidentsCardProps) {
   const { totalIncidents } = useNewDashboardStream();
 
   const isLoading =
     (totalIncidents.status === 'idle' || totalIncidents.status === 'loading') && totalIncidents.data.dateKey === '';
+  const total = totalIncidents.data.total + panicAlerts.length;
   const delta = totalIncidents.data.deltaVsYesterday;
   const deltaLabel = delta > 0 ? `+${delta}` : `${delta}`;
   const deltaClass =
@@ -31,7 +37,7 @@ export function TotalIncidentsCard() {
       {!isLoading && (
         <>
           <div className="flex items-end justify-between">
-            <p className="text-3xl font-bold text-red-600 dark:text-red-400">{totalIncidents.data.total}</p>
+            <p className="text-3xl font-bold text-red-600 dark:text-red-400">{total}</p>
           </div>
 
           <div className="flex items-center justify-between gap-1">
