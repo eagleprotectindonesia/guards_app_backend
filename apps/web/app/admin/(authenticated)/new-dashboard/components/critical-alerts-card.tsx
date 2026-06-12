@@ -1,6 +1,5 @@
 import { AlertTriangle } from 'lucide-react';
 import { format, isToday } from 'date-fns';
-import Link from 'next/link';
 import { useNewDashboardStream, type NewDashboardAlert } from '../../context/new-dashboard-stream-context';
 import { LoadingBlock } from '../../components/loading/loading-block';
 import { PanicAlert } from '@repo/types';
@@ -82,7 +81,15 @@ export function CriticalAlertsCard({ panicAlerts = [] }: CriticalAlertsCardProps
 
   const mappedPanics = panicAlerts.map(mapPanicAlertToDashboardAlert);
 
-  const mergedAlerts: UnifiedDashboardAlert[] = [...mappedPanics, ...criticalAlerts.data];
+  const sortedPanics = [...mappedPanics].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  const sortedCritical = [...criticalAlerts.data].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  const mergedAlerts: UnifiedDashboardAlert[] = [...sortedPanics, ...sortedCritical];
 
   return (
     <div className="rounded-xl border border-border bg-card p-4 shadow-sm h-100 flex flex-col">
@@ -93,9 +100,6 @@ export function CriticalAlertsCard({ panicAlerts = [] }: CriticalAlertsCardProps
             {mergedAlerts.length}
           </sup>
         </h3>
-        <Link href="/admin/alerts" className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400">
-          View All
-        </Link>
       </div>
 
       {(criticalAlerts.status === 'loading' || criticalAlerts.status === 'idle') && mergedAlerts.length === 0 && (
