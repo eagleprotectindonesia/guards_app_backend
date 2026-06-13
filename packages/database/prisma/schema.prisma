@@ -526,6 +526,7 @@ model Employee {
   ticketHistoryActions          TicketHistory[]                        @relation("TicketHistoryActorEmployee")
   ticketMessages                TicketMessage[]                        @relation("TicketMessageEmployee")
   uploadedTicketAttachments     TicketAttachment[]                     @relation("TicketUploadedByEmployee")
+  photoReports                  ShiftPhotoReport[]
 
   @@index([status])
   @@index([deletedAt])
@@ -689,23 +690,27 @@ model Shift {
   lastHeartbeatAt             DateTime?      @map("last_heartbeat_at") @db.Timestamptz(6)
   lastDeviceHeartbeatAt       DateTime?      @map("last_device_heartbeat_at") @db.Timestamptz(6)
 
-  missedCount       Int         @default(0) @map("missed_count")
-  createdById       String?     @map("created_by_id")
-  lastUpdatedById   String?     @map("last_updated_by_id")
-  createdAt         DateTime    @default(now()) @map("created_at")
-  updatedAt         DateTime    @updatedAt
-  deletedAt         DateTime?   @map("deleted_at")
-  reminderSentAt    DateTime?   @map("reminder_sent_at")
-  endReminderSentAt DateTime?   @map("end_reminder_sent_at")
-  note              String?     @db.Text
-  alerts            Alert[]
-  checkins          Checkin[]
-  employee          Employee?   @relation(fields: [employeeId], references: [id])
-  shiftType         ShiftType   @relation(fields: [shiftTypeId], references: [id])
-  site              Site        @relation(fields: [siteId], references: [id])
-  createdBy         Admin?      @relation("ShiftCreatedBy", fields: [createdById], references: [id])
-  lastUpdatedBy     Admin?      @relation("ShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  attendance        Attendance?
+  missedCount           Int                     @default(0) @map("missed_count")
+  createdById           String?                 @map("created_by_id")
+  lastUpdatedById       String?                 @map("last_updated_by_id")
+  createdAt             DateTime                @default(now()) @map("created_at")
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?               @map("deleted_at")
+  reminderSentAt        DateTime?               @map("reminder_sent_at")
+  endReminderSentAt     DateTime?               @map("end_reminder_sent_at")
+  autoPhotoReportStatus ShiftPhotoReportStatus? @map("auto_photo_report_status")
+  lastAutoPhotoReportId String?                 @map("last_auto_photo_report_id")
+  lastAutoPhotoReportAt DateTime?               @map("last_auto_photo_report_at")
+  note                  String?                 @db.Text
+  alerts                Alert[]
+  checkins              Checkin[]
+  photoReports          ShiftPhotoReport[]
+  employee              Employee?               @relation(fields: [employeeId], references: [id])
+  shiftType             ShiftType               @relation(fields: [shiftTypeId], references: [id])
+  site                  Site                    @relation(fields: [siteId], references: [id])
+  createdBy             Admin?                  @relation("ShiftCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy         Admin?                  @relation("ShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  attendance            Attendance?
 
   @@index([siteId])
   @@index([employeeId, startsAt])
@@ -715,6 +720,7 @@ model Shift {
   @@index([status, endsAt, deletedAt])
   @@index([status, startsAt, reminderSentAt, deletedAt])
   @@index([status, endsAt, endReminderSentAt, deletedAt])
+  @@index([status, endsAt, autoPhotoReportStatus, deletedAt])
   @@index([deletedAt])
   @@map("shifts")
 }
@@ -769,6 +775,13 @@ enum ShiftStatus {
   cancelled
 }
 
+enum ShiftPhotoReportStatus {
+  pending
+  generated
+  failed
+  regenerated
+}
+
 enum CheckInStatus {
   on_time
   late
@@ -791,6 +804,44 @@ enum AlertResolution {
   standard
   forgiven
   auto
+}
+
+model ShiftPhotoReport {
+  id            String                 @id @default(uuid())
+  shiftId       String                 @map("shift_id")
+  employeeId    String                 @map("employee_id")
+  clientId      String?                @map("client_id")
+  shiftStartsAt DateTime               @map("shift_starts_at") @db.Timestamptz(6)
+  shiftEndsAt   DateTime               @map("shift_ends_at") @db.Timestamptz(6)
+  status        ShiftPhotoReportStatus @default(pending)
+
+  pdfS3Key     String? @map("pdf_s3_key")
+  pdfS3Bucket  String? @map("pdf_s3_bucket")
+  pdfSizeBytes Int?    @map("pdf_size_bytes")
+  photoCount   Int     @default(0) @map("photo_count")
+
+  generatedAt  DateTime? @map("generated_at") @db.Timestamptz(6)
+  errorMessage String?   @map("error_message") @db.Text
+  attemptCount Int       @default(0) @map("attempt_count")
+
+  regeneratedFromId String? @map("regenerated_from_id")
+
+  triggeredBy      String  @default("auto") @map("triggered_by")
+  createdByAdminId String? @map("created_by_admin_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt
+
+  shift           Shift              @relation(fields: [shiftId], references: [id])
+  employee        Employee           @relation(fields: [employeeId], references: [id])
+  regeneratedFrom ShiftPhotoReport?  @relation("ReportRegeneration", fields: [regeneratedFromId], references: [id])
+  regenerations   ShiftPhotoReport[] @relation("ReportRegeneration")
+
+  @@index([shiftId, createdAt])
+  @@index([employeeId, createdAt])
+  @@index([status])
+  @@index([regeneratedFromId])
+  @@map("shift_photo_reports")
 }
 
 model Attendance {
@@ -1093,12 +1144,12 @@ model TicketAssignedEmployee {
 }
 
 model TicketMessage {
-  id          String             @id @default(uuid())
-  ticketId    String             @map("ticket_id")
-  adminId     String?            @map("admin_id")
-  employeeId  String?            @map("employee_id")
-  body        String             @db.Text
-  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  id         String   @id @default(uuid())
+  ticketId   String   @map("ticket_id")
+  adminId    String?  @map("admin_id")
+  employeeId String?  @map("employee_id")
+  body       String   @db.Text
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   ticket      Ticket             @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   admin       Admin?             @relation(fields: [adminId], references: [id])

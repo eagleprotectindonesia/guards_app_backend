@@ -82,6 +82,18 @@ async function main() {
     { action: 'delete', resource: 'roles', code: 'roles:delete', description: 'Can delete roles' },
     { action: 'view', resource: 'chat', code: 'chat:view', description: 'Can view chat messages' },
     { action: 'create', resource: 'chat', code: 'chat:create', description: 'Can send chat messages' },
+    {
+      action: 'view',
+      resource: 'shift-photo-reports',
+      code: 'shift-photo-reports:view',
+      description: 'Can view shift photo reports',
+    },
+    {
+      action: 'create',
+      resource: 'shift-photo-reports',
+      code: 'shift-photo-reports:create',
+      description: 'Can regenerate shift photo reports',
+    },
   ];
 
   const createdPermissions = await Promise.all(
@@ -426,6 +438,16 @@ async function main() {
         name: 'ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS',
         value: '0',
         note: 'Feature toggle for leave-based office attendance effects (1=ON, 0=OFF).',
+      },
+      {
+        name: 'SHIFT_PHOTO_REPORT_ENABLED',
+        value: '1',
+        note: 'Feature toggle to enable/disable auto shift photo report generation (1=ON, 0=OFF).',
+      },
+      {
+        name: 'SHIFT_PHOTO_REPORT_WAIT_MINUTES',
+        value: '10',
+        note: 'Minutes to wait after shift ends before generating auto photo report.',
       },
     ];
 
