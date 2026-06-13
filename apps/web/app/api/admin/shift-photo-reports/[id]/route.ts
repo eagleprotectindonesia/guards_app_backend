@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuthSession } from '@/lib/admin-auth';
 import { getReportById } from '@/lib/data-access/shift-photo-reports';
-import { getCachedPresignedDownloadUrl } from '@/lib/s3';
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAdminAuthSession();
@@ -17,12 +16,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       return NextResponse.json({ error: 'Report not found' }, { status: 404 });
     }
 
-    let downloadUrl: string | null = null;
-    if (report.pdfS3Key) {
-      downloadUrl = await getCachedPresignedDownloadUrl(report.pdfS3Key);
-    }
-
-    return NextResponse.json({ ...report, downloadUrl });
+    return NextResponse.json(report);
   } catch (error) {
     console.error('Error fetching shift photo report:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

@@ -76,7 +76,12 @@ export class ShiftPhotoReportProcessor {
         const pdfBuffer = await generatePdf(metadata, fetchedPhotos);
         const fileName = generateReportFileName(guardName, shift.employee?.employeeNumber ?? '0000', shift.startsAt);
 
-        const uploadResult = await uploadFile(pdfBuffer, fileName, 'application/pdf', { folder: 'shift-reports' });
+        const uploadResult = await uploadFile(pdfBuffer, fileName, 'application/pdf', {
+          folder: 'shift-reports',
+          siteId: shift.siteId,
+          shiftId: shift.id,
+          reportId: report.id,
+        });
 
         if (!BUCKET_NAME) {
           throw new Error('AWS_S3_BUCKET_NAME is not configured');
