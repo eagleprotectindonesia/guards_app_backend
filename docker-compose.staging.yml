@@ -8,6 +8,8 @@ services:
       - '127.0.0.1:3002:3000'
     environment:
       - NEXT_TELEMETRY_DISABLED=1
+      - NEXT_PUBLIC_MAPLIBRE_STYLE_URL=${NEXT_PUBLIC_MAPLIBRE_STYLE_URL}
+      - NEXT_PUBLIC_TINYMCE_API_KEY=${NEXT_PUBLIC_TINYMCE_API_KEY}
       - TZ=Asia/Makassar
     depends_on:
       redis:

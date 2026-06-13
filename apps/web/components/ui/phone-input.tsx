@@ -8,7 +8,7 @@ import { parsePhoneNumberWithError } from 'libphonenumber-js';
 interface PhoneInputProps {
   id?: string;
   inputName: string;
-  defaultValue?: Value;
+  defaultValue?: string;
   onChange?: (value: Value | undefined) => void;
   className?: string;
   placeholder?: string;
@@ -21,12 +21,12 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   inputName,
   defaultValue,
   onChange,
-  className,
+  className = '',
   placeholder,
   required,
   maxLength,
 }) => {
-  const [value, setValue] = useState<Value | undefined>(defaultValue);
+  const [value, setValue] = useState<Value | undefined>(defaultValue as Value | undefined);
 
   const handleChange = (newValue?: Value) => {
     setValue(newValue);
@@ -55,7 +55,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
         onChange={handleChange}
         placeholder={placeholder}
         countryCallingCodeEditable={false}
-        className={`w-full h-10 px-3 rounded-lg border border-gray-200 focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all ${className}`}
+        className={`w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all ${className}`}
         defaultCountry={defaultCountry}
         required={required}
         maxLength={maxLength}

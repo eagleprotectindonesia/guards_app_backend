@@ -39,7 +39,7 @@ export default function ChatPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const hasInitialScrolled = useRef(false);
   const pendingReadIds = useRef<Set<string>>(new Set());
-  const readTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const readTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } = useChatMessages(employeeId);
 

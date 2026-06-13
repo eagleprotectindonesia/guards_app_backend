@@ -13,6 +13,10 @@ export * from './employees';
 export * from './employee-sessions';
 export * from './annual-leave-balances';
 export * from './leave-requests';
+export * from './live-activity-feed';
+export * from './total-incidents';
+export * from './total-attendance';
+export * from './top-sites-activity';
 export * from './holiday-calendar-entries';
 export * from './employee-office-config';
 export * from './fcm-tokens';
@@ -31,3 +35,7 @@ export * from './onsite-day-offs';
 export * from './office-shift-types';
 export * from './office-shifts';
 export * from './office-work-schedules';
+export * from './tickets';
+export * from './hr-activities';
+export * from './changelogs';
+

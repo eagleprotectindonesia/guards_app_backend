@@ -21,15 +21,17 @@ export function AdminNotificationProvider({ children }: { children: React.ReactN
   const { socket, isConnected } = useSocket();
   const { hasPermission } = useSession();
   const canViewLeaveRequests = hasPermission(PERMISSIONS.LEAVE_REQUESTS.VIEW);
+  const canViewTickets = hasPermission(PERMISSIONS.TICKETS.VIEW);
+  const canViewAdminNotifications = canViewLeaveRequests || canViewTickets;
 
   const [notifications, setNotifications] = useState<AdminNotificationEventItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [hasReceivedBackfill, setHasReceivedBackfill] = useState(false);
 
-  const isInitialized = !canViewLeaveRequests || hasReceivedBackfill;
+  const isInitialized = !canViewAdminNotifications || hasReceivedBackfill;
 
   useEffect(() => {
-    if (!socket || !canViewLeaveRequests) {
+    if (!socket || !canViewAdminNotifications) {
       return;
     }
 
@@ -65,7 +67,7 @@ export function AdminNotificationProvider({ children }: { children: React.ReactN
       socket.off('admin_notification_created', handleCreated);
       socket.off('admin_notifications_read', handleRead);
     };
-  }, [socket, isConnected, canViewLeaveRequests]);
+  }, [socket, isConnected, canViewAdminNotifications]);
 
   const markVisibleAsRead = () => {
     if (!socket) {

@@ -21,8 +21,10 @@ export default function AdminNotificationInbox() {
   const { hasPermission } = useSession();
   const { notifications, unreadCount, isInitialized, markVisibleAsRead } = useAdminNotifications();
   const canViewLeaveRequests = hasPermission(PERMISSIONS.LEAVE_REQUESTS.VIEW);
+  const canViewTickets = hasPermission(PERMISSIONS.TICKETS.VIEW);
+  const canViewNotifications = canViewLeaveRequests || canViewTickets;
 
-  if (!canViewLeaveRequests || !isInitialized) {
+  if (!canViewNotifications || !isInitialized) {
     return null;
   }
 
@@ -41,7 +43,7 @@ export default function AdminNotificationInbox() {
       <PopoverContent align="end" className="w-96 p-0 overflow-hidden">
         <div className="px-4 py-3 border-b">
           <p className="text-sm font-semibold">Notifications</p>
-          <p className="text-xs text-muted-foreground">Leave request updates for your ownership scope</p>
+          <p className="text-xs text-muted-foreground">Leave request and ticket updates</p>
         </div>
         {notifications.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">No notifications yet.</div>

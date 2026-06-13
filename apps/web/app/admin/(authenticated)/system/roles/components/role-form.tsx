@@ -10,6 +10,7 @@ import { useActionState, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { Shield, Check } from 'lucide-react';
+import { TICKET_DEPARTMENT_OPTIONS, type TicketDepartment } from '@/lib/ticket-department-roles';
 
 type Props = {
   role?: Serialized<Role & { permissions: Permission[] }>;
@@ -38,6 +39,9 @@ export default function RoleForm({ role, allPermissions }: Props) {
               (formData.get('annualApprover') as CreateRoleInput['policy']['leaveRequests']['annualApprover']) ||
               'manager',
           },
+          ticketDepartment: ((formData.get('ticketDepartment') as TicketDepartment | '') || undefined) as
+            | TicketDepartment
+            | undefined,
         },
         permissionIds: selectedPermissions,
       };
@@ -160,6 +164,27 @@ export default function RoleForm({ role, allPermissions }: Props) {
             >
               <option value="manager">Manager Approver</option>
               <option value="hr">HR Approver</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <label
+              htmlFor="ticketDepartment"
+              className="text-sm font-semibold text-muted-foreground uppercase tracking-wider"
+            >
+              Ticket Department
+            </label>
+            <select
+              id="ticketDepartment"
+              name="ticketDepartment"
+              defaultValue={rolePolicy.ticketDepartment ?? ''}
+              className="w-full h-11 px-4 bg-muted border border-border rounded-lg outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            >
+              <option value="">None</option>
+              {TICKET_DEPARTMENT_OPTIONS.map(department => (
+                <option key={department} value={department}>
+                  {department}
+                </option>
+              ))}
             </select>
           </div>
         </div>

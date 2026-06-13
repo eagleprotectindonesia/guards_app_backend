@@ -5,6 +5,7 @@ This document describes the employee synchronization process that imports employ
 ## Overview
 
 The sync process fetches employee records from an external API and synchronizes them with the local database. It handles:
+
 - **Adding** new employees not present in the local database
 - **Updating** existing employee profile information
 - **Deactivating** employees that no longer exist in the external system
@@ -113,13 +114,14 @@ export async function syncEmployeesFromExternal() {
 
 ### 4. External API Integration
 
-**File:** `packages/database/src/external-employee-api.ts`
+**File:** `packages/database/src/integrations/external-employee-api.ts`
 
 ```typescript
 export interface ExternalEmployee {
   id: string;
   employee_number: string;
   personnel_id: string | null;
+  work_status?: string | null;
   nickname: string | null;
   full_name: string;
   job_title: string | null;
@@ -150,19 +152,27 @@ EXTERNAL_EMPLOYEE_ADDRESS=https://external-hr-api.example.com/api/employees
 EXTERNAL_EMPLOYEE_API_KEY=your-secret-api-key
 ```
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `EXTERNAL_EMPLOYEE_ADDRESS` | Full URL of the external employee API endpoint | Yes |
-| `EXTERNAL_EMPLOYEE_API_KEY` | API key for authenticating with the external system | Yes |
+| Variable                    | Description                                         | Required |
+| --------------------------- | --------------------------------------------------- | -------- |
+| `EXTERNAL_EMPLOYEE_ADDRESS` | Full URL of the external employee API endpoint      | Yes      |
+| `EXTERNAL_EMPLOYEE_API_KEY` | API key for authenticating with the external system | Yes      |
 
 ## Business Rules
 
 ### Role Mapping
 
-| External Field | Condition | Local Role |
-|----------------|-----------|------------|
-| `job_title` | Normalized value is exactly `security standby` | `on_site` |
-| `job_title` | Any other value | `office` |
+| External Field | Condition                                      | Local Role |
+| -------------- | ---------------------------------------------- | ---------- |
+| `job_title`    | Normalized value is exactly `security standby` | `on_site`  |
+| `job_title`    | Any other value                                | `office`   |
+
+### Work Status Deactivation
+
+| External Field | Condition                                                           | Local Status |
+| -------------- | ------------------------------------------------------------------- | ------------ |
+| `work_status`  | Undefined / null / blank                                            | No override  |
+| `work_status`  | Normalized value is exactly `working` (trim + case-insensitive)     | Active       |
+| `work_status`  | Any other defined value (for example: `resigned`, `leave`, `fired`) | Deactivate   |
 
 ### Role Override
 
@@ -172,26 +182,27 @@ Other external fields (including `office_id`) continue syncing as normal.
 ### Default Password
 
 For **new employees**, the default password is set to:
+
 1. `12345678` (static default)
 
 The password is hashed using bcrypt before storage.
 
 ### Update Behavior
 
-| Field | New Employee | Existing Employee |
-|-------|--------------|-------------------|
-| `employeeNumber` | ✅ Set | ✅ Update |
-| `personnelId` | ✅ Set | ✅ Update |
-| `nickname` | ✅ Set | ✅ Update |
-| `fullName` | ✅ Set | ✅ Update |
-| `jobTitle` | ✅ Set | ✅ Update |
-| `department` | ✅ Set | ✅ Update |
-| `role` | ✅ Set | ✅ Update |
-| `hashedPassword` | ✅ Set (default) | ❌ No change |
+| Field            | New Employee     | Existing Employee |
+| ---------------- | ---------------- | ----------------- |
+| `employeeNumber` | ✅ Set           | ✅ Update         |
+| `personnelId`    | ✅ Set           | ✅ Update         |
+| `nickname`       | ✅ Set           | ✅ Update         |
+| `fullName`       | ✅ Set           | ✅ Update         |
+| `jobTitle`       | ✅ Set           | ✅ Update         |
+| `department`     | ✅ Set           | ✅ Update         |
+| `role`           | ✅ Set           | ✅ Update         |
+| `hashedPassword` | ✅ Set (default) | ❌ No change      |
 
 ### Deactivation Logic
 
-When an employee is **not present** in the canonical active external list (missing externally or duplicate loser) but exists locally with `status: true` and `deletedAt: null`, they are **deactivated**. This triggers a comprehensive cleanup:
+When an employee is **not present** in the canonical active external list (missing externally, duplicate loser, or `work_status` is defined and not `working`) but exists locally with `status: true` and `deletedAt: null`, they are **deactivated**. This triggers a comprehensive cleanup:
 
 1. **Employee Record**
    - `status` set to `false`
@@ -228,6 +239,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -248,12 +260,12 @@ The sync process outputs console logs for monitoring:
 
 ## Error Handling
 
-| Scenario | Behavior |
-|----------|----------|
-| Missing env vars | Throws error: "EXTERNAL_EMPLOYEE_ADDRESS or EXTERNAL_EMPLOYEE_API_KEY not configured" |
-| External API failure | Throws error with status text, sync aborts |
-| Database error | Transaction rolls back, error logged to console |
-| Unauthorized access | Server action returns `{ success: false, message: 'Unauthorized' }` |
+| Scenario             | Behavior                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| Missing env vars     | Throws error: "EXTERNAL_EMPLOYEE_ADDRESS or EXTERNAL_EMPLOYEE_API_KEY not configured" |
+| External API failure | Throws error with status text, sync aborts                                            |
+| Database error       | Transaction rolls back, error logged to console                                       |
+| Unauthorized access  | Server action returns `{ success: false, message: 'Unauthorized' }`                   |
 
 ## Testing
 
@@ -274,15 +286,15 @@ curl -X POST http://localhost:3000/api/admin/employees/sync \
 
 ## Related Files
 
-| File | Purpose |
-|------|---------|
-| `packages/database/src/data-access/employees.ts` | Core sync logic, deactivation handling |
-| `packages/database/src/data-access/shifts.ts` | Shift cleanup (future delete, in-progress cancel) |
-| `packages/database/src/external-employee-api.ts` | External API client |
-| `packages/database/src/client.ts` | Prisma client & upsert logic |
-| `apps/web/app/admin/(authenticated)/employees/actions.ts` | Server action |
-| `apps/web/app/admin/(authenticated)/employees/components/employee-list.tsx` | UI component |
-| `apps/web/app/api/admin/employees/sync/route.ts` | HTTP API endpoint |
+| File                                                                        | Purpose                                           |
+| --------------------------------------------------------------------------- | ------------------------------------------------- |
+| `packages/database/src/data-access/employees.ts`                            | Core sync logic, deactivation handling            |
+| `packages/database/src/data-access/shifts.ts`                               | Shift cleanup (future delete, in-progress cancel) |
+| `packages/database/src/external-employee-api.ts`                            | External API client                               |
+| `packages/database/src/client.ts`                                           | Prisma client & upsert logic                      |
+| `apps/web/app/admin/(authenticated)/employees/actions.ts`                   | Server action                                     |
+| `apps/web/app/admin/(authenticated)/employees/components/employee-list.tsx` | UI component                                      |
+| `apps/web/app/api/admin/employees/sync/route.ts`                            | HTTP API endpoint                                 |
 
 ## Best Practices
 
@@ -295,15 +307,18 @@ curl -X POST http://localhost:3000/api/admin/employees/sync \
 ## Troubleshooting
 
 ### Sync returns 0 added/updated/deactivated
+
 - Check if external API is returning data
 - Verify environment variables are set correctly
 - Check network connectivity to external API
 
 ### "Unauthorized" error
+
 - Ensure admin is logged in with valid session
 - Verify token in cookies is not expired
 
 ### Database constraint errors
+
 - Check for duplicate employee IDs in external system
 - Check for duplicate `employee_number` rows in external system and verify canonical winner behavior in logs
 - Verify Prisma schema matches database structure

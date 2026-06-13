@@ -13,6 +13,8 @@ import FloatingChatWidget from './components/floating-chat-widget';
 import { isOfficeWorkSchedulesEnabled } from '@/lib/feature-flags';
 import { AdminNavigationPendingProvider } from './context/admin-navigation-pending-context';
 import { AdminNavigationProgressBar } from './components/admin-navigation-progress-bar';
+import { NewDashboardStreamProvider } from './context/new-dashboard-stream-context';
+import { AdminDashboardTabProvider } from './context/admin-dashboard-tab-context';
 
 export const metadata: Metadata = {
   title: {
@@ -44,27 +46,31 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     >
       <SocketProvider role="admin">
         <AlertProvider>
-          <AdminNotificationProvider>
-            <AdminNavigationPendingProvider>
-              <div className="flex min-h-screen bg-background">
-                <Toaster
-                  position="top-right"
-                  containerStyle={{ zIndex: 99999 }}
-                  toastOptions={{ style: { zIndex: 99999 } }}
-                />
-                <Sidebar officeWorkSchedulesEnabled={officeWorkSchedulesEnabled} />
-                <div className="flex-1 flex flex-col">
-                  <Header currentAdmin={session} />
-                  <AdminNavigationProgressBar />
-                  <div className="px-8 pt-4">
-                    <AdminBreadcrumb />
+          <NewDashboardStreamProvider>
+            <AdminDashboardTabProvider>
+              <AdminNotificationProvider>
+                <AdminNavigationPendingProvider>
+                  <div className="flex min-h-screen bg-background">
+                    <Toaster
+                      position="top-right"
+                      containerStyle={{ zIndex: 99999 }}
+                      toastOptions={{ style: { zIndex: 99999 } }}
+                    />
+                    <Sidebar officeWorkSchedulesEnabled={officeWorkSchedulesEnabled} />
+                    <div className="flex-1 flex flex-col">
+                      <Header currentAdmin={session} />
+                      <AdminNavigationProgressBar />
+                      <div className="px-8 pt-4">
+                        <AdminBreadcrumb />
+                      </div>
+                      <main className="flex-1 p-8 overflow-y-auto">{children}</main>
+                    </div>
+                    {hasChatPermission && <FloatingChatWidget />}
                   </div>
-                  <main className="flex-1 p-8 overflow-y-auto">{children}</main>
-                </div>
-                {hasChatPermission && <FloatingChatWidget />}
-              </div>
-            </AdminNavigationPendingProvider>
-          </AdminNotificationProvider>
+                </AdminNavigationPendingProvider>
+              </AdminNotificationProvider>
+            </AdminDashboardTabProvider>
+          </NewDashboardStreamProvider>
         </AlertProvider>
       </SocketProvider>
     </SessionProvider>

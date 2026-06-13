@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { MessageSquare, X, Maximize2 } from 'lucide-react';
 import { cn } from '@repo/shared';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import { useAdminUnifiedChatInbox } from '@/hooks/use-admin-unified-chat-inbox';
 import { buildConversationUrl } from '@/lib/chat/conversation-selection';
 import { consumeWidgetResumeState } from '@/lib/chat/widget-resume-state';
@@ -13,13 +13,13 @@ import { UnifiedConversationList } from './chat/unified-conversation-list';
 import { DirectChatPane } from './chat/direct-chat-pane';
 import { GroupChatPane } from './chat/group-chat-pane';
 import ConfirmDialog from './confirm-dialog';
-import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
 import { ChatMessage } from '@/types/chat';
+import { useAdminRouter } from '../context/admin-router';
 
 export default function FloatingChatWidget() {
   const pathname = usePathname();
 
-  if (pathname === '/admin/chat') {
+  if (pathname === '/admin/chat' || pathname === '/admin/new-dashboard') {
     return null;
   }
 
@@ -27,8 +27,7 @@ export default function FloatingChatWidget() {
 }
 
 function FloatingChatWidgetContent() {
-  const router = useRouter();
-  const { startNavigation } = useAdminNavigationPending();
+  const router = useAdminRouter();
   const [resumeState] = useState(() => consumeWidgetResumeState());
   const [isOpen, setIsOpen] = useState(() => resumeState?.isOpen ?? false);
   const { userId, hasPermission } = useSession();
@@ -50,7 +49,6 @@ function FloatingChatWidgetContent() {
 
   const handleMaximize = () => {
     const href = buildConversationUrl(unifiedChat.selectedConversation);
-    startNavigation(href);
     router.push(href);
     setIsOpen(false);
   };

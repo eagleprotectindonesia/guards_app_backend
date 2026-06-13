@@ -4,6 +4,8 @@ import React from 'react';
 import Link, { type LinkProps } from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useAdminNavigationPending } from '../context/admin-navigation-pending-context';
+import { appendDashboardTabToHref } from '@/lib/admin-tab-routing';
+import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 
 type AdminNavLinkProps = LinkProps &
   Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, keyof LinkProps> & {
@@ -22,12 +24,14 @@ export function AdminNavLink({ href, onClick, target, children, ...props }: Admi
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { startNavigation } = useAdminNavigationPending();
+  const { selectedTab } = useAdminDashboardTab();
 
   const currentUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
+  const resolvedHref = appendDashboardTabToHref(href, selectedTab);
 
   return (
     <Link
-      href={href}
+      href={resolvedHref}
       target={target}
       onClick={event => {
         onClick?.(event);
@@ -35,11 +39,11 @@ export function AdminNavLink({ href, onClick, target, children, ...props }: Admi
         if (event.defaultPrevented) return;
         if (target && target !== '_self') return;
         if (isModifiedEvent(event)) return;
-        if (href === currentUrl || href === pathname) return;
-        if (href.startsWith('#')) return;
+        if (resolvedHref === currentUrl || resolvedHref === pathname) return;
+        if (resolvedHref.startsWith('#')) return;
         if (isExternalHref(href)) return;
 
-        startNavigation(href);
+        startNavigation(resolvedHref);
       }}
       {...props}
     >

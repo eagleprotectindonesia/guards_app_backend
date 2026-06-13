@@ -19,6 +19,7 @@ import {
   serializeOfficeJobTitleCategoryMap,
 } from './employee-office-config';
 import { updateSystemSettingWithChangelog } from './settings';
+import { computeAnnualLeaveEntitledDays, getAnnualLeaveEligibilityDate } from './annual-leave-policy';
 
 const LAST_EMPLOYEE_SYNC_KEY = 'employee:sync:last_timestamp';
 const LAST_EMPLOYEE_SYNC_DUPLICATE_WARNING_KEY = 'employee:sync:last_duplicate_warning';
@@ -39,6 +40,12 @@ function resolveSyncedEmployeeRole(jobTitle?: string | null, department?: string
   return normalizedTitle.includes('security') || normalizedDepartment.includes('security') ? 'on_site' : 'office';
 }
 
+function isExternallyActiveWorkStatus(workStatus?: string | null): boolean {
+  const normalizedStatus = normalizeSyncStringValue(workStatus);
+  if (!normalizedStatus) return true;
+  return normalizedStatus === 'working';
+}
+
 function getCurrentBusinessYear(now = new Date()) {
   return Number(
     new Intl.DateTimeFormat('en-US', {
@@ -52,8 +59,9 @@ async function ensureDefaultAnnualLeaveBalance(
   tx: Prisma.TransactionClient,
   employeeId: string,
   year: number,
-  isEligibleForAnnualLeave: boolean
+  dateOfJoining: Date
 ) {
+  const entitledDays = computeAnnualLeaveEntitledDays({ dateOfJoining, year });
   const balance = await tx.employeeAnnualLeaveBalance.upsert({
     where: {
       employeeId_year: {
@@ -61,22 +69,19 @@ async function ensureDefaultAnnualLeaveBalance(
         year,
       },
     },
-    update: {},
+    update: {
+      entitledDays,
+    },
     create: {
       employeeId,
       year,
-      entitledDays: 12,
-      adjustedDays: isEligibleForAnnualLeave ? 0 : -12,
+      entitledDays,
+      adjustedDays: 0,
       consumedDays: 0,
     },
   });
 
-  if (isEligibleForAnnualLeave && balance.entitledDays === 12 && balance.adjustedDays === -12 && balance.consumedDays === 0) {
-      await tx.employeeAnnualLeaveBalance.update({
-        where: { id: balance.id },
-        data: { adjustedDays: 0 },
-      });
-  }
+  return balance;
 }
 
 function parseExternalDateOfJoining(raw: string | null | undefined): Date | null {
@@ -87,9 +92,8 @@ function parseExternalDateOfJoining(raw: string | null | undefined): Date | null
 }
 
 function isAnnualLeaveEligibleByDateOfJoining(dateOfJoining: Date, referenceDate = new Date()) {
-  const oneYearAfterJoining = new Date(dateOfJoining);
-  oneYearAfterJoining.setFullYear(oneYearAfterJoining.getFullYear() + 1);
-  return oneYearAfterJoining.getTime() <= referenceDate.getTime();
+  const eligibilityDate = getAnnualLeaveEligibilityDate(dateOfJoining);
+  return eligibilityDate.getTime() <= referenceDate.getTime();
 }
 
 function normalizeToDate(value: Date | string | null | undefined): Date | null {
@@ -1001,7 +1005,17 @@ export async function syncEmployeesFromExternal(
     externalEmployees,
     existingEmployeeIds
   );
-  const activeExternalIds = canonicalEmployees.map(employee => employee.id);
+  const activeExternalIds = canonicalEmployees
+    .filter(employee => {
+      const isActive = isExternallyActiveWorkStatus(employee.work_status);
+      if (!isActive) {
+        console.log(
+          `[SyncEmployees] Employee id=${employee.id} excluded from active external list due to work_status="${employee.work_status}".`
+        );
+      }
+      return isActive;
+    })
+    .map(employee => employee.id);
   const duplicateWarningEntries: EmployeeSyncDuplicateWarningEntry[] = [];
 
   for (const [employeeNumber, loserIds] of duplicateLosersByEmployeeNumber.entries()) {
@@ -1075,7 +1089,7 @@ export async function syncEmployeesFromExternal(
           tx,
           newEmployee.id,
           currentBusinessYear,
-          isAnnualLeaveEligibleByDateOfJoining(newEmployee.dateOfJoining)
+          newEmployee.dateOfJoining
         );
 
         await tx.changelog.create({
@@ -1188,7 +1202,7 @@ export async function syncEmployeesFromExternal(
             tx,
             ext.id,
             currentBusinessYear,
-            isAnnualLeaveEligibleByDateOfJoining(resolvedDateOfJoining)
+            resolvedDateOfJoining
           );
 
           await tx.changelog.create({
@@ -1221,7 +1235,7 @@ export async function syncEmployeesFromExternal(
             tx,
             ext.id,
             currentBusinessYear,
-            isAnnualLeaveEligibleByDateOfJoining(resolvedDateOfJoining)
+            resolvedDateOfJoining
           );
         });
       }
@@ -1259,4 +1273,13 @@ export async function syncEmployeesFromExternal(
     updated: updatedCount,
     deactivated: deactivatedCount,
   };
+}
+
+export async function getTotalEmployeeCount(): Promise<number> {
+  return prisma.employee.count({
+    where: {
+      deletedAt: null,
+      status: true,
+    },
+  });
 }

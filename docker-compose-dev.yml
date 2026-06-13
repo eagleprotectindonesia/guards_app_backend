@@ -5,6 +5,7 @@ services:
       target: app-runner
       args:
         - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+        - NEXT_PUBLIC_MAPLIBRE_STYLE_URL=${NEXT_PUBLIC_MAPLIBRE_STYLE_URL}
     container_name: ep_guard_app
     restart: unless-stopped
     env_file: .env
@@ -30,6 +31,7 @@ services:
       target: worker-runner
       args:
         - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+        - NEXT_PUBLIC_MAPLIBRE_STYLE_URL=${NEXT_PUBLIC_MAPLIBRE_STYLE_URL}
     container_name: ep_guard_worker
     restart: unless-stopped
     env_file: .env

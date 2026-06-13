@@ -1,6 +1,10 @@
 import { z } from 'zod';
 import { isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js';
 import { isValidShiftTypeTime } from '@repo/shared';
+import { hasVisibleText } from './rich-text';
+export { hasVisibleText, stripHtmlToText } from './rich-text';
+
+export const ticketResolutionTargetHourOptions = [1, 4, 8, 24] as const;
 
 export const ShiftStatusEnum = z.enum(['scheduled', 'in_progress', 'completed', 'missed', 'cancelled']);
 
@@ -196,6 +200,7 @@ export const checkInSchema = z.object({
 export const EmployeeAccessScopeEnum = z.enum(['all', 'on_site_only']);
 export const AttendanceAccessScopeEnum = z.enum(['all', 'shift_only']);
 export const LeaveAnnualApproverEnum = z.enum(['manager', 'hr']);
+export const TicketDepartmentEnum = z.enum(['HR', 'IT', 'CS']);
 
 export const rolePolicySchema = z.object({
   employees: z.object({
@@ -207,6 +212,7 @@ export const rolePolicySchema = z.object({
   leaveRequests: z.object({
     annualApprover: LeaveAnnualApproverEnum,
   }),
+  ticketDepartment: TicketDepartmentEnum.optional(),
 });
 
 export const createRoleSchema = z.object({
@@ -238,6 +244,143 @@ export const updateDesignationSchema = createDesignationSchema;
 
 // --- System Settings ---
 export const updateSettingsSchema = z.record(z.string(), z.string());
+
+// --- Tickets ---
+export const TicketStatusEnum = z.enum([
+  'NEW',
+  'ACKNOWLEDGED',
+  'WAITING_INFORMATION',
+  'IN_PROGRESS',
+  'SOLVED',
+  'CLOSED',
+  'CANNOT_RESOLVE',
+  'CANCELLED',
+]);
+
+export const TicketPriorityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH']);
+
+export const ticketCreateSchema = z.object({
+  title: z.string().trim().min(3, 'Title must be at least 3 characters'),
+  description: z.string().refine(value => hasVisibleText(value), { message: 'Description is required' }),
+  department: TicketDepartmentEnum,
+  clientName: z.string().trim().min(1, 'Client name is required'),
+  clientContact: z
+    .string()
+    .trim()
+    .min(1, 'Client contact is required')
+    .refine(
+      value => {
+        const digits = value.replace(/\D/g, '');
+        return digits.length >= 7;
+      },
+      {
+        message: 'Client contact number must contain at least 7 digits',
+      }
+    ),
+  clientLocation: z.string().trim().min(1, 'Client location is required'),
+  resolutionTargetHours: z
+    .number()
+    .int('Resolution target must be a whole number of hours')
+    .refine(
+      value => ticketResolutionTargetHourOptions.includes(value as (typeof ticketResolutionTargetHourOptions)[number]),
+      {
+        message: 'Resolution target must match one of the supported presets',
+      }
+    ),
+  priority: TicketPriorityEnum.default('MEDIUM'),
+});
+
+export const ticketListSchema = z.object({
+  search: z.string().trim().optional(),
+  statuses: z.array(TicketStatusEnum).optional(),
+  priorities: z.array(TicketPriorityEnum).optional(),
+  assignedRoleIds: z.array(z.string().min(1)).optional(),
+  cursor: z.string().optional(),
+  limit: z.number().int().min(1).max(100).optional(),
+});
+
+export const ticketStatusUpdateSchema = z.object({
+  ticketId: z.string().min(1),
+  status: TicketStatusEnum,
+  cancellationNote: z.string().optional(),
+});
+
+export const ticketPriorityUpdateSchema = z.object({
+  ticketId: z.string().min(1),
+  priority: TicketPriorityEnum,
+});
+
+export const ticketAssignedRolesUpdateSchema = z.object({
+  ticketId: z.string().min(1),
+  roleIds: z.array(z.string().min(1)),
+});
+
+export const ticketMessageCreateSchema = z.object({
+  ticketId: z.string().min(1),
+  body: z.string().trim().min(1, 'Message body is required'),
+});
+
+export const ticketMessageWithAttachmentsCreateSchema = ticketMessageCreateSchema.extend({
+  attachments: z
+    .array(
+      z.object({
+        fileName: z.string().trim().min(1),
+        fileSize: z
+          .number()
+          .int()
+          .positive()
+          .max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
+        mimeType: z
+          .string()
+          .trim()
+          .min(1)
+          .refine(value => value.startsWith('image/') || value.startsWith('video/') || value === 'application/pdf', {
+            message: 'Only image, video, and PDF attachments are allowed',
+          }),
+        s3Key: z.string().trim().min(1),
+        s3Bucket: z.string().trim().optional(),
+        publicUrl: z.string().url().optional(),
+      })
+    )
+    .default([]),
+});
+
+export const ticketAttachmentMetadataSchema = z.object({
+  fileName: z.string().trim().min(1),
+  fileSize: z
+    .number()
+    .int()
+    .positive()
+    .max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
+  mimeType: z
+    .string()
+    .trim()
+    .min(1)
+    .refine(value => {
+      return value.startsWith('image/') || value.startsWith('video/') || value === 'application/pdf';
+    }, 'Only image, video, and PDF attachments are allowed'),
+  s3Key: z.string().trim().min(1),
+  s3Bucket: z.string().trim().optional(),
+  publicUrl: z.string().url().optional(),
+  messageId: z.string().optional(),
+});
+
+export const ticketAttachmentUploadRequestSchema = z.object({
+  ticketId: z.string().min(1),
+  fileName: z.string().trim().min(1),
+  contentType: z
+    .string()
+    .trim()
+    .min(1)
+    .refine(value => {
+      return value.startsWith('image/') || value.startsWith('video/') || value === 'application/pdf';
+    }, 'Only image, video, and PDF attachments are allowed'),
+  fileSize: z
+    .number()
+    .int()
+    .positive()
+    .max(10 * 1024 * 1024, 'Each file must be 10MB or less'),
+});
 
 const officeWorkScheduleDaySchema = z
   .object({
@@ -504,3 +647,23 @@ export type HolidayCalendarScopeInput = z.infer<typeof holidayCalendarScopeSchem
 export type HolidayCalendarEntryInput = z.infer<typeof holidayCalendarEntrySchema>;
 export type OfficeMemoScopeInput = z.infer<typeof officeMemoScopeSchema>;
 export type OfficeMemoInput = z.infer<typeof officeMemoSchema>;
+
+// --- Webhooks / Panic ---
+export const panicAlertSchema = z.object({
+  id: z.number(),
+  userId: z.number(),
+  firstName: z.string(),
+  lastName: z.string(),
+  latitude: z.coerce.number(),
+  longitude: z.coerce.number(),
+  status: z.string(),
+  createdAt: z.string(),
+});
+
+export const panicWebhookPayloadSchema = z.object({
+  event: z.string(),
+  unresolvedPanics: z.array(panicAlertSchema),
+});
+
+export type PanicAlertInput = z.infer<typeof panicAlertSchema>;
+export type PanicWebhookPayloadInput = z.infer<typeof panicWebhookPayloadSchema>;

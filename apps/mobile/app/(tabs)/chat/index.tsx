@@ -57,7 +57,7 @@ export default function ChatInboxScreen() {
       const response = await client.get(`/api/shared/chat/${employeeId}`, {
         params: { limit: 1 },
       });
-      const messages = response.data as Array<{ content: string; sender: 'admin' | 'employee'; createdAt: string }>;
+      const messages = response.data as { content: string; sender: 'admin' | 'employee'; createdAt: string }[];
       return messages[0] ?? null;
     },
     enabled: !!employeeId && isAuthenticated,

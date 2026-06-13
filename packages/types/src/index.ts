@@ -394,4 +394,54 @@ export interface ChatInboxItem {
   } | null;
 }
 
+export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type TicketStatus = 'NEW' | 'ACKNOWLEDGED' | 'WAITING_INFORMATION' | 'IN_PROGRESS' | 'SOLVED' | 'CLOSED' | 'CANNOT_RESOLVE' | 'CANCELLED';
+export type TicketClaimantType = 'ADMIN' | 'EMPLOYEE';
+
+export interface Ticket {
+  id: string;
+  code: string;
+  title: string;
+  description: string;
+  resolutionTargetHours: number;
+  priority: TicketPriority;
+  status: TicketStatus;
+  submitterAdminId: string;
+  claimedByType: TicketClaimantType | null;
+  claimedByAdminId: string | null;
+  claimedByEmployeeId: string | null;
+  claimedAt: string | Date | null;
+  departmentRoleId: string | null;
+  clientName: string;
+  clientContact: string;
+  clientLocation: string;
+  solvedAt: string | Date | null;
+  closedAt: string | Date | null;
+  cannotResolveAt: string | Date | null;
+  cancelledAt: string | Date | null;
+  cancellationNote: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  submitterAdmin?: { id: string; name: string };
+  claimedByAdmin?: { id: string; name: string } | null;
+  claimedByEmployee?: { id: string; fullName: string } | null;
+}
+
+export interface PanicAlert {
+  id: number;
+  userId: number;
+  firstName: string;
+  lastName: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+  createdAt: string;
+}
+
+export interface PanicWebhookPayload {
+  event: string;
+  unresolvedPanics: PanicAlert[];
+}
+
 export * from './socket-events';
+

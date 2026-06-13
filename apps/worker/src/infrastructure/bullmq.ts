@@ -1,14 +1,14 @@
 import { Queue, Worker, Processor, WorkerOptions, QueueOptions, Job } from 'bullmq';
-import { getRedisConnection } from './redis';
+import { getBullMqConnectionOptions } from './redis';
 
 /**
  * Creates a BullMQ Queue with standard configuration.
  */
 export function createQueue<T = any, R = any, N extends string = string>(
-  name: string,
+  name: N,
   options?: Omit<QueueOptions, 'connection'>
 ) {
-  const connection = getRedisConnection();
+  const connection = getBullMqConnectionOptions();
   return new Queue<T, R, N>(name, {
     ...options,
     connection,
@@ -19,11 +19,11 @@ export function createQueue<T = any, R = any, N extends string = string>(
  * Creates a BullMQ Worker with standard configuration and error handling.
  */
 export function createWorker<T = any, R = any, N extends string = string>(
-  name: string,
+  name: N,
   processor: Processor<T, R, N>,
   options?: Omit<WorkerOptions, 'connection'>
 ) {
-  const connection = getRedisConnection();
+  const connection = getBullMqConnectionOptions();
   const worker = new Worker<T, R, N>(name, processor, {
     ...options,
     connection,

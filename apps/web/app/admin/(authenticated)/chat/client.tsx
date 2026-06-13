@@ -20,6 +20,8 @@ import ChatExport from '../components/chat/chat-export';
 import { ChatMessage } from '@/types/chat';
 import ConfirmDialog from '../components/confirm-dialog';
 import { DirectConversationDialog } from '../components/chat/direct-conversation-dialog';
+import { getAdminDashboardHref } from '@/lib/admin-tab-routing';
+import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 
 export function AdminChatClient() {
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
@@ -30,6 +32,7 @@ export function AdminChatClient() {
   const router = useRouter();
   const pathname = usePathname();
   const { startNavigation } = useAdminNavigationPending();
+  const { selectedTab } = useAdminDashboardTab();
   const selectionFromUrl = useMemo(
     () => parseConversationSelection(new URLSearchParams(searchParams.toString())),
     [searchParams]
@@ -69,12 +72,13 @@ export function AdminChatClient() {
   );
   const handleMinimize = () => {
     saveWidgetResumeState(unifiedChat.selectedConversation);
-    startNavigation('/admin/dashboard');
     if (window.history.length > 1) {
       router.back();
       return;
     }
-    router.push('/admin/dashboard');
+    const dashboardHref = getAdminDashboardHref(selectedTab);
+    startNavigation(dashboardHref);
+    router.push(dashboardHref);
   };
 
   return (

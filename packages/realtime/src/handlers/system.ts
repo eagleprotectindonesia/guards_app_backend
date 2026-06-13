@@ -28,6 +28,8 @@ export function registerSystemHandlers(io: UnifiedServer) {
         io.to('admin').emit('active_shifts', payload);
       } else if (channel === 'dashboard:upcoming-shifts') {
         io.to('admin').emit('upcoming_shifts', payload);
+      } else if (channel === 'dashboard:live-activity') {
+        io.to('admin').emit('new_dashboard:live_activity_event', payload);
       } else if (channel.startsWith('admin-notifications:admin:')) {
         const adminId = channel.split(':').pop();
         if (!adminId) {
@@ -41,10 +43,25 @@ export function registerSystemHandlers(io: UnifiedServer) {
           notification: {
             ...notification,
             readAt: notification?.readAt ? new Date(notification.readAt).toISOString() : null,
-            createdAt: notification?.createdAt ? new Date(notification.createdAt).toISOString() : new Date().toISOString(),
+            createdAt: notification?.createdAt
+              ? new Date(notification.createdAt).toISOString()
+              : new Date().toISOString(),
           },
           unreadCount,
         });
+      } else if (channel === 'events:tickets') {
+        const { type, data } = payload;
+        if (type === 'ticket:created') {
+          io.to('admin').emit('ticket_created', data);
+        } else if (type === 'ticket:status_updated') {
+          io.to('admin').to(`ticket:${data.ticketId}`).emit('ticket_status_updated', data);
+        } else if (type === 'ticket:message_created') {
+          io.to('admin').to(`ticket:${data.ticketId}`).emit('ticket_message_added', data);
+        }
+      } else if (channel === 'events:hr-activities') {
+        io.to('admin').emit('hr_live_activity', payload);
+      } else if (channel === 'webhooks:panic') {
+        io.to('admin').emit('new_dashboard:panic_alerts', payload);
       }
     } catch (err) {
       console.error('[Socket Redis Sub] Parse Error:', err, 'Message:', message);
@@ -63,8 +80,15 @@ export function registerSystemHandlers(io: UnifiedServer) {
     try {
       await sub.psubscribe('alerts:site:*');
       await sub.psubscribe('admin-notifications:admin:*');
-      await sub.subscribe('dashboard:active-shifts', 'dashboard:upcoming-shifts');
-      console.log('[Socket Redis Sub] Subscribed to alerts and dashboard channels');
+      await sub.subscribe(
+        'dashboard:active-shifts',
+        'dashboard:upcoming-shifts',
+        'dashboard:live-activity',
+        'events:tickets',
+        'events:hr-activities',
+        'webhooks:panic'
+      );
+      console.log('[Socket Redis Sub] Subscribed to alerts, dashboard, ticket, HR activity, and panic channels');
     } catch (err) {
       console.error('[Socket Redis Sub] Subscription Failed:', err);
     }

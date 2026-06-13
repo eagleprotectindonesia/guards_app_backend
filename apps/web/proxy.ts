@@ -1,7 +1,9 @@
 import { NextResponse, NextRequest } from 'next/server';
 import { verifySession } from '@/lib/auth/session';
-import { AUTH_COOKIES } from '@/lib/auth/constants';
+import { AUTH_COOKIES, AUTH_COOKIE_SECURE } from '@/lib/auth/constants';
 import { validateApiKeyInDb } from '@repo/database';
+import { refreshEmployeeSession } from '@/lib/auth/session-helper';
+import jwt from 'jsonwebtoken';
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -66,6 +68,8 @@ export async function proxy(request: NextRequest) {
   }
 
   // 4. Handle Employee Session Auth
+  let newToken: string | undefined;
+
   if (isEmployeeApiPath && !isPublicPath) {
     let token = request.cookies.get(AUTH_COOKIES.EMPLOYEE)?.value;
     
@@ -80,8 +84,25 @@ export async function proxy(request: NextRequest) {
     let isValid = false;
 
     if (token) {
-      const { isValid: sessionValid } = await verifySession(token, 'employee');
+      const { isValid: sessionValid, sessionId, exp, userId } = await verifySession(token, 'employee');
       isValid = sessionValid;
+
+      if (isValid && sessionId && exp && userId) {
+        const currentTimestampSec = Math.floor(Date.now() / 1000);
+        const secondsRemaining = exp - currentTimestampSec;
+        const twelveHoursSec = 12 * 60 * 60;
+
+        if (secondsRemaining < twelveHoursSec) {
+          try {
+            const decodedToken = jwt.decode(token) as { clientType?: 'mobile' | 'pwa' };
+            const clientType = decodedToken?.clientType || 'mobile';
+
+            newToken = await refreshEmployeeSession(sessionId, userId, clientType);
+          } catch (error) {
+            console.error('Failed to refresh employee session:', error);
+          }
+        }
+      }
     }
 
     if (!isValid) {
@@ -129,7 +150,17 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  const response = NextResponse.next();
+  if (newToken) {
+    response.headers.set('x-new-token', newToken);
+    response.cookies.set(AUTH_COOKIES.EMPLOYEE, newToken, {
+      httpOnly: true,
+      secure: AUTH_COOKIE_SECURE,
+      maxAge: 60 * 60 * 24,
+      path: '/',
+    });
+  }
+  return response;
 }
 
 export const config = {

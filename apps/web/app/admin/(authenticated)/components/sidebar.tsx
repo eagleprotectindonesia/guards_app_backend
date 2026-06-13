@@ -1,77 +1,123 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { ChevronDown, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { cn } from '@repo/shared';
-import { ADMIN_SECONDARY_NAV_ITEMS, getAdminNavItems, type NavItem } from '@/lib/admin-navigation';
+import { getAdminNavGroups } from '@/lib/admin-navigation';
 import { useSession } from '../context/session-context';
 import { AdminNavLink } from './admin-nav-link';
 import { useAdminNotifications } from '../context/admin-notification-context';
+import { getAdminDashboardHref, getAdminTabFromPath } from '@/lib/admin-tab-routing';
+import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 
 type Props = {
   officeWorkSchedulesEnabled: boolean;
 };
 
+function DigitalClock({ isCollapsed }: { isCollapsed: boolean }) {
+  const [time, setTime] = useState<Date | null>(null);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date());
+    }, 1000);
+
+    const timeout = setTimeout(() => {
+      setTime(new Date());
+    }, 0);
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(timeout);
+    };
+  }, []);
+
+  if (!time) return null;
+
+  return (
+    <div
+      className={cn(
+        'mt-auto p-3 border-t border-border bg-accent/5 transition-all duration-300',
+        isCollapsed ? 'items-center px-0' : ''
+      )}
+    >
+      <div className={cn('flex items-start gap-3', isCollapsed ? 'justify-center' : '')}>
+        <div className="p-2 rounded-lg bg-accent/10 text-muted-foreground shrink-0">
+          <Clock className="w-5 h-5" />
+        </div>
+        {!isCollapsed && (
+          <div className="flex flex-col min-w-0">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/60">
+              System Time
+            </span>
+            <div className="flex flex-wrap items-baseline gap-x-2 text-sm font-medium text-foreground/90 tabular-nums leading-tight mt-1">
+              <span className="whitespace-nowrap">
+                {time.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+              <span className="text-muted-foreground whitespace-nowrap">
+                {time.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const routeTab = getAdminTabFromPath(pathname);
+  const { selectedTab } = useAdminDashboardTab();
   const { hasPermission } = useSession();
   const { unreadCount } = useAdminNotifications();
+  const currentUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
+  const [ticketCounters, setTicketCounters] = useState<{ all: number; my: number; unassigned: number; closed: number } | null>(null);
+
+  useEffect(() => {
+    if (!hasPermission('tickets:view')) return;
+
+    let cancelled = false;
+    const loadCounters = async () => {
+      try {
+        const response = await fetch('/api/admin/tickets/counters', { method: 'GET', cache: 'no-store' });
+        if (!response.ok) return;
+        const data = (await response.json()) as { all: number; my: number; unassigned: number; closed: number };
+        if (!cancelled) {
+          setTicketCounters(data);
+        }
+      } catch (error) {
+        console.error('Failed to load ticket counters', error);
+      }
+    };
+
+    void loadCounters();
+    return () => {
+      cancelled = true;
+    };
+  }, [hasPermission]);
 
   const navGroups = useMemo(() => {
-    const navItems = getAdminNavItems(officeWorkSchedulesEnabled);
-    const byName = new Map(navItems.map(item => [item.name, item]));
-
-    const groups: Array<{ label: string; items: NavItem[] }> = [
-      { label: 'Dashboard', items: [byName.get('Dashboard')].filter(Boolean) as NavItem[] },
-      {
-        label: 'Office',
-        items: [
-          byName.get('Offices'),
-          byName.get('Office Schedules'),
-          byName.get('Office Shift Types'),
-          byName.get('Office Shifts'),
-        ].filter(Boolean) as NavItem[],
-      },
-      {
-        label: 'Guard',
-        items: [
-          byName.get('Sites'),
-          byName.get('Guard Shift Types'),
-          byName.get('Guard Shifts'),
-          byName.get('Guard Checkins'),
-          byName.get('Alerts'),
-          byName.get('Chat'),
-        ].filter(Boolean) as NavItem[],
-      },
-      {
-        label: 'Employee Management',
-        items: [
-          byName.get('Employees'),
-          byName.get('Attendance'),
-          byName.get('Holiday Calendar'),
-          byName.get('Leave Requests'),
-          byName.get('Office Memos'),
-        ].filter(Boolean) as NavItem[],
-      },
-      {
-        label: 'System',
-        items: ADMIN_SECONDARY_NAV_ITEMS,
-      },
-    ];
-
-    return groups
+    return getAdminNavGroups(officeWorkSchedulesEnabled, selectedTab)
       .map(group => ({
         ...group,
         items: group.items.filter(item => !item.requiredPermission || hasPermission(item.requiredPermission)),
       }))
       .filter(group => group.items.length > 0);
-  }, [hasPermission, officeWorkSchedulesEnabled]);
+  }, [hasPermission, officeWorkSchedulesEnabled, selectedTab]);
 
   const isGroupCollapsed = (label: string) => collapsedGroups[label] ?? false;
+  const ticketCounterByHref: Record<string, number | undefined> = {
+    '/admin/ticket/all': ticketCounters?.all,
+    '/admin/ticket/my': ticketCounters?.my,
+    '/admin/ticket/unassigned': ticketCounters?.unassigned,
+    '/admin/ticket/closed': ticketCounters?.closed,
+  };
 
   return (
     <aside
@@ -83,7 +129,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-border relative group">
         <AdminNavLink
-          href="/admin/dashboard"
+          href={getAdminDashboardHref(selectedTab)}
           className={cn(
             'flex items-center overflow-hidden transition-all duration-300',
             isCollapsed ? 'justify-center w-full' : 'w-full'
@@ -148,8 +194,12 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
             {!isCollapsed && !isGroupCollapsed(group.label) && (
               <div className="space-y-1">
                 {group.items.map(item => {
-                  const isActive = pathname.startsWith(item.href);
+                  const isActive = item.href.includes('?')
+                    ? currentUrl === item.href
+                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
+                  const ticketCounter = ticketCounterByHref[item.href];
+                  const showTicketCounter = typeof ticketCounter === 'number' && ticketCounter > 0;
 
                   return (
                     <AdminNavLink
@@ -159,7 +209,9 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                         isActive
-                          ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
+                          ? routeTab === 'ticket'
+                            ? 'bg-purple-500/10 text-purple-400 dark:bg-purple-950/30 dark:text-purple-400 border border-purple-500/20'
+                            : 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
                           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
                         isCollapsed && 'justify-center px-2'
                       )}
@@ -167,7 +219,11 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       <item.icon
                         className={cn(
                           'w-5 h-5 shrink-0',
-                          isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+                          isActive
+                          ? routeTab === 'ticket'
+                              ? 'text-purple-400'
+                              : 'text-red-600 dark:text-red-400'
+                            : 'text-muted-foreground'
                         )}
                       />
                       <span
@@ -183,6 +239,11 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                           {unreadCount > 99 ? '99+' : unreadCount}
                         </span>
                       )}
+                      {showTicketCounter && (
+                        <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
+                          {ticketCounter! > 99 ? '99+' : ticketCounter}
+                        </span>
+                      )}
                     </AdminNavLink>
                   );
                 })}
@@ -196,8 +257,12 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
             {isCollapsed && (
               <div className="space-y-1">
                 {group.items.map(item => {
-                  const isActive = pathname.startsWith(item.href);
+                  const isActive = item.href.includes('?')
+                    ? currentUrl === item.href
+                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
+                  const ticketCounter = ticketCounterByHref[item.href];
+                  const showTicketCounter = typeof ticketCounter === 'number' && ticketCounter > 0;
 
                   return (
                     <AdminNavLink
@@ -207,19 +272,30 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       className={cn(
                         'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors justify-center px-2',
                         isActive
-                          ? 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
+                          ? routeTab === 'ticket'
+                            ? 'bg-purple-500/10 text-purple-400 dark:bg-purple-950/30 dark:text-purple-400 border border-purple-500/20'
+                            : 'bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400'
                           : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                       )}
                     >
                       <item.icon
                         className={cn(
                           'w-5 h-5 shrink-0',
-                          isActive ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'
+                          isActive
+                            ? routeTab === 'ticket'
+                              ? 'text-purple-400'
+                              : 'text-red-600 dark:text-red-400'
+                            : 'text-muted-foreground'
                         )}
                       />
                       {showLeaveRequestsCounter && (
                         <span className="absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
                           {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                      {showTicketCounter && (
+                        <span className="absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-semibold text-white">
+                          {ticketCounter! > 99 ? '99+' : ticketCounter}
                         </span>
                       )}
                       <span className="opacity-0 w-0 hidden">{item.name}</span>
@@ -231,6 +307,8 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
           </div>
         ))}
       </nav>
+
+      <DigitalClock isCollapsed={isCollapsed} />
     </aside>
   );
 }

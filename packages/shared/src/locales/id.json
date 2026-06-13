@@ -398,5 +398,58 @@
       "attachmentPickFailed": "Gagal memilih lampiran",
       "attachmentUploadFailed": "Gagal mengunggah lampiran"
     }
+  },
+  "tickets": {
+    "title": "Tiket",
+    "menuTitle": "Tiket Departemen",
+    "noTickets": "Tidak ada tiket ditemukan untuk departemen Anda",
+    "priority": "Prioritas",
+    "status": "Status",
+    "createdBy": "Dibuat Oleh",
+    "createdDate": "Tanggal Dibuat",
+    "loading": "Memuat tiket...",
+    "unassignedCount": "{{count}} belum diambil",
+    "notFound": "Tiket tidak ditemukan atau akses ditolak",
+    "claimedByYou": "Diklaim Oleh Anda",
+    "claimedByOtherGuard": "Diklaim oleh Petugas Lain",
+    "claimedByAdmin": "Diklaim oleh Admin",
+    "claiming": "MENGKLAIM...",
+    "claimTicket": "KLAIM TIKET",
+    "description": "Deskripsi",
+    "noDescription": "Tidak ada deskripsi yang disediakan.",
+    "details": "Detail Tiket",
+    "targetHours": "Target SLA",
+    "hours": "jam",
+    "clientInfo": "Informasi Klien",
+    "clientName": "Klien",
+    "clientContact": "Kontak",
+    "location": "Lokasi",
+    "noMessages": "Belum ada pesan diskusi.",
+    "badgeGuard": "Petugas",
+    "badgeAdmin": "Admin",
+    "typeMessage": "Ketik pesan Anda...",
+    "noAttachments": "Tidak ada lampiran yang diunggah.",
+    "openDiscussion": "Buka Diskusi",
+    "tabs": {
+      "details": "Detail",
+      "discussion": "Diskusi",
+      "attachments": "Lampiran"
+    },
+    "priorityLabel": {
+      "LOW": "Rendah",
+      "MEDIUM": "Sedang",
+      "HIGH": "Tinggi",
+      "CRITICAL": "Kritis"
+    },
+    "statusLabel": {
+      "NEW": "Baru",
+      "ACKNOWLEDGED": "Sudah diambil",
+      "WAITING_INFORMATION": "Menunggu Informasi",
+      "IN_PROGRESS": "Sedang Diproses",
+      "SOLVED": "Terselesaikan",
+      "CLOSED": "Ditutup",
+      "CANNOT_RESOLVE": "Tidak Dapat Diselesaikan",
+      "CANCELLED": "Dibatalkan"
+    }
   }
 }

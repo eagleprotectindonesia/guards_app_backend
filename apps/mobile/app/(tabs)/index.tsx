@@ -26,6 +26,7 @@ import { usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalCo
 import type { WeeklyOfficeAttendanceResponse } from '../../src/hooks/useOfficeAttendance';
 import { useAnnouncements } from '../../src/hooks/useAnnouncements';
 import AnnouncementBell from '../../src/components/AnnouncementBell';
+import { useUnassignedTicketsCount } from '../../src/hooks/useTickets';
 
 type ActiveShiftData = {
   activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;
@@ -39,6 +40,9 @@ export default function HomeScreen() {
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
   const { isOpen: isPasswordChangeModalOpen } = usePasswordChangeModal();
   const { unreadCount: unreadAnnouncementCount } = useAnnouncements();
+  const { data: ticketsCountData } = useUnassignedTicketsCount();
+  const unassignedTicketsCount = ticketsCountData?.count ?? 0;
+  const totalAlertCount = unreadAnnouncementCount + unassignedTicketsCount;
 
   const { data: profile, isLoading: isProfileLoading } = useProfile();
   const employeeRole = profile?.employee?.role;
@@ -134,7 +138,7 @@ export default function HomeScreen() {
               </HStack>
               <HStack space="sm" className="items-center shrink-0">
                 <AnnouncementBell
-                  count={unreadAnnouncementCount}
+                  count={totalAlertCount}
                   accessibilityLabel={t('announcements.title', 'Announcements')}
                 />
                 <GlassLanguageToggle />

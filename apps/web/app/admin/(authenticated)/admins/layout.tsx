@@ -5,7 +5,7 @@ export default async function AdminsLayout({ children }: { children: React.React
   const currentAdmin = await getCurrentAdmin();
 
   if (currentAdmin?.role !== 'superadmin') {
-    redirect('/admin/dashboard');
+    redirect('/admin/new-dashboard');
   }
 
   return <>{children}</>;

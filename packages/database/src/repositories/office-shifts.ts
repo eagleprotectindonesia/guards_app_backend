@@ -2,6 +2,7 @@ import { Prisma, ShiftStatus } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange, OFFICE_PAID_BREAK_MINUTES } from './office-work-schedules';
 import { deleteEmployeeOfficeDayOverridesByEmployeeAndDates } from './office-day-overrides';
+import { logHrActivity } from './hr-activities';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 
@@ -304,6 +305,14 @@ export async function createOfficeShiftWithChangelog(
     },
   });
 
+  // Log HR activity
+  await logHrActivity({
+    id: `office_shift:${created.id}`,
+    type: 'office_shift_created',
+    employeeName: created.employee.fullName,
+    details: `Shift scheduled: ${created.officeShiftType.name} on ${new Date(created.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+  });
+
   return created;
 }
 
@@ -520,6 +529,16 @@ export async function bulkCreateOfficeShiftsWithChangelog(
       })),
     });
 
+    // Log HR activities
+    for (const shift of results) {
+      await logHrActivity({
+        id: `office_shift:${shift.id}`,
+        type: 'office_shift_created',
+        employeeName: shift.employee.fullName,
+        details: `Shift scheduled: ${shift.officeShiftType.name} on ${new Date(shift.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+      });
+    }
+
     return results;
   };
 
@@ -709,3 +728,113 @@ export async function deleteOfficeShiftsByEmployeeAndDates(
 
   return shiftIds.length;
 }
+
+export async function getUpcomingOfficeShiftsOverview(at = new Date()) {
+  const todayRange = getBusinessDayRange(at, BUSINESS_TIMEZONE);
+  
+  const tomorrow = new Date(at);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowRange = getBusinessDayRange(tomorrow, BUSINESS_TIMEZONE);
+
+  const sevenDays = new Date(at);
+  sevenDays.setDate(sevenDays.getDate() + 7);
+  const sevenDaysRange = getBusinessDayRange(sevenDays, BUSINESS_TIMEZONE);
+
+  const [todayUpcoming, tomorrowCount, next7Days] = await Promise.all([
+    prisma.officeShift.count({
+      where: {
+        deletedAt: null,
+        startsAt: {
+          gt: at,
+          lt: todayRange.end,
+        },
+        status: {
+          not: 'cancelled' as ShiftStatus,
+        },
+      },
+    }),
+    prisma.officeShift.count({
+      where: {
+        deletedAt: null,
+        startsAt: {
+          gte: tomorrowRange.start,
+          lt: tomorrowRange.end,
+        },
+        status: {
+          not: 'cancelled' as ShiftStatus,
+        },
+      },
+    }),
+    prisma.officeShift.count({
+      where: {
+        deletedAt: null,
+        startsAt: {
+          gte: todayRange.start,
+          lt: sevenDaysRange.end,
+        },
+        status: {
+          not: 'cancelled' as ShiftStatus,
+        },
+      },
+    }),
+  ]);
+
+  return {
+    todayUpcoming,
+    tomorrow: tomorrowCount,
+    next7Days,
+  };
+}
+
+export async function getTodayOfficeShiftsOverview(at = new Date()) {
+  const todayRange = getBusinessDayRange(at, BUSINESS_TIMEZONE);
+
+  const [completed, ongoing, upcoming] = await Promise.all([
+    prisma.officeShift.count({
+      where: {
+        deletedAt: null,
+        endsAt: {
+          lte: at,
+          gte: todayRange.start,
+        },
+        status: {
+          not: 'cancelled' as ShiftStatus,
+        },
+      },
+    }),
+    prisma.officeShift.count({
+      where: {
+        deletedAt: null,
+        startsAt: {
+          lte: at,
+        },
+        endsAt: {
+          gt: at,
+        },
+        status: {
+          not: 'cancelled' as ShiftStatus,
+        },
+      },
+    }),
+    prisma.officeShift.count({
+      where: {
+        deletedAt: null,
+        startsAt: {
+          gt: at,
+          lt: todayRange.end,
+        },
+        status: {
+          not: 'cancelled' as ShiftStatus,
+        },
+      },
+    }),
+  ]);
+
+  return {
+    completed,
+    ongoing,
+    upcoming,
+  };
+}
+
+

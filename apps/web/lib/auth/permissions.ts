@@ -20,12 +20,17 @@ export const RESOURCES = [
   'roles',
   'system-settings',
   'dashboard',
+  'dashboard-guard',
+  'dashboard-hr',
+  'dashboard-client',
+  'dashboard-system',
   'departments',
   'designations',
   'chat',
   'leave-requests',
   'holiday-calendars',
   'office-memos',
+  'tickets',
 ] as const;
 
 export const ACTIONS = ['view', 'create', 'edit', 'delete'] as const;
@@ -154,6 +159,24 @@ export const PERMISSIONS = {
     CREATE: 'office-memos:create',
     EDIT: 'office-memos:edit',
     DELETE: 'office-memos:delete',
+  },
+  TICKETS: {
+    VIEW: 'tickets:view',
+    CREATE: 'tickets:create',
+    EDIT: 'tickets:edit',
+    DELETE: 'tickets:delete',
+  },
+  GUARD_DASHBOARD: {
+    VIEW: 'dashboard-guard:view',
+  },
+  HR_DASHBOARD: {
+    VIEW: 'dashboard-hr:view',
+  },
+  CLIENT_DASHBOARD: {
+    VIEW: 'dashboard-client:view',
+  },
+  SYSTEM_DASHBOARD: {
+    VIEW: 'dashboard-system:view',
   },
 } satisfies Record<string, Record<string, PermissionCode>>;
 

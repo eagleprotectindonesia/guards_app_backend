@@ -1,5 +1,6 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createPresignedPost } from '@aws-sdk/s3-presigned-post';
 import crypto from 'crypto';
 import { redis } from '@repo/database/redis';
 
@@ -27,6 +28,7 @@ type UploadFolderOptions = {
   conversationId?: string;
   messageId?: string;
   fileType?: string;
+  ticketId?: string;
 };
 
 function sanitizeFallbackFileName(fileName: string) {
@@ -36,7 +38,7 @@ function sanitizeFallbackFileName(fileName: string) {
     .replace(/^\.+/, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
-    .replace(/^-+/, '')
+    .replace(/-+$/, '')
     .trim();
 
   return normalized || 'file';
@@ -63,6 +65,32 @@ function buildS3ObjectKey(fileName: string, options: UploadFolderOptions, contex
       fileName,
       fileType: options.fileType || null,
     });
+  }
+
+  if (folder === 'tickets' || folder.startsWith('tickets')) {
+    const ext = fileName.includes('.') ? fileName.split('.').pop() : '';
+    const uuid = crypto.randomUUID();
+    const env = process.env.NODE_ENV === 'production' ? 'prod' : process.env.NODE_ENV || 'development';
+    
+    let fileType = options.fileType;
+    if (!fileType && ext) {
+      const lowerExt = ext.toLowerCase();
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(lowerExt)) {
+        fileType = 'image';
+      } else if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(lowerExt)) {
+        fileType = 'video';
+      } else if (lowerExt === 'pdf') {
+        fileType = 'pdf';
+      }
+    }
+    fileType = fileType || 'file';
+
+    const ticketId = options.ticketId || 'temp';
+
+    if (options.messageId) {
+      return `tickets/env=${env}/ticket_${ticketId}/msg_${options.messageId}/${fileType}/${uuid}${ext ? '.' + ext : ''}`;
+    }
+    return `tickets/env=${env}/ticket_${ticketId}/${fileType}/${uuid}${ext ? '.' + ext : ''}`;
   }
 
   const safeFileName = sanitizeFallbackFileName(fileName);
@@ -97,6 +125,43 @@ export async function getPresignedUploadUrl(
   const publicUrl = `https://${BUCKET_NAME}.s3.${region}.amazonaws.com/${key}`;
 
   return { uploadUrl, publicUrl, key };
+}
+
+export async function getPresignedUploadPostPolicy(
+  fileName: string,
+  contentType: string,
+  fileSize: number,
+  folderOrOptions:
+    | string
+    | UploadFolderOptions = 'uploads'
+) {
+  if (!BUCKET_NAME) {
+    throw new Error('AWS_S3_BUCKET_NAME is not configured');
+  }
+
+  const options = typeof folderOrOptions === 'string' ? { folder: folderOrOptions } : folderOrOptions;
+  const key = buildS3ObjectKey(fileName, options, 'presigned');
+
+  const post = await createPresignedPost(s3Client, {
+    Bucket: BUCKET_NAME,
+    Key: key,
+    Expires: 3600,
+    Conditions: [
+      ['content-length-range', 1, fileSize],
+      ['eq', '$Content-Type', contentType],
+      ['starts-with', '$key', `${options.folder || 'uploads'}/`],
+    ],
+    Fields: {
+      'Content-Type': contentType,
+      key,
+    },
+  });
+
+  return {
+    url: post.url,
+    fields: post.fields,
+    key,
+  };
 }
 
 /**

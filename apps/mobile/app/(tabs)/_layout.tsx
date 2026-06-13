@@ -10,6 +10,7 @@ import { PasswordChangeModalProvider, usePasswordChangeModal } from '../../src/c
 import SessionMonitor from '../../src/components/SessionMonitor';
 import { useProfile } from '../../src/hooks/useProfile';
 import { useAnnouncements } from '../../src/hooks/useAnnouncements';
+import { useUnassignedTicketsCount } from '../../src/hooks/useTickets';
 
 export default function TabsLayout() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -52,6 +53,9 @@ function TabsContent({ isAuthenticated }: { isAuthenticated: boolean }) {
   const { t } = useTranslation();
   const { unreadCount } = useChatTabUnread();
   const { unreadCount: unreadAnnouncementCount } = useAnnouncements();
+  const { data: ticketsCountData } = useUnassignedTicketsCount();
+  const unassignedTicketsCount = ticketsCountData?.count ?? 0;
+  const totalAlertCount = unreadAnnouncementCount + unassignedTicketsCount;
 
   return (
     <View style={{ flex: 1 }}>
@@ -107,7 +111,7 @@ function TabsContent({ isAuthenticated }: { isAuthenticated: boolean }) {
             options={{
               title: t('tabs.account', 'Account'),
               tabBarIcon: ({ color, size }) => <User stroke={color} size={size} />,
-              tabBarBadge: unreadAnnouncementCount > 0 ? '' : undefined,
+              tabBarBadge: totalAlertCount > 0 ? '' : undefined,
               tabBarBadgeStyle: {
                 backgroundColor: '#EF4444',
                 minWidth: 10,

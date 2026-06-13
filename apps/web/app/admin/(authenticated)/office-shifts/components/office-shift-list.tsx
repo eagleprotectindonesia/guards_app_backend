@@ -54,7 +54,7 @@ export default function OfficeShiftList({
   const { hasPermission, isSuperAdmin } = useSession();
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
+  const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(searchParams.get('bulk') === 'true');
   const [selectedOfficeShiftId, setSelectedOfficeShiftId] = useState<string | null>(null);
   const [selectedOfficeShiftIds, setSelectedOfficeShiftIds] = useState<Set<string>>(new Set());
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);

@@ -16,3 +16,4 @@ export * from './employee-api-errors';
 // General Utilities (Framework-agnostic helpers)
 // ============================================================================
 export * from './utils';
+export * from './ticket-departments';

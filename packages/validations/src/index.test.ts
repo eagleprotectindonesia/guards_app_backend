@@ -1,9 +1,11 @@
 import {
   createOfficeShiftTypeSchema,
   createShiftTypeSchema,
+  ticketCreateSchema,
   updateDefaultOfficeWorkScheduleSchema,
   updateOfficeWorkScheduleSchema,
 } from './index';
+import { hasVisibleText, stripHtmlToText } from './rich-text';
 
 const overnightDays = [
   { weekday: 0, isWorkingDay: false, startTime: null, endTime: null },
@@ -83,5 +85,53 @@ describe('office shift type validation', () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe('rich text helpers', () => {
+  test('strips HTML to visible text', () => {
+    expect(stripHtmlToText('<p>Hello <strong>world</strong></p><ul><li>One</li><li>Two</li></ul>')).toBe(
+      'Hello world\n• One\n• Two'
+    );
+  });
+
+  test('treats TinyMCE empty markup as empty', () => {
+    expect(hasVisibleText('<p><br></p>')).toBe(false);
+    expect(hasVisibleText('')).toBe(false);
+  });
+});
+
+describe('ticket validation', () => {
+  test('accepts formatted rich text with visible content', () => {
+    const result = ticketCreateSchema.safeParse({
+      title: 'VPN down',
+      description: '<p><strong>VPN</strong> is not connecting for the office.</p>',
+      department: 'IT',
+      clientName: 'Acme',
+      clientContact: '+628111234567',
+      clientLocation: 'Jakarta',
+      resolutionTargetHours: 4,
+      priority: 'MEDIUM',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  test('rejects empty editor markup as missing description', () => {
+    const result = ticketCreateSchema.safeParse({
+      title: 'VPN down',
+      description: '<p><br></p>',
+      department: 'IT',
+      clientName: 'Acme',
+      clientContact: '+628111234567',
+      clientLocation: 'Jakarta',
+      resolutionTargetHours: 4,
+      priority: 'MEDIUM',
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toBe('Description is required');
+    }
   });
 });

@@ -7,7 +7,7 @@ import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { LogOut, Key, ChevronRight, Fingerprint, Calendar, Bell } from 'lucide-react-native';
+import { LogOut, Key, ChevronRight, Fingerprint, Calendar, Bell, Tag } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
@@ -22,8 +22,10 @@ import PasswordConfirmationModal from '../../src/components/PasswordConfirmation
 import { LinearGradient } from 'expo-linear-gradient';
 import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
 import { useProfile } from '../../src/hooks/useProfile';
+import { isTicketEnabledDepartment } from '@repo/shared';
 import { useAnnouncements } from '../../src/hooks/useAnnouncements';
 import AnnouncementBell from '../../src/components/AnnouncementBell';
+import { useUnassignedTicketsCount } from '../../src/hooks/useTickets';
 
 const DEFAULT_AVATAR =
   'https://lh3.googleusercontent.com/aida-public/AB6AXuDzcxM7B2Plj0M6rLwD5-jwCeXCJ-VxTGp8XT8dffCo7Cjv4BQ3_fM-MkOicyMU8jJxMw9Q81kjfqVm_zD_yfF92pmxUsZDY_fB7by9N3_LAOMNfdJlNjEUudjhqq7Cm5LUPTk9aKNVSgT9A4rsOYqHKU5vKRmjMZknp_AFtbKxzLh1PX2V_AKy5bez2tThvg_swnSuuvc4uRhd_JO8vfyGxuCUlrrS_Gt_LXaPHMHfgxPWTz6nvJqDPVw3QneYlTqVGg46xTuvrQDq';
@@ -50,7 +52,10 @@ export default function AccountScreen() {
   }, []);
 
   const { data: profile } = useProfile();
+  const { data: ticketsCountData } = useUnassignedTicketsCount();
+  const unassignedTicketsCount = ticketsCountData?.count ?? 0;
   const { unreadCount: unreadAnnouncementCount } = useAnnouncements();
+  const totalAlertCount = unreadAnnouncementCount + unassignedTicketsCount;
 
   const employee = profile?.employee;
 
@@ -122,7 +127,7 @@ export default function AccountScreen() {
           <Box className="px-6 flex-row justify-end">
             <HStack space="sm" className="items-center">
               <AnnouncementBell
-                count={unreadAnnouncementCount}
+                count={totalAlertCount}
                 accessibilityLabel={t('announcements.title', 'Announcements')}
               />
               <GlassLanguageToggle />
@@ -241,6 +246,30 @@ export default function AccountScreen() {
                     <ChevronRight size={18} color="#666666" />
                   </Box>
                 </TouchableOpacity>
+
+                {/* Department Tickets */}
+                {isTicketEnabledDepartment(employee?.department) && (
+                  <TouchableOpacity onPress={() => router.push('/tickets')} activeOpacity={0.7}>
+                    <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
+                      <HStack space="md" className="items-center">
+                        <Box className="w-10 h-10 rounded-xl bg-[#FF9500]/10 items-center justify-center border border-[#FF9500]/20">
+                          <Tag size={20} color="#FF9500" />
+                        </Box>
+                        <VStack>
+                          <Text size="sm" className="font-semibold text-white">
+                            {t('tickets.menuTitle', 'Department Tickets')}
+                          </Text>
+                          {unassignedTicketsCount > 0 ? (
+                            <Text className="text-[#FF9500] font-bold uppercase tracking-[1.2px]" size="2xs">
+                              {t('tickets.unassignedCount', '{{count}} unassigned', { count: unassignedTicketsCount })}
+                            </Text>
+                          ) : null}
+                        </VStack>
+                      </HStack>
+                      <ChevronRight size={18} color="#666666" />
+                    </Box>
+                  </TouchableOpacity>
+                )}
 
                 {/* Biometrics */}
                 {isBiometricAvailable && (

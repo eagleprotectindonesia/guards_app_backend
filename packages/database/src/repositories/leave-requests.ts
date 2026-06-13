@@ -9,12 +9,14 @@ import {
 } from './office-attendance';
 import { redis } from '../redis/client';
 import { createLeaveRequestCreatedAdminNotifications } from './admin-notifications';
+import { logHrActivity } from './hr-activities';
 import { enqueueEmailEvent } from '../email-events';
 import { getSystemSetting } from './settings';
 import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
 import { resolveHolidayPolicyForEmployeeDate } from './holiday-calendar-entries';
 import { listEmployeeOnsiteDayOffDateKeysInRange } from './onsite-day-offs';
 import { listEmployeeOfficeDayOverridesForDates } from './office-day-overrides';
+import { computeAnnualLeaveEntitledDays } from './annual-leave-policy';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 export const OVERLAPPING_PENDING_LEAVE_REQUEST_ERROR = 'Overlapping pending leave request already exists';
@@ -354,7 +356,7 @@ export async function createEmployeeLeaveRequest(
   const requiresDocument = params.reason === 'special_miscarriage';
   const employee = await targetTx.employee.findUnique({
     where: { id: params.employeeId },
-    select: { id: true, role: true },
+    select: { id: true, role: true, fullName: true },
   });
   if (!employee) {
     throw new Error('Employee not found');
@@ -443,6 +445,14 @@ export async function createEmployeeLeaveRequest(
         status: 'pending',
       },
     },
+  });
+
+  // Log HR activity
+  await logHrActivity({
+    id: `leave_request:${created.id}`,
+    type: 'leave_request_created',
+    employeeName: employee.fullName,
+    details: `${params.reason.toUpperCase().replace('_', ' ')} Leave requested: ${new Date(params.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(params.endDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
   });
 
   const createdNotifications = await createLeaveRequestCreatedAdminNotifications(
@@ -666,6 +676,14 @@ type AnnualLeaveConsumptionResult = {
 };
 
 async function getOrCreateAnnualLeaveBalance(employeeId: string, year: number, tx: Prisma.TransactionClient) {
+  const employee = await tx.employee.findUnique({
+    where: { id: employeeId },
+    select: { dateOfJoining: true },
+  });
+  if (!employee) {
+    throw new Error('Employee not found');
+  }
+  const entitledDays = computeAnnualLeaveEntitledDays({ dateOfJoining: employee.dateOfJoining, year });
   return tx.employeeAnnualLeaveBalance.upsert({
     where: {
       employeeId_year: {
@@ -677,7 +695,7 @@ async function getOrCreateAnnualLeaveBalance(employeeId: string, year: number, t
     create: {
       employeeId,
       year,
-      entitledDays: 12,
+      entitledDays,
       adjustedDays: 0,
       consumedDays: 0,
     },
@@ -693,6 +711,13 @@ export async function calculateAnnualLeaveConsumption(
 ): Promise<AnnualLeaveConsumptionResult> {
   if (params.dayKeys.length === 0) {
     return { deductedDays: 0, shortfallDays: 0 };
+  }
+  const employee = await (tx as TxLike).employee.findUnique({
+    where: { id: params.employeeId },
+    select: { dateOfJoining: true },
+  });
+  if (!employee) {
+    throw new Error('Employee not found');
   }
 
   const daysByYear = new Map<number, number>();
@@ -719,7 +744,9 @@ export async function calculateAnnualLeaveConsumption(
       },
     });
 
-    const available = balance ? Math.max(0, balance.entitledDays + balance.adjustedDays - balance.consumedDays) : 12; // Default entitlement if record doesn't exist yet
+    const available = balance
+      ? Math.max(0, balance.entitledDays + balance.adjustedDays - balance.consumedDays)
+      : computeAnnualLeaveEntitledDays({ dateOfJoining: employee.dateOfJoining, year });
 
     const requestedInYear = daysByYear.get(year) ?? 0;
     const canConsume = Math.min(requestedInYear, remainingToConsume, available);
@@ -1613,4 +1640,52 @@ export async function cancelOverlappingPendingLeaveRequestsByAttendance(params: 
   });
 
   return { cancelledCount: requests.length };
+}
+
+export async function getActiveLeavesCountForDate(date: Date = new Date()): Promise<number> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  return prisma.employeeLeaveRequest.count({
+    where: {
+      status: 'approved',
+      startDate: { lte: endOfDay },
+      endDate: { gte: startOfDay },
+    },
+  });
+}
+
+export async function getPendingLeaveRequestsCount(): Promise<number> {
+  return prisma.employeeLeaveRequest.count({
+    where: {
+      status: { in: ['pending', 'pending_hr', 'pending_manager'] },
+    },
+  });
+}
+
+export async function getLeaveApprovedTodayCount(date: Date = new Date()): Promise<number> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  return prisma.employeeLeaveRequest.count({
+    where: {
+      status: 'approved',
+      OR: [
+        { hrApprovedAt: { gte: startOfDay, lte: endOfDay } },
+        { managerApprovedAt: { gte: startOfDay, lte: endOfDay } },
+      ],
+    },
+  });
+}
+
+export async function getLeaveRejectedTodayCount(date: Date = new Date()): Promise<number> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  return prisma.employeeLeaveRequest.count({
+    where: {
+      status: 'rejected',
+      reviewedAt: { gte: startOfDay, lte: endOfDay },
+    },
+  });
 }

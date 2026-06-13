@@ -6,6 +6,11 @@ import {
   Bell,
   Layers,
   ClipboardCheck,
+  PlusSquare,
+  List,
+  UserRound,
+  Inbox,
+  Archive,
   UserCog,
   Settings,
   Hotel,
@@ -15,6 +20,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { PermissionCode } from './auth/permissions';
+import { getAdminDashboardHref, type AdminTabSlug } from './admin-tab-routing';
 
 export interface NavItem {
   name: string;
@@ -28,9 +34,17 @@ export interface NavGroup {
   items: NavItem[];
 }
 
+export const ADMIN_TICKET_NAV_ITEMS: NavItem[] = [
+  { name: 'All Tickets', href: '/admin/ticket/all', icon: List, requiredPermission: 'tickets:view' },
+  { name: 'Create Ticket', href: '/admin/ticket/create', icon: PlusSquare, requiredPermission: 'tickets:create' },
+  { name: 'Acknowledged', href: '/admin/ticket/my', icon: UserRound, requiredPermission: 'tickets:view' },
+  { name: 'Unassigned', href: '/admin/ticket/unassigned', icon: Inbox, requiredPermission: 'tickets:view' },
+  { name: 'Closed Tickets', href: '/admin/ticket/closed', icon: Archive, requiredPermission: 'tickets:view' },
+];
+
 export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
   return [
-    { name: 'Dashboard', href: '/admin/dashboard', icon: LayoutDashboard },
+    { name: 'Dashboard', href: '/admin/new-dashboard', icon: LayoutDashboard },
     { name: 'Sites', href: '/admin/sites', icon: MapPin, requiredPermission: 'sites:view' },
     { name: 'Offices', href: '/admin/offices', icon: Hotel, requiredPermission: 'offices:view' },
     ...(officeWorkSchedulesEnabled
@@ -81,22 +95,52 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
     },
     { name: 'Chat', href: '/admin/chat', icon: MessageSquare, requiredPermission: 'chat:view' },
     { name: 'Employees', href: '/admin/employees', icon: Users, requiredPermission: 'employees:view' },
-    { name: 'Guard Shift Types', href: '/admin/guard-shift-types', icon: Layers, requiredPermission: 'shift-types:view' },
+    {
+      name: 'Guard Shift Types',
+      href: '/admin/guard-shift-types',
+      icon: Layers,
+      requiredPermission: 'shift-types:view',
+    },
     { name: 'Guard Shifts', href: '/admin/guard-shifts', icon: Calendar, requiredPermission: 'shifts:view' },
     { name: 'Attendance', href: '/admin/attendance', icon: ClipboardCheck, requiredPermission: 'attendance:view' },
-    { name: 'Guard Checkins', href: '/admin/guard-checkins', icon: ClipboardCheck, requiredPermission: 'checkins:view' },
+    {
+      name: 'Guard Checkins',
+      href: '/admin/guard-checkins',
+      icon: ClipboardCheck,
+      requiredPermission: 'checkins:view',
+    },
     { name: 'Alerts', href: '/admin/alerts', icon: Bell, requiredPermission: 'alerts:view' },
   ];
 }
 
-export function getAdminNavGroups(officeWorkSchedulesEnabled = true): NavGroup[] {
+export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: AdminTabSlug = 'guard'): NavGroup[] {
   const allItems = getAdminNavItems(officeWorkSchedulesEnabled);
   const byName = new Map(allItems.map(item => [item.name, item]));
+
+  let dashboardPermission: PermissionCode = 'dashboard:view';
+  if (activeTab === 'guard') {
+    dashboardPermission = 'dashboard-guard:view';
+  } else if (activeTab === 'ticket') {
+    dashboardPermission = 'tickets:view';
+  } else if (activeTab === 'workforce') {
+    dashboardPermission = 'dashboard-hr:view';
+  } else if (activeTab === 'client') {
+    dashboardPermission = 'dashboard-client:view';
+  } else if (activeTab === 'system') {
+    dashboardPermission = 'dashboard-system:view';
+  }
 
   return [
     {
       label: 'Dashboard',
-      items: [byName.get('Dashboard')].filter(Boolean) as NavItem[],
+      items: [
+        {
+          name: 'Dashboard',
+          href: getAdminDashboardHref(activeTab),
+          icon: LayoutDashboard,
+          requiredPermission: dashboardPermission,
+        },
+      ],
     },
     {
       label: 'Office',
@@ -127,13 +171,15 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true): NavGroup[]
         byName.get('Holiday Calendar'),
         byName.get('Leave Requests'),
         byName.get('Leave Balances'),
-      ].filter(
-        Boolean
-      ) as NavItem[],
+      ].filter(Boolean) as NavItem[],
+    },
+    {
+      label: 'Ticket',
+      items: ADMIN_TICKET_NAV_ITEMS,
     },
     {
       label: 'System',
-      items: [byName.get('Admins'), byName.get('Roles'), byName.get('Settings')].filter(Boolean) as NavItem[],
+      items: ADMIN_SECONDARY_NAV_ITEMS,
     },
   ].filter(group => group.items.length > 0);
 }
@@ -145,6 +191,11 @@ export const ADMIN_SECONDARY_NAV_ITEMS: NavItem[] = [
 ];
 
 export const ADMIN_LABEL_MAP: Record<string, string> = {
+  guard: 'Guard Operations',
+  ticket: 'Ticket',
+  workforce: 'Workforce',
+  client: 'Client',
+  system: 'System',
   dashboard: 'Dashboard',
   employees: 'Employees',
   sites: 'Sites',

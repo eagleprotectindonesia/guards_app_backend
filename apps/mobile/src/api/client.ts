@@ -18,7 +18,7 @@ const getBaseUrl = () => {
 
   if (!__DEV__) {
     // Fallback for production-like builds when the env var is unavailable.
-    return 'https://crm.eagleprotect.id';
+    return 'https://crm.eagleprotect.id:3001';
   }
 
   // For development (Expo Go / Emulator)
@@ -58,6 +58,22 @@ client.interceptors.request.use(
     return config;
   },
   error => Promise.reject(error)
+);
+
+// Response Interceptor to capture refreshed tokens
+client.interceptors.response.use(
+  async response => {
+    const newToken = response.headers['x-new-token'];
+    if (newToken) {
+      console.log('[Axios Client] Captured refreshed token from x-new-token header');
+      authTokenCache = newToken;
+      await storage.setItem(STORAGE_KEYS.USER_TOKEN, newToken);
+    }
+    return response;
+  },
+  error => {
+    return Promise.reject(error);
+  }
 );
 
 export const queryClient = new QueryClient({

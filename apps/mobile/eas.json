@@ -40,6 +40,7 @@
       "autoIncrement": true,
       "env": {
         "npm_config_engine_strict": "false",
+        "SHARP_IGNORE_GLOBAL_LIBVIPS": "1",
         "EXPO_PUBLIC_API_URL": "https://crm.eagleprotect.id",
         "APP_VARIANT": "production"
       }
