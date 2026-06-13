@@ -143,10 +143,6 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: 
       ],
     },
     {
-      label: 'Ticket',
-      items: ADMIN_TICKET_NAV_ITEMS,
-    },
-    {
       label: 'Office',
       items: [
         byName.get('Offices'),
@@ -176,6 +172,10 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: 
         byName.get('Leave Requests'),
         byName.get('Leave Balances'),
       ].filter(Boolean) as NavItem[],
+    },
+    {
+      label: 'Ticket',
+      items: ADMIN_TICKET_NAV_ITEMS,
     },
     {
       label: 'System',

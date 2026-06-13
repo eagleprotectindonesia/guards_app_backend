@@ -31,7 +31,7 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
   await requirePermission('dashboard-hr:view');
   const query = await searchParams;
   const daysParam = query.days ? parseInt(Array.isArray(query.days) ? query.days[0] : query.days, 10) : 7;
-  const days = daysParam === 30 ? 30 : 7;
+  const days = daysParam === 30 ? 30 : daysParam === 15 ? 15 : 7;
 
   const [
     totalEmployees,

@@ -1,9 +1,9 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { ShieldCheck, Clock, Users, RefreshCw } from 'lucide-react';
+import { ShieldCheck, Clock, Users, RefreshCw, Building2 } from 'lucide-react';
 import { cn } from '@repo/shared';
 import { redis } from '@repo/database/redis';
-import { getLastEmployeeSyncTimestamp, getLatestSystemChangelogs } from '@repo/database';
+import { getLastEmployeeSyncTimestamp, getLatestSystemChangelogs, getActiveSites } from '@repo/database';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,11 +12,14 @@ export default async function SystemDashboardPage() {
   const activeSocketUserIds = await redis.hvals('system:active_sockets').catch(() => []);
   const activeUsersCount = new Set(activeSocketUserIds).size;
 
-  // Retrieve last employee sync timestamp from the database/redis
-  const lastSyncTimestamp = await getLastEmployeeSyncTimestamp();
+  // Fetch independent data in parallel
+  const [lastSyncTimestamp, changelogs, activeSites] = await Promise.all([
+    getLastEmployeeSyncTimestamp(),
+    getLatestSystemChangelogs(5).catch(() => []),
+    getActiveSites(),
+  ]);
 
-  // Retrieve the latest changelogs
-  const changelogs = await getLatestSystemChangelogs(5).catch(() => []);
+  const activeSitesCount = activeSites.length;
 
   const metricsList = [
     {
@@ -47,6 +50,15 @@ export default async function SystemDashboardPage() {
       valueColor: 'text-sky-600 dark:text-sky-400',
     },
     {
+      label: 'Active Sites',
+      value: activeSitesCount.toString(),
+      hint: 'Online',
+      hintTone: 'info',
+      icon: Building2,
+      accentClass: 'border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400',
+      valueColor: 'text-sky-600 dark:text-sky-400',
+    },
+    {
       label: 'Failed Sync',
       value: '0',
       hint: 'Last 24 Hours',
@@ -70,7 +82,7 @@ export default async function SystemDashboardPage() {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {metricsList.map(metric => {
           const Icon = metric.icon;
           return (
@@ -222,10 +234,13 @@ export default async function SystemDashboardPage() {
                 const getBadgeStyles = (entityType: string) => {
                   const type = entityType.toLowerCase();
                   if (type === 'employee') return 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20';
-                  if (type === 'admin') return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
-                  if (type === 'site') return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+                  if (type === 'admin')
+                    return 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20';
+                  if (type === 'site')
+                    return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
                   if (type === 'shift') return 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20';
-                  if (type === 'officeshift' || type === 'office_shift') return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20';
+                  if (type === 'officeshift' || type === 'office_shift')
+                    return 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20';
                   return 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20';
                 };
 
@@ -250,12 +265,15 @@ export default async function SystemDashboardPage() {
                         </div>
                         <div className="flex min-w-0 flex-1 justify-between space-x-4 pt-1.5">
                           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                            <span className={cn("inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold border shrink-0 capitalize", getBadgeStyles(log.entityType))}>
+                            <span
+                              className={cn(
+                                'inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-semibold border shrink-0 capitalize',
+                                getBadgeStyles(log.entityType)
+                              )}
+                            >
                               {badgeText}
                             </span>
-                            <p className="text-sm text-foreground/90 font-medium font-sans">
-                              {log.message}
-                            </p>
+                            <p className="text-sm text-foreground/90 font-medium font-sans">{log.message}</p>
                           </div>
                           <div className="whitespace-nowrap text-right text-xs text-muted-foreground self-start sm:self-center">
                             <time dateTime={log.createdAt.toISOString()}>

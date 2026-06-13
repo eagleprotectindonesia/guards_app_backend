@@ -38,14 +38,14 @@ export function AttendanceTrendChart({ data, currentDays }: Props) {
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  // Format X-axis labels: for 7 days show weekday names, for 30 days show dates like "6/5"
+  // Format X-axis labels: for 7 days show weekday names, for 15/30 days show dates like "6/5"
   const chartData = data.map((item) => {
     const parts = item.date.split(', ');
     const dateLabel = parts.length > 1 ? parts[1] : item.date;
     const weekdayLabel = parts[0];
     return {
       ...item,
-      formattedDate: currentDays === 30 ? dateLabel : weekdayLabel,
+      formattedDate: currentDays === 7 ? weekdayLabel : dateLabel,
     };
   });
 
@@ -69,6 +69,15 @@ export function AttendanceTrendChart({ data, currentDays }: Props) {
             7 Days
           </button>
           <button
+            onClick={() => handleDaysChange(15)}
+            className={cn(
+              "px-3 py-1 text-[11px] font-semibold rounded-md transition-colors",
+              currentDays === 15 ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            15 Days
+          </button>
+          <button
             onClick={() => handleDaysChange(30)}
             className={cn(
               "px-3 py-1 text-[11px] font-semibold rounded-md transition-colors",
@@ -87,13 +96,13 @@ export function AttendanceTrendChart({ data, currentDays }: Props) {
               margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-border/40" vertical={false} />
-              <XAxis 
-                dataKey="formattedDate" 
-                stroke="#64748b" 
-                fontSize={10} 
+              <XAxis
+                dataKey="formattedDate"
+                stroke="#64748b"
+                fontSize={10}
                 tickLine={false}
-                axisLine={false} 
-                interval={currentDays === 30 ? 4 : 0} // Skips tick labels to prevent overlap in 30 days
+                axisLine={false}
+                interval={currentDays === 30 ? 4 : currentDays === 15 ? 2 : 0} // Skips tick labels to prevent overlap in 15/30 days
               />
               <YAxis 
                 stroke="#64748b" 
@@ -118,33 +127,33 @@ export function AttendanceTrendChart({ data, currentDays }: Props) {
                 iconSize={8}
                 wrapperStyle={{ fontSize: '11px', paddingTop: '15px' }}
               />
-              <Line 
+              <Line
                 type="monotone"
-                dataKey="present" 
-                name="Present" 
-                stroke="#14b8a6" 
+                dataKey="present"
+                name="Present"
+                stroke="#14b8a6"
                 strokeWidth={2}
-                dot={currentDays === 30 ? false : { r: 3 }}
+                dot={currentDays === 30 || currentDays === 15 ? false : { r: 3 }}
                 activeDot={{ r: 5 }}
                 isAnimationActive={false}
               />
-              <Line 
+              <Line
                 type="monotone"
-                dataKey="late" 
-                name="Late" 
-                stroke="#f59e0b" 
+                dataKey="late"
+                name="Late"
+                stroke="#f59e0b"
                 strokeWidth={2}
-                dot={currentDays === 30 ? false : { r: 3 }}
+                dot={currentDays === 30 || currentDays === 15 ? false : { r: 3 }}
                 activeDot={{ r: 5 }}
                 isAnimationActive={false}
               />
-              <Line 
+              <Line
                 type="monotone"
-                dataKey="absent" 
-                name="Absent" 
-                stroke="#ef4444" 
+                dataKey="absent"
+                name="Absent"
+                stroke="#ef4444"
                 strokeWidth={2}
-                dot={currentDays === 30 ? false : { r: 3 }}
+                dot={currentDays === 30 || currentDays === 15 ? false : { r: 3 }}
                 activeDot={{ r: 5 }}
                 isAnimationActive={false}
               />
