@@ -43,7 +43,7 @@ function resolveSyncedEmployeeRole(jobTitle?: string | null, department?: string
 function isExternallyActiveWorkStatus(workStatus?: string | null): boolean {
   const normalizedStatus = normalizeSyncStringValue(workStatus);
   if (!normalizedStatus) return true;
-  return normalizedStatus === 'working';
+  return ['working', 'offboarding'].includes(normalizedStatus);
 }
 
 function getCurrentBusinessYear(now = new Date()) {
@@ -119,7 +119,7 @@ export type EmployeeSyncDuplicateWarning = {
 function getChangelogActorData(actor: ChangelogSyncActor) {
   return {
     actor: actor.type,
-    actorId: actor.type === 'admin' ? actor.id ?? null : null,
+    actorId: actor.type === 'admin' ? (actor.id ?? null) : null,
   };
 }
 
@@ -243,19 +243,23 @@ export async function getDistinctDepartments(): Promise<string[]> {
     orderBy: { department: 'asc' },
   });
   const departments = results.map(r => r.department!).filter(Boolean);
-  await redis.set(EMPLOYEE_DEPARTMENTS_CACHE_KEY, JSON.stringify(departments), 'EX', EMPLOYEE_METADATA_CACHE_TTL_SECONDS);
+  await redis.set(
+    EMPLOYEE_DEPARTMENTS_CACHE_KEY,
+    JSON.stringify(departments),
+    'EX',
+    EMPLOYEE_METADATA_CACHE_TTL_SECONDS
+  );
   return departments;
 }
 
-async function attachDerivedOfficeMetadata<T extends {
-  role?: EmployeeRole | null;
-  officeId?: string | null;
-  jobTitle?: string | null;
-  fieldModeEnabled?: boolean | null;
-}>(
-  employee: T,
-  categoryMap: OfficeJobTitleCategoryMap
-) {
+async function attachDerivedOfficeMetadata<
+  T extends {
+    role?: EmployeeRole | null;
+    officeId?: string | null;
+    jobTitle?: string | null;
+    fieldModeEnabled?: boolean | null;
+  },
+>(employee: T, categoryMap: OfficeJobTitleCategoryMap) {
   return {
     ...employee,
     ...resolveEmployeeFieldModeState({
@@ -281,13 +285,15 @@ async function getActiveOfficeScheduleName(
   return assignment?.officeWorkSchedule.name ?? defaultScheduleName ?? null;
 }
 
-async function buildEmployeeWithSchedule<T extends {
-  id: string;
-  role?: EmployeeRole | null;
-  officeId?: string | null;
-  jobTitle?: string | null;
-  fieldModeEnabled?: boolean | null;
-}>(
+async function buildEmployeeWithSchedule<
+  T extends {
+    id: string;
+    role?: EmployeeRole | null;
+    officeId?: string | null;
+    jobTitle?: string | null;
+    fieldModeEnabled?: boolean | null;
+  },
+>(
   employee: T,
   categoryMap: OfficeJobTitleCategoryMap,
   defaultScheduleName: string,
@@ -328,7 +334,9 @@ export async function getAllEmployees(
     getOfficeJobTitleCategoryMapSetting(),
   ]);
 
-  return Promise.all(employees.map(employee => buildEmployeeWithSchedule(employee, categoryMap, defaultOfficeSchedule.name)));
+  return Promise.all(
+    employees.map(employee => buildEmployeeWithSchedule(employee, categoryMap, defaultOfficeSchedule.name))
+  );
 }
 
 export async function getActiveEmployees(role?: EmployeeRole) {
@@ -371,9 +379,7 @@ export async function getActiveEmployeesSummary(role?: EmployeeRole): Promise<Em
   return summaries;
 }
 
-export async function getOfficeEmployeesByCodes(
-  employeeCodes: string[]
-): Promise<
+export async function getOfficeEmployeesByCodes(employeeCodes: string[]): Promise<
   Array<{
     id: string;
     fullName: string;
@@ -498,7 +504,7 @@ export async function getPaginatedEmployees(params: {
       buildEmployeeWithSchedule(
         employee,
         categoryMap,
-        includeActiveOfficeWorkScheduleName ? defaultOfficeSchedule?.name ?? '' : '',
+        includeActiveOfficeWorkScheduleName ? (defaultOfficeSchedule?.name ?? '') : '',
         includeActiveOfficeWorkScheduleName
       )
     )
@@ -610,7 +616,7 @@ async function normalizeEmployeeFieldModeForUpdate(
         ? ((data.office as Prisma.OfficeUpdateOneWithoutEmployeesNestedInput).connect?.id ?? null)
         : 'disconnect' in (data.office as Prisma.OfficeUpdateOneWithoutEmployeesNestedInput)
           ? null
-          : existingEmployee.officeId ?? null
+          : (existingEmployee.officeId ?? null)
       : (existingEmployee.officeId ?? null);
   const categoryMap = await getOfficeJobTitleCategoryMapSetting();
   const state = resolveEmployeeFieldModeState({
@@ -621,7 +627,11 @@ async function normalizeEmployeeFieldModeForUpdate(
     categoryMap,
   });
 
-  if (data.fieldModeEnabled !== undefined && !state.isFieldModeEditable && nextFieldModeValue !== state.fieldModeEnabled) {
+  if (
+    data.fieldModeEnabled !== undefined &&
+    !state.isFieldModeEditable &&
+    nextFieldModeValue !== state.fieldModeEnabled
+  ) {
     throw new Error('Field mode cannot be changed for this employee.');
   }
 
@@ -637,10 +647,7 @@ async function normalizeEmployeeFieldModeForUpdate(
  * - In-progress shifts are cancelled
  * - All active alerts are resolved
  */
-export async function deactivateEmployeesNotIn(
-  activeIds: string[],
-  actor: ChangelogSyncActor = { type: 'system' }
-) {
+export async function deactivateEmployeesNotIn(activeIds: string[], actor: ChangelogSyncActor = { type: 'system' }) {
   const changelogActor = getChangelogActorData(actor);
 
   return prisma.$transaction(async tx => {
@@ -787,10 +794,7 @@ export async function updateEmployeeFieldMode(id: string, fieldModeEnabled: bool
   return updateEmployee(id, { fieldModeEnabled });
 }
 
-type EmployeePasswordActor =
-  | { type: 'employee' }
-  | { type: 'admin'; adminId: string }
-  | { type: 'system' };
+type EmployeePasswordActor = { type: 'employee' } | { type: 'admin'; adminId: string } | { type: 'system' };
 
 type SetEmployeePasswordParams = {
   employeeId: string;
@@ -856,16 +860,11 @@ export async function setEmployeePassword({
         select: { hashedPassword: true },
       });
 
-      const candidateHashes = [
-        { hashedPassword: employee.hashedPassword },
-        ...passwordHistory,
-      ];
+      const candidateHashes = [{ hashedPassword: employee.hashedPassword }, ...passwordHistory];
 
       for (const historyEntry of candidateHashes) {
         if (await verifyPassword(newPassword, historyEntry.hashedPassword)) {
-          throw new EmployeePasswordPolicyError(
-            'New password cannot match any of your last 3 passwords'
-          );
+          throw new EmployeePasswordPolicyError('New password cannot match any of your last 3 passwords');
         }
       }
     }
@@ -1085,12 +1084,7 @@ export async function syncEmployeesFromExternal(
             hashedPassword,
           },
         });
-        await ensureDefaultAnnualLeaveBalance(
-          tx,
-          newEmployee.id,
-          currentBusinessYear,
-          newEmployee.dateOfJoining
-        );
+        await ensureDefaultAnnualLeaveBalance(tx, newEmployee.id, currentBusinessYear, newEmployee.dateOfJoining);
 
         await tx.changelog.create({
           data: {
@@ -1198,12 +1192,7 @@ export async function syncEmployeesFromExternal(
             where: { id: ext.id },
             data: updateData,
           });
-          await ensureDefaultAnnualLeaveBalance(
-            tx,
-            ext.id,
-            currentBusinessYear,
-            resolvedDateOfJoining
-          );
+          await ensureDefaultAnnualLeaveBalance(tx, ext.id, currentBusinessYear, resolvedDateOfJoining);
 
           await tx.changelog.create({
             data: {
@@ -1231,12 +1220,7 @@ export async function syncEmployeesFromExternal(
         updatedCount++;
       } else {
         await prisma.$transaction(async tx => {
-          await ensureDefaultAnnualLeaveBalance(
-            tx,
-            ext.id,
-            currentBusinessYear,
-            resolvedDateOfJoining
-          );
+          await ensureDefaultAnnualLeaveBalance(tx, ext.id, currentBusinessYear, resolvedDateOfJoining);
         });
       }
     }
