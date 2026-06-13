@@ -27,12 +27,12 @@ describe('employee shift timer guards', () => {
 
   test('refetches shortly before next shift starts', () => {
     const nextShift = { ...baseShift, startsAt: new Date('2026-05-20T08:00:00.000Z') };
-    const now = new Date('2026-05-20T07:55:00.000Z');
+    const now = new Date('2026-05-20T07:30:00.000Z');
     expect(shouldRefetchForNextShift(nextShift as unknown as NextShiftArg, now)).toBe(true);
   });
 
   test('does not throw or refetch when next shift start timestamp is invalid', () => {
-    const now = new Date('2026-05-20T07:55:00.000Z');
+    const now = new Date('2026-05-20T07:30:00.000Z');
     expect(shouldRefetchForNextShift({ ...baseShift, startsAt: 'bad-date' } as unknown as NextShiftArg, now)).toBe(
       false
     );
