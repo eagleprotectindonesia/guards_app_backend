@@ -198,7 +198,16 @@ export async function getCheckinExportBatch(params: {
       employee: true,
       shift: {
         include: {
-          site: true,
+          site: {
+            include: {
+              posts: {
+                where: {
+                  status: { not: false },
+                  deletedAt: null,
+                },
+              },
+            },
+          },
         },
       },
     },

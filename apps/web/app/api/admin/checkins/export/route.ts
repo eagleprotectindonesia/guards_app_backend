@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { getCheckinExportBatch } from '@repo/database';
+import { getDistanceMeters, getNearestActivePunchTarget } from '@/lib/site-post-location';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
       const encoder = new TextEncoder();
 
       // Write Header
-      const headers = ['Employee', 'Site', 'Shift Date', 'Check-in Time', 'Check-in Date', 'Status', 'Latitude', 'Longitude'];
+      const headers = ['Employee', 'Site', 'Shift Date', 'Check-in Time', 'Check-in Date', 'Status', 'Latitude', 'Longitude', 'Distance (m)', 'Nearest Post'];
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
       let cursor: string | undefined = undefined;
@@ -51,14 +52,24 @@ export async function GET(request: NextRequest) {
 
           let chunk = '';
           for (const item of batch) {
-            const metadata = item.metadata as { lat?: number; lng?: number } | null;
-            const lat = metadata?.lat?.toFixed(6) || '';
-            const lng = metadata?.lng?.toFixed(6) || '';
+            const latRaw = (item.metadata as { lat?: number } | null)?.lat;
+            const lngRaw = (item.metadata as { lng?: number } | null)?.lng;
+            const lat = latRaw?.toFixed(6) || '';
+            const lng = lngRaw?.toFixed(6) || '';
             const employeeName = item.employee.fullName;
             const siteName = item.shift.site.name;
             const shiftDate = format(new Date(item.shift.date), 'yyyy/MM/dd');
             const checkinDate = format(new Date(item.at), 'yyyy/MM/dd');
             const checkinTime = format(new Date(item.at), 'HH:mm');
+
+            const nearestTarget = getNearestActivePunchTarget(
+              item.shift.site,
+              latRaw,
+              lngRaw,
+              getDistanceMeters,
+            );
+            const distanceMeters = nearestTarget?.distanceMeters ?? null;
+            const nearestPost = nearestTarget?.target.name ?? '';
 
             // Escape quotes in CSV fields: " -> ""
             const escape = (str: string) => `"${str.replace(/"/g, '""')}"`;
@@ -73,6 +84,8 @@ export async function GET(request: NextRequest) {
                 item.status,
                 lat,
                 lng,
+                distanceMeters == null ? '' : String(distanceMeters),
+                escape(nearestPost),
               ].join(',') + '\n';
           }
 

@@ -12,6 +12,7 @@ import { adminHasPermission, getAdminAuthSession } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { applyAttendanceVisibilityScope } from '@/lib/auth/admin-visibility';
 import { getLeaveReasonMeta } from '@/lib/leave-requests';
+import { getDistanceMeters, getNearestActivePunchTarget } from '@/lib/site-post-location';
 
 function escapeCsv(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
@@ -56,39 +57,6 @@ function toDateKey(value: Date) {
 
 function parseDateKey(value: string) {
   return new Date(`${value}T00:00:00Z`);
-}
-
-function toRadians(value: number) {
-  return (value * Math.PI) / 180;
-}
-
-function getDistanceMeters(
-  fromLat?: number | null,
-  fromLng?: number | null,
-  toLat?: number | null,
-  toLng?: number | null
-) {
-  if (
-    fromLat == null ||
-    fromLng == null ||
-    toLat == null ||
-    toLng == null ||
-    Number.isNaN(fromLat) ||
-    Number.isNaN(fromLng) ||
-    Number.isNaN(toLat) ||
-    Number.isNaN(toLng)
-  ) {
-    return null;
-  }
-
-  const earthRadiusMeters = 6371000;
-  const dLat = toRadians(toLat - fromLat);
-  const dLng = toRadians(toLng - fromLng);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(earthRadiusMeters * c);
 }
 
 type ShiftEditChangelog = {
@@ -328,21 +296,23 @@ export async function GET(request: NextRequest) {
                 ? att.shift.checkins.reduce((latest, current) => (current.at > latest.at ? current : latest), att.shift.checkins[0])
                 : null;
             const clockOutLocation = (lastCheckin?.metadata as { lat?: number; lng?: number } | null) ?? null;
-            const clockInDistanceMeters = getDistanceMeters(
+            const clockInTarget = getNearestActivePunchTarget(
+              att.shift.site,
               metadata?.lat,
               metadata?.lng,
-              att.shift.site.latitude,
-              att.shift.site.longitude
+              getDistanceMeters,
             );
-            const clockOutDistanceMeters =
+            const clockInDistanceMeters = clockInTarget?.distanceMeters ?? null;
+            const clockOutTarget =
               att.shift.status === 'completed'
-                ? getDistanceMeters(
+                ? getNearestActivePunchTarget(
+                    att.shift.site,
                     clockOutLocation?.lat,
                     clockOutLocation?.lng,
-                    att.shift.site.latitude,
-                    att.shift.site.longitude
+                    getDistanceMeters,
                   )
                 : null;
+            const clockOutDistanceMeters = clockOutTarget?.distanceMeters ?? null;
             const workMinutes =
               lastCheckinAt && att.shift.status === 'completed'
                 ? Math.min(

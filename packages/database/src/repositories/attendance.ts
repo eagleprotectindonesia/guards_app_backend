@@ -114,7 +114,16 @@ export async function getAttendanceExportBatch(params: {
       shift: {
         include: {
           employee: true,
-          site: true,
+          site: {
+            include: {
+              posts: {
+                where: {
+                  status: { not: false },
+                  deletedAt: null,
+                },
+              },
+            },
+          },
           shiftType: true,
           lastUpdatedBy: {
             select: {
