@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay, format } from 'date-fns';
 import { getCheckinExportBatch } from '@repo/database';
-import { getDistanceMeters, getNearestActivePunchTarget } from '@/lib/site-post-location';
+import { getDistanceMeters, resolvePunchDistance } from '@/lib/site-post-location';
+import type { AttendanceMetadata } from '@/lib/site-post-location';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -62,14 +63,13 @@ export async function GET(request: NextRequest) {
             const checkinDate = format(new Date(item.at), 'yyyy/MM/dd');
             const checkinTime = format(new Date(item.at), 'HH:mm');
 
-            const nearestTarget = getNearestActivePunchTarget(
-              item.shift.site,
-              latRaw,
-              lngRaw,
-              getDistanceMeters,
-            );
-            const distanceMeters = nearestTarget?.distanceMeters ?? null;
-            const nearestPost = nearestTarget?.target.name ?? '';
+            const punchResult = resolvePunchDistance({
+              site: item.shift.site,
+              metadata: item.metadata as AttendanceMetadata | null,
+              calculateDistance: getDistanceMeters,
+            });
+            const distanceMeters = punchResult.distanceMeters;
+            const nearestPost = punchResult.postName ?? '';
 
             // Escape quotes in CSV fields: " -> ""
             const escape = (str: string) => `"${str.replace(/"/g, '""')}"`;

@@ -1,4 +1,4 @@
-import { findNearestAllowedSiteLocation, getNearestActivePunchTarget } from '../lib/site-post-location';
+import { findNearestAllowedSiteLocation, getNearestActivePunchTarget, resolvePunchDistance } from '../lib/site-post-location';
 import { calculateDistance } from '../lib/server-utils';
 
 describe('findNearestAllowedSiteLocation', () => {
@@ -197,6 +197,77 @@ describe('getNearestActivePunchTarget', () => {
     );
 
     expect(result).toBeNull();
+  });
+});
+
+describe('resolvePunchDistance', () => {
+  test('uses stored matchedLocation.distanceMeters when present', () => {
+    const result = resolvePunchDistance({
+      site: { id: 's1', name: 'Site', latitude: 0, longitude: 1, posts: [] },
+      metadata: { matchedLocation: { distanceMeters: 42, name: 'Post A' } },
+      calculateDistance,
+    });
+
+    expect(result.distanceMeters).toBe(42);
+    expect(result.postName).toBe('Post A');
+  });
+
+  test('falls back to helper when matchedLocation is absent', () => {
+    const result = resolvePunchDistance({
+      site: { id: 's1', name: 'Site', latitude: 0, longitude: 0.001, posts: [] },
+      metadata: { location: { lat: 0, lng: 0 } },
+      calculateDistance,
+    });
+
+    expect(result.distanceMeters).not.toBeNull();
+    expect(result.distanceMeters).toBeGreaterThan(0);
+  });
+
+  test('falls back to helper when matchedLocation.distanceMeters is missing but location is present', () => {
+    const result = resolvePunchDistance({
+      site: { id: 's1', name: 'Site', latitude: 0, longitude: 0.001, posts: [] },
+      metadata: { location: { lat: 0, lng: 0 }, matchedLocation: { name: 'Post A' } },
+      calculateDistance,
+    });
+
+    expect(result.distanceMeters).not.toBeNull();
+    expect(result.distanceMeters).toBeGreaterThan(0);
+  });
+
+  test('uses stored matchedLocation.name when present', () => {
+    const result = resolvePunchDistance({
+      site: { id: 's1', name: 'Site', latitude: 0, longitude: 1, posts: [] },
+      metadata: { matchedLocation: { distanceMeters: 100, name: 'Gate B' } },
+      calculateDistance,
+    });
+
+    expect(result.distanceMeters).toBe(100);
+    expect(result.postName).toBe('Gate B');
+  });
+
+  test('returns null distance when both metadata and helper yield nothing', () => {
+    const result = resolvePunchDistance({
+      site: { id: 's1', name: 'Site', latitude: null, longitude: null, posts: [] },
+      metadata: null,
+      calculateDistance,
+    });
+
+    expect(result.distanceMeters).toBeNull();
+    expect(result.postName).toBeNull();
+  });
+
+  test('prefers stored distance over helper even when location also present', () => {
+    const result = resolvePunchDistance({
+      site: { id: 's1', name: 'Site', latitude: 0, longitude: 1, posts: [] },
+      metadata: {
+        location: { lat: 10, lng: 10 },
+        matchedLocation: { distanceMeters: 99, name: 'Main Gate' },
+      },
+      calculateDistance,
+    });
+
+    expect(result.distanceMeters).toBe(99);
+    expect(result.postName).toBe('Main Gate');
   });
 });
 

@@ -12,7 +12,8 @@ import { adminHasPermission, getAdminAuthSession } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { applyAttendanceVisibilityScope } from '@/lib/auth/admin-visibility';
 import { getLeaveReasonMeta } from '@/lib/leave-requests';
-import { getDistanceMeters, getNearestActivePunchTarget } from '@/lib/site-post-location';
+import { getDistanceMeters, resolvePunchDistance } from '@/lib/site-post-location';
+import type { AttendanceMetadata } from '@/lib/site-post-location';
 
 function escapeCsv(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
@@ -274,7 +275,6 @@ export async function GET(request: NextRequest) {
 
           let chunk = '';
           for (const att of batch) {
-            const metadata = (att.metadata as { location?: { lat?: number; lng?: number } } | null)?.location;
             const employeeName = att.employee?.fullName || 'Unknown';
             const department = att.employee?.department || '';
             const jobTitle = att.employee?.jobTitle || '';
@@ -295,24 +295,21 @@ export async function GET(request: NextRequest) {
               att.shift.status === 'completed' && att.shift.checkins.length > 0
                 ? att.shift.checkins.reduce((latest, current) => (current.at > latest.at ? current : latest), att.shift.checkins[0])
                 : null;
-            const clockOutLocation = (lastCheckin?.metadata as { lat?: number; lng?: number } | null) ?? null;
-            const clockInTarget = getNearestActivePunchTarget(
-              att.shift.site,
-              metadata?.lat,
-              metadata?.lng,
-              getDistanceMeters,
-            );
-            const clockInDistanceMeters = clockInTarget?.distanceMeters ?? null;
-            const clockOutTarget =
-              att.shift.status === 'completed'
-                ? getNearestActivePunchTarget(
-                    att.shift.site,
-                    clockOutLocation?.lat,
-                    clockOutLocation?.lng,
-                    getDistanceMeters,
-                  )
+            const clockInResult = resolvePunchDistance({
+              site: att.shift.site,
+              metadata: att.metadata as AttendanceMetadata | null,
+              calculateDistance: getDistanceMeters,
+            });
+            const clockInDistanceMeters = clockInResult.distanceMeters;
+            const clockOutResult =
+              att.shift.status === 'completed' && lastCheckin
+                ? resolvePunchDistance({
+                    site: att.shift.site,
+                    metadata: lastCheckin.metadata as AttendanceMetadata | null,
+                    calculateDistance: getDistanceMeters,
+                  })
                 : null;
-            const clockOutDistanceMeters = clockOutTarget?.distanceMeters ?? null;
+            const clockOutDistanceMeters = clockOutResult?.distanceMeters ?? null;
             const workMinutes =
               lastCheckinAt && att.shift.status === 'completed'
                 ? Math.min(

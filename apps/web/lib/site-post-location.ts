@@ -206,3 +206,37 @@ export function getNearestActivePunchTarget(
   return best;
 }
 
+export type AttendanceMetadata = {
+  location?: { lat?: number; lng?: number };
+  matchedLocation?: {
+    type?: 'post' | 'legacy_site';
+    id?: string | null;
+    name?: string;
+    distanceMeters?: number;
+  };
+};
+
+export function resolvePunchDistance(params: {
+  site: Parameters<typeof getNearestActivePunchTarget>[0];
+  metadata: AttendanceMetadata | null;
+  calculateDistance: (lat1: number, lng1: number, lat2: number, lng2: number) => number | null;
+}): { distanceMeters: number | null; postName: string | null } {
+  const { site, metadata, calculateDistance } = params;
+
+  const stored = metadata?.matchedLocation;
+  if (stored && typeof stored.distanceMeters === 'number') {
+    return {
+      distanceMeters: stored.distanceMeters,
+      postName: stored.name ?? null,
+    };
+  }
+
+  const loc = metadata?.location;
+  const helperResult = getNearestActivePunchTarget(site, loc?.lat, loc?.lng, calculateDistance);
+
+  return {
+    distanceMeters: helperResult?.distanceMeters ?? null,
+    postName: helperResult?.target.name || null,
+  };
+}
+
