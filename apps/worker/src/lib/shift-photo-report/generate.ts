@@ -5,7 +5,6 @@ import type { FetchedPhoto } from './fetch-photos';
 
 const TZ = 'Asia/Makassar';
 const TZ_LABEL = 'WITA';
-const LOGO_PATH = path.resolve(__dirname, '../../assets/eagle-protect-logo.png');
 
 export type ReportMetadata = {
   guardName: string;
@@ -46,7 +45,51 @@ function formatDateOnlyTZ(date: Date): string {
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
-export function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto[]): Promise<Buffer> {
+function drawFooter(doc: PDFKit.PDFDocument, pageNumber: number, contentWidth: number): void {
+  const savedY = doc.y;
+  doc.fontSize(8).font('Helvetica').fillColor('#888888');
+  doc.text(
+    `Generated: ${formatTZ(new Date())} | Page ${pageNumber}`,
+    doc.page.margins.left,
+    doc.page.height - 30,
+    { align: 'center', width: contentWidth, lineBreak: false, height: 12 },
+  );
+  doc.fillColor('#000000');
+  doc.y = savedY;
+}
+
+function resolveLogoPath(): string {
+  const candidates = [
+    // dev (tsx): __dirname = src/lib/shift-photo-report
+    path.resolve(__dirname, '../assets/eagle-logo.png'),
+    // production (esbuild): __dirname = dist/
+    path.resolve(__dirname, '../src/lib/assets/eagle-logo.png'),
+  ];
+  for (const p of candidates) {
+    if (fs.existsSync(p)) return p;
+  }
+  return candidates[0];
+}
+
+const LOGO_PATH = resolveLogoPath();
+
+async function getLogoBuffer(): Promise<Buffer | null> {
+  if (fs.existsSync(LOGO_PATH)) {
+    try {
+      return fs.readFileSync(LOGO_PATH);
+    } catch {
+      console.warn('[ShiftPhotoReport] Failed to read logo PNG:', LOGO_PATH);
+    }
+  } else {
+    console.warn('[ShiftPhotoReport] Logo file not found at:', LOGO_PATH);
+  }
+
+  return null;
+}
+
+export async function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto[]): Promise<Buffer> {
+  const logoBuffer = await getLogoBuffer();
+
   return new Promise((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
@@ -67,39 +110,61 @@ export function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto[]): P
     const contentWidth = pageWidth;
     const centerX = doc.page.margins.left + contentWidth / 2;
 
+    let pageNumber = 0;
+
     // ── Cover Page ──
-    // Logo
-    if (fs.existsSync(LOGO_PATH)) {
+    pageNumber = 1;
+
+    // Header band
+    doc.save();
+    doc.rect(0, 0, doc.page.width, 145).fill('#f5f5f5');
+    doc.restore();
+
+    if (logoBuffer) {
       try {
-        const logoHeight = 80;
-        doc.image(LOGO_PATH, centerX - 60, 80, { width: 120, height: logoHeight });
+        doc.image(logoBuffer, centerX - 100, 37, { fit: [200, 60], align: 'center' });
       } catch {
         console.warn('[ShiftPhotoReport] Failed to render logo, skipping.');
       }
     }
 
-    let yCursor = 200;
+    let yCursor = 170;
 
-    doc.fontSize(24).font('Helvetica-Bold');
-    doc.text('Guard Shift Photo Report', centerX, yCursor, { align: 'center' });
-    yCursor += 50;
+    doc.fontSize(22).font('Helvetica-Bold');
+    doc.text('Guard Shift Photo Report', doc.page.margins.left, yCursor, { align: 'center', width: contentWidth });
+    yCursor = doc.y + 8;
 
-    doc.fontSize(11).font('Helvetica');
-    doc.text(`Report Date: ${formatDateOnlyTZ(new Date())}`, centerX, yCursor, { align: 'center' });
-    yCursor += 30;
+    doc.fontSize(10).font('Helvetica').fillColor('#666666');
+    doc.text(`Report Date: ${formatDateOnlyTZ(new Date())}`, doc.page.margins.left, yCursor, { align: 'center', width: contentWidth });
+    yCursor = doc.y + 18;
+    doc.fillColor('#000000');
 
-    // Separator
+    // Divider
     doc.moveTo(doc.page.margins.left, yCursor)
       .lineTo(doc.page.margins.left + contentWidth, yCursor)
       .strokeColor('#cccccc')
+      .lineWidth(0.5)
       .stroke();
     yCursor += 30;
 
-    // Shift info
-    doc.fontSize(12).font('Helvetica-Bold').text('Shift Information', doc.page.margins.left, yCursor);
-    yCursor += 22;
+    // Info card
+    const cardX = doc.page.margins.left;
+    const cardTop = yCursor;
+    const cardH = 200;
 
-    const infoLines = [
+    doc.save();
+    doc.fillColor('#fafafa').strokeColor('#e0e0e0').lineWidth(0.5);
+    doc.roundedRect(cardX, cardTop, contentWidth, cardH, 4).fillAndStroke();
+    doc.restore();
+
+    yCursor = cardTop + 15;
+
+    doc.fontSize(12).font('Helvetica-Bold').fillColor('#333333');
+    doc.text('Shift Information', doc.page.margins.left + 15, yCursor);
+    yCursor += 22;
+    doc.fillColor('#000000');
+
+    const infoLines: [string, string][] = [
       ['Guard Name:', metadata.guardName],
       ['Employee No:', metadata.employeeNumber],
       ['Client Name:', metadata.clientName || '-'],
@@ -109,21 +174,51 @@ export function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto[]): P
       ['Photos Collected:', String(metadata.photoCount)],
     ];
 
-    doc.fontSize(10).font('Helvetica');
+    const labelX = doc.page.margins.left + 15;
+    const valueX = doc.page.margins.left + 130;
+    const labelW = 110;
+    const valueW = contentWidth - 145;
+
+    doc.fontSize(10);
     for (const [label, value] of infoLines) {
-      doc.font('Helvetica-Bold').text(label, doc.page.margins.left, yCursor, { continued: true, width: 120 });
-      doc.font('Helvetica').text(` ${value}`, { width: contentWidth - 120 });
-      yCursor += 16;
+      doc.font('Helvetica-Bold').fillColor('#333333');
+      doc.text(label, labelX, yCursor, { width: labelW });
+      doc.font('Helvetica').fillColor('#000000');
+      doc.text(value, valueX, yCursor, { width: valueW });
+      yCursor = Math.max(doc.y, yCursor + 18) + 2;
     }
+
+    // Summary footer
+    yCursor = cardTop + cardH + 20;
+    doc.moveTo(doc.page.margins.left, yCursor)
+      .lineTo(doc.page.margins.left + contentWidth, yCursor)
+      .strokeColor('#e0e0e0')
+      .lineWidth(0.5)
+      .stroke();
+    yCursor += 14;
+
+    doc.fontSize(9).font('Helvetica-Oblique').fillColor('#666666');
+    doc.text(
+      `This report contains ${metadata.photoCount} photo(s) submitted during the shift.`,
+      doc.page.margins.left,
+      yCursor,
+      { align: 'center', width: contentWidth },
+    );
+    doc.fillColor('#000000');
+
+    drawFooter(doc, pageNumber, contentWidth);
 
     // ── Photo Pages ──
     if (photos.length === 0) {
       doc.addPage();
+      pageNumber++;
       doc.fontSize(16).font('Helvetica-Bold');
-      doc.text('No photo evidence submitted during this shift.', centerX, doc.page.height / 2 - 20, { align: 'center' });
+      doc.text('No photo evidence submitted during this shift.', doc.page.margins.left, doc.page.height / 2 - 20, { align: 'center', width: contentWidth });
+      drawFooter(doc, pageNumber, contentWidth);
     } else {
       for (const photo of photos) {
         doc.addPage();
+        pageNumber++;
 
         const maxImageH = doc.page.height - doc.page.margins.top - doc.page.margins.bottom - 80;
 
@@ -134,42 +229,22 @@ export function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto[]): P
           });
         } catch (err) {
           console.warn(`[ShiftPhotoReport] Failed to embed image ${photo.s3Key}:`, err);
-          doc.fontSize(12).font('Helvetica').text(`[Image not available]`, doc.page.margins.left, doc.page.margins.top);
+          doc.fontSize(12).font('Helvetica').text('[Image not available]', doc.page.margins.left, doc.page.margins.top);
         }
 
         const captionY = doc.page.height - doc.page.margins.bottom - 60;
         doc.fontSize(9).font('Helvetica-Bold');
         doc.text(
-          `Guard: ${metadata.guardName}`,
+          `Guard: ${metadata.guardName}  |  Employee No: ${metadata.employeeNumber}  |  Site: ${metadata.siteName}`,
           doc.page.margins.left,
           captionY,
-          { continued: true, width: 200 }
-        );
-        doc.text(
-          `  Employee No: ${metadata.employeeNumber}`,
-          { continued: true, width: 200 }
-        );
-        doc.text(
-          `  Site: ${metadata.siteName}`,
-          { continued: false }
+          { width: contentWidth },
         );
         doc.fontSize(9).font('Helvetica');
-        doc.text(`Date & Time: ${formatTZ(photo.createdAt)}`, doc.page.margins.left, captionY + 14);
-      }
-    }
+        doc.text(`Date & Time: ${formatTZ(photo.createdAt)}`, doc.page.margins.left, doc.y + 2);
 
-    // Footer
-    const totalPages = doc.bufferedPageRange().count;
-    for (let i = 0; i < totalPages; i++) {
-      doc.switchToPage(i);
-      doc.fontSize(8).font('Helvetica').fillColor('#888888');
-      doc.text(
-        `Generated: ${formatTZ(new Date())} | Page ${i + 1} of ${totalPages}`,
-        doc.page.margins.left,
-        doc.page.height - 30,
-        { align: 'center', width: contentWidth }
-      );
-      doc.fillColor('#000000');
+        drawFooter(doc, pageNumber, contentWidth);
+      }
     }
 
     doc.end();

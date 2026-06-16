@@ -2,7 +2,6 @@ import { db as prisma } from '../prisma/client';
 import { Prisma, ShiftStatus, ShiftPhotoReportStatus } from '@prisma/client';
 
 export const SHIFT_PHOTO_REPORT_WAIT_MINUTES = 10;
-const MAX_ATTEMPTS = 3;
 
 export type ShiftPhotoReportCandidate = {
   shiftId: string;

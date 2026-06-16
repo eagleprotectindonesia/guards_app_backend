@@ -1,5 +1,6 @@
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3Client, BUCKET_NAME } from '@repo/storage';
+import sharp from 'sharp';
 
 export type PhotoInput = {
   s3Key: string;
@@ -34,11 +35,22 @@ export async function fetchPhotos(inputs: PhotoInput[]): Promise<FetchedPhoto[]>
         continue;
       }
 
-      const buffer = await response.Body.transformToByteArray();
-      const contentType = response.ContentType || 'image/jpeg';
+      const rawBuffer = Buffer.from(await response.Body.transformToByteArray()) as Buffer;
+      let contentType = response.ContentType || 'image/jpeg';
+
+      // pdfkit only supports JPEG, PNG, BMP — convert WebP to PNG
+      let imageBuffer = rawBuffer;
+      if (contentType === 'image/webp') {
+        try {
+          imageBuffer = (await sharp(rawBuffer).png().toBuffer()) as Buffer;
+          contentType = 'image/png';
+        } catch (convErr) {
+          console.warn(`[ShiftPhotoReport] Failed to convert WebP to PNG for ${s3Key}:`, convErr);
+        }
+      }
 
       results.push({
-        buffer: Buffer.from(buffer),
+        buffer: imageBuffer,
         s3Key,
         createdAt,
         contentType,
