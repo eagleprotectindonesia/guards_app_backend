@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/worker.ts",
     "dev:https": "pnpm run dev",
-    "build": "esbuild src/worker.ts --bundle --platform=node --target=node22 --outfile=dist/worker.js --external:@prisma/client --external:pg --external:@prisma/adapter-pg --external:ioredis --external:dotenv --external:date-fns --external:bullmq --external:pdfkit --external:sharp --external:@aws-sdk/*",
+    "build": "esbuild src/worker.ts --bundle --platform=node --target=node22 --outfile=dist/worker.js --external:@prisma/client --external:pg --external:@prisma/adapter-pg --external:ioredis --external:dotenv --external:date-fns --external:bullmq --external:pdfkit --external:sharp",
     "start": "node dist/worker.js",
     "lint": "eslint . --ext .ts && tsc --noEmit",
     "type-check": "tsc --noEmit"

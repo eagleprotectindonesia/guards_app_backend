@@ -1,5 +1,4 @@
-import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { s3Client, BUCKET_NAME } from '@repo/storage';
+import { GetObjectCommand, s3Client, BUCKET_NAME } from '@repo/storage';
 import sharp from 'sharp';
 
 export type PhotoInput = {
