@@ -12,7 +12,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { regenerateShiftPhotoReport } from '../actions';
 import { format, parseISO } from 'date-fns';
-import { Download, RefreshCw, Filter } from 'lucide-react';
+import { Download, RefreshCw } from 'lucide-react';
 
 type ReportWithDownload = {
   id: string;
@@ -71,8 +71,6 @@ export default function ShiftPhotoReportsList({
   );
   const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
   const [filterStatus, setFilterStatus] = useState(statusParam || '');
-
-  const activeFiltersCount = [dateFrom, dateTo, employeeId, statusParam].filter(Boolean).length;
 
   const employeeOptions = [
     { value: '', label: 'All Guards' },
@@ -157,23 +155,7 @@ export default function ShiftPhotoReportsList({
           <h1 className="text-2xl font-bold text-foreground">Shift Photo Reports</h1>
           <p className="text-sm text-muted-foreground mt-1">Review and manage shift photo report generation.</p>
         </div>
-        <div className="flex gap-2">
-          <div
-            className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg shadow-sm ${
-              activeFiltersCount > 0
-                ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400'
-                : ''
-            }`}
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-            {activeFiltersCount > 0 && (
-              <span className="ml-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full text-xs">
-                {activeFiltersCount}
-              </span>
-            )}
-          </div>
-        </div>
+
       </div>
 
       {/* Filters Card */}
