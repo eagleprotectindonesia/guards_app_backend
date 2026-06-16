@@ -55,7 +55,7 @@ export class ShiftPhotoReportProcessor {
         const report = await createShiftPhotoReport({
           shiftId: shift.id,
           employeeId: shift.employeeId,
-          clientId: shift.site.clientName ?? null,
+          clientId: shift.siteId,
           shiftStartsAt: shift.startsAt,
           shiftEndsAt: shift.endsAt,
           triggeredBy: 'auto',

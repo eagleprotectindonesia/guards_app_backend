@@ -4,16 +4,14 @@ import { serialize, getPaginationParams } from '@/lib/server-utils';
 import {
   listShiftPhotoReportsPaginated,
   getActiveEmployeesSummary,
+  getActiveSites,
 } from '@repo/database';
 import { getCachedPresignedDownloadUrl } from '@repo/storage';
-import { ShiftPhotoReportStatus } from '@prisma/client';
 import ShiftPhotoReportsList from './components/shift-photo-reports-list';
 import { Suspense } from 'react';
 import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const dynamic = 'force-dynamic';
-
-const VALID_STATUSES = Object.values(ShiftPhotoReportStatus) as string[];
 
 type PageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
@@ -27,19 +25,19 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
   const dateFrom = searchParams.dateFrom as string | undefined;
   const dateTo = searchParams.dateTo as string | undefined;
   const employeeId = searchParams.employeeId as string | undefined;
-  const statusParam = searchParams.status as string | undefined;
-  const status = statusParam && VALID_STATUSES.includes(statusParam) ? (statusParam as ShiftPhotoReportStatus) : undefined;
+  const siteId = searchParams.siteId as string | undefined;
 
   const { reports, totalCount } = await listShiftPhotoReportsPaginated({
     dateFrom: dateFrom ? new Date(dateFrom) : undefined,
     dateTo: dateTo ? new Date(dateTo) : undefined,
     employeeId,
-    status,
+    siteId,
     page,
     pageSize: perPage,
   });
 
   const employees = await getActiveEmployeesSummary('on_site');
+  const sites = (await getActiveSites()).map(s => ({ id: s.id, name: s.name }));
 
   const enriched = await Promise.all(
     reports.map(async report => ({
@@ -54,14 +52,14 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
         <ShiftPhotoReportsList
           reports={serialize(enriched)}
           employees={serialize(employees)}
+          sites={sites}
           dateFrom={dateFrom}
           dateTo={dateTo}
           employeeId={employeeId}
-          statusParam={statusParam}
+          siteId={siteId}
           page={page}
           perPage={perPage}
           totalCount={totalCount}
-          validStatuses={VALID_STATUSES}
         />
       </Suspense>
     </div>

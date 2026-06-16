@@ -222,12 +222,11 @@ export async function listShiftPhotoReportsPaginated(params: {
   dateFrom?: Date;
   dateTo?: Date;
   employeeId?: string;
-  clientId?: string;
-  status?: ShiftPhotoReportStatus;
+  siteId?: string;
   page: number;
   pageSize: number;
 }) {
-  const { dateFrom, dateTo, employeeId, clientId, status, page, pageSize } = params;
+  const { dateFrom, dateTo, employeeId, siteId, page, pageSize } = params;
 
   const where: Prisma.ShiftPhotoReportWhereInput = {};
 
@@ -242,8 +241,7 @@ export async function listShiftPhotoReportsPaginated(params: {
     }
   }
   if (employeeId) where.employeeId = employeeId;
-  if (clientId) where.clientId = clientId;
-  if (status) where.status = status;
+  if (siteId) where.clientId = siteId;
 
   const skip = (page - 1) * pageSize;
 
@@ -255,6 +253,12 @@ export async function listShiftPhotoReportsPaginated(params: {
       take: pageSize,
       include: {
         employee: { select: { fullName: true, employeeNumber: true } },
+        shift: {
+          select: {
+            siteId: true,
+            site: { select: { id: true, name: true, clientName: true } },
+          },
+        },
       },
     });
     const totalCount = await tx.shiftPhotoReport.count({ where });

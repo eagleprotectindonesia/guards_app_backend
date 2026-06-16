@@ -24,7 +24,7 @@ regenerated → superseded by a newer report (manual regenerate)
 | `id` | `String (uuid)` | PK |
 | `shiftId` | `String` | FK → `Shift.id` |
 | `employeeId` | `String` | FK → `Employee.id` (denormalized for fast listing) |
-| `clientId` | `String?` | Denormalized from `Site.clientName` at report creation time |
+| `clientId` | `String?` | Denormalized `Site.id` (UUID) at report creation time |
 | `shiftStartsAt` | `DateTime` | Snapshot from Shift (WITA context) |
 | `shiftEndsAt` | `DateTime` | Snapshot from Shift (WITA context) |
 | `status` | `ShiftPhotoReportStatus` | `pending` → `generated` / `failed` / `regenerated` |
@@ -160,10 +160,10 @@ Returns a single report as JSON with a presigned download URL:
 
 This is a server component that:
 - Checks `PERMISSIONS.SHIFTS.VIEW` permission.
-- Reads `searchParams` filters: `dateFrom`, `dateTo`, `employeeId`, `clientId`, `status`, `page`.
-- Calls `listShiftPhotoReportsPaginated` directly (no REST call).
+- Reads `searchParams` filters: `dateFrom`, `dateTo`, `employeeId`, `siteId`, `page`.
+- Calls `listShiftPhotoReportsPaginated` directly (no REST call). `clientId` on the report stores the denormalized `Site.id` UUID.
 - Computes presigned download URLs inline via `getCachedPresignedDownloadUrl` from `@repo/storage`.
-- Renders a table with columns: Guard, Client, Shift window, Photos count, Status badge, Created date, Actions (download link + regenerate form).
+- Renders a table with columns: Guard, Site (name + clientName sublabel), Shift window, Photos count, Created date, Actions (download link + regenerate form). Status column and filter have been removed; a Site filter replaces the deleted Status filter.
 
 **Regenerate**: The page includes a `<form>` that POSTs to a server action. The action calls `createRegeneratedShiftPhotoReport({ originalReportId, adminId })`, then `revalidatePath('/admin/shift-photo-reports')`.
 

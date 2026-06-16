@@ -28,33 +28,37 @@ type ReportWithDownload = {
   errorMessage: string | null;
   createdAt: string;
   employee: { fullName: string; employeeNumber: string | null } | null;
+  shift: {
+    siteId: string | null;
+    site: { id: string; name: string; clientName: string | null } | null;
+  } | null;
   downloadUrl: string | null;
 };
 
 type ShiftPhotoReportsListProps = {
   reports: Serialized<ReportWithDownload>[];
   employees: { id: string; fullName: string }[];
+  sites: { id: string; name: string }[];
   dateFrom?: string;
   dateTo?: string;
   employeeId?: string;
-  statusParam?: string;
+  siteId?: string;
   page: number;
   perPage: number;
   totalCount: number;
-  validStatuses: string[];
 };
 
 export default function ShiftPhotoReportsList({
   reports,
   employees,
+  sites,
   dateFrom,
   dateTo,
   employeeId,
-  statusParam,
+  siteId,
   page,
   perPage,
   totalCount,
-  validStatuses,
 }: ShiftPhotoReportsListProps) {
   const router = useAdminRouter();
   const searchParams = useSearchParams();
@@ -70,16 +74,16 @@ export default function ShiftPhotoReportsList({
     dateTo ? parseISO(dateTo) : undefined
   );
   const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
-  const [filterStatus, setFilterStatus] = useState(statusParam || '');
+  const [filterSiteId, setFilterSiteId] = useState(siteId || '');
 
   const employeeOptions = [
     { value: '', label: 'All Guards' },
     ...employees.map(emp => ({ value: emp.id, label: emp.fullName })),
   ];
 
-  const statusOptions = [
-    { value: '', label: 'All Statuses' },
-    ...validStatuses.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })),
+  const siteOptions = [
+    { value: '', label: 'All Sites' },
+    ...sites.map(s => ({ value: s.id, label: s.name })),
   ];
 
   const handleApplyFilters = () => {
@@ -103,10 +107,10 @@ export default function ShiftPhotoReportsList({
       params.delete('employeeId');
     }
 
-    if (filterStatus) {
-      params.set('status', filterStatus);
+    if (filterSiteId) {
+      params.set('siteId', filterSiteId);
     } else {
-      params.delete('status');
+      params.delete('siteId');
     }
 
     params.set('page', '1');
@@ -117,7 +121,7 @@ export default function ShiftPhotoReportsList({
     setFilterDateFrom(undefined);
     setFilterDateTo(undefined);
     setFilterEmployeeId('');
-    setFilterStatus('');
+    setFilterSiteId('');
 
     const params = new URLSearchParams();
     params.set('page', '1');
@@ -132,19 +136,6 @@ export default function ShiftPhotoReportsList({
       formData.set('id', id);
       await regenerateShiftPhotoReport(formData);
     });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'generated':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-      case 'failed':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-      default:
-        return 'bg-muted text-muted-foreground';
-    }
   };
 
   return (
@@ -204,16 +195,16 @@ export default function ShiftPhotoReportsList({
             />
           </div>
           <div>
-            <label htmlFor="filter-status" className="block text-sm font-medium text-foreground mb-1">
-              Status
+            <label htmlFor="filter-site" className="block text-sm font-medium text-foreground mb-1">
+              Site
             </label>
             <Select
-              id="filter-status"
-              instanceId="filter-status"
-              options={statusOptions}
-              value={statusOptions.find(option => option.value === filterStatus)}
-              onChange={selectedOption => setFilterStatus(selectedOption ? selectedOption.value : '')}
-              placeholder="All Statuses"
+              id="filter-site"
+              instanceId="filter-site"
+              options={siteOptions}
+              value={siteOptions.find(option => option.value === filterSiteId)}
+              onChange={selectedOption => setFilterSiteId(selectedOption ? selectedOption.value : '')}
+              placeholder="All Sites"
               isClearable={false}
             />
           </div>
@@ -239,9 +230,9 @@ export default function ShiftPhotoReportsList({
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Guard</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Photos</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Created</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Actions</th>
               </tr>
@@ -261,6 +252,16 @@ export default function ShiftPhotoReportsList({
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
                       <div className="font-medium text-foreground">
+                        {report.shift?.site?.name ?? '—'}
+                      </div>
+                      {report.shift?.site?.clientName && (
+                        <div className="text-xs text-muted-foreground/80">
+                          {report.shift.site.clientName}
+                        </div>
+                      )}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground">
+                      <div className="font-medium text-foreground">
                         {format(new Date(report.shiftStartsAt), 'yyyy/MM/dd')}
                       </div>
                       <div className="text-xs text-muted-foreground/80">
@@ -269,11 +270,6 @@ export default function ShiftPhotoReportsList({
                     </td>
                     <td className="py-4 px-6 text-sm text-center text-muted-foreground">
                       {report.photoCount}
-                    </td>
-                    <td className="py-4 px-6 text-sm">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
-                        {report.status}
-                      </span>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
                       {report.generatedAt
