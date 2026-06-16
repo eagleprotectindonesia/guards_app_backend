@@ -6,9 +6,9 @@ import {
   getTicketDashboardComparisonStats,
   getTicketDashboardSidebarStats,
   getTicketSidebarCounts,
+  listAcknowledgedTickets,
   listClosedTickets,
   listTickets,
-  listMyTickets,
   listUnassignedTickets,
   updateTicketStatus,
   updateTicketStatusByEmployee,
@@ -368,16 +368,16 @@ describe('tickets repository', () => {
     );
   });
 
-  test('listMyTickets filters by admin claimant and active statuses', async () => {
+  test('listAcknowledgedTickets filters by admin claimant and ACKNOWLEDGED status', async () => {
     (prisma.ticket.findMany as jest.Mock).mockResolvedValue([]);
-    await listMyTickets('admin-7');
+    await listAcknowledgedTickets('admin-7');
 
     expect(prisma.ticket.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           claimedByType: 'ADMIN',
           claimedByAdminId: 'admin-7',
-          status: { in: ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'] },
+          status: { in: ['ACKNOWLEDGED'] },
         }),
       })
     );
@@ -403,7 +403,7 @@ describe('tickets repository', () => {
     expect(prisma.ticket.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          status: { in: ['CLOSED'] },
+          status: { in: ['CLOSED', 'CANCELLED'] },
         }),
       })
     );
@@ -418,11 +418,12 @@ describe('tickets repository', () => {
 
     const counts = await getTicketSidebarCounts('admin-9');
 
-    expect(counts).toEqual({ all: 10, my: 3, unassigned: 4, closed: 2 });
+    expect(counts).toEqual({ all: 10, acknowledged: 3, unassigned: 4, closed: 2 });
     expect(prisma.ticket.count).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
         where: expect.objectContaining({
+          status: 'ACKNOWLEDGED',
           claimedByType: 'ADMIN',
           claimedByAdminId: 'admin-9',
         }),
@@ -440,13 +441,13 @@ describe('tickets repository', () => {
       4,
       expect.objectContaining({
         where: expect.objectContaining({
-          status: { in: ['CLOSED'] },
+          status: { in: ['CLOSED', 'CANCELLED'] },
         }),
       })
     );
   });
 
-  test('getTicketDashboardSidebarStats counts submitted open tickets and zero-fills categories', async () => {
+  test('getTicketDashboardSidebarStats counts acknowledged claimed tickets and computes categories by category total', async () => {
     (prisma.ticket.count as jest.Mock)
       .mockResolvedValueOnce(6)
       .mockResolvedValueOnce(5)
@@ -510,31 +511,32 @@ describe('tickets repository', () => {
     });
 
     expect(stats.shortcuts).toEqual({
-      myOpenSubmitted: 6,
+      acknowledged: 6,
       unassigned: 5,
-      slaBreached: 2,
+      slaBreached: 1,
       resolvedToday: 4,
     });
     expect(stats.categories).toEqual([
-      { value: 'HR', label: 'HR', count: 2, percentage: 40 },
+      { value: 'HR', label: 'HR', count: 2, percentage: 67 },
       { value: 'IT', label: 'IT', count: 0, percentage: 0 },
-      { value: 'CS', label: 'CS', count: 1, percentage: 20 },
+      { value: 'CS', label: 'CS', count: 1, percentage: 33 },
     ]);
     expect(stats.slaStatus).toEqual({
-      met: 2,
+      met: 3,
       pending: 1,
-      breached: 2,
+      breached: 1,
       total: 5,
-      metPercentage: 40,
+      metPercentage: 60,
       pendingPercentage: 20,
-      breachedPercentage: 40,
+      breachedPercentage: 20,
     });
     expect(prisma.ticket.count).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
         where: expect.objectContaining({
-          submitterAdminId: 'admin-5',
-          status: { in: ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'] },
+          claimedByType: 'ADMIN',
+          claimedByAdminId: 'admin-5',
+          status: 'ACKNOWLEDGED',
         }),
       })
     );
@@ -561,7 +563,7 @@ describe('tickets repository', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           claimedByType: null,
-          status: { notIn: ['CLOSED', 'CANNOT_RESOLVE'] },
+          status: { notIn: ['CLOSED', 'CANNOT_RESOLVE', 'CANCELLED'] },
         }),
       })
     );

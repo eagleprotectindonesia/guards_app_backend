@@ -12,8 +12,8 @@ import {
   getTicketById,
   getTicketHistory,
   getTicketSidebarCounts,
+  listAcknowledgedTickets,
   listClosedTickets,
-  listMyTickets,
   listTickets,
   listUnassignedTickets,
   updateTicketAssignedRoles,
@@ -44,7 +44,7 @@ const CLAIMANT_STATUS_ACTIONS: TicketStatus[] = ['WAITING_INFORMATION', 'IN_PROG
 function revalidateTicketPaths(ticketId?: string) {
   revalidatePath('/admin/ticket/dashboard');
   revalidatePath('/admin/ticket/all');
-  revalidatePath('/admin/ticket/my');
+  revalidatePath('/admin/ticket/acknowledged');
   revalidatePath('/admin/ticket/unassigned');
   revalidatePath('/admin/ticket/closed');
   revalidatePath('/admin/ticket/create');
@@ -201,13 +201,13 @@ export async function listTicketsAction(input: unknown = {}) {
   return listTickets(parsed.data);
 }
 
-export async function listMyTicketsAction(input: unknown = {}) {
+export async function listAcknowledgedTicketsAction(input: unknown = {}) {
   const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
   const parsed = ticketListSchema.safeParse(input);
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message || 'Invalid list query');
   }
-  return listMyTickets(session.id, parsed.data);
+  return listAcknowledgedTickets(session.id, parsed.data);
 }
 
 export async function listUnassignedTicketsAction(input: unknown = {}) {

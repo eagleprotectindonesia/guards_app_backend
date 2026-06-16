@@ -8,7 +8,7 @@ type PageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-const ALLOWED_VIEWS = ['all', 'my', 'unassigned', 'closed'] as const;
+const ALLOWED_VIEWS = ['all', 'acknowledged', 'unassigned', 'closed'] as const;
 
 export default async function TicketWorkspaceViewPage({ params, searchParams }: PageProps) {
   const { view } = await params;

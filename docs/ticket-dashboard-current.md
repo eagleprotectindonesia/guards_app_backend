@@ -13,7 +13,7 @@ Covers the admin ticket system across:
 | Path | Description |
 |---|---|
 | `/admin/ticket/dashboard` | Overview dashboard (metrics, filterable table, sidebar) |
-| `/admin/ticket/[view]` | Workspace (list + detail). `view` ∈ `all`, `my`, `unassigned`, `closed` |
+| `/admin/ticket/[view]` | Workspace (list + detail). `view` ∈ `all`, `acknowledged`, `unassigned`, `closed` |
 | `/admin/ticket/create` | Create ticket form |
 | `/admin/ticket/dashboard?sla=breached` | Overview dashboard pre-filtered to breached SLA tickets |
 
@@ -117,6 +117,10 @@ Messages can have `attachments` (TicketAttachment with `messageId` set).
 
 Single-row table (`id = "global"`) with incrementing `value` for sequential ticket code generation.
 
+### SLA Notes
+
+`CANCELLED` tickets are treated as SLA `pending` (not counted as met or breached).
+
 ---
 
 ## Overview Dashboard (`/admin/ticket/dashboard`)
@@ -165,7 +169,7 @@ Ticket ID, Subject, Category, Site/Client, Priority, Status, Assigned To, Create
 
 Renders `<TicketOverviewSidebarPanel>` from `getTicketDashboardSidebarStats(adminId)`:
 
-- **Ticket Shortcuts**: Create New Ticket, My Open Tickets, Unassigned Tickets, SLA Breached, Today's Resolved (with badge counts)
+- **Ticket Shortcuts**: Create New Ticket, Acknowledged, Unassigned Tickets, SLA Breached, Today's Resolved (with badge counts)
 - **Tickets By Category**: Donut chart + legend from department role policies
 - **SLA Status**: Donut chart (met/pending/breached) with counts
 
@@ -175,7 +179,7 @@ Renders `<TicketOverviewSidebarPanel>` from `getTicketDashboardSidebarStats(admi
 
 - Active statuses (`NEW`, `ACKNOWLEDGED`, `WAITING_INFORMATION`, `IN_PROGRESS`): `breached` if `createdAt + resolutionTargetHours < now`, else `pending`
 - Terminal statuses (`SOLVED`, `CLOSED`, `CANNOT_RESOLVE`): `met` if completed before deadline, else `breached`
-- `CANCELLED`: always `pending`
+- `CANCELLED`: always `pending` (ignored for met/breached)
 
 ---
 
@@ -183,15 +187,15 @@ Renders `<TicketOverviewSidebarPanel>` from `getTicketDashboardSidebarStats(admi
 
 **Route handler:** `ticket/[view]/page.tsx`
 
-Accepts `view` ∈ `all | my | unassigned | closed`. Passes validated params to `renderTicketWorkspacePage(view, searchParams)` from `ticket-workspace-page.tsx`.
+Accepts `view` ∈ `all | acknowledged | unassigned | closed`. Passes validated params to `renderTicketWorkspacePage(view, searchParams)` from `ticket-workspace-page.tsx`.
 
 ### Server-side data loading
 
 ```
-all        → listTickets(params, claimedOnly: true for "my" view)
-my         → listTickets({ ...params, claimedOnly: true, statuses: exclude CLOSED/CANCELLED })
-unassigned → listUnassignedTickets(params)
-closed     → listClosedTickets(params)
+all          → listTickets(params)
+acknowledged → listAcknowledgedTickets(adminId, params)
+unassigned   → listUnassignedTickets(params)
+closed       → listClosedTickets(params)
 ```
 
 Supported `searchParams` for list:
@@ -234,7 +238,7 @@ Two-column grid: `col-span-4` list panel + `col-span-8` detail card (if a ticket
 **File:** `ticket/components/ticket-list-panel.tsx`
 
 Left panel with:
-- **Title** header (varies by view: "All Tickets", "Acknowledged", "Unassigned Tickets", "Closed Tickets")
+- **Title** header (varies by view: "All Tickets", "Acknowledged" for `acknowledged` view, "Unassigned Tickets", "Closed Tickets")
 - **Search** input — filters items client-side by title, code, client name
 - **Priority filter** dialog — checkbox selection for LOW/MEDIUM/HIGH
 - **Sort toggle** — newest first (default) or oldest first
@@ -326,7 +330,7 @@ All in `ticket/actions.ts`:
 |---|---|---|
 | `createTicketAction` | `TICKETS.CREATE` | Creates ticket, assigns department role, sends push notifications to assigned employees, revalidates paths |
 | `listTicketsAction` | `TICKETS.VIEW` | Paginated ticket list |
-| `listMyTicketsAction` | `TICKETS.VIEW` | Tickets claimed by current admin |
+| `listAcknowledgedTicketsAction` | `TICKETS.VIEW` | Tickets claimed by current admin with status ACKNOWLEDGED |
 | `listUnassignedTicketsAction` | `TICKETS.VIEW` | Unclaimed tickets |
 | `listClosedTicketsAction` | `TICKETS.VIEW` | Closed/cancelled tickets |
 | `getTicketSidebarCountsAction` | `TICKETS.VIEW` | Counts for the workspace list views |
@@ -428,7 +432,7 @@ On detail load, `getTicketDetailAction` enriches attachments missing `publicUrl`
 `revalidateTicketPaths(ticketId?)` in actions.ts calls `revalidatePath()` for:
 - `/admin/ticket/dashboard`
 - `/admin/ticket/all`
-- `/admin/ticket/my`
+- `/admin/ticket/acknowledged`
 - `/admin/ticket/unassigned`
 - `/admin/ticket/closed`
 - `/admin/ticket/create`
@@ -445,6 +449,7 @@ On detail load, `getTicketDetailAction` enriches attachments missing `publicUrl`
 - The overview dashboard table shows max 8 rows with pagination placeholder (pagination buttons are present but disabled in current implementation)
 - Department roles are configured via Admin roles with `policy.ticketDepartment` set to one of `TICKET_DEPARTMENT_OPTIONS`
 - Each department can have exactly one role; creating a ticket validates this constraint
+- `CANCELLED` tickets are treated as SLA `pending` (ignored for met/breached counts)
 
 ## Files Involved
 

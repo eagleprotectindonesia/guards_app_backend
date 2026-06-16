@@ -11,7 +11,7 @@ import { getPresignedUploadPostPolicy } from '@/lib/s3';
 import { sendTicketCreatedPushNotification } from '@/lib/fcm';
 
 jest.mock('@/lib/fcm', () => ({
-  sendTicketCreatedPushNotification: jest.fn(),
+  sendTicketCreatedPushNotification: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock('@repo/database', () => ({
@@ -201,7 +201,7 @@ describe('ticket actions', () => {
       fileSize: 512000,
     });
 
-    expect(result).toEqual({ url: 'u', fields: { key: 'k' }, key: 'k' });
+    expect(result).toEqual({ url: 'u', fields: { key: 'k' }, key: 'k', uploadMethod: 'POST' });
     expect(getPresignedUploadPostPolicy).toHaveBeenCalled();
   });
 
@@ -224,7 +224,7 @@ describe('ticket actions', () => {
   });
 
   test('addTicketMessageWithAttachmentsAction calls repository atomically', async () => {
-    (getTicketById as jest.Mock).mockResolvedValue({ id: 'ticket-1' });
+    (getTicketById as jest.Mock).mockResolvedValue({ id: 'ticket-1', assignedRoles: [] });
     (addTicketMessageWithAttachments as jest.Mock).mockResolvedValue({ message: { id: 'm1' }, attachments: [] });
 
     const result = await addTicketMessageWithAttachmentsAction({

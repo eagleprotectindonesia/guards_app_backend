@@ -74,7 +74,7 @@ export type TicketDashboardCategoryStat = {
 
 export type TicketDashboardSidebarStats = {
   shortcuts: {
-    myOpenSubmitted: number;
+    acknowledged: number;
     unassigned: number;
     slaBreached: number;
     resolvedToday: number;
@@ -107,9 +107,8 @@ const TERMINAL_STATUSES = new Set<TicketStatus>(['CLOSED', 'CANNOT_RESOLVE', 'CA
 const CLOSED_VIEW_STATUSES: TicketStatus[] = ['CLOSED', 'CANCELLED'];
 const ACTIVE_VIEW_EXCLUDED_STATUSES: TicketStatus[] = ['CLOSED', 'CANNOT_RESOLVE', 'CANCELLED'];
 const ACTIVE_VIEW_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'];
-const SUBMITTED_OPEN_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'];
 const SLA_ACTIVE_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS'];
-const SLA_TERMINAL_STATUSES = new Set<TicketStatus>(['SOLVED', 'CLOSED', 'CANNOT_RESOLVE', 'CANCELLED']);
+const SLA_TERMINAL_STATUSES = new Set<TicketStatus>(['SOLVED', 'CLOSED', 'CANNOT_RESOLVE']);
 
 function isITRole(roleName?: string | null) {
   return roleName?.trim().toLowerCase() === 'it';
@@ -253,6 +252,11 @@ function summarizeTicketSlaStatus(
       } else {
         pending += 1;
       }
+      continue;
+    }
+
+    if (ticket.status === 'CANCELLED') {
+      pending += 1;
       continue;
     }
 
@@ -567,7 +571,7 @@ export async function listTickets(params: TicketListParams = {}, tx: TxLike = pr
   };
 }
 
-export async function listMyTickets(
+export async function listAcknowledgedTickets(
   adminId: string,
   params: Omit<TicketListParams, 'submitterAdminId'> = {},
   tx: TxLike = prisma
@@ -578,8 +582,8 @@ export async function listMyTickets(
       claimedByType: 'ADMIN',
       claimedByAdminId: adminId,
       statuses: params.statuses?.length
-        ? params.statuses.filter(status => !ACTIVE_VIEW_EXCLUDED_STATUSES.includes(status))
-        : ACTIVE_VIEW_STATUSES,
+        ? params.statuses.filter(status => status === 'ACKNOWLEDGED')
+        : ['ACKNOWLEDGED'],
     },
     tx
   );
@@ -607,12 +611,11 @@ export async function getTicketSidebarCounts(adminId: string, tx: TxLike = prism
     status: { notIn: CLOSED_VIEW_STATUSES },
   };
 
-  const [all, my, unassigned, closed] = await Promise.all([
+  const [all, acknowledged, unassigned, closed] = await Promise.all([
     tx.ticket.count({ where: activeStatusFilter }),
     tx.ticket.count({
       where: {
-        ...activeStatusFilter,
-        status: { notIn: ACTIVE_VIEW_EXCLUDED_STATUSES },
+        status: 'ACKNOWLEDGED',
         claimedByType: 'ADMIN',
         claimedByAdminId: adminId,
       },
@@ -627,7 +630,7 @@ export async function getTicketSidebarCounts(adminId: string, tx: TxLike = prism
     tx.ticket.count({ where: { status: { in: CLOSED_VIEW_STATUSES } } }),
   ]);
 
-  return { all, my, unassigned, closed };
+  return { all, acknowledged, unassigned, closed };
 }
 
 export async function getTicketDashboardSidebarStats(
@@ -641,11 +644,12 @@ export async function getTicketDashboardSidebarStats(
 ): Promise<TicketDashboardSidebarStats> {
   const today = input.startOfToday ?? new Date(new Date().setHours(0, 0, 0, 0));
 
-  const [myOpenSubmitted, unassigned, resolvedToday, categoryCounts, slaTickets] = await Promise.all([
+  const [acknowledged, unassigned, resolvedToday, categoryCounts, slaTickets] = await Promise.all([
     tx.ticket.count({
       where: {
-        submitterAdminId: input.adminId,
-        status: { in: SUBMITTED_OPEN_STATUSES },
+        claimedByType: 'ADMIN',
+        claimedByAdminId: input.adminId,
+        status: 'ACKNOWLEDGED',
       },
     }),
     tx.ticket.count({
@@ -691,19 +695,21 @@ export async function getTicketDashboardSidebarStats(
 
   const slaStatus = summarizeTicketSlaStatus(slaTickets, input.now);
 
+  const categoryTotal = categoryCounts.reduce((sum, c) => sum + c, 0);
+
   const categories = input.categories.map((category, index) => {
     const count = categoryCounts[index] ?? 0;
     return {
       value: category,
       label: category,
       count,
-      percentage: slaStatus.total > 0 ? Math.round((count / slaStatus.total) * 100) : 0,
+      percentage: categoryTotal > 0 ? Math.round((count / categoryTotal) * 100) : 0,
     };
   });
 
   return {
     shortcuts: {
-      myOpenSubmitted,
+      acknowledged,
       unassigned,
       slaBreached: slaStatus.breached,
       resolvedToday,

@@ -77,7 +77,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const { hasPermission } = useSession();
   const { unreadCount } = useAdminNotifications();
   const currentUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
-  const [ticketCounters, setTicketCounters] = useState<{ all: number; my: number; unassigned: number; closed: number } | null>(null);
+  const [ticketCounters, setTicketCounters] = useState<{ all: number; acknowledged: number; unassigned: number; closed: number } | null>(null);
 
   useEffect(() => {
     if (!hasPermission('tickets:view')) return;
@@ -114,7 +114,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const isGroupCollapsed = (label: string) => collapsedGroups[label] ?? false;
   const ticketCounterByHref: Record<string, number | undefined> = {
     '/admin/ticket/all': ticketCounters?.all,
-    '/admin/ticket/my': ticketCounters?.my,
+    '/admin/ticket/acknowledged': ticketCounters?.acknowledged,
     '/admin/ticket/unassigned': ticketCounters?.unassigned,
     '/admin/ticket/closed': ticketCounters?.closed,
   };

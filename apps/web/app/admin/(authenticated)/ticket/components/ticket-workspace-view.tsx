@@ -235,7 +235,7 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
 
   const listTitleByView: Record<string, string> = {
     all: 'All Tickets',
-    my: 'Acknowledged',
+    acknowledged: 'Acknowledged',
     unassigned: 'Unassigned Tickets',
     closed: 'Closed Tickets',
   };
