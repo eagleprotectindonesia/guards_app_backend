@@ -38,6 +38,7 @@ export async function getOnsiteShiftPhotoReportCandidates(now: Date, graceAfterE
       endsAt: true,
       employee: { select: { fullName: true, employeeNumber: true } },
       site: { select: { name: true, clientName: true } },
+      attendance: { select: { picture: true, recordedAt: true } },
     },
   });
 }
@@ -70,11 +71,11 @@ type ShiftPhoto = {
   createdAt: Date;
 };
 
-export async function getShiftReportPhotos(shift: {
-  employeeId: string | null;
-  startsAt: Date;
-  endsAt: Date;
+export async function getShiftReportPhotos(params: {
+  shift: { employeeId: string | null; startsAt: Date; endsAt: Date };
+  attendance?: { picture: string | null; recordedAt: Date } | null;
 }): Promise<ShiftPhoto[]> {
+  const { shift, attendance } = params;
   if (!shift.employeeId) return [];
 
   const messages = await prisma.chatMessage.findMany({
@@ -94,6 +95,16 @@ export async function getShiftReportPhotos(shift: {
 
   const seen = new Set<string>();
   const photos: ShiftPhoto[] = [];
+
+  // Prepend attendance check-in photo (if present) as the first page
+  if (attendance?.picture) {
+    seen.add(attendance.picture);
+    photos.push({
+      messageId: 'attendance',
+      s3Key: attendance.picture,
+      createdAt: attendance.recordedAt,
+    });
+  }
 
   for (const msg of messages) {
     for (const att of msg.attachments) {
@@ -223,7 +234,12 @@ export async function listShiftPhotoReportsPaginated(params: {
   if (dateFrom || dateTo) {
     where.generatedAt = {};
     if (dateFrom) where.generatedAt.gte = dateFrom;
-    if (dateTo) where.generatedAt.lte = dateTo;
+    if (dateTo) {
+      // Extend to end of day so the full end-date is included
+      const endOfDay = new Date(dateTo);
+      endOfDay.setUTCHours(23, 59, 59, 999);
+      where.generatedAt.lte = endOfDay;
+    }
   }
   if (employeeId) where.employeeId = employeeId;
   if (clientId) where.clientId = clientId;

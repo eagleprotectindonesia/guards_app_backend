@@ -17,6 +17,7 @@ import {
   Clock3,
   MessageSquare,
   CalendarCheck2,
+  FileText,
   type LucideIcon,
 } from 'lucide-react';
 import { PermissionCode } from './auth/permissions';
@@ -102,6 +103,12 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
       requiredPermission: 'shift-types:view',
     },
     { name: 'Guard Shifts', href: '/admin/guard-shifts', icon: Calendar, requiredPermission: 'shifts:view' },
+    {
+      name: 'Shift Photo Reports',
+      href: '/admin/shift-photo-reports',
+      icon: FileText,
+      requiredPermission: 'shift-photo-reports:view',
+    },
     { name: 'Attendance', href: '/admin/attendance', icon: ClipboardCheck, requiredPermission: 'attendance:view' },
     {
       name: 'Guard Checkins',
@@ -158,6 +165,7 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: 
         byName.get('Sites'),
         byName.get('Guard Shift Types'),
         byName.get('Guard Shifts'),
+        byName.get('Shift Photo Reports'),
         byName.get('Guard Checkins'),
         byName.get('Alerts'),
         byName.get('Chat'),

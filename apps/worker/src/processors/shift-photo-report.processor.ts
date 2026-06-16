@@ -44,9 +44,8 @@ export class ShiftPhotoReportProcessor {
 
       try {
         const rawPhotos = await getShiftReportPhotos({
-          employeeId: shift.employeeId,
-          startsAt: shift.startsAt,
-          endsAt: shift.endsAt,
+          shift: { employeeId: shift.employeeId, startsAt: shift.startsAt, endsAt: shift.endsAt },
+          attendance: shift.attendance,
         });
 
         const photoInputs = rawPhotos.map(p => ({ s3Key: p.s3Key, createdAt: p.createdAt }));
