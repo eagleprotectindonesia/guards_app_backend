@@ -156,7 +156,6 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: 
         byName.get('Office Schedules'),
         byName.get('Office Shift Types'),
         byName.get('Office Shifts'),
-        byName.get('Office Memos'),
       ].filter(Boolean) as NavItem[],
     },
     {
@@ -165,7 +164,6 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: 
         byName.get('Sites'),
         byName.get('Guard Shift Types'),
         byName.get('Guard Shifts'),
-        byName.get('Shift Photo Reports'),
         byName.get('Guard Checkins'),
         byName.get('Alerts'),
         byName.get('Chat'),
@@ -179,6 +177,13 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: 
         byName.get('Holiday Calendar'),
         byName.get('Leave Requests'),
         byName.get('Leave Balances'),
+      ].filter(Boolean) as NavItem[],
+    },
+    {
+      label: 'Reporting',
+      items: [
+        byName.get('Shift Photo Reports'),
+        byName.get('Office Memos'),
       ].filter(Boolean) as NavItem[],
     },
     {
