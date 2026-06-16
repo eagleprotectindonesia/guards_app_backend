@@ -1,6 +1,6 @@
 'use client';
 
-import { type ChangeEvent, useRef, useState, useTransition, useEffect } from 'react';
+import { type ChangeEvent, useCallback, useMemo, useRef, useState, useTransition, useEffect } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSocket } from '@/components/socket-provider';
@@ -14,7 +14,9 @@ import {
   claimTicketAction,
   createTicketAttachmentUploadUrlAction,
   getTicketDetailAction,
+  loadMoreTicketsAction,
   updateTicketStatusAction,
+  type LoadMoreView,
 } from '../actions';
 import { uploadFileWithPresignedPost } from '@/lib/s3-presigned-post-upload';
 import { TicketListPanel } from './ticket-list-panel';
@@ -28,10 +30,11 @@ type Props = {
   requestedTicketId?: string;
   initialItems: TicketListItem[];
   initialHasMore: boolean;
+  initialCursor: string | null;
   initialDetail: TicketDetailResult | null;
 };
 
-export function TicketWorkspaceView({ initialView, initialItems, requestedTicketId, initialDetail }: Props) {
+export function TicketWorkspaceView({ initialView, initialItems, initialHasMore, initialCursor, requestedTicketId, initialDetail }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -98,9 +101,83 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('q') ?? '');
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<'details' | 'discussion' | 'attachments' | 'history'>('discussion');
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Pagination: accumulate additional pages via "load more"
+  const initialItemsRef = useRef(initialItems);
+  const [extraItems, setExtraItems] = useState<TicketListItem[]>([]);
+  const [cursor, setCursor] = useState<string | null>(initialCursor);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  if (initialItemsRef.current !== initialItems) {
+    initialItemsRef.current = initialItems;
+    setExtraItems([]);
+    setCursor(initialCursor);
+    setHasMore(initialHasMore);
+  }
+
+  const paginatedItems = useMemo(
+    () => (extraItems.length > 0 ? [...initialItems, ...extraItems] : initialItems),
+    [initialItems, extraItems]
+  );
+
+  async function loadMore() {
+    if (!cursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const result = await loadMoreTicketsAction({
+        view: initialView as LoadMoreView,
+        cursor,
+        search: searchParams.get('q') ?? undefined,
+        priorities: searchParams.get('priorities')?.split(','),
+      });
+      setExtraItems(prev => [...prev, ...result.items]);
+      setCursor(result.nextCursor);
+      setHasMore(result.hasMore);
+    } catch {
+      toast.error('Failed to load more tickets');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }
+
+  const syncSearchToUrl = useCallback((value: string) => {
+    clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value) {
+        params.set('q', value);
+      } else {
+        params.delete('q');
+      }
+      params.delete('ticket');
+      startTransition(() => {
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      });
+    }, 300);
+  }, [searchParams, startTransition, router, pathname]);
+
+  function handleSearchTermChange(value: string) {
+    setSearchTerm(value);
+    syncSearchToUrl(value);
+  }
+
+  function handlePrioritiesChange(priorities: string[]) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (priorities.length > 0) {
+      params.set('priorities', priorities.join(','));
+    } else {
+      params.delete('priorities');
+    }
+    params.delete('ticket');
+    startTransition(() => {
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    });
+  }
 
   function handleSelectTicket(id: string | null) {
     setSelectedId(id);
@@ -226,13 +303,6 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
     }
   }
 
-  const filteredItems = initialItems.filter(
-    item =>
-      item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.clientName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   const listTitleByView: Record<string, string> = {
     all: 'All Tickets',
     acknowledged: 'Acknowledged',
@@ -240,15 +310,24 @@ export function TicketWorkspaceView({ initialView, initialItems, requestedTicket
     closed: 'Closed Tickets',
   };
 
+  const selectedPriorities: ('LOW' | 'MEDIUM' | 'HIGH')[] = (searchParams.get('priorities')?.split(',').filter((p): p is 'LOW' | 'MEDIUM' | 'HIGH' =>
+    p === 'LOW' || p === 'MEDIUM' || p === 'HIGH'
+  ) ?? []);
+
   return (
     <div className="grid grid-cols-12 gap-6 h-[calc(100vh-140px)] -mt-2">
       <TicketListPanel
         title={listTitleByView[initialView] ?? 'Tickets'}
-        items={filteredItems}
+        items={paginatedItems}
         selectedId={selectedId}
         searchTerm={searchTerm}
-        onSearchTermChange={setSearchTerm}
+        selectedPriorities={selectedPriorities}
+        onSearchTermChange={handleSearchTermChange}
         onSelectTicket={handleSelectTicket}
+        onPrioritiesChange={handlePrioritiesChange}
+        hasMore={hasMore}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={loadMore}
       />
 
       {selectedId && (

@@ -77,7 +77,12 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const { hasPermission } = useSession();
   const { unreadCount } = useAdminNotifications();
   const currentUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
-  const [ticketCounters, setTicketCounters] = useState<{ all: number; acknowledged: number; unassigned: number; closed: number } | null>(null);
+  const [ticketCounters, setTicketCounters] = useState<{
+    all: number;
+    acknowledged: number;
+    unassigned: number;
+    closed: number;
+  } | null>(null);
 
   useEffect(() => {
     if (!hasPermission('tickets:view')) return;
@@ -87,7 +92,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
       try {
         const response = await fetch('/api/admin/tickets/counters', { method: 'GET', cache: 'no-store' });
         if (!response.ok) return;
-        const data = (await response.json()) as { all: number; my: number; unassigned: number; closed: number };
+        const data = await response.json();
         if (!cancelled) {
           setTicketCounters(data);
         }
@@ -220,7 +225,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                         className={cn(
                           'w-5 h-5 shrink-0',
                           isActive
-                          ? routeTab === 'ticket'
+                            ? routeTab === 'ticket'
                               ? 'text-purple-400'
                               : 'text-red-600 dark:text-red-400'
                             : 'text-muted-foreground'

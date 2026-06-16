@@ -70,6 +70,7 @@ export async function renderTicketWorkspacePage(view: WorkspaceView, searchParam
       requestedTicketId={ticketId}
       initialItems={serialize(listResult.items)}
       initialHasMore={listResult.hasMore}
+      initialCursor={listResult.nextCursor}
       initialDetail={initialDetail ? serialize(initialDetail) : null}
     />
   );

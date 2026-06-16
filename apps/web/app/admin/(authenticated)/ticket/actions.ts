@@ -228,6 +228,51 @@ export async function listClosedTicketsAction(input: unknown = {}) {
   return listClosedTickets(parsed.data);
 }
 
+export type LoadMoreView = 'all' | 'acknowledged' | 'unassigned' | 'closed';
+
+export async function loadMoreTicketsAction(input: {
+  view: LoadMoreView;
+  cursor: string;
+  search?: string;
+  statuses?: string[];
+  priorities?: string[];
+  assignedRoleIds?: string[];
+}) {
+  const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
+  const validated = ticketListSchema.safeParse(input);
+  if (!validated.success) {
+    throw new Error(validated.error.issues[0]?.message || 'Invalid query');
+  }
+
+  const listParams = {
+    ...validated.data,
+    limit: 50,
+  };
+
+  const result =
+    input.view === 'acknowledged'
+      ? await listAcknowledgedTickets(session.id, listParams)
+      : input.view === 'unassigned'
+        ? await listUnassignedTickets(listParams)
+        : input.view === 'closed'
+          ? await listClosedTickets(listParams)
+          : await listTickets(listParams);
+
+  return {
+    items: result.items.map(item => ({
+      id: item.id,
+      code: item.code,
+      title: item.title,
+      clientName: item.clientName,
+      priority: item.priority,
+      status: item.status,
+      createdAt: item.createdAt.toISOString(),
+    })),
+    nextCursor: result.nextCursor,
+    hasMore: result.hasMore,
+  };
+}
+
 export async function getTicketSidebarCountsAction() {
   const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
   return getTicketSidebarCounts(session.id);

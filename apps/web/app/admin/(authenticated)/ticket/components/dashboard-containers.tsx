@@ -1,4 +1,4 @@
-import { db, getTicketDashboardComparisonStats, getTicketDashboardSidebarStats, Prisma } from '@repo/database';
+import { db, getTicketDashboardComparisonStats, getTicketDashboardSidebarStats, listTicketsForSlaFilter, Prisma } from '@repo/database';
 import { TicketPriority, TicketStatus } from '@prisma/client';
 import { TICKET_DEPARTMENT_OPTIONS, type TicketDepartment } from '@/lib/ticket-department-roles';
 import { TicketOverviewMetrics } from './ticket-overview-dashboard-metrics';
@@ -91,47 +91,6 @@ function parseAssignee(value: string | string[] | undefined) {
   if (candidate.startsWith('admin:')) return { type: 'ADMIN' as const, id: candidate.slice('admin:'.length) };
   if (candidate.startsWith('employee:')) return { type: 'EMPLOYEE' as const, id: candidate.slice('employee:'.length) };
   return null;
-}
-
-function getTicketSlaStatus(
-  ticket: {
-    status: TicketStatus;
-    createdAt: Date;
-    resolutionTargetHours: number;
-    solvedAt: Date | null;
-    closedAt: Date | null;
-    cannotResolveAt: Date | null;
-    updatedAt: Date;
-  },
-  now: Date = new Date()
-): 'met' | 'pending' | 'breached' {
-  const deadline = new Date(ticket.createdAt.getTime() + ticket.resolutionTargetHours * 60 * 60 * 1000);
-
-  const SLA_ACTIVE_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS'];
-  const SLA_TERMINAL_STATUSES = new Set<TicketStatus>(['SOLVED', 'CLOSED', 'CANNOT_RESOLVE']);
-
-  if (SLA_ACTIVE_STATUSES.includes(ticket.status)) {
-    if (deadline.getTime() < now.getTime()) {
-      return 'breached';
-    } else {
-      return 'pending';
-    }
-  }
-
-  if (SLA_TERMINAL_STATUSES.has(ticket.status)) {
-    let completionAt = ticket.updatedAt;
-    if (ticket.status === 'SOLVED' && ticket.solvedAt) completionAt = ticket.solvedAt;
-    else if (ticket.status === 'CLOSED' && ticket.closedAt) completionAt = ticket.closedAt;
-    else if (ticket.status === 'CANNOT_RESOLVE' && ticket.cannotResolveAt) completionAt = ticket.cannotResolveAt;
-
-    if (completionAt.getTime() <= deadline.getTime()) {
-      return 'met';
-    } else {
-      return 'breached';
-    }
-  }
-
-  return 'pending';
 }
 
 // Containers Implementation
@@ -304,21 +263,15 @@ export async function DashboardTableContainer({ searchParams }: { searchParams: 
 
   const ticketsAndCount = await (async () => {
     if (sla === 'met' || sla === 'pending' || sla === 'breached') {
-      const allFilteredTickets = await db.ticket.findMany({
-        where,
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        include: {
-          departmentRole: { select: { id: true, name: true, policy: true } },
-          claimedByAdmin: { select: { name: true } },
-          claimedByEmployee: { select: { fullName: true } },
-        },
+      return listTicketsForSlaFilter({
+        search,
+        status,
+        priority,
+        department,
+        assignee: assignee ?? undefined,
+        slaStatus: sla,
+        limit: 8,
       });
-      const now = new Date();
-      const matched = allFilteredTickets.filter(t => getTicketSlaStatus(t, now) === sla);
-      return {
-        count: matched.length,
-        tickets: matched.slice(0, 8),
-      };
     } else {
       const [count, tickets] = await Promise.all([
         db.ticket.count({ where }),
