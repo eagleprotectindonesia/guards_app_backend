@@ -1,4 +1,5 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+export { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
 import { redis } from '@repo/database/redis';
@@ -27,6 +28,9 @@ type UploadFolderOptions = {
   conversationId?: string;
   messageId?: string;
   fileType?: string;
+  siteId?: string;
+  shiftId?: string;
+  reportId?: string;
 };
 
 function sanitizeFallbackFileName(fileName: string) {
@@ -62,6 +66,24 @@ function buildS3ObjectKey(fileName: string, options: UploadFolderOptions, contex
       hasMessageId: Boolean(options.messageId),
       fileName,
       fileType: options.fileType || null,
+    });
+  }
+
+  if (folder === 'shift-reports') {
+    if (options.siteId && options.shiftId && options.reportId) {
+      const env = process.env.NODE_ENV === 'production' ? 'prod' : process.env.NODE_ENV || 'development';
+      const safeName = sanitizeFallbackFileName(fileName);
+
+      return `shift-reports/env=${env}/site_${options.siteId}/shift_${options.shiftId}/report_${options.reportId}/${safeName}`;
+    }
+
+    console.warn('[S3 Upload] Falling back to generic shift-reports key due to missing metadata', {
+      context,
+      folder,
+      hasSiteId: Boolean(options.siteId),
+      hasShiftId: Boolean(options.shiftId),
+      hasReportId: Boolean(options.reportId),
+      fileName,
     });
   }
 

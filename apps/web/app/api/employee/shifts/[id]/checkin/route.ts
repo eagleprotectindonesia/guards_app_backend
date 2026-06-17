@@ -219,6 +219,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       await redis.publish(`alerts:site:${shift.siteId}`, JSON.stringify(payload));
     }
 
+    // Notify the worker to re-sync active shifts (triggers marker color update on map)
+    await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_UPDATED', id: shift.id }));
+
     await redis.publish(
       'dashboard:live-activity',
       JSON.stringify({

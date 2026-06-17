@@ -1,298 +1,480 @@
-# Ticket Dashboard Current State
+# Ticket System — Current State
+
+Current as of code inspection on 2026-06-16.
+
+Covers the admin ticket system across:
+- `apps/web/app/admin/(authenticated)/ticket/` — all route and component files
+- `packages/database/prisma/schema.prisma` — Ticket model and related models
+- `packages/database/src/repositories/tickets.ts` — data access layer
+- `apps/web/app/admin/(authenticated)/ticket/actions.ts` — server actions
+
+## Route Structure
+
+| Path | Description |
+|---|---|
+| `/admin/ticket/dashboard` | Overview dashboard (metrics, filterable table, sidebar) |
+| `/admin/ticket/[view]` | Workspace (list + detail). `view` ∈ `all`, `acknowledged`, `unassigned`, `closed` |
+| `/admin/ticket/create` | Create ticket form |
+| `/admin/ticket/dashboard?sla=breached` | Overview dashboard pre-filtered to breached SLA tickets |
+
+The legacy `[tab]/dashboard/page.tsx` now redirects `tab=ticket` to `/admin/ticket/dashboard`.
+
+## Data Model
+
+### Ticket
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | UUID | PK |
+| `code` | String | Auto-generated, unique, sequential (e.g. `TCK-0001`) |
+| `title` | String | Auto-generated from first line of description (80 char max) |
+| `description` | Text | Rich HTML (TinyMCE) |
+| `resolutionTargetHours` | Int | SLA target in hours (1, 2, 4, 8, 12, 24, 48, 72) |
+| `priority` | `LOW \| MEDIUM \| HIGH` | Default `MEDIUM` |
+| `status` | See below | Default `NEW` |
+| `submitterAdminId` | String | FK to Admin who created the ticket |
+| `claimedByType` | `ADMIN \| EMPLOYEE`? | Null if unclaimed |
+| `claimedByAdminId` | String? | FK |
+| `claimedByEmployeeId` | String? | FK |
+| `claimedAt` | DateTime? | |
+| `departmentRoleId` | String? | FK to Role. Links to a role whose `policy.ticketDepartment` matches the selected department |
+| `clientName` | String | |
+| `clientContact` | String | |
+| `clientLocation` | String | |
+| `solvedAt` | DateTime? | Set when status moves to `SOLVED` |
+| `closedAt` | DateTime? | Set when status moves to `CLOSED` |
+| `cannotResolveAt` | DateTime? | Set when status moves to `CANNOT_RESOLVE` |
+| `cancelledAt` | DateTime? | Set when status moves to `CANCELLED` |
+| `cancellationNote` | Text? | Required when cancelling |
 
-Current as of code inspection on 2026-05-28.
+### Status (enum)
 
-This document covers the current product flow and technical implementation for the admin ticket dashboard in:
+```
+NEW -> ACKNOWLEDGED -> WAITING_INFORMATION -> IN_PROGRESS -> SOLVED -> CLOSED
+                                                           -> CANNOT_RESOLVE
+                                           -> CANCELLED (at any point)
+```
 
-- `apps/web/app/admin/(authenticated)/[tab]/dashboard/page.tsx`
-- `apps/web/app/admin/(authenticated)/ticket/components/ticket-dashboard-view.tsx`
-- `apps/web/app/admin/(authenticated)/ticket/actions.ts`
-- Supporting components under `apps/web/app/admin/(authenticated)/ticket/components/`
+Full set: `NEW`, `ACKNOWLEDGED`, `WAITING_INFORMATION`, `IN_PROGRESS`, `SOLVED`, `CLOSED`, `CANNOT_RESOLVE`, `CANCELLED`.
 
-## Product Flow
+### Priority (enum)
 
-### 1. Entry point
+`LOW`, `MEDIUM`, `HIGH`
 
-The ticket dashboard is rendered when an admin visits the tabbed admin dashboard with `tab=ticket`.
+### TicketAssignedRole
 
-The route wrapper reads query parameters and builds the initial ticket list based on:
+Maps roles to tickets for notification routing. Each ticket can have multiple assigned roles.
 
-- `view`: `all` | `my` | `unassigned` | `closed`
-- `ticket`: optional ticket ID to preselect
-- `q`: search term
-- `statuses`: comma-separated status filters
-- `priorities`: comma-separated priority filters
-- `assignedRoleIds`: comma-separated role filters
+### TicketAssignedEmployee
 
-The first rendered state is server-side data for the selected view, then the client dashboard takes over.
+Maps employees to tickets. Employees receive push notifications on ticket creation.
 
-### 2. List + detail layout
+### TicketMessage
 
-The dashboard uses a two-column layout:
+| Field | Type |
+|---|---|
+| `id` | UUID |
+| `ticketId` | FK |
+| `adminId` | String? (null if sent by employee) |
+| `employeeId` | String? (null if sent by admin) |
+| `body` | Text |
+| `createdAt` | DateTime |
 
-- Left column: searchable list of tickets
-- Right column: selected ticket detail panel
+Messages can have `attachments` (TicketAttachment with `messageId` set).
 
-If there is no selected ticket, the detail panel shows an empty-state prompt asking the admin to select a ticket.
+### TicketAttachment
 
-### 3. Ticket selection
+| Field | Type |
+|---|---|
+| `id` | UUID |
+| `ticketId` | FK |
+| `messageId` | String? (null for ticket-level attachments) |
+| `uploadedByAdminId` | String? |
+| `uploadedByEmployeeId` | String? |
+| `fileName` | String |
+| `fileSize` | Int |
+| `mimeType` | String |
+| `s3Key` | String |
+| `s3Bucket` | String |
+| `publicUrl` | String? (null, enriched server-side via presigned URL) |
+| `createdAt` | DateTime |
 
-The selected ticket is initialized in this order:
+### TicketHistory
 
-- `requestedTicketId` from the URL
-- otherwise the first item in the initial list
-- otherwise `null`
+| Field | Type |
+|---|---|
+| `id` | UUID |
+| `ticketId` | FK |
+| `actorAdminId` | String? |
+| `actorEmployeeId` | String? |
+| `action` | `CREATED \| STATUS_CHANGED \| PRIORITY_CHANGED \| ASSIGNMENT_CHANGED \| MESSAGE_ADDED \| ATTACHMENT_ADDED \| REOPENED` |
+| `fromValue` | String? |
+| `toValue` | String? |
+| `metadata` | Json? |
+| `createdAt` | DateTime |
 
-Selecting a ticket loads its full detail view and history.
+### TicketCodeSequence
 
-### 4. Detail tabs
+Single-row table (`id = "global"`) with incrementing `value` for sequential ticket code generation.
 
-The ticket detail area has four tabs:
+### SLA Notes
 
-- `Details`
-- `Discussion`
-- `Attachments`
-- `History`
+`CANCELLED` tickets are treated as SLA `pending` (not counted as met or breached).
 
-The default tab is `Discussion`.
+---
 
-#### Details
+## Overview Dashboard (`/admin/ticket/dashboard`)
 
-Shows the ticket description.
+**Server component:** `ticket/dashboard/page.tsx`
 
-#### Discussion
+Wraps four async container components in `<Suspense>` boundaries, each rendered inside `<TicketOverviewDashboard>` (client component that listens for real-time ticket events to trigger `router.refresh()`).
 
-Shows the message thread for the ticket and allows admins to:
+### DashboardMetricsContainer
 
-- type a reply
-- attach image, video, or PDF files
-- send the message
+Fetches and renders 5 metric cards via `<TicketOverviewMetrics>`:
 
-#### Attachments
+| Metric | Source |
+|---|---|
+| Total Tickets | `db.ticket.count()` |
+| Open Tickets | Count where status in `[NEW, ACKNOWLEDGED, WAITING_INFORMATION]` |
+| In Progress | Count where status = `IN_PROGRESS` |
+| Resolved Today | Count where `solvedAt >= today` OR `closedAt >= today` |
+| SLA Breach | From `getTicketDashboardSidebarStats()` → `slaStatus.breached` |
 
-Shows all ticket-level attachments with download links and media previews where possible.
+Each metric shows a delta hint compared to yesterday (from `getTicketDashboardComparisonStats`).
 
-#### History
+### DashboardFiltersContainer
 
-Shows the ticket audit trail and state changes.
+Renders `<TicketOverviewFilters>` — client component (`useSearchParams`/`useRouter`) with:
 
-### 5. Status changes
+- **Search input** — debounced (500ms), query param `q`
+- **Category** dropdown — from `TICKET_DEPARTMENT_OPTIONS`
+- **Status** dropdown — all 8 statuses
+- **Priority** dropdown — LOW / MEDIUM / HIGH
+- **SLA Status** dropdown — `met`, `pending`, `breached`
+- **Assigned To** dropdown — all admins/employees with claimed tickets, plus `Unassigned`
 
-Admins can open the `More` menu from the header and change the ticket status to:
+### DashboardTableContainer
 
-- `ACKNOWLEDGED`
-- `WAITING_INFORMATION`
-- `IN_PROGRESS`
-- `SOLVED`
-- `CANNOT_RESOLVE`
-- `CLOSED`
+Renders `<TicketOverviewTable>` — server-side filtered table with columns:
 
-The status update is immediately persisted, then the detail data is reloaded.
+Ticket ID, Subject, Category, Site/Client, Priority, Status, Assigned To, Created, SLA Due, Actions.
 
-### 6. Creating tickets
+- Fetches up to 8 rows per query
+- Supports filtering by `q`, `department`, `status`, `priority`, `assignee`, `sla`
+- SLA filter is applied in-memory (uses `getTicketSlaStatus()`)
+- Each row has a dropdown action linking to `/admin/ticket/all?ticket={id}`
 
-Ticket creation happens in a separate page:
+### DashboardSidebarContainer
 
-- `apps/web/app/admin/(authenticated)/ticket/create/page.tsx`
+Renders `<TicketOverviewSidebarPanel>` from `getTicketDashboardSidebarStats(adminId)`:
 
-That page renders a form for:
+- **Ticket Shortcuts**: Create New Ticket, Acknowledged, Unassigned Tickets, SLA Breached, Today's Resolved (with badge counts)
+- **Tickets By Category**: Donut chart + legend from department role policies
+- **SLA Status**: Donut chart (met/pending/breached) with counts
 
-- title
-- description
-- department
-- client name
-- client contact
-- client location
-- priority
-- optional attachments
+### SLA Calculation
 
-After creation, the user is redirected back to the dashboard with the new ticket selected.
+`getTicketSlaStatus(ticket, now)`:
 
-### 7. Attachments
+- Active statuses (`NEW`, `ACKNOWLEDGED`, `WAITING_INFORMATION`, `IN_PROGRESS`): `breached` if `createdAt + resolutionTargetHours < now`, else `pending`
+- Terminal statuses (`SOLVED`, `CLOSED`, `CANNOT_RESOLVE`): `met` if completed before deadline, else `breached`
+- `CANCELLED`: always `pending` (ignored for met/breached)
 
-File uploads are restricted to:
+---
 
-- images
-- videos
-- PDFs
+## Workspace (`/admin/ticket/[view]`)
 
-The UI validates file type and size before upload. The max file size is 10 MB.
+**Route handler:** `ticket/[view]/page.tsx`
 
-When attachments are included in a message:
+Accepts `view` ∈ `all | acknowledged | unassigned | closed`. Passes validated params to `renderTicketWorkspacePage(view, searchParams)` from `ticket-workspace-page.tsx`.
 
-- the client first requests a presigned upload policy
-- uploads the file directly to S3
-- sends the uploaded metadata back in the message mutation
+### Server-side data loading
 
-The same pattern is used for initial ticket attachments in the create form.
+```
+all          → listTickets(params)
+acknowledged → listAcknowledgedTickets(adminId, params)
+unassigned   → listUnassignedTickets(params)
+closed       → listClosedTickets(params)
+```
 
-### 8. Notifications
+Supported `searchParams` for list:
+- `q` — search term (sent to server)
+- `statuses` — comma-separated `TicketStatus[]`
+- `priorities` — comma-separated `TicketPriority[]`
+- `assignedRoleIds` — comma-separated role IDs
+- `ticket` — preselect a specific ticket ID
 
-The system sends notifications in these cases:
+Server prefetches `getTicketDetailAction(targetTicketId)` for the preselected or first ticket, serializes everything, and passes to `<TicketWorkspaceView>`.
 
-- a message is added to a ticket
-- roles are assigned to a ticket
-- ticket status changes
+### TicketWorkspaceView (client component)
 
-Notifications are sent to:
+**File:** `ticket/components/ticket-workspace-view.tsx`
 
-- admins assigned through ticket roles
-- the original submitter when someone else changes the ticket status
+Owns state for:
+- `selectedId` — currently selected ticket ID
+- `detail` — fetched via `useQuery(['ticket', selectedId], getTicketDetailAction)`
+- `searchTerm` — client-side list filter
+- `message`, `selectedFiles`, `isSendingMessage` — compose area
+- `isClaiming` — claim button loading state
+- `activeTab` — `details | discussion | attachments | history` (default: `discussion`)
 
-## Technical Implementation
+Uses `@tanstack/react-query` for detail fetching with server-hydrated `initialData`.
 
-### Route and data loading
+Syncs `selectedId` to URL query param `?ticket={id}` via `router.replace`.
 
-The dashboard wrapper lives in `apps/web/app/admin/(authenticated)/[tab]/dashboard/page.tsx`.
+**Real-time via WebSocket:**
+- Subscribes to `subscribe_ticket` / `unsubscribe_ticket` rooms based on `selectedId`
+- Listens for `ticket_created` → refresh workspace
+- Listens for `ticket_status_updated` → refresh detail + workspace
+- Listens for `ticket_message_added` → refresh detail
 
-It:
+#### Layout
 
-- validates the `tab` slug
-- redirects non-ticket tabs to the live dashboard
-- checks `PERMISSIONS.TICKETS.VIEW`
-- parses query parameters
-- chooses the correct server-side ticket list function
-- serializes the result and passes it into `TicketDashboardView`
+Two-column grid: `col-span-4` list panel + `col-span-8` detail card (if a ticket is selected).
 
-The server-side list function depends on `view`:
+### TicketListPanel
 
-- `all` -> `listTickets`
-- `my` -> `listMyTickets`
-- `unassigned` -> `listUnassignedTickets`
-- `closed` -> `listClosedTickets`
+**File:** `ticket/components/ticket-list-panel.tsx`
 
-### Client state model
+Left panel with:
+- **Title** header (varies by view: "All Tickets", "Acknowledged" for `acknowledged` view, "Unassigned Tickets", "Closed Tickets")
+- **Search** input — filters items client-side by title, code, client name
+- **Priority filter** dialog — checkbox selection for LOW/MEDIUM/HIGH
+- **Sort toggle** — newest first (default) or oldest first
+- **Scrollable list** — each item shows code, title, client name, priority badge, status badge, timestamp
 
-`TicketDashboardView` is a client component that owns the following state:
+### TicketDetailHeader
 
-- `selectedId`
-- `detail`
-- `message`
-- `selectedFiles`
-- `isSendingMessage`
-- `searchTerm`
-- `activeTab`
+**File:** `ticket/components/ticket-detail-header.tsx`
 
-It also uses:
+Top section of the detail panel showing:
+- **Header row**: Claim button, More menu (status actions), Close button
+- **Title row**: `{code}` + priority badge + status badge + SLA due date (countdown)
+- **Metadata grid**: Created By, Created Date, Client Name, Client Location, Department, Assigned To, Client Contact, Status
 
-- `useRouter()` for refresh/navigation
-- `useTransition()` for async detail loading and pending state
-- `useRef()` for the hidden file input
+**Claim button behavior:**
+- Only visible if user's role matches `ticket.departmentRoleId` (`hasClaimRole`) or user already claimed it
+- `canClaim` is true when ticket is not already claimed by current user
+- Calls `claimTicketAction(ticketId)`
 
-### Detail hydration
+**More menu (status actions):**
+- Submitter: `CLOSED`, `CANCELLED` only
+- Claimant: `WAITING_INFORMATION`, `IN_PROGRESS`, `SOLVED`, `CANNOT_RESOLVE`, `CANCELLED`
+- Cancel triggers a dialog requiring a cancellation note
+- For closed/cancelled tickets, a "Reopen Ticket" button appears if `ACKNOWLEDGED` is allowed
 
-Whenever `selectedId` changes, the component calls `getTicketDetailAction(selectedId)`.
+**Tab bar:** Details | Discussion | Attachments ({count}) | History
 
-That server action:
+### TicketTabContent
 
-- checks `PERMISSIONS.TICKETS.VIEW`
-- loads the ticket by ID
-- loads ticket history
-- enriches ticket and message attachments with cached presigned download URLs when `publicUrl` is missing
-- returns a `TicketDetailResult`
+**File:** `ticket/components/ticket-tab-content.tsx`
 
-The component stores the result in local state and renders the detail panel from that object.
+#### Details tab
+Renders `ticket.description` via `<RichTextViewer>` (HTML).
 
-### Search behavior
+#### Discussion tab
+Message thread with:
+- Each message shows: avatar initials, author name, timestamp, body text
+- Attachments inline: image previews, video players, file download links
+- Message input at bottom with:
+  - File attach button (accepts image/*, video/*, application/pdf)
+  - File chips showing selected files with remove
+  - Text input with Enter-to-send
+  - Send button
+- Composer is hidden when ticket is `CLOSED` or `CANCELLED` with a disabled notice
 
-The list search is currently client-side only.
+#### Attachments tab
+Grid of all ticket-level (non-message) attachments with file name, size, download link.
 
-`TicketDashboardView` filters `initialItems` by:
+#### History tab
+Chronological list of `TicketHistory` entries showing actor, action, from→to values.
 
-- ticket title
-- ticket code
-- client name
+---
 
-There is no additional server round-trip when the search term changes.
+## Create Ticket (`/admin/ticket/create`)
 
-### Message posting
+**Server component:** `ticket/create/page.tsx`
 
-Plain messages use `addTicketMessageAction`.
+Checks `PERMISSIONS.TICKETS.CREATE`, renders `<TicketCreateForm adminName={...}>`.
 
-The flow is:
+### TicketCreateForm (client component)
 
-1. User types a message.
-2. If there are no selected files, the client submits only the message body.
-3. If there are files, each file is uploaded first through a presigned POST policy from `createTicketAttachmentUploadUrlAction`.
-4. The client submits `addTicketMessageWithAttachmentsAction` with the uploaded metadata.
-5. The UI clears the composer and re-fetches the ticket detail.
+**File:** `ticket/components/ticket-create-form.tsx`
 
-The file upload metadata includes:
+Form sections:
 
-- file name
-- file size
-- MIME type
-- S3 key
-- bucket when available
+| Section | Fields |
+|---|---|
+| Create Ticket | Created By (read-only), Department (from `TICKET_DEPARTMENT_OPTIONS`), Priority, Promised Resolution Time (SLA hours), Date |
+| Client Information | Client Name, Client Contact (phone input), Client Location (Google Places autocomplete + map preview) |
+| Problem Information | Problem description (TinyMCE rich editor), Attachments (drag/drop with preview modal) |
 
-### Attachment validation
+**Submission flow:**
+1. Validates description (non-empty), client contact (≥7 digits)
+2. Auto-generates title from first line of description (80 chars max)
+3. Calls `createTicketAction` with form data
+4. Uploads attachments via `createTicketAttachmentUploadUrlAction` + `uploadFileWithPresignedPost`
+5. Calls `attachUploadedFilesToTicketAction` to attach uploaded files
+6. Redirects to `/admin/ticket/all?ticket={newTicketId}`
 
-The client validates:
+Uses Google Maps API (`@vis.gl/react-google-maps`) for location autocomplete and map preview.
 
-- allowed types: image, video, PDF
-- max size: 10 MB
+---
 
-The server validates again:
+## Server Actions
 
-- attachment schema correctness
-- upload prefix ownership
-- that message attachments are used through the message attachment action
+All in `ticket/actions.ts`:
 
-For uploads tied to the current session, the server expects the S3 key to start with:
+| Action | Permission | Description |
+|---|---|---|
+| `createTicketAction` | `TICKETS.CREATE` | Creates ticket, assigns department role, sends push notifications to assigned employees, revalidates paths |
+| `listTicketsAction` | `TICKETS.VIEW` | Paginated ticket list |
+| `listAcknowledgedTicketsAction` | `TICKETS.VIEW` | Tickets claimed by current admin with status ACKNOWLEDGED |
+| `listUnassignedTicketsAction` | `TICKETS.VIEW` | Unclaimed tickets |
+| `listClosedTicketsAction` | `TICKETS.VIEW` | Closed/cancelled tickets |
+| `getTicketSidebarCountsAction` | `TICKETS.VIEW` | Counts for the workspace list views |
+| `getTicketDetailAction` | `TICKETS.VIEW` | Full ticket detail + history, enriched attachment URLs, permission flags (canClaim, isSubmitter, isClaimant, allowedStatusActions, etc.) |
+| `claimTicketAction` | `TICKETS.VIEW` | Claims a ticket by admin (checks role match) |
+| `addTicketMessageAction` | `TICKETS.VIEW` | Adds plain text message, notifies assigned roles |
+| `addTicketMessageWithAttachmentsAction` | `TICKETS.VIEW` | Adds message with pre-uploaded file metadata, validates key prefix |
+| `updateTicketStatusAction` | `TICKETS.VIEW` | Changes status with role-based permission check, notifies submitter on change |
+| `updateTicketPriorityAction` | `TICKETS.EDIT` | Changes priority |
+| `updateTicketAssignedRolesAction` | `TICKETS.EDIT` | Updates role assignments, notifies newly assigned roles |
+| `createTicketAttachmentUploadUrlAction` | `TICKETS.VIEW` | Returns presigned POST policy for S3 upload |
+| `attachUploadedFilesToTicketAction` | `TICKETS.VIEW` | Attaches uploaded files to ticket (validates key prefix) |
 
-- `tickets/temp/${session.id}/`
+### Claim flow
 
-### Status updates
+`claimTicketAction` → `claimTicket()` in repository:
+- Validates admin's role matches `ticket.departmentRoleId` (unless super admin)
+- Sets `claimedByType = 'ADMIN'`, `claimedByAdminId = adminId`, `claimedAt = now()`
+- Creates history entry `ASSIGNMENT_CHANGED`
 
-`updateTicketStatusAction`:
+### Status permission logic
 
-- validates the new status
-- checks `PERMISSIONS.TICKETS.VIEW`
-- calls the database update function with the actor context
-- notifies the original submitter if another admin changed the status
-- revalidates the dashboard and ticket detail paths
+Defined in actions.ts:
+```ts
+const SUBMITTER_STATUS_ACTIONS = ['CLOSED', 'CANCELLED'];
+const CLAIMANT_STATUS_ACTIONS = ['WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CANNOT_RESOLVE', 'CANCELLED'];
+```
 
-### Assignment and priority updates
+- `isSubmitter`: ticket creator
+- `isClaimant`: admin who claimed the ticket (claimedByType === 'ADMIN' && claimedByAdminId === session.id)
+- Submitter can only close or cancel their own submitted tickets
+- Claimant can progress the ticket through the workflow
+- Others (neither submitter nor claimant) have no status actions at all
 
-The server action layer also includes:
+### Attachment upload key prefix
 
-- `updateTicketPriorityAction`
-- `updateTicketAssignedRolesAction`
+The server validates that uploaded S3 keys start with:
+```
+tickets/env={NODE_ENV}/ticket_{ticketId}/
+```
+(Not using session-based temp prefixes as in earlier iterations.)
 
-These are not currently exposed directly from `TicketDashboardView`, but they are part of the ticket module and follow the same permission + revalidation pattern.
+---
 
-### Revalidation
+## Notifications Pipeline
 
-Ticket mutations call `revalidateTicketPaths(ticketId)` which refreshes:
+### Admin notifications
 
+Written to `AdminNotification` table then published to Redis:
+```
+admin-notifications:admin:{adminId}
+```
+
+Notification triggers:
+1. **Message added** — `notifyAssignedRoles()` notifies admins whose role is assigned to the ticket (excluding the actor)
+2. **Roles assigned** — `notifyAssignedRoles()` with type `ticket_assigned_role`
+3. **Status changed** — `notifySubmitterOnStatusChange()` notifies the original submitter when someone else changes the status
+
+### Employee push notifications
+
+On ticket creation, `sendTicketCreatedPushNotification()` sends FCM push to each assigned employee. Failures are logged but non-blocking.
+
+---
+
+## Realtime via WebSocket
+
+The `SocketProvider` context provides socket connectivity.
+
+**TicketOverviewDashboard** (overview page): listens for `ticket_created`, `ticket_status_updated`, `ticket_message_added` → calls `router.refresh()`.
+
+**TicketWorkspaceView** (workspace page):
+- Subscribes to `subscribe_ticket:{ticketId}` room on mount / when `selectedId` changes
+- Unsubscribes on unmount / when `selectedId` changes
+- `ticket_created` → `refreshWorkspace()`
+- `ticket_status_updated` → refresh detail if matches `selectedId`, then refresh workspace
+- `ticket_message_added` → refresh detail if matches `selectedId`
+
+---
+
+## File Attachments
+
+### Client-side validation
+- Allowed types: images, videos, PDF
+- Max size: 10 MB per file
+
+### Upload flow
+1. Client requests presigned POST policy via `createTicketAttachmentUploadUrlAction(ticketId, fileName, contentType, fileSize)`
+2. Client uploads file directly to S3 using `uploadFileWithPresignedPost()`
+3. Client submits uploaded file metadata (fileName, fileSize, mimeType, s3Key, s3Bucket) to `addTicketMessageWithAttachmentsAction` or `attachUploadedFilesToTicketAction`
+4. Server validates key prefix and persists attachment record
+
+### URL enrichment
+On detail load, `getTicketDetailAction` enriches attachments missing `publicUrl` by calling `getCachedPresignedDownloadUrl(s3Key)`, which generates a presigned CloudFront/S3 download URL.
+
+---
+
+## Revalidation
+
+`revalidateTicketPaths(ticketId?)` in actions.ts calls `revalidatePath()` for:
 - `/admin/ticket/dashboard`
+- `/admin/ticket/all`
+- `/admin/ticket/acknowledged`
+- `/admin/ticket/unassigned`
+- `/admin/ticket/closed`
 - `/admin/ticket/create`
-- `/admin/ticket/${ticketId}`
+- `/admin/ticket/${ticketId}` (if ticketId provided)
 
-This keeps the dashboard and detail pages consistent after mutations.
+---
 
-### Notifications pipeline
+## Important Notes
 
-Notifications are written to the database and then published through Redis to per-admin channels:
-
-- `admin-notifications:admin:${adminId}`
-
-This is used for real-time admin notification delivery.
-
-## Important Implementation Notes
-
-- `initialView` and `initialHasMore` are passed into `TicketDashboardView` from the route wrapper, but the current client component does not use them yet.
-- The ticket list search is local to the currently loaded page of items.
-- `requestedTicketId` is respected only on initial mount; changing the URL later does not automatically sync selection in the current component.
-- `useTransition()` is used for the initial detail fetch, but the component still relies on local state for the selected ticket payload.
+- The workspace list search is **both server-side** (sent as `q` param to `listTickets` on initial load) and **client-side** (filters `initialItems` by title/code/clientName)
+- `useTransition()` is used only for `router.refresh()` calls, not for detail fetching (which uses React Query)
+- `initialView` and `initialHasMore` are passed from server but `initialHasMore` is not currently used client-side
+- `requestedTicketId` is respected on initial mount and synced bidirectionally with URL
+- The overview dashboard table shows max 8 rows with pagination placeholder (pagination buttons are present but disabled in current implementation)
+- Department roles are configured via Admin roles with `policy.ticketDepartment` set to one of `TICKET_DEPARTMENT_OPTIONS`
+- Each department can have exactly one role; creating a ticket validates this constraint
+- `CANCELLED` tickets are treated as SLA `pending` (ignored for met/breached counts)
 
 ## Files Involved
 
-- `apps/web/app/admin/(authenticated)/[tab]/dashboard/page.tsx`
-- `apps/web/app/admin/(authenticated)/ticket/actions.ts`
-- `apps/web/app/admin/(authenticated)/ticket/components/ticket-dashboard-view.tsx`
-- `apps/web/app/admin/(authenticated)/ticket/components/ticket-list-panel.tsx`
-- `apps/web/app/admin/(authenticated)/ticket/components/ticket-detail-header.tsx`
-- `apps/web/app/admin/(authenticated)/ticket/components/ticket-tab-content.tsx`
-- `apps/web/app/admin/(authenticated)/ticket/components/ticket-dashboard-types.ts`
-- `apps/web/app/admin/(authenticated)/ticket/components/ticket-dashboard-utils.ts`
+```
+apps/web/app/admin/(authenticated)/ticket/
+├── actions.ts
+├── [view]/page.tsx
+├── create/page.tsx
+├── dashboard/page.tsx
+└── components/
+    ├── ticket-workspace-page.tsx
+    ├── ticket-workspace-view.tsx
+    ├── ticket-dashboard-types.ts
+    ├── ticket-dashboard-utils.ts
+    ├── ticket-list-panel.tsx
+    ├── ticket-detail-header.tsx
+    ├── ticket-tab-content.tsx
+    ├── ticket-create-form.tsx
+    ├── ticket-overview-dashboard.tsx
+    ├── ticket-overview-dashboard.types.ts
+    ├── ticket-overview-dashboard.utils.ts
+    ├── ticket-overview-dashboard-filters.tsx
+    ├── ticket-overview-dashboard-table.tsx
+    ├── ticket-overview-dashboard-sidebar.tsx
+    ├── ticket-overview-dashboard-metrics.tsx
+    ├── dashboard-containers.tsx
+    └── dashboard-skeletons.tsx
+```

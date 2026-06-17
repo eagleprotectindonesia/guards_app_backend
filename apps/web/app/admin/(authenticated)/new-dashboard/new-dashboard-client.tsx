@@ -5,7 +5,6 @@ import { Site } from '@prisma/client';
 import type { Serialized } from '@/lib/server-utils';
 import { useAlerts } from '../context/alert-context';
 import { NewDashboardSkeleton } from '../components/loading/new-dashboard-skeleton';
-import { LoadingBlock } from '../components/loading/loading-block';
 import { useSocketEvent } from '@/hooks/use-socket-event';
 import { PanicAlert } from '@repo/types';
 import {
@@ -16,7 +15,6 @@ import {
   InternalChatLiveCard,
   LiveActivityFeedCard,
   OpenTicketsCard,
-  PlaceholderTopCard,
   SitesMapCard,
   ShiftOverviewCard,
   SystemStatusCard,

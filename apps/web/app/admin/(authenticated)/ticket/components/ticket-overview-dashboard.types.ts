@@ -27,7 +27,7 @@ export type DashboardRow = {
 
 export type TicketOverviewSidebar = {
   shortcuts: {
-    myOpenSubmitted: number;
+    acknowledged: number;
     unassigned: number;
     slaBreached: number;
     resolvedToday: number;

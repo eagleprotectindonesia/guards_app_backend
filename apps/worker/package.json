@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/worker.ts",
     "dev:https": "pnpm run dev",
-    "build": "esbuild src/worker.ts --bundle --platform=node --target=node22 --outfile=dist/worker.js --external:@prisma/client --external:pg --external:@prisma/adapter-pg --external:ioredis --external:dotenv --external:date-fns --external:bullmq",
+    "build": "esbuild src/worker.ts --bundle --platform=node --target=node22 --outfile=dist/worker.js --external:@prisma/client --external:pg --external:@prisma/adapter-pg --external:ioredis --external:dotenv --external:date-fns --external:bullmq --external:pdfkit --external:sharp",
     "start": "node dist/worker.js",
     "lint": "eslint . --ext .ts && tsc --noEmit",
     "type-check": "tsc --noEmit"
@@ -15,6 +15,7 @@
     "@prisma/client": "^7.7.0",
     "@repo/database": "workspace:*",
     "@repo/shared": "workspace:*",
+    "@repo/storage": "workspace:*",
     "@repo/types": "workspace:*",
     "@repo/validations": "workspace:*",
     "bullmq": "^5.66.4",
@@ -22,12 +23,15 @@
     "dotenv": "^17.2.3",
     "firebase-admin": "^13.6.1",
     "ioredis": "5.9.3",
+    "pdfkit": "^0.15.0",
+    "sharp": "^0.34.5",
     "pg": "^8.18.0",
     "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
     "@types/node": "^20",
+    "@types/pdfkit": "^0.17.6",
     "@typescript-eslint/parser": "^8.52.0",
     "esbuild": "^0.24.0",
     "eslint": "^9.39.2"

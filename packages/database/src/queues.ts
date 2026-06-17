@@ -17,3 +17,6 @@ export const SEND_EMAIL_JOB_NAME = 'send-email';
 
 export const SHIFT_REMINDER_QUEUE_NAME = 'shift-reminder';
 export const SHIFT_REMINDER_JOB_NAME = 'shift-reminder-send';
+
+export const SHIFT_PHOTO_REPORT_QUEUE_NAME = 'shift-photo-report';
+export const SHIFT_PHOTO_REPORT_JOB_NAME = 'shift-photo-report-scan';

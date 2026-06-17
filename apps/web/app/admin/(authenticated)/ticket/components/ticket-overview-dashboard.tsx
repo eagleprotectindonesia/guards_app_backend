@@ -17,10 +17,6 @@ export function TicketOverviewDashboard({ children }: { children: React.ReactNod
     router.refresh();
   });
 
-  useSocketEvent('ticket_message_added', () => {
-    router.refresh();
-  });
-
   return (
     <div className="space-y-6">
       <div className="space-y-1">

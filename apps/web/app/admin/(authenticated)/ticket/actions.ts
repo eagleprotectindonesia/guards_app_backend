@@ -12,8 +12,8 @@ import {
   getTicketById,
   getTicketHistory,
   getTicketSidebarCounts,
+  listAcknowledgedTickets,
   listClosedTickets,
-  listMyTickets,
   listTickets,
   listUnassignedTickets,
   updateTicketAssignedRoles,
@@ -44,7 +44,7 @@ const CLAIMANT_STATUS_ACTIONS: TicketStatus[] = ['WAITING_INFORMATION', 'IN_PROG
 function revalidateTicketPaths(ticketId?: string) {
   revalidatePath('/admin/ticket/dashboard');
   revalidatePath('/admin/ticket/all');
-  revalidatePath('/admin/ticket/my');
+  revalidatePath('/admin/ticket/acknowledged');
   revalidatePath('/admin/ticket/unassigned');
   revalidatePath('/admin/ticket/closed');
   revalidatePath('/admin/ticket/create');
@@ -201,13 +201,13 @@ export async function listTicketsAction(input: unknown = {}) {
   return listTickets(parsed.data);
 }
 
-export async function listMyTicketsAction(input: unknown = {}) {
+export async function listAcknowledgedTicketsAction(input: unknown = {}) {
   const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
   const parsed = ticketListSchema.safeParse(input);
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message || 'Invalid list query');
   }
-  return listMyTickets(session.id, parsed.data);
+  return listAcknowledgedTickets(session.id, parsed.data);
 }
 
 export async function listUnassignedTicketsAction(input: unknown = {}) {
@@ -226,6 +226,51 @@ export async function listClosedTicketsAction(input: unknown = {}) {
     throw new Error(parsed.error.issues[0]?.message || 'Invalid list query');
   }
   return listClosedTickets(parsed.data);
+}
+
+export type LoadMoreView = 'all' | 'acknowledged' | 'unassigned' | 'closed';
+
+export async function loadMoreTicketsAction(input: {
+  view: LoadMoreView;
+  cursor: string;
+  search?: string;
+  statuses?: string[];
+  priorities?: string[];
+  assignedRoleIds?: string[];
+}) {
+  const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
+  const validated = ticketListSchema.safeParse(input);
+  if (!validated.success) {
+    throw new Error(validated.error.issues[0]?.message || 'Invalid query');
+  }
+
+  const listParams = {
+    ...validated.data,
+    limit: 50,
+  };
+
+  const result =
+    input.view === 'acknowledged'
+      ? await listAcknowledgedTickets(session.id, listParams)
+      : input.view === 'unassigned'
+        ? await listUnassignedTickets(listParams)
+        : input.view === 'closed'
+          ? await listClosedTickets(listParams)
+          : await listTickets(listParams);
+
+  return {
+    items: result.items.map(item => ({
+      id: item.id,
+      code: item.code,
+      title: item.title,
+      clientName: item.clientName,
+      priority: item.priority,
+      status: item.status,
+      createdAt: item.createdAt.toISOString(),
+    })),
+    nextCursor: result.nextCursor,
+    hasMore: result.hasMore,
+  };
 }
 
 export async function getTicketSidebarCountsAction() {

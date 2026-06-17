@@ -33,10 +33,10 @@ export function TicketOverviewSidebarPanel({ sidebar }: Props) {
       href: '/admin/ticket/create',
     },
     {
-      label: 'My Open Tickets',
-      value: sidebar.shortcuts.myOpenSubmitted,
+      label: 'Acknowledged',
+      value: sidebar.shortcuts.acknowledged,
       icon: FileStack,
-      href: '/admin/ticket/my',
+      href: '/admin/ticket/acknowledged',
     },
     {
       label: 'Unassigned Tickets',

@@ -16,8 +16,13 @@ type TicketListPanelProps = {
   items: TicketListItem[];
   selectedId: string | null;
   searchTerm: string;
+  selectedPriorities: ('LOW' | 'MEDIUM' | 'HIGH')[];
   onSearchTermChange: (value: string) => void;
   onSelectTicket: (ticketId: string) => void;
+  onPrioritiesChange: (priorities: ('LOW' | 'MEDIUM' | 'HIGH')[]) => void;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+  onLoadMore: () => void;
 };
 
 function formatTicketDate(dateStr: string) {
@@ -48,23 +53,22 @@ export function TicketListPanel({
   items,
   selectedId,
   searchTerm,
+  selectedPriorities,
   onSearchTermChange,
   onSelectTicket,
+  onPrioritiesChange,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
 }: TicketListPanelProps) {
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
-  const [selectedPriorities, setSelectedPriorities] = useState<('LOW' | 'MEDIUM' | 'HIGH')[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const filteredAndSortedItems = [...items]
-    .filter(item => {
-      if (selectedPriorities.length === 0) return true;
-      return selectedPriorities.includes(item.priority);
-    })
-    .sort((a, b) => {
-      const timeA = new Date(a.createdAt).getTime();
-      const timeB = new Date(b.createdAt).getTime();
-      return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
-    });
+  const sortedItems = [...items].sort((a, b) => {
+    const timeA = new Date(a.createdAt).getTime();
+    const timeB = new Date(b.createdAt).getTime();
+    return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+  });
 
   return (
     <>
@@ -113,7 +117,7 @@ export function TicketListPanel({
 
       <ScrollArea className="flex-1">
         <div className="p-3 space-y-2.5">
-          {filteredAndSortedItems.map(item => {
+          {sortedItems.map(item => {
             const isSelected = selectedId === item.id;
             return (
               <button
@@ -170,6 +174,19 @@ export function TicketListPanel({
               </button>
             );
           })}
+          {hasMore && (
+            <div className="px-3 pb-3">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full text-xs"
+                onClick={onLoadMore}
+                disabled={isLoadingMore}
+              >
+                {isLoadingMore ? 'Loading...' : 'Load more'}
+              </Button>
+            </div>
+          )}
         </div>
       </ScrollArea>
     </Card>
@@ -195,9 +212,9 @@ export function TicketListPanel({
                       checked={isChecked}
                       onCheckedChange={checked => {
                         if (checked) {
-                          setSelectedPriorities(prev => [...prev, priority]);
+                          onPrioritiesChange([...selectedPriorities, priority]);
                         } else {
-                          setSelectedPriorities(prev => prev.filter(p => p !== priority));
+                          onPrioritiesChange(selectedPriorities.filter(p => p !== priority));
                         }
                       }}
                     />
@@ -228,7 +245,7 @@ export function TicketListPanel({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => setSelectedPriorities([])}
+            onClick={() => onPrioritiesChange([])}
             disabled={selectedPriorities.length === 0}
             className="text-xs"
           >

@@ -11,6 +11,7 @@ import type { Serialized } from '@/lib/server-utils';
 import { PanicAlert } from '@repo/types';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
+import { useAlerts } from '../../context/alert-context';
 import { useSession } from '../../context/session-context';
 import { useAdminDashboardTab } from '../../context/admin-dashboard-tab-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
@@ -39,6 +40,15 @@ type MapSite = {
   latitude: number;
   longitude: number;
   status: boolean | null;
+  markerStatus: 'none' | 'pending' | 'upcoming' | 'active' | 'late';
+};
+
+const MARKER_COLORS: Record<MapSite['markerStatus'], string> = {
+  none: '#6b7280',
+  pending: '#f97316',
+  upcoming: '#eab308',
+  active: '#22c55e',
+  late: '#f97316',
 };
 
 function hasCoordinates(site: Serialized<Site>): site is Serialized<Site> & { latitude: number; longitude: number } {
@@ -59,9 +69,17 @@ function hasPanicCoordinates(panic: PanicAlert): panic is PanicAlert & { latitud
   );
 }
 
-function SitePopup({ site, editHref, onNavigate }: { site: MapSite; editHref: string | null; onNavigate: (href: string) => void }) {
+function SitePopup({
+  site,
+  editHref,
+  onNavigate,
+}: {
+  site: MapSite;
+  editHref: string | null;
+  onNavigate: (href: string) => void;
+}) {
   return (
-    <div className="min-w-[180px] text-xs leading-relaxed">
+    <div className="min-w-45 text-xs leading-relaxed">
       <div className="font-bold mb-1">{site.name}</div>
       <div>
         <strong>Status:</strong> {site.status === false ? 'Inactive' : 'Active'}
@@ -100,7 +118,7 @@ function SitePopup({ site, editHref, onNavigate }: { site: MapSite; editHref: st
 
 function PanicPopup({ panic }: { panic: PanicAlert }) {
   return (
-    <div className="min-w-[180px] text-xs leading-relaxed">
+    <div className="min-w-45 text-xs leading-relaxed">
       <div className="font-bold mb-1" style={{ color: '#ea580c' }}>
         🚨 SOS ALERT
       </div>
@@ -203,7 +221,7 @@ function SitesMapView({ sites, panicAlerts, canEditSite, selectedTab, onNavigate
       root.render(<SitePopup site={site} editHref={editHref} onNavigate={onNavigate} />);
       popup.on('close', () => root.unmount());
 
-      const marker = new maplibregl.Marker({ color: '#ef4444' })
+      const marker = new maplibregl.Marker({ color: MARKER_COLORS[site.markerStatus] })
         .setLngLat([site.longitude, site.latitude])
         .setPopup(popup)
         .addTo(map);
@@ -262,10 +280,60 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
   const [maximized, setMaximized] = useState(false);
   const { hasPermission } = useSession();
   const { selectedTab } = useAdminDashboardTab();
+  const { activeSites, alerts, upcomingShifts } = useAlerts();
   const router = useRouter();
   const canEditSite = hasPermission(PERMISSIONS.SITES.EDIT);
 
   const handleNavigate = useMemo(() => (href: string) => router.push(href), [router]);
+
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const siteStatusMap = useMemo(() => {
+    const map = new Map<string, MapSite['markerStatus']>();
+
+    // Build set of site IDs with unresolved late-relevant alerts
+    const alertedSiteIds = new Set<string>();
+    for (const alert of alerts) {
+      if (alert.reason === 'missed_checkin' || alert.reason === 'missed_attendance') {
+        const id = alert.siteId ?? alert.site?.id ?? alert.shift?.siteId;
+        if (id) alertedSiteIds.add(id);
+      }
+    }
+
+    // Process active shifts for each site
+    for (const { site, shifts } of activeSites) {
+      const hasLateAttendance = shifts.some(s => s.attendance?.status === 'late');
+      const hasAlert = alertedSiteIds.has(site.id);
+      const hasActiveCheckin = shifts.some(
+        s => s.attendance && s.attendance.status !== 'absent' && s.attendance.status !== 'pending_verification'
+      );
+
+      if (hasLateAttendance || hasAlert) {
+        map.set(site.id, 'late');
+      } else if (hasActiveCheckin) {
+        map.set(site.id, 'active');
+      } else {
+        map.set(site.id, 'pending');
+      }
+    }
+
+    // Upcoming shifts within 30 min (only for sites not yet in the map)
+    const UPCOMING_WINDOW_MS = 30 * 60 * 1000;
+    for (const shift of upcomingShifts) {
+      const siteId = shift.site?.id ?? shift.siteId;
+      if (!siteId || map.has(siteId)) continue;
+      const startsAt = new Date(shift.startsAt).getTime();
+      if (startsAt > now && startsAt - now <= UPCOMING_WINDOW_MS) {
+        map.set(siteId, 'upcoming');
+      }
+    }
+
+    return map;
+  }, [activeSites, alerts, upcomingShifts, now]);
 
   const mappableSites = useMemo<MapSite[]>(
     () =>
@@ -277,8 +345,9 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
         latitude: site.latitude,
         longitude: site.longitude,
         status: site.status ?? null,
+        markerStatus: siteStatusMap.get(site.id) ?? 'none',
       })),
-    [sites]
+    [sites, siteStatusMap]
   );
 
   const mappablePanics = useMemo<PanicAlert[]>(() => panicAlerts.filter(hasPanicCoordinates), [panicAlerts]);
@@ -292,6 +361,20 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
             <h3 className="text-sm font-semibold text-foreground">Active Sites Map</h3>
           </div>
           <div className="flex items-center gap-1">
+            <span className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
+              <span className="flex items-center gap-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> On
+              </span>
+              <span className="flex items-center gap-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-orange-500" /> Pend
+              </span>
+              <span className="flex items-center gap-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" /> Soon
+              </span>
+              <span className="flex items-center gap-0.5">
+                <span className="h-1.5 w-1.5 rounded-full bg-gray-500" /> Off
+              </span>
+            </span>
             <span className="text-xs text-muted-foreground">
               {mappableSites.length} sites{mappablePanics.length > 0 ? ` · ${mappablePanics.length} SOS` : ''} mapped
             </span>

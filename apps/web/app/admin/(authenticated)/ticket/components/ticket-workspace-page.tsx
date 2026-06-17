@@ -1,4 +1,4 @@
-import { listClosedTickets, listTickets, listUnassignedTickets } from '@repo/database';
+import { listAcknowledgedTickets, listClosedTickets, listTickets, listUnassignedTickets } from '@repo/database';
 import { TicketPriority, TicketStatus } from '@prisma/client';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
@@ -6,7 +6,7 @@ import { serialize } from '@/lib/server-utils';
 import { TicketWorkspaceView } from './ticket-workspace-view';
 import { getTicketDetailAction } from '../actions';
 
-type WorkspaceView = 'all' | 'my' | 'unassigned' | 'closed';
+type WorkspaceView = 'all' | 'acknowledged' | 'unassigned' | 'closed';
 
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
@@ -27,7 +27,7 @@ function asPriorityList(value: string | string[] | undefined): TicketPriority[] 
 }
 
 export async function renderTicketWorkspacePage(view: WorkspaceView, searchParams: SearchParams) {
-  await requirePermission(PERMISSIONS.TICKETS.VIEW);
+  const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
   const query = await searchParams;
   const ticketId = typeof query.ticket === 'string' ? query.ticket : undefined;
   const search = typeof query.q === 'string' ? query.q : undefined;
@@ -44,14 +44,8 @@ export async function renderTicketWorkspacePage(view: WorkspaceView, searchParam
   };
 
   const listResult =
-    view === 'my'
-      ? await listTickets({
-          ...listParams,
-          claimedOnly: true,
-          statuses: listParams.statuses
-            ? listParams.statuses.filter(status => status !== 'CLOSED' && status !== 'CANCELLED')
-            : ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED', 'CANNOT_RESOLVE'],
-        })
+    view === 'acknowledged'
+      ? await listAcknowledgedTickets(session.id, listParams)
       : view === 'unassigned'
         ? await listUnassignedTickets(listParams)
         : view === 'closed'
@@ -76,6 +70,7 @@ export async function renderTicketWorkspacePage(view: WorkspaceView, searchParam
       requestedTicketId={ticketId}
       initialItems={serialize(listResult.items)}
       initialHasMore={listResult.hasMore}
+      initialCursor={listResult.nextCursor}
       initialDetail={initialDetail ? serialize(initialDetail) : null}
     />
   );

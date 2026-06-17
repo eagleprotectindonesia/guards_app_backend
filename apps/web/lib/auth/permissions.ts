@@ -31,6 +31,7 @@ export const RESOURCES = [
   'holiday-calendars',
   'office-memos',
   'tickets',
+  'shift-photo-reports',
 ] as const;
 
 export const ACTIONS = ['view', 'create', 'edit', 'delete'] as const;
@@ -177,6 +178,10 @@ export const PERMISSIONS = {
   },
   SYSTEM_DASHBOARD: {
     VIEW: 'dashboard-system:view',
+  },
+  SHIFT_PHOTO_REPORTS: {
+    VIEW: 'shift-photo-reports:view',
+    CREATE: 'shift-photo-reports:create',
   },
 } satisfies Record<string, Record<string, PermissionCode>>;
 

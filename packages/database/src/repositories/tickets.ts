@@ -74,7 +74,7 @@ export type TicketDashboardCategoryStat = {
 
 export type TicketDashboardSidebarStats = {
   shortcuts: {
-    myOpenSubmitted: number;
+    acknowledged: number;
     unassigned: number;
     slaBreached: number;
     resolvedToday: number;
@@ -107,9 +107,8 @@ const TERMINAL_STATUSES = new Set<TicketStatus>(['CLOSED', 'CANNOT_RESOLVE', 'CA
 const CLOSED_VIEW_STATUSES: TicketStatus[] = ['CLOSED', 'CANCELLED'];
 const ACTIVE_VIEW_EXCLUDED_STATUSES: TicketStatus[] = ['CLOSED', 'CANNOT_RESOLVE', 'CANCELLED'];
 const ACTIVE_VIEW_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'];
-const SUBMITTED_OPEN_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS', 'SOLVED'];
 const SLA_ACTIVE_STATUSES: TicketStatus[] = ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION', 'IN_PROGRESS'];
-const SLA_TERMINAL_STATUSES = new Set<TicketStatus>(['SOLVED', 'CLOSED', 'CANNOT_RESOLVE', 'CANCELLED']);
+const SLA_TERMINAL_STATUSES = new Set<TicketStatus>(['SOLVED', 'CLOSED', 'CANNOT_RESOLVE']);
 
 function isITRole(roleName?: string | null) {
   return roleName?.trim().toLowerCase() === 'it';
@@ -208,7 +207,7 @@ function reopenTimestampPatch() {
   };
 }
 
-function getTicketSlaDeadline(createdAt: Date, resolutionTargetHours: number) {
+export function getTicketSlaDeadline(createdAt: Date, resolutionTargetHours: number) {
   return new Date(createdAt.getTime() + resolutionTargetHours * 60 * 60 * 1000);
 }
 
@@ -253,6 +252,11 @@ function summarizeTicketSlaStatus(
       } else {
         pending += 1;
       }
+      continue;
+    }
+
+    if (ticket.status === 'CANCELLED') {
+      pending += 1;
       continue;
     }
 
@@ -567,7 +571,7 @@ export async function listTickets(params: TicketListParams = {}, tx: TxLike = pr
   };
 }
 
-export async function listMyTickets(
+export async function listAcknowledgedTickets(
   adminId: string,
   params: Omit<TicketListParams, 'submitterAdminId'> = {},
   tx: TxLike = prisma
@@ -578,8 +582,8 @@ export async function listMyTickets(
       claimedByType: 'ADMIN',
       claimedByAdminId: adminId,
       statuses: params.statuses?.length
-        ? params.statuses.filter(status => !ACTIVE_VIEW_EXCLUDED_STATUSES.includes(status))
-        : ACTIVE_VIEW_STATUSES,
+        ? params.statuses.filter(status => status === 'ACKNOWLEDGED')
+        : ['ACKNOWLEDGED'],
     },
     tx
   );
@@ -607,12 +611,11 @@ export async function getTicketSidebarCounts(adminId: string, tx: TxLike = prism
     status: { notIn: CLOSED_VIEW_STATUSES },
   };
 
-  const [all, my, unassigned, closed] = await Promise.all([
+  const [all, acknowledged, unassigned, closed] = await Promise.all([
     tx.ticket.count({ where: activeStatusFilter }),
     tx.ticket.count({
       where: {
-        ...activeStatusFilter,
-        status: { notIn: ACTIVE_VIEW_EXCLUDED_STATUSES },
+        status: 'ACKNOWLEDGED',
         claimedByType: 'ADMIN',
         claimedByAdminId: adminId,
       },
@@ -627,7 +630,7 @@ export async function getTicketSidebarCounts(adminId: string, tx: TxLike = prism
     tx.ticket.count({ where: { status: { in: CLOSED_VIEW_STATUSES } } }),
   ]);
 
-  return { all, my, unassigned, closed };
+  return { all, acknowledged, unassigned, closed };
 }
 
 export async function getTicketDashboardSidebarStats(
@@ -641,11 +644,12 @@ export async function getTicketDashboardSidebarStats(
 ): Promise<TicketDashboardSidebarStats> {
   const today = input.startOfToday ?? new Date(new Date().setHours(0, 0, 0, 0));
 
-  const [myOpenSubmitted, unassigned, resolvedToday, categoryCounts, slaTickets] = await Promise.all([
+  const [acknowledged, unassigned, resolvedToday, categoryCounts, slaTickets] = await Promise.all([
     tx.ticket.count({
       where: {
-        submitterAdminId: input.adminId,
-        status: { in: SUBMITTED_OPEN_STATUSES },
+        claimedByType: 'ADMIN',
+        claimedByAdminId: input.adminId,
+        status: 'ACKNOWLEDGED',
       },
     }),
     tx.ticket.count({
@@ -691,19 +695,21 @@ export async function getTicketDashboardSidebarStats(
 
   const slaStatus = summarizeTicketSlaStatus(slaTickets, input.now);
 
+  const categoryTotal = categoryCounts.reduce((sum, c) => sum + c, 0);
+
   const categories = input.categories.map((category, index) => {
     const count = categoryCounts[index] ?? 0;
     return {
       value: category,
       label: category,
       count,
-      percentage: slaStatus.total > 0 ? Math.round((count / slaStatus.total) * 100) : 0,
+      percentage: categoryTotal > 0 ? Math.round((count / categoryTotal) * 100) : 0,
     };
   });
 
   return {
     shortcuts: {
-      myOpenSubmitted,
+      acknowledged,
       unassigned,
       slaBreached: slaStatus.breached,
       resolvedToday,
@@ -1453,6 +1459,129 @@ export async function getTicketHistory(ticketId: string, tx: TxLike = prisma) {
     },
     orderBy: { createdAt: 'asc' },
   });
+}
+
+export type TicketSlaFields = {
+  status: TicketStatus;
+  createdAt: Date;
+  updatedAt: Date;
+  resolutionTargetHours: number;
+  solvedAt: Date | null;
+  closedAt: Date | null;
+  cannotResolveAt: Date | null;
+  cancelledAt: Date | null;
+};
+
+export function getTicketSlaStatus(
+  ticket: TicketSlaFields,
+  now: Date = new Date()
+): 'met' | 'pending' | 'breached' {
+  const deadline = getTicketSlaDeadline(ticket.createdAt, ticket.resolutionTargetHours);
+
+  if (SLA_ACTIVE_STATUSES.includes(ticket.status)) {
+    return deadline.getTime() < now.getTime() ? 'breached' : 'pending';
+  }
+
+  if (ticket.status === 'CANCELLED') {
+    return 'pending';
+  }
+
+  if (SLA_TERMINAL_STATUSES.has(ticket.status)) {
+    const completionAt = getTicketCompletionAt(ticket);
+    if (completionAt && completionAt.getTime() <= deadline.getTime()) {
+      return 'met';
+    }
+    return 'breached';
+  }
+
+  return 'pending';
+}
+
+export type TicketsForSlaParams = {
+  search?: string;
+  status?: TicketStatus;
+  priority?: TicketPriority;
+  department?: string;
+  assignee?: { type: 'UNASSIGNED' | 'ADMIN' | 'EMPLOYEE'; id?: string };
+  slaStatus: 'met' | 'pending' | 'breached';
+  limit: number;
+  now?: Date;
+};
+
+export async function listTicketsForSlaFilter(
+  params: TicketsForSlaParams,
+  tx: TxLike = prisma
+) {
+  const now = params.now ?? new Date();
+
+  const where: Prisma.TicketWhereInput = {
+    ...(params.search
+      ? {
+          OR: [
+            { code: { contains: params.search, mode: 'insensitive' } },
+            { title: { contains: params.search, mode: 'insensitive' } },
+            { clientName: { contains: params.search, mode: 'insensitive' } },
+            { clientContact: { contains: params.search, mode: 'insensitive' } },
+            { clientLocation: { contains: params.search, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+    ...(params.department
+      ? {
+          departmentRole: {
+            is: {
+              policy: {
+                path: ['ticketDepartment'],
+                equals: params.department,
+              },
+            },
+          },
+        }
+      : {}),
+    ...(params.status ? { status: params.status } : {}),
+    ...(params.priority ? { priority: params.priority } : {}),
+    ...(params.assignee?.type === 'UNASSIGNED'
+      ? { claimedByType: null }
+      : params.assignee?.type === 'ADMIN'
+        ? { claimedByType: 'ADMIN', claimedByAdminId: params.assignee.id }
+        : params.assignee?.type === 'EMPLOYEE'
+          ? { claimedByType: 'EMPLOYEE', claimedByEmployeeId: params.assignee.id }
+          : {}),
+  };
+
+  const slimTickets = await tx.ticket.findMany({
+    where,
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    select: {
+      id: true,
+      status: true,
+      createdAt: true,
+      updatedAt: true,
+      resolutionTargetHours: true,
+      solvedAt: true,
+      closedAt: true,
+      cannotResolveAt: true,
+      cancelledAt: true,
+    },
+  });
+
+  const matched = slimTickets.filter(t => getTicketSlaStatus(t, now) === params.slaStatus);
+  const pagedIds = matched.slice(0, params.limit).map(t => t.id);
+
+  let tickets: any[] = [];
+  if (pagedIds.length > 0) {
+    tickets = await tx.ticket.findMany({
+      where: { id: { in: pagedIds } },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      include: {
+        departmentRole: { select: { id: true, name: true, policy: true } },
+        claimedByAdmin: { select: { name: true } },
+        claimedByEmployee: { select: { fullName: true } },
+      },
+    }) as any;
+  }
+
+  return { count: matched.length, tickets };
 }
 
 export { isITRole, isOperationalActor, OPERATIONAL_STATUSES };

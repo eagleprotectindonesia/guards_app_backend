@@ -17,6 +17,7 @@ import {
   Clock3,
   MessageSquare,
   CalendarCheck2,
+  FileText,
   type LucideIcon,
 } from 'lucide-react';
 import { PermissionCode } from './auth/permissions';
@@ -37,7 +38,7 @@ export interface NavGroup {
 export const ADMIN_TICKET_NAV_ITEMS: NavItem[] = [
   { name: 'All Tickets', href: '/admin/ticket/all', icon: List, requiredPermission: 'tickets:view' },
   { name: 'Create Ticket', href: '/admin/ticket/create', icon: PlusSquare, requiredPermission: 'tickets:create' },
-  { name: 'Acknowledged', href: '/admin/ticket/my', icon: UserRound, requiredPermission: 'tickets:view' },
+  { name: 'Acknowledged', href: '/admin/ticket/acknowledged', icon: UserRound, requiredPermission: 'tickets:view' },
   { name: 'Unassigned', href: '/admin/ticket/unassigned', icon: Inbox, requiredPermission: 'tickets:view' },
   { name: 'Closed Tickets', href: '/admin/ticket/closed', icon: Archive, requiredPermission: 'tickets:view' },
 ];
@@ -102,6 +103,12 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
       requiredPermission: 'shift-types:view',
     },
     { name: 'Guard Shifts', href: '/admin/guard-shifts', icon: Calendar, requiredPermission: 'shifts:view' },
+    {
+      name: 'Shift Photo Reports',
+      href: '/admin/shift-photo-reports',
+      icon: FileText,
+      requiredPermission: 'shift-photo-reports:view',
+    },
     { name: 'Attendance', href: '/admin/attendance', icon: ClipboardCheck, requiredPermission: 'attendance:view' },
     {
       name: 'Guard Checkins',
@@ -149,7 +156,6 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: 
         byName.get('Office Schedules'),
         byName.get('Office Shift Types'),
         byName.get('Office Shifts'),
-        byName.get('Office Memos'),
       ].filter(Boolean) as NavItem[],
     },
     {
@@ -171,6 +177,13 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: 
         byName.get('Holiday Calendar'),
         byName.get('Leave Requests'),
         byName.get('Leave Balances'),
+      ].filter(Boolean) as NavItem[],
+    },
+    {
+      label: 'Reporting',
+      items: [
+        byName.get('Shift Photo Reports'),
+        byName.get('Office Memos'),
       ].filter(Boolean) as NavItem[],
     },
     {
