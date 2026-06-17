@@ -4,6 +4,8 @@ import type { FetchedPhoto } from './fetch-photos';
 
 describe('generatePdf', () => {
   const metadata = {
+    reportNumber: null,
+    status: 'pending',
     guardName: 'Test Guard',
     employeeNumber: 'EP0001',
     clientName: 'Test Client',
@@ -45,6 +47,7 @@ describe('generatePdf', () => {
   test('produces a valid PDF with long guard name and site name', async () => {
     const longMetadata = {
       ...metadata,
+      reportNumber: null,
       guardName: 'Abu Hanivan Naneng',
       employeeNumber: 'EP0098',
       clientName: 'Headquarters Owner',

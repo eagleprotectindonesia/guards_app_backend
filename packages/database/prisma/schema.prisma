@@ -808,6 +808,7 @@ enum AlertResolution {
 
 model ShiftPhotoReport {
   id            String                 @id @default(uuid())
+  reportNumber  String?                @unique @map("report_number")
   shiftId       String                 @map("shift_id")
   employeeId    String                 @map("employee_id")
   clientId      String?                @map("client_id")
@@ -1358,4 +1359,12 @@ model FcmToken {
 
   @@index([employeeSessionId])
   @@map("fcm_tokens")
+}
+
+model ShiftPhotoReportDailySequence {
+  dateKey   String   @id @map("date_key") @db.VarChar(10)
+  lastValue Int      @default(0) @map("last_value")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("shift_photo_report_daily_sequences")
 }

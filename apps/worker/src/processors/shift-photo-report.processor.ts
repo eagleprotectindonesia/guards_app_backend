@@ -63,6 +63,8 @@ export class ShiftPhotoReportProcessor {
         });
 
         const metadata = {
+          reportNumber: report.reportNumber,
+          status: 'generated',
           guardName,
           employeeNumber: shift.employee?.employeeNumber ?? '-',
           clientName: shift.site.clientName ?? null,

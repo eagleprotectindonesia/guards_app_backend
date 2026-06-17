@@ -1,5 +1,29 @@
 import { db as prisma } from '../prisma/client';
-import { Prisma, ShiftStatus, ShiftPhotoReportStatus } from '@prisma/client';
+import { Prisma, PrismaClient, ShiftStatus, ShiftPhotoReportStatus } from '@prisma/client';
+
+const TZ = 'Asia/Makassar';
+
+function formatWitaDateKey(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+async function nextShiftPhotoReportNumber(tx: Omit<PrismaClient, '$transaction' | '$connect' | '$disconnect' | '$on' | '$use' | '$extends'>, now: Date): Promise<string> {
+  const dateKey = formatWitaDateKey(now);
+  const seq = await tx.shiftPhotoReportDailySequence.upsert({
+    where: { dateKey },
+    create: { dateKey, lastValue: 1 },
+    update: { lastValue: { increment: 1 } },
+  });
+  return `${dateKey}-${String(seq.lastValue).padStart(5, '0')}`;
+}
 
 export const SHIFT_PHOTO_REPORT_WAIT_MINUTES = 10;
 
@@ -133,18 +157,22 @@ export async function createShiftPhotoReport(data: {
   createdByAdminId?: string | null;
   photoCount?: number;
 }) {
-  return prisma.shiftPhotoReport.create({
-    data: {
-      shiftId: data.shiftId,
-      employeeId: data.employeeId,
-      clientId: data.clientId,
-      shiftStartsAt: data.shiftStartsAt,
-      shiftEndsAt: data.shiftEndsAt,
-      triggeredBy: data.triggeredBy ?? 'auto',
-      createdByAdminId: data.createdByAdminId ?? null,
-      photoCount: data.photoCount ?? 0,
-      status: 'pending' as const,
-    },
+  return prisma.$transaction(async tx => {
+    const reportNumber = await nextShiftPhotoReportNumber(tx, new Date());
+    return tx.shiftPhotoReport.create({
+      data: {
+        shiftId: data.shiftId,
+        employeeId: data.employeeId,
+        clientId: data.clientId,
+        shiftStartsAt: data.shiftStartsAt,
+        shiftEndsAt: data.shiftEndsAt,
+        triggeredBy: data.triggeredBy ?? 'auto',
+        createdByAdminId: data.createdByAdminId ?? null,
+        photoCount: data.photoCount ?? 0,
+        reportNumber,
+        status: 'pending' as const,
+      },
+    });
   });
 }
 
@@ -223,10 +251,11 @@ export async function listShiftPhotoReportsPaginated(params: {
   dateTo?: Date;
   employeeId?: string;
   siteId?: string;
+  status?: string;
   page: number;
   pageSize: number;
 }) {
-  const { dateFrom, dateTo, employeeId, siteId, page, pageSize } = params;
+  const { dateFrom, dateTo, employeeId, siteId, status, page, pageSize } = params;
 
   const where: Prisma.ShiftPhotoReportWhereInput = {};
 
@@ -242,6 +271,7 @@ export async function listShiftPhotoReportsPaginated(params: {
   }
   if (employeeId) where.employeeId = employeeId;
   if (siteId) where.clientId = siteId;
+  if (status) where.status = status as ShiftPhotoReportStatus;
 
   const skip = (page - 1) * pageSize;
 
@@ -293,40 +323,45 @@ export async function getShiftPhotoReportByShiftId(shiftId: string) {
 }
 
 export async function createRegeneratedShiftPhotoReport(params: { originalReportId: string; adminId: string }) {
-  const original = await prisma.shiftPhotoReport.findUnique({
-    where: { id: params.originalReportId },
-    include: { shift: true },
+  return prisma.$transaction(async tx => {
+    const original = await tx.shiftPhotoReport.findUnique({
+      where: { id: params.originalReportId },
+      include: { shift: true },
+    });
+
+    if (!original) throw new Error('Original report not found');
+
+    const reportNumber = await nextShiftPhotoReportNumber(tx, new Date());
+
+    const report = await tx.shiftPhotoReport.create({
+      data: {
+        shiftId: original.shiftId,
+        employeeId: original.employeeId,
+        clientId: original.clientId,
+        shiftStartsAt: original.shiftStartsAt,
+        shiftEndsAt: original.shiftEndsAt,
+        triggeredBy: 'manual',
+        createdByAdminId: params.adminId,
+        status: 'pending' as const,
+        regeneratedFromId: original.id,
+        reportNumber,
+      },
+    });
+
+    await tx.shiftPhotoReport.update({
+      where: { id: original.id },
+      data: { status: ShiftPhotoReportStatus.regenerated },
+    });
+
+    await tx.shift.update({
+      where: { id: original.shiftId },
+      data: {
+        autoPhotoReportStatus: ShiftPhotoReportStatus.pending,
+        lastAutoPhotoReportId: report.id,
+        lastAutoPhotoReportAt: new Date(),
+      },
+    });
+
+    return report;
   });
-
-  if (!original) throw new Error('Original report not found');
-
-  const report = await prisma.shiftPhotoReport.create({
-    data: {
-      shiftId: original.shiftId,
-      employeeId: original.employeeId,
-      clientId: original.clientId,
-      shiftStartsAt: original.shiftStartsAt,
-      shiftEndsAt: original.shiftEndsAt,
-      triggeredBy: 'manual',
-      createdByAdminId: params.adminId,
-      status: 'pending' as const,
-      regeneratedFromId: original.id,
-    },
-  });
-
-  await prisma.shiftPhotoReport.update({
-    where: { id: original.id },
-    data: { status: ShiftPhotoReportStatus.regenerated },
-  });
-
-  await prisma.shift.update({
-    where: { id: original.shiftId },
-    data: {
-      autoPhotoReportStatus: ShiftPhotoReportStatus.pending,
-      lastAutoPhotoReportId: report.id,
-      lastAutoPhotoReportAt: new Date(),
-    },
-  });
-
-  return report;
 }

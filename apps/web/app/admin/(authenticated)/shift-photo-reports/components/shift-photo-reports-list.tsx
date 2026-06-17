@@ -16,6 +16,7 @@ import { Download, RefreshCw } from 'lucide-react';
 
 type ReportWithDownload = {
   id: string;
+  reportNumber: string | null;
   shiftId: string;
   employeeId: string;
   clientId: string | null;
@@ -43,6 +44,7 @@ type ShiftPhotoReportsListProps = {
   dateTo?: string;
   employeeId?: string;
   siteId?: string;
+  status?: string;
   page: number;
   perPage: number;
   totalCount: number;
@@ -56,6 +58,7 @@ export default function ShiftPhotoReportsList({
   dateTo,
   employeeId,
   siteId,
+  status,
   page,
   perPage,
   totalCount,
@@ -75,6 +78,7 @@ export default function ShiftPhotoReportsList({
   );
   const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
   const [filterSiteId, setFilterSiteId] = useState(siteId || '');
+  const [filterStatus, setFilterStatus] = useState(status || '');
 
   const employeeOptions = [
     { value: '', label: 'All Guards' },
@@ -85,6 +89,24 @@ export default function ShiftPhotoReportsList({
     { value: '', label: 'All Sites' },
     ...sites.map(s => ({ value: s.id, label: s.name })),
   ];
+
+  const statusOptions = [
+    { value: '', label: 'All Statuses' },
+    { value: 'generated', label: 'Generated' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'failed', label: 'Failed' },
+    { value: 'regenerated', label: 'Regenerated' },
+  ];
+
+  const statusBadge = (s: string) => {
+    const classes: Record<string, string> = {
+      generated: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
+      pending: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
+      failed: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
+      regenerated: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    };
+    return classes[s] || 'bg-gray-100 text-gray-700';
+  };
 
   const handleApplyFilters = () => {
     const params = new URLSearchParams(searchParams.toString());
@@ -113,6 +135,12 @@ export default function ShiftPhotoReportsList({
       params.delete('siteId');
     }
 
+    if (filterStatus) {
+      params.set('status', filterStatus);
+    } else {
+      params.delete('status');
+    }
+
     params.set('page', '1');
     router.push(`/admin/shift-photo-reports?${params.toString()}`);
   };
@@ -122,6 +150,7 @@ export default function ShiftPhotoReportsList({
     setFilterDateTo(undefined);
     setFilterEmployeeId('');
     setFilterSiteId('');
+    setFilterStatus('');
 
     const params = new URLSearchParams();
     params.set('page', '1');
@@ -208,6 +237,20 @@ export default function ShiftPhotoReportsList({
               isClearable={false}
             />
           </div>
+          <div>
+            <label htmlFor="filter-status" className="block text-sm font-medium text-foreground mb-1">
+              Status
+            </label>
+            <Select
+              id="filter-status"
+              instanceId="filter-status"
+              options={statusOptions}
+              value={statusOptions.find(option => option.value === filterStatus)}
+              onChange={selectedOption => setFilterStatus(selectedOption ? selectedOption.value : '')}
+              placeholder="All Statuses"
+              isClearable={false}
+            />
+          </div>
           <button
             onClick={handleApplyFilters}
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-foreground text-background text-sm font-bold rounded-lg hover:opacity-90 transition-colors shadow-sm"
@@ -229,6 +272,8 @@ export default function ShiftPhotoReportsList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Report ID</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Guard</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift</th>
@@ -240,13 +285,21 @@ export default function ShiftPhotoReportsList({
             <tbody className="divide-y divide-border">
               {reports.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
                     No shift photo reports found.
                   </td>
                 </tr>
               ) : (
                 reports.map(report => (
                   <tr key={report.id} className="hover:bg-muted/30 transition-colors group">
+                    <td className="py-4 px-6 text-sm font-mono text-foreground">
+                      {report.reportNumber ?? '—'}
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${statusBadge(report.status)}`}>
+                        {report.status.charAt(0).toUpperCase() + report.status.slice(1)}
+                      </span>
+                    </td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       {report.employee?.fullName ?? '—'}
                     </td>

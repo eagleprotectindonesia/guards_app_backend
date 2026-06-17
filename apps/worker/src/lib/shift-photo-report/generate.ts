@@ -7,6 +7,8 @@ const TZ = 'Asia/Makassar';
 const TZ_LABEL = 'WITA';
 
 export type ReportMetadata = {
+  reportNumber: string | null;
+  status: string;
   guardName: string;
   employeeNumber: string;
   clientName: string | null;
@@ -135,6 +137,10 @@ export async function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto
     yCursor = doc.y + 8;
 
     doc.fontSize(10).font('Helvetica').fillColor('#666666');
+    if (metadata.reportNumber) {
+      doc.text(`Report ID: ${metadata.reportNumber}`, doc.page.margins.left, yCursor, { align: 'center', width: contentWidth });
+      yCursor = doc.y + 4;
+    }
     doc.text(`Report Date: ${formatDateOnlyTZ(new Date())}`, doc.page.margins.left, yCursor, { align: 'center', width: contentWidth });
     yCursor = doc.y + 18;
     doc.fillColor('#000000');
@@ -172,6 +178,7 @@ export async function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto
       ['Shift Start:', formatTZ(metadata.shiftStartsAt)],
       ['Shift End:', formatTZ(metadata.shiftEndsAt)],
       ['Photos Collected:', String(metadata.photoCount)],
+      ['Status:', metadata.status.charAt(0).toUpperCase() + metadata.status.slice(1)],
     ];
 
     const labelX = doc.page.margins.left + 15;

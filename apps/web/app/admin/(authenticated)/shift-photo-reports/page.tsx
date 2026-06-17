@@ -26,12 +26,14 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
   const dateTo = searchParams.dateTo as string | undefined;
   const employeeId = searchParams.employeeId as string | undefined;
   const siteId = searchParams.siteId as string | undefined;
+  const status = searchParams.status as string | undefined;
 
   const { reports, totalCount } = await listShiftPhotoReportsPaginated({
     dateFrom: dateFrom ? new Date(dateFrom) : undefined,
     dateTo: dateTo ? new Date(dateTo) : undefined,
     employeeId,
     siteId,
+    status,
     page,
     pageSize: perPage,
   });
@@ -57,6 +59,7 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
           dateTo={dateTo}
           employeeId={employeeId}
           siteId={siteId}
+          status={status}
           page={page}
           perPage={perPage}
           totalCount={totalCount}
