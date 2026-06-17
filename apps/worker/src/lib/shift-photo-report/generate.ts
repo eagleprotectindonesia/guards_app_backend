@@ -141,7 +141,7 @@ export async function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto
       doc.text(`Report ID: ${metadata.reportNumber}`, doc.page.margins.left, yCursor, { align: 'center', width: contentWidth });
       yCursor = doc.y + 4;
     }
-    doc.text(`Report Date: ${formatDateOnlyTZ(new Date())}`, doc.page.margins.left, yCursor, { align: 'center', width: contentWidth });
+    doc.text(`Report Date: ${formatDateOnlyTZ(metadata.shiftStartsAt)}`, doc.page.margins.left, yCursor, { align: 'center', width: contentWidth });
     yCursor = doc.y + 18;
     doc.fillColor('#000000');
 

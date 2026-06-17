@@ -15,8 +15,8 @@ function formatWitaDateKey(date: Date): string {
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
 
-async function nextShiftPhotoReportNumber(tx: Omit<PrismaClient, '$transaction' | '$connect' | '$disconnect' | '$on' | '$use' | '$extends'>, now: Date): Promise<string> {
-  const dateKey = formatWitaDateKey(now);
+async function nextShiftPhotoReportNumber(tx: Omit<PrismaClient, '$transaction' | '$connect' | '$disconnect' | '$on' | '$use' | '$extends'>, dateForCounter: Date): Promise<string> {
+  const dateKey = formatWitaDateKey(dateForCounter);
   const seq = await tx.shiftPhotoReportDailySequence.upsert({
     where: { dateKey },
     create: { dateKey, lastValue: 1 },
@@ -158,7 +158,7 @@ export async function createShiftPhotoReport(data: {
   photoCount?: number;
 }) {
   return prisma.$transaction(async tx => {
-    const reportNumber = await nextShiftPhotoReportNumber(tx, new Date());
+    const reportNumber = await nextShiftPhotoReportNumber(tx, data.shiftStartsAt);
     return tx.shiftPhotoReport.create({
       data: {
         shiftId: data.shiftId,
@@ -260,13 +260,14 @@ export async function listShiftPhotoReportsPaginated(params: {
   const where: Prisma.ShiftPhotoReportWhereInput = {};
 
   if (dateFrom || dateTo) {
-    where.generatedAt = {};
-    if (dateFrom) where.generatedAt.gte = dateFrom;
+    where.shift = where.shift || {};
+    where.shift.endsAt = {};
+    if (dateFrom) where.shift.endsAt.gte = dateFrom;
     if (dateTo) {
       // Extend to end of day so the full end-date is included
       const endOfDay = new Date(dateTo);
       endOfDay.setUTCHours(23, 59, 59, 999);
-      where.generatedAt.lte = endOfDay;
+      where.shift.endsAt.lte = endOfDay;
     }
   }
   if (employeeId) where.employeeId = employeeId;
@@ -331,7 +332,7 @@ export async function createRegeneratedShiftPhotoReport(params: { originalReport
 
     if (!original) throw new Error('Original report not found');
 
-    const reportNumber = await nextShiftPhotoReportNumber(tx, new Date());
+    const reportNumber = await nextShiftPhotoReportNumber(tx, original.shiftStartsAt);
 
     const report = await tx.shiftPhotoReport.create({
       data: {
