@@ -15,7 +15,7 @@ export function LiveActivityFeedCard() {
   const { liveActivityFeed } = useNewDashboardStream();
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm h-64 flex flex-col">
+    <div className="rounded-xl border border-border bg-card p-4 shadow-sm h-100 flex flex-col">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">Live Activity Feed</h3>
         <Link href="/admin/attendance" className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400">

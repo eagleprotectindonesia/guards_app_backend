@@ -1,4 +1,4 @@
-import { getAllSites, getActiveSites, db } from '@repo/database';
+import { getAllSites, getActiveSites } from '@repo/database';
 import { redis } from '@repo/database/redis';
 import { serialize } from '@/lib/server-utils';
 import AdminDashboard from './dashboard-client';
@@ -30,13 +30,8 @@ export default async function DashboardPage(props: PageProps) {
 
   if (tab === 'guard') {
     await requirePermission('dashboard-guard:view');
-    const [activeSites, openTicketsCount, unresolvedPanicsStr] = await Promise.all([
+    const [activeSites, unresolvedPanicsStr] = await Promise.all([
       getActiveSites(),
-      db.ticket.count({
-        where: {
-          status: { in: ['NEW', 'ACKNOWLEDGED', 'WAITING_INFORMATION'] },
-        },
-      }),
       redis.get('webhooks:unresolved_panics'),
     ]);
 
@@ -55,7 +50,6 @@ export default async function DashboardPage(props: PageProps) {
     return (
       <NewDashboardClient
         initialSites={serialize(activeSites)}
-        initialOpenTickets={openTicketsCount}
         initialPanicAlerts={initialPanicAlerts}
       />
     );

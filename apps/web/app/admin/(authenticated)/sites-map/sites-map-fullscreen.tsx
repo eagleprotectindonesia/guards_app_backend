@@ -2,27 +2,19 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, Maximize, Maximize2, X } from 'lucide-react';
-import { AlertReason, Site } from '@prisma/client';
+import { MapPin, X } from 'lucide-react';
+import { AlertReason } from '@prisma/client';
 import type { Serialized } from '@/lib/server-utils';
+import type { Site } from '@prisma/client';
 import { PanicAlert } from '@repo/types';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogClose, DialogContent } from '@/components/ui/dialog';
-import { useAlerts } from '../../context/alert-context';
-import { useSession } from '../../context/session-context';
-import { useAdminDashboardTab } from '../../context/admin-dashboard-tab-context';
+import { useAlerts } from '../context/alert-context';
+import { useSession } from '../context/session-context';
+import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { MapDetailPanel, type SelectedMapItem } from './map-detail-panel';
-import { SitesMapView, type PopupShiftInfo, type PopupUpcomingInfo, type MapSite } from './sites-map-view';
-
-type SitesMapCardProps = {
-  sites: Serialized<Site>[];
-  className?: string;
-  panicAlerts?: PanicAlert[];
-  selectedItem: SelectedMapItem | null;
-  onMarkerSelect: (item: SelectedMapItem) => void;
-  onMarkerDeselect: () => void;
-};
+import { getAdminDashboardHref } from '@/lib/admin-tab-routing';
+import { MapDetailPanel, type SelectedMapItem } from '../new-dashboard/components/map-detail-panel';
+import { SitesMapView, type PopupShiftInfo, type PopupUpcomingInfo, type MapSite } from '../new-dashboard/components/sites-map-view';
 
 type MapFilter = 'all' | 'active' | 'late' | 'sos' | 'none' | 'upcoming';
 
@@ -34,8 +26,6 @@ const FILTER_TABS: { key: MapFilter; label: string; color: string }[] = [
   { key: 'none', label: 'No shift active', color: '#6b7280' },
   { key: 'upcoming', label: 'Upcoming', color: '#eab308' },
 ];
-
-
 
 function hasCoordinates(site: Serialized<Site>): site is Serialized<Site> & { latitude: number; longitude: number } {
   return (
@@ -61,22 +51,20 @@ function maxIsoDate(a: string | null, b: string | null): string | null {
   return new Date(a) > new Date(b) ? a : b;
 }
 
-export function SitesMapCard({
-  sites,
-  className = '',
-  panicAlerts = [],
-  selectedItem,
-  onMarkerSelect,
-  onMarkerDeselect,
-}: SitesMapCardProps) {
-  const [partialMaximized, setPartialMaximized] = useState(false);
+type SitesMapFullscreenProps = {
+  sites: Serialized<Site>[];
+  initialPanicAlerts: PanicAlert[];
+};
+
+export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesMapFullscreenProps) {
   const { hasPermission } = useSession();
   const { selectedTab } = useAdminDashboardTab();
   const { activeSites, alerts, upcomingShifts } = useAlerts();
   const router = useRouter();
   const canEditSite = hasPermission(PERMISSIONS.SITES.EDIT);
 
-  const handleNavigate = useMemo(() => (href: string) => router.push(href), [router]);
+  const [panicAlerts, setPanicAlerts] = useState<PanicAlert[]>(initialPanicAlerts);
+  const [selectedItem, setSelectedItem] = useState<SelectedMapItem | null>(null);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -214,59 +202,54 @@ export function SitesMapCard({
     return { visibleSites: filtered, visiblePanics: [] };
   }, [filter, mappableSites, mappablePanics]);
 
+  const handleNavigate = useMemo(() => (href: string) => router.push(href), [router]);
+
+  const dashboardHref = getAdminDashboardHref(selectedTab);
+
   return (
-    <>
-      <div className={`rounded-xl border border-border bg-card shadow-sm ${className}`}>
-        <div className="flex items-center justify-between px-4 pt-3 pb-2">
-          <div className="flex items-center gap-1.5">
-            <MapPin className="h-4 w-4 text-red-500" />
-            <h3 className="text-sm font-semibold text-foreground">Active Sites Map</h3>
-            <span className="mx-1 h-3.5 w-px bg-border" />
-            <div className="flex items-center gap-0">
-              {FILTER_TABS.map(tab => {
-                const active = filter === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setFilter(tab.key)}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 text-sm font-medium transition-colors rounded ${
-                      active
-                        ? 'bg-red-600/10 text-red-600 dark:text-red-400'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tab.color }} />
-                    {tab.label} ({counts[tab.key]})
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-muted-foreground">
-              {mappableSites.length} sites{mappablePanics.length > 0 ? ` · ${mappablePanics.length} SOS` : ''} mapped
-            </span>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => setPartialMaximized(true)}
-              title="Maximize (75%)"
-              aria-label="Maximize map to 75%"
-            >
-              <Maximize className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => window.open('/admin/sites-map', '_blank')}
-              title="Maximize fullscreen"
-              aria-label="Maximize map fullscreen"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </Button>
+    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border shrink-0">
+        <div className="flex items-center gap-1.5">
+          <MapPin className="h-4 w-4 text-red-500" />
+          <h3 className="text-sm font-semibold text-foreground">Active Sites Map</h3>
+          <span className="mx-1 h-3.5 w-px bg-border" />
+          <div className="flex items-center gap-0">
+            {FILTER_TABS.map(tab => {
+              const active = filter === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setFilter(tab.key)}
+                  className={`flex items-center gap-1 px-1.5 py-0.5 text-sm font-medium transition-colors rounded ${
+                    active
+                      ? 'bg-red-600/10 text-red-600 dark:text-red-400'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tab.color }} />
+                  {tab.label} ({counts[tab.key]})
+                </button>
+              );
+            })}
           </div>
         </div>
-        <div className="px-3 pb-3">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            {mappableSites.length} sites{mappablePanics.length > 0 ? ` · ${mappablePanics.length} SOS` : ''} mapped
+          </span>
+          <Button
+            variant="secondary"
+            size="icon"
+            onClick={() => router.push(dashboardHref)}
+            title="Back to dashboard"
+            aria-label="Back to dashboard"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+      </div>
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex-1">
           <SitesMapView
             sites={visibleSites}
             panicAlerts={visiblePanics}
@@ -274,64 +257,18 @@ export function SitesMapCard({
             selectedTab={selectedTab}
             onNavigate={handleNavigate}
             now={now}
-            className="h-150 w-full rounded-lg border border-border bg-muted/20"
+            className="w-full h-full"
             selectedItem={selectedItem}
-            onMarkerSelect={onMarkerSelect}
-            onMarkerDeselect={onMarkerDeselect}
+            onMarkerSelect={setSelectedItem}
+            onMarkerDeselect={() => setSelectedItem(null)}
           />
-          {filter !== 'all' && visibleSites.length === 0 && visiblePanics.length === 0 ? (
-            <p className="pt-2 text-xs text-muted-foreground">
-              No sites match the {FILTER_TABS.find(t => t.key === filter)?.label ?? filter} filter.
-            </p>
-          ) : sites.length === 0 && panicAlerts.length === 0 ? (
-            <p className="pt-2 text-xs text-muted-foreground">No active sites or SOS alerts found.</p>
-          ) : mappableSites.length === 0 && mappablePanics.length === 0 ? (
-            <p className="pt-2 text-xs text-muted-foreground">
-              Active elements exist, but none have valid coordinates yet.
-            </p>
-          ) : null}
         </div>
-      </div>
-
-      <Dialog open={partialMaximized} onOpenChange={setPartialMaximized}>
-        <DialogContent
-          showCloseButton={false}
-          className="top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[75vw] max-w-[75vw] sm:max-w-[75vw] h-[75vh] max-h-[75vh] sm:max-h-[75vh] rounded-xl p-0 gap-0 border-border shadow-2xl"
-        >
-          <DialogClose asChild>
-            <Button
-              variant="secondary"
-              size="icon"
-              className="absolute top-4 left-4 z-10 h-10 w-10 rounded-full bg-card/90 backdrop-blur-sm border border-border shadow-md hover:bg-card"
-              title="Close"
-              aria-label="Close map"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </DialogClose>
-          <div className="flex h-full rounded-xl overflow-hidden">
-            <div className="flex-1">
-              <SitesMapView
-                sites={visibleSites}
-                panicAlerts={visiblePanics}
-                canEditSite={canEditSite}
-                selectedTab={selectedTab}
-                onNavigate={handleNavigate}
-                now={now}
-                className="w-full h-full"
-                selectedItem={selectedItem}
-                onMarkerSelect={onMarkerSelect}
-                onMarkerDeselect={onMarkerDeselect}
-              />
-            </div>
-            {selectedItem && (
-              <div className="w-80 border-l border-border overflow-y-auto p-4">
-                <MapDetailPanel selectedItem={selectedItem} onClose={onMarkerDeselect} onNavigate={handleNavigate} />
-              </div>
-            )}
+        {selectedItem && (
+          <div className="w-80 border-l border-border overflow-y-auto p-4 shrink-0">
+            <MapDetailPanel selectedItem={selectedItem} onClose={() => setSelectedItem(null)} onNavigate={handleNavigate} />
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+        )}
+      </div>
+    </div>
   );
 }

@@ -23,7 +23,7 @@ export function TotalIncidentsCard({ panicAlerts = [] }: TotalIncidentsCardProps
         : 'text-muted-foreground';
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
+    <div className="rounded-xl border border-border bg-card p-3 shadow-sm space-y-3">
       <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Total Incidents</p>
 
       {isLoading && (

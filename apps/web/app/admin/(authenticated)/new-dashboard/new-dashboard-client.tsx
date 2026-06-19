@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Site } from '@prisma/client';
 import type { Serialized } from '@/lib/server-utils';
 import { useAlerts } from '../context/alert-context';
@@ -11,33 +12,29 @@ import {
   ActiveGuardsCard,
   ActiveSitesCard,
   CriticalAlertsCard,
-  GuardStatusCard,
   InternalChatLiveCard,
   LiveActivityFeedCard,
-  OpenTicketsCard,
   SitesMapCard,
   ShiftOverviewCard,
-  SystemStatusCard,
-  TodaysSummaryCard,
-  TopSitesByActivityCard,
   TotalAttendanceCard,
   TotalIncidentsCard,
   SOSAlertsCard,
+  MapDetailPanel,
 } from './components';
+import type { SelectedMapItem } from './components';
 
 type NewDashboardClientProps = {
   initialSites: Serialized<Site>[];
-  initialOpenTickets: number;
   initialPanicAlerts?: PanicAlert[];
 };
 
-export default function NewDashboardClient({
-  initialSites,
-  initialOpenTickets,
-  initialPanicAlerts = [],
-}: NewDashboardClientProps) {
+export default function NewDashboardClient({ initialSites, initialPanicAlerts = [] }: NewDashboardClientProps) {
   const { activeSites, isDashboardInitialized } = useAlerts();
   const [panicAlerts, setPanicAlerts] = useState<PanicAlert[]>(initialPanicAlerts);
+  const [selectedMapItem, setSelectedMapItem] = useState<SelectedMapItem | null>(null);
+  const router = useRouter();
+
+  const handleNavigate = useMemo(() => (href: string) => router.push(href), [router]);
 
   useSocketEvent('new_dashboard:panic_alerts', payload => {
     if (payload && Array.isArray(payload.unresolvedPanics)) {
@@ -60,61 +57,50 @@ export default function NewDashboardClient({
 
   return (
     <div className="w-full space-y-4 p-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         <ActiveGuardsCard onDutyCount={onDutyCount} />
 
         <ActiveSitesCard activeSitesCount={activeSitesCount} />
 
-        <OpenTicketsCard openTicketsCount={initialOpenTickets} />
-
         <SOSAlertsCard count={panicAlerts.length} />
-        {/* <PlaceholderTopCard /> */}
-        {/* <PlaceholderTopCard /> */}
+
+        <TotalIncidentsCard panicAlerts={panicAlerts} />
+
+        <TotalAttendanceCard />
       </div>
 
       <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-12 space-y-4 lg:col-span-3">
-          <ShiftOverviewCard />
-
-          <GuardStatusCard onDutyCount={onDutyCount} />
-
-          <TopSitesByActivityCard />
-        </div>
-
-        <div className="col-span-12 space-y-4 lg:col-span-6">
-          <SitesMapCard sites={initialSites} panicAlerts={panicAlerts} className="h-125 p-1" />
-          <LiveActivityFeedCard />
-          {/* <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="col-span-12 space-y-4 lg:col-span-9">
+          <SitesMapCard
+            sites={initialSites}
+            panicAlerts={panicAlerts}
+            className="h-175 p-1"
+            selectedItem={selectedMapItem}
+            onMarkerSelect={setSelectedMapItem}
+            onMarkerDeselect={() => setSelectedMapItem(null)}
+          />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <LiveActivityFeedCard />
-            <div className="rounded-xl border border-border bg-card p-4 shadow-sm h-64">
-              <LoadingBlock className="h-full w-full" />
-            </div>
-          </div> */}
+            <CriticalAlertsCard panicAlerts={panicAlerts} />
+          </div>
         </div>
 
         <div className="col-span-12 space-y-4 lg:col-span-3">
-          <CriticalAlertsCard panicAlerts={panicAlerts} />
+          {selectedMapItem && (
+            <div
+              key={selectedMapItem.kind === 'site' ? selectedMapItem.site.id : `panic-${selectedMapItem.panic.id}`}
+              className="animate-panel-enter"
+            >
+              <MapDetailPanel
+                selectedItem={selectedMapItem}
+                onClose={() => setSelectedMapItem(null)}
+                onNavigate={handleNavigate}
+              />
+            </div>
+          )}
+          <ShiftOverviewCard />
           <InternalChatLiveCard />
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-        <TodaysSummaryCard />
-        <TotalIncidentsCard panicAlerts={panicAlerts} />
-        <TotalAttendanceCard />
-        {/* {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
-            <LoadingBlock className="h-3 w-24" />
-            <div className="flex items-end justify-between">
-              <div className="space-y-2">
-                <LoadingBlock className="h-6 w-12" />
-                <LoadingBlock className="h-3 w-20" />
-              </div>
-              <LoadingBlock className="h-8 w-24 rounded" />
-            </div>
-          </div>
-        ))} */}
-        <SystemStatusCard />
       </div>
     </div>
   );

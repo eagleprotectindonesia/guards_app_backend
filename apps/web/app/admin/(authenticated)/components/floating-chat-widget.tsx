@@ -19,7 +19,7 @@ import { useAdminRouter } from '../context/admin-router';
 export default function FloatingChatWidget() {
   const pathname = usePathname();
 
-  if (pathname === '/admin/chat' || pathname === '/admin/new-dashboard') {
+  if (pathname === '/admin/chat' || pathname === '/admin/new-dashboard' || pathname === '/admin/sites-map') {
     return null;
   }
 
