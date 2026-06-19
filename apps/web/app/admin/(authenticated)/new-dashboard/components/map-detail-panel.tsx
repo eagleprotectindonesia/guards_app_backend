@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { X, Pencil, MapPin, ShieldCheck, ShieldAlert, Clock, ShieldOff, Building2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PanicAlert } from '@repo/types';
-import { MapSite } from './sites-map-card';
+import { MapSite } from './sites-map-view';
 
 export type SelectedMapItem =
   | { kind: 'site'; site: MapSite; editHref: string | null }
