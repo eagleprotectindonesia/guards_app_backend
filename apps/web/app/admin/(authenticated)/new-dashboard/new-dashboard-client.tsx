@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Site } from '@prisma/client';
 import type { Serialized } from '@/lib/server-utils';
@@ -35,6 +35,7 @@ export default function NewDashboardClient({ initialSites, initialPanicAlerts = 
   const router = useRouter();
 
   const handleNavigate = useMemo(() => (href: string) => router.push(href), [router]);
+  const handleMarkerDeselect = useCallback(() => setSelectedMapItem(null), []);
 
   useSocketEvent('new_dashboard:panic_alerts', payload => {
     if (payload && Array.isArray(payload.unresolvedPanics)) {
@@ -77,7 +78,7 @@ export default function NewDashboardClient({ initialSites, initialPanicAlerts = 
             className="h-175 p-1"
             selectedItem={selectedMapItem}
             onMarkerSelect={setSelectedMapItem}
-            onMarkerDeselect={() => setSelectedMapItem(null)}
+            onMarkerDeselect={handleMarkerDeselect}
           />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <LiveActivityFeedCard />

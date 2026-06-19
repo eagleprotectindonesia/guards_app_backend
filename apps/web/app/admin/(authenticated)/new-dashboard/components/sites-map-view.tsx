@@ -175,21 +175,26 @@ export function SitesMapView({
       const color = MARKER_COLORS[site.markerStatus];
       const el = document.createElement('div');
       el.className = 'relative cursor-pointer';
+      const inner = document.createElement('div');
+      inner.className = 'origin-bottom';
+      inner.style.transform = 'scale(1)';
+      inner.style.transition = 'transform 200ms ease-out';
       let marker: maplibregl.Marker;
       if (site.markerStatus === 'none') {
-        el.innerHTML = `
+        inner.innerHTML = `
           <svg viewBox="0 0 24 24" width="30" height="30" class="drop-shadow-md" style="color:${color}">
             <g stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
               ${ICON_SVG.pin}
             </g>
           </svg>
         `;
+        el.appendChild(inner);
         marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
           .setLngLat([site.longitude, site.latitude])
           .addTo(map);
       } else {
         const iconKey = MARKER_ICONS[site.markerStatus];
-        el.innerHTML = `
+        inner.innerHTML = `
           <svg viewBox="0 0 30 38" width="34" height="42" class="drop-shadow-md">
             <path d="M15 0a15 15 0 00-15 15c0 11.25 15 22.5 15 22.5s15-11.25 15-22.5A15 15 0 0015 0z" fill="${color}"/>
             <circle cx="15" cy="15" r="10" fill="white"/>
@@ -198,6 +203,7 @@ export function SitesMapView({
             </g>
           </svg>
         `;
+        el.appendChild(inner);
         marker = new maplibregl.Marker({ element: el }).setLngLat([site.longitude, site.latitude]).addTo(map);
       }
 
@@ -217,10 +223,15 @@ export function SitesMapView({
 
       const el = document.createElement('div');
       el.className = 'relative flex items-center justify-center h-8 w-8';
-      el.innerHTML = `
+      const inner = document.createElement('div');
+      inner.className = 'origin-center';
+      inner.style.transform = 'scale(1)';
+      inner.style.transition = 'transform 200ms ease-out';
+      inner.innerHTML = `
         <span class="absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75 animate-ping"></span>
         <span class="relative inline-flex rounded-full h-4 w-4 bg-red-600 border border-white"></span>
       `;
+      el.appendChild(inner);
 
       const marker = new maplibregl.Marker({ element: el }).setLngLat([panic.longitude, panic.latitude]).addTo(map);
 
@@ -256,7 +267,9 @@ export function SitesMapView({
   useEffect(() => {
     markersRef.current.forEach(entry => {
       const el = entry.marker.getElement();
-      el.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2');
+      const inner = el.firstElementChild as HTMLElement | null;
+      if (!inner) return;
+      inner.style.transform = 'scale(1)';
 
       const isSelected =
         selectedItem &&
@@ -264,7 +277,7 @@ export function SitesMapView({
           (selectedItem.kind === 'panic' && entry.id === `panic-${selectedItem.panic.id}`));
 
       if (isSelected) {
-        el.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2');
+        inner.style.transform = 'scale(2)';
       }
     });
   }, [selectedItem]);
