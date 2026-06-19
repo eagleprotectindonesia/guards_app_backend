@@ -11,15 +11,10 @@ import {
   ActiveGuardsCard,
   ActiveSitesCard,
   CriticalAlertsCard,
-  GuardStatusCard,
   InternalChatLiveCard,
   LiveActivityFeedCard,
-  OpenTicketsCard,
   SitesMapCard,
   ShiftOverviewCard,
-  SystemStatusCard,
-  TodaysSummaryCard,
-  TopSitesByActivityCard,
   TotalAttendanceCard,
   TotalIncidentsCard,
   SOSAlertsCard,
@@ -27,15 +22,10 @@ import {
 
 type NewDashboardClientProps = {
   initialSites: Serialized<Site>[];
-  initialOpenTickets: number;
   initialPanicAlerts?: PanicAlert[];
 };
 
-export default function NewDashboardClient({
-  initialSites,
-  initialOpenTickets,
-  initialPanicAlerts = [],
-}: NewDashboardClientProps) {
+export default function NewDashboardClient({ initialSites, initialPanicAlerts = [] }: NewDashboardClientProps) {
   const { activeSites, isDashboardInitialized } = useAlerts();
   const [panicAlerts, setPanicAlerts] = useState<PanicAlert[]>(initialPanicAlerts);
 
@@ -60,61 +50,31 @@ export default function NewDashboardClient({
 
   return (
     <div className="w-full space-y-4 p-4">
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         <ActiveGuardsCard onDutyCount={onDutyCount} />
 
         <ActiveSitesCard activeSitesCount={activeSitesCount} />
 
-        <OpenTicketsCard openTicketsCount={initialOpenTickets} />
-
         <SOSAlertsCard count={panicAlerts.length} />
-        {/* <PlaceholderTopCard /> */}
-        {/* <PlaceholderTopCard /> */}
+
+        <TotalIncidentsCard panicAlerts={panicAlerts} />
+
+        <TotalAttendanceCard />
       </div>
 
       <div className="grid grid-cols-12 gap-4">
-        <div className="col-span-12 space-y-4 lg:col-span-3">
-          <ShiftOverviewCard />
-
-          <GuardStatusCard onDutyCount={onDutyCount} />
-
-          <TopSitesByActivityCard />
-        </div>
-
-        <div className="col-span-12 space-y-4 lg:col-span-6">
-          <SitesMapCard sites={initialSites} panicAlerts={panicAlerts} className="h-125 p-1" />
-          <LiveActivityFeedCard />
-          {/* <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="col-span-12 space-y-4 lg:col-span-9">
+          <SitesMapCard sites={initialSites} panicAlerts={panicAlerts} className="h-175 p-1" />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <LiveActivityFeedCard />
-            <div className="rounded-xl border border-border bg-card p-4 shadow-sm h-64">
-              <LoadingBlock className="h-full w-full" />
-            </div>
-          </div> */}
+            <ShiftOverviewCard />
+          </div>
         </div>
 
         <div className="col-span-12 space-y-4 lg:col-span-3">
           <CriticalAlertsCard panicAlerts={panicAlerts} />
           <InternalChatLiveCard />
         </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-        <TodaysSummaryCard />
-        <TotalIncidentsCard panicAlerts={panicAlerts} />
-        <TotalAttendanceCard />
-        {/* {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-3">
-            <LoadingBlock className="h-3 w-24" />
-            <div className="flex items-end justify-between">
-              <div className="space-y-2">
-                <LoadingBlock className="h-6 w-12" />
-                <LoadingBlock className="h-3 w-20" />
-              </div>
-              <LoadingBlock className="h-8 w-24 rounded" />
-            </div>
-          </div>
-        ))} */}
-        <SystemStatusCard />
       </div>
     </div>
   );

@@ -78,9 +78,21 @@ const MARKER_ICONS: Record<'active' | 'upcoming' | 'late' | 'pending', string> =
 const ICON_SVG: Record<string, string> = {
   check: '<path d="M20 6 9 17l-5-5"/>',
   clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
-  alert: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  alert:
+    '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
   pin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
 };
+
+type MapFilter = 'all' | 'active' | 'late' | 'sos' | 'none' | 'upcoming';
+
+const FILTER_TABS: { key: MapFilter; label: string; color: string }[] = [
+  { key: 'all', label: 'All', color: '#94a3b8' },
+  { key: 'active', label: 'Active Now', color: '#22c55e' },
+  { key: 'late', label: 'Late/Missing', color: '#f97316' },
+  { key: 'sos', label: 'SOS', color: '#ef4444' },
+  { key: 'none', label: 'No shift active', color: '#6b7280' },
+  { key: 'upcoming', label: 'Upcoming', color: '#eab308' },
+];
 
 function hasCoordinates(site: Serialized<Site>): site is Serialized<Site> & { latitude: number; longitude: number } {
   return (
@@ -100,14 +112,12 @@ function hasPanicCoordinates(panic: PanicAlert): panic is PanicAlert & { latitud
   );
 }
 
-const fmtTime = (iso: string) =>
-  new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 function SitePopup({
   site,
   editHref,
   onNavigate,
-  now,
 }: {
   site: MapSite;
   editHref: string | null;
@@ -227,7 +237,15 @@ type SitesMapViewProps = {
   className?: string;
 };
 
-function SitesMapView({ sites, panicAlerts, canEditSite, selectedTab, onNavigate, now, className = '' }: SitesMapViewProps) {
+function SitesMapView({
+  sites,
+  panicAlerts,
+  canEditSite,
+  selectedTab,
+  onNavigate,
+  now,
+  className = '',
+}: SitesMapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
@@ -512,29 +530,58 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
 
   const mappablePanics = useMemo<PanicAlert[]>(() => panicAlerts.filter(hasPanicCoordinates), [panicAlerts]);
 
+  const [filter, setFilter] = useState<MapFilter>('all');
+
+  const counts = useMemo(
+    () => ({
+      all: mappableSites.length + mappablePanics.length,
+      active: mappableSites.filter(s => s.markerStatus === 'active').length,
+      late: mappableSites.filter(s => s.markerStatus === 'late' || s.markerStatus === 'pending').length,
+      sos: mappablePanics.length,
+      none: mappableSites.filter(s => s.markerStatus === 'none').length,
+      upcoming: mappableSites.filter(s => s.markerStatus === 'upcoming').length,
+    }),
+    [mappableSites, mappablePanics]
+  );
+
+  const { visibleSites, visiblePanics } = useMemo(() => {
+    if (filter === 'all') return { visibleSites: mappableSites, visiblePanics: mappablePanics };
+    if (filter === 'sos') return { visibleSites: [], visiblePanics: mappablePanics };
+    const filtered = mappableSites.filter(
+      s => s.markerStatus === filter || (filter === 'late' && s.markerStatus === 'pending')
+    );
+    return { visibleSites: filtered, visiblePanics: [] };
+  }, [filter, mappableSites, mappablePanics]);
+
   return (
     <>
       <div className={`rounded-xl border border-border bg-card shadow-sm ${className}`}>
         <div className="flex items-center justify-between px-4 pt-3 pb-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             <MapPin className="h-4 w-4 text-red-500" />
             <h3 className="text-sm font-semibold text-foreground">Active Sites Map</h3>
+            <span className="mx-1 h-3.5 w-px bg-border" />
+            <div className="flex items-center gap-0">
+              {FILTER_TABS.map(tab => {
+                const active = filter === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setFilter(tab.key)}
+                    className={`flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium transition-colors rounded ${
+                      active
+                        ? 'bg-red-600/10 text-red-600 dark:text-red-400'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                    }`}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tab.color }} />
+                    {tab.label} ({counts[tab.key]})
+                  </button>
+                );
+              })}
+            </div>
           </div>
           <div className="flex items-center gap-1">
-            <span className="flex items-center gap-2 text-[10px] text-muted-foreground/60">
-              <span className="flex items-center gap-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-green-500" /> On
-              </span>
-              <span className="flex items-center gap-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-orange-500" /> Pend
-              </span>
-              <span className="flex items-center gap-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-yellow-500" /> Soon
-              </span>
-              <span className="flex items-center gap-0.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-gray-500" /> Off
-              </span>
-            </span>
             <span className="text-xs text-muted-foreground">
               {mappableSites.length} sites{mappablePanics.length > 0 ? ` · ${mappablePanics.length} SOS` : ''} mapped
             </span>
@@ -551,15 +598,19 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
         </div>
         <div className="px-3 pb-3">
           <SitesMapView
-            sites={mappableSites}
-            panicAlerts={mappablePanics}
+            sites={visibleSites}
+            panicAlerts={visiblePanics}
             canEditSite={canEditSite}
             selectedTab={selectedTab}
             onNavigate={handleNavigate}
             now={now}
-            className="h-114 w-full rounded-lg border border-border bg-muted/20"
+            className="h-150 w-full rounded-lg border border-border bg-muted/20"
           />
-          {sites.length === 0 && panicAlerts.length === 0 ? (
+          {filter !== 'all' && visibleSites.length === 0 && visiblePanics.length === 0 ? (
+            <p className="pt-2 text-xs text-muted-foreground">
+              No sites match the {FILTER_TABS.find(t => t.key === filter)?.label ?? filter} filter.
+            </p>
+          ) : sites.length === 0 && panicAlerts.length === 0 ? (
             <p className="pt-2 text-xs text-muted-foreground">No active sites or SOS alerts found.</p>
           ) : mappableSites.length === 0 && mappablePanics.length === 0 ? (
             <p className="pt-2 text-xs text-muted-foreground">
@@ -586,8 +637,8 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
             </Button>
           </DialogClose>
           <SitesMapView
-            sites={mappableSites}
-            panicAlerts={mappablePanics}
+            sites={visibleSites}
+            panicAlerts={visiblePanics}
             canEditSite={canEditSite}
             selectedTab={selectedTab}
             onNavigate={handleNavigate}

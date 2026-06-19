@@ -6,7 +6,7 @@ type ActiveGuardsCardProps = {
 
 export function ActiveGuardsCard({ onDutyCount }: ActiveGuardsCardProps) {
   return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
+    <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-500/10 text-green-600 dark:text-green-400">
           <ShieldCheck className="h-5 w-5" />
