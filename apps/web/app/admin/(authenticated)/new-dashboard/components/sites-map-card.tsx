@@ -244,9 +244,7 @@ function SitesMapView({
             </g>
           </svg>
         `;
-        marker = new maplibregl.Marker({ element: el })
-          .setLngLat([site.longitude, site.latitude])
-          .addTo(map);
+        marker = new maplibregl.Marker({ element: el }).setLngLat([site.longitude, site.latitude]).addTo(map);
       }
 
       el.addEventListener('click', () => {
@@ -270,9 +268,7 @@ function SitesMapView({
         <span class="relative inline-flex rounded-full h-4 w-4 bg-red-600 border border-white"></span>
       `;
 
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat([panic.longitude, panic.latitude])
-        .addTo(map);
+      const marker = new maplibregl.Marker({ element: el }).setLngLat([panic.longitude, panic.latitude]).addTo(map);
 
       el.addEventListener('click', () => {
         if (selectedItem?.kind === 'panic' && selectedItem.panic.id === panic.id) {
@@ -322,6 +318,12 @@ function SitesMapView({
   return <div ref={mapContainerRef} className={className} />;
 }
 
+function maxIsoDate(a: string | null, b: string | null): string | null {
+  if (!a) return b;
+  if (!b) return a;
+  return new Date(a) > new Date(b) ? a : b;
+}
+
 export function SitesMapCard({
   sites,
   className = '',
@@ -350,26 +352,17 @@ export function SitesMapCard({
 
     const alertedSiteIds = new Set<string>();
     for (const alert of alerts) {
-      if (alert.reason === 'missed_checkin' || alert.reason === 'missed_attendance') {
+      if (
+        alert.severity === 'critical' &&
+        (alert.reason === 'missed_checkin' || alert.reason === 'missed_attendance')
+      ) {
         const id = alert.siteId ?? alert.site?.id ?? alert.shift?.siteId;
         if (id) alertedSiteIds.add(id);
       }
     }
 
-    for (const { site, shifts } of activeSites) {
-      const hasLateAttendance = shifts.some(s => s.attendance?.status === 'late');
-      const hasAlert = alertedSiteIds.has(site.id);
-      const hasActiveCheckin = shifts.some(
-        s => s.attendance && s.attendance.status !== 'absent' && s.attendance.status !== 'pending_verification'
-      );
-
-      if (hasLateAttendance || hasAlert) {
-        map.set(site.id, 'late');
-      } else if (hasActiveCheckin) {
-        map.set(site.id, 'active');
-      } else {
-        map.set(site.id, 'pending');
-      }
+    for (const { site } of activeSites) {
+      map.set(site.id, alertedSiteIds.has(site.id) ? 'late' : 'active');
     }
 
     const UPCOMING_WINDOW_MS = 30 * 60 * 1000;
@@ -402,7 +395,7 @@ export function SitesMapCard({
         shiftStartsAt: s.startsAt,
         shiftEndsAt: s.endsAt,
         attendanceStatus: s.attendance?.status ?? null,
-        lastCheckinAt: s.attendance?.recordedAt ?? null,
+        lastCheckinAt: maxIsoDate(s.attendance?.recordedAt ?? null, s.checkins?.[0]?.at ?? null),
         hasOpenAlert: alertedShifts.has(s.id),
         alertReason: alertedShifts.get(s.id) ?? null,
         isPresent: s.attendance?.status === 'present' || s.attendance?.status === 'late',
@@ -499,7 +492,7 @@ export function SitesMapCard({
                   <button
                     key={tab.key}
                     onClick={() => setFilter(tab.key)}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 text-[11px] font-medium transition-colors rounded ${
+                    className={`flex items-center gap-1 px-1.5 py-0.5 text-sm font-medium transition-colors rounded ${
                       active
                         ? 'bg-red-600/10 text-red-600 dark:text-red-400'
                         : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -587,11 +580,7 @@ export function SitesMapCard({
             </div>
             {selectedItem && (
               <div className="w-80 border-l border-border overflow-y-auto p-4">
-                <MapDetailPanel
-                  selectedItem={selectedItem}
-                  onClose={onMarkerDeselect}
-                  onNavigate={handleNavigate}
-                />
+                <MapDetailPanel selectedItem={selectedItem} onClose={onMarkerDeselect} onNavigate={handleNavigate} />
               </div>
             )}
           </div>

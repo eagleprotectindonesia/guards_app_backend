@@ -24,6 +24,7 @@ export type ActiveShiftInDashboard = Serialized<Shift> & {
   employee: EmployeeWithOptionalRelations | null;
   shiftType: ShiftTypeWithOptionalRelations;
   attendance?: AttendanceWithOptionalRelations | null;
+  checkins?: { at: string }[];
 };
 
 export type ActiveSiteData = {

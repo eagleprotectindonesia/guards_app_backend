@@ -1767,6 +1767,7 @@ export async function getActiveShiftsForDashboard(now: Date) {
       employee: { include: { office: { select: { name: true } } } },
       site: true,
       attendance: true,
+      checkins: { orderBy: { at: 'desc' }, take: 1 },
     },
   });
 

@@ -81,7 +81,7 @@ export default function NewDashboardClient({ initialSites, initialPanicAlerts = 
           />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <LiveActivityFeedCard />
-            <ShiftOverviewCard />
+            <CriticalAlertsCard panicAlerts={panicAlerts} />
           </div>
         </div>
 
@@ -98,7 +98,7 @@ export default function NewDashboardClient({ initialSites, initialPanicAlerts = 
               />
             </div>
           )}
-          <CriticalAlertsCard panicAlerts={panicAlerts} />
+          <ShiftOverviewCard />
           <InternalChatLiveCard />
         </div>
       </div>
