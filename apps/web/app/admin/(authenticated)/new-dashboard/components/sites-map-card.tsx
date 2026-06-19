@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { createRoot } from 'react-dom/client';
 import maplibregl, { LngLatBounds } from 'maplibre-gl';
 import { useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
-import { MapPin, Maximize2, Pencil, X } from 'lucide-react';
+import { MapPin, Maximize2, X } from 'lucide-react';
 import { AttendanceStatus, AlertReason, Site } from '@prisma/client';
 import type { Serialized } from '@/lib/server-utils';
 import { PanicAlert } from '@repo/types';
@@ -16,11 +15,15 @@ import { useSession } from '../../context/session-context';
 import { useAdminDashboardTab } from '../../context/admin-dashboard-tab-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { appendDashboardTabToHref, type AdminTabSlug } from '@/lib/admin-tab-routing';
+import { MapDetailPanel, type SelectedMapItem } from './map-detail-panel';
 
 type SitesMapCardProps = {
   sites: Serialized<Site>[];
   className?: string;
   panicAlerts?: PanicAlert[];
+  selectedItem: SelectedMapItem | null;
+  onMarkerSelect: (item: SelectedMapItem) => void;
+  onMarkerDeselect: () => void;
 };
 
 const FALLBACK_CENTER: [number, number] = [118.0149, -2.5489];
@@ -34,20 +37,25 @@ const DARK_MAP_STYLE_URL = (process.env.NEXT_PUBLIC_MAPLIBRE_STYLE_URL_DARK ?? L
 
 type PopupShiftInfo = {
   employeeName: string;
+  employeeNumber: string | null;
   shiftStartsAt: string;
   shiftEndsAt: string;
   attendanceStatus: AttendanceStatus | null;
   lastCheckinAt: string | null;
   hasOpenAlert: boolean;
   alertReason: AlertReason | null;
+  isPresent: boolean;
 };
 
 type PopupUpcomingInfo = {
   employeeName: string;
+  employeeNumber: string | null;
   startsInMinutes: number;
+  shiftStartsAt: string;
+  shiftEndsAt: string;
 };
 
-type MapSite = {
+export type MapSite = {
   id: string;
   name: string;
   clientName: string | null;
@@ -114,119 +122,6 @@ function hasPanicCoordinates(panic: PanicAlert): panic is PanicAlert & { latitud
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-function SitePopup({
-  site,
-  editHref,
-  onNavigate,
-}: {
-  site: MapSite;
-  editHref: string | null;
-  onNavigate: (href: string) => void;
-  now: number;
-}) {
-  const color = MARKER_COLORS[site.markerStatus];
-
-  return (
-    <div className="min-w-45 text-xs leading-relaxed">
-      <div className="font-bold mb-1">{site.name}</div>
-      {site.address && (
-        <div className="truncate max-w-40" title={site.address}>
-          {site.address}
-        </div>
-      )}
-
-      {site.markerStatus === 'none' ? (
-        <div className="mt-2 text-muted-foreground italic">No active or upcoming shift.</div>
-      ) : site.markerStatus === 'upcoming' ? (
-        <div className="mt-2">
-          <div className="font-semibold mb-0.5" style={{ color }}>
-            Upcoming shift
-          </div>
-          {site.upcoming.map((u, i) => (
-            <div key={i}>
-              {u.employeeName} — {u.startsInMinutes < 1 ? '<1' : u.startsInMinutes}m
-            </div>
-          ))}
-        </div>
-      ) : site.markerStatus === 'active' ? (
-        <div className="mt-2">
-          <div className="font-semibold mb-0.5" style={{ color }}>
-            Active shift
-          </div>
-          {site.shifts.map((s, i) => (
-            <div key={i}>
-              {s.employeeName} — {s.lastCheckinAt ? fmtTime(s.lastCheckinAt) : 'awaiting'}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="mt-2">
-          <div className="font-semibold mb-0.5" style={{ color }}>
-            Action needed
-          </div>
-          {site.shifts.map((s, i) => {
-            let detail: string;
-            if (s.hasOpenAlert && s.alertReason) {
-              if (s.alertReason === 'missed_checkin') {
-                detail = 'missed check-in';
-              } else {
-                detail = 'missed attendance';
-              }
-            } else if (s.attendanceStatus === 'late') {
-              detail = 'late check-in';
-            } else {
-              detail = 'awaiting';
-            }
-            return (
-              <div key={i}>
-                {s.employeeName} — {detail}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {editHref && (
-        <a
-          href={editHref}
-          onClick={event => {
-            if (event.defaultPrevented) return;
-            if (event.metaKey || event.altKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
-            event.preventDefault();
-            onNavigate(editHref);
-          }}
-          className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 bg-red-600 text-white text-[11px] font-semibold rounded hover:bg-red-700 transition-colors"
-        >
-          <Pencil className="h-3 w-3" />
-          Edit site
-        </a>
-      )}
-    </div>
-  );
-}
-
-function PanicPopup({ panic }: { panic: PanicAlert }) {
-  return (
-    <div className="min-w-45 text-xs leading-relaxed">
-      <div className="font-bold mb-1" style={{ color: '#ea580c' }}>
-        🚨 SOS ALERT
-      </div>
-      <div>
-        <strong>Client:</strong> {`${panic.firstName} ${panic.lastName}`}
-      </div>
-      <div>
-        <strong>Status:</strong> {panic.status.replace(/_/g, ' ')}
-      </div>
-      <div>
-        <strong>Time:</strong> {new Date(panic.createdAt).toLocaleString()}
-      </div>
-      <div>
-        <strong>Coord:</strong> {panic.latitude.toFixed(6)}, {panic.longitude.toFixed(6)}
-      </div>
-    </div>
-  );
-}
-
 type SitesMapViewProps = {
   sites: MapSite[];
   panicAlerts: PanicAlert[];
@@ -235,6 +130,14 @@ type SitesMapViewProps = {
   onNavigate: (href: string) => void;
   now: number;
   className?: string;
+  onMarkerSelect: (item: SelectedMapItem) => void;
+  onMarkerDeselect: () => void;
+  selectedItem: SelectedMapItem | null;
+};
+
+type MarkerEntry = {
+  marker: maplibregl.Marker;
+  id: string;
 };
 
 function SitesMapView({
@@ -245,10 +148,13 @@ function SitesMapView({
   onNavigate,
   now,
   className = '',
+  onMarkerSelect,
+  onMarkerDeselect,
+  selectedItem,
 }: SitesMapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
-  const markersRef = useRef<maplibregl.Marker[]>([]);
+  const markersRef = useRef<MarkerEntry[]>([]);
 
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -273,7 +179,7 @@ function SitesMapView({
     mapRef.current.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
 
     return () => {
-      markersRef.current.forEach(marker => marker.remove());
+      markersRef.current.forEach(entry => entry.marker.remove());
       markersRef.current = [];
       mapRef.current?.remove();
       mapRef.current = null;
@@ -297,7 +203,7 @@ function SitesMapView({
       return;
     }
 
-    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current.forEach(entry => entry.marker.remove());
     markersRef.current = [];
 
     if (sites.length === 0 && panicAlerts.length === 0) {
@@ -307,16 +213,10 @@ function SitesMapView({
 
     const bounds = new LngLatBounds();
 
-    // Add standard site markers
     sites.forEach(site => {
       bounds.extend([site.longitude, site.latitude]);
 
-      const mountNode = document.createElement('div');
-      const popup = new maplibregl.Popup({ offset: 14, className: 'sites-map-popup' });
-      popup.setDOMContent(mountNode);
-      const root = createRoot(mountNode);
       const editHref = canEditSite ? appendDashboardTabToHref(`/admin/sites/${site.id}/edit`, selectedTab) : null;
-      root.render(<SitePopup site={site} editHref={editHref} onNavigate={onNavigate} now={now} />);
 
       const color = MARKER_COLORS[site.markerStatus];
       const el = document.createElement('div');
@@ -332,7 +232,6 @@ function SitesMapView({
         `;
         marker = new maplibregl.Marker({ element: el, anchor: 'bottom' })
           .setLngLat([site.longitude, site.latitude])
-          .setPopup(popup)
           .addTo(map);
       } else {
         const iconKey = MARKER_ICONS[site.markerStatus];
@@ -347,22 +246,22 @@ function SitesMapView({
         `;
         marker = new maplibregl.Marker({ element: el })
           .setLngLat([site.longitude, site.latitude])
-          .setPopup(popup)
           .addTo(map);
       }
 
-      markersRef.current.push(marker);
+      el.addEventListener('click', () => {
+        if (selectedItem?.kind === 'site' && selectedItem.site.id === site.id) {
+          onMarkerDeselect();
+          return;
+        }
+        onMarkerSelect({ kind: 'site', site, editHref });
+      });
+
+      markersRef.current.push({ marker, id: site.id });
     });
 
-    // Add SOS Alert markers with a custom pulsing element
     panicAlerts.forEach(panic => {
       bounds.extend([panic.longitude, panic.latitude]);
-
-      const mountNode = document.createElement('div');
-      const popup = new maplibregl.Popup({ offset: 14, className: 'sites-map-popup' });
-      popup.setDOMContent(mountNode);
-      const root = createRoot(mountNode);
-      root.render(<PanicPopup panic={panic} />);
 
       const el = document.createElement('div');
       el.className = 'relative flex items-center justify-center h-8 w-8';
@@ -373,10 +272,17 @@ function SitesMapView({
 
       const marker = new maplibregl.Marker({ element: el })
         .setLngLat([panic.longitude, panic.latitude])
-        .setPopup(popup)
         .addTo(map);
 
-      markersRef.current.push(marker);
+      el.addEventListener('click', () => {
+        if (selectedItem?.kind === 'panic' && selectedItem.panic.id === panic.id) {
+          onMarkerDeselect();
+          return;
+        }
+        onMarkerSelect({ kind: 'panic', panic });
+      });
+
+      markersRef.current.push({ marker, id: `panic-${panic.id}` });
     });
 
     const totalCount = sites.length + panicAlerts.length;
@@ -395,12 +301,35 @@ function SitesMapView({
       maxZoom: 13,
       duration: 500,
     });
-  }, [sites, panicAlerts, canEditSite, selectedTab, onNavigate]);
+  }, [sites, panicAlerts, canEditSite, selectedTab, onNavigate, onMarkerSelect, onMarkerDeselect]);
+
+  useEffect(() => {
+    markersRef.current.forEach(entry => {
+      const el = entry.marker.getElement();
+      el.classList.remove('ring-2', 'ring-blue-500', 'ring-offset-2');
+
+      const isSelected =
+        selectedItem &&
+        ((selectedItem.kind === 'site' && entry.id === selectedItem.site.id) ||
+          (selectedItem.kind === 'panic' && entry.id === `panic-${selectedItem.panic.id}`));
+
+      if (isSelected) {
+        el.classList.add('ring-2', 'ring-blue-500', 'ring-offset-2');
+      }
+    });
+  }, [selectedItem]);
 
   return <div ref={mapContainerRef} className={className} />;
 }
 
-export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesMapCardProps) {
+export function SitesMapCard({
+  sites,
+  className = '',
+  panicAlerts = [],
+  selectedItem,
+  onMarkerSelect,
+  onMarkerDeselect,
+}: SitesMapCardProps) {
   const [maximized, setMaximized] = useState(false);
   const { hasPermission } = useSession();
   const { selectedTab } = useAdminDashboardTab();
@@ -419,7 +348,6 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
   const siteStatusMap = useMemo(() => {
     const map = new Map<string, MapSite['markerStatus']>();
 
-    // Build set of site IDs with unresolved late-relevant alerts
     const alertedSiteIds = new Set<string>();
     for (const alert of alerts) {
       if (alert.reason === 'missed_checkin' || alert.reason === 'missed_attendance') {
@@ -428,7 +356,6 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
       }
     }
 
-    // Process active shifts for each site
     for (const { site, shifts } of activeSites) {
       const hasLateAttendance = shifts.some(s => s.attendance?.status === 'late');
       const hasAlert = alertedSiteIds.has(site.id);
@@ -445,7 +372,6 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
       }
     }
 
-    // Upcoming shifts within 30 min (only for sites not yet in the map)
     const UPCOMING_WINDOW_MS = 30 * 60 * 1000;
     for (const shift of upcomingShifts) {
       const siteId = shift.site?.id ?? shift.siteId;
@@ -462,7 +388,6 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
   const popupDataBySiteId = useMemo(() => {
     const data = new Map<string, { shifts: PopupShiftInfo[]; upcoming: PopupUpcomingInfo[] }>();
 
-    // Build map of shiftId → alert reason for unresolved late-relevant alerts
     const alertedShifts = new Map<string, AlertReason>();
     for (const alert of alerts) {
       if (alert.reason === 'missed_checkin' || alert.reason === 'missed_attendance') {
@@ -470,22 +395,22 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
       }
     }
 
-    // Process active shifts for each site
     for (const { site, shifts } of activeSites) {
       const infos: PopupShiftInfo[] = shifts.map(s => ({
         employeeName: s.employee?.nickname ?? s.employee?.fullName?.split(' ')[0] ?? 'Unknown',
+        employeeNumber: s.employee?.employeeNumber ?? null,
         shiftStartsAt: s.startsAt,
         shiftEndsAt: s.endsAt,
         attendanceStatus: s.attendance?.status ?? null,
         lastCheckinAt: s.attendance?.recordedAt ?? null,
         hasOpenAlert: alertedShifts.has(s.id),
         alertReason: alertedShifts.get(s.id) ?? null,
+        isPresent: s.attendance?.status === 'present' || s.attendance?.status === 'late',
       }));
       data.set(site.id, { shifts: infos, upcoming: [] });
     }
 
-    // Process upcoming shifts within 60 min (including as supplementary data for active sites)
-    const UPCOMING_WINDOW_MS = 60 * 60 * 1000;
+    const UPCOMING_WINDOW_MS = 24 * 60 * 60 * 1000;
     for (const shift of upcomingShifts) {
       const siteId = shift.site?.id ?? shift.siteId;
       if (!siteId) continue;
@@ -493,7 +418,13 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
       if (startsAt > now && startsAt - now <= UPCOMING_WINDOW_MS) {
         const entry = data.get(siteId);
         const employeeName = shift.employee?.nickname ?? shift.employee?.fullName?.split(' ')[0] ?? 'Unknown';
-        const info: PopupUpcomingInfo = { employeeName, startsInMinutes: Math.round((startsAt - now) / 60000) };
+        const info: PopupUpcomingInfo = {
+          employeeName,
+          employeeNumber: shift.employee?.employeeNumber ?? null,
+          startsInMinutes: Math.round((startsAt - now) / 60000),
+          shiftStartsAt: shift.startsAt,
+          shiftEndsAt: shift.endsAt,
+        };
         if (entry) {
           entry.upcoming.push(info);
         } else {
@@ -605,6 +536,9 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
             onNavigate={handleNavigate}
             now={now}
             className="h-150 w-full rounded-lg border border-border bg-muted/20"
+            selectedItem={selectedItem}
+            onMarkerSelect={onMarkerSelect}
+            onMarkerDeselect={onMarkerDeselect}
           />
           {filter !== 'all' && visibleSites.length === 0 && visiblePanics.length === 0 ? (
             <p className="pt-2 text-xs text-muted-foreground">
@@ -636,15 +570,31 @@ export function SitesMapCard({ sites, className = '', panicAlerts = [] }: SitesM
               <X className="h-5 w-5" />
             </Button>
           </DialogClose>
-          <SitesMapView
-            sites={visibleSites}
-            panicAlerts={visiblePanics}
-            canEditSite={canEditSite}
-            selectedTab={selectedTab}
-            onNavigate={handleNavigate}
-            now={now}
-            className="w-full h-full"
-          />
+          <div className="flex h-full">
+            <div className="flex-1">
+              <SitesMapView
+                sites={visibleSites}
+                panicAlerts={visiblePanics}
+                canEditSite={canEditSite}
+                selectedTab={selectedTab}
+                onNavigate={handleNavigate}
+                now={now}
+                className="w-full h-full"
+                selectedItem={selectedItem}
+                onMarkerSelect={onMarkerSelect}
+                onMarkerDeselect={onMarkerDeselect}
+              />
+            </div>
+            {selectedItem && (
+              <div className="w-80 border-l border-border overflow-y-auto p-4">
+                <MapDetailPanel
+                  selectedItem={selectedItem}
+                  onClose={onMarkerDeselect}
+                  onNavigate={handleNavigate}
+                />
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </>

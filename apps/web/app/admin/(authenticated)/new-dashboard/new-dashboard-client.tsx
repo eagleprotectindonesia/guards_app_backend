@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Site } from '@prisma/client';
 import type { Serialized } from '@/lib/server-utils';
 import { useAlerts } from '../context/alert-context';
@@ -18,7 +19,9 @@ import {
   TotalAttendanceCard,
   TotalIncidentsCard,
   SOSAlertsCard,
+  MapDetailPanel,
 } from './components';
+import type { SelectedMapItem } from './components';
 
 type NewDashboardClientProps = {
   initialSites: Serialized<Site>[];
@@ -28,6 +31,10 @@ type NewDashboardClientProps = {
 export default function NewDashboardClient({ initialSites, initialPanicAlerts = [] }: NewDashboardClientProps) {
   const { activeSites, isDashboardInitialized } = useAlerts();
   const [panicAlerts, setPanicAlerts] = useState<PanicAlert[]>(initialPanicAlerts);
+  const [selectedMapItem, setSelectedMapItem] = useState<SelectedMapItem | null>(null);
+  const router = useRouter();
+
+  const handleNavigate = useMemo(() => (href: string) => router.push(href), [router]);
 
   useSocketEvent('new_dashboard:panic_alerts', payload => {
     if (payload && Array.isArray(payload.unresolvedPanics)) {
@@ -64,7 +71,14 @@ export default function NewDashboardClient({ initialSites, initialPanicAlerts = 
 
       <div className="grid grid-cols-12 gap-4">
         <div className="col-span-12 space-y-4 lg:col-span-9">
-          <SitesMapCard sites={initialSites} panicAlerts={panicAlerts} className="h-175 p-1" />
+          <SitesMapCard
+            sites={initialSites}
+            panicAlerts={panicAlerts}
+            className="h-175 p-1"
+            selectedItem={selectedMapItem}
+            onMarkerSelect={setSelectedMapItem}
+            onMarkerDeselect={() => setSelectedMapItem(null)}
+          />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <LiveActivityFeedCard />
             <ShiftOverviewCard />
@@ -72,6 +86,18 @@ export default function NewDashboardClient({ initialSites, initialPanicAlerts = 
         </div>
 
         <div className="col-span-12 space-y-4 lg:col-span-3">
+          {selectedMapItem && (
+            <div
+              key={selectedMapItem.kind === 'site' ? selectedMapItem.site.id : `panic-${selectedMapItem.panic.id}`}
+              className="animate-panel-enter"
+            >
+              <MapDetailPanel
+                selectedItem={selectedMapItem}
+                onClose={() => setSelectedMapItem(null)}
+                onNavigate={handleNavigate}
+              />
+            </div>
+          )}
           <CriticalAlertsCard panicAlerts={panicAlerts} />
           <InternalChatLiveCard />
         </div>
