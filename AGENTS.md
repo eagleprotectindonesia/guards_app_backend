@@ -1,46 +1,42 @@
-# Repository Guidelines
+# Agent Guidelines
 
-## Project Structure & Module Organization
-This repository is a TurboRepo monorepo.
-- `apps/web`: Next.js app (admin + employee interfaces, API routes, tests under `apps/web/tests`).
-- `apps/mobile`: Expo/React Native mobile app for guards.
-- `apps/worker`: background worker for scheduling, alerts, and queue processing.
-- `packages/database`: Prisma schema, DB client, and seed scripts.
-- `packages/shared`, `packages/types`, `packages/validations`: shared logic, types, and Zod schemas.
-- `packages/eslint-config`, `packages/tsconfig`: shared linting and TypeScript configuration.
-- `tests/e2e`: Playwright end-to-end suites (`attendance/`, `chat/`, `realtime/`) with shared fixtures/helpers.
+## Project Structure
 
-## Build, Test, and Development Commands
-Run from repository root unless noted.
-- `pnpm dev`: starts web + worker + realtime in development.
-- `pnpm dev:mobile`: starts mobile app in development mode.
-- `pnpm dev:https`: runs HTTPS dev flow for web + worker + realtime.
-- `pnpm build`: builds all workspaces through Turbo.
-- `pnpm lint`: runs workspace lint and type-check tasks.
-- `pnpm test`: runs Jest unit/integration tests.
-- `pnpm test:e2e`: runs Playwright E2E tests.
-- `pnpm turbo run db:push`: applies Prisma schema to the configured database.
+TurboRepo monorepo (`pnpm@10.32.1`, `turbo@^2.9.14`).
 
-## Coding Style & Naming Conventions
-- TypeScript-first across apps and packages.
-- Prettier config: 2 spaces, single quotes, semicolons, `printWidth: 120`.
-- Use ESLint per workspace (`pnpm lint`).
-- Naming patterns: React components in `PascalCase`; utility/modules in `kebab-case` or descriptive file names (follow nearby files); tests use `*.spec.ts` or `*.test.ts`.
+- `apps/web`: Next.js 16 App Router (admin + employee interfaces, API routes). Uses `proxy.ts` instead of `middleware.ts` for auth. Custom server (`server.ts`) embeds Socket.io via `@repo/realtime` — in default dev mode, realtime is bundled into web.
+- `apps/mobile`: Expo/React Native mobile app for guards. Uses `EXPO_UNSTABLE_HEADLESS=1`, `APP_VARIANT` for builds.
+- `apps/worker`: Background Node.js process (BullMQ queues, shift monitoring, alert generation).
+- `apps/realtime`: Standalone Socket.io deployment target (port 3001, exposed as 3004 in prod). Uses Redis adapter. Runs as a separate process only in production or via `pnpm dev:split`.
+- `packages/database`: Prisma schema/ORM client, Redis (ioredis), S3, SES, BullMQ queue definitions, repositories. Exports subpaths: `prisma`, `redis`, `integrations`, `repositories`.
+- `packages/auth-server`, `packages/notifications`, `packages/storage`, `packages/realtime`: server-side library packages.
+- `packages/shared`, `packages/types`, `packages/validations`: shared utilities, TS types, Zod schemas.
+- `packages/eslint-config`, `packages/tsconfig`: shared config.
+- `tests/e2e`: Playwright E2E suites (attendance, chat, realtime).
+- `docs/`: 19 markdown files covering business logic. **`docs/GUARD_CHECKIN_ALERTING.md` is required reading** for shift/check-in/alert changes.
 
-## Testing Guidelines
-- Unit/integration: Jest (`jest.config.js` at repo root).
-- E2E: Playwright (`tests/e2e`, see `tests/e2e/README.md`).
-- Keep tests close to behavior boundaries (API routes, worker processors, realtime events).
-- Use deterministic fixtures/factories from `tests/e2e/fixtures`.
-- Before opening a PR, run: `pnpm test` and `pnpm test:e2e` for relevant touched flows.
+## Commands (run from root)
 
-## Commit & Pull Request Guidelines
-Git history shows mostly concise, imperative commits, often with Conventional Commit style (e.g., `feat(database): ...`).
-- Prefer format: `<type>(<scope>): <imperative summary>` (example: `fix(worker): handle missed check-in retry`).
-- Keep commits focused and logically grouped.
-- PRs should include: clear summary, impacted areas (`apps/web`, `apps/worker`, etc.), test evidence (commands run), and linked issue/task.
-- For UI or API contract changes, include screenshots or request/response examples.
+- **Dev:** `pnpm dev` (web + worker), `pnpm dev:split` (+ realtime), `pnpm dev:https`/`pnpm dev:https:split` for HTTPS. All use `node --env-file=.env` — env must be at root as `.env`.
+- **Postinstall:** runs `prisma:generate` via turbo. Skip with `SKIP_TURBO_POSTINSTALL=1`.
+- **DB push:** `pnpm turbo run db:push` (requires `DATABASE_URL`, handles generate dependency).
+- **Lint:** `pnpm lint` = `turbo run lint type-check`. Turbo respects type-check → lint dependsOn ordering per workspace.
+- **Test:**
+  - `pnpm test` — Jest unit tests (triggers full build first via turbo dependsOn).
+  - `pnpm test:integration:setup` — pushes schema to test DB.
+  - `pnpm test:integration` — smoke integration (2 attendance/checkin test files).
+  - `pnpm test:integration:full` — all `apps/web/tests/integration/**/*.test.ts`.
+  - `pnpm test:e2e` — Playwright (`tests/e2e/`). Requires PostgreSQL + Redis + server running.
+- **Build:** `pnpm build` — builds all workspaces.
 
-## Security & Configuration Tips
-- Never commit secrets; use `.env`, `.env.test`, and examples as templates.
-- Validate `DATABASE_URL`, `REDIS_URL`, and related keys before running dev/test commands.
+## Conventions
+
+- Prettier config in `.prettierrc`. Jest config in root `jest.config.js` (ts-jest with `isolatedModules: true`).
+- `pnpm lint` is the one command for both lint and type-check. Do not run `tsc --noEmit` directly on root — turbo handles workspace ordering.
+- Add deps with `--filter <workspace>`, runtime deps stay in their workspace.
+- `.env` at root for dev; `.env.test` for tests. Time zone: `Asia/Makassar`.
+
+## Deploy
+
+- `main` → production (ECR + EC2, docker-compose). `develop` → staging.
+- Docker produces 4 multi-stage images: `app-runner`, `worker-runner`, `realtime-runner`, `migration-runner`.

@@ -10,6 +10,7 @@ import { appendDashboardTabToHref } from '@/lib/admin-tab-routing';
 import type { SelectedMapItem } from './map-detail-panel';
 
 export type PopupShiftInfo = {
+  employeeId: string | null;
   employeeName: string;
   employeeNumber: string | null;
   shiftStartsAt: string;
@@ -22,6 +23,7 @@ export type PopupShiftInfo = {
 };
 
 export type PopupUpcomingInfo = {
+  employeeId: string | null;
   employeeName: string;
   employeeNumber: string | null;
   startsInMinutes: number;

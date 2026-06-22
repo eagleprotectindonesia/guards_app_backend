@@ -14,6 +14,7 @@ import { useAdminDashboardTab } from '../../context/admin-dashboard-tab-context'
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { MapDetailPanel, type SelectedMapItem } from './map-detail-panel';
 import { SitesMapView, type PopupShiftInfo, type PopupUpcomingInfo, type MapSite } from './sites-map-view';
+import { MapFilterTabs, FILTER_TABS, type MapFilter } from './sites-map-filter-tabs';
 
 type SitesMapCardProps = {
   sites: Serialized<Site>[];
@@ -23,19 +24,6 @@ type SitesMapCardProps = {
   onMarkerSelect: (item: SelectedMapItem) => void;
   onMarkerDeselect: () => void;
 };
-
-type MapFilter = 'all' | 'active' | 'late' | 'sos' | 'none' | 'upcoming';
-
-const FILTER_TABS: { key: MapFilter; label: string; color: string }[] = [
-  { key: 'all', label: 'All', color: '#94a3b8' },
-  { key: 'active', label: 'Active Now', color: '#22c55e' },
-  { key: 'late', label: 'Late/Missing', color: '#f97316' },
-  { key: 'sos', label: 'SOS', color: '#ef4444' },
-  { key: 'none', label: 'No shift active', color: '#6b7280' },
-  { key: 'upcoming', label: 'Upcoming', color: '#eab308' },
-];
-
-
 
 function hasCoordinates(site: Serialized<Site>): site is Serialized<Site> & { latitude: number; longitude: number } {
   return (
@@ -127,6 +115,7 @@ export function SitesMapCard({
 
     for (const { site, shifts } of activeSites) {
       const infos: PopupShiftInfo[] = shifts.map(s => ({
+        employeeId: s.employee?.id ?? null,
         employeeName: s.employee?.nickname ?? s.employee?.fullName?.split(' ')[0] ?? 'Unknown',
         employeeNumber: s.employee?.employeeNumber ?? null,
         shiftStartsAt: s.startsAt,
@@ -149,6 +138,7 @@ export function SitesMapCard({
         const entry = data.get(siteId);
         const employeeName = shift.employee?.nickname ?? shift.employee?.fullName?.split(' ')[0] ?? 'Unknown';
         const info: PopupUpcomingInfo = {
+          employeeId: shift.employee?.id ?? null,
           employeeName,
           employeeNumber: shift.employee?.employeeNumber ?? null,
           startsInMinutes: Math.round((startsAt - now) / 60000),
@@ -222,25 +212,7 @@ export function SitesMapCard({
             <MapPin className="h-4 w-4 text-red-500" />
             <h3 className="text-sm font-semibold text-foreground">Active Sites Map</h3>
             <span className="mx-1 h-3.5 w-px bg-border" />
-            <div className="flex items-center gap-0">
-              {FILTER_TABS.map(tab => {
-                const active = filter === tab.key;
-                return (
-                  <button
-                    key={tab.key}
-                    onClick={() => setFilter(tab.key)}
-                    className={`flex items-center gap-1 px-1.5 py-0.5 text-sm font-medium transition-colors rounded ${
-                      active
-                        ? 'bg-red-600/10 text-red-600 dark:text-red-400'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tab.color }} />
-                    {tab.label} ({counts[tab.key]})
-                  </button>
-                );
-              })}
-            </div>
+            <MapFilterTabs value={filter} onChange={setFilter} counts={counts} />
           </div>
           <div className="flex items-center gap-1">
             <span className="text-xs text-muted-foreground">
@@ -296,7 +268,7 @@ export function SitesMapCard({
       <Dialog open={partialMaximized} onOpenChange={setPartialMaximized}>
         <DialogContent
           showCloseButton={false}
-          className="top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[75vw] max-w-[75vw] sm:max-w-[75vw] h-[75vh] max-h-[75vh] sm:max-h-[75vh] rounded-xl p-0 gap-0 border-border shadow-2xl"
+          className="top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[75vw] max-w-[75vw] sm:max-w-[75vw] h-[75vh] max-h-[75vh] sm:max-h-[75vh] rounded-xl p-0 gap-0 border-border shadow-2xl flex flex-col"
         >
           <DialogClose asChild>
             <Button
@@ -309,7 +281,13 @@ export function SitesMapCard({
               <X className="h-5 w-5" />
             </Button>
           </DialogClose>
-          <div className="flex h-full rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-4 pt-4 pb-3 pl-14 border-b border-border shrink-0">
+            <MapFilterTabs value={filter} onChange={setFilter} counts={counts} />
+            <span className="text-xs text-muted-foreground shrink-0">
+              {mappableSites.length} sites{mappablePanics.length > 0 ? ` · ${mappablePanics.length} SOS` : ''} mapped
+            </span>
+          </div>
+          <div className="flex flex-1 overflow-hidden">
             <div className="flex-1">
               <SitesMapView
                 sites={visibleSites}
@@ -325,7 +303,7 @@ export function SitesMapCard({
               />
             </div>
             {selectedItem && (
-              <div className="w-80 border-l border-border overflow-y-auto p-4">
+              <div className="w-80 border-l border-border overflow-y-auto p-4 shrink-0">
                 <MapDetailPanel selectedItem={selectedItem} onClose={onMarkerDeselect} onNavigate={handleNavigate} />
               </div>
             )}

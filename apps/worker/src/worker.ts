@@ -20,6 +20,7 @@ import {
   SHIFT_REMINDER_JOB_NAME,
   SHIFT_PHOTO_REPORT_QUEUE_NAME,
   SHIFT_PHOTO_REPORT_JOB_NAME,
+  SHIFT_PHOTO_REPORT_CLEAN_JOB_NAME,
 } from '@repo/database';
 
 import { createQueue, createWorker } from './infrastructure/bullmq';
@@ -81,6 +82,16 @@ async function start() {
     {},
     {
       repeat: { every: CLEAN_INTERVAL_MS },
+      removeOnComplete: true,
+      removeOnFail: true,
+    }
+  );
+
+  await maintenanceQueue.add(
+    SHIFT_PHOTO_REPORT_CLEAN_JOB_NAME,
+    {},
+    {
+      repeat: { pattern: DAILY_CRON_PATTERN },
       removeOnComplete: true,
       removeOnFail: true,
     }
