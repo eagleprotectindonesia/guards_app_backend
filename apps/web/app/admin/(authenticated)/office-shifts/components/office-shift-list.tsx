@@ -44,7 +44,7 @@ export default function OfficeShiftList({
   employeeId,
   department,
   sortBy = 'startsAt',
-  sortOrder = 'desc',
+  sortOrder = 'asc',
   page,
   perPage,
   totalCount,

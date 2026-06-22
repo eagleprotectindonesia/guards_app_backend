@@ -37,7 +37,7 @@ export default async function OfficeShiftsPage({
   const sortOrder: 'asc' | 'desc' =
     typeof resolvedSearchParams.sortOrder === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sortOrder)
       ? (resolvedSearchParams.sortOrder as 'asc' | 'desc')
-      : 'desc';
+      : 'asc';
 
   const parsedStartDate = startDate ? startOfDay(parseISO(startDate)) : undefined;
   const parsedEndDate = endDate ? endOfDay(parseISO(endDate)) : undefined;
