@@ -10,6 +10,7 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format, parseISO } from 'date-fns';
 import { Download } from 'lucide-react';
+import SortableHeader from '@/components/sortable-header';
 
 type ReportWithDownload = {
   id: string;
@@ -42,6 +43,8 @@ type ShiftPhotoReportsListProps = {
   employeeId?: string;
   siteId?: string;
   status?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   page: number;
   perPage: number;
   totalCount: number;
@@ -56,6 +59,8 @@ export default function ShiftPhotoReportsList({
   employeeId,
   siteId,
   status,
+  sortBy = 'createdAt',
+  sortOrder = 'desc',
   page,
   perPage,
   totalCount,
@@ -145,6 +150,18 @@ export default function ShiftPhotoReportsList({
     setFilterStatus('');
 
     const params = new URLSearchParams();
+    params.set('page', '1');
+    router.push(`/admin/shift-photo-reports?${params.toString()}`);
+  };
+
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'asc');
+    }
     params.set('page', '1');
     router.push(`/admin/shift-photo-reports?${params.toString()}`);
   };
@@ -255,10 +272,28 @@ export default function ShiftPhotoReportsList({
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Report ID</th>
+                <SortableHeader
+                  label="Report ID"
+                  field="reportNumber"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Guard</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
+                <SortableHeader
+                  label="Guard"
+                  field="employee"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Site"
+                  field="site"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Photos</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Created</th>

@@ -177,6 +177,14 @@ This is a server component that:
 
 **Regenerate**: The page includes a `<form>` that POSTs to a server action. The action calls `createRegeneratedShiftPhotoReport({ originalReportId, adminId })`, then `revalidatePath('/admin/shift-photo-reports')`.
 
+## Sorting
+
+The list supports clickable column headers. URL params: `sortBy`, `sortOrder`.
+
+Whitelisted fields: `site`, `employee`, `reportNumber`. Clicking a column header for the first time sorts ascending. Clicking again toggles to descending.
+
+Unknown `sortBy` values fall back to the default (`createdAt desc`). The repository enforces the whitelist — user input never flows directly into `orderBy`.
+
 ## Status Lifecycle
 
 ```
