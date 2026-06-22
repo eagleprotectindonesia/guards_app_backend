@@ -1,18 +1,15 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import type { Serialized } from '@/lib/server-utils';
 import { useSearchParams } from 'next/navigation';
 import { useAdminRouter } from '../../context/admin-router';
-import { useSession } from '../../context/session-context';
-import { PERMISSIONS } from '@/lib/auth/permissions';
 import PaginationNav from '../../components/pagination-nav';
 import Select from '../../components/select';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { regenerateShiftPhotoReport } from '../actions';
 import { format, parseISO } from 'date-fns';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download } from 'lucide-react';
 
 type ReportWithDownload = {
   id: string;
@@ -65,11 +62,6 @@ export default function ShiftPhotoReportsList({
 }: ShiftPhotoReportsListProps) {
   const router = useAdminRouter();
   const searchParams = useSearchParams();
-  const { hasPermission } = useSession();
-  const [isPending, startTransition] = useTransition();
-
-  const canRegenerate = hasPermission(PERMISSIONS.SHIFT_PHOTO_REPORTS.CREATE);
-
   const [filterDateFrom, setFilterDateFrom] = useState<Date | undefined>(
     dateFrom ? parseISO(dateFrom) : undefined
   );
@@ -155,16 +147,6 @@ export default function ShiftPhotoReportsList({
     const params = new URLSearchParams();
     params.set('page', '1');
     router.push(`/admin/shift-photo-reports?${params.toString()}`);
-  };
-
-  const handleRegenerate = (id: string) => {
-    if (!canRegenerate) return;
-
-    startTransition(async () => {
-      const formData = new FormData();
-      formData.set('id', id);
-      await regenerateShiftPhotoReport(formData);
-    });
   };
 
   return (
@@ -272,6 +254,7 @@ export default function ShiftPhotoReportsList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Report ID</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Guard</th>
@@ -285,13 +268,16 @@ export default function ShiftPhotoReportsList({
             <tbody className="divide-y divide-border">
               {reports.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
                     No shift photo reports found.
                   </td>
                 </tr>
               ) : (
-                reports.map(report => (
+                reports.map((report, index) => (
                   <tr key={report.id} className="hover:bg-muted/30 transition-colors group">
+                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">
+                      {(page - 1) * perPage + index + 1}
+                    </td>
                     <td className="py-4 px-6 text-sm font-mono text-foreground">
                       {report.reportNumber ?? '—'}
                     </td>
@@ -330,7 +316,7 @@ export default function ShiftPhotoReportsList({
                         : '—'}
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                      <div className="flex items-center justify-end">
                         {report.downloadUrl ? (
                           <a
                             href={report.downloadUrl}
@@ -345,16 +331,6 @@ export default function ShiftPhotoReportsList({
                           <span className="p-2 text-muted-foreground/40" title="No PDF available">
                             <Download className="w-4 h-4" />
                           </span>
-                        )}
-                        {canRegenerate && (
-                          <button
-                            onClick={() => handleRegenerate(report.id)}
-                            disabled={isPending}
-                            className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-950/30 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            title="Regenerate"
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </button>
                         )}
                       </div>
                     </td>

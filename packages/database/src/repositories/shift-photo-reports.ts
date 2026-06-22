@@ -366,3 +366,42 @@ export async function createRegeneratedShiftPhotoReport(params: { originalReport
     return report;
   });
 }
+
+export async function deleteOldShiftPhotoReports(olderThan: Date) {
+  const expired = await prisma.shiftPhotoReport.findMany({
+    where: { createdAt: { lt: olderThan } },
+    select: { id: true, shiftId: true, pdfS3Key: true },
+  });
+
+  if (expired.length === 0) {
+    return { deleted: 0, s3Keys: [] as string[] };
+  }
+
+  const reportIds = expired.map(r => r.id);
+  const shiftIds = expired.map(r => r.shiftId);
+  const s3Keys = expired.map(r => r.pdfS3Key).filter((k): k is string => k !== null);
+
+  await prisma.$transaction(async tx => {
+    await tx.shift.updateMany({
+      where: {
+        id: { in: shiftIds },
+        lastAutoPhotoReportId: { in: reportIds },
+      },
+      data: {
+        lastAutoPhotoReportId: null,
+        lastAutoPhotoReportAt: null,
+      },
+    });
+
+    await tx.shiftPhotoReport.updateMany({
+      where: { regeneratedFromId: { in: reportIds } },
+      data: { regeneratedFromId: null },
+    });
+
+    await tx.shiftPhotoReport.deleteMany({
+      where: { id: { in: reportIds } },
+    });
+  });
+
+  return { deleted: expired.length, s3Keys };
+}

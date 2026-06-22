@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 export { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
@@ -163,6 +163,19 @@ export async function getCachedPresignedDownloadUrl(key: string, expiresIn: numb
   }
 
   return url;
+}
+
+export async function deleteS3Object(key: string) {
+  if (!BUCKET_NAME) {
+    throw new Error('AWS_S3_BUCKET_NAME is not configured');
+  }
+
+  const command = new DeleteObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+  });
+
+  await s3Client.send(command);
 }
 
 export async function uploadFile(

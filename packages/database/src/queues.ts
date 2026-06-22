@@ -20,3 +20,5 @@ export const SHIFT_REMINDER_JOB_NAME = 'shift-reminder-send';
 
 export const SHIFT_PHOTO_REPORT_QUEUE_NAME = 'shift-photo-report';
 export const SHIFT_PHOTO_REPORT_JOB_NAME = 'shift-photo-report-scan';
+
+export const SHIFT_PHOTO_REPORT_CLEAN_JOB_NAME = 'shift-photo-report-clean';
