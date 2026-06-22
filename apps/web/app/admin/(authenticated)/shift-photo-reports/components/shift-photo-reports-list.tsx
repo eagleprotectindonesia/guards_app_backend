@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Serialized } from '@/lib/server-utils';
 import { useSearchParams } from 'next/navigation';
 import { useAdminRouter } from '../../context/admin-router';
@@ -10,6 +10,9 @@ import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format, parseISO } from 'date-fns';
 import { Download } from 'lucide-react';
+import SortableHeader from '@/components/sortable-header';
+import toast from 'react-hot-toast';
+import { buildShiftReportsZip } from '@/lib/shift-photo-reports/bulk-zip';
 
 type ReportWithDownload = {
   id: string;
@@ -42,6 +45,8 @@ type ShiftPhotoReportsListProps = {
   employeeId?: string;
   siteId?: string;
   status?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   page: number;
   perPage: number;
   totalCount: number;
@@ -56,6 +61,8 @@ export default function ShiftPhotoReportsList({
   employeeId,
   siteId,
   status,
+  sortBy = 'createdAt',
+  sortOrder = 'desc',
   page,
   perPage,
   totalCount,
@@ -71,6 +78,18 @@ export default function ShiftPhotoReportsList({
   const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
   const [filterSiteId, setFilterSiteId] = useState(siteId || '');
   const [filterStatus, setFilterStatus] = useState(status || '');
+
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+
+  const downloadableReports = reports.filter(r => r.downloadUrl);
+  const isAllSelected = downloadableReports.length > 0 && downloadableReports.every(r => selectedIds.has(r.id));
+  const isSomeSelected = downloadableReports.some(r => selectedIds.has(r.id)) && !isAllSelected;
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedIds(new Set());
+  }, [page]);
 
   const employeeOptions = [
     { value: '', label: 'All Guards' },
@@ -134,6 +153,7 @@ export default function ShiftPhotoReportsList({
     }
 
     params.set('page', '1');
+    setSelectedIds(new Set());
     router.push(`/admin/shift-photo-reports?${params.toString()}`);
   };
 
@@ -143,10 +163,67 @@ export default function ShiftPhotoReportsList({
     setFilterEmployeeId('');
     setFilterSiteId('');
     setFilterStatus('');
+    setSelectedIds(new Set());
 
     const params = new URLSearchParams();
     params.set('page', '1');
     router.push(`/admin/shift-photo-reports?${params.toString()}`);
+  };
+
+  const handleSort = (field: string) => {
+    setSelectedIds(new Set());
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'asc');
+    }
+    params.set('page', '1');
+    router.push(`/admin/shift-photo-reports?${params.toString()}`);
+  };
+
+  const handleCheckboxChange = (id: string, checked: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAllChange = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(downloadableReports.map(r => r.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleBulkDownload = async () => {
+    if (selectedIds.size === 0 || isBulkDownloading) return;
+    setIsBulkDownloading(true);
+    try {
+      const selected = reports.filter(r => selectedIds.has(r.id) && r.downloadUrl);
+      const blob = await buildShiftReportsZip(selected);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `shift-photo-reports-${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded ${selected.length} report(s)`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Bulk download failed');
+    } finally {
+      setIsBulkDownloading(false);
+    }
   };
 
   return (
@@ -154,10 +231,31 @@ export default function ShiftPhotoReportsList({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Shift Photo Reports</h1>
-          <p className="text-sm text-muted-foreground mt-1">Review and manage shift photo report generation.</p>
+          <h1 className="text-2xl font-bold text-foreground">{selectedIds.size > 0 ? `${selectedIds.size} Selected` : 'Shift Photo Reports'}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {selectedIds.size > 0
+              ? 'Select reports to download as a single ZIP file.'
+              : 'Review and manage shift photo report generation.'}
+          </p>
         </div>
-
+        {selectedIds.size > 0 && (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-sm text-muted-foreground hover:text-foreground underline transition-colors"
+            >
+              Clear
+            </button>
+            <button
+              onClick={handleBulkDownload}
+              disabled={isBulkDownloading}
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30 disabled:opacity-50"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {isBulkDownloading ? 'Zipping\u2026' : `Download Selected (${selectedIds.size})`}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Filters Card */}
@@ -255,14 +353,47 @@ export default function ShiftPhotoReportsList({
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Report ID</th>
+                <SortableHeader
+                  label="Report ID"
+                  field="reportNumber"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Guard</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
+                <SortableHeader
+                  label="Guard"
+                  field="employee"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Site"
+                  field="site"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Photos</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Created</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">Actions</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
+                  <div className="flex items-center justify-end gap-3">
+                    <span className="uppercase">Actions</span>
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      ref={input => {
+                        if (input) input.indeterminate = isSomeSelected;
+                      }}
+                      onChange={e => handleSelectAllChange(e.target.checked)}
+                      disabled={downloadableReports.length === 0}
+                      className="h-4 w-4 rounded border-border text-red-600 focus:ring-red-500 cursor-pointer disabled:opacity-30"
+                      aria-label="Select all"
+                    />
+                  </div>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -316,21 +447,39 @@ export default function ShiftPhotoReportsList({
                         : '—'}
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end">
+                      <div className="flex items-center justify-end gap-3">
+                        {selectedIds.size === 0 && (
+                          report.downloadUrl ? (
+                            <a
+                              href={report.downloadUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                              title="Download PDF"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                          ) : (
+                            <span className="p-2 text-muted-foreground/40" title="No PDF available">
+                              <Download className="w-4 h-4" />
+                            </span>
+                          )
+                        )}
                         {report.downloadUrl ? (
-                          <a
-                            href={report.downloadUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
-                            title="Download PDF"
-                          >
-                            <Download className="w-4 h-4" />
-                          </a>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(report.id)}
+                            onChange={e => handleCheckboxChange(report.id, e.target.checked)}
+                            aria-label={`Select report ${report.reportNumber ?? report.id}`}
+                            className="h-4 w-4 rounded border-border text-red-600 focus:ring-red-500 cursor-pointer"
+                          />
                         ) : (
-                          <span className="p-2 text-muted-foreground/40" title="No PDF available">
-                            <Download className="w-4 h-4" />
-                          </span>
+                          <input
+                            type="checkbox"
+                            disabled
+                            title="No PDF available"
+                            className="h-4 w-4 rounded border-border cursor-not-allowed opacity-30"
+                          />
                         )}
                       </div>
                     </td>

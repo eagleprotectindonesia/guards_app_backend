@@ -246,6 +246,14 @@ export async function getShiftPhotoReportById(id: string) {
   });
 }
 
+const SHIFT_PHOTO_REPORT_SORT_FIELDS = {
+  reportNumber: (o: 'asc' | 'desc') => ({ reportNumber: o } as const),
+  site: (o: 'asc' | 'desc') => ({ shift: { site: { name: o } } } as const),
+  employee: (o: 'asc' | 'desc') => ({ employee: { fullName: o } } as const),
+} as const;
+
+type ShiftPhotoReportSortBy = keyof typeof SHIFT_PHOTO_REPORT_SORT_FIELDS;
+
 export async function listShiftPhotoReportsPaginated(params: {
   dateFrom?: Date;
   dateTo?: Date;
@@ -254,6 +262,8 @@ export async function listShiftPhotoReportsPaginated(params: {
   status?: string;
   page: number;
   pageSize: number;
+  sortBy?: string;
+  sortOrder?: string;
 }) {
   const { dateFrom, dateTo, employeeId, siteId, status, page, pageSize } = params;
 
@@ -276,10 +286,22 @@ export async function listShiftPhotoReportsPaginated(params: {
 
   const skip = (page - 1) * pageSize;
 
+  const sortBy: ShiftPhotoReportSortBy | 'createdAt' =
+    params.sortBy && params.sortBy in SHIFT_PHOTO_REPORT_SORT_FIELDS
+      ? (params.sortBy as ShiftPhotoReportSortBy)
+      : 'createdAt';
+  const sortOrder: 'asc' | 'desc' =
+    params.sortOrder === 'asc' || params.sortOrder === 'desc' ? params.sortOrder : 'desc';
+
+  const orderBy: Prisma.ShiftPhotoReportOrderByWithRelationInput =
+    sortBy === 'createdAt'
+      ? { createdAt: sortOrder }
+      : SHIFT_PHOTO_REPORT_SORT_FIELDS[sortBy](sortOrder);
+
   const [reports, totalCount] = await prisma.$transaction(async tx => {
     const reports = await tx.shiftPhotoReport.findMany({
       where,
-      orderBy: { createdAt: 'desc' },
+      orderBy,
       skip,
       take: pageSize,
       include: {

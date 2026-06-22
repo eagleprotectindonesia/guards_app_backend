@@ -43,7 +43,7 @@ export default function ShiftList({
   endDate,
   employeeId,
   siteId,
-  sort = 'desc',
+  sort = 'asc',
   page,
   perPage,
   totalCount,

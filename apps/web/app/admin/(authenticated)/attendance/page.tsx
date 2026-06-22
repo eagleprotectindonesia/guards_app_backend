@@ -14,6 +14,7 @@ import {
   AttendanceMetadataDto,
   SerializedAttendanceWithRelationsDto,
 } from '@/types/attendance';
+import { getCachedPresignedDownloadUrl } from '@/lib/s3';
 import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
 
 export const dynamic = 'force-dynamic';
@@ -88,7 +89,15 @@ export default async function AttendancePage(props: AttendancePageProps) {
           employeeNumber: att.employee.employeeNumber,
         }
       : null,
+    picture: att.picture ?? null,
   }));
+
+  await Promise.all(
+    serializedAttendances.map(async attendance => {
+      if (!attendance.picture || attendance.picture.startsWith('http')) return;
+      attendance.picture = await getCachedPresignedDownloadUrl(attendance.picture);
+    })
+  );
 
   const serializedEmployees: AttendanceEmployeeSummary[] = employees.map(emp => ({
     id: emp.id,

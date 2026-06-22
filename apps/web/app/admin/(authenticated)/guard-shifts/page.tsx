@@ -40,7 +40,7 @@ export default async function ShiftsPage({
   const sort =
     typeof resolvedSearchParams.sort === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sort)
       ? resolvedSearchParams.sort
-      : 'desc';
+      : 'asc';
 
   const parsedStartDate = startDate ? startOfDay(parseISO(startDate)) : undefined;
   const parsedEndDate = endDate ? endOfDay(parseISO(endDate)) : undefined;

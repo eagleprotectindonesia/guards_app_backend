@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import PaginationNav from '../../components/pagination-nav';
-import { MapPin, Clock, Filter, Calendar } from 'lucide-react';
+import { MapPin, Clock, Filter, Calendar, Eye } from 'lucide-react';
 import AttendanceFilterModal from './attendance-filter-modal';
 import AttendanceExport from './attendance-export';
 import { format } from 'date-fns';
@@ -13,6 +13,7 @@ import {
   AttendanceMetadataDto,
   SerializedAttendanceWithRelationsDto,
 } from '@/types/attendance';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 // Type guard to check if metadata has valid location data
 function hasLocation(metadata: AttendanceMetadataDto | null): metadata is AttendanceMetadataDto & { location: { lat: number; lng: number } } {
@@ -45,8 +46,15 @@ export default function AttendanceList({
   initialFilters,
 }: AttendanceListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  const [previewLabel, setPreviewLabel] = useState<string>('Attendance Photo');
   const router = useAdminRouter();
   const searchParams = useSearchParams();
+
+  const openPreview = (url: string, label: string) => {
+    setPreviewImageUrl(url);
+    setPreviewLabel(label);
+  };
 
   const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeNumber: string }) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -110,13 +118,14 @@ export default function AttendanceList({
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Date</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Photo</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Location</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {attendances.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
                     No attendance records found.
                   </td>
                 </tr>
@@ -186,6 +195,23 @@ export default function AttendanceList({
                       )}
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {attendance.picture ? (
+                          <button
+                            type="button"
+                            onClick={() => openPreview(attendance.picture!, 'Attendance Photo')}
+                            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-muted transition-colors"
+                            title="View attendance photo"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            View
+                          </button>
+                        ) : (
+                          <span>-</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground">
                       {hasLocation(attendance.metadata) ? (
                         <div className="flex flex-col">
                           <div>Lat: {attendance.metadata.location.lat.toFixed(3)}</div>
@@ -212,6 +238,19 @@ export default function AttendanceList({
         initialFilters={initialFilters}
         employees={employees}
       />
+
+      <Dialog open={Boolean(previewImageUrl)} onOpenChange={open => !open && setPreviewImageUrl(null)}>
+        <DialogContent className="sm:max-w-4xl p-4">
+          <DialogHeader>
+            <DialogTitle>{previewLabel}</DialogTitle>
+          </DialogHeader>
+          {previewImageUrl ? (
+            <div className="w-full flex items-center justify-center overflow-auto">
+              <img src={previewImageUrl} alt={previewLabel} className="max-h-[75vh] w-auto max-w-full rounded-md" />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

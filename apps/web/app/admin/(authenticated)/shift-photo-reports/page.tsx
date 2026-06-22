@@ -27,6 +27,11 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
   const employeeId = searchParams.employeeId as string | undefined;
   const siteId = searchParams.siteId as string | undefined;
   const status = searchParams.status as string | undefined;
+  const sortBy = typeof searchParams.sortBy === 'string' ? searchParams.sortBy : undefined;
+  const sortOrder =
+    typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
+      ? (searchParams.sortOrder as 'asc' | 'desc')
+      : undefined;
 
   const { reports, totalCount } = await listShiftPhotoReportsPaginated({
     dateFrom: dateFrom ? new Date(dateFrom) : undefined,
@@ -36,6 +41,8 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
     status,
     page,
     pageSize: perPage,
+    sortBy,
+    sortOrder,
   });
 
   const employees = await getActiveEmployeesSummary('on_site');
@@ -60,6 +67,8 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
           employeeId={employeeId}
           siteId={siteId}
           status={status}
+          sortBy={sortBy ?? 'createdAt'}
+          sortOrder={sortOrder ?? 'desc'}
           page={page}
           perPage={perPage}
           totalCount={totalCount}

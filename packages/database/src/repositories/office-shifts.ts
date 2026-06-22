@@ -837,4 +837,51 @@ export async function getTodayOfficeShiftsOverview(at = new Date()) {
   };
 }
 
+export async function deleteOldOfficeShiftsAndRelated(olderThan: Date) {
+  let officeShifts = 0;
+  let officeAttendances = 0;
+  let changelogs = 0;
+  const s3Keys = new Set<string>();
+
+  while (true) {
+    const batch = await prisma.officeShift.findMany({
+      where: { endsAt: { lt: olderThan } },
+      select: { id: true },
+      take: 500,
+      orderBy: { endsAt: 'asc' },
+    });
+
+    if (batch.length === 0) break;
+    const officeShiftIds = batch.map(s => s.id);
+
+    await prisma.$transaction(async tx => {
+      const oaRows = await tx.officeAttendance.findMany({
+        where: { officeShiftId: { in: officeShiftIds } },
+        select: { id: true, picture: true },
+      });
+      for (const a of oaRows) {
+        if (a.picture && !a.picture.startsWith('http')) s3Keys.add(a.picture);
+      }
+      if (oaRows.length > 0) {
+        const { count } = await tx.officeAttendance.deleteMany({
+          where: { id: { in: oaRows.map(a => a.id) } },
+        });
+        officeAttendances += count;
+      }
+
+      const { count: clCount } = await tx.changelog.deleteMany({
+        where: { entityType: 'OfficeShift', entityId: { in: officeShiftIds } },
+      });
+      changelogs += clCount;
+
+      const { count: osCount } = await tx.officeShift.deleteMany({
+        where: { id: { in: officeShiftIds } },
+      });
+      officeShifts += osCount;
+    });
+  }
+
+  return { officeShifts, officeAttendances, changelogs, s3Keys: Array.from(s3Keys) };
+}
+
 
