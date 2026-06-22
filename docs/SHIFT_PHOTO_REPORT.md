@@ -185,6 +185,24 @@ Whitelisted fields: `site`, `employee`, `reportNumber`. Clicking a column header
 
 Unknown `sortBy` values fall back to the default (`createdAt desc`). The repository enforces the whitelist — user input never flows directly into `orderBy`.
 
+## Bulk Download
+
+The shift photo reports list supports multi-select download via a checkbox in the
+Actions column. The header Actions cell has a select-all checkbox (with `indeterminate`
+state when some-but-not-all are selected).
+
+- Per-row checkbox is disabled for reports without a PDF (status `pending`/`failed`
+  or `regenerated` with no `pdfS3Key`).
+- Selecting 1+ rows hides the per-row download button and shows a "Download Selected
+  (N)" button in the header bar.
+- The client fetches each presigned URL, bundles them into a single ZIP via `jszip`,
+  and triggers a browser download. ZIP filename: `shift-photo-reports-YYYY-MM-DD.zip`.
+- Per-file name inside the zip: `<reportNumber>.pdf` if available, else `<id>.pdf`.
+- Atomic: any failed fetch aborts the entire download (no partial zip).
+- Selection clears when the user changes filters, sort, or page.
+
+The zip-building logic is extracted to `apps/web/lib/shift-photo-reports/bulk-zip.ts`.
+
 ## Status Lifecycle
 
 ```
