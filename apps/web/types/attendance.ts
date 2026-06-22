@@ -26,6 +26,7 @@ export type AttendanceWithRelationsDto = {
   employeeId: string | null;
   shiftId: string;
   metadata: AttendanceMetadataDto | null;
+  picture: string | null;
   shift: {
     id: string;
     date: Date;

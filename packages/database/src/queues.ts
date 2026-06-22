@@ -22,3 +22,4 @@ export const SHIFT_PHOTO_REPORT_QUEUE_NAME = 'shift-photo-report';
 export const SHIFT_PHOTO_REPORT_JOB_NAME = 'shift-photo-report-scan';
 
 export const SHIFT_PHOTO_REPORT_CLEAN_JOB_NAME = 'shift-photo-report-clean';
+export const SHIFT_ATTENDANCE_CLEAN_JOB_NAME = 'shift-attendance-clean';

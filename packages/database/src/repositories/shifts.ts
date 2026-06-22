@@ -1864,3 +1864,83 @@ export async function getShiftOverviewForDashboard(now: Date): Promise<ShiftOver
     lastUpdatedAt: new Date().toISOString(),
   };
 }
+
+const DELETE_BATCH_SIZE = 500;
+
+export async function deleteOldShiftsAndRelated(olderThan: Date) {
+  let shifts = 0;
+  let checkins = 0;
+  let alerts = 0;
+  let attendances = 0;
+  let photoReports = 0;
+  let changelogs = 0;
+  const s3Keys = new Set<string>();
+
+  while (true) {
+    const batch = await prisma.shift.findMany({
+      where: { endsAt: { lt: olderThan } },
+      select: { id: true },
+      take: DELETE_BATCH_SIZE,
+      orderBy: { endsAt: 'asc' },
+    });
+
+    if (batch.length === 0) break;
+    const shiftIds = batch.map(s => s.id);
+
+    await prisma.$transaction(async tx => {
+      const attRows = await tx.attendance.findMany({
+        where: { shiftId: { in: shiftIds } },
+        select: { id: true, picture: true },
+      });
+      for (const a of attRows) {
+        if (a.picture && !a.picture.startsWith('http')) s3Keys.add(a.picture);
+      }
+      if (attRows.length > 0) {
+        const { count } = await tx.attendance.deleteMany({
+          where: { id: { in: attRows.map(a => a.id) } },
+        });
+        attendances += count;
+      }
+
+      const prRows = await tx.shiftPhotoReport.findMany({
+        where: { shiftId: { in: shiftIds } },
+        select: { id: true, pdfS3Key: true },
+      });
+      for (const r of prRows) {
+        if (r.pdfS3Key) s3Keys.add(r.pdfS3Key);
+      }
+      if (prRows.length > 0) {
+        await tx.shift.updateMany({
+          where: { id: { in: shiftIds }, lastAutoPhotoReportId: { not: null } },
+          data: { lastAutoPhotoReportId: null, lastAutoPhotoReportAt: null },
+        });
+        const { count } = await tx.shiftPhotoReport.deleteMany({
+          where: { id: { in: prRows.map(r => r.id) } },
+        });
+        photoReports += count;
+      }
+
+      const { count: ckCount } = await tx.checkin.deleteMany({
+        where: { shiftId: { in: shiftIds } },
+      });
+      checkins += ckCount;
+
+      const { count: alCount } = await tx.alert.deleteMany({
+        where: { shiftId: { in: shiftIds } },
+      });
+      alerts += alCount;
+
+      const { count: clCount } = await tx.changelog.deleteMany({
+        where: { entityType: 'Shift', entityId: { in: shiftIds } },
+      });
+      changelogs += clCount;
+
+      const { count: shCount } = await tx.shift.deleteMany({
+        where: { id: { in: shiftIds } },
+      });
+      shifts += shCount;
+    });
+  }
+
+  return { shifts, checkins, alerts, attendances, photoReports, changelogs, s3Keys: Array.from(s3Keys) };
+}
