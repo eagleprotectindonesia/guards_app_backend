@@ -32,7 +32,7 @@ export function MapFilterTabs({ value, onChange, counts, className = '' }: MapFi
             size="sm"
             onClick={() => onChange(tab.key)}
             aria-pressed={active}
-            className={`h-7 px-2 text-xs font-medium ${active ? '' : 'border-muted bg-transparent text-muted-foreground shadow-none hover:bg-accent hover:text-accent-foreground'}`}
+            className={`cursor-pointer h-7 px-2 text-xs font-medium ${active ? '' : 'border-muted bg-transparent text-muted-foreground shadow-none hover:bg-accent hover:text-accent-foreground'}`}
             style={
               active
                 ? { backgroundColor: `${tab.color}1A`, borderColor: tab.color, color: tab.color }

@@ -1,9 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import { X, Pencil, MapPin, ShieldCheck, ShieldAlert, Clock, ShieldOff, Building2 } from 'lucide-react';
+import { X, Pencil, MapPin, ShieldCheck, ShieldAlert, Clock, ShieldOff, Building2, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 import { PanicAlert } from '@repo/types';
+import { useSession } from '../../context/session-context';
 import { MapSite } from './sites-map-view';
 
 export type SelectedMapItem =
@@ -83,6 +85,8 @@ const STATUS_CONFIG: Record<MapSite['markerStatus'], StatusConfig> = {
 function SiteDetailContent({ site, editHref, onNavigate }: { site: MapSite; editHref: string | null; onNavigate?: (href: string) => void }) {
   const config = STATUS_CONFIG[site.markerStatus];
   const StatusIcon = config.icon;
+  const { hasPermission } = useSession();
+  const canCreateChat = hasPermission(PERMISSIONS.CHAT.CREATE);
 
   const firstShift = site.shifts.length > 0 ? site.shifts[0] : null;
   const firstUpcoming = site.upcoming.length > 0 ? site.upcoming[0] : null;
@@ -157,10 +161,33 @@ function SiteDetailContent({ site, editHref, onNavigate }: { site: MapSite; edit
             {showGuards &&
               site.shifts.map((s, i) => (
                 <div key={i} className="rounded-lg bg-muted/20 p-2.5 space-y-1.5">
-                  <p className="font-semibold text-sm text-foreground">
-                    {s.employeeName}
-                    {s.employeeNumber && <span className="font-normal text-muted-foreground ml-1.5">{s.employeeNumber}</span>}
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-sm text-foreground">
+                      {s.employeeName}
+                      {s.employeeNumber && <span className="font-normal text-muted-foreground ml-1.5">{s.employeeNumber}</span>}
+                    </p>
+                    {canCreateChat && s.employeeId && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          window.dispatchEvent(
+                            new CustomEvent('open-admin-chat', {
+                              detail: {
+                                employeeId: s.employeeId,
+                                employeeName: s.employeeName,
+                                employeeNumber: s.employeeNumber,
+                              },
+                            })
+                          )
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md border border-blue-300/60 hover:border-blue-400 transition-colors shrink-0 cursor-pointer"
+                        title={`Chat with ${s.employeeName}`}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        Chat
+                      </button>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Attendance</span>
                     <span className={s.isPresent ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
@@ -178,10 +205,33 @@ function SiteDetailContent({ site, editHref, onNavigate }: { site: MapSite; edit
             {showUpcoming &&
               site.upcoming.map((u, i) => (
                 <div key={i} className="rounded-lg bg-muted/20 p-2.5 space-y-1.5">
-                  <p className="font-semibold text-sm text-foreground">
-                    {u.employeeName}
-                    {u.employeeNumber && <span className="font-normal text-muted-foreground ml-1.5">{u.employeeNumber}</span>}
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-sm text-foreground">
+                      {u.employeeName}
+                      {u.employeeNumber && <span className="font-normal text-muted-foreground ml-1.5">{u.employeeNumber}</span>}
+                    </p>
+                    {canCreateChat && u.employeeId && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          window.dispatchEvent(
+                            new CustomEvent('open-admin-chat', {
+                              detail: {
+                                employeeId: u.employeeId,
+                                employeeName: u.employeeName,
+                                employeeNumber: u.employeeNumber,
+                              },
+                            })
+                          )
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md border border-blue-300/60 hover:border-blue-400 transition-colors shrink-0 cursor-pointer"
+                        title={`Chat with ${u.employeeName}`}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        Chat
+                      </button>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Shift</span>
                     <span className="font-medium text-foreground">{fmtTimeRange(u.shiftStartsAt, u.shiftEndsAt)}</span>
@@ -195,10 +245,33 @@ function SiteDetailContent({ site, editHref, onNavigate }: { site: MapSite; edit
             {showNextShift &&
               site.upcoming.map((u, i) => (
                 <div key={i} className="rounded-lg bg-muted/20 p-2.5 space-y-1.5">
-                  <p className="font-semibold text-sm text-foreground">
-                    {u.employeeName}
-                    {u.employeeNumber && <span className="font-normal text-muted-foreground ml-1.5">{u.employeeNumber}</span>}
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-sm text-foreground">
+                      {u.employeeName}
+                      {u.employeeNumber && <span className="font-normal text-muted-foreground ml-1.5">{u.employeeNumber}</span>}
+                    </p>
+                    {canCreateChat && u.employeeId && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          window.dispatchEvent(
+                            new CustomEvent('open-admin-chat', {
+                              detail: {
+                                employeeId: u.employeeId,
+                                employeeName: u.employeeName,
+                                employeeNumber: u.employeeNumber,
+                              },
+                            })
+                          )
+                        }
+                        className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md border border-blue-300/60 hover:border-blue-400 transition-colors shrink-0 cursor-pointer"
+                        title={`Chat with ${u.employeeName}`}
+                      >
+                        <MessageSquare className="h-3.5 w-3.5" />
+                        Chat
+                      </button>
+                    )}
+                  </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Shift</span>
                     <span className="font-medium text-foreground">{fmtTimeRange(u.shiftStartsAt, u.shiftEndsAt)}</span>

@@ -104,6 +104,7 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
 
     for (const { site, shifts } of activeSites) {
       const infos: PopupShiftInfo[] = shifts.map(s => ({
+        employeeId: s.employee?.id ?? null,
         employeeName: s.employee?.nickname ?? s.employee?.fullName?.split(' ')[0] ?? 'Unknown',
         employeeNumber: s.employee?.employeeNumber ?? null,
         shiftStartsAt: s.startsAt,
@@ -126,6 +127,7 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
         const entry = data.get(siteId);
         const employeeName = shift.employee?.nickname ?? shift.employee?.fullName?.split(' ')[0] ?? 'Unknown';
         const info: PopupUpcomingInfo = {
+          employeeId: shift.employee?.id ?? null,
           employeeName,
           employeeNumber: shift.employee?.employeeNumber ?? null,
           startsInMinutes: Math.round((startsAt - now) / 60000),
