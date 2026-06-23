@@ -99,6 +99,8 @@ type TotalAttendanceData = {
   attendanceRate: number;
   attendedCount: number;
   eligibleCount: number;
+  attendanceRateSiteGuards: number;
+  attendanceRatePatrol: number;
   yesterdayAttendanceRate: number;
   deltaVsYesterday: number;
   lastUpdatedAt: string;
@@ -234,6 +236,8 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
       attendanceRate: 0,
       attendedCount: 0,
       eligibleCount: 0,
+      attendanceRateSiteGuards: 0,
+      attendanceRatePatrol: 0,
       yesterdayAttendanceRate: 0,
       deltaVsYesterday: 0,
       lastUpdatedAt: '',
@@ -541,6 +545,8 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
             attendanceRate: 0,
             attendedCount: 0,
             eligibleCount: 0,
+            attendanceRateSiteGuards: 0,
+            attendanceRatePatrol: 0,
             yesterdayAttendanceRate: 0,
             deltaVsYesterday: 0,
             lastUpdatedAt: '',

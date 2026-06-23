@@ -94,6 +94,8 @@ export interface ServerToClientEvents {
     attendanceRate: number;
     attendedCount: number;
     eligibleCount: number;
+    attendanceRateSiteGuards: number;
+    attendanceRatePatrol: number;
     yesterdayAttendanceRate: number;
     deltaVsYesterday: number;
     lastUpdatedAt: string;

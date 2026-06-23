@@ -1,12 +1,15 @@
 import { AttendanceStatus, ShiftStatus } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
+import { isSecurityStandbyTitle } from './employees';
 
 export type TotalAttendanceForDashboard = {
   dateKey: string;
   attendanceRate: number;
   attendedCount: number;
   eligibleCount: number;
+  attendanceRateSiteGuards: number;
+  attendanceRatePatrol: number;
   yesterdayAttendanceRate: number;
   deltaVsYesterday: number;
   lastUpdatedAt: string;
@@ -49,6 +52,9 @@ export async function getTotalAttendanceForDashboard(now: Date, siteId?: string)
       where: todayStartedWhere,
       select: {
         id: true,
+        employee: {
+          select: { jobTitle: true },
+        },
         attendance: {
           select: {
             status: true,
@@ -60,6 +66,9 @@ export async function getTotalAttendanceForDashboard(now: Date, siteId?: string)
       where: yesterdayWhere,
       select: {
         id: true,
+        employee: {
+          select: { jobTitle: true },
+        },
         attendance: {
           select: {
             status: true,
@@ -75,11 +84,27 @@ export async function getTotalAttendanceForDashboard(now: Date, siteId?: string)
     AttendanceStatus.clocked_out,
   ]);
 
-  const attendedCount = todayShifts.reduce((acc, shift) => {
-    return acc + (shift.attendance && attendedStatuses.has(shift.attendance.status) ? 1 : 0);
-  }, 0);
-  const eligibleCount = todayShifts.length;
+  let attendedCount = 0;
+  let eligibleCount = 0;
+  let attendedSiteGuards = 0;
+  let eligibleSiteGuards = 0;
+  let attendedPatrol = 0;
+  let eligiblePatrol = 0;
+  for (const shift of todayShifts) {
+    const attended = shift.attendance && attendedStatuses.has(shift.attendance.status);
+    eligibleCount += 1;
+    if (attended) attendedCount += 1;
+    if (isSecurityStandbyTitle(shift.employee?.jobTitle)) {
+      eligibleSiteGuards += 1;
+      if (attended) attendedSiteGuards += 1;
+    } else {
+      eligiblePatrol += 1;
+      if (attended) attendedPatrol += 1;
+    }
+  }
   const attendanceRate = toRate(attendedCount, eligibleCount);
+  const attendanceRateSiteGuards = toRate(attendedSiteGuards, eligibleSiteGuards);
+  const attendanceRatePatrol = toRate(attendedPatrol, eligiblePatrol);
 
   const yesterdayAttendedCount = yesterdayShifts.reduce((acc, shift) => {
     return acc + (shift.attendance && attendedStatuses.has(shift.attendance.status) ? 1 : 0);
@@ -92,6 +117,8 @@ export async function getTotalAttendanceForDashboard(now: Date, siteId?: string)
     attendanceRate,
     attendedCount,
     eligibleCount,
+    attendanceRateSiteGuards,
+    attendanceRatePatrol,
     yesterdayAttendanceRate,
     deltaVsYesterday: attendanceRate - yesterdayAttendanceRate,
     lastUpdatedAt: new Date().toISOString(),

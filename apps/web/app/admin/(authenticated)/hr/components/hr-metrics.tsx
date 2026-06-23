@@ -62,10 +62,10 @@ export function HRMetrics(props: HRMetricsProps) {
 
   return (
     <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      {metrics.map((m) => {
+      {metrics.map(m => {
         const Icon = m.icon;
         return (
-          <Card key={m.label} className="border-border/60 bg-card p-2.5 shadow-sm flex flex-col">
+          <Card key={m.label} className="border-border/60 bg-card p-2.5 shadow-sm flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <div className={cn('rounded-md border p-1 shrink-0', m.accentClass)}>
                 <Icon className="h-3.5 w-3.5" />
@@ -77,9 +77,13 @@ export function HRMetrics(props: HRMetricsProps) {
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Office</p>
                 <p className={cn('text-2xl font-extrabold tracking-tight leading-none', m.iconColor)}>{m.office}</p>
               </div>
-              <div className="pl-2 rounded-sm bg-slate-500/[0.04] dark:bg-slate-400/[0.04]">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Onsite</p>
-                <p className="text-2xl font-extrabold tracking-tight leading-none text-slate-500 dark:text-slate-400">{m.onsite}</p>
+              <div className="pl-2 rounded-sm bg-slate-500/4 dark:bg-slate-400/4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+                  Onsite
+                </p>
+                <p className="text-2xl font-extrabold tracking-tight leading-none text-slate-500 dark:text-slate-400">
+                  {m.onsite}
+                </p>
               </div>
             </div>
           </Card>
