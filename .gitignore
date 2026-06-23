@@ -62,4 +62,5 @@ conductor
 .codex
 .qwen
 .antigravitycli
-opencode.*
+.opencode*
+opencode.json
