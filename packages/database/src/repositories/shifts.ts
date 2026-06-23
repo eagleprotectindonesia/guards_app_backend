@@ -5,6 +5,7 @@ import { parseShiftTypeTimeOnDate } from '@repo/shared';
 import { getShiftTypeDurationInMins } from './shift-types';
 import { deleteEmployeeOnsiteDayOffsByEmployeeAndDates, upsertEmployeeOnsiteDayOff } from './onsite-day-offs';
 import { reconcileApprovedOnsiteLeavesForCoverage } from './leave-requests';
+import { isSecurityStandbyTitle } from './employees';
 
 export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
   return prisma.shift.findUnique({
@@ -1789,6 +1790,8 @@ export async function getUpcomingShiftsForDashboard(now: Date, take = 50) {
 export type ShiftOverviewForDashboard = {
   dateKey: string;
   onDuty: number;
+  onDutySiteGuards: number;
+  onDutyPatrol: number;
   upcoming: number;
   completed: number;
   absent: number;
@@ -1844,10 +1847,20 @@ export async function getShiftOverviewForDashboard(now: Date): Promise<ShiftOver
   }
 
   let onDuty = 0;
+  let onDutySiteGuards = 0;
+  let onDutyPatrol = 0;
   let carryoverOnDuty = 0;
   for (const shift of activeShifts) {
+    if (!(shift.attendance && shift.attendance.status !== 'absent')) {
+      continue;
+    }
     const shiftDateKey = shift.date.toISOString().slice(0, 10);
     onDuty += 1;
+    if (isSecurityStandbyTitle(shift.employee?.jobTitle)) {
+      onDutySiteGuards += 1;
+    } else {
+      onDutyPatrol += 1;
+    }
     if (shiftDateKey < dateKey) {
       carryoverOnDuty += 1;
     }
@@ -1856,6 +1869,8 @@ export async function getShiftOverviewForDashboard(now: Date): Promise<ShiftOver
   return {
     dateKey,
     onDuty,
+    onDutySiteGuards,
+    onDutyPatrol,
     upcoming,
     completed,
     absent,

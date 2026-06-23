@@ -1,10 +1,12 @@
 import { ShieldCheck } from 'lucide-react';
 
 type ActiveGuardsCardProps = {
-  onDutyCount: number;
+  siteGuardsCount: number;
+  patrolCount: number;
 };
 
-export function ActiveGuardsCard({ onDutyCount }: ActiveGuardsCardProps) {
+export function ActiveGuardsCard({ siteGuardsCount, patrolCount }: ActiveGuardsCardProps) {
+  const total = siteGuardsCount + patrolCount;
   return (
     <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
       <div className="flex items-center gap-3">
@@ -13,10 +15,21 @@ export function ActiveGuardsCard({ onDutyCount }: ActiveGuardsCardProps) {
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Active Guards</p>
-          <p className="text-2xl font-bold text-foreground">{onDutyCount}</p>
+          <p className="text-2xl font-bold text-foreground">{total}</p>
         </div>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">On Duty</p>
+      <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-green-500" />
+          <span>Site Guards</span>
+          <span className="font-semibold text-foreground">{siteGuardsCount}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-blue-500" />
+          <span>Patrol</span>
+          <span className="font-semibold text-foreground">{patrolCount}</span>
+        </div>
+      </div>
     </div>
   );
 }

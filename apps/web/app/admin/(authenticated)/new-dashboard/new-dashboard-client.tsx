@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Site } from '@prisma/client';
 import type { Serialized } from '@/lib/server-utils';
 import { useAlerts } from '../context/alert-context';
+import { useNewDashboardStream } from '../context/new-dashboard-stream-context';
 import { NewDashboardSkeleton } from '../components/loading/new-dashboard-skeleton';
 import { useSocketEvent } from '@/hooks/use-socket-event';
 import { PanicAlert } from '@repo/types';
@@ -30,6 +31,7 @@ type NewDashboardClientProps = {
 
 export default function NewDashboardClient({ initialSites, initialPanicAlerts = [] }: NewDashboardClientProps) {
   const { activeSites, isDashboardInitialized } = useAlerts();
+  const { shiftOverview } = useNewDashboardStream();
   const [panicAlerts, setPanicAlerts] = useState<PanicAlert[]>(initialPanicAlerts);
   const [selectedMapItem, setSelectedMapItem] = useState<SelectedMapItem | null>(null);
   const router = useRouter();
@@ -49,17 +51,13 @@ export default function NewDashboardClient({ initialSites, initialPanicAlerts = 
   }
 
   const activeSitesCount = activeSites.length;
-  const onDutyCount = activeSites.reduce(
-    (acc, site) =>
-      acc +
-      site.shifts.filter(shift => shift.employee && shift.attendance && shift.attendance.status !== 'absent').length,
-    0
-  );
+  const onDutySiteGuards = shiftOverview.data.onDutySiteGuards;
+  const onDutyPatrol = shiftOverview.data.onDutyPatrol;
 
   return (
     <div className="w-full space-y-4 p-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-        <ActiveGuardsCard onDutyCount={onDutyCount} />
+        <ActiveGuardsCard siteGuardsCount={onDutySiteGuards} patrolCount={onDutyPatrol} />
 
         <ActiveSitesCard activeSitesCount={activeSitesCount} />
 
