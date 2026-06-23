@@ -1267,3 +1267,13 @@ export async function getTotalEmployeeCount(): Promise<number> {
     },
   });
 }
+
+export async function getTotalEmployeeCountByRole(role: 'office' | 'on_site'): Promise<number> {
+  return prisma.employee.count({
+    where: {
+      deletedAt: null,
+      status: true,
+      role,
+    },
+  });
+}
