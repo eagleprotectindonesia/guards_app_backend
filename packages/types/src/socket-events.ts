@@ -47,6 +47,8 @@ export interface ServerToClientEvents {
   'new_dashboard:shift_overview': (payload: {
     dateKey: string;
     onDuty: number;
+    onDutySiteGuards: number;
+    onDutyPatrol: number;
     upcoming: number;
     completed: number;
     absent: number;

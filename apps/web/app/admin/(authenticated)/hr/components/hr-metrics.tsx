@@ -4,66 +4,56 @@ import { Users, UserCheck, CalendarDays, Clock, UserX } from 'lucide-react';
 import { cn } from '@repo/shared';
 
 type HRMetricsProps = {
-  totalEmployees: number;
-  onLeaveTodayCount: number;
+  officeEmployeeCount: number;
+  onsiteEmployeeCount: number;
   officePresentCount: number;
+  onsitePresentCount: number;
   officeLateCount: number;
+  onsiteLateCount: number;
   officeAbsentCount: number;
+  onsiteAbsentCount: number;
+  officeOnLeaveCount: number;
+  onsiteOnLeaveCount: number;
 };
 
-export function HRMetrics({
-  totalEmployees,
-  onLeaveTodayCount,
-  officePresentCount,
-  officeLateCount,
-  officeAbsentCount,
-}: HRMetricsProps) {
-  const leavePercentage = totalEmployees > 0
-    ? ((onLeaveTodayCount / totalEmployees) * 100).toFixed(1)
-    : '0.0';
-
-  const metricsList = [
+export function HRMetrics(props: HRMetricsProps) {
+  const metrics = [
     {
       label: 'Total Employees',
-      value: totalEmployees.toString(),
-      hint: 'Registered staff members',
-      hintTone: 'neutral',
+      office: props.officeEmployeeCount,
+      onsite: props.onsiteEmployeeCount,
       icon: Users,
       accentClass: 'border-blue-500/20 bg-blue-500/10 text-blue-600 dark:text-blue-400',
       iconColor: 'text-sky-600 dark:text-sky-400',
     },
     {
       label: 'Present Today',
-      value: officePresentCount.toString(),
-      hint: 'Office staff checked-in',
-      hintTone: 'positive',
+      office: props.officePresentCount,
+      onsite: props.onsitePresentCount,
       icon: UserCheck,
       accentClass: 'border-teal-500/20 bg-teal-500/10 text-teal-600 dark:text-teal-400',
       iconColor: 'text-teal-600 dark:text-teal-400',
     },
     {
       label: 'Late Today',
-      value: officeLateCount.toString(),
-      hint: 'Arrived after schedule',
-      hintTone: 'warning',
+      office: props.officeLateCount,
+      onsite: props.onsiteLateCount,
       icon: Clock,
       accentClass: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400',
       iconColor: 'text-amber-600 dark:text-amber-500',
     },
     {
       label: 'Absent Today',
-      value: officeAbsentCount.toString(),
-      hint: 'Not present or checked-in',
-      hintTone: 'critical',
+      office: props.officeAbsentCount,
+      onsite: props.onsiteAbsentCount,
       icon: UserX,
       accentClass: 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400',
       iconColor: 'text-rose-600 dark:text-rose-500',
     },
     {
       label: 'On Leave Today',
-      value: onLeaveTodayCount.toString(),
-      hint: `${leavePercentage}% of total workforce`,
-      hintTone: 'neutral',
+      office: props.officeOnLeaveCount,
+      onsite: props.onsiteOnLeaveCount,
       icon: CalendarDays,
       accentClass: 'border-purple-500/20 bg-purple-500/10 text-purple-600 dark:text-purple-400',
       iconColor: 'text-purple-600 dark:text-purple-400',
@@ -71,25 +61,25 @@ export function HRMetrics({
   ];
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-      {metricsList.map((metric) => {
-        const Icon = metric.icon;
+    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+      {metrics.map((m) => {
+        const Icon = m.icon;
         return (
-          <Card key={metric.label} className="border-border/60 bg-card p-5 shadow-md hover:border-purple-500/40 transition-colors flex flex-col gap-0 justify-between">
-            <div className="flex items-center gap-4">
-              <div className={cn('rounded-xl border p-3 shrink-0', metric.accentClass)}>
-                <Icon className="h-5 w-5" />
+          <Card key={m.label} className="border-border/60 bg-card p-2.5 shadow-sm flex flex-col">
+            <div className="flex items-center gap-2">
+              <div className={cn('rounded-md border p-1 shrink-0', m.accentClass)}>
+                <Icon className="h-3.5 w-3.5" />
               </div>
-              <div className="space-y-1 min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">{metric.label}</p>
-                <p className={cn('text-3xl font-extrabold tracking-tight', metric.iconColor)}>{metric.value}</p>
-                <p className={cn(
-                  'text-xs font-medium',
-                  metric.hintTone === 'positive' && 'text-emerald-600 dark:text-emerald-400',
-                  metric.hintTone === 'warning' && 'text-amber-600 dark:text-amber-400',
-                  metric.hintTone === 'critical' && 'text-rose-600 dark:text-rose-400',
-                  metric.hintTone === 'neutral' && 'text-muted-foreground'
-                )}>{metric.hint}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/70">{m.label}</p>
+            </div>
+            <div className="border-t border-border/40 mt-1.5 pt-1.5 grid grid-cols-2">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Office</p>
+                <p className={cn('text-2xl font-extrabold tracking-tight leading-none', m.iconColor)}>{m.office}</p>
+              </div>
+              <div className="pl-2 rounded-sm bg-slate-500/[0.04] dark:bg-slate-400/[0.04]">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Onsite</p>
+                <p className="text-2xl font-extrabold tracking-tight leading-none text-slate-500 dark:text-slate-400">{m.onsite}</p>
               </div>
             </div>
           </Card>

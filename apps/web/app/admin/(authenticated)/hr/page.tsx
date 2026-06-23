@@ -2,11 +2,14 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { ArrowRight, Upload } from 'lucide-react';
 import {
-  getTotalEmployeeCount,
+  getTotalEmployeeCountByRole,
   getActiveLeavesCountForDate,
   getOfficePresentCountForDate,
   getOfficeLateCountForDate,
   getOfficeAbsentCountForDate,
+  getOnsitePresentCountForDate,
+  getOnsiteLateCountForDate,
+  getOnsiteAbsentCountForDate,
   getOfficeWeeklyAttendanceTrend,
   getPendingLeaveRequestsCount,
   getLeaveApprovedTodayCount,
@@ -34,11 +37,17 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
   const days = daysParam === 30 ? 30 : daysParam === 15 ? 15 : 7;
 
   const [
-    totalEmployees,
+    officeEmployeeCount,
+    onsiteEmployeeCount,
     activeLeavesCount,
+    officeOnLeaveCount,
+    onsiteOnLeaveCount,
     officePresentCount,
     officeLateCount,
     officeAbsentCount,
+    onsitePresentCount,
+    onsiteLateCount,
+    onsiteAbsentCount,
     officeWeeklyTrend,
     pendingLeaveCount,
     leaveApprovedTodayCount,
@@ -47,11 +56,17 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
     todayShifts,
     initialActivities,
   ] = await Promise.all([
-    getTotalEmployeeCount(),
+    getTotalEmployeeCountByRole('office'),
+    getTotalEmployeeCountByRole('on_site'),
     getActiveLeavesCountForDate(),
+    getActiveLeavesCountForDate(new Date(), 'office'),
+    getActiveLeavesCountForDate(new Date(), 'on_site'),
     getOfficePresentCountForDate(),
     getOfficeLateCountForDate(),
     getOfficeAbsentCountForDate(),
+    getOnsitePresentCountForDate(),
+    getOnsiteLateCountForDate(),
+    getOnsiteAbsentCountForDate(),
     getOfficeWeeklyAttendanceTrend(new Date(), days),
     getPendingLeaveRequestsCount(),
     getLeaveApprovedTodayCount(),
@@ -75,11 +90,16 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
 
       {/* Metric Cards */}
       <HRMetrics
-        totalEmployees={totalEmployees}
-        onLeaveTodayCount={activeLeavesCount}
+        officeEmployeeCount={officeEmployeeCount}
+        onsiteEmployeeCount={onsiteEmployeeCount}
         officePresentCount={officePresentCount}
+        onsitePresentCount={onsitePresentCount}
         officeLateCount={officeLateCount}
+        onsiteLateCount={onsiteLateCount}
         officeAbsentCount={officeAbsentCount}
+        onsiteAbsentCount={onsiteAbsentCount}
+        officeOnLeaveCount={officeOnLeaveCount}
+        onsiteOnLeaveCount={onsiteOnLeaveCount}
       />
 
       {/* Row 2: Attendance Overview and Placeholders */}

@@ -63,6 +63,8 @@ const NewDashboardStreamContext = createContext<NewDashboardStreamContextType | 
 type ShiftOverviewData = {
   dateKey: string;
   onDuty: number;
+  onDutySiteGuards: number;
+  onDutyPatrol: number;
   upcoming: number;
   completed: number;
   absent: number;
@@ -199,6 +201,8 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     data: {
       dateKey: '',
       onDuty: 0,
+      onDutySiteGuards: 0,
+      onDutyPatrol: 0,
       upcoming: 0,
       completed: 0,
       absent: 0,
@@ -503,6 +507,8 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
           data: {
             dateKey: '',
             onDuty: 0,
+            onDutySiteGuards: 0,
+            onDutyPatrol: 0,
             upcoming: 0,
             completed: 0,
             absent: 0,

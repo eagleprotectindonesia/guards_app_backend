@@ -250,6 +250,9 @@ const SHIFT_PHOTO_REPORT_SORT_FIELDS = {
   reportNumber: (o: 'asc' | 'desc') => ({ reportNumber: o } as const),
   site: (o: 'asc' | 'desc') => ({ shift: { site: { name: o } } } as const),
   employee: (o: 'asc' | 'desc') => ({ employee: { fullName: o } } as const),
+  status: (o: 'asc' | 'desc') => ({ status: o } as const),
+  photoCount: (o: 'asc' | 'desc') => ({ photoCount: o } as const),
+  generatedAt: (o: 'asc' | 'desc') => ({ generatedAt: o } as const),
 } as const;
 
 type ShiftPhotoReportSortBy = keyof typeof SHIFT_PHOTO_REPORT_SORT_FIELDS;

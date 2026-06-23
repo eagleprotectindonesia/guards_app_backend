@@ -1,105 +1,22 @@
 'use client';
 
-import { type ComponentType } from 'react';
 import { ModeToggle } from '@/components/mode-toggle';
 import AlertNotifications from './alert-notifications';
 import AdminNotificationInbox from './admin-notification-inbox';
 import { AdminSession } from '@/lib/admin-auth';
 import AdminProfileDropdown from './admin-profile-dropdown';
-import { Radio, Ticket, Users, Building2, FileSearch, Activity } from 'lucide-react';
 import { cn } from '@repo/shared';
 import Link from 'next/link';
-import { type AdminTabSlug, getAdminDashboardHref } from '@/lib/admin-tab-routing';
+import { getAdminDashboardHref } from '@/lib/admin-tab-routing';
 import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 import { useSession } from '../context/session-context';
-import { PermissionCode } from '@/lib/auth/permissions';
-
-const TAB_PERMISSIONS: Record<AdminTabSlug, PermissionCode> = {
-  dashboard: 'dashboard:view',
-  guard: 'dashboard-guard:view',
-  ticket: 'tickets:view',
-  workforce: 'dashboard-hr:view',
-  client: 'dashboard-client:view',
-  system: 'dashboard-system:view',
-};
-
-const HEADER_MENUS = [
-  {
-    id: 'dashboard',
-    tab: 'dashboard',
-    title: 'LIVE OPERATIONS',
-    subtitle: 'System Overview',
-    icon: Activity,
-    color: 'text-indigo-500',
-    activeBg: 'bg-indigo-500/10',
-    activeBorder: 'border-indigo-500/50',
-  },
-  {
-    id: 'live-operations',
-    tab: 'guard',
-    title: 'GUARD OPERATIONS',
-    subtitle: 'Control Room',
-    icon: Radio,
-    color: 'text-red-500',
-    activeBg: 'bg-red-500/10',
-    activeBorder: 'border-red-500/50',
-  },
-  {
-    id: 'tickets',
-    tab: 'ticket',
-    title: 'TICKET COMMAND CENTER',
-    subtitle: 'Manage & Resolve',
-    icon: Ticket,
-    color: 'text-purple-500',
-    activeBg: 'bg-purple-500/10',
-    activeBorder: 'border-purple-500/50',
-  },
-  {
-    id: 'workforce',
-    tab: 'workforce',
-    title: 'WORKFORCE & HR',
-    subtitle: 'People & Schedules',
-    icon: Users,
-    color: 'text-green-500',
-    activeBg: 'bg-green-500/10',
-    activeBorder: 'border-green-500/50',
-  },
-  {
-    id: 'clients',
-    tab: 'client',
-    title: 'CLIENT & SITE MANAGEMENT',
-    subtitle: 'Clients, Sites & Contracts',
-    icon: Building2,
-    color: 'text-blue-500',
-    activeBg: 'bg-blue-500/10',
-    activeBorder: 'border-blue-500/50',
-  },
-  {
-    id: 'system',
-    tab: 'system',
-    title: 'SYSTEM & AUDIT',
-    subtitle: 'System Health & Logs',
-    icon: FileSearch,
-    color: 'text-orange-500',
-    activeBg: 'bg-orange-500/10',
-    activeBorder: 'border-orange-500/50',
-  },
-] as const satisfies ReadonlyArray<{
-  id: string;
-  tab: AdminTabSlug;
-  title: string;
-  subtitle: string;
-  icon: ComponentType<{ className?: string }>;
-  color: string;
-  activeBg: string;
-  activeBorder: string;
-}>;
+import { DASHBOARD_TABS, TAB_PERMISSIONS } from './admin-dashboard-tab-data';
 
 export default function Header({ currentAdmin }: { currentAdmin: AdminSession }) {
   const { selectedTab } = useAdminDashboardTab();
   const { hasPermission } = useSession();
 
-  const visibleMenus = HEADER_MENUS.filter((menu) => hasPermission(TAB_PERMISSIONS[menu.tab]));
+  const visibleMenus = DASHBOARD_TABS.filter((menu) => hasPermission(TAB_PERMISSIONS[menu.tab]));
 
   return (
     <header className="h-16 bg-card border-b border-border px-6 flex items-center justify-between sticky top-0 z-10">

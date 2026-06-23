@@ -1,5 +1,5 @@
 import { db as prisma } from '../prisma/client';
-import { Prisma, OfficeAttendanceStatus } from '@prisma/client';
+import { Prisma, OfficeAttendanceStatus, AttendanceStatus } from '@prisma/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
 import { resolveOfficeAttendanceContextForEmployee } from './office-attendance-context';
 import { getSystemSetting } from './settings';
@@ -698,4 +698,43 @@ export async function getOfficeWeeklyAttendanceTrend(endDate: Date = new Date(),
   }
 
   return result;
+}
+
+export async function getOnsitePresentCountForDate(date: Date = new Date()): Promise<number> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  return prisma.attendance.count({
+    where: {
+      status: { in: ['present', 'late', 'clocked_out'] as AttendanceStatus[] },
+      recordedAt: { gte: startOfDay, lte: endOfDay },
+      employee: { role: 'on_site' },
+    },
+  });
+}
+
+export async function getOnsiteLateCountForDate(date: Date = new Date()): Promise<number> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  return prisma.attendance.count({
+    where: {
+      status: 'late' as AttendanceStatus,
+      recordedAt: { gte: startOfDay, lte: endOfDay },
+      employee: { role: 'on_site' },
+    },
+  });
+}
+
+export async function getOnsiteAbsentCountForDate(date: Date = new Date()): Promise<number> {
+  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+
+  return prisma.attendance.count({
+    where: {
+      status: 'absent' as AttendanceStatus,
+      recordedAt: { gte: startOfDay, lte: endOfDay },
+      employee: { role: 'on_site' },
+    },
+  });
 }

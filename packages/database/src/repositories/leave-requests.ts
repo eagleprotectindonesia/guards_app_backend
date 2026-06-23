@@ -1642,7 +1642,7 @@ export async function cancelOverlappingPendingLeaveRequestsByAttendance(params: 
   return { cancelledCount: requests.length };
 }
 
-export async function getActiveLeavesCountForDate(date: Date = new Date()): Promise<number> {
+export async function getActiveLeavesCountForDate(date: Date = new Date(), role?: 'office' | 'on_site'): Promise<number> {
   const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
   const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
 
@@ -1651,6 +1651,7 @@ export async function getActiveLeavesCountForDate(date: Date = new Date()): Prom
       status: 'approved',
       startDate: { lte: endOfDay },
       endDate: { gte: startOfDay },
+      ...(role && { employee: { role } }),
     },
   });
 }

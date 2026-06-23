@@ -33,6 +33,14 @@ function normalizeSyncStringValue(value?: string | null): string {
   return (value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
+export function normalizeJobTitleValue(value?: string | null): string {
+  return (value ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+export function isSecurityStandbyTitle(value?: string | null): boolean {
+  return normalizeJobTitleValue(value) === 'security standby';
+}
+
 function resolveSyncedEmployeeRole(jobTitle?: string | null, department?: string | null): EmployeeRole {
   const normalizedTitle = normalizeSyncStringValue(jobTitle);
   const normalizedDepartment = normalizeSyncStringValue(department);
@@ -1264,6 +1272,16 @@ export async function getTotalEmployeeCount(): Promise<number> {
     where: {
       deletedAt: null,
       status: true,
+    },
+  });
+}
+
+export async function getTotalEmployeeCountByRole(role: 'office' | 'on_site'): Promise<number> {
+  return prisma.employee.count({
+    where: {
+      deletedAt: null,
+      status: true,
+      role,
     },
   });
 }

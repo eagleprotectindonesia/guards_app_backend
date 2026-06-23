@@ -9,7 +9,7 @@ import Select from '../../components/select';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format, parseISO } from 'date-fns';
-import { Download } from 'lucide-react';
+import { Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import SortableHeader from '@/components/sortable-header';
 import toast from 'react-hot-toast';
 import { buildShiftReportsZip } from '@/lib/shift-photo-reports/bulk-zip';
@@ -203,6 +203,41 @@ export default function ShiftPhotoReportsList({
     }
   };
 
+  const buildFilename = (report: ReportWithDownload): string => {
+    const parts: string[] = [];
+    const safe = (s: string) =>
+      s.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'unnamed';
+
+    if (report.employee?.fullName) {
+      parts.push(safe(report.employee.fullName));
+      if (report.employee.employeeNumber) parts.push(safe(report.employee.employeeNumber));
+    }
+    if (report.shift?.site?.name) parts.push(safe(report.shift.site.name));
+    if (report.shiftStartsAt) parts.push(report.shiftStartsAt.slice(0, 10));
+
+    if (parts.length > 0) return `shift_report_${parts.join('_')}.pdf`;
+    return `shift_report_${report.reportNumber ?? report.id}.pdf`;
+  };
+
+  const handleSingleDownload = async (report: ReportWithDownload) => {
+    if (!report.downloadUrl) return;
+    try {
+      const response = await fetch(report.downloadUrl);
+      if (!response.ok) throw new Error(`Failed to fetch`);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = buildFilename(report);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Failed to download report');
+    }
+  };
+
   const handleBulkDownload = async () => {
     if (selectedIds.size === 0 || isBulkDownloading) return;
     setIsBulkDownloading(true);
@@ -360,7 +395,13 @@ export default function ShiftPhotoReportsList({
                   currentSortOrder={sortOrder}
                   onSort={handleSort}
                 />
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                <SortableHeader
+                  label="Status"
+                  field="status"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
                 <SortableHeader
                   label="Guard"
                   field="employee"
@@ -376,18 +417,41 @@ export default function ShiftPhotoReportsList({
                   onSort={handleSort}
                 />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Photos</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Created</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
+                <SortableHeader
+                  label="Photos"
+                  field="photoCount"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Created"
+                  field="generatedAt"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <th
+                  className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right cursor-pointer select-none"
+                  onClick={() => handleSort('status')}
+                >
                   <div className="flex items-center justify-end gap-3">
                     <span className="uppercase">Actions</span>
+                    {sortBy === 'status' ? (
+                      sortOrder === 'asc' ? <ArrowUp className="w-4 h-4" /> : <ArrowDown className="w-4 h-4" />
+                    ) : (
+                      <ArrowUpDown className="w-4 h-4" />
+                    )}
                     <input
                       type="checkbox"
                       checked={isAllSelected}
                       ref={input => {
                         if (input) input.indeterminate = isSomeSelected;
                       }}
-                      onChange={e => handleSelectAllChange(e.target.checked)}
+                      onChange={e => {
+                        e.stopPropagation();
+                        handleSelectAllChange(e.target.checked);
+                      }}
                       disabled={downloadableReports.length === 0}
                       className="h-4 w-4 rounded border-border text-red-600 focus:ring-red-500 cursor-pointer disabled:opacity-30"
                       aria-label="Select all"
@@ -450,15 +514,13 @@ export default function ShiftPhotoReportsList({
                       <div className="flex items-center justify-end gap-3">
                         {selectedIds.size === 0 && (
                           report.downloadUrl ? (
-                            <a
-                              href={report.downloadUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              onClick={() => handleSingleDownload(report)}
                               className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
                               title="Download PDF"
                             >
                               <Download className="w-4 h-4" />
-                            </a>
+                            </button>
                           ) : (
                             <span className="p-2 text-muted-foreground/40" title="No PDF available">
                               <Download className="w-4 h-4" />
