@@ -22,7 +22,18 @@ export function TotalAttendanceCard() {
           <div className="flex items-end justify-between">
             <p className="text-3xl font-bold text-green-600 dark:text-green-400">{`${totalAttendance.data.attendanceRate}%`}</p>
           </div>
-          <p className="text-xs text-muted-foreground">{`${totalAttendance.data.attendedCount}/${totalAttendance.data.eligibleCount} shifts`}</p>
+          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-green-500" />
+              <span>Site Guards</span>
+              <span className="font-semibold text-foreground">{totalAttendance.data.attendanceRateSiteGuards}%</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-blue-500" />
+              <span>Patrol</span>
+              <span className="font-semibold text-foreground">{totalAttendance.data.attendanceRatePatrol}%</span>
+            </div>
+          </div>
         </>
       )}
     </div>

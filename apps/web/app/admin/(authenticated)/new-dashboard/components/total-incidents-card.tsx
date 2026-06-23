@@ -24,7 +24,7 @@ export function TotalIncidentsCard({ panicAlerts = [] }: TotalIncidentsCardProps
 
   return (
     <div className="rounded-xl border border-border bg-card p-3 shadow-sm space-y-3">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Total Incidents</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Total Attendance/Checkin Alerts</p>
 
       {isLoading && (
         <div className="space-y-2">
