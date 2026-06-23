@@ -1,7 +1,12 @@
 import {
+  Activity,
+  Radio,
+  Ticket,
+  Users,
+  Building2,
+  FileSearch,
   LayoutDashboard,
   MapPin,
-  Users,
   Calendar,
   Bell,
   Layers,
@@ -120,33 +125,20 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
   ];
 }
 
-export function getAdminNavGroups(officeWorkSchedulesEnabled = true, activeTab: AdminTabSlug = 'guard'): NavGroup[] {
+export function getAdminNavGroups(officeWorkSchedulesEnabled = true, _activeTab: AdminTabSlug = 'guard'): NavGroup[] {
   const allItems = getAdminNavItems(officeWorkSchedulesEnabled);
   const byName = new Map(allItems.map(item => [item.name, item]));
-
-  let dashboardPermission: PermissionCode = 'dashboard:view';
-  if (activeTab === 'guard') {
-    dashboardPermission = 'dashboard-guard:view';
-  } else if (activeTab === 'ticket') {
-    dashboardPermission = 'tickets:view';
-  } else if (activeTab === 'workforce') {
-    dashboardPermission = 'dashboard-hr:view';
-  } else if (activeTab === 'client') {
-    dashboardPermission = 'dashboard-client:view';
-  } else if (activeTab === 'system') {
-    dashboardPermission = 'dashboard-system:view';
-  }
 
   return [
     {
       label: 'Dashboard',
       items: [
-        {
-          name: 'Dashboard',
-          href: getAdminDashboardHref(activeTab),
-          icon: LayoutDashboard,
-          requiredPermission: dashboardPermission,
-        },
+        { name: 'Dashboard', href: getAdminDashboardHref('dashboard'), icon: Activity, requiredPermission: 'dashboard:view' as PermissionCode },
+        { name: 'Guard Ops', href: getAdminDashboardHref('guard'), icon: Radio, requiredPermission: 'dashboard-guard:view' as PermissionCode },
+        { name: 'Tickets', href: getAdminDashboardHref('ticket'), icon: Ticket, requiredPermission: 'tickets:view' as PermissionCode },
+        { name: 'Workforce', href: getAdminDashboardHref('workforce'), icon: Users, requiredPermission: 'dashboard-hr:view' as PermissionCode },
+        { name: 'Client', href: getAdminDashboardHref('client'), icon: Building2, requiredPermission: 'dashboard-client:view' as PermissionCode },
+        { name: 'System', href: getAdminDashboardHref('system'), icon: FileSearch, requiredPermission: 'dashboard-system:view' as PermissionCode },
       ],
     },
     {
