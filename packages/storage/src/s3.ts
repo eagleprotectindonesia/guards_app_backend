@@ -165,7 +165,7 @@ export async function getCachedPresignedDownloadUrl(key: string, expiresIn: numb
   return url;
 }
 
-export async function deleteS3Object(key: string) {
+export async function deleteS3Object(key: string, abortSignal?: AbortSignal) {
   if (!BUCKET_NAME) {
     throw new Error('AWS_S3_BUCKET_NAME is not configured');
   }
@@ -175,7 +175,7 @@ export async function deleteS3Object(key: string) {
     Key: key,
   });
 
-  await s3Client.send(command);
+  await s3Client.send(command, { abortSignal });
 }
 
 export async function uploadFile(
@@ -184,7 +184,8 @@ export async function uploadFile(
   contentType: string,
   folderOrOptions:
     | string
-    | UploadFolderOptions = 'uploads'
+    | UploadFolderOptions = 'uploads',
+  abortSignal?: AbortSignal,
 ) {
   if (!BUCKET_NAME) {
     throw new Error('AWS_S3_BUCKET_NAME is not configured');
@@ -200,7 +201,7 @@ export async function uploadFile(
     ContentType: contentType,
   });
 
-  await s3Client.send(command);
+  await s3Client.send(command, { abortSignal });
 
   return {
     url: `https://${BUCKET_NAME}.s3.${region}.amazonaws.com/${key}`,

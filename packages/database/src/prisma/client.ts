@@ -22,7 +22,12 @@ export const createPrismaClient = (databaseUrl?: string) => {
   const connectionString =
     databaseUrl || process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres';
 
-  const pool = new Pool({ connectionString });
+  const pool = new Pool({
+    connectionString,
+    statement_timeout: 60_000,
+    connectionTimeoutMillis: 10_000,
+    idleTimeoutMillis: 30_000,
+  });
 
   const adapter = new PrismaPg(pool);
 

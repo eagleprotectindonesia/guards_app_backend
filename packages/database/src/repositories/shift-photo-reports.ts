@@ -41,6 +41,7 @@ export type ShiftPhotoReportCandidate = {
 export async function getOnsiteShiftPhotoReportCandidates(now: Date, graceAfterEndMins = 10) {
   const waitCutoff = new Date(now.getTime() - graceAfterEndMins * 60_000);
   const pendingStaleCutoff = new Date(now.getTime() - 30 * 60_000);
+  const failedRetryCutoff = new Date(now.getTime() - 30 * 60_000);
 
   return prisma.shift.findMany({
     where: {
@@ -50,7 +51,7 @@ export async function getOnsiteShiftPhotoReportCandidates(now: Date, graceAfterE
       endsAt: { lte: waitCutoff },
       OR: [
         { autoPhotoReportStatus: null },
-        { autoPhotoReportStatus: ShiftPhotoReportStatus.failed, lastAutoPhotoReportAt: { lt: now } },
+        { autoPhotoReportStatus: ShiftPhotoReportStatus.failed, lastAutoPhotoReportAt: { lt: failedRetryCutoff } },
         { autoPhotoReportStatus: ShiftPhotoReportStatus.pending, lastAutoPhotoReportAt: { lt: pendingStaleCutoff } },
       ],
     },
@@ -64,29 +65,44 @@ export async function getOnsiteShiftPhotoReportCandidates(now: Date, graceAfterE
       site: { select: { name: true, clientName: true } },
       attendance: { select: { picture: true, recordedAt: true } },
     },
+    take: 10,
+    orderBy: { lastAutoPhotoReportAt: { sort: 'asc', nulls: 'first' } },
   });
 }
 
 export async function claimOnsiteShiftPhotoReport(shiftId: string, now: Date) {
   const pendingStaleCutoff = new Date(now.getTime() - 30 * 60_000);
 
-  const result = await prisma.shift.updateMany({
-    where: {
-      id: shiftId,
-      deletedAt: null,
-      OR: [
-        { autoPhotoReportStatus: null },
-        { autoPhotoReportStatus: ShiftPhotoReportStatus.failed, lastAutoPhotoReportAt: { lt: now } },
-        { autoPhotoReportStatus: ShiftPhotoReportStatus.pending, lastAutoPhotoReportAt: { lt: pendingStaleCutoff } },
-      ],
-    },
-    data: {
-      autoPhotoReportStatus: ShiftPhotoReportStatus.pending,
-      lastAutoPhotoReportAt: now,
-    },
-  });
+  const failedRetryCutoff = new Date(now.getTime() - 30 * 60_000);
 
-  return result.count > 0;
+  return prisma.$transaction(async tx => {
+    // Supersede any existing pending rows for this shift so they don't orphan
+    await tx.shiftPhotoReport.updateMany({
+      where: { shiftId, status: 'pending' },
+      data: {
+        status: ShiftPhotoReportStatus.failed,
+        errorMessage: 'orphaned by supersede',
+      },
+    });
+
+    const result = await tx.shift.updateMany({
+      where: {
+        id: shiftId,
+        deletedAt: null,
+        OR: [
+          { autoPhotoReportStatus: null },
+          { autoPhotoReportStatus: ShiftPhotoReportStatus.failed, lastAutoPhotoReportAt: { lt: failedRetryCutoff } },
+          { autoPhotoReportStatus: ShiftPhotoReportStatus.pending, lastAutoPhotoReportAt: { lt: pendingStaleCutoff } },
+        ],
+      },
+      data: {
+        autoPhotoReportStatus: ShiftPhotoReportStatus.pending,
+        lastAutoPhotoReportAt: now,
+      },
+    });
+
+    return result.count > 0;
+  });
 }
 
 type ShiftPhoto = {

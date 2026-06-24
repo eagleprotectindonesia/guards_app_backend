@@ -49,7 +49,7 @@ export class ShiftPhotoReportProcessor {
         });
 
         const photoInputs = rawPhotos.map(p => ({ s3Key: p.s3Key, createdAt: p.createdAt }));
-        const fetchedPhotos = await fetchPhotos(photoInputs);
+        const fetchedPhotos = await fetchPhotos(photoInputs, AbortSignal.timeout(90_000));
 
         // Create report row in pending state
         const report = await createShiftPhotoReport({
@@ -74,7 +74,7 @@ export class ShiftPhotoReportProcessor {
           photoCount: fetchedPhotos.length,
         };
 
-        const pdfBuffer = await generatePdf(metadata, fetchedPhotos);
+        const pdfBuffer = await generatePdf(metadata, fetchedPhotos, AbortSignal.timeout(120_000));
         const fileName = generateReportFileName(guardName, shift.employee?.employeeNumber ?? '0000', shift.startsAt);
 
         const uploadResult = await uploadFile(pdfBuffer, fileName, 'application/pdf', {
@@ -82,7 +82,7 @@ export class ShiftPhotoReportProcessor {
           siteId: shift.siteId,
           shiftId: shift.id,
           reportId: report.id,
-        });
+        }, AbortSignal.timeout(120_000));
 
         if (!BUCKET_NAME) {
           throw new Error('AWS_S3_BUCKET_NAME is not configured');

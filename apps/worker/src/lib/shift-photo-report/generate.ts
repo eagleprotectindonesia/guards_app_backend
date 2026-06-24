@@ -89,10 +89,23 @@ async function getLogoBuffer(): Promise<Buffer | null> {
   return null;
 }
 
-export async function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto[]): Promise<Buffer> {
+async function withSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new DOMException('Aborted', 'AbortError'));
+    if (signal.aborted) { onAbort(); return; }
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      v => { signal.removeEventListener('abort', onAbort); resolve(v); },
+      e => { signal.removeEventListener('abort', onAbort); reject(e); },
+    );
+  });
+}
+
+export async function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto[], signal?: AbortSignal): Promise<Buffer> {
   const logoBuffer = await getLogoBuffer();
 
-  return new Promise((resolve, reject) => {
+  const pdfPromise = new Promise<Buffer>((resolve, reject) => {
     const doc = new PDFDocument({
       size: 'A4',
       layout: 'portrait',
@@ -256,6 +269,8 @@ export async function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto
 
     doc.end();
   });
+
+  return withSignal(pdfPromise, signal);
 }
 
 export function generateReportFileName(guardName: string, employeeNumber: string, date: Date): string {

@@ -74,3 +74,29 @@ describe('generateReportFileName', () => {
     expect(result).toBe('shift-report_Test_Guard____0001_2026-06-15.pdf');
   });
 });
+
+describe('generatePdf abort signal', () => {
+  const metadata = {
+    reportNumber: null,
+    status: 'pending',
+    guardName: 'Test Guard',
+    employeeNumber: 'EP0001',
+    clientName: 'Test Client',
+    siteName: 'Test Site',
+    shiftStartsAt: new Date('2026-06-15T08:00:00Z'),
+    shiftEndsAt: new Date('2026-06-15T17:00:00Z'),
+    photoCount: 0,
+  };
+
+  test('rejects when pre-aborted signal is provided', async () => {
+    const abortedSignal = AbortSignal.abort();
+    await expect(generatePdf(metadata, [], abortedSignal)).rejects.toThrow('Aborted');
+  });
+
+  test('rejects when signal is aborted during generation', async () => {
+    const controller = new AbortController();
+    const promise = generatePdf(metadata, [], controller.signal);
+    controller.abort();
+    await expect(promise).rejects.toThrow('Aborted');
+  });
+});
