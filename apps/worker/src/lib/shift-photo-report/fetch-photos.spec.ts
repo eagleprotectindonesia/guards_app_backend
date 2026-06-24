@@ -1,3 +1,4 @@
+import sharp from 'sharp';
 import { Readable } from 'stream';
 
 const mockSend = jest.fn();
@@ -116,4 +117,25 @@ describe('fetchPhotos', () => {
       expect.objectContaining({ abortSignal: signal }),
     );
   });
+
+  test('resizes WebP image wider than 1280px to fit bounds and converts to PNG', async () => {
+    const large = await sharp({
+      create: { width: 3000, height: 2000, channels: 3, background: { r: 255, g: 0, b: 0 } },
+    }).webp().toBuffer();
+
+    mockSend.mockResolvedValue({
+      Body: { transformToByteArray: () => Promise.resolve(new Uint8Array(large)) },
+      ContentType: 'image/webp',
+    });
+
+    const result = await fetchPhotos([{ s3Key: 'test/large.webp', createdAt: new Date() }]);
+
+    expect(mockSend).toHaveBeenCalledTimes(1);
+    expect(result).toHaveLength(1);
+    expect(result[0].contentType).toBe('image/png');
+
+    const meta = await sharp(result[0].buffer).metadata();
+    expect(meta.width).toBeLessThanOrEqual(1280);
+    expect(meta.format).toBe('png');
+  }, 30_000);
 });
