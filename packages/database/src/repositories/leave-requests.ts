@@ -29,7 +29,7 @@ async function isOfficeAttendanceLeaveEffectsEnabled() {
   const setting = await getSystemSetting(ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING);
   return setting?.value === '1';
 }
-type AdminLeaveRequestSortField = 'startDate' | 'status' | 'createdAt';
+type AdminLeaveRequestSortField = 'startDate' | 'status' | 'createdAt' | 'employee' | 'reason';
 const IN_PROGRESS_PENDING_STATUSES: LeaveRequestStatus[] = ['pending', 'pending_hr', 'pending_manager'];
 type AdminLeaveRequestFilterParams = {
   statuses?: LeaveRequestStatus[];
@@ -665,6 +665,10 @@ function buildAdminLeaveRequestOrderBy(
       return [{ startDate: sortOrder }, { createdAt: 'desc' }];
     case 'status':
       return [{ status: sortOrder }, { createdAt: 'desc' }];
+    case 'employee':
+      return [{ employee: { fullName: sortOrder } }, { createdAt: 'desc' }];
+    case 'reason':
+      return [{ reason: sortOrder }, { createdAt: 'desc' }];
     default:
       return [{ createdAt: sortOrder }];
   }

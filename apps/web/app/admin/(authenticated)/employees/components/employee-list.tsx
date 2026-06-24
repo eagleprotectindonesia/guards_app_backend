@@ -248,9 +248,14 @@ export default function EmployeeList({
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Personnel ID
                 </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-left">
-                  Department / Job Title
-                </th>
+                <SortableHeader
+                  label="Department / Job Title"
+                  field="department"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                  className="text-left"
+                />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   {showOfficeWorkSchedules ? (
                     <>

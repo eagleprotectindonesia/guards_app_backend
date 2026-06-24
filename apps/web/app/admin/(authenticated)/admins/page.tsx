@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { getPaginatedAdmins } from '@repo/database';
 import { getPaginationParams } from '@/lib/server-utils';
 import AdminList from './components/admin-list';
@@ -23,9 +24,24 @@ export default async function AdminsPage(props: AdminsPageProps) {
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
 
+  const sortBy = (searchParams.sortBy as string) || 'name';
+  const sortOrder =
+    typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
+      ? (searchParams.sortOrder as 'asc' | 'desc')
+      : 'asc';
+  const validSortFields = ['name', 'email', 'role'];
+  const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
+
+  const sortFieldMap: Record<string, Prisma.AdminOrderByWithRelationInput> = {
+    name: { name: sortOrder },
+    email: { email: sortOrder },
+    role: { roleRef: { name: sortOrder } },
+  };
+  const orderBy = sortFieldMap[sortField];
+
   const { admins, totalCount } = await getPaginatedAdmins({
     where: {},
-    orderBy: { name: 'asc' },
+    orderBy,
     skip,
     take: perPage,
   });
@@ -46,7 +62,7 @@ export default async function AdminsPage(props: AdminsPageProps) {
   return (
     <div className="max-w-7xl mx-auto">
       <Suspense fallback={<AdminListSkeleton rows={6} />}>
-        <AdminList admins={serializedAdmins} page={page} perPage={perPage} totalCount={totalCount} />
+        <AdminList admins={serializedAdmins} page={page} perPage={perPage} totalCount={totalCount} sortBy={sortField} sortOrder={sortOrder} />
       </Suspense>
     </div>
   );

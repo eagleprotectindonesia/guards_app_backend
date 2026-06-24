@@ -7,11 +7,14 @@ export function TotalAttendanceCard() {
     (totalAttendance.status === 'idle' || totalAttendance.status === 'loading') && totalAttendance.data.dateKey === '';
 
   return (
-    <div className="rounded-xl border border-border bg-card p-3 shadow-sm space-y-3">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/80">Attendance Rate</p>
+    <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
+      <div>
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Attendance Rate</p>
+        <p className="text-2xl font-bold text-green-600 dark:text-green-400">{`${totalAttendance.data.attendanceRate}%`}</p>
+      </div>
 
       {isLoading && (
-        <div className="space-y-2">
+        <div className="mt-2 space-y-2">
           <LoadingBlock className="h-7 w-16" />
           <LoadingBlock className="h-3 w-20" />
         </div>
@@ -19,19 +22,18 @@ export function TotalAttendanceCard() {
 
       {!isLoading && (
         <>
-          <div className="flex items-end justify-between">
-            <p className="text-3xl font-bold text-green-600 dark:text-green-400">{`${totalAttendance.data.attendanceRate}%`}</p>
-          </div>
-          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-green-500" />
-              <span>Site Guards</span>
-              <span className="font-semibold text-foreground">{totalAttendance.data.attendanceRateSiteGuards}%</span>
+          <div className="border-t border-border/40 mt-1.5 pt-1.5 grid grid-cols-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Site Guards</p>
+              <p className="text-2xl font-extrabold tracking-tight leading-none text-foreground">
+                {totalAttendance.data.attendanceRateSiteGuards}%
+              </p>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-blue-500" />
-              <span>Patrol</span>
-              <span className="font-semibold text-foreground">{totalAttendance.data.attendanceRatePatrol}%</span>
+            <div className="pl-2 rounded-sm bg-slate-500/4 dark:bg-slate-400/4">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Control</p>
+              <p className="text-2xl font-extrabold tracking-tight leading-none text-slate-500 dark:text-slate-400">
+                {totalAttendance.data.attendanceRatePatrol}%
+              </p>
             </div>
           </div>
         </>

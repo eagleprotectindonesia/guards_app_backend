@@ -2,11 +2,11 @@ import { ShieldCheck } from 'lucide-react';
 
 type ActiveGuardsCardProps = {
   siteGuardsCount: number;
-  patrolCount: number;
+  controlCount: number;
 };
 
-export function ActiveGuardsCard({ siteGuardsCount, patrolCount }: ActiveGuardsCardProps) {
-  const total = siteGuardsCount + patrolCount;
+export function ActiveGuardsCard({ siteGuardsCount, controlCount }: ActiveGuardsCardProps) {
+  const total = siteGuardsCount + controlCount;
   return (
     <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
       <div className="flex items-center gap-3">
@@ -18,16 +18,14 @@ export function ActiveGuardsCard({ siteGuardsCount, patrolCount }: ActiveGuardsC
           <p className="text-2xl font-bold text-foreground">{total}</p>
         </div>
       </div>
-      <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-green-500" />
-          <span>Site Guards</span>
-          <span className="font-semibold text-foreground">{siteGuardsCount}</span>
+      <div className="border-t border-border/40 mt-1.5 pt-1.5 grid grid-cols-2">
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/50">Site Guards</p>
+          <p className="text-2xl font-extrabold tracking-tight leading-none text-foreground">{siteGuardsCount}</p>
         </div>
-        <div className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-blue-500" />
-          <span>Patrol</span>
-          <span className="font-semibold text-foreground">{patrolCount}</span>
+        <div className="pl-2 rounded-sm bg-slate-500/4 dark:bg-slate-400/4">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500">Control</p>
+          <p className="text-2xl font-extrabold tracking-tight leading-none text-slate-500 dark:text-slate-400">{controlCount}</p>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { X, Pencil, MapPin, ShieldCheck, ShieldAlert, Clock, ShieldOff, Building2, MessageSquare } from 'lucide-react';
+import { X, Pencil, MapPin, ShieldCheck, ShieldAlert, Clock, ShieldOff, Building2, MessageSquare, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { PanicAlert } from '@repo/types';
@@ -12,10 +12,18 @@ export type SelectedMapItem =
   | { kind: 'site'; site: MapSite; editHref: string | null }
   | { kind: 'panic'; panic: PanicAlert };
 
+export type ChatLaunchPayload = {
+  employeeId: string;
+  employeeName: string;
+  employeeNumber: string | null;
+};
+
 type MapDetailPanelProps = {
   selectedItem: SelectedMapItem;
   onClose: () => void;
   onNavigate?: (href: string) => void;
+  onOpenChat?: (payload: ChatLaunchPayload) => void;
+  showExternalHint?: boolean;
 };
 
 function fmtTime(iso: string) {
@@ -82,7 +90,7 @@ const STATUS_CONFIG: Record<MapSite['markerStatus'], StatusConfig> = {
   },
 };
 
-function SiteDetailContent({ site, editHref, onNavigate }: { site: MapSite; editHref: string | null; onNavigate?: (href: string) => void }) {
+function SiteDetailContent({ site, editHref, onNavigate, onOpenChat, showExternalHint }: { site: MapSite; editHref: string | null; onNavigate?: (href: string) => void; onOpenChat?: (payload: ChatLaunchPayload) => void; showExternalHint?: boolean }) {
   const config = STATUS_CONFIG[site.markerStatus];
   const StatusIcon = config.icon;
   const { hasPermission } = useSession();
@@ -169,24 +177,23 @@ function SiteDetailContent({ site, editHref, onNavigate }: { site: MapSite; edit
                     {canCreateChat && s.employeeId && (
                       <button
                         type="button"
-                        onClick={() =>
-                          window.dispatchEvent(
-                            new CustomEvent('open-admin-chat', {
-                              detail: {
-                                employeeId: s.employeeId,
-                                employeeName: s.employeeName,
-                                employeeNumber: s.employeeNumber,
-                              },
-                            })
-                          )
-                        }
+                        onClick={() => {
+                          const payload = { employeeId: s.employeeId!, employeeName: s.employeeName, employeeNumber: s.employeeNumber };
+                          if (onOpenChat) {
+                            onOpenChat(payload);
+                          } else {
+                            window.dispatchEvent(new CustomEvent('open-admin-chat', { detail: payload }));
+                          }
+                        }}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md border border-blue-300/60 hover:border-blue-400 transition-colors shrink-0 cursor-pointer"
-                        title={`Chat with ${s.employeeName}`}
+                        title={`Chat with ${s.employeeName}${showExternalHint ? ' (opens in main tab)' : ''}`}
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
                         Chat
+                        {showExternalHint && <ExternalLink className="h-3 w-3 ml-0.5 opacity-60" />}
                       </button>
                     )}
+
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Attendance</span>
@@ -213,22 +220,20 @@ function SiteDetailContent({ site, editHref, onNavigate }: { site: MapSite; edit
                     {canCreateChat && u.employeeId && (
                       <button
                         type="button"
-                        onClick={() =>
-                          window.dispatchEvent(
-                            new CustomEvent('open-admin-chat', {
-                              detail: {
-                                employeeId: u.employeeId,
-                                employeeName: u.employeeName,
-                                employeeNumber: u.employeeNumber,
-                              },
-                            })
-                          )
-                        }
+                        onClick={() => {
+                          const payload = { employeeId: u.employeeId!, employeeName: u.employeeName, employeeNumber: u.employeeNumber };
+                          if (onOpenChat) {
+                            onOpenChat(payload);
+                          } else {
+                            window.dispatchEvent(new CustomEvent('open-admin-chat', { detail: payload }));
+                          }
+                        }}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md border border-blue-300/60 hover:border-blue-400 transition-colors shrink-0 cursor-pointer"
-                        title={`Chat with ${u.employeeName}`}
+                        title={`Chat with ${u.employeeName}${showExternalHint ? ' (opens in main tab)' : ''}`}
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
                         Chat
+                        {showExternalHint && <ExternalLink className="h-3 w-3 ml-0.5 opacity-60" />}
                       </button>
                     )}
                   </div>
@@ -253,22 +258,20 @@ function SiteDetailContent({ site, editHref, onNavigate }: { site: MapSite; edit
                     {canCreateChat && u.employeeId && (
                       <button
                         type="button"
-                        onClick={() =>
-                          window.dispatchEvent(
-                            new CustomEvent('open-admin-chat', {
-                              detail: {
-                                employeeId: u.employeeId,
-                                employeeName: u.employeeName,
-                                employeeNumber: u.employeeNumber,
-                              },
-                            })
-                          )
-                        }
+                        onClick={() => {
+                          const payload = { employeeId: u.employeeId!, employeeName: u.employeeName, employeeNumber: u.employeeNumber };
+                          if (onOpenChat) {
+                            onOpenChat(payload);
+                          } else {
+                            window.dispatchEvent(new CustomEvent('open-admin-chat', { detail: payload }));
+                          }
+                        }}
                         className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-md border border-blue-300/60 hover:border-blue-400 transition-colors shrink-0 cursor-pointer"
-                        title={`Chat with ${u.employeeName}`}
+                        title={`Chat with ${u.employeeName}${showExternalHint ? ' (opens in main tab)' : ''}`}
                       >
                         <MessageSquare className="h-3.5 w-3.5" />
                         Chat
+                        {showExternalHint && <ExternalLink className="h-3 w-3 ml-0.5 opacity-60" />}
                       </button>
                     )}
                   </div>
@@ -292,9 +295,11 @@ function SiteDetailContent({ site, editHref, onNavigate }: { site: MapSite; edit
           <button
             onClick={() => onNavigate(editHref)}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white text-xs font-semibold rounded-lg hover:bg-red-700 transition-colors"
+            title={showExternalHint ? 'Edit site (opens in main tab)' : 'Edit site'}
           >
             <Pencil className="h-3 w-3" />
             Edit site
+            {showExternalHint && <ExternalLink className="h-3 w-3 ml-0.5 opacity-70" />}
           </button>
         </div>
       )}
@@ -331,7 +336,7 @@ function PanicDetailContent({ panic }: { panic: PanicAlert }) {
   );
 }
 
-export function MapDetailPanel({ selectedItem, onClose, onNavigate }: MapDetailPanelProps) {
+export function MapDetailPanel({ selectedItem, onClose, onNavigate, onOpenChat, showExternalHint }: MapDetailPanelProps) {
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -352,7 +357,7 @@ export function MapDetailPanel({ selectedItem, onClose, onNavigate }: MapDetailP
       </div>
 
       {selectedItem.kind === 'site' ? (
-        <SiteDetailContent site={selectedItem.site} editHref={selectedItem.editHref} onNavigate={onNavigate} />
+        <SiteDetailContent site={selectedItem.site} editHref={selectedItem.editHref} onNavigate={onNavigate} onOpenChat={onOpenChat} showExternalHint={showExternalHint} />
       ) : (
         <PanicDetailContent panic={selectedItem.panic} />
       )}

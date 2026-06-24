@@ -27,7 +27,7 @@ export const ALLOWED_LEAVE_REASONS: LeaveRequestReason[] = [
 export const ALLOWED_LEAVE_CATEGORIES = ['sick', 'family', 'special', 'annual'] as const;
 export type LeaveCategoryFilter = (typeof ALLOWED_LEAVE_CATEGORIES)[number];
 
-export const ALLOWED_LEAVE_SORT_FIELDS = ['startDate', 'status'] as const;
+export const ALLOWED_LEAVE_SORT_FIELDS = ['startDate', 'status', 'employee', 'reason'] as const;
 export type LeaveRequestSortField = (typeof ALLOWED_LEAVE_SORT_FIELDS)[number];
 
 export function parseStatusesParam(rawStatuses: string | string[] | undefined): LeaveRequestStatus[] {

@@ -12,6 +12,7 @@ import CheckinExport from './checkin-export';
 import { format } from 'date-fns';
 import { JsonValue } from '@prisma/client/runtime/client';
 import { useAdminRouter } from '../../context/admin-router';
+import SortableHeader from '@/components/sortable-header';
 
 // Define the type for a Checkin with its relations
 // Define a type for the checkin metadata that includes location information
@@ -51,6 +52,8 @@ export type CheckinListProps = {
     endDate?: string;
     employeeId?: string;
   };
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 };
 
 export default function CheckinList({
@@ -60,10 +63,24 @@ export default function CheckinList({
   totalCount,
   employees,
   initialFilters,
+  sortBy = 'time',
+  sortOrder = 'desc',
 }: CheckinListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const router = useAdminRouter();
   const searchParams = useSearchParams();
+
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'desc');
+    }
+    params.set('page', '1');
+    router.push(`?${params.toString()}`);
+  };
 
   const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -118,13 +135,12 @@ export default function CheckinList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
+                <SortableHeader label="Employee" field="employee" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Site" field="site" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Time" field="time" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Shift Date
-                </th>
+                <SortableHeader label="Shift Date" field="shiftDate" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Location</th>
                 {/* New Column */}
               </tr>
@@ -132,15 +148,14 @@ export default function CheckinList({
             <tbody className="divide-y divide-border">
               {checkins.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                    {' '}
-                    {/* Updated colspan */}
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
                     No guard check-ins found.
                   </td>
                 </tr>
               ) : (
                 checkins.map(checkin => (
                   <tr key={checkin.id} className="hover:bg-muted/50 transition-colors group">
+                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">{checkins.indexOf(checkin) + 1 + (page - 1) * perPage}</td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">

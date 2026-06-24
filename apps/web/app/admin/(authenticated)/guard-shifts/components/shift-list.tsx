@@ -13,12 +13,13 @@ import toast from 'react-hot-toast';
 import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Upload, ArrowUpDown, ArrowUp, ArrowDown, History } from 'lucide-react';
+import { Upload, History } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { ShiftWithRelationsDto } from '@/types/shifts';
 import type { EmployeeSummary } from '@repo/database';
 import { useAdminRouter } from '../../context/admin-router';
+import SortableHeader from '@/components/sortable-header';
 
 type ShiftListProps = {
   shifts: Serialized<ShiftWithRelationsDto>[];
@@ -29,7 +30,8 @@ type ShiftListProps = {
   endDate?: string;
   employeeId?: string;
   siteId?: string;
-  sort?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
   page: number;
   perPage: number;
   totalCount: number;
@@ -43,7 +45,8 @@ export default function ShiftList({
   endDate,
   employeeId,
   siteId,
-  sort = 'asc',
+  sortBy = 'startsAt',
+  sortOrder = 'asc',
   page,
   perPage,
   totalCount,
@@ -67,10 +70,14 @@ export default function ShiftList({
     setSelectedShiftId(id);
   };
 
-  const handleSort = () => {
+  const handleSort = (field: string) => {
     const params = new URLSearchParams(searchParams.toString());
-    const newSort = sort === 'desc' ? 'asc' : 'desc';
-    params.set('sort', newSort);
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'asc');
+    }
     params.set('page', '1');
     router.push(`/admin/guard-shifts?${params.toString()}`);
   };
@@ -131,8 +138,9 @@ export default function ShiftList({
       params.delete('employeeId');
     }
 
-    if (sort) {
-      params.set('sort', sort);
+    if (sortBy && sortOrder) {
+      params.set('sortBy', sortBy);
+      params.set('sortOrder', sortOrder);
     }
 
     params.set('page', '1'); // Reset to page 1 when filtering
@@ -236,27 +244,12 @@ export default function ShiftList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Shift Type
-                </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
-                <th
-                  className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted transition-colors"
-                  onClick={handleSort}
-                >
-                  <div className="flex items-center gap-1">
-                    Date / Time
-                    {sort === 'asc' ? (
-                      <ArrowUp className="w-4 h-4" />
-                    ) : sort === 'desc' ? (
-                      <ArrowDown className="w-4 h-4" />
-                    ) : (
-                      <ArrowUpDown className="w-4 h-4" />
-                    )}
-                  </div>
-                </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
+                <SortableHeader label="Site" field="site" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Shift Type" field="shiftType" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Employee" field="employee" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Date / Time" field="startsAt" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
                   <div className="flex flex-col gap-0.5">
@@ -272,7 +265,7 @@ export default function ShiftList({
             <tbody className="divide-y divide-border">
               {shifts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
                     No shifts found. Schedule one to get started.
                   </td>
                 </tr>
@@ -280,6 +273,7 @@ export default function ShiftList({
                 shifts.map(shift => {
                   return (
                     <tr key={shift.id} className="hover:bg-muted/30 transition-colors group">
+                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">{shifts.indexOf(shift) + 1 + (page - 1) * perPage}</td>
                       <td className="py-4 px-6 text-sm font-medium text-foreground">{shift.site.name}</td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">{shift.shiftType.name}</td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">

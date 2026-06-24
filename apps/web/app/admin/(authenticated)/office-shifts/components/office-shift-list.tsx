@@ -270,9 +270,8 @@ export default function OfficeShiftList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Shift Type
-                </th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
+                <SortableHeader label="Shift Type" field="shiftType" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <SortableHeader
                   label="Employee"
                   field="employee"
@@ -315,13 +314,14 @@ export default function OfficeShiftList({
             <tbody className="divide-y divide-border">
               {officeShifts.length === 0 ? (
                 <tr>
-                  <td colSpan={canDelete ? 7 : 6} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={canDelete ? 8 : 7} className="py-8 text-center text-muted-foreground">
                     No office shifts found. Schedule one to get started.
                   </td>
                 </tr>
               ) : (
                 officeShifts.map(officeShift => (
                   <tr key={officeShift.id} className="hover:bg-muted/30 transition-colors group">
+                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">{officeShifts.indexOf(officeShift) + 1 + (page - 1) * perPage}</td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       {officeShift.officeShiftType.name}
                     </td>

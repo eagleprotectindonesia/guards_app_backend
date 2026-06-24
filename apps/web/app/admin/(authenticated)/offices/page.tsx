@@ -20,10 +20,20 @@ export default async function OfficePage(props: OfficePageProps) {
   const { page, perPage, skip } = getPaginationParams(searchParams);
   const query = typeof searchParams.query === 'string' ? searchParams.query : undefined;
 
+  const sortBy = (searchParams.sortBy as string) || 'name';
+  const sortOrder =
+    typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
+      ? (searchParams.sortOrder as 'asc' | 'desc')
+      : 'asc';
+  const validSortFields = ['name', 'status'];
+  const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
+
   const { offices, totalCount } = await getPaginatedOffices({
     query,
     skip,
     take: perPage,
+    sortBy: sortField,
+    sortOrder,
   });
 
   const serializedOffices = serialize(offices) as unknown as Serialized<
@@ -38,6 +48,8 @@ export default async function OfficePage(props: OfficePageProps) {
           page={page}
           perPage={perPage}
           totalCount={totalCount}
+          sortBy={sortField}
+          sortOrder={sortOrder}
         />
       </Suspense>
     </div>

@@ -60,6 +60,7 @@ export default function OfficeMemoList({ officeMemos }: Props) {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Title</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">Period</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">Scope</th>
@@ -70,13 +71,14 @@ export default function OfficeMemoList({ officeMemos }: Props) {
             <tbody className="divide-y divide-border">
               {officeMemos.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     No office memos found. Add one to get started.
                   </td>
                 </tr>
               ) : (
                 officeMemos.map(memo => (
                   <tr key={memo.id} className="hover:bg-muted/30 transition-colors">
+                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">{officeMemos.indexOf(memo) + 1}</td>
                     <td className="py-4 px-6">
                       <div className="text-sm font-medium text-foreground">{memo.title}</div>
                       <div className="text-xs text-muted-foreground mt-1 line-clamp-1">{memo.message || '-'}</div>

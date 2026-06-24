@@ -7,6 +7,9 @@ import ConfirmDialog from '../../components/confirm-dialog';
 import { EditButton, DeleteButton } from '../../components/action-buttons';
 import toast from 'react-hot-toast';
 import PaginationNav from '../../components/pagination-nav';
+import { useSearchParams } from 'next/navigation';
+import SortableHeader from '@/components/sortable-header';
+import { useAdminRouter } from '../../context/admin-router';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { ShieldCheck } from 'lucide-react';
@@ -17,9 +20,13 @@ type AdminListProps = {
   page: number;
   perPage: number;
   totalCount: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 };
 
-export default function AdminList({ admins, page, perPage, totalCount }: AdminListProps) {
+export default function AdminList({ admins, page, perPage, totalCount, sortBy = 'name', sortOrder = 'asc' }: AdminListProps) {
+  const router = useAdminRouter();
+  const searchParams = useSearchParams();
   const { hasPermission } = useSession();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -27,6 +34,18 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
   const canCreate = hasPermission(PERMISSIONS.ADMINS.CREATE);
   const canEdit = hasPermission(PERMISSIONS.ADMINS.EDIT);
   const canDelete = hasPermission(PERMISSIONS.ADMINS.DELETE);
+
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'asc');
+    }
+    params.set('page', '1');
+    router.push(`/admin/admins?${params.toString()}`);
+  };
 
   const handleDeleteClick = (id: string) => {
     if (!canDelete) return;
@@ -72,12 +91,13 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Email</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
+                <SortableHeader label="Name" field="name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Email" field="email" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Leave Approval Email
                 </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Role</th>
+                <SortableHeader label="Role" field="role" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
                   2FA
                 </th>
@@ -90,7 +110,7 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
             <tbody className="divide-y divide-border">
               {admins.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
                     No admins found. Add one to get started.
                   </td>
                 </tr>
@@ -101,6 +121,7 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
 
                   return (
                     <tr key={admin.id} className="hover:bg-muted/50 transition-colors group">
+                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">{admins.indexOf(admin) + 1 + (page - 1) * perPage}</td>
                       <td className="py-4 px-6 text-sm font-medium text-foreground">{admin.name}</td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">{admin.email}</td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">

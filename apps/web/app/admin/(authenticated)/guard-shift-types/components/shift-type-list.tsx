@@ -9,6 +9,9 @@ import toast from 'react-hot-toast';
 import PaginationNav from '../../components/pagination-nav';
 import Link from 'next/link';
 import { History } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import SortableHeader from '@/components/sortable-header';
+import { useAdminRouter } from '../../context/admin-router';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
@@ -17,6 +20,8 @@ type ShiftTypeListProps = {
   page: number;
   perPage: number;
   totalCount: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 };
 
 export default function ShiftTypeList({
@@ -24,7 +29,11 @@ export default function ShiftTypeList({
   page,
   perPage,
   totalCount,
+  sortBy = 'name',
+  sortOrder = 'asc',
 }: ShiftTypeListProps) {
+  const router = useAdminRouter();
+  const searchParams = useSearchParams();
   const { hasPermission } = useSession();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -33,6 +42,18 @@ export default function ShiftTypeList({
   const canEdit = hasPermission(PERMISSIONS.SHIFT_TYPES.EDIT);
   const canDelete = hasPermission(PERMISSIONS.SHIFT_TYPES.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'asc');
+    }
+    params.set('page', '1');
+    router.push(`/admin/guard-shift-types?${params.toString()}`);
+  };
 
   const handleDeleteClick = (id: string) => {
     if (!canDelete) return;
@@ -89,13 +110,10 @@ export default function ShiftTypeList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
-                  Start Time
-                </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
-                  End Time
-                </th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
+                <SortableHeader label="Name" field="name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Start Time" field="startTime" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} className="text-center" />
+                <SortableHeader label="End Time" field="endTime" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} className="text-center" />
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-blue-600 dark:text-blue-400">Created By</span>
@@ -110,13 +128,14 @@ export default function ShiftTypeList({
             <tbody className="divide-y divide-border">
               {shiftTypes.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     No guard shift types found. Add one to get started.
                   </td>
                 </tr>
               ) : (
                 shiftTypes.map(shiftType => (
                   <tr key={shiftType.id} className="hover:bg-muted/30 transition-colors group">
+                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">{shiftTypes.indexOf(shiftType) + 1 + (page - 1) * perPage}</td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">{shiftType.name}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground font-mono text-center">{shiftType.startTime}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground font-mono text-center">{shiftType.endTime}</td>

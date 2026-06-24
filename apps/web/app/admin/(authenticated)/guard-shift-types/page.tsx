@@ -23,10 +23,18 @@ export default async function ShiftTypesPage(props: ShiftTypesPageProps) {
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
 
+  const sortBy = (searchParams.sortBy as string) || 'name';
+  const sortOrder =
+    typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
+      ? (searchParams.sortOrder as 'asc' | 'desc')
+      : 'asc';
+  const validSortFields = ['name', 'startTime', 'endTime'];
+  const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
+
   const { shiftTypes, totalCount } = await getPaginatedShiftTypes({
     skip,
     take: perPage,
-    orderBy: { createdAt: 'desc' },
+    orderBy: { [sortField]: sortOrder },
   });
 
   const serializedShiftTypes: SerializedShiftTypeWithAdminInfoDto[] = shiftTypes.map(
@@ -50,6 +58,8 @@ export default async function ShiftTypesPage(props: ShiftTypesPageProps) {
           page={page}
           perPage={perPage}
           totalCount={totalCount}
+          sortBy={sortField}
+          sortOrder={sortOrder}
         />
       </Suspense>
     </div>

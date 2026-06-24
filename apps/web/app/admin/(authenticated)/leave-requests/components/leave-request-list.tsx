@@ -213,8 +213,9 @@ export default function LeaveRequestList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Reason</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
+                <SortableHeader label="Employee" field="employee" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Reason" field="reason" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <SortableHeader
                   label="Date Range"
                   field="startDate"
@@ -241,7 +242,7 @@ export default function LeaveRequestList({
             <tbody className="divide-y divide-border">
               {leaveRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
                     No leave requests found.
                   </td>
                 </tr>
@@ -251,6 +252,7 @@ export default function LeaveRequestList({
                   const reviewerName = getLeaveRequestReviewerName(leaveRequest);
                   return (
                     <tr key={leaveRequest.id} className="hover:bg-muted/30 transition-colors">
+                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">{leaveRequests.indexOf(leaveRequest) + 1 + (page - 1) * perPage}</td>
                       <td className="py-4 px-6 text-sm">
                         <div className="font-medium text-foreground">{leaveRequest.employee.fullName}</div>
                         <div className="text-xs text-muted-foreground">{leaveRequest.employee.employeeNumber || '-'}</div>

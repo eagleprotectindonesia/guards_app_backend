@@ -1,4 +1,5 @@
 import { prisma } from '@repo/database';
+import { Prisma } from '@prisma/client';
 import { getPaginationParams } from '@/lib/server-utils';
 import ShiftList from './components/shift-list';
 import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
@@ -37,9 +38,11 @@ export default async function ShiftsPage({
   const endDate = typeof resolvedSearchParams.endDate === 'string' ? resolvedSearchParams.endDate : undefined;
   const employeeId = typeof resolvedSearchParams.employeeId === 'string' ? resolvedSearchParams.employeeId : undefined;
   const siteId = typeof resolvedSearchParams.siteId === 'string' ? resolvedSearchParams.siteId : undefined;
-  const sort =
-    typeof resolvedSearchParams.sort === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sort)
-      ? resolvedSearchParams.sort
+  const sortBy =
+    typeof resolvedSearchParams.sortBy === 'string' ? resolvedSearchParams.sortBy : 'startsAt';
+  const sortOrder =
+    typeof resolvedSearchParams.sortOrder === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sortOrder)
+      ? (resolvedSearchParams.sortOrder as 'asc' | 'desc')
       : 'asc';
 
   const parsedStartDate = startDate ? startOfDay(parseISO(startDate)) : undefined;
@@ -54,9 +57,19 @@ export default async function ShiftsPage({
     siteId: siteId || undefined,
   };
 
+  const sortFieldMap: Record<string, Prisma.ShiftOrderByWithRelationInput> = {
+    startsAt: { startsAt: sortOrder },
+    status: { status: sortOrder },
+    site: { site: { name: sortOrder } },
+    shiftType: { shiftType: { name: sortOrder } },
+    employee: { employee: { fullName: sortOrder } },
+  };
+  const validSortFields = Object.keys(sortFieldMap);
+  const orderBy = sortFieldMap[validSortFields.includes(sortBy) ? sortBy : 'startsAt'];
+
   const { shifts, totalCount } = await getPaginatedShifts({
     where,
-    orderBy: { startsAt: sort as 'asc' | 'desc' },
+    orderBy,
     skip,
     take: perPage,
     include: {
@@ -149,7 +162,8 @@ export default async function ShiftsPage({
           endDate={endDate}
           employeeId={employeeId}
           siteId={siteId}
-          sort={sort}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
           page={page}
           perPage={perPage}
           totalCount={totalCount}

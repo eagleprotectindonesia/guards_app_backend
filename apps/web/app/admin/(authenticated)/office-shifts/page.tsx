@@ -55,7 +55,9 @@ export default async function OfficeShiftsPage({
       orderBy:
         sortBy === 'employee'
           ? { employee: { fullName: sortOrder as 'asc' | 'desc' } }
-          : { startsAt: sortOrder as 'asc' | 'desc' },
+          : sortBy === 'shiftType'
+            ? { officeShiftType: { name: sortOrder as 'asc' | 'desc' } }
+            : { startsAt: sortOrder as 'asc' | 'desc' },
       skip,
       take: perPage,
     }),

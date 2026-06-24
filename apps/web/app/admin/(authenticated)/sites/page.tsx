@@ -23,10 +23,20 @@ export default async function SitesPage(props: SitesPageProps) {
   const { page, perPage, skip } = getPaginationParams(searchParams);
   const query = searchParams.q as string | undefined;
 
+  const sortBy = (searchParams.sortBy as string) || 'name';
+  const sortOrder =
+    typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
+      ? (searchParams.sortOrder as 'asc' | 'desc')
+      : 'asc';
+  const validSortFields = ['name', 'clientName', 'status', 'posts'];
+  const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
+
   const { sites, totalCount } = await getPaginatedSites({
     query,
     skip,
     take: perPage,
+    sortBy: sortField,
+    sortOrder,
   });
 
   const serializedSites = serialize(sites);
@@ -34,7 +44,14 @@ export default async function SitesPage(props: SitesPageProps) {
   return (
     <div className="max-w-7xl mx-auto">
       <Suspense fallback={<AdminListSkeleton rows={7} />}>
-        <SiteList sites={serializedSites} page={page} perPage={perPage} totalCount={totalCount} />
+        <SiteList
+          sites={serializedSites}
+          page={page}
+          perPage={perPage}
+          totalCount={totalCount}
+          sortBy={sortField}
+          sortOrder={sortOrder}
+        />
       </Suspense>
     </div>
   );
