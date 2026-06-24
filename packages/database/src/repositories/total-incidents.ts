@@ -7,8 +7,8 @@ type IncidentReason = 'missed_attendance' | 'missed_checkin';
 export type TotalIncidentsForDashboard = {
   dateKey: string;
   total: number;
-  guard: number;
-  onsite: number;
+  attendance: number;
+  checkin: number;
   yesterdayTotal: number;
   deltaVsYesterday: number;
   lastUpdatedAt: string;
@@ -39,8 +39,8 @@ export async function getTotalIncidentsForDashboard(now: Date, siteId?: string):
     },
   });
 
-  let guard = 0;
-  let onsite = 0;
+  let attendance = 0;
+  let checkin = 0;
   let yesterdayTotal = 0;
 
   for (const row of grouped) {
@@ -49,20 +49,20 @@ export async function getTotalIncidentsForDashboard(now: Date, siteId?: string):
     const count = row._count._all;
 
     if (createdAtMs >= today.start.getTime() && createdAtMs < today.end.getTime()) {
-      if (row.reason === AlertReason.missed_attendance) guard += count;
-      if (row.reason === AlertReason.missed_checkin) onsite += count;
+      if (row.reason === AlertReason.missed_attendance) attendance += count;
+      if (row.reason === AlertReason.missed_checkin) checkin += count;
     } else if (createdAtMs >= yesterday.start.getTime() && createdAtMs < yesterday.end.getTime()) {
       yesterdayTotal += count;
     }
   }
 
-  const total = guard + onsite;
+  const total = attendance + checkin;
 
   return {
     dateKey: today.dateKey,
     total,
-    guard,
-    onsite,
+    attendance,
+    checkin,
     yesterdayTotal,
     deltaVsYesterday: total - yesterdayTotal,
     lastUpdatedAt: new Date().toISOString(),

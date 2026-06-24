@@ -68,6 +68,8 @@ type ShiftOverviewData = {
   upcoming: number;
   completed: number;
   absent: number;
+  absentSiteGuards: number;
+  absentPatrol: number;
   carryoverOnDuty: number;
   total: number;
   lastUpdatedAt: string;
@@ -87,8 +89,8 @@ export type NewDashboardLiveActivityItem = {
 type TotalIncidentsData = {
   dateKey: string;
   total: number;
-  guard: number;
-  onsite: number;
+  attendance: number;
+  checkin: number;
   yesterdayTotal: number;
   deltaVsYesterday: number;
   lastUpdatedAt: string;
@@ -200,18 +202,20 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
   });
   const [shiftOverview, setShiftOverview] = useState<SliceState<ShiftOverviewData>>({
     status: 'idle',
-    data: {
-      dateKey: '',
-      onDuty: 0,
-      onDutySiteGuards: 0,
-      onDutyPatrol: 0,
-      upcoming: 0,
-      completed: 0,
-      absent: 0,
-      carryoverOnDuty: 0,
-      total: 0,
-      lastUpdatedAt: '',
-    },
+      data: {
+        dateKey: '',
+        onDuty: 0,
+        onDutySiteGuards: 0,
+        onDutyPatrol: 0,
+        upcoming: 0,
+        completed: 0,
+        absent: 0,
+        absentSiteGuards: 0,
+        absentPatrol: 0,
+        carryoverOnDuty: 0,
+        total: 0,
+        lastUpdatedAt: '',
+      },
   });
   const [liveActivityFeed, setLiveActivityFeed] = useState<SliceState<NewDashboardLiveActivityItem[]>>({
     status: 'idle',
@@ -222,8 +226,8 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     data: {
       dateKey: '',
       total: 0,
-      guard: 0,
-      onsite: 0,
+      attendance: 0,
+      checkin: 0,
       yesterdayTotal: 0,
       deltaVsYesterday: 0,
       lastUpdatedAt: '',
@@ -516,6 +520,8 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
             upcoming: 0,
             completed: 0,
             absent: 0,
+            absentSiteGuards: 0,
+            absentPatrol: 0,
             carryoverOnDuty: 0,
             total: 0,
             lastUpdatedAt: '',
@@ -529,8 +535,8 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
           data: {
             dateKey: '',
             total: 0,
-            guard: 0,
-            onsite: 0,
+            attendance: 0,
+            checkin: 0,
             yesterdayTotal: 0,
             deltaVsYesterday: 0,
             lastUpdatedAt: '',
