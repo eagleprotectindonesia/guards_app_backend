@@ -58,8 +58,21 @@ function FloatingChatWidgetContent() {
       setIsOpen(true);
       unifiedChat.selectConversation({ kind: 'direct', id: e.detail.employeeId });
     };
+
+    const handleMessage = (e: MessageEvent) => {
+      if (e.origin !== window.location.origin) return;
+      if (e.data?.type !== 'open-admin-chat') return;
+      setIsOpen(true);
+      unifiedChat.selectConversation({ kind: 'direct', id: e.data.payload.employeeId });
+    };
+
     window.addEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
-    return () => window.removeEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
+    window.addEventListener('message', handleMessage);
+
+    return () => {
+      window.removeEventListener('open-admin-chat' as keyof WindowEventMap, handleOpenChat as EventListener);
+      window.removeEventListener('message', handleMessage);
+    };
   }, [unifiedChat]);
 
   useEffect(() => {

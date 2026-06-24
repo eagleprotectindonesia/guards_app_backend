@@ -9,10 +9,11 @@ import type { Site } from '@prisma/client';
 import { PanicAlert } from '@repo/types';
 import { Button } from '@/components/ui/button';
 import { useAlerts } from '../context/alert-context';
+import toast from 'react-hot-toast';
 import { useSession } from '../context/session-context';
 import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { MapDetailPanel, type SelectedMapItem } from '../new-dashboard/components/map-detail-panel';
+import { MapDetailPanel, type SelectedMapItem, type ChatLaunchPayload } from '../new-dashboard/components/map-detail-panel';
 import { SitesMapView, type PopupShiftInfo, type PopupUpcomingInfo, type MapSite } from '../new-dashboard/components/sites-map-view';
 import { MapFilterTabs, type MapFilter } from '../new-dashboard/components/sites-map-filter-tabs';
 
@@ -195,6 +196,21 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
 
   const handleNavigate = useMemo(() => (href: string) => router.push(href), [router]);
 
+  const handleChat = (payload: ChatLaunchPayload) => {
+    if (window.opener) {
+      window.opener.postMessage({ type: 'open-admin-chat', payload }, window.location.origin);
+    }
+    toast(
+      <div>
+        <p className="text-sm">
+          Chat with <strong>{payload.employeeName}</strong> is ready in the main admin tab.
+        </p>
+        {!window.opener && <p className="mt-1 text-xs">Open this page from the dashboard to enable in-tab chat.</p>}
+      </div>,
+      { duration: 6000 }
+    );
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-border shrink-0">
@@ -236,7 +252,21 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
         </div>
         {selectedItem && (
           <div className="w-80 border-l border-border overflow-y-auto p-4 shrink-0">
-            <MapDetailPanel selectedItem={selectedItem} onClose={() => setSelectedItem(null)} onNavigate={handleNavigate} />
+            <MapDetailPanel
+              selectedItem={selectedItem}
+              onClose={() => setSelectedItem(null)}
+              onNavigate={(href) => {
+                if (window.opener) {
+                  window.opener.location.assign(href);
+                  window.opener.focus();
+                  window.close();
+                } else {
+                  router.push(href);
+                }
+              }}
+              onOpenChat={handleChat}
+              showExternalHint
+            />
           </div>
         )}
       </div>
