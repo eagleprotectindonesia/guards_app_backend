@@ -52,12 +52,12 @@ export default function NewDashboardClient({ initialSites, initialPanicAlerts = 
 
   const activeSitesCount = activeSites.length;
   const onDutySiteGuards = shiftOverview.data.onDutySiteGuards;
-  const onDutyPatrol = shiftOverview.data.onDutyPatrol;
+  const onDutyControl = shiftOverview.data.onDutyPatrol;
 
   return (
     <div className="w-full space-y-4 p-4">
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
-        <ActiveGuardsCard siteGuardsCount={onDutySiteGuards} patrolCount={onDutyPatrol} />
+        <ActiveGuardsCard siteGuardsCount={onDutySiteGuards} controlCount={onDutyControl} />
 
         <ActiveSitesCard activeSitesCount={activeSitesCount} />
 

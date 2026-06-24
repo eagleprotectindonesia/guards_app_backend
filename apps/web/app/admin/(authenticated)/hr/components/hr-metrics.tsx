@@ -65,12 +65,15 @@ export function HRMetrics(props: HRMetricsProps) {
       {metrics.map(m => {
         const Icon = m.icon;
         return (
-          <Card key={m.label} className="border-border/60 bg-card p-2.5 shadow-sm flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <div className={cn('rounded-md border p-1 shrink-0', m.accentClass)}>
-                <Icon className="h-3.5 w-3.5" />
+          <Card key={m.label} className="border-border/60 bg-card p-2.5 shadow-sm flex flex-col gap-2 min-w-0">
+            <div className="flex items-center gap-3">
+              <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', m.accentClass)}>
+                <Icon className="h-5 w-5" />
               </div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/70">{m.label}</p>
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{m.label}</p>
+                <p className="text-2xl font-bold text-foreground">{m.office + m.onsite}</p>
+              </div>
             </div>
             <div className="border-t border-border/40 mt-1.5 pt-1.5 grid grid-cols-2">
               <div>
