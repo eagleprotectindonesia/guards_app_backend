@@ -35,14 +35,36 @@ export async function fetchPhotos(inputs: PhotoInput[], abortSignal?: AbortSigna
       const rawBuffer = Buffer.from(await response.Body.transformToByteArray()) as Buffer;
       let contentType = response.ContentType || 'image/jpeg';
 
-      // pdfkit only supports JPEG, PNG, BMP — convert WebP to PNG
+      // pdfkit only supports JPEG, PNG, BMP — convert unsupported formats
+      // and cap image dimensions to bound memory usage
+      const MAX_IMAGE_WIDTH = 1280;
+      const MAX_IMAGE_HEIGHT = 1800;
+
       let imageBuffer = rawBuffer;
+
       if (contentType === 'image/webp') {
         try {
-          imageBuffer = (await sharp(rawBuffer).png().toBuffer()) as Buffer;
+          imageBuffer = (await sharp(rawBuffer)
+            .resize({ width: MAX_IMAGE_WIDTH, height: MAX_IMAGE_HEIGHT, fit: 'inside', withoutEnlargement: true })
+            .png()
+            .toBuffer()) as Buffer;
           contentType = 'image/png';
         } catch (convErr) {
           console.warn(`[ShiftPhotoReport] Failed to convert WebP to PNG for ${s3Key}:`, convErr);
+          return null;
+        }
+      } else if (contentType === 'image/png' || contentType === 'image/jpeg') {
+        try {
+          const metadata = await sharp(rawBuffer).metadata();
+          if ((metadata.width ?? 0) > MAX_IMAGE_WIDTH || (metadata.height ?? 0) > MAX_IMAGE_HEIGHT) {
+            const format = contentType === 'image/png' ? 'png' : 'jpeg';
+            imageBuffer = (await sharp(rawBuffer)
+              .resize({ width: MAX_IMAGE_WIDTH, height: MAX_IMAGE_HEIGHT, fit: 'inside', withoutEnlargement: true })
+              [format]()
+              .toBuffer()) as Buffer;
+          }
+        } catch (resizeErr) {
+          console.warn(`[ShiftPhotoReport] Failed to inspect/resize ${s3Key}:`, resizeErr);
         }
       }
 
