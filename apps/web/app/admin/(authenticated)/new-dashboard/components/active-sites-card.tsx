@@ -2,9 +2,10 @@ import { Building2 } from 'lucide-react';
 
 type ActiveSitesCardProps = {
   activeSitesCount: number;
+  totalSites: number;
 };
 
-export function ActiveSitesCard({ activeSitesCount }: ActiveSitesCardProps) {
+export function ActiveSitesCard({ activeSitesCount, totalSites }: ActiveSitesCardProps) {
   return (
     <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
       <div className="flex items-center gap-3">
@@ -13,10 +14,12 @@ export function ActiveSitesCard({ activeSitesCount }: ActiveSitesCardProps) {
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Active Sites</p>
-          <p className="text-2xl font-bold text-foreground">{activeSitesCount}</p>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl font-bold text-foreground">{activeSitesCount}</span>
+            <span className="text-sm font-medium text-muted-foreground/70">/ {totalSites}</span>
+          </div>
         </div>
       </div>
-      <p className="mt-3 text-xs text-muted-foreground">Online</p>
     </div>
   );
 }

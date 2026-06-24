@@ -89,8 +89,8 @@ export type NewDashboardLiveActivityItem = {
 type TotalIncidentsData = {
   dateKey: string;
   total: number;
-  guard: number;
-  onsite: number;
+  attendance: number;
+  checkin: number;
   yesterdayTotal: number;
   deltaVsYesterday: number;
   lastUpdatedAt: string;
@@ -226,8 +226,8 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
     data: {
       dateKey: '',
       total: 0,
-      guard: 0,
-      onsite: 0,
+      attendance: 0,
+      checkin: 0,
       yesterdayTotal: 0,
       deltaVsYesterday: 0,
       lastUpdatedAt: '',
@@ -535,8 +535,8 @@ export function NewDashboardStreamProvider({ children }: { children: React.React
           data: {
             dateKey: '',
             total: 0,
-            guard: 0,
-            onsite: 0,
+            attendance: 0,
+            checkin: 0,
             yesterdayTotal: 0,
             deltaVsYesterday: 0,
             lastUpdatedAt: '',

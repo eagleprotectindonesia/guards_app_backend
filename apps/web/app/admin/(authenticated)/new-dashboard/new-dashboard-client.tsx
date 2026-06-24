@@ -27,9 +27,10 @@ import type { SelectedMapItem } from './components';
 type NewDashboardClientProps = {
   initialSites: Serialized<Site>[];
   initialPanicAlerts?: PanicAlert[];
+  totalSites?: number;
 };
 
-export default function NewDashboardClient({ initialSites, initialPanicAlerts = [] }: NewDashboardClientProps) {
+export default function NewDashboardClient({ initialSites, initialPanicAlerts = [], totalSites = 0 }: NewDashboardClientProps) {
   const { activeSites, isDashboardInitialized } = useAlerts();
   const { shiftOverview } = useNewDashboardStream();
   const [panicAlerts, setPanicAlerts] = useState<PanicAlert[]>(initialPanicAlerts);
@@ -59,11 +60,11 @@ export default function NewDashboardClient({ initialSites, initialPanicAlerts = 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         <ActiveGuardsCard siteGuardsCount={onDutySiteGuards} controlCount={onDutyControl} />
 
-        <ActiveSitesCard activeSitesCount={activeSitesCount} />
+        <ActiveSitesCard activeSitesCount={activeSitesCount} totalSites={totalSites} />
 
         <AbsentGuardsCard siteGuardsCount={shiftOverview.data.absentSiteGuards} controlCount={shiftOverview.data.absentPatrol} />
 
-        <TotalIncidentsCard panicAlerts={panicAlerts} />
+        <TotalIncidentsCard />
 
         <TotalAttendanceCard />
       </div>

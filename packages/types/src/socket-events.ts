@@ -85,8 +85,8 @@ export interface ServerToClientEvents {
   'new_dashboard:total_incidents': (payload: {
     dateKey: string;
     total: number;
-    guard: number;
-    onsite: number;
+    attendance: number;
+    checkin: number;
     yesterdayTotal: number;
     deltaVsYesterday: number;
     lastUpdatedAt: string;

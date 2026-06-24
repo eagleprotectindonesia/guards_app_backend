@@ -1,4 +1,4 @@
-import { getAllSites, getActiveSites } from '@repo/database';
+import { getAllSites, getActiveSites, prisma } from '@repo/database';
 import { redis } from '@repo/database/redis';
 import { serialize } from '@/lib/server-utils';
 import AdminDashboard from './dashboard-client';
@@ -30,9 +30,10 @@ export default async function DashboardPage(props: PageProps) {
 
   if (tab === 'guard') {
     await requirePermission('dashboard-guard:view');
-    const [activeSites, unresolvedPanicsStr] = await Promise.all([
+    const [activeSites, unresolvedPanicsStr, totalSites] = await Promise.all([
       getActiveSites(),
       redis.get('webhooks:unresolved_panics'),
+      prisma.site.count({ where: { deletedAt: null } }),
     ]);
 
     let initialPanicAlerts: PanicAlert[] = [];
@@ -51,6 +52,7 @@ export default async function DashboardPage(props: PageProps) {
       <NewDashboardClient
         initialSites={serialize(activeSites)}
         initialPanicAlerts={initialPanicAlerts}
+        totalSites={totalSites}
       />
     );
   }
