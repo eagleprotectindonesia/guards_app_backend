@@ -28,8 +28,17 @@ export async function getActiveOffices() {
   });
 }
 
-export async function getPaginatedOffices(params: { query?: string; skip: number; take: number }) {
-  const { query, skip, take } = params;
+export async function getPaginatedOffices(params: {
+  query?: string;
+  skip: number;
+  take: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}) {
+  const { query, skip, take, sortBy = 'name', sortOrder = 'asc' } = params;
+
+  const validSortFields = ['name', 'status'];
+  const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
 
   const where: Prisma.OfficeWhereInput = {
     deletedAt: null,
@@ -47,7 +56,7 @@ export async function getPaginatedOffices(params: { query?: string; skip: number
     async tx => {
       const offices = await tx.office.findMany({
         where,
-        orderBy: { name: 'asc' },
+        orderBy: { [sortField]: sortOrder },
         skip,
         take,
         include: {

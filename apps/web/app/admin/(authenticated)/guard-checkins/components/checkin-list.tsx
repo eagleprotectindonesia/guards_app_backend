@@ -12,6 +12,7 @@ import CheckinExport from './checkin-export';
 import { format } from 'date-fns';
 import { JsonValue } from '@prisma/client/runtime/client';
 import { useAdminRouter } from '../../context/admin-router';
+import SortableHeader from '@/components/sortable-header';
 
 // Define the type for a Checkin with its relations
 // Define a type for the checkin metadata that includes location information
@@ -51,6 +52,8 @@ export type CheckinListProps = {
     endDate?: string;
     employeeId?: string;
   };
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 };
 
 export default function CheckinList({
@@ -60,10 +63,24 @@ export default function CheckinList({
   totalCount,
   employees,
   initialFilters,
+  sortBy = 'time',
+  sortOrder = 'desc',
 }: CheckinListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const router = useAdminRouter();
   const searchParams = useSearchParams();
+
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'desc');
+    }
+    params.set('page', '1');
+    router.push(`?${params.toString()}`);
+  };
 
   const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -119,13 +136,11 @@ export default function CheckinList({
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</th>
+                <SortableHeader label="Employee" field="employee" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Site" field="site" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Time" field="time" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Shift Date
-                </th>
+                <SortableHeader label="Shift Date" field="shiftDate" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Location</th>
                 {/* New Column */}
               </tr>

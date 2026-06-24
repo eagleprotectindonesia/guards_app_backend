@@ -23,10 +23,18 @@ export default async function OfficeShiftTypesPage({
   const resolvedSearchParams = await searchParams;
   const { page, perPage, skip } = getPaginationParams(resolvedSearchParams);
 
+  const sortBy = (resolvedSearchParams.sortBy as string) || 'name';
+  const sortOrder =
+    typeof resolvedSearchParams.sortOrder === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sortOrder)
+      ? (resolvedSearchParams.sortOrder as 'asc' | 'desc')
+      : 'asc';
+  const validSortFields = ['name', 'startTime', 'endTime'];
+  const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
+
   const { officeShiftTypes, totalCount } = await getPaginatedOfficeShiftTypes({
     skip,
     take: perPage,
-    orderBy: { createdAt: 'desc' },
+    orderBy: { [sortField]: sortOrder },
   });
 
   const serializedOfficeShiftTypes: SerializedOfficeShiftTypeWithAdminInfoDto[] = officeShiftTypes.map(item => ({
@@ -48,6 +56,8 @@ export default async function OfficeShiftTypesPage({
           page={page}
           perPage={perPage}
           totalCount={totalCount}
+          sortBy={sortField}
+          sortOrder={sortOrder}
         />
       </Suspense>
     </div>

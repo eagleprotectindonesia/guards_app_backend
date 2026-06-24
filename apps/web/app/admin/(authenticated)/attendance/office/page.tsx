@@ -69,10 +69,24 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
     where.businessDate = { lte: todayEnd };
   }
 
+  const sortBy = (searchParams.sortBy as string) || 'businessDate';
+  const sortOrder =
+    typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
+      ? (searchParams.sortOrder as 'asc' | 'desc')
+      : 'asc';
+
+  const sortFieldMap: Record<string, Prisma.OfficeAttendanceOrderByWithRelationInput> = {
+    businessDate: { businessDate: sortOrder },
+    employeeNumber: { employee: { employeeNumber: sortOrder } },
+    office: { office: { name: sortOrder } },
+  };
+  const validSortFields = Object.keys(sortFieldMap);
+  const orderBy = sortFieldMap[validSortFields.includes(sortBy) ? sortBy : 'businessDate'];
+
   const [attendances, employees, offices] = await Promise.all([
     listOfficeAttendance({
       where,
-      orderBy: { recordedAt: 'asc' },
+      orderBy,
     }),
     getActiveEmployeesSummary('office'),
     getActiveOffices(),
@@ -146,6 +160,8 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
           offices={serializedOffices}
           employees={serializedEmployees}
           initialFilters={initialFilters}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
         />
       </Suspense>
     </div>

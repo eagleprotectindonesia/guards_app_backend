@@ -42,10 +42,25 @@ export default async function CheckinsPage(props: CheckinsPageProps) {
     }
   }
 
+  const sortBy = (searchParams.sortBy as string) || 'time';
+  const sortOrder =
+    typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
+      ? (searchParams.sortOrder as 'asc' | 'desc')
+      : 'desc';
+
+  const sortFieldMap: Record<string, Prisma.CheckinOrderByWithRelationInput> = {
+    time: { at: sortOrder },
+    employee: { employee: { fullName: sortOrder } },
+    site: { shift: { site: { name: sortOrder } } },
+    shiftDate: { shift: { date: sortOrder } },
+  };
+  const validSortFields = Object.keys(sortFieldMap);
+  const orderBy = sortFieldMap[validSortFields.includes(sortBy) ? sortBy : 'time'];
+
   const [{ checkins, totalCount }, employees] = await Promise.all([
     getPaginatedCheckins({
       where,
-      orderBy: { at: 'desc' },
+      orderBy,
       skip,
       take: perPage,
     }),
@@ -71,6 +86,8 @@ export default async function CheckinsPage(props: CheckinsPageProps) {
           totalCount={totalCount}
           employees={serializedEmployees}
           initialFilters={initialFilters}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
         />
       </Suspense>
     </div>

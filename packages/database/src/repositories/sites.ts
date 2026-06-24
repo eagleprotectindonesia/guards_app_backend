@@ -35,8 +35,17 @@ export async function getActiveSites() {
   });
 }
 
-export async function getPaginatedSites(params: { query?: string; skip: number; take: number }) {
-  const { query, skip, take } = params;
+export async function getPaginatedSites(params: {
+  query?: string;
+  skip: number;
+  take: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}) {
+  const { query, skip, take, sortBy = 'name', sortOrder = 'asc' } = params;
+
+  const validSortFields = ['name', 'clientName', 'status', 'posts'];
+  const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
 
   const where: Prisma.SiteWhereInput = {
     deletedAt: null,
@@ -51,11 +60,14 @@ export async function getPaginatedSites(params: { query?: string; skip: number; 
       : {}),
   };
 
+  const orderBy: Prisma.SiteOrderByWithRelationInput =
+    sortBy === 'posts' ? { posts: { _count: sortOrder } } : { [sortField]: sortOrder };
+
   const [sites, totalCount] = await prisma.$transaction(
     async tx => {
       const sites = await tx.site.findMany({
         where,
-        orderBy: { name: 'asc' },
+        orderBy,
         skip,
         take,
         include: {

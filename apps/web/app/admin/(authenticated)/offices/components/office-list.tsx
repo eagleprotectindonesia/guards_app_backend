@@ -8,10 +8,13 @@ import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { History, Download } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import SortableHeader from '@/components/sortable-header';
 import ConfirmDialog from '../../components/confirm-dialog';
 import Search from '../../components/search';
 import { format } from 'date-fns';
 import { useSession } from '../../context/session-context';
+import { useAdminRouter } from '../../context/admin-router';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { useState } from 'react';
 
@@ -25,10 +28,26 @@ type OfficeListProps = {
   page: number;
   perPage: number;
   totalCount: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 };
 
-export default function OfficeList({ offices, page, perPage, totalCount }: OfficeListProps) {
+export default function OfficeList({ offices, page, perPage, totalCount, sortBy = 'name', sortOrder = 'asc' }: OfficeListProps) {
+  const router = useAdminRouter();
+  const searchParams = useSearchParams();
   const { hasPermission } = useSession();
+
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'asc');
+    }
+    params.set('page', '1');
+    router.push(`/admin/offices?${params.toString()}`);
+  };
 
   const canEdit = hasPermission(PERMISSIONS.OFFICES.EDIT);
   const canCreate = hasPermission(PERMISSIONS.OFFICES.CREATE);
@@ -139,13 +158,13 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
+                <SortableHeader label="Name" field="name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Address</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Latitude</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Longitude
                 </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
+                <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Source</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">

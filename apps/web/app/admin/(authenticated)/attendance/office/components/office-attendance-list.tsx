@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Clock, Eye, Hotel } from 'lucide-react';
 import { format } from 'date-fns';
+import { useSearchParams } from 'next/navigation';
 import {
   AttendanceOfficeSummary,
   AttendanceEmployeeSummary,
@@ -12,6 +13,8 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PaginationNav from '../../../components/pagination-nav';
 import OfficeAttendanceExport from './office-attendance-export';
+import SortableHeader from '@/components/sortable-header';
+import { useAdminRouter } from '../../../context/admin-router';
 
 function buildLocationSummary(metadata: OfficeAttendanceMetadataDto | null) {
   if (!metadata?.location) return '-';
@@ -35,15 +38,39 @@ type OfficeAttendanceListProps = {
     endDate?: string;
     employeeId?: string;
   };
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 };
 
-export default function OfficeAttendanceList({ attendances, page, perPage, totalCount, offices }: OfficeAttendanceListProps) {
+export default function OfficeAttendanceList({
+  attendances,
+  page,
+  perPage,
+  totalCount,
+  offices,
+  sortBy = 'businessDate',
+  sortOrder = 'asc',
+}: OfficeAttendanceListProps) {
+  const router = useAdminRouter();
+  const searchParams = useSearchParams();
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [previewLabel, setPreviewLabel] = useState<string>('Attendance Photo');
 
   const openPreview = (url: string, label: string) => {
     setPreviewImageUrl(url);
     setPreviewLabel(label);
+  };
+
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'asc');
+    }
+    params.set('page', '1');
+    router.push(`?${params.toString()}`);
   };
 
   return (
@@ -66,12 +93,10 @@ export default function OfficeAttendanceList({ attendances, page, perPage, total
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Employee ID
-                </th>
+                <SortableHeader label="Employee ID" field="employeeNumber" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Office</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Business Date</th>
+                <SortableHeader label="Office" field="office" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Business Date" field="businessDate" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Clock In</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Clock Out</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Paid hours</th>

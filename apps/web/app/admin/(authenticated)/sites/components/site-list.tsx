@@ -9,9 +9,12 @@ import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { History, Download } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import SortableHeader from '@/components/sortable-header';
 import Search from '../../components/search';
 import { format } from 'date-fns';
 import { useSession } from '../../context/session-context';
+import { useAdminRouter } from '../../context/admin-router';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 type SiteWithAdminInfo = Site & {
@@ -25,9 +28,13 @@ type SiteListProps = {
   page: number;
   perPage: number;
   totalCount: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 };
 
-export default function SiteList({ sites, page, perPage, totalCount }: SiteListProps) {
+export default function SiteList({ sites, page, perPage, totalCount, sortBy = 'name', sortOrder = 'asc' }: SiteListProps) {
+  const router = useAdminRouter();
+  const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
   const { hasPermission } = useSession();
 
@@ -35,6 +42,18 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
   const canEdit = hasPermission(PERMISSIONS.SITES.EDIT);
   const canDelete = hasPermission(PERMISSIONS.SITES.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'asc');
+    }
+    params.set('page', '1');
+    router.push(`/admin/sites?${params.toString()}`);
+  };
 
   const handleDelete = async (id: string) => {
     if (!canDelete) return;
@@ -150,13 +169,13 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Client Name</th>
+                <SortableHeader label="Name" field="name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Client Name" field="clientName" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Address</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Latitude</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Longitude</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Posts</th>
+                <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Posts" field="posts" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
                   <div className="flex flex-col gap-0.5">

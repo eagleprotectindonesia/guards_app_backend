@@ -53,10 +53,25 @@ export default async function AttendancePage(props: AttendancePageProps) {
   const where = applyAttendanceVisibilityScope(baseWhere, session);
   const employeeRoleFilter = getEmployeeRoleFilter(session.rolePolicy);
 
+  const sortBy = (searchParams.sortBy as string) || 'date';
+  const sortOrder =
+    typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
+      ? (searchParams.sortOrder as 'asc' | 'desc')
+      : 'desc';
+
+  const sortFieldMap: Record<string, Prisma.AttendanceOrderByWithRelationInput> = {
+    date: { shift: { date: sortOrder } },
+    employeeNumber: { employee: { employeeNumber: sortOrder } },
+    site: { shift: { site: { name: sortOrder } } },
+    shift: { shift: { shiftType: { name: sortOrder } } },
+  };
+  const validSortFields = Object.keys(sortFieldMap);
+  const orderBy = sortFieldMap[validSortFields.includes(sortBy) ? sortBy : 'date'];
+
   const [{ attendances, totalCount }, employees] = await Promise.all([
     getPaginatedAttendance({
       where,
-      orderBy: { recordedAt: 'desc' },
+      orderBy,
       skip,
       take: perPage,
     }),
@@ -122,6 +137,8 @@ export default async function AttendancePage(props: AttendancePageProps) {
           totalCount={totalCount}
           employees={serializedEmployees}
           initialFilters={initialFilters}
+          sortBy={sortBy}
+          sortOrder={sortOrder}
         />
       </Suspense>
     </div>

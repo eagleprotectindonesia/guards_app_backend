@@ -8,6 +8,7 @@ import AttendanceFilterModal from './attendance-filter-modal';
 import AttendanceExport from './attendance-export';
 import { format } from 'date-fns';
 import { useAdminRouter } from '../../context/admin-router';
+import SortableHeader from '@/components/sortable-header';
 import {
   AttendanceEmployeeSummary,
   AttendanceMetadataDto,
@@ -35,6 +36,8 @@ type AttendanceListProps = {
     endDate?: string;
     employeeNumber?: string;
   };
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 };
 
 export default function AttendanceList({
@@ -44,6 +47,8 @@ export default function AttendanceList({
   totalCount,
   employees,
   initialFilters,
+  sortBy = 'date',
+  sortOrder = 'desc',
 }: AttendanceListProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
@@ -54,6 +59,18 @@ export default function AttendanceList({
   const openPreview = (url: string, label: string) => {
     setPreviewImageUrl(url);
     setPreviewLabel(label);
+  };
+
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'desc');
+    }
+    params.set('page', '1');
+    router.push(`?${params.toString()}`);
   };
 
   const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeNumber: string }) => {
@@ -110,13 +127,11 @@ export default function AttendanceList({
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                  Employee ID
-                </th>
+                <SortableHeader label="Employee ID" field="employeeNumber" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Shift</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Date</th>
+                <SortableHeader label="Site" field="site" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Shift" field="shift" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Date" field="date" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Status</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Photo</th>

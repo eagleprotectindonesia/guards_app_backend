@@ -9,6 +9,9 @@ import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { History } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import SortableHeader from '@/components/sortable-header';
+import { useAdminRouter } from '../../context/admin-router';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
@@ -17,9 +20,13 @@ type Props = {
   page: number;
   perPage: number;
   totalCount: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 };
 
-export default function OfficeShiftTypeList({ officeShiftTypes, page, perPage, totalCount }: Props) {
+export default function OfficeShiftTypeList({ officeShiftTypes, page, perPage, totalCount, sortBy = 'name', sortOrder = 'asc' }: Props) {
+  const router = useAdminRouter();
+  const searchParams = useSearchParams();
   const { hasPermission } = useSession();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [forceDeleteId, setForceDeleteId] = useState<string | null>(null);
@@ -30,6 +37,18 @@ export default function OfficeShiftTypeList({ officeShiftTypes, page, perPage, t
   const canEdit = hasPermission(PERMISSIONS.OFFICE_SHIFT_TYPES.EDIT);
   const canDelete = hasPermission(PERMISSIONS.OFFICE_SHIFT_TYPES.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+
+  const handleSort = (field: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (sortBy === field) {
+      params.set('sortOrder', sortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      params.set('sortBy', field);
+      params.set('sortOrder', 'asc');
+    }
+    params.set('page', '1');
+    router.push(`/admin/office-shift-types?${params.toString()}`);
+  };
 
   const handleConfirmDelete = () => {
     if (!deleteId || !canDelete) return;
@@ -103,13 +122,9 @@ export default function OfficeShiftTypeList({ officeShiftTypes, page, perPage, t
             <thead>
               <tr className="bg-muted/50 border-b border-border">
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
-                  Start Time
-                </th>
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
-                  End Time
-                </th>
+                <SortableHeader label="Name" field="name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Start Time" field="startTime" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} className="text-center" />
+                <SortableHeader label="End Time" field="endTime" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} className="text-center" />
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-blue-600">Created By</span>
