@@ -49,9 +49,12 @@ export class ShiftPhotoReportProcessor {
         });
 
         const photoInputs = rawPhotos.map(p => ({ s3Key: p.s3Key, createdAt: p.createdAt }));
+        console.log(`[ShiftPhotoReportProcessor]   Fetching ${photoInputs.length} photo(s) for shift ${shift.id}...`);
         const fetchedPhotos = await fetchPhotos(photoInputs, AbortSignal.timeout(90_000));
+        console.log(`[ShiftPhotoReportProcessor]   Fetched ${fetchedPhotos.length} photo(s) for shift ${shift.id}`);
 
         // Create report row in pending state
+        console.log(`[ShiftPhotoReportProcessor]   Creating report for shift ${shift.id}...`);
         const report = await createShiftPhotoReport({
           shiftId: shift.id,
           employeeId: shift.employeeId,
@@ -61,6 +64,7 @@ export class ShiftPhotoReportProcessor {
           triggeredBy: 'auto',
           photoCount: fetchedPhotos.length,
         });
+        console.log(`[ShiftPhotoReportProcessor]   Report created for shift ${shift.id}: ${report.reportNumber}`);
 
         const metadata = {
           reportNumber: report.reportNumber,
@@ -74,9 +78,13 @@ export class ShiftPhotoReportProcessor {
           photoCount: fetchedPhotos.length,
         };
 
+        console.log(`[ShiftPhotoReportProcessor]   Generating PDF for shift ${shift.id}...`);
         const pdfBuffer = await generatePdf(metadata, fetchedPhotos, AbortSignal.timeout(120_000));
+        console.log(`[ShiftPhotoReportProcessor]   PDF generated for shift ${shift.id}: ${pdfBuffer.length} bytes`);
+
         const fileName = generateReportFileName(guardName, shift.employee?.employeeNumber ?? '0000', shift.startsAt);
 
+        console.log(`[ShiftPhotoReportProcessor]   Uploading PDF for shift ${shift.id}...`);
         const uploadResult = await uploadFile(pdfBuffer, fileName, 'application/pdf', {
           folder: 'shift-reports',
           siteId: shift.siteId,
@@ -88,6 +96,7 @@ export class ShiftPhotoReportProcessor {
           throw new Error('AWS_S3_BUCKET_NAME is not configured');
         }
 
+        console.log(`[ShiftPhotoReportProcessor]   Uploaded PDF for shift ${shift.id}: ${uploadResult.key}`);
         await markShiftPhotoReportGenerated({
           id: report.id,
           pdfS3Key: uploadResult.key,

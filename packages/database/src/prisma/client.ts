@@ -22,9 +22,10 @@ export const createPrismaClient = (databaseUrl?: string) => {
   const connectionString =
     databaseUrl || process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/postgres';
 
+  const url = new URL(connectionString);
+  url.searchParams.set('statement_timeout', '60000');
   const pool = new Pool({
-    connectionString,
-    statement_timeout: 60_000,
+    connectionString: url.toString(),
     connectionTimeoutMillis: 10_000,
     idleTimeoutMillis: 30_000,
   });

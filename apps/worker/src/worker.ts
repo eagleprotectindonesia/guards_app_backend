@@ -43,6 +43,18 @@ const DAILY_CRON_PATTERN = '0 0 * * *'; // Every day at midnight
 const SHIFT_REMINDER_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const SHIFT_PHOTO_REPORT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 
+process.on('uncaughtException', err => {
+  console.error('[Worker] UNCAUGHT EXCEPTION:', err);
+  process.stderr.write(JSON.stringify({ ts: new Date().toISOString(), event: 'uncaughtException', message: err.message, stack: err.stack }) + '\n');
+  process.exit(1);
+});
+
+process.on('unhandledRejection', reason => {
+  console.error('[Worker] UNHANDLED REJECTION:', reason);
+  process.stderr.write(JSON.stringify({ ts: new Date().toISOString(), event: 'unhandledRejection', reason: String(reason) }) + '\n');
+  process.exit(1);
+});
+
 async function start() {
   console.log('Starting BullMQ workers...');
 
