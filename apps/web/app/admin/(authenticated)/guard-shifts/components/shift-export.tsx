@@ -19,7 +19,7 @@ type ShiftExportProps = {
 export default function ShiftExport({ initialFilters }: ShiftExportProps) {
   const [isExportOpen, setIsExportOpen] = useState(false);
 
-  const performExport = async (startDate: Date, endDate: Date) => {
+  const performExport = async (startDate: Date, endDate: Date, includeDayOffs?: boolean) => {
     try {
       const params = new URLSearchParams();
 
@@ -33,6 +33,10 @@ export default function ShiftExport({ initialFilters }: ShiftExportProps) {
 
       params.set('startDate', format(startDate, 'yyyy-MM-dd'));
       params.set('endDate', format(endDate, 'yyyy-MM-dd'));
+
+      if (includeDayOffs) {
+        params.set('includeDayOffs', 'true');
+      }
 
       const downloadUrl = `/api/admin/shifts/export?${params.toString()}`;
 
