@@ -1,3 +1,4 @@
+export { AbsentGuardsCard } from './absent-guards-card';
 export { ActiveGuardsCard } from './active-guards-card';
 export { ActiveSitesCard } from './active-sites-card';
 export { CriticalAlertsCard } from './critical-alerts-card';
@@ -13,5 +14,4 @@ export { SystemStatusCard } from './system-status-card';
 export { TodaysSummaryCard } from './todays-summary-card';
 export { TotalAttendanceCard } from './total-attendance-card';
 export { TotalIncidentsCard } from './total-incidents-card';
-export { SOSAlertsCard } from './sos-alerts-card';
 

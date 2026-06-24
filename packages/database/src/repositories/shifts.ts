@@ -1795,6 +1795,8 @@ export type ShiftOverviewForDashboard = {
   upcoming: number;
   completed: number;
   absent: number;
+  absentSiteGuards: number;
+  absentPatrol: number;
   carryoverOnDuty: number;
   total: number;
   lastUpdatedAt: string;
@@ -1819,6 +1821,11 @@ export async function getShiftOverviewForDashboard(now: Date): Promise<ShiftOver
         id: true,
         status: true,
         startsAt: true,
+        employee: {
+          select: {
+            jobTitle: true,
+          },
+        },
       },
     }),
     getActiveShiftsForDashboard(now),
@@ -1829,6 +1836,8 @@ export async function getShiftOverviewForDashboard(now: Date): Promise<ShiftOver
   let upcoming = 0;
   let completed = 0;
   let absent = 0;
+  let absentSiteGuards = 0;
+  let absentPatrol = 0;
   for (const shift of todayShifts) {
     if (activeIds.has(shift.id)) {
       continue;
@@ -1843,6 +1852,11 @@ export async function getShiftOverviewForDashboard(now: Date): Promise<ShiftOver
     }
     if (shift.status === 'missed') {
       absent += 1;
+      if (isSecurityStandbyTitle(shift.employee?.jobTitle)) {
+        absentSiteGuards += 1;
+      } else {
+        absentPatrol += 1;
+      }
     }
   }
 
@@ -1874,6 +1888,8 @@ export async function getShiftOverviewForDashboard(now: Date): Promise<ShiftOver
     upcoming,
     completed,
     absent,
+    absentSiteGuards,
+    absentPatrol,
     carryoverOnDuty,
     total: onDuty + upcoming + completed + absent,
     lastUpdatedAt: new Date().toISOString(),

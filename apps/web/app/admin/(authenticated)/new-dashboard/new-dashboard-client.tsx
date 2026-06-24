@@ -10,6 +10,7 @@ import { NewDashboardSkeleton } from '../components/loading/new-dashboard-skelet
 import { useSocketEvent } from '@/hooks/use-socket-event';
 import { PanicAlert } from '@repo/types';
 import {
+  AbsentGuardsCard,
   ActiveGuardsCard,
   ActiveSitesCard,
   CriticalAlertsCard,
@@ -19,7 +20,6 @@ import {
   ShiftOverviewCard,
   TotalAttendanceCard,
   TotalIncidentsCard,
-  SOSAlertsCard,
   MapDetailPanel,
 } from './components';
 import type { SelectedMapItem } from './components';
@@ -61,7 +61,7 @@ export default function NewDashboardClient({ initialSites, initialPanicAlerts = 
 
         <ActiveSitesCard activeSitesCount={activeSitesCount} />
 
-        <SOSAlertsCard count={panicAlerts.length} />
+        <AbsentGuardsCard siteGuardsCount={shiftOverview.data.absentSiteGuards} controlCount={shiftOverview.data.absentPatrol} />
 
         <TotalIncidentsCard panicAlerts={panicAlerts} />
 

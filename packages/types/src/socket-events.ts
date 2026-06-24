@@ -52,6 +52,8 @@ export interface ServerToClientEvents {
     upcoming: number;
     completed: number;
     absent: number;
+    absentSiteGuards: number;
+    absentPatrol: number;
     carryoverOnDuty: number;
     total: number;
     lastUpdatedAt: string;
