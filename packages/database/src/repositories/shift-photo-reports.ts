@@ -76,14 +76,13 @@ export async function claimOnsiteShiftPhotoReport(shiftId: string, now: Date) {
   const failedRetryCutoff = new Date(now.getTime() - 30 * 60_000);
 
   return prisma.$transaction(async tx => {
-    // Supersede any existing pending rows for this shift so they don't orphan
-    await tx.shiftPhotoReport.updateMany({
+    // Delete any existing pending rows for this shift to maintain 1:1
+    const deleted = await tx.shiftPhotoReport.deleteMany({
       where: { shiftId, status: 'pending' },
-      data: {
-        status: ShiftPhotoReportStatus.failed,
-        errorMessage: 'orphaned by supersede',
-      },
     });
+    if (deleted.count > 0) {
+      console.log(`[ShiftPhotoReport] Deleted ${deleted.count} orphaned pending row(s) for shift ${shiftId}`);
+    }
 
     const result = await tx.shift.updateMany({
       where: {
@@ -375,31 +374,29 @@ export async function createRegeneratedShiftPhotoReport(params: { originalReport
 
     const reportNumber = await nextShiftPhotoReportNumber(tx, original.shiftStartsAt);
 
-    const report = await tx.shiftPhotoReport.create({
+    console.log(`[ShiftPhotoReport] Regenerating report ${original.id} for shift ${original.shiftId} (admin ${params.adminId})`);
+
+    const report = await tx.shiftPhotoReport.update({
+      where: { id: original.id },
       data: {
-        shiftId: original.shiftId,
-        employeeId: original.employeeId,
-        clientId: original.clientId,
-        shiftStartsAt: original.shiftStartsAt,
-        shiftEndsAt: original.shiftEndsAt,
+        reportNumber,
+        status: 'pending' as const,
         triggeredBy: 'manual',
         createdByAdminId: params.adminId,
-        status: 'pending' as const,
-        regeneratedFromId: original.id,
-        reportNumber,
+        pdfS3Key: null,
+        pdfS3Bucket: null,
+        pdfSizeBytes: null,
+        generatedAt: null,
+        errorMessage: null,
+        regeneratedFromId: null,
+        photoCount: 0,
       },
-    });
-
-    await tx.shiftPhotoReport.update({
-      where: { id: original.id },
-      data: { status: ShiftPhotoReportStatus.regenerated },
     });
 
     await tx.shift.update({
       where: { id: original.shiftId },
       data: {
         autoPhotoReportStatus: ShiftPhotoReportStatus.pending,
-        lastAutoPhotoReportId: report.id,
         lastAutoPhotoReportAt: new Date(),
       },
     });
