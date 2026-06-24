@@ -41,6 +41,7 @@ export default function RoleList({ roles }: Props) {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-muted/50 border-b border-border">
+              <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
               <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Role Name</th>
               <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 Description
@@ -54,13 +55,14 @@ export default function RoleList({ roles }: Props) {
           <tbody className="divide-y divide-border">
             {roles.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-8 text-center text-muted-foreground">
+                <td colSpan={5} className="py-8 text-center text-muted-foreground">
                   No roles found.
                 </td>
               </tr>
             ) : (
               roles.map(role => (
                 <tr key={role.id} className="hover:bg-muted/30 transition-colors group">
+                  <td className="py-4 px-6 text-sm text-muted-foreground text-center">{roles.indexOf(role) + 1}</td>
                   <td className="py-4 px-6 text-sm font-medium text-foreground">{role.name}</td>
                   <td className="py-4 px-6 text-sm text-muted-foreground">
                     <div className="max-w-[300px] truncate" title={role.description || ''}>

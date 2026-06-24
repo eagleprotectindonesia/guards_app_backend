@@ -89,6 +89,7 @@ export default function ShiftTypeList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
                   Start Time
@@ -110,13 +111,14 @@ export default function ShiftTypeList({
             <tbody className="divide-y divide-border">
               {shiftTypes.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
                     No guard shift types found. Add one to get started.
                   </td>
                 </tr>
               ) : (
                 shiftTypes.map(shiftType => (
                   <tr key={shiftType.id} className="hover:bg-muted/30 transition-colors group">
+                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">{shiftTypes.indexOf(shiftType) + 1 + (page - 1) * perPage}</td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">{shiftType.name}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground font-mono text-center">{shiftType.startTime}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground font-mono text-center">{shiftType.endTime}</td>

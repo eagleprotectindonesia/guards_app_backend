@@ -138,6 +138,7 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Address</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Latitude</th>
@@ -161,13 +162,14 @@ export default function OfficeList({ offices, page, perPage, totalCount }: Offic
             <tbody className="divide-y divide-border">
               {offices.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={10} className="py-8 text-center text-muted-foreground">
                     No offices found. Offices are synced automatically from the external system.
                   </td>
                 </tr>
               ) : (
                 offices.map(office => (
                   <tr key={office.id} className="hover:bg-muted/30 transition-colors group">
+                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">{offices.indexOf(office) + 1 + (page - 1) * perPage}</td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">{office.name}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">{office.address || 'N/A'}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">

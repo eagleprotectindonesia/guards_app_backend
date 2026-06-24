@@ -236,6 +236,7 @@ export default function ShiftList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Shift Type
@@ -272,7 +273,7 @@ export default function ShiftList({
             <tbody className="divide-y divide-border">
               {shifts.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
                     No shifts found. Schedule one to get started.
                   </td>
                 </tr>
@@ -280,6 +281,7 @@ export default function ShiftList({
                 shifts.map(shift => {
                   return (
                     <tr key={shift.id} className="hover:bg-muted/30 transition-colors group">
+                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">{shifts.indexOf(shift) + 1 + (page - 1) * perPage}</td>
                       <td className="py-4 px-6 text-sm font-medium text-foreground">{shift.site.name}</td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">{shift.shiftType.name}</td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">

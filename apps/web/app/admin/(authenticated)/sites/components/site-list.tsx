@@ -149,6 +149,7 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Client Name</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Address</th>
@@ -171,13 +172,14 @@ export default function SiteList({ sites, page, perPage, totalCount }: SiteListP
             <tbody className="divide-y divide-border">
               {sites.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={11} className="py-8 text-center text-muted-foreground">
                     No sites found. Create one to get started.
                   </td>
                 </tr>
               ) : (
                 sites.map(site => (
                   <tr key={site.id} className="hover:bg-muted/30 transition-colors group">
+                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">{sites.indexOf(site) + 1 + (page - 1) * perPage}</td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">{site.name}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground font-mono bg-muted/50 rounded w-fit">
                       {site.clientName || 'N/A'}

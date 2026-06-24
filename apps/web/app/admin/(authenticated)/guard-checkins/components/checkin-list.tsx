@@ -118,6 +118,7 @@ export default function CheckinList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Employee</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Site</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Time</th>
@@ -132,15 +133,14 @@ export default function CheckinList({
             <tbody className="divide-y divide-border">
               {checkins.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                    {' '}
-                    {/* Updated colspan */}
+                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
                     No guard check-ins found.
                   </td>
                 </tr>
               ) : (
                 checkins.map(checkin => (
                   <tr key={checkin.id} className="hover:bg-muted/50 transition-colors group">
+                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">{checkins.indexOf(checkin) + 1 + (page - 1) * perPage}</td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold">

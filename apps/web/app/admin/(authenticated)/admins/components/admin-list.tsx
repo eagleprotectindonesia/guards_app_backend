@@ -72,6 +72,7 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Email</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
@@ -90,7 +91,7 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
             <tbody className="divide-y divide-border">
               {admins.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={8} className="py-8 text-center text-muted-foreground">
                     No admins found. Add one to get started.
                   </td>
                 </tr>
@@ -101,6 +102,7 @@ export default function AdminList({ admins, page, perPage, totalCount }: AdminLi
 
                   return (
                     <tr key={admin.id} className="hover:bg-muted/50 transition-colors group">
+                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">{admins.indexOf(admin) + 1 + (page - 1) * perPage}</td>
                       <td className="py-4 px-6 text-sm font-medium text-foreground">{admin.name}</td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">{admin.email}</td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">
