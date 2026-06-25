@@ -4,6 +4,11 @@ import { ShieldCheck, Users, Building2, Ticket, Activity, UserCheck } from 'luci
 import { cn } from '@repo/shared';
 import { getExecutiveOverviewMetrics } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
+import { WorkforceBreakdownCard } from './components/workforce-breakdown-card';
+import { GuardActivityTodayCard } from './components/guard-activity-today-card';
+import { TodayOperationsSummaryCard } from './components/today-operations-summary-card';
+import { CheckInPerformanceCard } from './components/check-in-performance-card';
+import { PatrolCompletionCard } from './components/patrol-completion-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,7 +47,7 @@ export default async function ExecutiveOverviewPage() {
   await requirePermission('dashboard-executive:view');
 
   const metrics = await getExecutiveOverviewMetrics();
-  const { totalEmployees, activeSites, totalSites, activeGuardsOnDuty, scheduledShiftsToday, openTickets } = metrics;
+  const { totalEmployees, activeSites, totalSites, activeGuardsOnDuty, scheduledShiftsToday, openTickets, workforceBreakdown, guardActivityToday, todayOperationsSummary, patrolCompletion } = metrics;
 
   return (
     <div className="space-y-6">
@@ -187,6 +192,14 @@ export default async function ExecutiveOverviewPage() {
             <span className="text-muted-foreground">(30 Days)</span>
           </div>
         </Card>
+      </div>
+
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <WorkforceBreakdownCard {...workforceBreakdown} />
+        <GuardActivityTodayCard {...guardActivityToday} />
+        <TodayOperationsSummaryCard {...todayOperationsSummary} />
+        <CheckInPerformanceCard {...guardActivityToday} />
+        <PatrolCompletionCard {...patrolCompletion} />
       </div>
     </div>
   );
