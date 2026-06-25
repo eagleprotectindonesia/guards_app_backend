@@ -76,8 +76,11 @@ export function SitesMapCard({
     const map = new Map<string, MapSite['markerStatus']>();
 
     for (const { site, shifts } of activeSites) {
-      const hasLate = shifts.some(s => s.status === 'in_progress' && !s.attendance);
-      const hasAttended = shifts.some(s => s.status === 'in_progress' && !!s.attendance);
+      const hasLate = shifts.some(s => {
+        const startedAt = new Date(s.startsAt).getTime();
+        return !s.attendance && startedAt <= now;
+      });
+      const hasAttended = shifts.some(s => !!s.attendance);
       const hasMissing = shifts.some(s => missedShiftIds.has(s.id));
 
       if (hasLate) {
