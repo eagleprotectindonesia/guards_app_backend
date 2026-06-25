@@ -1351,7 +1351,9 @@ export async function getExportShiftsBatch(params: { where: Prisma.ShiftWhereInp
 
 export async function getActiveShifts(now: Date) {
   const LOOKAHEAD_MS = 10 * 60 * 1000; // 10 minutes
+  const MISSED_WINDOW_MS = 8 * 60 * 60 * 1000; // 8 hours
   const lookaheadDate = new Date(now.getTime() + LOOKAHEAD_MS);
+  const missedCutoff = new Date(now.getTime() - MISSED_WINDOW_MS);
   const nowMs = now.getTime();
 
   const shifts = await prisma.shift.findMany({
@@ -1367,6 +1369,10 @@ export async function getActiveShifts(now: Date) {
         {
           status: 'in_progress',
         },
+        {
+          status: 'missed',
+          endsAt: { gte: missedCutoff },
+        },
       ],
     },
     include: {
@@ -1379,6 +1385,7 @@ export async function getActiveShifts(now: Date) {
 
   return shifts.filter(shift => {
     if (shift.status === 'scheduled') return true;
+    if (shift.status === 'missed') return true;
     if (shift.status !== 'in_progress') return false;
     const cutoffMs = shift.endsAt.getTime() + shift.graceMinutes * 60000;
     return nowMs < cutoffMs;

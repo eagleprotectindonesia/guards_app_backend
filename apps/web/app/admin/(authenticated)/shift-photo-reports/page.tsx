@@ -5,6 +5,7 @@ import {
   listShiftPhotoReportsPaginated,
   getActiveEmployeesSummary,
   getActiveSites,
+  getShiftPhotoReportDownloadCountsByReportIds,
 } from '@repo/database';
 import { getCachedPresignedDownloadUrl } from '@repo/storage';
 import ShiftPhotoReportsList from './components/shift-photo-reports-list';
@@ -48,10 +49,16 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
   const employees = await getActiveEmployeesSummary('on_site');
   const sites = (await getActiveSites()).map(s => ({ id: s.id, name: s.name }));
 
+  const reportIds = reports.map(r => r.id);
+  const downloadCounts = reportIds.length > 0
+    ? await getShiftPhotoReportDownloadCountsByReportIds(reportIds)
+    : {} as Record<string, number>;
+
   const enriched = await Promise.all(
     reports.map(async report => ({
       ...report,
       downloadUrl: report.pdfS3Key ? await getCachedPresignedDownloadUrl(report.pdfS3Key) : null,
+      downloadCount: downloadCounts[report.id] ?? 0,
     }))
   );
 
