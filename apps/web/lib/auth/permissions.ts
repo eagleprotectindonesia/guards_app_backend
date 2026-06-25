@@ -23,7 +23,7 @@ export const RESOURCES = [
   'dashboard-guard',
   'dashboard-hr',
   'dashboard-client',
-  'dashboard-system',
+  'dashboard-executive',
   'departments',
   'designations',
   'chat',
@@ -176,8 +176,8 @@ export const PERMISSIONS = {
   CLIENT_DASHBOARD: {
     VIEW: 'dashboard-client:view',
   },
-  SYSTEM_DASHBOARD: {
-    VIEW: 'dashboard-system:view',
+  EXECUTIVE_DASHBOARD: {
+    VIEW: 'dashboard-executive:view',
   },
   SHIFT_PHOTO_REPORTS: {
     VIEW: 'shift-photo-reports:view',

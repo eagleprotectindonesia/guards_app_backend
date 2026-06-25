@@ -1,5 +1,5 @@
 import { type ComponentType } from 'react';
-import { Radio, Ticket, Users, Building2, FileSearch, Activity } from 'lucide-react';
+import { Radio, Ticket, Users, Building2, LineChart, Activity } from 'lucide-react';
 import { type AdminTabSlug } from '@/lib/admin-tab-routing';
 import { PermissionCode } from '@/lib/auth/permissions';
 
@@ -9,7 +9,7 @@ export const TAB_PERMISSIONS: Record<AdminTabSlug, PermissionCode> = {
   ticket: 'tickets:view',
   workforce: 'dashboard-hr:view',
   client: 'dashboard-client:view',
-  system: 'dashboard-system:view',
+  executive: 'dashboard-executive:view',
 };
 
 export const DASHBOARD_TABS = [
@@ -64,14 +64,14 @@ export const DASHBOARD_TABS = [
     activeBorder: 'border-blue-500/50',
   },
   {
-    id: 'system',
-    tab: 'system' as AdminTabSlug,
-    title: 'SYSTEM & AUDIT',
-    subtitle: 'System Health & Logs',
-    icon: FileSearch,
-    color: 'text-orange-500',
-    activeBg: 'bg-orange-500/10',
-    activeBorder: 'border-orange-500/50',
+    id: 'executive',
+    tab: 'executive' as AdminTabSlug,
+    title: 'EXECUTIVE OVERVIEW',
+    subtitle: 'Business Summary',
+    icon: LineChart,
+    color: 'text-amber-500',
+    activeBg: 'bg-amber-500/10',
+    activeBorder: 'border-amber-500/50',
   },
 ] as const satisfies ReadonlyArray<{
   id: string;
