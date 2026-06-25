@@ -3,6 +3,7 @@
 import {
   createOfficeShiftTypeWithChangelog,
   deleteOfficeShiftTypeWithChangelog,
+  getAllOfficeShiftTypes,
   updateFutureOfficeShifts,
   updateOfficeShiftTypeWithChangelog,
 } from '@repo/database';
@@ -14,6 +15,11 @@ import {
 import { revalidatePath } from 'next/cache';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { ActionState } from '@/types/actions';
+import { serialize } from '@/lib/server-utils';
+
+export async function getAllOfficeShiftTypesForExport() {
+  return serialize(await getAllOfficeShiftTypes());
+}
 
 export async function createOfficeShiftType(
   prevState: ActionState<CreateOfficeShiftTypeInput>,
