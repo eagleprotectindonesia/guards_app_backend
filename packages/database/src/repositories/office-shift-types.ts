@@ -29,6 +29,19 @@ export async function getOfficeShiftTypeById(id: string) {
   });
 }
 
+export async function getAllOfficeShiftTypes(
+  orderBy: Prisma.OfficeShiftTypeOrderByWithRelationInput = { name: 'asc' }
+) {
+  return prisma.officeShiftType.findMany({
+    where: { deletedAt: null },
+    orderBy,
+    include: {
+      lastUpdatedBy: { select: { name: true } },
+      createdBy: { select: { name: true } },
+    },
+  });
+}
+
 export async function getPaginatedOfficeShiftTypes(params: {
   where?: Prisma.OfficeShiftTypeWhereInput;
   orderBy: Prisma.OfficeShiftTypeOrderByWithRelationInput;

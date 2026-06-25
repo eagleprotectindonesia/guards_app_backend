@@ -94,13 +94,13 @@ export default function OnsiteDayOffList({ startDate, endDate, employeeId, emplo
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Onsite Employee Day Offs</h1>
+          <h1 className="text-2xl font-bold text-foreground">Onsite Employee Days Off</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Onsite employees scheduled for day off within the selected date range.
           </p>
         </div>
         <div className="flex gap-2">
-          <OfficeShiftExport endpoint="/api/admin/shifts/day-offs/export" title="Export Employee Day Offs" />
+          <OfficeShiftExport endpoint="/api/admin/shifts/day-offs/export" title="Export Employee Days Off" />
           <button
             onClick={() => setIsFilterOpen(true)}
             className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
@@ -117,7 +117,7 @@ export default function OnsiteDayOffList({ startDate, endDate, employeeId, emplo
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         {dayOffs.length === 0 ? (
           <div className="p-6 text-center text-muted-foreground">
-            <p>No onsite day offs found for the selected date range.</p>
+            <p>No onsite days off found for the selected date range.</p>
           </div>
         ) : (
           <div className="divide-y divide-border">

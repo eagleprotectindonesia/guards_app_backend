@@ -4,12 +4,18 @@ import {
   createShiftTypeWithChangelog,
   updateShiftTypeWithChangelog,
   deleteShiftTypeWithChangelog,
+  getAllShiftTypes,
   updateFutureShifts,
 } from '@repo/database';
 import { createShiftTypeSchema, CreateShiftTypeInput, UpdateShiftTypeInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { ActionState } from '@/types/actions';
+import { serialize } from '@/lib/server-utils';
+
+export async function getAllShiftTypesForExport() {
+  return serialize(await getAllShiftTypes());
+}
 
 export async function createShiftType(
   prevState: ActionState<CreateShiftTypeInput>,

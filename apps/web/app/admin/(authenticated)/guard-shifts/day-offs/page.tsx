@@ -11,7 +11,7 @@ import OnsiteDayOffList from '../components/onsite-day-off-list';
 import { AdminListSkeleton } from '../../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
-  title: 'Onsite Employee Day Offs',
+  title: 'Onsite Employee Days Off',
 };
 
 export const dynamic = 'force-dynamic';

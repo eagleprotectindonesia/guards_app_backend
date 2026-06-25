@@ -96,7 +96,7 @@ export default function EmployeeDayOffList({ startDate, endDate, employeeId, emp
       {/* Header with filter button */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Employee Day Offs</h1>
+          <h1 className="text-2xl font-bold text-foreground">Employee Days Off</h1>
           <p className="text-sm text-muted-foreground mt-1">
             Employees scheduled for day off within the selected date range.
           </p>
@@ -104,7 +104,7 @@ export default function EmployeeDayOffList({ startDate, endDate, employeeId, emp
         <div className="flex gap-2">
           <OfficeShiftExport
             endpoint="/api/admin/office-shifts/day-offs/export"
-            title="Export Employee Day Offs"
+            title="Export Employee Days Off"
           />
           <button
             onClick={() => setIsFilterOpen(true)}
@@ -137,10 +137,10 @@ export default function EmployeeDayOffList({ startDate, endDate, employeeId, emp
         <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-border">
           <p className="text-sm text-muted-foreground">
             {startDate && endDate
-              ? `Showing day offs from ${format(new Date(startDate), 'MMM d, yyyy')} to ${format(new Date(endDate), 'MMM d, yyyy')}`
+              ? `Showing days off from ${format(new Date(startDate), 'MMM d, yyyy')} to ${format(new Date(endDate), 'MMM d, yyyy')}`
               : startDate
-                ? `Showing day offs from ${format(new Date(startDate), 'MMM d, yyyy')}`
-                : 'Showing all day offs'}
+                ? `Showing days off from ${format(new Date(startDate), 'MMM d, yyyy')}`
+                : 'Showing all days off'}
             {employeeId &&
               (() => {
                 const emp = employees.find(e => e.id === employeeId);
@@ -153,7 +153,7 @@ export default function EmployeeDayOffList({ startDate, endDate, employeeId, emp
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         {dayOffs.length === 0 ? (
           <div className="p-6 text-center text-muted-foreground">
-            <p>No employee day offs found for the selected date range.</p>
+            <p>No employee days off found for the selected date range.</p>
           </div>
         ) : (
           <div className="divide-y divide-border">

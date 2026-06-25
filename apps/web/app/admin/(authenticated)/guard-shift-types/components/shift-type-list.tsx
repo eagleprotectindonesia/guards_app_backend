@@ -2,13 +2,14 @@
 
 import { useState, useTransition } from 'react';
 import { SerializedShiftTypeWithAdminInfoDto } from '@/types/shift-types';
-import { deleteShiftType } from '../actions';
+import { deleteShiftType, getAllShiftTypesForExport } from '../actions';
 import ConfirmDialog from '../../components/confirm-dialog';
 import { EditButton, DeleteButton } from '../../components/action-buttons';
 import toast from 'react-hot-toast';
 import PaginationNav from '../../components/pagination-nav';
 import Link from 'next/link';
-import { History } from 'lucide-react';
+import { History, Download } from 'lucide-react';
+import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
 import { useAdminRouter } from '../../context/admin-router';
@@ -37,6 +38,7 @@ export default function ShiftTypeList({
   const { hasPermission } = useSession();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isExporting, setIsExporting] = useState(false);
 
   const canCreate = hasPermission(PERMISSIONS.SHIFT_TYPES.CREATE);
   const canEdit = hasPermission(PERMISSIONS.SHIFT_TYPES.EDIT);
@@ -74,6 +76,52 @@ export default function ShiftTypeList({
     });
   };
 
+  const handleExportCSV = async () => {
+    setIsExporting(true);
+    try {
+      const types = await getAllShiftTypesForExport();
+
+      const headers = [
+        'Name',
+        'Start Time',
+        'End Time',
+        'Created By',
+        'Created At',
+        'Last Updated By',
+        'Last Updated At',
+      ];
+      const csvContent = [
+        headers.join(','),
+        ...types.map(t => {
+          return [
+            `"${t.name}"`,
+            `"${t.startTime}"`,
+            `"${t.endTime}"`,
+            `"${t.createdBy?.name || 'System'}"`,
+            `"${format(new Date(t.createdAt), 'yyyy/MM/dd HH:mm')}"`,
+            `"${t.lastUpdatedBy?.name || ''}"`,
+            `"${format(new Date(t.updatedAt), 'yyyy/MM/dd HH:mm')}"`,
+          ].join(',');
+        }),
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `guard-shift-types_export_${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Failed to export guard shift types:', error);
+      toast.error('Failed to export guard shift types.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div>
       {/* Header Section */}
@@ -92,6 +140,14 @@ export default function ShiftTypeList({
               Audit Log
             </Link>
           )}
+          <button
+            onClick={handleExportCSV}
+            disabled={isExporting}
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted transition-colors shadow-sm w-full md:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {isExporting ? 'Exporting…' : 'Download CSV'}
+          </button>
           {canCreate && (
             <Link
               href="/admin/guard-shift-types/create"

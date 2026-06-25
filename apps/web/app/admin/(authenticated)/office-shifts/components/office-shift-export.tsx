@@ -19,11 +19,15 @@ type OfficeShiftExportProps = {
 export default function OfficeShiftExport({ initialStartDate, initialEndDate, endpoint, title }: OfficeShiftExportProps) {
   const [isExportOpen, setIsExportOpen] = useState(false);
 
-  const handleExport = (startDate: Date, endDate: Date) => {
+  const handleExport = (startDate: Date, endDate: Date, includeDayOffs?: boolean) => {
     try {
       const params = new URLSearchParams();
       params.set('startDate', format(startDate, 'yyyy-MM-dd'));
       params.set('endDate', format(endDate, 'yyyy-MM-dd'));
+
+      if (includeDayOffs) {
+        params.set('includeDayOffs', 'true');
+      }
 
       window.location.href = `${endpoint}?${params.toString()}`;
       toast.success('Export started');
@@ -50,6 +54,7 @@ export default function OfficeShiftExport({ initialStartDate, initialEndDate, en
         initialStartDate={initialStartDate}
         initialEndDate={initialEndDate}
         onExport={handleExport}
+        showIncludeDayOffs={endpoint === '/api/admin/office-shifts/export'}
       />
     </>
   );

@@ -79,7 +79,7 @@ export default function ShiftExportModal({ isOpen, onClose, onExport }: ShiftExp
               onCheckedChange={(checked) => setIncludeDayOffs(checked === true)}
             />
             <Label htmlFor="include-dayoffs" className="text-sm font-normal cursor-pointer">
-              Include day offs
+              Include days off
             </Label>
           </div>
         </div>
