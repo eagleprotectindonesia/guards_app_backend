@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Pencil, MapPin, ShieldCheck, ShieldAlert, Clock, ShieldOff, Building2, MessageSquare, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { PanicAlert } from '@repo/types';
 import { useSession } from '../../context/session-context';
-import { MapSite } from './sites-map-view';
+import { useAlerts } from '../../context/alert-context';
+import { MapSite, PopupShiftInfo } from './sites-map-view';
 
 export type SelectedMapItem =
   | { kind: 'site'; site: MapSite; editHref: string | null }
@@ -94,9 +95,35 @@ function SiteDetailContent({ site, editHref, onNavigate, onOpenChat, showExterna
   const config = STATUS_CONFIG[site.markerStatus];
   const StatusIcon = config.icon;
   const { hasPermission } = useSession();
+  const { missedShiftIds } = useAlerts();
   const canCreateChat = hasPermission(PERMISSIONS.CHAT.CREATE);
 
-  const firstShift = site.shifts.length > 0 ? site.shifts[0] : null;
+  const [remoteMissedShifts, setRemoteMissedShifts] = useState<PopupShiftInfo[]>([]);
+
+  useEffect(() => {
+    if (site.markerStatus !== 'missing' || site.shifts.length > 0) return;
+    let cancelled = false;
+    fetch(`/api/admin/sites/${site.id}/missed-shifts`)
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled) setRemoteMissedShifts(data.shifts ?? []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [site.id, site.markerStatus, site.shifts.length]);
+
+  const isMissed = (s: PopupShiftInfo) => missedShiftIds.has(s.shiftId) || s.shiftStatus === 'missed';
+
+  const displayShifts = site.markerStatus !== 'missing'
+    ? site.shifts
+    : [...site.shifts, ...remoteMissedShifts.filter(r => !site.shifts.some(c => c.shiftId === r.shiftId))]
+        .sort((a, b) => {
+          const aMissed = isMissed(a);
+          const bMissed = isMissed(b);
+          return aMissed && !bMissed ? -1 : !aMissed && bMissed ? 1 : 0;
+        });
+
+  const firstShift = displayShifts.length > 0 ? displayShifts[0] : null;
   const firstUpcoming = site.upcoming.length > 0 ? site.upcoming[0] : null;
 
   const shiftTimeRange = firstShift
@@ -107,7 +134,7 @@ function SiteDetailContent({ site, editHref, onNavigate, onOpenChat, showExterna
 
   const showGuards =
     (site.markerStatus === 'active' || site.markerStatus === 'late' || site.markerStatus === 'missing') &&
-    site.shifts.length > 0;
+    displayShifts.length > 0;
 
   const showUpcoming = site.markerStatus === 'upcoming' && site.upcoming.length > 0;
 
@@ -167,12 +194,15 @@ function SiteDetailContent({ site, editHref, onNavigate, onOpenChat, showExterna
           </p>
           <div className="space-y-2">
             {showGuards &&
-              site.shifts.map((s, i) => (
-                <div key={i} className="rounded-lg bg-muted/20 p-2.5 space-y-1.5">
+              displayShifts.map((s, i) => {
+                const missed = isMissed(s);
+                return (
+                <div key={s.shiftId || i} className="rounded-lg bg-muted/20 p-2.5 space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-semibold text-sm text-foreground">
                       {s.employeeName}
                       {s.employeeNumber && <span className="font-normal text-muted-foreground ml-1.5">{s.employeeNumber}</span>}
+                      {missed && <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wider text-red-500 bg-red-500/10 px-1 py-0.5 rounded">Missed</span>}
                     </p>
                     {canCreateChat && s.employeeId && (
                       <button
@@ -208,7 +238,8 @@ function SiteDetailContent({ site, editHref, onNavigate, onOpenChat, showExterna
                     </span>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             {showUpcoming &&
               site.upcoming.map((u, i) => (
                 <div key={i} className="rounded-lg bg-muted/20 p-2.5 space-y-1.5">
@@ -285,6 +316,10 @@ function SiteDetailContent({ site, editHref, onNavigate, onOpenChat, showExterna
         </div>
       )}
 
+      {site.markerStatus === 'missing' && site.shifts.length === 0 && remoteMissedShifts.length === 0 && (
+        <p className="text-xs text-muted-foreground italic">Loading missed shifts...</p>
+      )}
+
       {!showGuards && !showUpcoming && !showNextShift && site.markerStatus === 'none' && (
         <p className="text-xs text-muted-foreground italic">No scheduled shifts in the next 24 hours.</p>
       )}
@@ -357,7 +392,7 @@ export function MapDetailPanel({ selectedItem, onClose, onNavigate, onOpenChat, 
       </div>
 
       {selectedItem.kind === 'site' ? (
-        <SiteDetailContent site={selectedItem.site} editHref={selectedItem.editHref} onNavigate={onNavigate} onOpenChat={onOpenChat} showExternalHint={showExternalHint} />
+        <SiteDetailContent key={selectedItem.site.id} site={selectedItem.site} editHref={selectedItem.editHref} onNavigate={onNavigate} onOpenChat={onOpenChat} showExternalHint={showExternalHint} />
       ) : (
         <PanicDetailContent panic={selectedItem.panic} />
       )}

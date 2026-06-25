@@ -123,6 +123,8 @@ export function SitesMapCard({
 
     for (const { site, shifts } of activeSites) {
       const infos: PopupShiftInfo[] = shifts.map(s => ({
+        shiftId: s.id,
+        shiftStatus: s.status,
         employeeId: s.employee?.id ?? null,
         employeeName: s.employee?.nickname ?? s.employee?.fullName?.split(' ')[0] ?? 'Unknown',
         employeeNumber: s.employee?.employeeNumber ?? null,
