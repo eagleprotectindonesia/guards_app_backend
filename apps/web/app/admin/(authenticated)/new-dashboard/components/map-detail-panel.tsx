@@ -67,12 +67,12 @@ const STATUS_CONFIG: Record<MapSite['markerStatus'], StatusConfig> = {
     sectionTitle: 'GUARDS ON SHIFT',
     icon: ShieldAlert,
   },
-  pending: {
-    label: 'PENDING',
-    badgeClass: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
-    iconClass: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
-    sectionTitle: 'GUARDS ON SHIFT',
-    icon: ShieldAlert,
+  missing: {
+    label: 'MISSING',
+    badgeClass: 'bg-red-500/15 text-red-600 dark:text-red-400',
+    iconClass: 'bg-red-500/10 text-red-600 dark:text-red-400',
+    sectionTitle: 'MISSED SHIFTS',
+    icon: ShieldOff,
   },
   upcoming: {
     label: 'UPCOMING',
@@ -106,7 +106,7 @@ function SiteDetailContent({ site, editHref, onNavigate, onOpenChat, showExterna
       : '—';
 
   const showGuards =
-    (site.markerStatus === 'active' || site.markerStatus === 'late' || site.markerStatus === 'pending') &&
+    (site.markerStatus === 'active' || site.markerStatus === 'late' || site.markerStatus === 'missing') &&
     site.shifts.length > 0;
 
   const showUpcoming = site.markerStatus === 'upcoming' && site.upcoming.length > 0;

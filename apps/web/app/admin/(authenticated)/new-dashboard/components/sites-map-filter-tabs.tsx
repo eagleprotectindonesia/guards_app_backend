@@ -2,12 +2,13 @@
 
 import { Button } from '@/components/ui/button';
 
-export type MapFilter = 'all' | 'active' | 'late' | 'sos' | 'none' | 'upcoming';
+export type MapFilter = 'all' | 'active' | 'late' | 'missing' | 'sos' | 'none' | 'upcoming';
 
 export const FILTER_TABS: { key: MapFilter; label: string; color: string }[] = [
   { key: 'all', label: 'All', color: '#94a3b8' },
   { key: 'active', label: 'Active Now', color: '#22c55e' },
-  { key: 'late', label: 'Late/Missing', color: '#f97316' },
+  { key: 'late', label: 'Late', color: '#f97316' },
+  { key: 'missing', label: 'Missing', color: '#dc2626' },
   { key: 'sos', label: 'SOS', color: '#ef4444' },
   { key: 'none', label: 'No shift active', color: '#6b7280' },
   { key: 'upcoming', label: 'Upcoming', color: '#eab308' },

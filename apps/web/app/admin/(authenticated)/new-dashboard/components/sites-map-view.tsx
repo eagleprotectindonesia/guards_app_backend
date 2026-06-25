@@ -39,7 +39,7 @@ export type MapSite = {
   latitude: number;
   longitude: number;
   status: boolean | null;
-  markerStatus: 'none' | 'pending' | 'upcoming' | 'active' | 'late';
+  markerStatus: 'none' | 'upcoming' | 'active' | 'late' | 'missing';
   shifts: PopupShiftInfo[];
   upcoming: PopupUpcomingInfo[];
 };
@@ -55,17 +55,17 @@ const DARK_MAP_STYLE_URL = (process.env.NEXT_PUBLIC_MAPLIBRE_STYLE_URL_DARK ?? L
 
 const MARKER_COLORS: Record<MapSite['markerStatus'], string> = {
   none: '#6b7280',
-  pending: '#f97316',
   upcoming: '#eab308',
   active: '#22c55e',
   late: '#f97316',
+  missing: '#dc2626',
 };
 
-const MARKER_ICONS: Record<'active' | 'upcoming' | 'late' | 'pending', string> = {
+const MARKER_ICONS: Record<'active' | 'upcoming' | 'late' | 'missing', string> = {
   active: 'check',
   upcoming: 'clock',
   late: 'alert',
-  pending: 'alert',
+  missing: 'x',
 };
 
 const ICON_SVG: Record<string, string> = {
@@ -73,6 +73,7 @@ const ICON_SVG: Record<string, string> = {
   clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   alert:
     '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  x: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
   pin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
 };
 

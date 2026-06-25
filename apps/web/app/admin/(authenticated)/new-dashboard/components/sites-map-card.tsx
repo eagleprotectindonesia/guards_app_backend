@@ -75,19 +75,18 @@ export function SitesMapCard({
   const siteStatusMap = useMemo(() => {
     const map = new Map<string, MapSite['markerStatus']>();
 
-    const alertedSiteIds = new Set<string>();
-    for (const alert of alerts) {
-      if (
-        alert.severity === 'critical' &&
-        (alert.reason === 'missed_checkin' || alert.reason === 'missed_attendance')
-      ) {
-        const id = alert.siteId ?? alert.site?.id ?? alert.shift?.siteId;
-        if (id) alertedSiteIds.add(id);
-      }
-    }
+    for (const { site, shifts } of activeSites) {
+      const hasAttended = shifts.some(s => s.status === 'in_progress' && !!s.attendance);
+      const hasLate = shifts.some(s => s.status === 'in_progress' && !s.attendance);
+      const hasMissing = shifts.some(s => s.status === 'missed' && !s.attendance);
 
-    for (const { site } of activeSites) {
-      map.set(site.id, alertedSiteIds.has(site.id) ? 'late' : 'active');
+      if (hasAttended) {
+        map.set(site.id, 'active');
+      } else if (hasLate) {
+        map.set(site.id, 'late');
+      } else if (hasMissing) {
+        map.set(site.id, 'missing');
+      }
     }
 
     const UPCOMING_WINDOW_MS = 30 * 60 * 1000;
@@ -101,7 +100,7 @@ export function SitesMapCard({
     }
 
     return map;
-  }, [activeSites, alerts, upcomingShifts, now]);
+  }, [activeSites, upcomingShifts, now]);
 
   const popupDataBySiteId = useMemo(() => {
     const data = new Map<string, { shifts: PopupShiftInfo[]; upcoming: PopupUpcomingInfo[] }>();
@@ -187,7 +186,8 @@ export function SitesMapCard({
     () => ({
       all: mappableSites.length + mappablePanics.length,
       active: mappableSites.filter(s => s.markerStatus === 'active').length,
-      late: mappableSites.filter(s => s.markerStatus === 'late' || s.markerStatus === 'pending').length,
+      late: mappableSites.filter(s => s.markerStatus === 'late').length,
+      missing: mappableSites.filter(s => s.markerStatus === 'missing').length,
       sos: mappablePanics.length,
       none: mappableSites.filter(s => s.markerStatus === 'none').length,
       upcoming: mappableSites.filter(s => s.markerStatus === 'upcoming').length,
@@ -198,9 +198,7 @@ export function SitesMapCard({
   const { visibleSites, visiblePanics } = useMemo(() => {
     if (filter === 'all') return { visibleSites: mappableSites, visiblePanics: mappablePanics };
     if (filter === 'sos') return { visibleSites: [], visiblePanics: mappablePanics };
-    const filtered = mappableSites.filter(
-      s => s.markerStatus === filter || (filter === 'late' && s.markerStatus === 'pending')
-    );
+    const filtered = mappableSites.filter(s => s.markerStatus === filter);
     return { visibleSites: filtered, visiblePanics: [] };
   }, [filter, mappableSites, mappablePanics]);
 
