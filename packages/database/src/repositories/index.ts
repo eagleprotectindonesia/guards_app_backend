@@ -39,4 +39,5 @@ export * from './office-work-schedules';
 export * from './tickets';
 export * from './hr-activities';
 export * from './changelogs';
+export * from './shift-photo-report-downloads';
 

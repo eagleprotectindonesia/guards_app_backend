@@ -4,14 +4,17 @@ import { useState, useEffect } from 'react';
 import type { Serialized } from '@/lib/server-utils';
 import { useSearchParams } from 'next/navigation';
 import { useAdminRouter } from '../../context/admin-router';
+import { useSession } from '../../context/session-context';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 import PaginationNav from '../../components/pagination-nav';
 import Select from '../../components/select';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format, parseISO } from 'date-fns';
-import { Download, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Download, History, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import SortableHeader from '@/components/sortable-header';
 import toast from 'react-hot-toast';
+import Link from 'next/link';
 import { buildShiftReportsZip } from '@/lib/shift-photo-reports/bulk-zip';
 
 type ReportWithDownload = {
@@ -34,6 +37,7 @@ type ReportWithDownload = {
     site: { id: string; name: string; clientName: string | null } | null;
   } | null;
   downloadUrl: string | null;
+  downloadCount: number;
 };
 
 type ShiftPhotoReportsListProps = {
@@ -78,6 +82,9 @@ export default function ShiftPhotoReportsList({
   const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
   const [filterSiteId, setFilterSiteId] = useState(siteId || '');
   const [filterStatus, setFilterStatus] = useState(status || '');
+
+  const { hasPermission } = useSession();
+  const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isBulkDownloading, setIsBulkDownloading] = useState(false);
@@ -219,8 +226,17 @@ export default function ShiftPhotoReportsList({
     return `shift_report_${report.reportNumber ?? report.id}.pdf`;
   };
 
+  const logDownload = (reportId: string, mode: 'single' | 'bulk') => {
+    fetch(`/api/admin/shift-photo-reports/${reportId}/download-log`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode }),
+    }).catch(() => {});
+  };
+
   const handleSingleDownload = async (report: ReportWithDownload) => {
     if (!report.downloadUrl) return;
+    logDownload(report.id, 'single');
     try {
       const response = await fetch(report.downloadUrl);
       if (!response.ok) throw new Error(`Failed to fetch`);
@@ -243,6 +259,7 @@ export default function ShiftPhotoReportsList({
     setIsBulkDownloading(true);
     try {
       const selected = reports.filter(r => selectedIds.has(r.id) && r.downloadUrl);
+      selected.forEach(r => logDownload(r.id, 'bulk'));
       const blob = await buildShiftReportsZip(selected);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -273,24 +290,35 @@ export default function ShiftPhotoReportsList({
               : 'Review and manage shift photo report generation.'}
           </p>
         </div>
-        {selectedIds.size > 0 && (
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className="text-sm text-muted-foreground hover:text-foreground underline transition-colors"
+        <div className="flex items-center gap-3">
+          {selectedIds.size === 0 && canViewAudit && (
+            <Link
+              href="/admin/shift-photo-reports/downloads"
+              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card text-foreground text-sm font-semibold rounded-lg border border-border hover:bg-muted transition-colors shadow-sm"
             >
-              Clear
-            </button>
-            <button
-              onClick={handleBulkDownload}
-              disabled={isBulkDownloading}
-              className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30 disabled:opacity-50"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              {isBulkDownloading ? 'Zipping\u2026' : `Download Selected (${selectedIds.size})`}
-            </button>
-          </div>
-        )}
+              <History className="mr-2 h-4 w-4" />
+              Audit Log
+            </Link>
+          )}
+          {selectedIds.size > 0 && (
+            <>
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="text-sm text-muted-foreground hover:text-foreground underline transition-colors"
+              >
+                Clear
+              </button>
+              <button
+                onClick={handleBulkDownload}
+                disabled={isBulkDownloading}
+                className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30 disabled:opacity-50"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {isBulkDownloading ? 'Zipping\u2026' : `Download Selected (${selectedIds.size})`}
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Filters Card */}
@@ -431,6 +459,9 @@ export default function ShiftPhotoReportsList({
                   currentSortOrder={sortOrder}
                   onSort={handleSort}
                 />
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
+                  Downloads
+                </th>
                 <th
                   className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right cursor-pointer select-none"
                   onClick={() => handleSort('status')}
@@ -463,7 +494,7 @@ export default function ShiftPhotoReportsList({
             <tbody className="divide-y divide-border">
               {reports.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={10} className="py-8 text-center text-muted-foreground">
                     No shift photo reports found.
                   </td>
                 </tr>
@@ -509,6 +540,13 @@ export default function ShiftPhotoReportsList({
                       {report.generatedAt
                         ? format(new Date(report.generatedAt), 'yyyy/MM/dd HH:mm')
                         : '—'}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-center text-muted-foreground">
+                      {report.downloadCount > 0 ? (
+                        <span className="font-semibold text-foreground">{report.downloadCount}</span>
+                      ) : (
+                        <span className="text-muted-foreground/50">0</span>
+                      )}
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-3">

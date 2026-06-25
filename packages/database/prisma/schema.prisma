@@ -216,6 +216,7 @@ model Admin {
   ticketMessages                               TicketMessage[]
   uploadedTicketAttachments                    TicketAttachment[]                     @relation("TicketUploadedBy")
   ticketHistoryActions                         TicketHistory[]
+  reportDownloads                              ShiftPhotoReportDownload[]
 
   @@index([deletedAt])
   @@map("admins")
@@ -782,6 +783,11 @@ enum ShiftPhotoReportStatus {
   regenerated
 }
 
+enum ShiftPhotoReportDownloadMode {
+  single
+  bulk
+}
+
 enum CheckInStatus {
   on_time
   late
@@ -837,12 +843,35 @@ model ShiftPhotoReport {
   employee        Employee           @relation(fields: [employeeId], references: [id])
   regeneratedFrom ShiftPhotoReport?  @relation("ReportRegeneration", fields: [regeneratedFromId], references: [id])
   regenerations   ShiftPhotoReport[] @relation("ReportRegeneration")
+  downloads       ShiftPhotoReportDownload[]
 
   @@index([shiftId, createdAt])
   @@index([employeeId, createdAt])
   @@index([status])
   @@index([regeneratedFromId])
   @@map("shift_photo_reports")
+}
+
+model ShiftPhotoReportDownload {
+  id           String                         @id @default(uuid())
+  reportId     String                         @map("report_id")
+  reportNumber String?                        @map("report_number")
+  shiftId      String                         @map("shift_id")
+  adminId      String                         @map("admin_id")
+  mode         ShiftPhotoReportDownloadMode
+  userAgent    String?                        @map("user_agent") @db.Text
+  ipAddress    String?                        @map("ip_address")
+  downloadedAt DateTime                       @default(now()) @map("downloaded_at") @db.Timestamptz(6)
+  createdAt    DateTime                       @default(now()) @map("created_at")
+
+  report ShiftPhotoReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  admin  Admin            @relation(fields: [adminId], references: [id])
+
+  @@index([reportId, downloadedAt])
+  @@index([adminId, downloadedAt])
+  @@index([downloadedAt])
+  @@index([shiftId])
+  @@map("shift_photo_report_downloads")
 }
 
 model Attendance {
