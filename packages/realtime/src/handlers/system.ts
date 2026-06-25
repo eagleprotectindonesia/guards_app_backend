@@ -28,6 +28,8 @@ export function registerSystemHandlers(io: UnifiedServer) {
         io.to('admin').emit('active_shifts', payload);
       } else if (channel === 'dashboard:upcoming-shifts') {
         io.to('admin').emit('upcoming_shifts', payload);
+      } else if (channel === 'dashboard:missed-shifts') {
+        io.to('admin').emit('missed_shifts', payload);
       } else if (channel === 'dashboard:live-activity') {
         io.to('admin').emit('new_dashboard:live_activity_event', payload);
       } else if (channel.startsWith('admin-notifications:admin:')) {
@@ -83,6 +85,7 @@ export function registerSystemHandlers(io: UnifiedServer) {
       await sub.subscribe(
         'dashboard:active-shifts',
         'dashboard:upcoming-shifts',
+        'dashboard:missed-shifts',
         'dashboard:live-activity',
         'events:tickets',
         'events:hr-activities',

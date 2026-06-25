@@ -42,6 +42,7 @@ export interface ServerToClientEvents {
   alert: (payload: any) => void;
   active_shifts: (payload: any) => void;
   upcoming_shifts: (payload: any) => void;
+  missed_shifts: (payload: { id: string; siteId: string }[]) => void;
   'dashboard:backfill': (payload: { alerts: any[] }) => void;
   'new_dashboard:critical_alerts': (payload: { alerts: any[] }) => void;
   'new_dashboard:shift_overview': (payload: {

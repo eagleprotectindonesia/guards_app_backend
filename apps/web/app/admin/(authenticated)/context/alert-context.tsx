@@ -56,6 +56,8 @@ interface AlertContextType {
   alerts: AlertWithRelations[];
   activeSites: ActiveSiteData[];
   upcomingShifts: UpcomingShift[];
+  missedShiftIds: Set<string>;
+  missedSiteIds: Set<string>;
   connectionStatus: string;
   lastAlertEvent: SSEAlertData | null;
   isMuted: boolean;
@@ -74,6 +76,8 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
   const [alerts, setAlerts] = useState<AlertWithRelations[]>([]);
   const [activeSites, setActiveSites] = useState<ActiveSiteData[]>([]);
   const [upcomingShifts, setUpcomingShifts] = useState<UpcomingShift[]>([]);
+  const [missedShiftIds, setMissedShiftIds] = useState<Set<string>>(new Set());
+  const [missedSiteIds, setMissedSiteIds] = useState<Set<string>>(new Set());
   const [lastAlertEvent, setLastAlertEvent] = useState<SSEAlertData | null>(null);
   const [hasReceivedAlertsBackfill, setHasReceivedAlertsBackfill] = useState(false);
   const [hasReceivedActiveShifts, setHasReceivedActiveShifts] = useState(false);
@@ -124,6 +128,11 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
       setHasReceivedUpcomingShifts(true);
     };
 
+    const handleMissedShifts = (data: { id: string; siteId: string }[]) => {
+      setMissedShiftIds(new Set(data.map(s => s.id)));
+      setMissedSiteIds(new Set(data.map(s => s.siteId)));
+    };
+
     const handleAlert = (data: SSEAlertData) => {
       setLastAlertEvent(data); // Expose raw event to subscribers
       if ('type' in data && data.type === 'alert_created') {
@@ -161,12 +170,14 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
     socket.on('dashboard:backfill', handleBackfill);
     socket.on('active_shifts', handleActiveShifts);
     socket.on('upcoming_shifts', handleUpcomingShifts);
+    socket.on('missed_shifts', handleMissedShifts);
     socket.on('alert', handleAlert);
 
     return () => {
       socket.off('dashboard:backfill', handleBackfill);
       socket.off('active_shifts', handleActiveShifts);
       socket.off('upcoming_shifts', handleUpcomingShifts);
+      socket.off('missed_shifts', handleMissedShifts);
       socket.off('alert', handleAlert);
     };
   }, [canViewAlerts, socket, isConnected]);
@@ -192,6 +203,8 @@ export function AlertProvider({ children }: { children: React.ReactNode }) {
         alerts,
         activeSites,
         upcomingShifts,
+        missedShiftIds,
+        missedSiteIds,
         connectionStatus,
         lastAlertEvent,
         isMuted,

@@ -49,7 +49,7 @@ type SitesMapFullscreenProps = {
 export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesMapFullscreenProps) {
   const { hasPermission } = useSession();
   const { selectedTab } = useAdminDashboardTab();
-  const { activeSites, alerts, upcomingShifts } = useAlerts();
+  const { activeSites, alerts, upcomingShifts, missedShiftIds, missedSiteIds } = useAlerts();
   const router = useRouter();
   const canEditSite = hasPermission(PERMISSIONS.SITES.EDIT);
 
@@ -66,16 +66,22 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
     const map = new Map<string, MapSite['markerStatus']>();
 
     for (const { site, shifts } of activeSites) {
-      const hasAttended = shifts.some(s => s.status === 'in_progress' && !!s.attendance);
       const hasLate = shifts.some(s => s.status === 'in_progress' && !s.attendance);
-      const hasMissing = shifts.some(s => s.status === 'missed' && !s.attendance);
+      const hasAttended = shifts.some(s => s.status === 'in_progress' && !!s.attendance);
+      const hasMissing = shifts.some(s => missedShiftIds.has(s.id));
 
-      if (hasAttended) {
-        map.set(site.id, 'active');
-      } else if (hasLate) {
+      if (hasLate) {
         map.set(site.id, 'late');
+      } else if (hasAttended) {
+        map.set(site.id, 'active');
       } else if (hasMissing) {
         map.set(site.id, 'missing');
+      }
+    }
+
+    for (const siteId of missedSiteIds) {
+      if (!map.has(siteId)) {
+        map.set(siteId, 'missing');
       }
     }
 
@@ -90,7 +96,7 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
     }
 
     return map;
-  }, [activeSites, upcomingShifts, now]);
+  }, [activeSites, upcomingShifts, missedShiftIds, missedSiteIds, now]);
 
   const popupDataBySiteId = useMemo(() => {
     const data = new Map<string, { shifts: PopupShiftInfo[]; upcoming: PopupUpcomingInfo[] }>();

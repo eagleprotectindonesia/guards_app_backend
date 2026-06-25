@@ -1,6 +1,7 @@
 import {
   countUnreadAdminNotifications,
   getActiveShiftsForDashboard,
+  getMissedShiftsForDashboard,
   getOpenAlertsForDashboard,
   getLiveActivityFeedForDashboard,
   getShiftOverviewForDashboard,
@@ -66,8 +67,10 @@ export function registerAdminHandlers(io: UnifiedServer, socket: UnifiedSocket) 
         }
 
         const upcoming = await getUpcomingShiftsForDashboard(now, 50);
+        const missedShifts = await getMissedShiftsForDashboard(now);
         socket.emit('active_shifts', Array.from(activeSitesMap.values()));
         socket.emit('upcoming_shifts', upcoming);
+        socket.emit('missed_shifts', missedShifts);
       }
     } catch (err) {
       console.error('Backfill Error:', err);
