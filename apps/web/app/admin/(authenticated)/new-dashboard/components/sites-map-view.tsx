@@ -60,7 +60,7 @@ const MARKER_COLORS: Record<MapSite['markerStatus'], string> = {
   upcoming: '#eab308',
   active: '#22c55e',
   late: '#f97316',
-  missing: '#dc2626',
+  missing: '#ea580c',
 };
 
 const MARKER_ICONS: Record<'active' | 'upcoming' | 'late' | 'missing', string> = {

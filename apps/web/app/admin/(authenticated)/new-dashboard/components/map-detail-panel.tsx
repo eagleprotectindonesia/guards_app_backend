@@ -70,8 +70,8 @@ const STATUS_CONFIG: Record<MapSite['markerStatus'], StatusConfig> = {
   },
   missing: {
     label: 'MISSING',
-    badgeClass: 'bg-red-500/15 text-red-600 dark:text-red-400',
-    iconClass: 'bg-red-500/10 text-red-600 dark:text-red-400',
+    badgeClass: 'bg-orange-600/15 text-orange-700 dark:text-orange-400',
+    iconClass: 'bg-orange-600/10 text-orange-700 dark:text-orange-400',
     sectionTitle: 'MISSED SHIFTS',
     icon: ShieldOff,
   },
