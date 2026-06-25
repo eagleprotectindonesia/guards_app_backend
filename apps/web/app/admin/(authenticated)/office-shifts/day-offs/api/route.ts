@@ -49,6 +49,6 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Failed to fetch employee day offs:', error);
-    return NextResponse.json({ error: 'Failed to fetch employee day offs' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to fetch employee days off' }, { status: 500 });
   }
 }

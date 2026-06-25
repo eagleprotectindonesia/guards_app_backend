@@ -32,7 +32,7 @@ export default function GuardShiftsTabs() {
             : 'border-transparent text-muted-foreground hover:text-foreground'
         }`}
       >
-        🌴 Day Offs
+        🌴 Days Off
       </AdminNavLink>
     </div>
   );

@@ -11,7 +11,7 @@ import type { EmployeeSummary } from '@repo/database';
 import { AdminListSkeleton } from '../../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
-  title: 'Employee Day Offs',
+  title: 'Employee Days Off',
 };
 
 export const dynamic = 'force-dynamic';
