@@ -14,7 +14,7 @@ export function ControlCompletionCard({ expected, completed, missed }: Props) {
   return (
     <GaugeCard
       icon={Route}
-      title="Control Completion"
+      title="CONTROL COMPLETION"
       subtitle="Completion Rate"
       expected={expected}
       completed={completed}

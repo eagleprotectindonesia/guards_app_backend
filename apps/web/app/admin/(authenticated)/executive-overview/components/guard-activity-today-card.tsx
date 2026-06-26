@@ -14,7 +14,7 @@ export function GuardActivityTodayCard({ scheduled, checkedIn, missedCheckIn, so
     <MetricListCard
       icon={CalendarClock}
       iconAccent="emerald"
-      title="Guard Activity Today"
+      title="GUARD ACTIVITY TODAY"
       subtitle="Scheduled vs Checked In"
       rows={[
         { icon: CalendarClock, label: 'Scheduled Guards', sublabel: 'Today', value: scheduled, accent: 'neutral' },

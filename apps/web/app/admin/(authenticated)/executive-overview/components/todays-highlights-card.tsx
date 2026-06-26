@@ -30,19 +30,16 @@ type Props = {
 
 export function TodaysHighlightsCard({ highlights }: Props) {
   return (
-    <Card className="border-border/60 bg-card p-5 shadow-md flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-2.5 text-amber-600 dark:text-amber-400 shrink-0">
-          <Star className="h-4 w-4" />
-        </div>
-        <div className="space-y-0.5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
-            Today&apos;s Highlights
-          </p>
-          <p className="text-[10px] text-muted-foreground">Latest Activity</p>
+    <Card className="border-border/60 bg-card shadow-md flex flex-col">
+      <div className="px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg p-2 shrink-0 bg-amber-500/10 text-amber-600 dark:text-amber-400">
+            <Star className="h-4 w-4" />
+          </div>
+          <p className="text-sm font-bold text-foreground">TODAY&apos;S HIGHLIGHTS</p>
         </div>
       </div>
-      <div className="grid gap-2">
+      <div className="px-5 pb-5 grid gap-2">
         {highlights.length === 0 ? (
           <p className="py-4 text-center text-xs text-muted-foreground">No activity yet today</p>
         ) : (

@@ -23,7 +23,7 @@ type Props = {
   topSite: TopSite;
 };
 
-const reasonPills = [
+const reasonItems = [
   { key: 'missedCheckin' as const, label: 'Missed Check-in', icon: UserX },
   { key: 'geofenceBreach' as const, label: 'Geofence Breach', icon: MapPinOff },
   { key: 'locationServicesOff' as const, label: 'Location Off', icon: WifiOff },
@@ -32,114 +32,93 @@ const reasonPills = [
 
 export function OpenAlertsCard({ byReason, total, deltaVsYesterday, topSite }: Props) {
   return (
-    <Card className="border-border/60 bg-card p-5 shadow-md flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            'rounded-xl border p-2.5 shrink-0',
-            total > 0
-              ? 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400'
-              : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-          )}
-        >
-          {total > 0 ? <ShieldAlert className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
-        </div>
-        <div className="space-y-0.5">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
-            Open Security Alerts
-          </p>
-          <p className="text-[10px] text-muted-foreground">Incident Status</p>
+    <Card className="border-border/60 bg-card shadow-md flex flex-col">
+      <div className="px-5 py-4">
+        <div className="flex items-center gap-3">
+          <div
+            className={cn(
+              'rounded-lg p-2 shrink-0',
+              total > 0
+                ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+            )}
+          >
+            {total > 0 ? <ShieldAlert className="h-4 w-4" /> : <ShieldCheck className="h-4 w-4" />}
+          </div>
+          <p className="text-sm font-bold text-foreground">OPEN SECURITY ALERTS</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-5 gap-1">
-        {reasonPills.map(({ key, label, icon: Icon }) => {
+      <div className="px-5 pb-2">
+        {reasonItems.map(({ key, label, icon: Icon }, i) => {
           const value = byReason[key];
           const isHealthy = value === 0;
           return (
-            <div key={key} className="flex flex-col items-center gap-1.5 py-1">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 text-center leading-tight">
-                {label}
-              </p>
-              <div
-                className={cn(
-                  'rounded-full p-2',
-                  isHealthy ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'
-                )}
-              >
-                <Icon className="h-5 w-5" />
+            <div key={key} className={cn('flex items-center justify-between py-2.5', i < reasonItems.length - 1 && 'border-b border-border/40')}>
+              <div className="flex items-center gap-2.5">
+                <Icon className={cn('h-4 w-4', isHealthy ? 'text-emerald-500' : 'text-rose-500')} />
+                <span className="text-xs font-medium text-foreground">{label}</span>
               </div>
-              <p
-                className={cn(
-                  'text-[11px] font-bold',
-                  isHealthy ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-                )}
-              >
-                {isHealthy ? 'OK' : `${value} Critical`}
-              </p>
+              <span className={cn(
+                'inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-bold min-w-[2.5rem]',
+                isHealthy ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+              )}>
+                {isHealthy ? 'OK' : `${value}`}
+              </span>
             </div>
           );
         })}
 
-        <div className="flex flex-col items-center gap-1.5 py-1">
-          <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/70 text-center leading-tight">
-            Top Site
-          </p>
-          <div
-            className={cn(
-              'rounded-full p-2',
-              topSite && topSite.total > 0
-                ? 'bg-amber-500/10 text-amber-500'
-                : 'bg-emerald-500/10 text-emerald-500'
-            )}
-          >
-            <Building2 className="h-5 w-5" />
+        <div className={cn('flex items-center justify-between py-2.5 border-b border-border/40')}>
+          <div className="flex items-center gap-2.5">
+            <Building2 className="h-4 w-4 text-amber-500" />
+            <span className="text-xs font-medium text-foreground">Top Site</span>
           </div>
-          <p
-            className={cn(
-              'text-[11px] font-bold text-center leading-tight',
-              topSite && topSite.total > 0
-                ? 'text-amber-600 dark:text-amber-400'
-                : 'text-emerald-600 dark:text-emerald-400'
-            )}
-          >
+          <span className={cn(
+            'inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-bold min-w-[2.5rem]',
+            topSite && topSite.total > 0
+              ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+          )}>
             {topSite ? `${topSite.siteName} (${topSite.total})` : 'None'}
-          </p>
+          </span>
         </div>
       </div>
 
-      <div className="flex items-center justify-between border-t border-border/40 pt-3">
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-xs font-semibold text-muted-foreground">Total Open Alerts</span>
-          <span
-            className={cn(
-              'text-sm font-extrabold',
-              total > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+      <div className="px-5 pb-5 pt-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-xs font-semibold text-muted-foreground">Total</span>
+            <span
+              className={cn(
+                'text-sm font-extrabold',
+                total > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+              )}
+            >
+              {total}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            {deltaVsYesterday > 0 && (
+              <>
+                <TrendingUp className="h-3 w-3 text-rose-500" />
+                <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
+                  +{deltaVsYesterday} vs yesterday
+                </span>
+              </>
             )}
-          >
-            {total}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          {deltaVsYesterday > 0 && (
-            <>
-              <TrendingUp className="h-3 w-3 text-rose-500" />
-              <span className="text-[11px] font-semibold text-rose-600 dark:text-rose-400">
-                +{deltaVsYesterday} vs yesterday
-              </span>
-            </>
-          )}
-          {deltaVsYesterday < 0 && (
-            <>
-              <TrendingDown className="h-3 w-3 text-emerald-500" />
-              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                {deltaVsYesterday} vs yesterday
-              </span>
-            </>
-          )}
-          {deltaVsYesterday === 0 && (
-            <span className="text-[11px] text-muted-foreground">No change</span>
-          )}
+            {deltaVsYesterday < 0 && (
+              <>
+                <TrendingDown className="h-3 w-3 text-emerald-500" />
+                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  {deltaVsYesterday} vs yesterday
+                </span>
+              </>
+            )}
+            {deltaVsYesterday === 0 && (
+              <span className="text-[11px] text-muted-foreground">No change</span>
+            )}
+          </div>
         </div>
       </div>
     </Card>

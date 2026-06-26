@@ -14,7 +14,7 @@ export function TodayOperationsSummaryCard({ guardsOnDuty, activeSites, totalChe
     <MetricListCard
       icon={ShieldCheck}
       iconAccent="sky"
-      title="Today's Operations Summary"
+      title="TODAY'S OPERATIONS SUMMARY"
       subtitle="Operational overview"
       rows={[
         { icon: ShieldCheck, label: 'Guards On Duty', sublabel: 'Active now', value: guardsOnDuty, accent: 'sky' },

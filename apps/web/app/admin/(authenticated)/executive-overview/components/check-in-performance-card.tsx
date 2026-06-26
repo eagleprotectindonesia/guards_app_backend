@@ -14,7 +14,7 @@ export function CheckInPerformanceCard({ scheduled, checkedIn, missedCheckIn }: 
   return (
     <GaugeCard
       icon={BarChart3}
-      title="Check-in Performance"
+      title="CHECK-IN PERFORMANCE"
       subtitle="Check-in Rate"
       expected={scheduled}
       completed={checkedIn}

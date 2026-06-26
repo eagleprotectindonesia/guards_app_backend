@@ -14,7 +14,7 @@ export function CommunicationSummaryCard({ newMemos, guardReports, ticketsReport
     <MetricListCard
       icon={MessageCircle}
       iconAccent="sky"
-      title="Communication Summary"
+      title="COMMUNICATION SUMMARY"
       subtitle="Today's Activity"
       rows={[
         { icon: Megaphone, label: 'New Memos', sublabel: 'Created today', value: newMemos, accent: 'emerald' },

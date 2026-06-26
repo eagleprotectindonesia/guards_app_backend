@@ -28,20 +28,15 @@ export function WorkforceBreakdownCard({ onsite, control, office, total }: Props
 
   return (
     <Card className="border-border/60 bg-card shadow-md">
-      <div className="border-b border-border/45 px-5 py-4">
+      <div className="px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="rounded-xl border border-sky-500/20 bg-sky-500/10 p-2.5 text-sky-600 dark:text-sky-400 shrink-0">
+          <div className="rounded-lg p-2 shrink-0 bg-sky-500/10 text-sky-600 dark:text-sky-400">
             <Users className="h-4 w-4" />
           </div>
-          <div className="space-y-0.5">
-            <p className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground/80">
-              Workforce Breakdown
-            </p>
-            <p className="text-[11px] text-muted-foreground">Total Employees: {total}</p>
-          </div>
+          <p className="text-sm font-bold text-foreground">WORKFORCE BREAKDOWN</p>
         </div>
       </div>
-      <div className="p-5 pt-6">
+      <div className="px-5 pb-5 pt-2">
         <div className="grid grid-cols-1 lg:grid-cols-13 gap-3 items-center">
           <div className="relative h-48 w-full flex items-center justify-center lg:col-span-7">
             <ResponsiveContainer width="100%" height="100%">

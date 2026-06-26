@@ -18,8 +18,8 @@ type Props = {
 };
 
 const iconAccentStyles: Record<AccentColor, string> = {
-  emerald: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
-  purple: 'border-purple-500/20 bg-purple-500/10 text-purple-600 dark:text-purple-400',
+  emerald: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  purple: 'bg-purple-500/10 text-purple-600 dark:text-purple-400',
 };
 
 const gaugeColors: Record<AccentColor, string> = {
@@ -38,15 +38,12 @@ export function GaugeCard({ icon: TitleIcon, title, subtitle, expected, complete
 
   return (
     <Card className="border-border/60 bg-card shadow-md">
-      <div className="border-b border-border/45 px-5 py-4">
+      <div className="px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className={['rounded-xl border p-2.5 shrink-0', iconAccentStyles[color]].join(' ')}>
+          <div className={['rounded-lg p-2 shrink-0', iconAccentStyles[color]].join(' ')}>
             <TitleIcon className="h-4 w-4" />
           </div>
-          <div className="space-y-0.5">
-            <p className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground/80">{title}</p>
-            <p className="text-[11px] text-muted-foreground">{subtitle}</p>
-          </div>
+          <p className="text-sm font-bold text-foreground">{title}</p>
         </div>
       </div>
 

@@ -59,27 +59,22 @@ const rowStyles: Record<RowAccent, { row: string; icon: string }> = {
 export function MetricListCard({ icon: TitleIcon, iconAccent = 'emerald', title, subtitle, rows }: Props) {
   return (
     <Card className="border-border/60 bg-card shadow-md flex flex-col">
-      <div className="border-b border-border/45 px-5 py-4">
+      <div className="px-5 py-4">
         <div className="flex items-center gap-3">
           <div
             className={cn(
-              'rounded-xl border p-2.5 shrink-0',
+              'rounded-lg p-2 shrink-0',
               iconAccentStyles[iconAccent]
             )}
           >
             <TitleIcon className="h-4 w-4" />
           </div>
-          <div className="space-y-0.5">
-            <p className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground/80">
-              {title}
-            </p>
-            {subtitle && (
-              <p className="text-[11px] text-muted-foreground">{subtitle}</p>
-            )}
-          </div>
+          <p className="text-sm font-bold text-foreground">
+            {title}
+          </p>
         </div>
       </div>
-      <div className="p-5 grid gap-1.5">
+      <div className="px-5 pb-5 grid gap-1.5">
         {rows.map((row, i) => {
           const s = rowStyles[row.accent ?? 'neutral'];
           return (
