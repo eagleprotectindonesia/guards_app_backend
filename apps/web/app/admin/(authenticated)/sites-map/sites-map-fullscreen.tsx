@@ -70,9 +70,9 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
     const map = new Map<string, SiteStatusEntry>();
 
     for (const { site, shifts } of activeSites) {
-      const hasActive = shifts.some(s => !!s.attendance);
-      const hasLate = shifts.some(s => s.attendance?.status === 'late');
       const hasMissing = shifts.some(s => !s.attendance && new Date(s.startsAt).getTime() <= now);
+      const hasLate = shifts.some(s => s.attendance?.status === 'late');
+      const hasActive = !hasMissing && shifts.some(s => !!s.attendance);
 
       const statuses = new Set<'active' | 'late' | 'missing' | 'upcoming' | 'none'>();
       if (hasActive) statuses.add('active');
