@@ -54,8 +54,6 @@ export type ExecutiveOverviewMetrics = {
     byReason: {
       missedCheckin: number;
       missedAttendance: number;
-      geofenceBreach: number;
-      locationServicesOff: number;
     };
     total: number;
     deltaVsYesterday: number;
@@ -268,13 +266,11 @@ export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promi
   const alertByReason: Record<string, number> = {
     missed_checkin: 0,
     missed_attendance: 0,
-    geofence_breach: 0,
-    location_services_disabled: 0,
   };
   for (const row of unresolvedAlertsByReason) {
     alertByReason[row.reason] = (row._count as unknown as { _all: number })._all;
   }
-  const totalUnresolvedAlerts = alertByReason.missed_checkin + alertByReason.missed_attendance + alertByReason.geofence_breach + alertByReason.location_services_disabled;
+  const totalUnresolvedAlerts = alertByReason.missed_checkin + alertByReason.missed_attendance;
   const deltaAlerts = todayNewAlerts - yesterdayNewAlerts;
 
   // Top affected site
@@ -341,8 +337,6 @@ export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promi
       byReason: {
         missedCheckin: alertByReason.missed_checkin,
         missedAttendance: alertByReason.missed_attendance,
-        geofenceBreach: alertByReason.geofence_breach,
-        locationServicesOff: alertByReason.location_services_disabled,
       },
       total: totalUnresolvedAlerts,
       deltaVsYesterday: deltaAlerts,

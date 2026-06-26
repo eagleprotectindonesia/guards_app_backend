@@ -1,13 +1,19 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { UserX, MapPinOff, WifiOff, ClipboardX, Building2, ShieldCheck, ShieldAlert, TrendingUp, TrendingDown } from 'lucide-react';
+import {
+  UserX,
+  ClipboardX,
+  Building2,
+  ShieldCheck,
+  ShieldAlert,
+  TrendingUp,
+  TrendingDown,
+} from 'lucide-react';
 import { cn } from '@repo/shared';
 
 type ByReason = {
   missedCheckin: number;
   missedAttendance: number;
-  geofenceBreach: number;
-  locationServicesOff: number;
 };
 
 type TopSite = {
@@ -25,8 +31,6 @@ type Props = {
 
 const reasonItems = [
   { key: 'missedCheckin' as const, label: 'Missed Check-in', icon: UserX },
-  { key: 'geofenceBreach' as const, label: 'Geofence Breach', icon: MapPinOff },
-  { key: 'locationServicesOff' as const, label: 'Location Off', icon: WifiOff },
   { key: 'missedAttendance' as const, label: 'Attendance', icon: ClipboardX },
 ];
 
@@ -54,15 +58,25 @@ export function OpenAlertsCard({ byReason, total, deltaVsYesterday, topSite }: P
           const value = byReason[key];
           const isHealthy = value === 0;
           return (
-            <div key={key} className={cn('flex items-center justify-between py-2.5', i < reasonItems.length - 1 && 'border-b border-border/40')}>
+            <div
+              key={key}
+              className={cn(
+                'flex items-center justify-between py-2.5',
+                i < reasonItems.length - 1 && 'border-b border-border/40'
+              )}
+            >
               <div className="flex items-center gap-2.5">
                 <Icon className={cn('h-4 w-4', isHealthy ? 'text-emerald-500' : 'text-rose-500')} />
                 <span className="text-xs font-medium text-foreground">{label}</span>
               </div>
-              <span className={cn(
-                'inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-bold min-w-[2.5rem]',
-                isHealthy ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-              )}>
+              <span
+                className={cn(
+                  'inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-bold min-w-10',
+                  isHealthy
+                    ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+                    : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                )}
+              >
                 {isHealthy ? 'OK' : `${value}`}
               </span>
             </div>
@@ -74,12 +88,14 @@ export function OpenAlertsCard({ byReason, total, deltaVsYesterday, topSite }: P
             <Building2 className="h-4 w-4 text-amber-500" />
             <span className="text-xs font-medium text-foreground">Top Site</span>
           </div>
-          <span className={cn(
-            'inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-bold min-w-[2.5rem]',
-            topSite && topSite.total > 0
-              ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
-              : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
-          )}>
+          <span
+            className={cn(
+              'inline-flex items-center justify-center rounded-md px-2 py-0.5 text-xs font-bold min-w-10',
+              topSite && topSite.total > 0
+                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400'
+                : 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400'
+            )}
+          >
             {topSite ? `${topSite.siteName} (${topSite.total})` : 'None'}
           </span>
         </div>
@@ -115,9 +131,7 @@ export function OpenAlertsCard({ byReason, total, deltaVsYesterday, topSite }: P
                 </span>
               </>
             )}
-            {deltaVsYesterday === 0 && (
-              <span className="text-[11px] text-muted-foreground">No change</span>
-            )}
+            {deltaVsYesterday === 0 && <span className="text-[11px] text-muted-foreground">No change</span>}
           </div>
         </div>
       </div>

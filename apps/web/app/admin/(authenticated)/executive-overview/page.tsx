@@ -14,7 +14,7 @@ import { CheckInPerformanceCard } from './components/check-in-performance-card';
 import { ControlCompletionCard } from './components/control-completion-card';
 import { CommunicationSummaryCard } from './components/communication-summary-card';
 import { TodaysHighlightsCard } from './components/todays-highlights-card';
-import { OpenAlertsCard } from './components/open-alerts-card';
+// import { OpenAlertsCard } from './components/open-alerts-card';
 import { TicketSlaCard } from './components/ticket-sla-card';
 
 export const dynamic = 'force-dynamic';
@@ -23,7 +23,22 @@ export default async function ExecutiveOverviewPage() {
   await requirePermission('dashboard-executive:view');
 
   const metrics = await getExecutiveOverviewMetrics();
-  const { totalEmployees, activeSites, totalSites, activeGuardsOnDuty, scheduledShiftsToday, openTickets, workforceBreakdown, guardActivityToday, todayOperationsSummary, controlCompletion, communicationSummary, highlights, openAlerts, ticketSla } = metrics;
+  const {
+    totalEmployees,
+    activeSites,
+    totalSites,
+    activeGuardsOnDuty,
+    scheduledShiftsToday,
+    openTickets,
+    workforceBreakdown,
+    guardActivityToday,
+    todayOperationsSummary,
+    controlCompletion,
+    communicationSummary,
+    highlights,
+    // openAlerts,
+    ticketSla,
+  } = metrics;
 
   return (
     <div className="space-y-6">
@@ -55,7 +70,7 @@ export default async function ExecutiveOverviewPage() {
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <CommunicationSummaryCard {...communicationSummary} />
-        <OpenAlertsCard {...openAlerts} />
+        {/* <OpenAlertsCard {...openAlerts} /> */}
         <TodaysHighlightsCard highlights={highlights} />
         <TicketSlaCard {...ticketSla} />
       </div>
