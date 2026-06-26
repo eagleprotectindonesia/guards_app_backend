@@ -2,6 +2,7 @@ import { db as prisma } from '../prisma/client';
 import { redis } from '../redis/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
 import { isSecurityStandbyTitle } from './employees';
+import { summarizeTicketSlaStatus } from './tickets';
 import { AttendanceStatus, ShiftStatus, TicketStatus } from '@prisma/client';
 import { getLatestSystemChangelogs, type ChangelogFeedItem } from './changelogs';
 
@@ -49,10 +50,29 @@ export type ExecutiveOverviewMetrics = {
     unreadMessages: number;
   };
   highlights: ChangelogFeedItem[];
+  openAlerts: {
+    byReason: {
+      missedCheckin: number;
+      missedAttendance: number;
+      geofenceBreach: number;
+      locationServicesOff: number;
+    };
+    total: number;
+    deltaVsYesterday: number;
+    topSite: { siteId: string; siteName: string; total: number } | null;
+  };
+  ticketSla: {
+    open: number;
+    inProgress: number;
+    acknowledged: number;
+    slaBreached: number;
+    resolvedToday: number;
+  };
 };
 
 export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promise<ExecutiveOverviewMetrics> {
   const { start, end } = getBusinessDayRange(now, BUSINESS_TIMEZONE);
+  const yesterdayStart = new Date(start.getTime() - 24 * 60 * 60 * 1000);
 
   const [
     totalEmployees,
@@ -76,6 +96,12 @@ export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promi
     ticketsReported,
     unreadMessagesAgg,
     highlights,
+    unresolvedAlertsByReason,
+    todayNewAlerts,
+    yesterdayNewAlerts,
+    topSiteAlerts,
+    slaQueryTickets,
+    resolvedToday,
   ] = await Promise.all([
     prisma.employee.count({
       where: { status: true, deletedAt: null },
@@ -165,6 +191,42 @@ export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promi
       _sum: { unreadCount: true },
     }),
     getLatestSystemChangelogs(5, start, end),
+    prisma.alert.groupBy({
+      by: ['reason'],
+      where: { resolvedAt: null },
+      _count: { _all: true },
+    }),
+    prisma.alert.count({
+      where: { createdAt: { gte: start, lt: end } },
+    }),
+    prisma.alert.count({
+      where: { createdAt: { gte: yesterdayStart, lt: start } },
+    }),
+    prisma.alert.groupBy({
+      by: ['siteId'],
+      where: { resolvedAt: null },
+      _count: { _all: true },
+    }),
+    prisma.ticket.findMany({
+      select: {
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        resolutionTargetHours: true,
+        solvedAt: true,
+        closedAt: true,
+        cannotResolveAt: true,
+        cancelledAt: true,
+      },
+    }),
+    prisma.ticket.count({
+      where: {
+        OR: [
+          { solvedAt: { gte: start, lt: end } },
+          { closedAt: { gte: start, lt: end } },
+        ],
+      },
+    }),
   ]);
 
   let onsite = 0;
@@ -201,6 +263,37 @@ export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promi
     if (shift.status === 'completed') patrolCompleted++;
     if (shift.status === 'missed') patrolMissed++;
   }
+
+  // Open alerts by reason
+  const alertByReason: Record<string, number> = {
+    missed_checkin: 0,
+    missed_attendance: 0,
+    geofence_breach: 0,
+    location_services_disabled: 0,
+  };
+  for (const row of unresolvedAlertsByReason) {
+    alertByReason[row.reason] = (row._count as unknown as { _all: number })._all;
+  }
+  const totalUnresolvedAlerts = alertByReason.missed_checkin + alertByReason.missed_attendance + alertByReason.geofence_breach + alertByReason.location_services_disabled;
+  const deltaAlerts = todayNewAlerts - yesterdayNewAlerts;
+
+  // Top affected site
+  let topSite: { siteId: string; siteName: string; total: number } | null = null;
+  const sortedSites = topSiteAlerts
+    .map(r => ({ siteId: r.siteId, total: (r._count as unknown as { _all: number })._all }))
+    .sort((a, b) => b.total - a.total);
+  if (sortedSites.length > 0) {
+    const site = await prisma.site.findUnique({
+      where: { id: sortedSites[0].siteId },
+      select: { name: true },
+    });
+    if (site) {
+      topSite = { siteId: sortedSites[0].siteId, siteName: site.name, total: sortedSites[0].total };
+    }
+  }
+
+  // Ticket SLA
+  const slaResult = summarizeTicketSlaStatus(slaQueryTickets, now);
 
   return {
     totalEmployees,
@@ -244,5 +337,23 @@ export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promi
       unreadMessages: unreadMessagesAgg._sum.unreadCount ?? 0,
     },
     highlights,
+    openAlerts: {
+      byReason: {
+        missedCheckin: alertByReason.missed_checkin,
+        missedAttendance: alertByReason.missed_attendance,
+        geofenceBreach: alertByReason.geofence_breach,
+        locationServicesOff: alertByReason.location_services_disabled,
+      },
+      total: totalUnresolvedAlerts,
+      deltaVsYesterday: deltaAlerts,
+      topSite,
+    },
+    ticketSla: {
+      open: openTicketsTotal,
+      inProgress: inProgressTickets,
+      acknowledged: acknowledgedTickets,
+      slaBreached: slaResult.breached,
+      resolvedToday,
+    },
   };
 }
