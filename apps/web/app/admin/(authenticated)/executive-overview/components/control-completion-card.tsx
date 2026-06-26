@@ -10,11 +10,11 @@ type Props = {
   missed: number;
 };
 
-export function PatrolCompletionCard({ expected, completed, missed }: Props) {
+export function ControlCompletionCard({ expected, completed, missed }: Props) {
   return (
     <GaugeCard
       icon={Route}
-      title="Patrol Completion"
+      title="Control Completion"
       subtitle="Completion Rate"
       expected={expected}
       completed={completed}

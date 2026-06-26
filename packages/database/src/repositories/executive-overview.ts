@@ -38,7 +38,7 @@ export type ExecutiveOverviewMetrics = {
     totalCheckins: number;
     lateGuards: number;
   };
-  patrolCompletion: {
+  controlCompletion: {
     expected: number;
     completed: number;
     missed: number;
@@ -254,14 +254,14 @@ export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promi
     }
   }
 
-  let patrolExpected = 0;
-  let patrolCompleted = 0;
-  let patrolMissed = 0;
+  let controlExpected = 0;
+  let controlCompleted = 0;
+  let controlMissed = 0;
   for (const shift of onSiteShifts) {
     if (isSecurityStandbyTitle(shift.employee?.jobTitle)) continue;
-    patrolExpected++;
-    if (shift.status === 'completed') patrolCompleted++;
-    if (shift.status === 'missed') patrolMissed++;
+    controlExpected++;
+    if (shift.status === 'completed') controlCompleted++;
+    if (shift.status === 'missed') controlMissed++;
   }
 
   // Open alerts by reason
@@ -325,10 +325,10 @@ export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promi
       totalCheckins: totalCheckinsCount,
       lateGuards: lateGuardAttendanceCount,
     },
-    patrolCompletion: {
-      expected: patrolExpected,
-      completed: patrolCompleted,
-      missed: patrolMissed,
+    controlCompletion: {
+      expected: controlExpected,
+      completed: controlCompleted,
+      missed: controlMissed,
     },
     communicationSummary: {
       newMemos,

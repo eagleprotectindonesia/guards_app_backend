@@ -11,7 +11,7 @@ import { WorkforceBreakdownCard } from './components/workforce-breakdown-card';
 import { GuardActivityTodayCard } from './components/guard-activity-today-card';
 import { TodayOperationsSummaryCard } from './components/today-operations-summary-card';
 import { CheckInPerformanceCard } from './components/check-in-performance-card';
-import { PatrolCompletionCard } from './components/patrol-completion-card';
+import { ControlCompletionCard } from './components/control-completion-card';
 import { CommunicationSummaryCard } from './components/communication-summary-card';
 import { TodaysHighlightsCard } from './components/todays-highlights-card';
 import { OpenAlertsCard } from './components/open-alerts-card';
@@ -23,7 +23,7 @@ export default async function ExecutiveOverviewPage() {
   await requirePermission('dashboard-executive:view');
 
   const metrics = await getExecutiveOverviewMetrics();
-  const { totalEmployees, activeSites, totalSites, activeGuardsOnDuty, scheduledShiftsToday, openTickets, workforceBreakdown, guardActivityToday, todayOperationsSummary, patrolCompletion, communicationSummary, highlights, openAlerts, ticketSla } = metrics;
+  const { totalEmployees, activeSites, totalSites, activeGuardsOnDuty, scheduledShiftsToday, openTickets, workforceBreakdown, guardActivityToday, todayOperationsSummary, controlCompletion, communicationSummary, highlights, openAlerts, ticketSla } = metrics;
 
   return (
     <div className="space-y-6">
@@ -50,7 +50,7 @@ export default async function ExecutiveOverviewPage() {
         <GuardActivityTodayCard {...guardActivityToday} />
         <TodayOperationsSummaryCard {...todayOperationsSummary} />
         <CheckInPerformanceCard {...guardActivityToday} />
-        <PatrolCompletionCard {...patrolCompletion} />
+        <ControlCompletionCard {...controlCompletion} />
       </div>
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">

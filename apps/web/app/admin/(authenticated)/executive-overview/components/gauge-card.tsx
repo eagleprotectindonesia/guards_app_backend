@@ -44,8 +44,8 @@ export function GaugeCard({ icon: TitleIcon, title, subtitle, expected, complete
             <TitleIcon className="h-4 w-4" />
           </div>
           <div className="space-y-0.5">
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">{title}</p>
-            <p className="text-[10px] text-muted-foreground">{subtitle}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground/80">{title}</p>
+            <p className="text-[11px] text-muted-foreground">{subtitle}</p>
           </div>
         </div>
       </div>
