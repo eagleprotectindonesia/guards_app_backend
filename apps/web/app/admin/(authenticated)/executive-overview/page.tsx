@@ -16,6 +16,7 @@ import { CommunicationSummaryCard } from './components/communication-summary-car
 import { TodaysHighlightsCard } from './components/todays-highlights-card';
 // import { OpenAlertsCard } from './components/open-alerts-card';
 import { TicketSlaCard } from './components/ticket-sla-card';
+import { TodaysSnapshotCard } from './components/todays-snapshot-card';
 
 export const dynamic = 'force-dynamic';
 
@@ -25,6 +26,7 @@ export default async function ExecutiveOverviewPage() {
   const metrics = await getExecutiveOverviewMetrics();
   const {
     totalEmployees,
+    employeesPresent,
     activeSites,
     totalSites,
     activeGuardsOnDuty,
@@ -68,11 +70,21 @@ export default async function ExecutiveOverviewPage() {
         <ControlCompletionCard {...controlCompletion} />
       </div>
 
-      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <CommunicationSummaryCard {...communicationSummary} />
         {/* <OpenAlertsCard {...openAlerts} /> */}
         <TodaysHighlightsCard highlights={highlights} />
         <TicketSlaCard {...ticketSla} />
+        <TodaysSnapshotCard
+          className="xl:col-span-2"
+          employeesPresent={employeesPresent}
+          totalEmployees={totalEmployees}
+          activeGuardsOnDuty={activeGuardsOnDuty}
+          scheduledShiftsToday={scheduledShiftsToday}
+          activeSites={activeSites}
+          totalSites={totalSites}
+          openTickets={openTickets.total}
+        />
       </div>
     </div>
   );

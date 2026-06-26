@@ -10,6 +10,7 @@ const OPEN_VIEW_EXCLUDED_STATUSES: TicketStatus[] = ['CLOSED', 'CANNOT_RESOLVE',
 
 export type ExecutiveOverviewMetrics = {
   totalEmployees: number;
+  employeesPresent: number;
   activeSites: number;
   totalSites: number;
   activeGuardsOnDuty: number;
@@ -293,6 +294,7 @@ export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promi
 
   return {
     totalEmployees,
+    employeesPresent: checkedInAttendanceCount,
     totalSites,
     activeSites,
     activeGuardsOnDuty,
