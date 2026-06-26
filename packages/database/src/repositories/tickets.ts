@@ -226,7 +226,7 @@ function getTicketCompletionAt(ticket: {
   return null;
 }
 
-function summarizeTicketSlaStatus(
+export function summarizeTicketSlaStatus(
   tickets: Array<{
     status: TicketStatus;
     createdAt: Date;

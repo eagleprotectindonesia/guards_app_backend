@@ -34,11 +34,11 @@ export default async function TabDashboardPage({ params }: PageProps) {
     redirect('/admin/client/dashboard');
   }
 
-  if (tab === 'dashboard') {
-    await requirePermission('dashboard:view');
-  } else {
-    await requirePermission('dashboard-system:view');
+  if (tab === 'executive') {
+    redirect('/admin/executive-overview');
   }
+
+  await requirePermission('dashboard:view');
 
   const sites = await getAllSites();
   return <AdminDashboard initialSites={serialize(sites)} />;

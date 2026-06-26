@@ -40,7 +40,7 @@ async function main() {
   }
 
   // Add individual dashboard view permissions (view-only)
-  const dashboardResources = ['dashboard-guard', 'dashboard-hr', 'dashboard-client', 'dashboard-system'];
+  const dashboardResources = ['dashboard-guard', 'dashboard-hr', 'dashboard-client', 'dashboard-executive'];
   for (const resource of dashboardResources) {
     permissionsToCreate.push({
       resource,
@@ -104,7 +104,7 @@ async function main() {
           'dashboard-guard:view',
           'dashboard-hr:view',
           'dashboard-client:view',
-          'dashboard-system:view',
+          'dashboard-executive:view',
           'employees:view',
           'employees:create',
           'employees:edit',

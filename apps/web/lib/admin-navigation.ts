@@ -4,7 +4,6 @@ import {
   Ticket,
   Users,
   Building2,
-  FileSearch,
   LayoutDashboard,
   MapPin,
   Calendar,
@@ -23,6 +22,7 @@ import {
   MessageSquare,
   CalendarCheck2,
   FileText,
+  LineChart,
   type LucideIcon,
 } from 'lucide-react';
 import { PermissionCode } from './auth/permissions';
@@ -133,12 +133,12 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true, _activeTab:
     {
       label: 'Dashboard',
       items: [
+        { name: 'Executive Overview', href: '/admin/executive-overview', icon: LineChart, requiredPermission: 'dashboard-executive:view' as PermissionCode },
         { name: 'Dashboard', href: getAdminDashboardHref('dashboard'), icon: Activity, requiredPermission: 'dashboard:view' as PermissionCode },
         { name: 'Guard Ops', href: getAdminDashboardHref('guard'), icon: Radio, requiredPermission: 'dashboard-guard:view' as PermissionCode },
         { name: 'Tickets', href: getAdminDashboardHref('ticket'), icon: Ticket, requiredPermission: 'tickets:view' as PermissionCode },
         { name: 'Workforce', href: getAdminDashboardHref('workforce'), icon: Users, requiredPermission: 'dashboard-hr:view' as PermissionCode },
         { name: 'Client', href: getAdminDashboardHref('client'), icon: Building2, requiredPermission: 'dashboard-client:view' as PermissionCode },
-        { name: 'System', href: getAdminDashboardHref('system'), icon: FileSearch, requiredPermission: 'dashboard-system:view' as PermissionCode },
       ],
     },
     {
@@ -196,6 +196,7 @@ export const ADMIN_SECONDARY_NAV_ITEMS: NavItem[] = [
 ];
 
 export const ADMIN_LABEL_MAP: Record<string, string> = {
+  'executive-overview': 'Executive Overview',
   guard: 'Guard Operations',
   ticket: 'Ticket',
   workforce: 'Workforce',

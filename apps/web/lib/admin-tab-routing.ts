@@ -1,4 +1,4 @@
-export const ADMIN_TAB_SLUGS = ['dashboard', 'guard', 'ticket', 'workforce', 'client', 'system'] as const;
+export const ADMIN_TAB_SLUGS = ['dashboard', 'guard', 'ticket', 'workforce', 'client', 'executive'] as const;
 export const ADMIN_DASHBOARD_TAB_QUERY_KEY = 'dashboardTab';
 
 export type AdminTabSlug = (typeof ADMIN_TAB_SLUGS)[number];
@@ -98,6 +98,10 @@ export function getAdminDashboardHref(tab: AdminTabSlug): string {
   }
   if (tab === 'workforce') {
     return appendDashboardTabToHref('/admin/hr', tab, true);
+  }
+
+  if (tab === 'executive') {
+    return appendDashboardTabToHref('/admin/executive-overview', tab, true);
   }
 
   return appendDashboardTabToHref(`/admin/${tab}/dashboard`, tab, true);
