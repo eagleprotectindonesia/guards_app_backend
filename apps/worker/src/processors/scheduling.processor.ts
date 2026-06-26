@@ -6,7 +6,6 @@ import {
   getActiveShifts,
   getShiftsUpdates,
   getUpcomingShifts,
-  getMissedShiftsForDashboard,
   createMissedCheckinAlert,
   getSystemSetting,
   markOverdueScheduledShiftsAsMissed,
@@ -110,7 +109,6 @@ export class SchedulingProcessor {
       // 5. Broadcast Upcoming Shifts (Every 1m)
       if (nowMs - this.lastUpcomingSync > UPCOMING_SYNC_INTERVAL_MS) {
         await this.broadcastUpcomingShifts(now);
-        await this.broadcastMissedShifts(now);
         this.lastUpcomingSync = nowMs;
       }
     } catch (error) {
@@ -507,8 +505,4 @@ export class SchedulingProcessor {
     await this.publish('dashboard:upcoming-shifts', upcomingShifts);
   }
 
-  private async broadcastMissedShifts(now: Date) {
-    const missedShifts = await getMissedShiftsForDashboard(now);
-    await this.publish('dashboard:missed-shifts', missedShifts);
-  }
 }

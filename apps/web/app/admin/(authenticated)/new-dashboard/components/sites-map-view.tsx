@@ -41,7 +41,8 @@ export type MapSite = {
   latitude: number;
   longitude: number;
   status: boolean | null;
-  markerStatus: 'none' | 'upcoming' | 'active' | 'late' | 'missing';
+  markerStatus: 'none' | 'upcoming' | 'active' | 'missing';
+  markerStatuses: Set<'active' | 'late' | 'missing' | 'upcoming' | 'none'>;
   shifts: PopupShiftInfo[];
   upcoming: PopupUpcomingInfo[];
 };
@@ -59,14 +60,12 @@ const MARKER_COLORS: Record<MapSite['markerStatus'], string> = {
   none: '#6b7280',
   upcoming: '#eab308',
   active: '#22c55e',
-  late: '#f97316',
   missing: '#ea580c',
 };
 
-const MARKER_ICONS: Record<'active' | 'upcoming' | 'late' | 'missing', string> = {
+const MARKER_ICONS: Record<'active' | 'upcoming' | 'missing', string> = {
   active: 'check',
   upcoming: 'clock',
-  late: 'alert',
   missing: 'x',
 };
 

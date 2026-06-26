@@ -49,7 +49,7 @@ type SitesMapFullscreenProps = {
 export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesMapFullscreenProps) {
   const { hasPermission } = useSession();
   const { selectedTab } = useAdminDashboardTab();
-  const { activeSites, alerts, upcomingShifts, missedShiftIds, missedSiteIds } = useAlerts();
+  const { activeSites, alerts, upcomingShifts } = useAlerts();
   const router = useRouter();
   const canEditSite = hasPermission(PERMISSIONS.SITES.EDIT);
 
@@ -63,43 +63,49 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
   }, []);
 
   const siteStatusMap = useMemo(() => {
-    const map = new Map<string, MapSite['markerStatus']>();
+    type SiteStatusEntry = {
+      markerStatus: MapSite['markerStatus'];
+      statuses: Set<'active' | 'late' | 'missing' | 'upcoming' | 'none'>;
+    };
+    const map = new Map<string, SiteStatusEntry>();
 
     for (const { site, shifts } of activeSites) {
-      const hasLate = shifts.some(s => {
-        const startedAt = new Date(s.startsAt).getTime();
-        return !s.attendance && startedAt <= now;
-      });
-      const hasAttended = shifts.some(s => !!s.attendance);
-      const hasMissing = shifts.some(s => missedShiftIds.has(s.id));
+      const hasActive = shifts.some(s => !!s.attendance);
+      const hasLate = shifts.some(s => s.attendance?.status === 'late');
+      const hasMissing = shifts.some(s => !s.attendance && new Date(s.startsAt).getTime() <= now);
 
-      if (hasLate) {
-        map.set(site.id, 'late');
-      } else if (hasAttended) {
-        map.set(site.id, 'active');
-      } else if (hasMissing) {
-        map.set(site.id, 'missing');
-      }
-    }
+      const statuses = new Set<'active' | 'late' | 'missing' | 'upcoming' | 'none'>();
+      if (hasActive) statuses.add('active');
+      if (hasLate) statuses.add('late');
+      if (hasMissing) statuses.add('missing');
 
-    for (const siteId of missedSiteIds) {
-      if (!map.has(siteId)) {
-        map.set(siteId, 'missing');
+      let markerStatus: MapSite['markerStatus'] = 'none';
+      if (hasMissing) {
+        markerStatus = 'missing';
+      } else if (hasActive) {
+        markerStatus = 'active';
       }
+
+      map.set(site.id, { markerStatus, statuses });
     }
 
     const UPCOMING_WINDOW_MS = 30 * 60 * 1000;
     for (const shift of upcomingShifts) {
       const siteId = shift.site?.id ?? shift.siteId;
-      if (!siteId || map.has(siteId)) continue;
+      if (!siteId) continue;
       const startsAt = new Date(shift.startsAt).getTime();
       if (startsAt > now && startsAt - now <= UPCOMING_WINDOW_MS) {
-        map.set(siteId, 'upcoming');
+        const entry = map.get(siteId);
+        if (entry) {
+          entry.statuses.add('upcoming');
+        } else {
+          map.set(siteId, { markerStatus: 'upcoming', statuses: new Set(['upcoming']) });
+        }
       }
     }
 
     return map;
-  }, [activeSites, upcomingShifts, missedShiftIds, missedSiteIds, now]);
+  }, [activeSites, upcomingShifts, now]);
 
   const popupDataBySiteId = useMemo(() => {
     const data = new Map<string, { shifts: PopupShiftInfo[]; upcoming: PopupUpcomingInfo[] }>();
@@ -163,6 +169,7 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
         .filter(hasCoordinates)
         .map(site => {
           const popupData = popupDataBySiteId.get(site.id);
+          const entry = siteStatusMap.get(site.id);
           return {
             id: site.id,
             name: site.name,
@@ -171,7 +178,8 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
             latitude: site.latitude,
             longitude: site.longitude,
             status: site.status ?? null,
-            markerStatus: siteStatusMap.get(site.id) ?? 'none',
+            markerStatus: entry?.markerStatus ?? 'none',
+            markerStatuses: entry?.statuses ?? new Set(['none']),
             shifts: popupData?.shifts ?? [],
             upcoming: popupData?.upcoming ?? [],
           };
@@ -186,12 +194,12 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
   const counts = useMemo(
     () => ({
       all: mappableSites.length + mappablePanics.length,
-      active: mappableSites.filter(s => s.markerStatus === 'active').length,
-      late: mappableSites.filter(s => s.markerStatus === 'late').length,
-      missing: mappableSites.filter(s => s.markerStatus === 'missing').length,
+      active: mappableSites.filter(s => s.markerStatuses.has('active')).length,
+      late: mappableSites.filter(s => s.markerStatuses.has('late')).length,
+      missing: mappableSites.filter(s => s.markerStatuses.has('missing')).length,
       sos: mappablePanics.length,
-      none: mappableSites.filter(s => s.markerStatus === 'none').length,
-      upcoming: mappableSites.filter(s => s.markerStatus === 'upcoming').length,
+      none: mappableSites.filter(s => s.markerStatuses.has('none')).length,
+      upcoming: mappableSites.filter(s => s.markerStatuses.has('upcoming')).length,
     }),
     [mappableSites, mappablePanics]
   );
@@ -199,7 +207,7 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
   const { visibleSites, visiblePanics } = useMemo(() => {
     if (filter === 'all') return { visibleSites: mappableSites, visiblePanics: mappablePanics };
     if (filter === 'sos') return { visibleSites: [], visiblePanics: mappablePanics };
-    const filtered = mappableSites.filter(s => s.markerStatus === filter);
+    const filtered = mappableSites.filter(s => s.markerStatuses.has(filter));
     return { visibleSites: filtered, visiblePanics: [] };
   }, [filter, mappableSites, mappablePanics]);
 

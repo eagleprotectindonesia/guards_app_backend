@@ -1794,33 +1794,6 @@ export async function getUpcomingShiftsForDashboard(now: Date, take = 50) {
   return getUpcomingShifts(now, take);
 }
 
-export type MissedShiftForDashboard = {
-  id: string;
-  siteId: string;
-};
-
-export async function getMissedShiftsForDashboard(now: Date): Promise<MissedShiftForDashboard[]> {
-  const dateKey = now.toISOString().slice(0, 10);
-  const dayStart = new Date(`${dateKey}T00:00:00Z`);
-  const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-
-  const [todayMissed, activeShifts] = await Promise.all([
-    prisma.shift.findMany({
-      where: {
-        deletedAt: null,
-        employeeId: { not: null },
-        date: { gte: dayStart, lt: dayEnd },
-        status: 'missed',
-      },
-      select: { id: true, siteId: true },
-    }),
-    getActiveShiftsForDashboard(now),
-  ]);
-
-  const activeIds = new Set(activeShifts.map(s => s.id));
-  return todayMissed.filter(s => !activeIds.has(s.id)).map(s => ({ id: s.id, siteId: s.siteId }));
-}
-
 export type ShiftOverviewForDashboard = {
   dateKey: string;
   onDuty: number;
