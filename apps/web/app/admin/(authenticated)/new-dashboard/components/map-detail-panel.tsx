@@ -52,11 +52,18 @@ type StatusConfig = {
   icon: typeof ShieldCheck;
 };
 
-const STATUS_CONFIG: Record<MapSite['markerStatus'], StatusConfig> = {
+const STATUS_CONFIG: Record<MapSite['markerStatus'] | 'late', StatusConfig> = {
   active: {
     label: 'ACTIVE NOW',
     badgeClass: 'bg-green-500/15 text-green-600 dark:text-green-400',
     iconClass: 'bg-green-500/10 text-green-600 dark:text-green-400',
+    sectionTitle: 'GUARDS ON SHIFT',
+    icon: ShieldCheck,
+  },
+  late: {
+    label: 'LATE',
+    badgeClass: 'bg-orange-500/15 text-orange-600 dark:text-orange-400',
+    iconClass: 'bg-orange-500/10 text-orange-600 dark:text-orange-400',
     sectionTitle: 'GUARDS ON SHIFT',
     icon: ShieldCheck,
   },
@@ -84,7 +91,11 @@ const STATUS_CONFIG: Record<MapSite['markerStatus'], StatusConfig> = {
 };
 
 function SiteDetailContent({ site, editHref, onNavigate, onOpenChat, showExternalHint }: { site: MapSite; editHref: string | null; onNavigate?: (href: string) => void; onOpenChat?: (payload: ChatLaunchPayload) => void; showExternalHint?: boolean }) {
-  const config = STATUS_CONFIG[site.markerStatus];
+  const displayStatus: MapSite['markerStatus'] | 'late' =
+    site.markerStatuses.has('missing') ? 'missing'
+    : site.markerStatuses.has('late')   ? 'late'
+    : site.markerStatus;
+  const config = STATUS_CONFIG[displayStatus];
   const StatusIcon = config.icon;
   const { hasPermission } = useSession();
   const canCreateChat = hasPermission(PERMISSIONS.CHAT.CREATE);
@@ -101,7 +112,7 @@ function SiteDetailContent({ site, editHref, onNavigate, onOpenChat, showExterna
       : '—';
 
   const showGuards =
-    (site.markerStatus === 'active' || site.markerStatus === 'missing') &&
+    (site.markerStatus === 'missing' || site.markerStatuses.has('active') || site.markerStatuses.has('late')) &&
     displayShifts.length > 0;
 
   const showUpcoming = site.markerStatus === 'upcoming' && site.upcoming.length > 0;

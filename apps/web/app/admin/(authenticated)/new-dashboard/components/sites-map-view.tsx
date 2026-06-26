@@ -198,14 +198,20 @@ export function SitesMapView({
           .addTo(map);
       } else {
         const iconKey = MARKER_ICONS[site.markerStatus];
+        const lateBadge = site.markerStatuses.has('late')
+          ? '<div class="absolute -top-1 -right-1 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-orange-500 border-2 border-white text-white text-[10px] font-bold shadow-md pointer-events-none">!</div>'
+          : '';
         inner.innerHTML = `
-          <svg viewBox="0 0 30 38" width="34" height="42" class="drop-shadow-md">
-            <path d="M15 0a15 15 0 00-15 15c0 11.25 15 22.5 15 22.5s15-11.25 15-22.5A15 15 0 0015 0z" fill="${color}"/>
-            <circle cx="15" cy="15" r="10" fill="white"/>
-            <g transform="translate(7 7) scale(0.67)" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
-              ${ICON_SVG[iconKey]}
-            </g>
-          </svg>
+          <div class="relative inline-block">
+            <svg viewBox="0 0 30 38" width="34" height="42" class="drop-shadow-md">
+              <path d="M15 0a15 15 0 00-15 15c0 11.25 15 22.5 15 22.5s15-11.25 15-22.5A15 15 0 0015 0z" fill="${color}"/>
+              <circle cx="15" cy="15" r="10" fill="white"/>
+              <g transform="translate(7 7) scale(0.67)" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+                ${ICON_SVG[iconKey]}
+              </g>
+            </svg>
+            ${lateBadge}
+          </div>
         `;
         el.appendChild(inner);
         marker = new maplibregl.Marker({ element: el }).setLngLat([site.longitude, site.latitude]).addTo(map);

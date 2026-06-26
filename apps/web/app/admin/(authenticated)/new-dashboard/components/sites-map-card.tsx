@@ -80,14 +80,18 @@ export function SitesMapCard({
     const map = new Map<string, SiteStatusEntry>();
 
     for (const { site, shifts } of activeSites) {
-      const hasMissing = shifts.some(s => !s.attendance && new Date(s.startsAt).getTime() <= now);
+      const hasActive = shifts.some(s => !!s.attendance);
+      const hasMissing = !hasActive && shifts.some(s => !s.attendance && new Date(s.startsAt).getTime() <= now);
       const hasLate = shifts.some(s => s.attendance?.status === 'late');
-      const hasActive = !hasMissing && shifts.some(s => !!s.attendance);
 
       const statuses = new Set<'active' | 'late' | 'missing' | 'upcoming' | 'none'>();
-      if (hasActive) statuses.add('active');
-      if (hasLate) statuses.add('late');
-      if (hasMissing) statuses.add('missing');
+
+      if (hasMissing) {
+        statuses.add('missing');
+      } else {
+        if (hasActive) statuses.add('active');
+        if (hasLate) statuses.add('late');
+      }
 
       let markerStatus: MapSite['markerStatus'] = 'none';
       if (hasMissing) {
@@ -105,10 +109,7 @@ export function SitesMapCard({
       if (!siteId) continue;
       const startsAt = new Date(shift.startsAt).getTime();
       if (startsAt > now && startsAt - now <= UPCOMING_WINDOW_MS) {
-        const entry = map.get(siteId);
-        if (entry) {
-          entry.statuses.add('upcoming');
-        } else {
+        if (!map.has(siteId)) {
           map.set(siteId, { markerStatus: 'upcoming', statuses: new Set(['upcoming']) });
         }
       }
