@@ -1,11 +1,23 @@
 import { db as prisma } from '../prisma/client';
-import { Prisma, OfficeAttendanceStatus, AttendanceStatus } from '@prisma/client';
+import { Prisma, OfficeAttendanceStatus, AttendanceStatus, ShiftStatus } from '@prisma/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
 import { resolveOfficeAttendanceContextForEmployee } from './office-attendance-context';
 import { getSystemSetting } from './settings';
 import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING } from '@repo/shared';
 import { getOfficeDayOverrideAnchorDates, resolveOfficeDayOverrideAnchorsForEmployee } from './office-day-overrides';
 import { redis } from '../redis/client';
+
+const ONSITE_ATTENDED_STATUSES: AttendanceStatus[] = [
+  AttendanceStatus.present,
+  AttendanceStatus.late,
+  AttendanceStatus.clocked_out,
+];
+
+const OFFICE_ATTENDED_STATUSES: OfficeAttendanceStatus[] = [
+  OfficeAttendanceStatus.present,
+  OfficeAttendanceStatus.late,
+  OfficeAttendanceStatus.clocked_out,
+];
 
 export async function getOfficeAttendanceById(id: string) {
   return prisma.officeAttendance.findUnique({
@@ -598,37 +610,43 @@ export async function getEmployeeOfficeDayOverrideChangelogsForDates(params: {
 }
 
 export async function getOfficePresentCountForDate(date: Date = new Date()): Promise<number> {
-  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  const today = getBusinessDayRange(date, BUSINESS_TIMEZONE);
+  const todayDate = new Date(`${today.dateKey}T00:00:00.000Z`);
 
-  return prisma.officeAttendance.count({
+  return prisma.officeShift.count({
     where: {
-      status: { in: ['present', 'late', 'clocked_out'] },
-      recordedAt: { gte: startOfDay, lte: endOfDay },
+      deletedAt: null,
+      status: { not: ShiftStatus.cancelled },
+      date: todayDate,
+      officeAttendances: { some: { status: { in: OFFICE_ATTENDED_STATUSES } } },
     },
   });
 }
 
 export async function getOfficeLateCountForDate(date: Date = new Date()): Promise<number> {
-  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  const today = getBusinessDayRange(date, BUSINESS_TIMEZONE);
+  const todayDate = new Date(`${today.dateKey}T00:00:00.000Z`);
 
-  return prisma.officeAttendance.count({
+  return prisma.officeShift.count({
     where: {
-      status: 'late',
-      recordedAt: { gte: startOfDay, lte: endOfDay },
+      deletedAt: null,
+      status: { not: ShiftStatus.cancelled },
+      date: todayDate,
+      officeAttendances: { some: { status: OfficeAttendanceStatus.late } },
     },
   });
 }
 
 export async function getOfficeAbsentCountForDate(date: Date = new Date()): Promise<number> {
-  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  const today = getBusinessDayRange(date, BUSINESS_TIMEZONE);
+  const todayDate = new Date(`${today.dateKey}T00:00:00.000Z`);
 
-  return prisma.officeAttendance.count({
+  return prisma.officeShift.count({
     where: {
-      status: 'absent',
-      recordedAt: { gte: startOfDay, lte: endOfDay },
+      deletedAt: null,
+      status: { not: ShiftStatus.cancelled },
+      date: todayDate,
+      officeAttendances: { some: { status: OfficeAttendanceStatus.absent } },
     },
   });
 }
@@ -701,40 +719,49 @@ export async function getOfficeWeeklyAttendanceTrend(endDate: Date = new Date(),
 }
 
 export async function getOnsitePresentCountForDate(date: Date = new Date()): Promise<number> {
-  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  const today = getBusinessDayRange(date, BUSINESS_TIMEZONE);
+  const todayDate = new Date(`${today.dateKey}T00:00:00.000Z`);
 
-  return prisma.attendance.count({
+  return prisma.shift.count({
     where: {
-      status: { in: ['present', 'late', 'clocked_out'] as AttendanceStatus[] },
-      recordedAt: { gte: startOfDay, lte: endOfDay },
+      deletedAt: null,
+      employeeId: { not: null },
+      status: { not: ShiftStatus.cancelled },
+      date: todayDate,
       employee: { role: 'on_site' },
+      attendance: { is: { status: { in: ONSITE_ATTENDED_STATUSES } } },
     },
   });
 }
 
 export async function getOnsiteLateCountForDate(date: Date = new Date()): Promise<number> {
-  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  const today = getBusinessDayRange(date, BUSINESS_TIMEZONE);
+  const todayDate = new Date(`${today.dateKey}T00:00:00.000Z`);
 
-  return prisma.attendance.count({
+  return prisma.shift.count({
     where: {
-      status: 'late' as AttendanceStatus,
-      recordedAt: { gte: startOfDay, lte: endOfDay },
+      deletedAt: null,
+      employeeId: { not: null },
+      status: { not: ShiftStatus.cancelled },
+      date: todayDate,
       employee: { role: 'on_site' },
+      attendance: { is: { status: AttendanceStatus.late } },
     },
   });
 }
 
 export async function getOnsiteAbsentCountForDate(date: Date = new Date()): Promise<number> {
-  const startOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const endOfDay = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
+  const today = getBusinessDayRange(date, BUSINESS_TIMEZONE);
+  const todayDate = new Date(`${today.dateKey}T00:00:00.000Z`);
 
-  return prisma.attendance.count({
+  return prisma.shift.count({
     where: {
-      status: 'absent' as AttendanceStatus,
-      recordedAt: { gte: startOfDay, lte: endOfDay },
+      deletedAt: null,
+      employeeId: { not: null },
+      status: { not: ShiftStatus.cancelled },
+      date: todayDate,
       employee: { role: 'on_site' },
+      attendance: { is: { status: AttendanceStatus.absent } },
     },
   });
 }

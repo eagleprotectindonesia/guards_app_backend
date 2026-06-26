@@ -1,6 +1,12 @@
 import { Prisma } from '@prisma/client';
 import {
   finalizeOfficeDailyAbsences,
+  getOfficeAbsentCountForDate,
+  getOfficeLateCountForDate,
+  getOfficePresentCountForDate,
+  getOnsiteAbsentCountForDate,
+  getOnsiteLateCountForDate,
+  getOnsitePresentCountForDate,
   recordOfficeAttendance,
   resolveCancelledPendingLeaveStatuses,
   resolveRejectedPendingLeaveStatuses,
@@ -17,6 +23,10 @@ jest.mock('../prisma/client', () => ({
     },
     officeShift: {
       findFirst: jest.fn(),
+      count: jest.fn(),
+    },
+    shift: {
+      count: jest.fn(),
     },
     employeeLeaveRequest: {
       findFirst: jest.fn(),
@@ -323,6 +333,141 @@ describe('office attendance repository', () => {
     expect(prisma.officeAttendance.update).toHaveBeenCalledWith({
       where: { id: 'pending-1' },
       data: { status: 'absent', metadata: { note: 'Rejected leave converted to absent' } },
+    });
+  });
+
+  describe('shift-anchored count functions', () => {
+    const today = new Date('2026-06-26T10:00:00.000Z');
+
+    describe('office functions', () => {
+      beforeEach(() => {
+        (prisma.officeShift.count as jest.Mock).mockResolvedValue(3);
+      });
+
+      test('getOfficePresentCountForDate queries officeShift.count with attended statuses', async () => {
+        const result = await getOfficePresentCountForDate(today);
+        expect(result).toBe(3);
+        expect(prisma.officeShift.count).toHaveBeenCalledWith({
+          where: {
+            deletedAt: null,
+            status: { not: 'cancelled' },
+            date: expect.any(Date),
+            officeAttendances: { some: { status: { in: ['present', 'late', 'clocked_out'] } } },
+          },
+        });
+      });
+
+      test('getOfficeLateCountForDate queries officeShift.count with single late status', async () => {
+        const result = await getOfficeLateCountForDate(today);
+        expect(result).toBe(3);
+        expect(prisma.officeShift.count).toHaveBeenCalledWith({
+          where: {
+            deletedAt: null,
+            status: { not: 'cancelled' },
+            date: expect.any(Date),
+            officeAttendances: { some: { status: 'late' } },
+          },
+        });
+      });
+
+      test('getOfficeAbsentCountForDate queries officeShift.count with single absent status', async () => {
+        const result = await getOfficeAbsentCountForDate(today);
+        expect(result).toBe(3);
+        expect(prisma.officeShift.count).toHaveBeenCalledWith({
+          where: {
+            deletedAt: null,
+            status: { not: 'cancelled' },
+            date: expect.any(Date),
+            officeAttendances: { some: { status: 'absent' } },
+          },
+        });
+      });
+    });
+
+    describe('onsite functions', () => {
+      beforeEach(() => {
+        (prisma.shift.count as jest.Mock).mockResolvedValue(7);
+      });
+
+      test('getOnsitePresentCountForDate queries shift.count with attended statuses and role filter', async () => {
+        const result = await getOnsitePresentCountForDate(today);
+        expect(result).toBe(7);
+        expect(prisma.shift.count).toHaveBeenCalledWith({
+          where: {
+            deletedAt: null,
+            employeeId: { not: null },
+            status: { not: 'cancelled' },
+            date: expect.any(Date),
+            employee: { role: 'on_site' },
+            attendance: { is: { status: { in: ['present', 'late', 'clocked_out'] } } },
+          },
+        });
+      });
+
+      test('getOnsiteLateCountForDate queries shift.count with single late status', async () => {
+        const result = await getOnsiteLateCountForDate(today);
+        expect(result).toBe(7);
+        expect(prisma.shift.count).toHaveBeenCalledWith({
+          where: {
+            deletedAt: null,
+            employeeId: { not: null },
+            status: { not: 'cancelled' },
+            date: expect.any(Date),
+            employee: { role: 'on_site' },
+            attendance: { is: { status: 'late' } },
+          },
+        });
+      });
+
+      test('getOnsiteAbsentCountForDate queries shift.count with single absent status', async () => {
+        const result = await getOnsiteAbsentCountForDate(today);
+        expect(result).toBe(7);
+        expect(prisma.shift.count).toHaveBeenCalledWith({
+          where: {
+            deletedAt: null,
+            employeeId: { not: null },
+            status: { not: 'cancelled' },
+            date: expect.any(Date),
+            employee: { role: 'on_site' },
+            attendance: { is: { status: 'absent' } },
+          },
+        });
+      });
+    });
+
+    describe('WITA boundary', () => {
+      test('date at 17:00 UTC (01:00 next day WITA) filters by next-day date', async () => {
+        (prisma.shift.count as jest.Mock).mockResolvedValue(2);
+        const witaNextDay = new Date('2026-06-26T17:00:00.000Z');
+
+        await getOnsitePresentCountForDate(witaNextDay);
+
+        const where = (prisma.shift.count as jest.Mock).mock.calls[0][0].where;
+        const dateKey = where.date.toISOString().slice(0, 10);
+        expect(dateKey).toBe('2026-06-27');
+      });
+
+      test('date at 03:00 UTC (11:00 same day WITA) filters by same-day date', async () => {
+        (prisma.shift.count as jest.Mock).mockResolvedValue(2);
+        const witaSameDay = new Date('2026-06-26T03:00:00.000Z');
+
+        await getOnsitePresentCountForDate(witaSameDay);
+
+        const where = (prisma.shift.count as jest.Mock).mock.calls[0][0].where;
+        const dateKey = where.date.toISOString().slice(0, 10);
+        expect(dateKey).toBe('2026-06-26');
+      });
+
+      test('WITA boundary holds for both office and onsite functions', async () => {
+        (prisma.officeShift.count as jest.Mock).mockResolvedValue(1);
+        const witaNextDay = new Date('2026-06-26T17:00:00.000Z');
+
+        await getOfficePresentCountForDate(witaNextDay);
+
+        const where = (prisma.officeShift.count as jest.Mock).mock.calls[0][0].where;
+        const dateKey = where.date.toISOString().slice(0, 10);
+        expect(dateKey).toBe('2026-06-27');
+      });
     });
   });
 });
