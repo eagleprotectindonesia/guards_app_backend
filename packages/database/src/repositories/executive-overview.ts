@@ -3,6 +3,7 @@ import { redis } from '../redis/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
 import { isSecurityStandbyTitle } from './employees';
 import { AttendanceStatus, ShiftStatus, TicketStatus } from '@prisma/client';
+import { getLatestSystemChangelogs, type ChangelogFeedItem } from './changelogs';
 
 const OPEN_VIEW_EXCLUDED_STATUSES: TicketStatus[] = ['CLOSED', 'CANNOT_RESOLVE', 'CANCELLED'];
 
@@ -41,6 +42,13 @@ export type ExecutiveOverviewMetrics = {
     completed: number;
     missed: number;
   };
+  communicationSummary: {
+    newMemos: number;
+    guardReports: number;
+    ticketsReported: number;
+    unreadMessages: number;
+  };
+  highlights: ChangelogFeedItem[];
 };
 
 export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promise<ExecutiveOverviewMetrics> {
@@ -63,6 +71,11 @@ export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promi
     lateGuardAttendanceCount,
     unresolvedPanicsStr,
     onSiteShifts,
+    newMemos,
+    guardReports,
+    ticketsReported,
+    unreadMessagesAgg,
+    highlights,
   ] = await Promise.all([
     prisma.employee.count({
       where: { status: true, deletedAt: null },
@@ -139,6 +152,19 @@ export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promi
         employee: { select: { jobTitle: true } },
       },
     }),
+    prisma.officeMemo.count({
+      where: { createdAt: { gte: start, lt: end } },
+    }),
+    prisma.shiftPhotoReport.count({
+      where: { createdAt: { gte: start, lt: end } },
+    }),
+    prisma.ticket.count({
+      where: { createdAt: { gte: start, lt: end } },
+    }),
+    prisma.chatConversation.aggregate({
+      _sum: { unreadCount: true },
+    }),
+    getLatestSystemChangelogs(5, start, end),
   ]);
 
   let onsite = 0;
@@ -211,5 +237,12 @@ export async function getExecutiveOverviewMetrics(now: Date = new Date()): Promi
       completed: patrolCompleted,
       missed: patrolMissed,
     },
+    communicationSummary: {
+      newMemos,
+      guardReports,
+      ticketsReported,
+      unreadMessages: unreadMessagesAgg._sum.unreadCount ?? 0,
+    },
+    highlights,
   };
 }

@@ -174,7 +174,7 @@ export async function createShiftPhotoReport(data: {
 }) {
   return prisma.$transaction(async tx => {
     const reportNumber = await nextShiftPhotoReportNumber(tx, data.shiftStartsAt);
-    return tx.shiftPhotoReport.create({
+    const report = await tx.shiftPhotoReport.create({
       data: {
         shiftId: data.shiftId,
         employeeId: data.employeeId,
@@ -188,6 +188,19 @@ export async function createShiftPhotoReport(data: {
         status: 'pending' as const,
       },
     });
+
+    await tx.changelog.create({
+      data: {
+        action: 'CREATE',
+        entityType: 'ShiftPhotoReport',
+        entityId: report.id,
+        actor: data.triggeredBy === 'manual' ? 'admin' : 'system',
+        actorId: data.createdByAdminId ?? undefined,
+        details: { shiftId: data.shiftId, reportNumber, employeeId: data.employeeId },
+      },
+    });
+
+    return report;
   });
 }
 
@@ -220,6 +233,16 @@ export async function markShiftPhotoReportGenerated(params: {
       },
     });
 
+    await tx.changelog.create({
+      data: {
+        action: 'UPDATE',
+        entityType: 'ShiftPhotoReport',
+        entityId: report.id,
+        actor: 'system',
+        details: { status: 'generated', photoCount: params.photoCount },
+      },
+    });
+
     return report;
   });
 }
@@ -240,6 +263,16 @@ export async function markShiftPhotoReportFailed(params: { id: string; errorMess
       data: {
         autoPhotoReportStatus: ShiftPhotoReportStatus.failed,
         lastAutoPhotoReportAt: new Date(),
+      },
+    });
+
+    await tx.changelog.create({
+      data: {
+        action: 'UPDATE',
+        entityType: 'ShiftPhotoReport',
+        entityId: report.id,
+        actor: 'system',
+        details: { status: 'failed', errorMessage: params.errorMessage },
       },
     });
 
