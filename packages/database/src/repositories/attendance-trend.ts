@@ -315,3 +315,90 @@ export async function getCombinedAttendanceTrend(
 
   return result;
 }
+
+export type DayStats = {
+  present: number;
+  late: number;
+  absent: number;
+  rate: number;
+};
+
+export type TodayYesterdayStats = {
+  today: DayStats;
+  yesterday: DayStats;
+};
+
+async function queryDayStats(date: Date, filter: Omit<AttendanceTrendFilter, 'startDate' | 'endDate'>, tz: string): Promise<DayStats> {
+  const { start, end } = getBusinessDayRange(date, tz);
+
+  const [officeRows, onsiteRows] = await Promise.all([
+    prisma.officeAttendance.findMany({
+      where: {
+        recordedAt: { gte: start, lte: end },
+        status: { in: ['present', 'late', 'absent', 'clocked_out'] },
+        ...(filter.departments?.length
+          ? { employee: { department: { in: filter.departments } } }
+          : {}),
+        ...(filter.officeIds?.length
+          ? {
+              OR: [
+                { officeId: { in: filter.officeIds } },
+                { employee: { officeId: { in: filter.officeIds } } },
+              ],
+            }
+          : {}),
+      },
+      select: { status: true },
+    }),
+    prisma.attendance.findMany({
+      where: {
+        recordedAt: { gte: start, lte: end },
+        status: { in: ['present', 'late', 'absent', 'clocked_out'] },
+        employee: {
+          role: 'on_site',
+          ...(filter.departments?.length
+            ? { department: { in: filter.departments } }
+            : {}),
+        },
+        ...(filter.siteIds?.length ? { shift: { siteId: { in: filter.siteIds } } } : {}),
+      },
+      select: { status: true },
+    }),
+  ]);
+
+  let present = 0;
+  let late = 0;
+  let absent = 0;
+
+  for (const row of officeRows) {
+    if (row.status === 'present' || row.status === 'clocked_out') present++;
+    else if (row.status === 'late') late++;
+    else if (row.status === 'absent') absent++;
+  }
+
+  for (const row of onsiteRows) {
+    if (row.status === 'present' || row.status === 'clocked_out') present++;
+    else if (row.status === 'late') late++;
+    else if (row.status === 'absent') absent++;
+  }
+
+  const total = present + late + absent;
+  const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+
+  return { present, late, absent, rate };
+}
+
+export async function getTodayYesterdayAttendanceStats(
+  filter: Omit<AttendanceTrendFilter, 'startDate' | 'endDate'>
+): Promise<TodayYesterdayStats> {
+  const tz = filter.timezone || BUSINESS_TIMEZONE;
+  const now = new Date();
+  const yesterday = new Date(now.getTime() - 86400000);
+
+  const [today, yDay] = await Promise.all([
+    queryDayStats(now, filter, tz),
+    queryDayStats(yesterday, filter, tz),
+  ]);
+
+  return { today, yesterday: yDay };
+}

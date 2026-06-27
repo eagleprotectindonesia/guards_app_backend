@@ -1,4 +1,4 @@
-import { getCombinedAttendanceTrend, getMonthlyAttendanceHeatmap, getAttendanceFilterOptions } from '@repo/database';
+import { getCombinedAttendanceTrend, getMonthlyAttendanceHeatmap, getAttendanceFilterOptions, getTodayYesterdayAttendanceStats } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { parseTrendSearchParams } from '@/lib/attendance-trend-params';
 import AttendanceTrendFullscreen from './attendance-trend-fullscreen';
@@ -25,11 +25,12 @@ export default async function AttendanceTrendFullscreenPage({ searchParams }: { 
     siteIds: parsed.siteIds.length ? parsed.siteIds : undefined,
   };
 
-  const [trend, filterOptions] = await Promise.all([
+  const [trend, filterOptions, dayStats] = await Promise.all([
     isHeatmap
       ? getMonthlyAttendanceHeatmap({ year: heatmapYear, month: heatmapMonth, startDate, endDate, ...commonFilter })
       : getCombinedAttendanceTrend({ startDate, endDate, ...commonFilter }),
     getAttendanceFilterOptions(),
+    getTodayYesterdayAttendanceStats(commonFilter),
   ]);
 
   return (
@@ -43,6 +44,7 @@ export default async function AttendanceTrendFullscreenPage({ searchParams }: { 
       selectedDepartments={parsed.departments}
       selectedOfficeIds={parsed.officeIds}
       selectedSiteIds={parsed.siteIds}
+      summaryStats={dayStats}
     />
   );
 }

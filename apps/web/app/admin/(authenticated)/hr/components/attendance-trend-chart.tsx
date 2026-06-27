@@ -9,7 +9,9 @@ import { Maximize, Maximize2, X } from 'lucide-react';
 import { AttendanceTrendFilters } from './attendance-trend-filters';
 import { AttendanceTrendControls } from './attendance-trend-controls';
 import { AttendanceTrendRenderer, StatusFilterLegend } from './attendance-trend-renderer';
+import { AttendanceTrendSummaryCards } from './attendance-trend-summary-cards';
 import type { TrendData, ChartType } from './attendance-trend-renderer';
+import type { DayStatsData } from './attendance-trend-summary-cards';
 import type { LocationOption } from '@repo/database';
 
 type Props = {
@@ -25,6 +27,10 @@ type Props = {
   selectedDepartments: string[];
   selectedOfficeIds: string[];
   selectedSiteIds: string[];
+  summaryStats?: {
+    today: DayStatsData;
+    yesterday: DayStatsData;
+  };
 };
 
 export function AttendanceTrendChart({
@@ -37,6 +43,7 @@ export function AttendanceTrendChart({
   selectedDepartments,
   selectedOfficeIds,
   selectedSiteIds,
+  summaryStats,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -137,7 +144,10 @@ export function AttendanceTrendChart({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-4">
+          {summaryStats && !isHeatmap && (
+            <AttendanceTrendSummaryCards today={summaryStats.today} yesterday={summaryStats.yesterday} />
+          )}
           {renderChartContent()}
         </CardContent>
       </Card>

@@ -7,7 +7,9 @@ import { Button } from '@/components/ui/button';
 import { AttendanceTrendFilters } from '../components/attendance-trend-filters';
 import { AttendanceTrendControls } from '../components/attendance-trend-controls';
 import { AttendanceTrendRenderer, StatusFilterLegend } from '../components/attendance-trend-renderer';
+import { AttendanceTrendSummaryCards } from '../components/attendance-trend-summary-cards';
 import type { TrendData, ChartType } from '../components/attendance-trend-renderer';
+import type { DayStatsData } from '../components/attendance-trend-summary-cards';
 import type { FilterOptions } from '@repo/database';
 
 type Props = {
@@ -20,6 +22,10 @@ type Props = {
   selectedDepartments: string[];
   selectedOfficeIds: string[];
   selectedSiteIds: string[];
+  summaryStats?: {
+    today: DayStatsData;
+    yesterday: DayStatsData;
+  };
 };
 
 export default function AttendanceTrendFullscreen({
@@ -32,6 +38,7 @@ export default function AttendanceTrendFullscreen({
   selectedDepartments,
   selectedOfficeIds,
   selectedSiteIds,
+  summaryStats,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -95,6 +102,11 @@ export default function AttendanceTrendFullscreen({
         </Button>
       </div>
       <div className="flex-1 flex flex-col overflow-hidden p-4">
+        {summaryStats && !isHeatmap && (
+          <div className="shrink-0 mb-4">
+            <AttendanceTrendSummaryCards today={summaryStats.today} yesterday={summaryStats.yesterday} />
+          </div>
+        )}
         <div className="flex-1 min-h-0">
           <AttendanceTrendRenderer
             data={data}

@@ -13,6 +13,7 @@ import {
   getCombinedAttendanceTrend,
   getMonthlyAttendanceHeatmap,
   getAttendanceFilterOptions,
+  getTodayYesterdayAttendanceStats,
   getPendingLeaveRequestsCount,
   getLeaveApprovedTodayCount,
   getLeaveRejectedTodayCount,
@@ -64,6 +65,7 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
     onsiteAbsentCount,
     attendanceData,
     filterOptions,
+    dayStats,
     pendingLeaveCount,
     leaveApprovedTodayCount,
     leaveRejectedTodayCount,
@@ -86,6 +88,7 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
       ? getMonthlyAttendanceHeatmap({ year: heatmapYear, month: heatmapMonth, startDate, endDate, ...commonFilter })
       : getCombinedAttendanceTrend({ startDate, endDate, ...commonFilter }),
     getAttendanceFilterOptions(),
+    getTodayYesterdayAttendanceStats(commonFilter),
     getPendingLeaveRequestsCount(),
     getLeaveApprovedTodayCount(),
     getLeaveRejectedTodayCount(),
@@ -142,6 +145,7 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
             selectedDepartments={parsed.departments}
             selectedOfficeIds={parsed.officeIds}
             selectedSiteIds={parsed.siteIds}
+            summaryStats={dayStats}
           />
         </div>
 
