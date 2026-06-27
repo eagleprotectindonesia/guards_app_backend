@@ -21,7 +21,6 @@ import {
 } from '@repo/database';
 import { HRMetrics } from './components/hr-metrics';
 import { AttendanceTrendChart } from './components/attendance-trend-chart';
-import { AttendanceTrendFilters } from './components/attendance-trend-filters';
 import { LeaveRequestOverview } from './components/leave-request-overview';
 import { UpcomingShiftsOverview } from './components/upcoming-shifts-overview';
 import { TodayShiftsOverview } from './components/today-shifts-overview';
@@ -37,7 +36,7 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
   await requirePermission('dashboard-hr:view');
   const query = await searchParams;
   const parsed = parseTrendSearchParams(query);
-  const { days } = parsed;
+  const { days, chart } = parsed;
 
   const endDate = new Date();
   const startDate = new Date(endDate.getTime() - (days - 1) * 86400000);
@@ -127,15 +126,16 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
         />
 
         {/* Column 2-3: Attendance Overview Trend Chart */}
-        <div className="md:col-span-2 space-y-3">
-          <AttendanceTrendFilters
-            departments={filterOptions.departments}
-            locations={filterOptions.locations}
+        <div className="md:col-span-2">
+          <AttendanceTrendChart
+            data={attendanceTrend}
+            currentDays={days}
+            chart={chart}
+            filterOptions={filterOptions}
             selectedDepartments={parsed.departments}
             selectedOfficeIds={parsed.officeIds}
             selectedSiteIds={parsed.siteIds}
           />
-          <AttendanceTrendChart data={attendanceTrend} currentDays={days} />
         </div>
 
         {/* Column 4: Upcoming Shifts Overview */}
@@ -195,5 +195,3 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
     </div>
   );
 }
-
-

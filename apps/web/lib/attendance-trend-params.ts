@@ -3,6 +3,7 @@ export type ParsedTrendParams = {
   departments: string[];
   officeIds: string[];
   siteIds: string[];
+  chart: 'area' | 'line' | 'bar' | 'stacked-percent' | 'heatmap';
 };
 
 export function parseTrendSearchParams(
@@ -41,7 +42,13 @@ export function parseTrendSearchParams(
     }
   }
 
-  return { days, departments: departmentsFinal, officeIds, siteIds };
+  const chartRaw = Array.isArray(sp.chart) ? sp.chart[0] : sp.chart;
+  const validCharts = ['area', 'line', 'bar', 'stacked-percent', 'heatmap'] as const;
+  const chart = validCharts.includes(chartRaw as (typeof validCharts)[number])
+    ? (chartRaw as ParsedTrendParams['chart'])
+    : 'area';
+
+  return { days, departments: departmentsFinal, officeIds, siteIds, chart };
 }
 
 export function buildTrendQueryString(
@@ -50,6 +57,7 @@ export function buildTrendQueryString(
   const sp = new URLSearchParams();
 
   if (params.days) sp.set('days', String(params.days));
+  if (params.chart) sp.set('chart', params.chart);
 
   if (params.departments?.length) {
     sp.set('department', params.departments.join(','));

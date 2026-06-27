@@ -12,7 +12,7 @@ export default async function AttendanceTrendFullscreenPage({ searchParams }: { 
 
   const query = await searchParams;
   const parsed = parseTrendSearchParams(query);
-  const { days } = parsed;
+  const { days, chart } = parsed;
 
   const endDate = new Date();
   const startDate = new Date(endDate.getTime() - (days - 1) * 86400000);
@@ -32,6 +32,7 @@ export default async function AttendanceTrendFullscreenPage({ searchParams }: { 
     <AttendanceTrendFullscreen
       data={trend}
       currentDays={days}
+      chart={chart}
       filterOptions={filterOptions}
       selectedDepartments={parsed.departments}
       selectedOfficeIds={parsed.officeIds}
