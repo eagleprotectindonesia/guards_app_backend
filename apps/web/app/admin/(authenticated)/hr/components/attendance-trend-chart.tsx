@@ -10,6 +10,7 @@ import { AttendanceTrendFilters } from './attendance-trend-filters';
 import { AttendanceTrendControls } from './attendance-trend-controls';
 import { AttendanceTrendRenderer, StatusFilterLegend } from './attendance-trend-renderer';
 import { AttendanceTrendSummaryCards } from './attendance-trend-summary-cards';
+import { AttendanceDayDrilldownModal } from './attendance-day-drilldown-modal';
 import type { TrendData, ChartType } from './attendance-trend-renderer';
 import type { DayStatsData } from './attendance-trend-summary-cards';
 import type { LocationOption } from '@repo/database';
@@ -72,18 +73,26 @@ export function AttendanceTrendChart({
   };
 
   const isHeatmap = chart === 'heatmap';
+  const [drillDate, setDrillDate] = useState<string | null>(null);
+
+  const handleDayClick = (isoDate: string) => {
+    setDrillDate(isoDate);
+  };
+
+  const handleCloseDrilldown = () => setDrillDate(null);
 
   const renderChartContent = (fullHeight?: boolean) => (
     <>
-      <AttendanceTrendRenderer
-        data={data}
-        days={currentDays}
-        chart={chart}
-        statusFilter={statusFilter}
-        fullHeight={fullHeight}
-        heatmapYear={heatmapYear}
-        heatmapMonth={heatmapMonth}
-      />
+        <AttendanceTrendRenderer
+          data={data}
+          days={currentDays}
+          chart={chart}
+          statusFilter={statusFilter}
+          fullHeight={fullHeight}
+          heatmapYear={heatmapYear}
+          heatmapMonth={heatmapMonth}
+          onDayClick={handleDayClick}
+        />
       {!isHeatmap && (
         <StatusFilterLegend
           statusFilter={statusFilter}
@@ -183,6 +192,14 @@ export function AttendanceTrendChart({
           </div>
         </DialogContent>
       </Dialog>
+      <AttendanceDayDrilldownModal
+        isOpen={!!drillDate}
+        onClose={handleCloseDrilldown}
+        date={drillDate || ''}
+        departments={selectedDepartments.length ? selectedDepartments : undefined}
+        officeIds={selectedOfficeIds.length ? selectedOfficeIds : undefined}
+        siteIds={selectedSiteIds.length ? selectedSiteIds : undefined}
+      />
     </>
   );
 }

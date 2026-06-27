@@ -7,6 +7,7 @@ type TrendBucket = {
   present: number;
   late: number;
   absent: number;
+  isoDate?: string;
 };
 
 export type AttendanceTrendFilter = {
@@ -85,6 +86,7 @@ export async function getAttendanceFilterOptions(): Promise<FilterOptions> {
 
 export type MonthlyHeatmapDay = {
   date: string;
+  isoDate: string;
   present: number;
   late: number;
   absent: number;
@@ -112,7 +114,7 @@ export async function getMonthlyAttendanceHeatmap(
       month: 'short',
       day: 'numeric',
     });
-    bucketMap.set(dateKey, { date: label, present: 0, late: 0, absent: 0, rate: 0 });
+    bucketMap.set(dateKey, { date: label, isoDate: dateKey, present: 0, late: 0, absent: 0, rate: 0 });
   }
 
   const cacheKey = [
@@ -227,7 +229,7 @@ export async function getCombinedAttendanceTrend(
       month: 'numeric',
       day: 'numeric',
     });
-    bucketMap.set(dateKey, { date: label, present: 0, late: 0, absent: 0 });
+    bucketMap.set(dateKey, { date: label, isoDate: dateKey, present: 0, late: 0, absent: 0 });
   }
 
   const cacheKey = buildCacheKey(filter, tz);
@@ -401,4 +403,117 @@ export async function getTodayYesterdayAttendanceStats(
   ]);
 
   return { today, yesterday: yDay };
+}
+
+export type EmployeeDayAttendance = {
+  employeeId: string;
+  fullName: string;
+  employeeNumber: string;
+  department: string | null;
+  role: string;
+  status: string;
+  locationName: string | null;
+};
+
+export async function getEmployeeAttendanceByDate(
+  date: Date,
+  filter: Omit<AttendanceTrendFilter, 'startDate' | 'endDate'>
+): Promise<EmployeeDayAttendance[]> {
+  const tz = filter.timezone || BUSINESS_TIMEZONE;
+  const { start, end } = getBusinessDayRange(date, tz);
+
+  const [officeRows, onsiteRows] = await Promise.all([
+    prisma.officeAttendance.findMany({
+      where: {
+        recordedAt: { gte: start, lte: end },
+        status: { in: ['present', 'late', 'absent', 'clocked_out'] },
+        ...(filter.departments?.length
+          ? { employee: { department: { in: filter.departments } } }
+          : {}),
+        ...(filter.officeIds?.length
+          ? {
+              OR: [
+                { officeId: { in: filter.officeIds } },
+                { employee: { officeId: { in: filter.officeIds } } },
+              ],
+            }
+          : {}),
+      },
+      select: {
+        employeeId: true,
+        status: true,
+        employee: {
+          select: {
+            fullName: true,
+            employeeNumber: true,
+            department: true,
+            role: true,
+          },
+        },
+        office: {
+          select: { name: true },
+        },
+      },
+    }),
+    prisma.attendance.findMany({
+      where: {
+        recordedAt: { gte: start, lte: end },
+        status: { in: ['present', 'late', 'absent', 'clocked_out'] },
+        employee: {
+          role: 'on_site',
+          ...(filter.departments?.length
+            ? { department: { in: filter.departments } }
+            : {}),
+        },
+        ...(filter.siteIds?.length ? { shift: { siteId: { in: filter.siteIds } } } : {}),
+      },
+      select: {
+        employeeId: true,
+        status: true,
+        employee: {
+          select: {
+            fullName: true,
+            employeeNumber: true,
+            department: true,
+            role: true,
+          },
+        },
+        shift: {
+          select: {
+            site: { select: { name: true } },
+          },
+        },
+      },
+    }),
+  ]);
+
+  const result: EmployeeDayAttendance[] = [];
+
+  for (const row of officeRows) {
+    if (!row.employeeId) continue;
+    result.push({
+      employeeId: row.employeeId,
+      fullName: row.employee?.fullName ?? 'Unknown',
+      employeeNumber: row.employee?.employeeNumber ?? '',
+      department: row.employee?.department ?? null,
+      role: 'office',
+      status: row.status,
+      locationName: row.office?.name ?? null,
+    });
+  }
+
+  for (const row of onsiteRows) {
+    if (!row.employeeId) continue;
+    result.push({
+      employeeId: row.employeeId,
+      fullName: row.employee?.fullName ?? 'Unknown',
+      employeeNumber: row.employee?.employeeNumber ?? '',
+      department: row.employee?.department ?? null,
+      role: 'on_site',
+      status: row.status,
+      locationName: row.shift?.site?.name ?? null,
+    });
+  }
+
+  return result;
 }

@@ -8,6 +8,7 @@ import { AttendanceTrendFilters } from '../components/attendance-trend-filters';
 import { AttendanceTrendControls } from '../components/attendance-trend-controls';
 import { AttendanceTrendRenderer, StatusFilterLegend } from '../components/attendance-trend-renderer';
 import { AttendanceTrendSummaryCards } from '../components/attendance-trend-summary-cards';
+import { AttendanceDayDrilldownModal } from '../components/attendance-day-drilldown-modal';
 import type { TrendData, ChartType } from '../components/attendance-trend-renderer';
 import type { DayStatsData } from '../components/attendance-trend-summary-cards';
 import type { FilterOptions } from '@repo/database';
@@ -66,6 +67,11 @@ export default function AttendanceTrendFullscreen({
   };
 
   const isHeatmap = chart === 'heatmap';
+  const [drillDate, setDrillDate] = useState<string | null>(null);
+
+  const handleDayClick = (isoDate: string) => {
+    setDrillDate(isoDate);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
@@ -116,6 +122,7 @@ export default function AttendanceTrendFullscreen({
             fullHeight
             heatmapYear={heatmapYear}
             heatmapMonth={heatmapMonth}
+            onDayClick={handleDayClick}
           />
         </div>
         {!isHeatmap && (
@@ -125,6 +132,14 @@ export default function AttendanceTrendFullscreen({
           />
         )}
       </div>
+      <AttendanceDayDrilldownModal
+        isOpen={!!drillDate}
+        onClose={() => setDrillDate(null)}
+        date={drillDate || ''}
+        departments={selectedDepartments.length ? selectedDepartments : undefined}
+        officeIds={selectedOfficeIds.length ? selectedOfficeIds : undefined}
+        siteIds={selectedSiteIds.length ? selectedSiteIds : undefined}
+      />
     </div>
   );
 }

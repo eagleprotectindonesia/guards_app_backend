@@ -22,6 +22,7 @@ export type TrendData = {
   present: number;
   late: number;
   absent: number;
+  isoDate?: string;
 };
 
 export type HeatmapDay = TrendData & { rate?: number };
@@ -36,6 +37,7 @@ type Props = {
   fullHeight?: boolean;
   heatmapYear?: number;
   heatmapMonth?: number;
+  onDayClick?: (dateLabel: string) => void;
 };
 
 const COLORS = {
@@ -77,7 +79,7 @@ function formatData(data: TrendData[], days: number) {
   });
 }
 
-export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullHeight, heatmapYear, heatmapMonth }: Props) {
+export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullHeight, heatmapYear, heatmapMonth, onDayClick }: Props) {
   const chartData = formatData(data, days);
   const isHeatmap = chart === 'heatmap';
 
@@ -182,10 +184,12 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
               const total = present + late + absent;
               const rate = total > 0 ? Math.round((present / total) * 100) : dayData?.rate ?? 100;
               const isToday = dfFormat(day, 'yyyy-MM-dd') === dfFormat(new Date(), 'yyyy-MM-dd');
+              const clickDate = dayData?.isoDate || dayData?.date;
 
               return (
                 <div
                   key={i}
+                  onClick={() => clickDate && onDayClick?.(clickDate)}
                   className={cn(
                     'flex flex-col items-center justify-center rounded p-0.5 cursor-pointer hover:ring-1 hover:ring-border transition-all',
                     isToday && 'ring-1 ring-blue-400'
@@ -203,11 +207,21 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
     );
   }
 
+  const handleChartClick = (...args: unknown[]) => {
+    if (!onDayClick) return;
+    const state = args[0] as { activePayload?: Array<{ payload: Record<string, unknown> }> } | undefined;
+    const payload = state?.activePayload?.[0]?.payload;
+    const isoDate = payload?.isoDate;
+    const date = payload?.date;
+    if (typeof isoDate === 'string') onDayClick(isoDate);
+    else if (typeof date === 'string') onDayClick(date);
+  };
+
   const renderChart = () => {
     switch (chart) {
       case 'area':
         return (
-          <AreaChart {...commonProps}>
+          <AreaChart {...commonProps} onClick={handleChartClick}>
             <defs>
               <linearGradient id="presentArea" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor={COLORS.present} stopOpacity={0.3} />
@@ -234,7 +248,7 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
 
       case 'line':
         return (
-          <LineChart {...commonProps}>
+          <LineChart {...commonProps} onClick={handleChartClick}>
             <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-border/40" vertical={false} />
             <XAxis dataKey="formattedDate" {...axisProps} interval={interval} />
             <YAxis {...axisProps} />
@@ -247,7 +261,7 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
 
       case 'bar':
         return (
-          <BarChart {...commonProps}>
+          <BarChart {...commonProps} onClick={handleChartClick}>
             <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-border/40" vertical={false} />
             <XAxis dataKey="formattedDate" {...axisProps} interval={interval} />
             <YAxis {...axisProps} />
@@ -260,7 +274,7 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
 
       case 'stacked-percent':
         return (
-          <BarChart {...commonProps}>
+          <BarChart {...commonProps} onClick={handleChartClick}>
             <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-border/40" vertical={false} />
             <XAxis dataKey="formattedDate" {...axisProps} interval={interval} />
             <YAxis {...axisProps} tickFormatter={(v: number) => `${v}%`} domain={[0, 100]} />
