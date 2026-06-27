@@ -12,6 +12,7 @@ export * from './checkins';
 export * from './employees';
 export * from './employee-sessions';
 export * from './annual-leave-balances';
+export * from './attendance-trend';
 export * from './leave-requests';
 export * from './live-activity-feed';
 export * from './total-incidents';

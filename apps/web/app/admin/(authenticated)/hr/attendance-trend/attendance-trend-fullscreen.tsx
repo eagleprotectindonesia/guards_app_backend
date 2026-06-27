@@ -14,6 +14,8 @@ import {
   CartesianGrid,
   Tooltip,
 } from 'recharts';
+import { AttendanceTrendFilters } from '../components/attendance-trend-filters';
+import type { FilterOptions } from '@repo/database';
 
 type TrendData = {
   date: string;
@@ -25,9 +27,20 @@ type TrendData = {
 type Props = {
   data: TrendData[];
   currentDays: number;
+  filterOptions: FilterOptions;
+  selectedDepartments: string[];
+  selectedOfficeIds: string[];
+  selectedSiteIds: string[];
 };
 
-export default function AttendanceTrendFullscreen({ data, currentDays }: Props) {
+export default function AttendanceTrendFullscreen({
+  data,
+  currentDays,
+  filterOptions,
+  selectedDepartments,
+  selectedOfficeIds,
+  selectedSiteIds,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -94,6 +107,15 @@ export default function AttendanceTrendFullscreen({ data, currentDays }: Props) 
         >
           <X className="h-5 w-5" />
         </Button>
+      </div>
+      <div className="px-4 pt-2 pb-1 border-b border-border/30 shrink-0">
+        <AttendanceTrendFilters
+          departments={filterOptions.departments}
+          locations={filterOptions.locations}
+          selectedDepartments={selectedDepartments}
+          selectedOfficeIds={selectedOfficeIds}
+          selectedSiteIds={selectedSiteIds}
+        />
       </div>
       <div className="flex-1 flex flex-col overflow-hidden p-4">
         <div className="flex-1 min-h-0">

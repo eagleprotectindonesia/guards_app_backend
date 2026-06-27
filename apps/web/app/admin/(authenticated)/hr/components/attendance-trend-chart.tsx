@@ -200,7 +200,7 @@ export function AttendanceTrendChart({ data, currentDays }: Props) {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => window.open('/admin/hr/attendance-trend', '_blank')}
+                onClick={() => window.open(`/admin/hr/attendance-trend?${searchParams.toString()}`, '_blank')}
                 title="Maximize fullscreen"
                 aria-label="Maximize chart fullscreen"
               >

@@ -10,7 +10,8 @@ import {
   getOnsitePresentCountForDate,
   getOnsiteLateCountForDate,
   getOnsiteAbsentCountForDate,
-  getOfficeWeeklyAttendanceTrend,
+  getCombinedAttendanceTrend,
+  getAttendanceFilterOptions,
   getPendingLeaveRequestsCount,
   getLeaveApprovedTodayCount,
   getLeaveRejectedTodayCount,
@@ -20,11 +21,13 @@ import {
 } from '@repo/database';
 import { HRMetrics } from './components/hr-metrics';
 import { AttendanceTrendChart } from './components/attendance-trend-chart';
+import { AttendanceTrendFilters } from './components/attendance-trend-filters';
 import { LeaveRequestOverview } from './components/leave-request-overview';
 import { UpcomingShiftsOverview } from './components/upcoming-shifts-overview';
 import { TodayShiftsOverview } from './components/today-shifts-overview';
 import { HrLiveFeed } from './components/hr-live-feed';
 import { requirePermission } from '@/lib/admin-auth';
+import { parseTrendSearchParams } from '@/lib/attendance-trend-params';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,8 +36,11 @@ type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 export default async function HRDashboardPage({ searchParams }: { searchParams: SearchParams }) {
   await requirePermission('dashboard-hr:view');
   const query = await searchParams;
-  const daysParam = query.days ? parseInt(Array.isArray(query.days) ? query.days[0] : query.days, 10) : 7;
-  const days = daysParam === 30 ? 30 : daysParam === 15 ? 15 : 7;
+  const parsed = parseTrendSearchParams(query);
+  const { days } = parsed;
+
+  const endDate = new Date();
+  const startDate = new Date(endDate.getTime() - (days - 1) * 86400000);
 
   const [
     officeEmployeeCount,
@@ -48,7 +54,8 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
     onsitePresentCount,
     onsiteLateCount,
     onsiteAbsentCount,
-    officeWeeklyTrend,
+    attendanceTrend,
+    filterOptions,
     pendingLeaveCount,
     leaveApprovedTodayCount,
     leaveRejectedTodayCount,
@@ -67,7 +74,14 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
     getOnsitePresentCountForDate(),
     getOnsiteLateCountForDate(),
     getOnsiteAbsentCountForDate(),
-    getOfficeWeeklyAttendanceTrend(new Date(), days),
+    getCombinedAttendanceTrend({
+      startDate,
+      endDate,
+      departments: parsed.departments.length ? parsed.departments : undefined,
+      officeIds: parsed.officeIds.length ? parsed.officeIds : undefined,
+      siteIds: parsed.siteIds.length ? parsed.siteIds : undefined,
+    }),
+    getAttendanceFilterOptions(),
     getPendingLeaveRequestsCount(),
     getLeaveApprovedTodayCount(),
     getLeaveRejectedTodayCount(),
@@ -113,8 +127,15 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
         />
 
         {/* Column 2-3: Attendance Overview Trend Chart */}
-        <div className="md:col-span-2">
-          <AttendanceTrendChart data={officeWeeklyTrend} currentDays={days} />
+        <div className="md:col-span-2 space-y-3">
+          <AttendanceTrendFilters
+            departments={filterOptions.departments}
+            locations={filterOptions.locations}
+            selectedDepartments={parsed.departments}
+            selectedOfficeIds={parsed.officeIds}
+            selectedSiteIds={parsed.siteIds}
+          />
+          <AttendanceTrendChart data={attendanceTrend} currentDays={days} />
         </div>
 
         {/* Column 4: Upcoming Shifts Overview */}
