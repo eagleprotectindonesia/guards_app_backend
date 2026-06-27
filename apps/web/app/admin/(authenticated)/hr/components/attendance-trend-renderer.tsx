@@ -63,7 +63,7 @@ function getHeatmapColor(rate: number | undefined): string {
 }
 
 function formatData(data: TrendData[], days: number) {
-  return data.map((item) => {
+  return data.map(item => {
     const parts = item.date.split(', ');
     const dateLabel = parts.length > 1 ? parts[1] : item.date;
     const weekdayLabel = parts[0];
@@ -79,7 +79,16 @@ function formatData(data: TrendData[], days: number) {
   });
 }
 
-export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullHeight, heatmapYear, heatmapMonth, onDayClick }: Props) {
+export function AttendanceTrendRenderer({
+  data,
+  days,
+  chart,
+  statusFilter,
+  fullHeight,
+  heatmapYear,
+  heatmapMonth,
+  onDayClick,
+}: Props) {
   const chartData = formatData(data, days);
   const isHeatmap = chart === 'heatmap';
 
@@ -96,11 +105,17 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
   } as const;
 
   const tooltipStyle: React.CSSProperties = {
-    backgroundColor: 'hsl(var(--popover))',
-    borderColor: 'hsl(var(--border))',
+    border: '1px solid hsl(var(--border))',
     borderRadius: '8px',
     color: 'hsl(var(--popover-foreground))',
     fontSize: '11px',
+    opacity: 1,
+    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+  };
+
+  const wrapperStyle: React.CSSProperties = {
+    opacity: 1,
+    outline: 'none',
   };
 
   const isHidden = (key: string) => statusFilter !== 'all' && statusFilter !== key;
@@ -139,11 +154,18 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
   if (isHeatmap) {
     const dayHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-    const totalRate = data.reduce((sum, d) => {
-      const total = d.present + d.late + d.absent;
-      return sum + (total > 0 ? d.present / total : 0);
-    }, 0);
-    const avgRate = data.length > 0 ? Math.round((totalRate / data.length) * 100) : 0;
+    const { totalRate, daysWithData } = data.reduce(
+      (acc, d) => {
+        const total = d.present + d.late + d.absent;
+        if (total > 0) {
+          acc.totalRate += d.present / total;
+          acc.daysWithData++;
+        }
+        return acc;
+      },
+      { totalRate: 0, daysWithData: 0 }
+    );
+    const avgRate = daysWithData > 0 ? Math.round((totalRate / daysWithData) * 100) : 0;
 
     return (
       <div className={cn('flex flex-col', fullHeight ? 'flex-1 min-h-0' : 'h-72')}>
@@ -157,6 +179,7 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
               { label: '≥70%', color: HEATMAP_COLORS.medium },
               { label: '≥50%', color: HEATMAP_COLORS.low },
               { label: '<50%', color: HEATMAP_COLORS.poor },
+              { label: 'No data', color: HEATMAP_COLORS.none },
             ].map(({ label, color }) => (
               <div key={label} className="flex items-center gap-1">
                 <span className={cn('w-2.5 h-2.5 rounded', color)} />
@@ -167,7 +190,7 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
         </div>
         <div className="flex-1 min-h-0 grid auto-rows-fr">
           <div className="grid grid-cols-7 gap-px">
-            {dayHeaders.map((h) => (
+            {dayHeaders.map(h => (
               <div key={h} className="text-[10px] text-muted-foreground font-medium text-center pb-1">
                 {h}
               </div>
@@ -182,7 +205,7 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
               const late = dayData?.late ?? 0;
               const absent = dayData?.absent ?? 0;
               const total = present + late + absent;
-              const rate = total > 0 ? Math.round((present / total) * 100) : dayData?.rate ?? 100;
+              const rate = total > 0 ? Math.round((present / total) * 100) : undefined;
               const isToday = dfFormat(day, 'yyyy-MM-dd') === dfFormat(new Date(), 'yyyy-MM-dd');
               const clickDate = dayData?.isoDate || dayData?.date;
 
@@ -194,7 +217,7 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
                     'flex flex-col items-center justify-center rounded p-0.5 cursor-pointer hover:ring-1 hover:ring-border transition-all',
                     isToday && 'ring-1 ring-blue-400'
                   )}
-                  title={`${dfFormat(day, 'MMM d')} — ${present} present, ${late} late, ${absent} absent (${rate}%)`}
+                  title={`${dfFormat(day, 'MMM d')} — ${present} present, ${late} late, ${absent} absent${rate !== undefined ? ` (${rate}%)` : ' (no data)'}`}
                 >
                   <span className="text-[10px] text-muted-foreground">{dfFormat(day, 'd')}</span>
                   <span className={cn('w-full h-2.5 rounded-sm mt-0.5', getHeatmapColor(rate))} />
@@ -239,10 +262,50 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
             <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-border/40" vertical={false} />
             <XAxis dataKey="formattedDate" {...axisProps} interval={interval} />
             <YAxis {...axisProps} />
-            <Tooltip contentStyle={tooltipStyle} labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }} />
-            <Area type="monotone" dataKey="present" name="Present" stroke={COLORS.present} strokeWidth={2} fill="url(#presentArea)" hide={isHidden('present')} dot={dot} activeDot={{ r: 5 }} isAnimationActive={false} stackId="1" />
-            <Area type="monotone" dataKey="late" name="Late" stroke={COLORS.late} strokeWidth={2} fill="url(#lateArea)" hide={isHidden('late')} dot={dot} activeDot={{ r: 5 }} isAnimationActive={false} stackId="1" />
-            <Area type="monotone" dataKey="absent" name="Absent" stroke={COLORS.absent} strokeWidth={2} fill="url(#absentArea)" hide={isHidden('absent')} dot={dot} activeDot={{ r: 5 }} isAnimationActive={false} stackId="1" />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              wrapperStyle={wrapperStyle}
+              labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}
+            />
+            <Area
+              type="monotone"
+              dataKey="present"
+              name="Present"
+              stroke={COLORS.present}
+              strokeWidth={2}
+              fill="url(#presentArea)"
+              hide={isHidden('present')}
+              dot={dot}
+              activeDot={{ r: 5 }}
+              isAnimationActive={false}
+              stackId="1"
+            />
+            <Area
+              type="monotone"
+              dataKey="late"
+              name="Late"
+              stroke={COLORS.late}
+              strokeWidth={2}
+              fill="url(#lateArea)"
+              hide={isHidden('late')}
+              dot={dot}
+              activeDot={{ r: 5 }}
+              isAnimationActive={false}
+              stackId="1"
+            />
+            <Area
+              type="monotone"
+              dataKey="absent"
+              name="Absent"
+              stroke={COLORS.absent}
+              strokeWidth={2}
+              fill="url(#absentArea)"
+              hide={isHidden('absent')}
+              dot={dot}
+              activeDot={{ r: 5 }}
+              isAnimationActive={false}
+              stackId="1"
+            />
           </AreaChart>
         );
 
@@ -252,10 +315,44 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
             <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-border/40" vertical={false} />
             <XAxis dataKey="formattedDate" {...axisProps} interval={interval} />
             <YAxis {...axisProps} />
-            <Tooltip contentStyle={tooltipStyle} labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }} />
-            <Line type="monotone" dataKey="present" name="Present" stroke={COLORS.present} strokeWidth={2} hide={isHidden('present')} dot={dot} activeDot={{ r: 5 }} isAnimationActive={false} />
-            <Line type="monotone" dataKey="late" name="Late" stroke={COLORS.late} strokeWidth={2} hide={isHidden('late')} dot={dot} activeDot={{ r: 5 }} isAnimationActive={false} />
-            <Line type="monotone" dataKey="absent" name="Absent" stroke={COLORS.absent} strokeWidth={2} hide={isHidden('absent')} dot={dot} activeDot={{ r: 5 }} isAnimationActive={false} />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              wrapperStyle={wrapperStyle}
+              labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}
+            />
+            <Line
+              type="monotone"
+              dataKey="present"
+              name="Present"
+              stroke={COLORS.present}
+              strokeWidth={2}
+              hide={isHidden('present')}
+              dot={dot}
+              activeDot={{ r: 5 }}
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="late"
+              name="Late"
+              stroke={COLORS.late}
+              strokeWidth={2}
+              hide={isHidden('late')}
+              dot={dot}
+              activeDot={{ r: 5 }}
+              isAnimationActive={false}
+            />
+            <Line
+              type="monotone"
+              dataKey="absent"
+              name="Absent"
+              stroke={COLORS.absent}
+              strokeWidth={2}
+              hide={isHidden('absent')}
+              dot={dot}
+              activeDot={{ r: 5 }}
+              isAnimationActive={false}
+            />
           </LineChart>
         );
 
@@ -265,10 +362,35 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
             <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="stroke-border/40" vertical={false} />
             <XAxis dataKey="formattedDate" {...axisProps} interval={interval} />
             <YAxis {...axisProps} />
-            <Tooltip contentStyle={tooltipStyle} labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }} />
-            <Bar dataKey="present" name="Present" fill={COLORS.present} radius={[3, 3, 0, 0]} hide={isHidden('present')} isAnimationActive={false} />
-            <Bar dataKey="late" name="Late" fill={COLORS.late} radius={[3, 3, 0, 0]} hide={isHidden('late')} isAnimationActive={false} />
-            <Bar dataKey="absent" name="Absent" fill={COLORS.absent} radius={[3, 3, 0, 0]} hide={isHidden('absent')} isAnimationActive={false} />
+            <Tooltip
+              contentStyle={tooltipStyle}
+              wrapperStyle={wrapperStyle}
+              labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}
+            />
+            <Bar
+              dataKey="present"
+              name="Present"
+              fill={COLORS.present}
+              radius={[3, 3, 0, 0]}
+              hide={isHidden('present')}
+              isAnimationActive={false}
+            />
+            <Bar
+              dataKey="late"
+              name="Late"
+              fill={COLORS.late}
+              radius={[3, 3, 0, 0]}
+              hide={isHidden('late')}
+              isAnimationActive={false}
+            />
+            <Bar
+              dataKey="absent"
+              name="Absent"
+              fill={COLORS.absent}
+              radius={[3, 3, 0, 0]}
+              hide={isHidden('absent')}
+              isAnimationActive={false}
+            />
           </BarChart>
         );
 
@@ -280,12 +402,37 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
             <YAxis {...axisProps} tickFormatter={(v: number) => `${v}%`} domain={[0, 100]} />
             <Tooltip
               contentStyle={tooltipStyle}
+              wrapperStyle={wrapperStyle}
               labelStyle={{ fontWeight: 'bold', marginBottom: '4px' }}
-              formatter={(value) => [`${value}%`]}
+              formatter={value => [`${value}%`]}
             />
-            <Bar dataKey="presentPct" name="Present" stackId="a" fill={COLORS.present} radius={[3, 3, 0, 0]} hide={isHidden('present')} isAnimationActive={false} />
-            <Bar dataKey="latePct" name="Late" stackId="a" fill={COLORS.late} radius={[3, 3, 0, 0]} hide={isHidden('late')} isAnimationActive={false} />
-            <Bar dataKey="absentPct" name="Absent" stackId="a" fill={COLORS.absent} radius={[3, 3, 0, 0]} hide={isHidden('absent')} isAnimationActive={false} />
+            <Bar
+              dataKey="presentPct"
+              name="Present"
+              stackId="a"
+              fill={COLORS.present}
+              radius={[3, 3, 0, 0]}
+              hide={isHidden('present')}
+              isAnimationActive={false}
+            />
+            <Bar
+              dataKey="latePct"
+              name="Late"
+              stackId="a"
+              fill={COLORS.late}
+              radius={[3, 3, 0, 0]}
+              hide={isHidden('late')}
+              isAnimationActive={false}
+            />
+            <Bar
+              dataKey="absentPct"
+              name="Absent"
+              stackId="a"
+              fill={COLORS.absent}
+              radius={[3, 3, 0, 0]}
+              hide={isHidden('absent')}
+              isAnimationActive={false}
+            />
           </BarChart>
         );
 
@@ -323,13 +470,13 @@ export function StatusFilterLegend({ statusFilter, onStatusFilterChange }: Statu
           key={key}
           onClick={() => onStatusFilterChange(key)}
           className={cn(
-            "px-3 py-1 text-[11px] font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-1.5",
+            'px-3 py-1 text-[11px] font-semibold rounded-md transition-colors cursor-pointer flex items-center gap-1.5',
             statusFilter === key
-              ? cn("bg-background shadow-sm", activeClass)
-              : "bg-muted/50 border border-border/40 text-muted-foreground hover:text-foreground"
+              ? cn('bg-background shadow-sm', activeClass)
+              : 'bg-muted/50 border border-border/40 text-muted-foreground hover:text-foreground'
           )}
         >
-          {dotColor && <span className={cn("w-2 h-2 rounded-full", dotColor)} />}
+          {dotColor && <span className={cn('w-2 h-2 rounded-full', dotColor)} />}
           {label}
         </button>
       ))}

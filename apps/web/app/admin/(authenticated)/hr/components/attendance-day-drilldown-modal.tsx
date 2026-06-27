@@ -87,7 +87,7 @@ export function AttendanceDayDrilldownModal({ isOpen, onClose, date, departments
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[80vh] flex flex-col" showCloseButton={false}>
         <DialogHeader className="flex flex-row items-center justify-between shrink-0">
           <DialogTitle className="text-base font-bold">Attendance — {formattedDate}</DialogTitle>
           <Button variant="ghost" size="icon-sm" onClick={onClose} aria-label="Close">
