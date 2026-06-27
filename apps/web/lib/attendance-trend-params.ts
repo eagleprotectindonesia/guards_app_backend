@@ -4,6 +4,8 @@ export type ParsedTrendParams = {
   officeIds: string[];
   siteIds: string[];
   chart: 'area' | 'line' | 'bar' | 'stacked-percent' | 'heatmap';
+  heatmapYear: number;
+  heatmapMonth: number;
 };
 
 export function parseTrendSearchParams(
@@ -48,7 +50,13 @@ export function parseTrendSearchParams(
     ? (chartRaw as ParsedTrendParams['chart'])
     : 'area';
 
-  return { days, departments: departmentsFinal, officeIds, siteIds, chart };
+  const now = new Date();
+  const yearRaw = Array.isArray(sp.heatmapYear) ? sp.heatmapYear[0] : sp.heatmapYear;
+  const monthRaw = Array.isArray(sp.heatmapMonth) ? sp.heatmapMonth[0] : sp.heatmapMonth;
+  const heatmapYear = yearRaw ? parseInt(yearRaw, 10) : now.getFullYear();
+  const heatmapMonth = monthRaw ? parseInt(monthRaw, 10) : now.getMonth() + 1;
+
+  return { days, departments: departmentsFinal, officeIds, siteIds, chart, heatmapYear, heatmapMonth };
 }
 
 export function buildTrendQueryString(
@@ -70,6 +78,9 @@ export function buildTrendQueryString(
     ];
     sp.set('location', locParts.join(','));
   }
+
+  if (params.heatmapYear) sp.set('heatmapYear', String(params.heatmapYear));
+  if (params.heatmapMonth) sp.set('heatmapMonth', String(params.heatmapMonth));
 
   return sp.toString();
 }

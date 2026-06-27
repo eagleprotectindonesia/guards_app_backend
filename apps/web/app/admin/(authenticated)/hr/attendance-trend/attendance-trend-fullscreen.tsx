@@ -14,6 +14,8 @@ type Props = {
   data: TrendData[];
   currentDays: 7 | 15 | 30;
   chart: ChartType;
+  heatmapYear: number;
+  heatmapMonth: number;
   filterOptions: FilterOptions;
   selectedDepartments: string[];
   selectedOfficeIds: string[];
@@ -24,6 +26,8 @@ export default function AttendanceTrendFullscreen({
   data,
   currentDays,
   chart,
+  heatmapYear,
+  heatmapMonth,
   filterOptions,
   selectedDepartments,
   selectedOfficeIds,
@@ -50,6 +54,10 @@ export default function AttendanceTrendFullscreen({
     updateParams({ days: days.toString() });
   };
 
+  const handleMonthChange = (year: number, month: number) => {
+    updateParams({ heatmapYear: year.toString(), heatmapMonth: month.toString() });
+  };
+
   const isHeatmap = chart === 'heatmap';
 
   return (
@@ -71,6 +79,8 @@ export default function AttendanceTrendFullscreen({
               onChartChange={handleChartChange}
               days={currentDays}
               onDaysChange={handleDaysChange}
+              heatmapMonth={{ year: heatmapYear, month: heatmapMonth }}
+              onMonthChange={handleMonthChange}
             />
           </div>
         </div>
@@ -92,6 +102,8 @@ export default function AttendanceTrendFullscreen({
             chart={chart}
             statusFilter={statusFilter}
             fullHeight
+            heatmapYear={heatmapYear}
+            heatmapMonth={heatmapMonth}
           />
         </div>
         {!isHeatmap && (

@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   ResponsiveContainer,
   AreaChart,
@@ -15,6 +15,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { cn } from '@repo/shared';
+import { startOfMonth, endOfMonth, eachDayOfInterval, format as dfFormat } from 'date-fns';
 
 export type TrendData = {
   date: string;
@@ -23,14 +24,18 @@ export type TrendData = {
   absent: number;
 };
 
+export type HeatmapDay = TrendData & { rate?: number };
+
 export type ChartType = 'area' | 'line' | 'bar' | 'stacked-percent' | 'heatmap';
 
 type Props = {
-  data: TrendData[];
+  data: HeatmapDay[];
   days: number;
   chart: ChartType;
   statusFilter: 'all' | 'present' | 'late' | 'absent';
   fullHeight?: boolean;
+  heatmapYear?: number;
+  heatmapMonth?: number;
 };
 
 const COLORS = {
@@ -38,6 +43,22 @@ const COLORS = {
   late: '#f59e0b',
   absent: '#ef4444',
 } as const;
+
+const HEATMAP_COLORS = {
+  high: 'bg-emerald-500',
+  medium: 'bg-lime-500',
+  low: 'bg-amber-500',
+  poor: 'bg-red-500',
+  none: 'bg-muted/30',
+} as const;
+
+function getHeatmapColor(rate: number | undefined): string {
+  if (rate === undefined) return HEATMAP_COLORS.none;
+  if (rate >= 90) return HEATMAP_COLORS.high;
+  if (rate >= 70) return HEATMAP_COLORS.medium;
+  if (rate >= 50) return HEATMAP_COLORS.low;
+  return HEATMAP_COLORS.poor;
+}
 
 function formatData(data: TrendData[], days: number) {
   return data.map((item) => {
@@ -56,7 +77,7 @@ function formatData(data: TrendData[], days: number) {
   });
 }
 
-export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullHeight }: Props) {
+export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullHeight, heatmapYear, heatmapMonth }: Props) {
   const chartData = formatData(data, days);
   const isHeatmap = chart === 'heatmap';
 
@@ -84,10 +105,100 @@ export function AttendanceTrendRenderer({ data, days, chart, statusFilter, fullH
   const dot = days === 30 || days === 15 ? false : ({ r: 3 } as const);
   const interval = days === 30 ? 4 : days === 15 ? 2 : 0;
 
+  const hmYear = heatmapYear ?? new Date().getFullYear();
+  const hmMonth = heatmapMonth ?? new Date().getMonth() + 1;
+
+  const calendarDays = useMemo(() => {
+    if (!isHeatmap) return [];
+    const firstDay = startOfMonth(new Date(hmYear, hmMonth - 1));
+    const lastDay = endOfMonth(new Date(hmYear, hmMonth - 1));
+    const daysInMonth = eachDayOfInterval({ start: firstDay, end: lastDay });
+
+    const dayOfWeek = firstDay.getDay();
+    const padStart = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const padEnd = (7 - ((padStart + daysInMonth.length) % 7)) % 7;
+
+    const allCells: (Date | null)[] = [];
+    for (let i = 0; i < padStart; i++) allCells.push(null);
+    for (const d of daysInMonth) allCells.push(d);
+    for (let i = 0; i < padEnd; i++) allCells.push(null);
+    return allCells;
+  }, [isHeatmap, hmYear, hmMonth]);
+
+  const dataMap = useMemo(() => {
+    if (!isHeatmap) return new Map<string, HeatmapDay>();
+    const map = new Map<string, HeatmapDay>();
+    for (const item of data) {
+      map.set(item.date, item);
+    }
+    return map;
+  }, [isHeatmap, data]);
+
   if (isHeatmap) {
+    const dayHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    const totalRate = data.reduce((sum, d) => {
+      const total = d.present + d.late + d.absent;
+      return sum + (total > 0 ? d.present / total : 0);
+    }, 0);
+    const avgRate = data.length > 0 ? Math.round((totalRate / data.length) * 100) : 0;
+
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        Heatmap view — requires monthly aggregation data (Phase 2)
+      <div className={cn('flex flex-col', fullHeight ? 'flex-1 min-h-0' : 'h-72')}>
+        <div className="flex items-center gap-3 mb-3 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-medium text-muted-foreground">Avg: {avgRate}%</span>
+          </div>
+          <div className="flex items-center gap-1.5 ml-auto">
+            {[
+              { label: '≥90%', color: HEATMAP_COLORS.high },
+              { label: '≥70%', color: HEATMAP_COLORS.medium },
+              { label: '≥50%', color: HEATMAP_COLORS.low },
+              { label: '<50%', color: HEATMAP_COLORS.poor },
+            ].map(({ label, color }) => (
+              <div key={label} className="flex items-center gap-1">
+                <span className={cn('w-2.5 h-2.5 rounded', color)} />
+                <span className="text-[10px] text-muted-foreground">{label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 min-h-0 grid auto-rows-fr">
+          <div className="grid grid-cols-7 gap-px">
+            {dayHeaders.map((h) => (
+              <div key={h} className="text-[10px] text-muted-foreground font-medium text-center pb-1">
+                {h}
+              </div>
+            ))}
+            {calendarDays.map((day, i) => {
+              if (!day) {
+                return <div key={`empty-${i}`} />;
+              }
+              const dateStr = dfFormat(day, 'EEE, MMM d');
+              const dayData = dataMap.get(dateStr);
+              const present = dayData?.present ?? 0;
+              const late = dayData?.late ?? 0;
+              const absent = dayData?.absent ?? 0;
+              const total = present + late + absent;
+              const rate = total > 0 ? Math.round((present / total) * 100) : dayData?.rate ?? 100;
+              const isToday = dfFormat(day, 'yyyy-MM-dd') === dfFormat(new Date(), 'yyyy-MM-dd');
+
+              return (
+                <div
+                  key={i}
+                  className={cn(
+                    'flex flex-col items-center justify-center rounded p-0.5 cursor-pointer hover:ring-1 hover:ring-border transition-all',
+                    isToday && 'ring-1 ring-blue-400'
+                  )}
+                  title={`${dfFormat(day, 'MMM d')} — ${present} present, ${late} late, ${absent} absent (${rate}%)`}
+                >
+                  <span className="text-[10px] text-muted-foreground">{dfFormat(day, 'd')}</span>
+                  <span className={cn('w-full h-2.5 rounded-sm mt-0.5', getHeatmapColor(rate))} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   }

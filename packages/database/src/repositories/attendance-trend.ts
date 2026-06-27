@@ -83,6 +83,131 @@ export async function getAttendanceFilterOptions(): Promise<FilterOptions> {
   return result;
 }
 
+export type MonthlyHeatmapDay = {
+  date: string;
+  present: number;
+  late: number;
+  absent: number;
+  rate: number;
+};
+
+export async function getMonthlyAttendanceHeatmap(
+  filter: AttendanceTrendFilter & { year: number; month: number }
+): Promise<MonthlyHeatmapDay[]> {
+  const tz = filter.timezone || BUSINESS_TIMEZONE;
+  const { year, month } = filter;
+  const startDate = new Date(year, month - 1, 1);
+  const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+  const totalDays = endDate.getDate();
+  const dayDates: Date[] = [];
+  const bucketMap = new Map<string, MonthlyHeatmapDay>();
+
+  for (let day = 1; day <= totalDays; day++) {
+    const d = new Date(year, month - 1, day);
+    dayDates.push(d);
+    const dateKey = d.toISOString().slice(0, 10);
+    const label = d.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+    bucketMap.set(dateKey, { date: label, present: 0, late: 0, absent: 0, rate: 0 });
+  }
+
+  const cacheKey = [
+    'attendance-heatmap',
+    tz,
+    `${year}-${String(month).padStart(2, '0')}`,
+    ...(filter.departments?.length ? ['dept', [...filter.departments].sort().join(',')] : []),
+    ...(filter.officeIds?.length ? ['off', [...filter.officeIds].sort().join(',')] : []),
+    ...(filter.siteIds?.length ? ['site', [...filter.siteIds].sort().join(',')] : []),
+  ].join(':');
+
+  const today = new Date();
+  const isPastMonth = year < today.getFullYear() || (year === today.getFullYear() && month < today.getMonth() + 1);
+
+  if (isPastMonth) {
+    const cached = await redis.get(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached) as MonthlyHeatmapDay[];
+      } catch {
+        // Fall through
+      }
+    }
+  }
+
+  const { start: rangeStart } = getBusinessDayRange(startDate, tz);
+  const { end: rangeEnd } = getBusinessDayRange(endDate, tz);
+
+  const [officeRows, onsiteRows] = await Promise.all([
+    prisma.officeAttendance.findMany({
+      where: {
+        recordedAt: { gte: rangeStart, lte: rangeEnd },
+        status: { in: ['present', 'late', 'absent', 'clocked_out'] },
+        ...(filter.departments?.length
+          ? { employee: { department: { in: filter.departments } } }
+          : {}),
+        ...(filter.officeIds?.length
+          ? {
+              OR: [
+                { officeId: { in: filter.officeIds } },
+                { employee: { officeId: { in: filter.officeIds } } },
+              ],
+            }
+          : {}),
+      },
+      select: { recordedAt: true, status: true },
+    }),
+    prisma.attendance.findMany({
+      where: {
+        recordedAt: { gte: rangeStart, lte: rangeEnd },
+        status: { in: ['present', 'late', 'absent', 'clocked_out'] },
+        employee: {
+          role: 'on_site',
+          ...(filter.departments?.length
+            ? { department: { in: filter.departments } }
+            : {}),
+        },
+        ...(filter.siteIds?.length ? { shift: { siteId: { in: filter.siteIds } } } : {}),
+      },
+      select: { recordedAt: true, status: true },
+    }),
+  ]);
+
+  for (const row of officeRows) {
+    const dateKey = row.recordedAt.toISOString().slice(0, 10);
+    const bucket = bucketMap.get(dateKey);
+    if (!bucket) continue;
+    if (row.status === 'present' || row.status === 'clocked_out') bucket.present++;
+    else if (row.status === 'late') bucket.late++;
+    else if (row.status === 'absent') bucket.absent++;
+  }
+
+  for (const row of onsiteRows) {
+    const dateKey = row.recordedAt.toISOString().slice(0, 10);
+    const bucket = bucketMap.get(dateKey);
+    if (!bucket) continue;
+    if (row.status === 'present' || row.status === 'clocked_out') bucket.present++;
+    else if (row.status === 'late') bucket.late++;
+    else if (row.status === 'absent') bucket.absent++;
+  }
+
+  const result = dayDates.map((d) => {
+    const dateKey = d.toISOString().slice(0, 10);
+    const bucket = bucketMap.get(dateKey)!;
+    const total = bucket.present + bucket.late + bucket.absent;
+    bucket.rate = total > 0 ? Math.round((bucket.present / total) * 100) : 100;
+    return bucket;
+  });
+
+  const ttl = isPastMonth ? 2592000 : 60;
+  await redis.set(cacheKey, JSON.stringify(result), 'EX', ttl);
+
+  return result;
+}
+
 export async function getCombinedAttendanceTrend(
   filter: AttendanceTrendFilter
 ): Promise<TrendBucket[]> {

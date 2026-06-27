@@ -16,6 +16,8 @@ type Props = {
   data: TrendData[];
   currentDays: 7 | 15 | 30;
   chart: ChartType;
+  heatmapYear: number;
+  heatmapMonth: number;
   filterOptions: {
     departments: string[];
     locations: LocationOption[];
@@ -29,6 +31,8 @@ export function AttendanceTrendChart({
   data,
   currentDays,
   chart,
+  heatmapYear,
+  heatmapMonth,
   filterOptions,
   selectedDepartments,
   selectedOfficeIds,
@@ -56,6 +60,10 @@ export function AttendanceTrendChart({
     updateParams({ days: days.toString() });
   };
 
+  const handleMonthChange = (year: number, month: number) => {
+    updateParams({ heatmapYear: year.toString(), heatmapMonth: month.toString() });
+  };
+
   const isHeatmap = chart === 'heatmap';
 
   const renderChartContent = (fullHeight?: boolean) => (
@@ -66,6 +74,8 @@ export function AttendanceTrendChart({
         chart={chart}
         statusFilter={statusFilter}
         fullHeight={fullHeight}
+        heatmapYear={heatmapYear}
+        heatmapMonth={heatmapMonth}
       />
       {!isHeatmap && (
         <StatusFilterLegend
@@ -101,6 +111,8 @@ export function AttendanceTrendChart({
               onChartChange={handleChartChange}
               days={currentDays}
               onDaysChange={handleDaysChange}
+              heatmapMonth={{ year: heatmapYear, month: heatmapMonth }}
+              onMonthChange={handleMonthChange}
             />
             <span className="h-3.5 w-px bg-border" />
             <div className="flex items-center gap-0.5">
@@ -152,6 +164,8 @@ export function AttendanceTrendChart({
               onChartChange={handleChartChange}
               days={currentDays}
               onDaysChange={handleDaysChange}
+              heatmapMonth={{ year: heatmapYear, month: heatmapMonth }}
+              onMonthChange={handleMonthChange}
             />
           </div>
           <div className="flex-1 flex flex-col overflow-hidden p-4">
