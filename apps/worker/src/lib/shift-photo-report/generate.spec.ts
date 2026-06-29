@@ -64,14 +64,29 @@ describe('generatePdf', () => {
 });
 
 describe('generateReportFileName', () => {
-  test('produces safe filename from metadata', () => {
-    const result = generateReportFileName('Abu Hanivan Naneng', 'EP0098', new Date('2026-06-15T00:00:00Z'));
-    expect(result).toBe('shift-report_Abu_Hanivan_Naneng_EP0098_2026-06-15.pdf');
+  const shiftStartsAt = new Date('2026-06-15T15:00:00Z');
+  const shiftEndsAt = new Date('2026-06-15T23:00:00Z');
+
+  test('produces filename in the new EP format', () => {
+    const result = generateReportFileName({
+      siteName: 'SLK Cambridge School',
+      shiftStartsAt,
+      shiftEndsAt,
+      reportNumber: '2026-06-15-00042',
+      fallbackId: 'ignored',
+    });
+    expect(result).toBe('EP - SLK Cambridge School - 2026-06-15 - 23-00 to 07-00 - RPT00042.pdf');
   });
 
-  test('replaces special characters in guard name', () => {
-    const result = generateReportFileName('Test/Guard!@#', '0001', new Date('2026-06-15T00:00:00Z'));
-    expect(result).toBe('shift-report_Test_Guard____0001_2026-06-15.pdf');
+  test('sanitizes special characters in site name and falls back for null reportNumber', () => {
+    const result = generateReportFileName({
+      siteName: 'Site/With: Bad*Chars?',
+      shiftStartsAt,
+      shiftEndsAt,
+      reportNumber: null,
+      fallbackId: 'my-uuid-1234',
+    });
+    expect(result).toBe('EP - SiteWith BadChars - 2026-06-15 - 23-00 to 07-00 - RPTmy-uuid.pdf');
   });
 });
 

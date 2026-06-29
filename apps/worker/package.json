@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@repo/tsconfig": "workspace:*",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/pdfkit": "^0.17.6",
     "@typescript-eslint/parser": "^8.52.0",

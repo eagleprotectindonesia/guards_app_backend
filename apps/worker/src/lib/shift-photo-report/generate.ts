@@ -1,6 +1,7 @@
 import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
+import { buildShiftReportDownloadFilename } from '@repo/shared';
 import type { FetchedPhoto } from './fetch-photos';
 
 const TZ = 'Asia/Makassar';
@@ -273,8 +274,12 @@ export async function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto
   return withSignal(pdfPromise, signal);
 }
 
-export function generateReportFileName(guardName: string, employeeNumber: string, date: Date): string {
-  const dateStr = formatDateOnlyTZ(date);
-  const safeName = guardName.replace(/[^a-zA-Z0-9]/g, '_');
-  return `shift-report_${safeName}_${employeeNumber}_${dateStr}.pdf`;
+export function generateReportFileName(params: {
+  siteName: string | null;
+  shiftStartsAt: Date;
+  shiftEndsAt: Date;
+  reportNumber: string | null;
+  fallbackId: string;
+}): string {
+  return buildShiftReportDownloadFilename(params);
 }
