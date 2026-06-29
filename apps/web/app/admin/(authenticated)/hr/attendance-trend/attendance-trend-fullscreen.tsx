@@ -15,7 +15,7 @@ import type { FilterOptions } from '@repo/database';
 
 type Props = {
   data: TrendData[];
-  currentDays: 7 | 15 | 30;
+  currentDays: 1 | 7 | 15 | 30;
   chart: ChartType;
   heatmapYear: number;
   heatmapMonth: number;

@@ -10,7 +10,7 @@ import type { ChartType } from './attendance-trend-renderer';
 type Props = {
   chart: ChartType;
   onChartChange: (chart: ChartType) => void;
-  days: 7 | 15 | 30;
+  days: 1 | 7 | 15 | 30;
   onDaysChange: (days: number) => void;
   heatmapMonth?: { year: number; month: number };
   onMonthChange?: (year: number, month: number) => void;
@@ -83,7 +83,7 @@ export function AttendanceTrendControls({
       {/* Days selector (hidden for heatmap) */}
       {!isHeatmap && (
         <div className="flex items-center gap-1.5 bg-muted p-1 rounded-lg border border-border/40">
-          {([7, 15, 30] as const).map((d) => (
+          {([1, 7, 15, 30] as const).map((d) => (
             <button
               key={d}
               onClick={() => onDaysChange(d)}
@@ -94,7 +94,7 @@ export function AttendanceTrendControls({
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {d} Days
+              {d === 1 ? 'Today' : `${d} Days`}
             </button>
           ))}
         </div>

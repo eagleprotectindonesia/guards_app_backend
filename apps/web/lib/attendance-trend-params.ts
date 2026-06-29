@@ -1,5 +1,5 @@
 export type ParsedTrendParams = {
-  days: 7 | 15 | 30;
+  days: 1 | 7 | 15 | 30;
   departments: string[];
   officeIds: string[];
   siteIds: string[];
@@ -13,7 +13,8 @@ export function parseTrendSearchParams(
 ): ParsedTrendParams {
   const daysRaw = Array.isArray(sp.days) ? sp.days[0] : sp.days;
   const daysParsed = daysRaw ? parseInt(daysRaw, 10) : 7;
-  const days = daysParsed === 30 ? 30 : daysParsed === 15 ? 15 : 7;
+  const days: 1 | 7 | 15 | 30 =
+    daysParsed === 30 ? 30 : daysParsed === 15 ? 15 : daysParsed === 7 ? 7 : daysParsed === 1 ? 1 : 7;
 
   const departmentsRaw = Array.isArray(sp.department) ? sp.department[0] : sp.department;
   const departments = departmentsRaw

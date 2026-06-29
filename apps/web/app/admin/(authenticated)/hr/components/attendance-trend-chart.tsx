@@ -17,7 +17,7 @@ import type { LocationOption } from '@repo/database';
 
 type Props = {
   data: TrendData[];
-  currentDays: 7 | 15 | 30;
+  currentDays: 1 | 7 | 15 | 30;
   chart: ChartType;
   heatmapYear: number;
   heatmapMonth: number;
@@ -111,7 +111,7 @@ export function AttendanceTrendChart({
             <p className="text-xs text-muted-foreground">
               {isHeatmap
                 ? 'Monthly attendance distribution overview.'
-                : `${currentDays}-day status distribution and check-in trend analysis.`}
+                : (currentDays === 1 ? "Today's" : `${currentDays}-day`) + ' status distribution and check-in trend analysis.'}
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">

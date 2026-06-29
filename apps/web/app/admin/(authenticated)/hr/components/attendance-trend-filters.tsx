@@ -19,6 +19,9 @@ type Props = {
 
 function MultiSelectPopover<T extends string | LocationOption>({
   label,
+  allLabel,
+  isAllSelected,
+  onSelectAll,
   items,
   renderItem,
   isSelected,
@@ -26,6 +29,9 @@ function MultiSelectPopover<T extends string | LocationOption>({
   getKey,
 }: {
   label: string;
+  allLabel?: string;
+  isAllSelected?: boolean;
+  onSelectAll?: () => void;
   items: T[];
   renderItem: (item: T) => React.ReactNode;
   isSelected: (item: T) => boolean;
@@ -46,7 +52,7 @@ function MultiSelectPopover<T extends string | LocationOption>({
             selectedCount > 0 && 'border-blue-400/50 bg-blue-500/5'
           )}
         >
-          {label}
+          {allLabel && isAllSelected ? allLabel : label}
           {selectedCount > 0 && (
             <span className="ml-0.5 rounded-full bg-blue-500/15 text-blue-600 dark:text-blue-400 text-[10px] font-semibold px-1.5 py-0.5">
               {selectedCount}
@@ -57,7 +63,20 @@ function MultiSelectPopover<T extends string | LocationOption>({
       </PopoverTrigger>
       <PopoverContent className="w-56 p-1.5" align="start">
         <div className="max-h-64 overflow-y-auto space-y-0.5">
-          {items.length === 0 && (
+          {allLabel && (
+            <>
+              <label className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted/60 cursor-pointer text-xs">
+                <Checkbox
+                  checked={!!isAllSelected}
+                  onCheckedChange={() => onSelectAll?.()}
+                  className="h-3.5 w-3.5"
+                />
+                {allLabel}
+              </label>
+              {items.length > 0 && <div className="mx-2 my-1 border-t border-border/40" />}
+            </>
+          )}
+          {items.length === 0 && !allLabel && (
             <p className="text-xs text-muted-foreground px-2 py-3 text-center">No options</p>
           )}
           {items.map((item) => {
@@ -113,16 +132,15 @@ export function AttendanceTrendFilters({
     [pathname, searchParams]
   );
 
-  const clearFilters = useCallback(() => {
-    router.push(buildHref([], [], []));
-  }, [router, buildHref]);
 
-  const hasFilters = selectedDepartments.length > 0 || selectedOfficeIds.length > 0 || selectedSiteIds.length > 0;
 
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <MultiSelectPopover<string>
         label="Department"
+        allLabel="All Departments"
+        isAllSelected={selectedDepartments.length === 0}
+        onSelectAll={() => router.push(buildHref([], selectedOfficeIds, selectedSiteIds))}
         items={departments}
         getKey={(d) => d}
         renderItem={(d) => <span>{d}</span>}
@@ -137,6 +155,9 @@ export function AttendanceTrendFilters({
 
       <MultiSelectPopover<LocationOption>
         label="Location"
+        allLabel="All Locations"
+        isAllSelected={selectedOfficeIds.length === 0 && selectedSiteIds.length === 0}
+        onSelectAll={() => router.push(buildHref(selectedDepartments, [], []))}
         items={locations}
         getKey={(l) => `${l.type}:${l.id}`}
         renderItem={(l) => (
@@ -172,79 +193,8 @@ export function AttendanceTrendFilters({
         }}
       />
 
-      {hasFilters && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={clearFilters}
-          className="h-8 text-xs text-muted-foreground hover:text-foreground gap-1"
-        >
-          <X className="h-3 w-3" />
-          Clear filters
-        </Button>
-      )}
 
-      {selectedDepartments.length > 0 && (
-        <div className="flex items-center gap-1 flex-wrap">
-          {selectedDepartments.slice(0, 3).map((d) => (
-            <span
-              key={d}
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-[11px] font-medium text-foreground"
-            >
-              {d}
-              <button
-                type="button"
-                onClick={() => {
-                  router.push(buildHref(selectedDepartments.filter((x) => x !== d), selectedOfficeIds, selectedSiteIds));
-                }}
-                className="hover:text-destructive"
-              >
-                <X className="h-2.5 w-2.5" />
-              </button>
-            </span>
-          ))}
-          {selectedDepartments.length > 3 && (
-            <span className="text-[11px] text-muted-foreground">+{selectedDepartments.length - 3} more</span>
-          )}
-        </div>
-      )}
 
-      {(selectedOfficeIds.length > 0 || selectedSiteIds.length > 0) && (
-        <div className="flex items-center gap-1 flex-wrap">
-          {[...selectedOfficeIds, ...selectedSiteIds].slice(0, 3).map((id) => {
-            const loc = locations.find((l) => l.id === id);
-            if (!loc) return null;
-            return (
-              <span
-                key={`${loc.type}:${loc.id}`}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-muted text-[11px] font-medium text-foreground"
-              >
-                {loc.name}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const nextOfficeIds = loc.type === 'office'
-                      ? selectedOfficeIds.filter((x) => x !== loc.id)
-                      : selectedOfficeIds;
-                    const nextSiteIds = loc.type === 'site'
-                      ? selectedSiteIds.filter((x) => x !== loc.id)
-                      : selectedSiteIds;
-                    router.push(buildHref(selectedDepartments, nextOfficeIds, nextSiteIds));
-                  }}
-                  className="hover:text-destructive"
-                >
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              </span>
-            );
-          })}
-          {(selectedOfficeIds.length + selectedSiteIds.length) > 3 && (
-            <span className="text-[11px] text-muted-foreground">
-              +{selectedOfficeIds.length + selectedSiteIds.length - 3} more
-            </span>
-          )}
-        </div>
-      )}
     </div>
   );
 }

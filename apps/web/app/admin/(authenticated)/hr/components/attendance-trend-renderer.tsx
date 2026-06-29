@@ -70,7 +70,7 @@ function formatData(data: TrendData[], days: number) {
     const total = item.present + item.late + item.absent;
     return {
       ...item,
-      formattedDate: days === 7 ? weekdayLabel : dateLabel,
+      formattedDate: days === 1 || days === 7 ? weekdayLabel : dateLabel,
       total,
       presentPct: total > 0 ? Math.round((item.present / total) * 100) : 0,
       latePct: total > 0 ? Math.round((item.late / total) * 100) : 0,
