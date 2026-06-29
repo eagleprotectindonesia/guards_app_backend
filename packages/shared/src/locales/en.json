@@ -201,7 +201,11 @@
     "leave_group": "Leave group",
     "leave_group_confirm": "Are you sure you want to leave this group?",
     "leave_group_action": "Leave",
-    "support_description": "Official Eagle Protect Support"
+    "support_description": "Official Eagle Protect Support",
+    "location_required": "Location required",
+    "location_required_desc": "Location permission is needed to send photos during an active shift.",
+    "location_unavailable": "Location unavailable",
+    "location_unavailable_desc": "Could not get your current location. Please ensure GPS is enabled."
   },
   "account": {
     "title": "Account",

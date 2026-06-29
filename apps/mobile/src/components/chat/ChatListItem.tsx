@@ -75,7 +75,7 @@ function ChatListItemBase({ item, getDateLabel, onOpenImageViewer }: ChatListIte
               })}
             </View>
           )}
-          {message.latitude && message.longitude && (
+          {message.latitude && message.longitude && (!message.attachments || message.attachments.length === 0) && (
             <TouchableOpacity onPress={() => Linking.openURL(`https://maps.google.com/?q=${message.latitude},${message.longitude}`)} style={[styles.locationWrapper, isMe ? styles.myLocationWrapper : styles.theirLocationWrapper]}>
               <MapPin size={24} color={isMe ? '#FFF' : '#EF4444'} />
               <VStack className="ml-2">

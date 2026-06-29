@@ -4,6 +4,8 @@ import sharp from 'sharp';
 export type PhotoInput = {
   s3Key: string;
   createdAt: Date;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export type FetchedPhoto = {
@@ -11,6 +13,8 @@ export type FetchedPhoto = {
   s3Key: string;
   createdAt: Date;
   contentType: string;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export async function fetchPhotos(inputs: PhotoInput[], abortSignal?: AbortSignal): Promise<FetchedPhoto[]> {
@@ -18,7 +22,7 @@ export async function fetchPhotos(inputs: PhotoInput[], abortSignal?: AbortSigna
     throw new Error('AWS_S3_BUCKET_NAME is not configured');
   }
 
-  const fetchOne = async ({ s3Key, createdAt }: PhotoInput): Promise<FetchedPhoto | null> => {
+  const fetchOne = async ({ s3Key, createdAt, latitude, longitude }: PhotoInput): Promise<FetchedPhoto | null> => {
     try {
       const command = new GetObjectCommand({
         Bucket: BUCKET_NAME,
@@ -68,7 +72,7 @@ export async function fetchPhotos(inputs: PhotoInput[], abortSignal?: AbortSigna
         }
       }
 
-      return { buffer: imageBuffer, s3Key, createdAt, contentType };
+      return { buffer: imageBuffer, s3Key, createdAt, contentType, latitude, longitude };
     } catch (err) {
       console.warn(`[ShiftPhotoReport] Failed to fetch S3 object ${s3Key}:`, err);
       return null;

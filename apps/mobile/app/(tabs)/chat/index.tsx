@@ -1,6 +1,6 @@
 import React from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -19,7 +19,9 @@ import { ChatHeader } from '../../../src/components/chat/ChatHeader';
 import { client } from '../../../src/api/client';
 import { queryKeys } from '../../../src/api/queryKeys';
 import { useAuth } from '../../../src/contexts/AuthContext';
-import { ChatInboxItem } from '@repo/types';
+import { ChatInboxItem, ChatMessage } from '@repo/types';
+import { useSocket } from '../../../src/hooks/useSocket';
+import { useSocketEvent } from '../../../src/hooks/useSocketEvent';
 import {
   directSupportInboxItem,
   inboxItemToConversationKey,
@@ -61,6 +63,19 @@ export default function ChatInboxScreen() {
       return messages[0] ?? null;
     },
     enabled: !!employeeId && isAuthenticated,
+  });
+
+  const queryClient = useQueryClient();
+  const { socket } = useSocket();
+
+  useSocketEvent(socket, 'new_message', (_message: ChatMessage) => {
+    if (!employeeId) return;
+    queryClient.invalidateQueries({ queryKey: queryKeys.chat.directLatest(employeeId) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.chat.unread });
+  });
+
+  useSocketEvent(socket, 'group_new_message', () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.chat.groupList });
   });
 
   const items: ChatInboxItem[] = [
