@@ -19,14 +19,14 @@ import {
   getLeaveRejectedTodayCount,
   getUpcomingOfficeShiftsOverview,
   getTodayOfficeShiftsOverview,
-  getHrLiveActivities,
+  getLatestSystemChangelogs,
 } from '@repo/database';
 import { HRMetrics } from './components/hr-metrics';
 import { AttendanceTrendChart } from './components/attendance-trend-chart';
 import { LeaveRequestOverview } from './components/leave-request-overview';
 import { UpcomingShiftsOverview } from './components/upcoming-shifts-overview';
 import { TodayShiftsOverview } from './components/today-shifts-overview';
-import { HrLiveFeed } from './components/hr-live-feed';
+import { HrChangelogPanel } from './components/hr-live-feed';
 import { requirePermission } from '@/lib/admin-auth';
 import { parseTrendSearchParams } from '@/lib/attendance-trend-params';
 
@@ -71,7 +71,7 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
     leaveRejectedTodayCount,
     upcomingShifts,
     todayShifts,
-    initialActivities,
+    changelogs,
   ] = await Promise.all([
     getTotalEmployeeCountByRole('office'),
     getTotalEmployeeCountByRole('on_site'),
@@ -94,7 +94,7 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
     getLeaveRejectedTodayCount(),
     getUpcomingOfficeShiftsOverview(new Date()),
     getTodayOfficeShiftsOverview(new Date()),
-    getHrLiveActivities(),
+    getLatestSystemChangelogs(10),
   ]);
 
   return (
@@ -200,8 +200,8 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
           </CardContent>
         </Card>
 
-        {/* Live HR Feed */}
-        <HrLiveFeed initialActivities={initialActivities} />
+        {/* Latest Changelog Panel */}
+        <HrChangelogPanel changelogs={changelogs} />
       </div>
     </div>
   );
