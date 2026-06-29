@@ -75,7 +75,7 @@ shift-reports/env={env}/site_{siteId}/shift_{shiftId}/report_{reportId}/{fileNam
 
 - `env`: `prod`, `development`, or the value of `NODE_ENV` environment variable.
 - `siteId` / `shiftId` / `reportId`: the corresponding model UUIDs.
-- `fileName`: sanitized (`GuardName_EmployeeNo_date.pdf`).
+- `fileName`: sanitized (`EP - [Site Name] - [Shift Date] - [HH-mm] to [HH-mm] - RPT[NNNNN].pdf`, e.g. `EP - SLK Cambridge School - 2026-06-28 - 23-00 to 07-00 - RPT00038.pdf`). See `@repo/shared`'s `buildShiftReportDownloadFilename`.
 
 If any of `siteId` / `shiftId` / `reportId` is missing, the code falls back to `shift-reports/{timestamp}-{fileName}.pdf` with a console warning (same pattern as the chat branch in `packages/storage/src/s3.ts`).
 
@@ -197,7 +197,7 @@ state when some-but-not-all are selected).
   (N)" button in the header bar.
 - The client fetches each presigned URL, bundles them into a single ZIP via `jszip`,
   and triggers a browser download. ZIP filename: `shift-photo-reports-YYYY-MM-DD.zip`.
-- Per-file name inside the zip: `<reportNumber>.pdf` if available, else `<id>.pdf`.
+- Per-file name inside the zip: `buildShiftReportDownloadFilename` from `@repo/shared` (format: `EP - [Site Name] - [Shift Date] - [HH-mm] to [HH-mm] - RPT[NNNNN].pdf`).
 - Atomic: any failed fetch aborts the entire download (no partial zip).
 - Selection clears when the user changes filters, sort, or page.
 

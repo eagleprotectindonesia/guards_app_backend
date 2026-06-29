@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { buildShiftReportDownloadFilename } from '@repo/shared';
 
 type BulkZipReport = {
   id: string;
@@ -7,22 +8,17 @@ type BulkZipReport = {
   employee?: { fullName: string; employeeNumber: string | null } | null;
   shift?: { site?: { name: string } | null } | null;
   shiftStartsAt?: string;
+  shiftEndsAt?: string;
 };
 
 function buildFilename(report: BulkZipReport): string {
-  const parts: string[] = [];
-  const safe = (s: string) =>
-    s.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'unnamed';
-
-  if (report.employee?.fullName) {
-    parts.push(safe(report.employee.fullName));
-    if (report.employee.employeeNumber) parts.push(safe(report.employee.employeeNumber));
-  }
-  if (report.shift?.site?.name) parts.push(safe(report.shift.site.name));
-  if (report.shiftStartsAt) parts.push(report.shiftStartsAt.slice(0, 10));
-
-  if (parts.length > 0) return `shift_report_${parts.join('_')}.pdf`;
-  return `shift_report_${report.reportNumber ?? report.id}.pdf`;
+  return buildShiftReportDownloadFilename({
+    siteName: report.shift?.site?.name,
+    shiftStartsAt: new Date(report.shiftStartsAt ?? new Date()),
+    shiftEndsAt: new Date(report.shiftEndsAt ?? new Date()),
+    reportNumber: report.reportNumber,
+    fallbackId: report.id,
+  });
 }
 
 export async function buildShiftReportsZip(reports: BulkZipReport[]): Promise<Blob> {

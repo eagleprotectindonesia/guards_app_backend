@@ -75,7 +75,13 @@ export class ShiftPhotoReportProcessor {
         };
 
         const pdfBuffer = await generatePdf(metadata, fetchedPhotos, AbortSignal.timeout(120_000));
-        const fileName = generateReportFileName(guardName, shift.employee?.employeeNumber ?? '0000', shift.startsAt);
+        const fileName = generateReportFileName({
+          siteName: shift.site.name,
+          shiftStartsAt: shift.startsAt,
+          shiftEndsAt: shift.endsAt,
+          reportNumber: report.reportNumber,
+          fallbackId: report.id,
+        });
 
         const uploadResult = await uploadFile(pdfBuffer, fileName, 'application/pdf', {
           folder: 'shift-reports',

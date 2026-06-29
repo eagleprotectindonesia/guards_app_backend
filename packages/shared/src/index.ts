@@ -17,3 +17,4 @@ export * from './employee-api-errors';
 // ============================================================================
 export * from './utils';
 export * from './ticket-departments';
+export * from './shift-photo-report-filename';

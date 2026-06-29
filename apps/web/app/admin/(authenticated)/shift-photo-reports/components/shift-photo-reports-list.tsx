@@ -15,6 +15,7 @@ import { Download, History, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react
 import SortableHeader from '@/components/sortable-header';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
+import { buildShiftReportDownloadFilename } from '@repo/shared';
 import { buildShiftReportsZip } from '@/lib/shift-photo-reports/bulk-zip';
 
 type ReportWithDownload = {
@@ -211,19 +212,13 @@ export default function ShiftPhotoReportsList({
   };
 
   const buildFilename = (report: ReportWithDownload): string => {
-    const parts: string[] = [];
-    const safe = (s: string) =>
-      s.replace(/[^\w\s-]/g, '').replace(/\s+/g, '_').replace(/_+/g, '_').replace(/^_|_$/g, '') || 'unnamed';
-
-    if (report.employee?.fullName) {
-      parts.push(safe(report.employee.fullName));
-      if (report.employee.employeeNumber) parts.push(safe(report.employee.employeeNumber));
-    }
-    if (report.shift?.site?.name) parts.push(safe(report.shift.site.name));
-    if (report.shiftStartsAt) parts.push(report.shiftStartsAt.slice(0, 10));
-
-    if (parts.length > 0) return `shift_report_${parts.join('_')}.pdf`;
-    return `shift_report_${report.reportNumber ?? report.id}.pdf`;
+    return buildShiftReportDownloadFilename({
+      siteName: report.shift?.site?.name,
+      shiftStartsAt: new Date(report.shiftStartsAt),
+      shiftEndsAt: new Date(report.shiftEndsAt),
+      reportNumber: report.reportNumber,
+      fallbackId: report.id,
+    });
   };
 
   const logDownload = (reportId: string, mode: 'single' | 'bulk') => {

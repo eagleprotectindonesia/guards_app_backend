@@ -18,21 +18,33 @@ describe('buildShiftReportsZip', () => {
     jest.clearAllMocks();
   });
 
+  const shiftStartsAt = '2026-06-22T00:00:00.000Z';
+  const shiftEndsAt = '2026-06-22T08:00:00.000Z';
+
   const baseReports = [
     {
       id: 'r1',
       reportNumber: '2026-06-22-00001',
       downloadUrl: 'https://s3.example.com/report1.pdf',
+      shiftStartsAt,
+      shiftEndsAt,
+      shift: { site: { name: 'Test Site A' } },
     },
     {
       id: 'r2',
       reportNumber: '2026-06-22-00002',
       downloadUrl: 'https://s3.example.com/report2.pdf',
+      shiftStartsAt,
+      shiftEndsAt,
+      shift: { site: { name: 'Test Site B' } },
     },
     {
       id: 'r3',
       reportNumber: null,
       downloadUrl: 'https://s3.example.com/report3.pdf',
+      shiftStartsAt,
+      shiftEndsAt,
+      shift: { site: { name: 'Test Site C' } },
     },
   ];
 
@@ -44,9 +56,9 @@ describe('buildShiftReportsZip', () => {
     await buildShiftReportsZip(baseReports);
 
     expect(mockFile).toHaveBeenCalledTimes(3);
-    expect(mockFile).toHaveBeenCalledWith('2026-06-22-00001.pdf', expect.any(Blob));
-    expect(mockFile).toHaveBeenCalledWith('2026-06-22-00002.pdf', expect.any(Blob));
-    expect(mockFile).toHaveBeenCalledWith('r3.pdf', expect.any(Blob));
+    expect(mockFile).toHaveBeenCalledWith('EP - Test Site A - 2026-06-22 - 08-00 to 16-00 - RPT00001.pdf', expect.any(Blob));
+    expect(mockFile).toHaveBeenCalledWith('EP - Test Site B - 2026-06-22 - 08-00 to 16-00 - RPT00002.pdf', expect.any(Blob));
+    expect(mockFile).toHaveBeenCalledWith('EP - Test Site C - 2026-06-22 - 08-00 to 16-00 - RPTr3.pdf', expect.any(Blob));
   });
 
   test('skips reports without a downloadUrl', async () => {
