@@ -1,6 +1,4 @@
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { ArrowRight, Upload } from 'lucide-react';
 import {
   getTotalEmployeeCountByRole,
   getActiveLeavesCountForDate,
@@ -20,12 +18,14 @@ import {
   getUpcomingOfficeShiftsOverview,
   getTodayOfficeShiftsOverview,
   getLatestSystemChangelogs,
+  getUpcomingBirthdays,
 } from '@repo/database';
 import { HRMetrics } from './components/hr-metrics';
 import { AttendanceTrendChart } from './components/attendance-trend-chart';
 import { LeaveRequestOverview } from './components/leave-request-overview';
 import { UpcomingShiftsOverview } from './components/upcoming-shifts-overview';
 import { TodayShiftsOverview } from './components/today-shifts-overview';
+import { UpcomingBirthdays } from './components/upcoming-birthdays';
 import { HrChangelogPanel } from './components/hr-live-feed';
 import { requirePermission } from '@/lib/admin-auth';
 import { parseTrendSearchParams } from '@/lib/attendance-trend-params';
@@ -72,6 +72,7 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
     upcomingShifts,
     todayShifts,
     changelogs,
+    upcomingBirthdays,
   ] = await Promise.all([
     getTotalEmployeeCountByRole('office'),
     getTotalEmployeeCountByRole('on_site'),
@@ -95,6 +96,7 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
     getUpcomingOfficeShiftsOverview(new Date()),
     getTodayOfficeShiftsOverview(new Date()),
     getLatestSystemChangelogs(10),
+    getUpcomingBirthdays(),
   ]);
 
   return (
@@ -166,39 +168,8 @@ export default async function HRDashboardPage({ searchParams }: { searchParams: 
           upcoming={todayShifts.upcoming}
         />
 
-        {/* Schedule Management Card */}
-        <Card className="border-border/60 bg-card shadow-md flex flex-col justify-between">
-          <CardHeader className="border-b border-border/45 pb-4">
-            <div className="space-y-1">
-              <CardTitle className="text-lg font-bold text-foreground">Schedule Management</CardTitle>
-              <CardDescription className="text-xs text-muted-foreground">
-                Quick actions for managing office shifts and scheduling.
-              </CardDescription>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-6 flex-1 flex flex-col justify-center gap-4">
-            <a
-              href="/admin/office-shifts"
-              className="flex items-center justify-between p-4 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/40 hover:border-border text-foreground transition-all duration-200 group"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold text-foreground">View Office Shifts</span>
-                <span className="text-xs text-muted-foreground">View and edit schedules</span>
-              </div>
-              <ArrowRight className="h-4 w-4 text-blue-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
-            </a>
-            <a
-              href="/admin/office-shifts?bulk=true"
-              className="flex items-center justify-between p-4 rounded-xl border border-border/60 bg-muted/20 hover:bg-muted/40 hover:border-border text-foreground transition-all duration-200 group"
-            >
-              <div className="flex flex-col gap-0.5">
-                <span className="text-sm font-semibold text-foreground">Bulk Create Office Shifts</span>
-                <span className="text-xs text-muted-foreground">Upload shifts in bulk</span>
-              </div>
-              <Upload className="h-4 w-4 text-blue-400 group-hover:translate-y-[-1px] transition-transform shrink-0" />
-            </a>
-          </CardContent>
-        </Card>
+        {/* Upcoming Birthdays */}
+        <UpcomingBirthdays birthdays={upcomingBirthdays} />
 
         {/* Latest Changelog Panel */}
         <HrChangelogPanel changelogs={changelogs} />

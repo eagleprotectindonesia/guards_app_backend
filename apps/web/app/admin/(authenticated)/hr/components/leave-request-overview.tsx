@@ -54,13 +54,13 @@ export function LeaveRequestOverview({
           <CardDescription className="text-xs text-muted-foreground">Daily leave request metrics and approvals.</CardDescription>
         </div>
       </CardHeader>
-      <CardContent className="py-4 flex-1 flex flex-col justify-between gap-2.5">
+      <CardContent className="py-4 flex-1 flex flex-col justify-center gap-4">
         {statsList.map((stat) => {
           const Icon = stat.icon;
           return (
             <div
               key={stat.label}
-              className={`flex items-center justify-between p-2.5 rounded-xl border ${stat.bgClass} transition-colors hover:bg-white/[0.01]`}
+              className={`flex items-center justify-between p-3.5 rounded-xl border ${stat.bgClass} transition-colors hover:bg-white/[0.01]`}
             >
               <div className="flex items-center gap-3 min-w-0">
                 <div className="p-1.5 rounded-lg bg-white/[0.02] border border-white/[0.04] shrink-0">

@@ -38,9 +38,7 @@ export function HrChangelogPanel({ changelogs }: Props) {
             Recent changes and audit logs for system entities.
           </CardDescription>
         </div>
-        <span className="shrink-0 inline-flex items-center rounded-md bg-purple-500/10 px-2.5 py-0.5 text-[10px] font-semibold text-purple-600 dark:text-purple-400 border border-purple-500/20">
-          Realtime Audit
-        </span>
+
       </CardHeader>
       <CardContent className="pt-2 flex-1 max-h-80 overflow-y-auto">
         {changelogs.length === 0 ? (

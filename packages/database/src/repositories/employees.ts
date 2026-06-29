@@ -92,6 +92,13 @@ async function ensureDefaultAnnualLeaveBalance(
   return balance;
 }
 
+function parseExternalDateOfBirth(raw: string | null | undefined): Date | null {
+  if (!raw) return null;
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed;
+}
+
 function parseExternalDateOfJoining(raw: string | null | undefined): Date | null {
   if (!raw) return null;
   const parsed = new Date(raw);
@@ -1064,12 +1071,20 @@ export async function syncEmployeesFromExternal(
 
         const dateOfJoiningForCreate = parsedExternalDateOfJoining ?? new Date();
 
+        const parsedExternalDateOfBirth = parseExternalDateOfBirth(ext.date_of_birth);
+        if (!parsedExternalDateOfBirth && ext.date_of_birth) {
+          console.warn(
+            `[SyncEmployees] Invalid date_of_birth for employee id=${ext.id} value="${ext.date_of_birth}".`
+          );
+        }
+
         const newEmployee = await tx.employee.create({
           data: {
             id: ext.id,
             employeeNumber: ext.employee_number,
             personnelId: ext.personnel_id,
             dateOfJoining: dateOfJoiningForCreate,
+            dateOfBirth: parsedExternalDateOfBirth,
             nickname: ext.nickname,
             fullName: ext.full_name,
             jobTitle: ext.job_title,
@@ -1109,6 +1124,7 @@ export async function syncEmployeesFromExternal(
               jobTitle: newEmployee.jobTitle,
               department: newEmployee.department,
               phone: newEmployee.phone,
+              dateOfBirth: newEmployee.dateOfBirth,
               role: newEmployee.role,
               officeId: newEmployee.officeId,
               fieldModeEnabled: newEmployee.fieldModeEnabled,
@@ -1148,6 +1164,20 @@ export async function syncEmployeesFromExternal(
       if (!existingDateOfJoining || existingDateOfJoining.getTime() !== resolvedDateOfJoining.getTime()) {
         updateData.dateOfJoining = resolvedDateOfJoining;
         changes.dateOfJoining = { from: existingDateOfJoining, to: resolvedDateOfJoining };
+      }
+
+      const parsedExternalDateOfBirth = parseExternalDateOfBirth(ext.date_of_birth);
+      if (!parsedExternalDateOfBirth && ext.date_of_birth) {
+        console.warn(
+          `[SyncEmployees] Invalid date_of_birth for employee id=${ext.id} value="${ext.date_of_birth}".`
+        );
+      }
+
+      const existingDateOfBirth = normalizeToDate(existing.dateOfBirth);
+      const resolvedDateOfBirth = parsedExternalDateOfBirth ?? existingDateOfBirth;
+      if (existingDateOfBirth?.getTime() !== resolvedDateOfBirth?.getTime()) {
+        updateData.dateOfBirth = resolvedDateOfBirth;
+        changes.dateOfBirth = { from: existingDateOfBirth, to: resolvedDateOfBirth };
       }
 
       for (const field of fieldsToCompare) {
@@ -1284,4 +1314,72 @@ export async function getTotalEmployeeCountByRole(role: 'office' | 'on_site'): P
       role,
     },
   });
+}
+
+export type UpcomingBirthday = {
+  id: string;
+  fullName: string;
+  employeeNumber: string | null;
+  dateOfBirth: Date;
+  birthdayDate: Date;
+  daysUntil: number;
+};
+
+export async function getUpcomingBirthdays(now = new Date()): Promise<UpcomingBirthday[]> {
+  const [y, m, d] = new Intl.DateTimeFormat('en-CA', {
+    timeZone: BUSINESS_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+    .format(now)
+    .split('-')
+    .map(Number);
+
+  const todayStartBusiness = Date.UTC(y, m - 1, d);
+
+  const employees = await prisma.employee.findMany({
+    where: {
+      status: true,
+      deletedAt: null,
+      dateOfBirth: { not: null },
+    },
+    select: {
+      id: true,
+      fullName: true,
+      employeeNumber: true,
+      dateOfBirth: true,
+    },
+  });
+
+  const results: UpcomingBirthday[] = [];
+
+  for (const emp of employees) {
+    if (!emp.dateOfBirth) continue;
+
+    const birthMonth = emp.dateOfBirth.getUTCMonth();
+    const birthDay = emp.dateOfBirth.getUTCDate();
+
+    let birthdayTimestamp = Date.UTC(y, birthMonth, birthDay);
+    if (birthdayTimestamp < todayStartBusiness) {
+      birthdayTimestamp = Date.UTC(y + 1, birthMonth, birthDay);
+    }
+
+    const daysUntil = Math.floor((birthdayTimestamp - todayStartBusiness) / 86400000);
+
+    if (daysUntil >= 0 && daysUntil <= 7) {
+      results.push({
+        id: emp.id,
+        fullName: emp.fullName,
+        employeeNumber: emp.employeeNumber,
+        dateOfBirth: emp.dateOfBirth,
+        birthdayDate: new Date(birthdayTimestamp),
+        daysUntil,
+      });
+    }
+  }
+
+  results.sort((a, b) => a.daysUntil - b.daysUntil);
+
+  return results.slice(0, 20);
 }

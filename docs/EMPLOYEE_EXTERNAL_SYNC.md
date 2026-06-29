@@ -122,12 +122,15 @@ export interface ExternalEmployee {
   employee_number: string;
   personnel_id: string | null;
   work_status?: string | null;
+  date_of_joining?: string | null;
+  date_of_birth?: string | null;
   nickname: string | null;
   full_name: string;
   job_title: string | null;
   department: string | null;
   office_id: string | null;
   office_name: string | null;
+  phone: string | null;
 }
 
 export async function fetchExternalEmployees(): Promise<ExternalEmployee[]> {
@@ -198,6 +201,7 @@ The password is hashed using bcrypt before storage.
 | `jobTitle`       | ✅ Set           | ✅ Update         |
 | `department`     | ✅ Set           | ✅ Update         |
 | `role`           | ✅ Set           | ✅ Update         |
+| `dateOfBirth`    | ✅ Set           | ✅ Update         |
 | `hashedPassword` | ✅ Set (default) | ❌ No change      |
 
 ### Deactivation Logic

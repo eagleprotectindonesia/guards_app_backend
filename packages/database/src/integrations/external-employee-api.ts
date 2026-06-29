@@ -4,6 +4,7 @@ export interface ExternalEmployee {
   personnel_id: string | null;
   work_status?: string | null;
   date_of_joining?: string | null;
+  date_of_birth?: string | null;
   nickname: string | null;
   full_name: string;
   job_title: string | null;
