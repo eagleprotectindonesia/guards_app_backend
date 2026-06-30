@@ -42,8 +42,9 @@ export async function GET(request: NextRequest) {
 
       // Write Header
       const headers = [
-        'Site',
+        'employee id',
         'Employee',
+        'Site',
         'Reason',
         'Severity',
         'Created At',
@@ -90,6 +91,7 @@ export async function GET(request: NextRequest) {
             };
 
             const siteName = alert.site.name;
+            const employeeId = alert.shift?.employee?.employeeNumber ?? '';
             const employeeName = alert.shift?.employee?.fullName || 'Unassigned';
 
             const createdAt = format(new Date(alert.createdAt), 'yyyy/MM/dd HH:mm');
@@ -104,8 +106,9 @@ export async function GET(request: NextRequest) {
             const resAt = alert.resolvedAt ? format(new Date(alert.resolvedAt), 'yyyy/MM/dd HH:mm') : '';
 
             const row = [
-              escape(siteName),
+              escape(employeeId),
               escape(employeeName),
+              escape(siteName),
               escape(alert.reason),
               escape(alert.severity),
               escape(createdAt),
