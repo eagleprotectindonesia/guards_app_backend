@@ -22,6 +22,7 @@ import {
   SerializedOfficeAttendanceWithRelationsDto,
 } from '@/types/attendance';
 import { getLeaveReasonMeta } from '@/lib/leave-requests';
+import { buildCachedAttendanceContextResolvers } from '@/lib/attendance-context-cache';
 
 function escapeCsv(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
@@ -208,10 +209,15 @@ export async function GET(request: NextRequest) {
     cursor = batch[batch.length - 1].id;
   }
 
+  const cachedResolvers = buildCachedAttendanceContextResolvers({
+    resolveContext: resolveOfficeAttendanceContextForEmployee,
+    getScheduledPaidMinutes: getScheduledPaidMinutesForOfficeAttendance,
+  });
+
   const rows = await buildOfficeAttendanceDisplayRows(
     records,
-    getScheduledPaidMinutesForOfficeAttendance,
-    resolveOfficeAttendanceContextForEmployee
+    cachedResolvers.getScheduledPaidMinutes,
+    cachedResolvers.resolveContext
   );
   const officeShiftIds = Array.from(new Set(records.map(record => record.officeShift?.id).filter((id): id is string => Boolean(id))));
   const rowKeys = Array.from(new Set(rows.map(row => `${row.employeeId}|${row.businessDate}`)));
@@ -289,33 +295,15 @@ export async function GET(request: NextRequest) {
     leaveRequestsByEmployee.set(leaveRequest.employeeId, existing);
   }
 
-  const scheduledMinutesCache = new Map<string, number>();
-  const attendanceContextCache = new Map<string, Awaited<ReturnType<typeof resolveOfficeAttendanceContextForEmployee>>>();
   const scheduledMinutesByRow = await Promise.all(
-    rows.map(async row => {
-      const key = `${row.employeeId}|${row.clockInAt}`;
-      const cached = scheduledMinutesCache.get(key);
-      if (cached != null) {
-        return cached;
-      }
-
-      const scheduledMinutes = await getScheduledPaidMinutesForOfficeAttendance(row.employeeId, new Date(row.clockInAt));
-      scheduledMinutesCache.set(key, scheduledMinutes);
-      return scheduledMinutes;
-    })
+    rows.map(async row =>
+      cachedResolvers.getScheduledPaidMinutes(row.employeeId, new Date(row.clockInAt))
+    )
   );
   const attendanceContextsByRow = await Promise.all(
-    rows.map(async row => {
-      const key = `${row.employeeId}|${row.clockInAt}`;
-      const cached = attendanceContextCache.get(key);
-      if (cached) {
-        return cached;
-      }
-
-      const attendanceContext = await resolveOfficeAttendanceContextForEmployee(row.employeeId, new Date(row.clockInAt));
-      attendanceContextCache.set(key, attendanceContext);
-      return attendanceContext;
-    })
+    rows.map(async row =>
+      cachedResolvers.resolveContext(row.employeeId, new Date(row.clockInAt))
+    )
   );
   const currentBusinessDateKey = toDateKey(new Date());
 

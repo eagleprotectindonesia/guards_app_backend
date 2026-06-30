@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, Eye, Filter, Hotel } from 'lucide-react';
+import { Clock, Eye, Filter, Hotel, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -52,17 +52,47 @@ export default function OfficeAttendanceList({
   employees,
   initialFilters,
   sortBy = 'businessDate',
-  sortOrder = 'asc',
+  sortOrder = 'desc',
 }: OfficeAttendanceListProps) {
   const router = useAdminRouter();
   const searchParams = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [previewLabel, setPreviewLabel] = useState<string>('Attendance Photo');
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const openPreview = (url: string, label: string) => {
-    setPreviewImageUrl(url);
+  const openPreview = async (key: string, label: string) => {
     setPreviewLabel(label);
+    setPreviewError(null);
+
+    if (key.startsWith('http://') || key.startsWith('https://')) {
+      setPreviewImageUrl(key);
+      return;
+    }
+
+    setLoadingKey(key);
+    try {
+      const response = await fetch('/api/admin/office-attendance/presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load photo (${response.status})`);
+      }
+
+      const data = (await response.json()) as { url?: string };
+      if (!data.url) {
+        throw new Error('Invalid response from server');
+      }
+      setPreviewImageUrl(data.url);
+    } catch (error) {
+      setPreviewError(error instanceof Error ? error.message : 'Failed to load photo');
+    } finally {
+      setLoadingKey(null);
+    }
   };
 
   const handleSort = (field: string) => {
@@ -240,14 +270,20 @@ export default function OfficeAttendanceList({
                         {(() => {
                           const clockInPicture = attendance.clockInPicture;
                           if (!clockInPicture) return null;
+                          const isLoading = loadingKey === clockInPicture;
                           return (
                             <button
                               type="button"
                               onClick={() => openPreview(clockInPicture, 'Clock In Photo')}
-                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-muted transition-colors"
+                              disabled={isLoading}
+                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                               title="View clock-in photo"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              {isLoading ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Eye className="w-3.5 h-3.5" />
+                              )}
                               In
                             </button>
                           );
@@ -297,12 +333,14 @@ export default function OfficeAttendanceList({
         employees={employees}
       />
 
-      <Dialog open={Boolean(previewImageUrl)} onOpenChange={open => !open && setPreviewImageUrl(null)}>
+      <Dialog open={Boolean(previewImageUrl) || Boolean(previewError)} onOpenChange={open => !open && (setPreviewImageUrl(null), setPreviewError(null))}>
         <DialogContent className="sm:max-w-4xl p-4">
           <DialogHeader>
             <DialogTitle>{previewLabel}</DialogTitle>
           </DialogHeader>
-          {previewImageUrl ? (
+          {previewError ? (
+            <div className="text-sm text-destructive py-8 text-center">{previewError}</div>
+          ) : previewImageUrl ? (
             <div className="w-full flex items-center justify-center overflow-auto">
               <img src={previewImageUrl} alt={previewLabel} className="max-h-[75vh] w-auto max-w-full rounded-md" />
             </div>

@@ -516,6 +516,392 @@ export async function listOfficeAttendance(params: {
   });
 }
 
+export type OfficeAttendanceSessionRow = {
+  sessionId: string;
+  sessionType: 'pair' | 'open' | 'absent' | 'leave' | 'pending_leave';
+  employeeId: string;
+  officeId: string | null;
+  businessDate: string | null;
+  clockIn: {
+    id: string;
+    recordedAt: Date;
+    metadata: OfficeAttendanceMetadataJson | null;
+    picture: string | null;
+    officeShiftId: string | null;
+  } | null;
+  clockOut: {
+    id: string;
+    recordedAt: Date;
+    metadata: OfficeAttendanceMetadataJson | null;
+  } | null;
+  standaloneStatus: 'absent' | 'leave' | 'pending_leave' | null;
+  standaloneRecordedAt: Date | null;
+  standaloneMetadata: OfficeAttendanceMetadataJson | null;
+  employee: {
+    id: string;
+    fullName: string;
+    employeeNumber: string | null;
+  } | null;
+  office: {
+    id: string;
+    name: string;
+  } | null;
+  officeShift: {
+    id: string;
+    officeShiftType: {
+      name: string;
+      startTime: string;
+      endTime: string;
+    } | null;
+    lastUpdatedBy: {
+      name: string;
+    } | null;
+  } | null;
+};
+
+type OfficeAttendanceMetadataJson = Prisma.JsonValue | null;
+
+const PAIR_SORT_MAP: Record<string, Prisma.Sql> = {
+  businessDate: Prisma.sql`s.business_date ASC, s.clock_in_at ASC, s.clock_in_id ASC`,
+  businessDateDesc: Prisma.sql`s.business_date DESC, s.clock_in_at DESC, s.clock_in_id DESC`,
+  employeeNumber: Prisma.sql`e.employee_number ASC, s.clock_in_at ASC, s.clock_in_id ASC`,
+  employeeNumberDesc: Prisma.sql`e.employee_number DESC, s.clock_in_at DESC, s.clock_in_id DESC`,
+  office: Prisma.sql`o.name ASC, s.clock_in_at ASC, s.clock_in_id ASC`,
+  officeDesc: Prisma.sql`o.name DESC, s.clock_in_at DESC, s.clock_in_id DESC`,
+};
+
+function buildPairedSessionsWhereFragment(where: Prisma.OfficeAttendanceWhereInput): {
+  whereSql: Prisma.Sql;
+  businessDateFilter: Prisma.Sql;
+} {
+  const conditions: Prisma.Sql[] = [];
+  let businessDateGte: Date | null = null;
+  let businessDateLte: Date | null = null;
+
+  const businessDateFilter = where.businessDate;
+  if (businessDateFilter && typeof businessDateFilter === 'object' && !(businessDateFilter instanceof Date)) {
+    if (businessDateFilter.gte instanceof Date) {
+      businessDateGte = businessDateFilter.gte;
+      conditions.push(Prisma.sql`s.business_date >= ${businessDateFilter.gte}::date`);
+    }
+    if (businessDateFilter.lte instanceof Date) {
+      businessDateLte = businessDateFilter.lte;
+      conditions.push(Prisma.sql`s.business_date <= ${businessDateFilter.lte}::date`);
+    }
+  }
+
+  if (where.employee && typeof where.employee === 'object' && 'employeeNumber' in where.employee) {
+    conditions.push(Prisma.sql`e.employee_number = ${where.employee.employeeNumber}`);
+  }
+
+  const whereSql =
+    conditions.length > 0
+      ? Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`
+      : Prisma.sql``;
+
+  const cteConditions: Prisma.Sql[] = [];
+  if (businessDateGte) {
+    cteConditions.push(Prisma.sql`oa.business_date >= ${businessDateGte}::date`);
+  }
+  if (businessDateLte) {
+    cteConditions.push(Prisma.sql`oa.business_date <= ${businessDateLte}::date`);
+  }
+  const businessDateRange =
+    cteConditions.length > 0
+      ? Prisma.sql`AND ${Prisma.join(cteConditions, ' AND ')}`
+      : Prisma.sql``;
+
+  return { whereSql, businessDateFilter: businessDateRange };
+}
+
+export async function getPairedOfficeAttendanceSessions(params: {
+  where: Prisma.OfficeAttendanceWhereInput;
+  orderBy: 'businessDate' | 'employeeNumber' | 'office';
+  orderDirection: 'asc' | 'desc';
+  skip: number;
+  take: number;
+}): Promise<{ sessions: OfficeAttendanceSessionRow[]; total: number }> {
+  const { where, orderBy, orderDirection, skip, take } = params;
+
+  const sortKey = `${orderBy}${orderDirection === 'desc' ? 'Desc' : ''}`;
+  const orderBySql = PAIR_SORT_MAP[sortKey] ?? PAIR_SORT_MAP.businessDate;
+  const { whereSql, businessDateFilter } = buildPairedSessionsWhereFragment(where);
+
+  const rows = await prisma.$queryRaw<Array<RawPairedSessionRow>>(Prisma.sql`
+    WITH clock_ins AS (
+      SELECT
+        oa.id,
+        oa.employee_id,
+        oa.office_id,
+        oa.business_date,
+        oa.recorded_at,
+        oa.metadata,
+        oa.picture,
+        oa.status,
+        oa.office_shift_id,
+        ROW_NUMBER() OVER (
+          PARTITION BY oa.employee_id
+          ORDER BY oa.recorded_at ASC, oa.id ASC
+        ) AS rn
+      FROM office_attendance oa
+      WHERE oa.status IN ('present', 'late') ${businessDateFilter}
+    ),
+    clock_outs AS (
+      SELECT
+        oa.id,
+        oa.employee_id,
+        oa.recorded_at,
+        oa.metadata,
+        ROW_NUMBER() OVER (
+          PARTITION BY oa.employee_id
+          ORDER BY oa.recorded_at ASC, oa.id ASC
+        ) AS rn
+      FROM office_attendance oa
+      WHERE oa.status = 'clocked_out' ${businessDateFilter}
+    ),
+    paired AS (
+      SELECT
+        ci.id AS clock_in_id,
+        co.id AS clock_out_id,
+        ci.employee_id,
+        ci.office_id,
+        ci.business_date,
+        ci.recorded_at AS clock_in_at,
+        co.recorded_at AS clock_out_at,
+        ci.metadata AS clock_in_metadata,
+        co.metadata AS clock_out_metadata,
+        ci.picture AS clock_in_picture,
+        ci.office_shift_id,
+        'pair'::text AS session_type
+      FROM clock_ins ci
+      INNER JOIN clock_outs co
+        ON co.employee_id = ci.employee_id
+        AND co.rn = ci.rn
+    ),
+    open_sessions AS (
+      SELECT
+        ci.id AS clock_in_id,
+        NULL::text AS clock_out_id,
+        ci.employee_id,
+        ci.office_id,
+        ci.business_date,
+        ci.recorded_at AS clock_in_at,
+        NULL::timestamptz AS clock_out_at,
+        ci.metadata AS clock_in_metadata,
+        NULL::jsonb AS clock_out_metadata,
+        ci.picture AS clock_in_picture,
+        ci.office_shift_id,
+        'open'::text AS session_type
+      FROM clock_ins ci
+      WHERE NOT EXISTS (
+        SELECT 1 FROM clock_outs co
+        WHERE co.employee_id = ci.employee_id AND co.rn = ci.rn
+      )
+    ),
+    standalone AS (
+      SELECT
+        oa.id AS clock_in_id,
+        NULL::text AS clock_out_id,
+        oa.employee_id,
+        oa.office_id,
+        oa.business_date,
+        oa.recorded_at AS clock_in_at,
+        NULL::timestamptz AS clock_out_at,
+        NULL::jsonb AS clock_in_metadata,
+        NULL::jsonb AS clock_out_metadata,
+        NULL::text AS clock_in_picture,
+        oa.office_shift_id,
+        oa.status::text AS session_type
+      FROM office_attendance oa
+      WHERE oa.status IN ('absent', 'leave', 'pending_leave') ${businessDateFilter}
+    ),
+    sessions AS (
+      SELECT * FROM paired
+      UNION ALL
+      SELECT * FROM open_sessions
+      UNION ALL
+      SELECT * FROM standalone
+    )
+    SELECT
+      s.clock_in_id,
+      s.clock_out_id,
+      s.employee_id,
+      s.office_id,
+      s.business_date,
+      s.clock_in_at,
+      s.clock_out_at,
+      s.clock_in_metadata,
+      s.clock_out_metadata,
+      s.clock_in_picture,
+      s.office_shift_id,
+      s.session_type,
+      e.id AS emp_id,
+      e.full_name AS emp_full_name,
+      e.employee_number AS emp_employee_number,
+      o.id AS office_id_joined,
+      o.name AS office_name,
+      os.id AS os_id,
+      ost.id AS ost_id,
+      ost.name AS ost_name,
+      ost.start_time AS ost_start_time,
+      ost.end_time AS ost_end_time,
+      oslu.id AS oslu_id,
+      oslu.name AS oslu_name
+    FROM sessions s
+    LEFT JOIN employees e ON e.id = s.employee_id
+    LEFT JOIN offices o ON o.id = s.office_id
+    LEFT JOIN office_shifts os ON os.id = s.office_shift_id AND os.deleted_at IS NULL
+    LEFT JOIN office_shift_types ost ON ost.id = os.office_shift_type_id
+    LEFT JOIN admins oslu ON oslu.id = os.last_updated_by_id
+    ${whereSql}
+    ORDER BY ${orderBySql}
+    OFFSET ${skip} LIMIT ${take}
+  `);
+
+  const totalRows = await prisma.$queryRaw<Array<{ count: bigint }>>(Prisma.sql`
+    WITH clock_ins AS (
+      SELECT
+        oa.id,
+        oa.employee_id,
+        oa.business_date,
+        ROW_NUMBER() OVER (
+          PARTITION BY oa.employee_id
+          ORDER BY oa.recorded_at ASC, oa.id ASC
+        ) AS rn
+      FROM office_attendance oa
+      WHERE oa.status IN ('present', 'late') ${businessDateFilter}
+    ),
+    clock_outs AS (
+      SELECT
+        oa.employee_id,
+        ROW_NUMBER() OVER (
+          PARTITION BY oa.employee_id
+          ORDER BY oa.recorded_at ASC, oa.id ASC
+        ) AS rn
+      FROM office_attendance oa
+      WHERE oa.status = 'clocked_out' ${businessDateFilter}
+    ),
+    paired AS (
+      SELECT ci.id, ci.employee_id, ci.business_date
+      FROM clock_ins ci
+      INNER JOIN clock_outs co ON co.employee_id = ci.employee_id AND co.rn = ci.rn
+    ),
+    open_sessions AS (
+      SELECT ci.id, ci.employee_id, ci.business_date
+      FROM clock_ins ci
+      WHERE NOT EXISTS (SELECT 1 FROM clock_outs co WHERE co.employee_id = ci.employee_id AND co.rn = ci.rn)
+    ),
+    standalone AS (
+      SELECT oa.id, oa.employee_id, oa.business_date
+      FROM office_attendance oa
+      WHERE oa.status IN ('absent', 'leave', 'pending_leave') ${businessDateFilter}
+    ),
+    sessions AS (
+      SELECT * FROM paired
+      UNION ALL
+      SELECT * FROM open_sessions
+      UNION ALL
+      SELECT * FROM standalone
+    )
+    SELECT COUNT(*)::bigint AS count
+    FROM sessions s
+    LEFT JOIN employees e ON e.id = s.employee_id
+    ${whereSql}
+  `);
+
+  const total = totalRows.length > 0 ? Number(totalRows[0].count) : 0;
+  return { sessions: rows.map(mapRawPairedSession), total };
+}
+
+type RawPairedSessionRow = {
+  clock_in_id: string;
+  clock_out_id: string | null;
+  employee_id: string;
+  office_id: string | null;
+  business_date: Date | null;
+  clock_in_at: Date;
+  clock_out_at: Date | null;
+  clock_in_metadata: Prisma.JsonValue | null;
+  clock_out_metadata: Prisma.JsonValue | null;
+  clock_in_picture: string | null;
+  office_shift_id: string | null;
+  session_type: 'pair' | 'open' | 'absent' | 'leave' | 'pending_leave';
+  emp_id: string | null;
+  emp_full_name: string | null;
+  emp_employee_number: string | null;
+  office_id_joined: string | null;
+  office_name: string | null;
+  os_id: string | null;
+  ost_id: string | null;
+  ost_name: string | null;
+  ost_start_time: string | null;
+  ost_end_time: string | null;
+  oslu_id: string | null;
+  oslu_name: string | null;
+};
+
+function mapRawPairedSession(row: RawPairedSessionRow): OfficeAttendanceSessionRow {
+  const standaloneStatus =
+    row.session_type === 'absent' || row.session_type === 'leave' || row.session_type === 'pending_leave'
+      ? row.session_type
+      : null;
+
+  return {
+    sessionId: row.clock_in_id,
+    sessionType: row.session_type,
+    employeeId: row.employee_id,
+    officeId: row.office_id,
+    businessDate: row.business_date ? row.business_date.toISOString().slice(0, 10) : null,
+    clockIn: row.session_type === 'pair' || row.session_type === 'open'
+      ? {
+          id: row.clock_in_id,
+          recordedAt: row.clock_in_at,
+          metadata: row.clock_in_metadata,
+          picture: row.clock_in_picture,
+          officeShiftId: row.office_shift_id,
+        }
+      : null,
+    clockOut:
+      row.session_type === 'pair' && row.clock_out_id
+        ? {
+            id: row.clock_out_id,
+            recordedAt: row.clock_out_at as Date,
+            metadata: row.clock_out_metadata,
+          }
+        : null,
+    standaloneStatus,
+    standaloneRecordedAt: standaloneStatus ? row.clock_in_at : null,
+    standaloneMetadata: standaloneStatus ? row.clock_in_metadata : null,
+    employee: row.emp_id
+      ? {
+          id: row.emp_id,
+          fullName: row.emp_full_name ?? '',
+          employeeNumber: row.emp_employee_number,
+        }
+      : null,
+    office:
+      row.office_id && row.office_id_joined
+        ? {
+            id: row.office_id_joined,
+            name: row.office_name ?? '',
+          }
+        : null,
+    officeShift: row.os_id
+      ? {
+          id: row.os_id,
+          officeShiftType: row.ost_id
+            ? {
+                name: row.ost_name ?? '',
+                startTime: row.ost_start_time ?? '',
+                endTime: row.ost_end_time ?? '',
+              }
+            : null,
+          lastUpdatedBy: row.oslu_id ? { name: row.oslu_name ?? '' } : null,
+        }
+      : null,
+  };
+}
+
 export async function getOfficeAttendanceExportBatch(params: {
   where: Prisma.OfficeAttendanceWhereInput;
   take: number;
