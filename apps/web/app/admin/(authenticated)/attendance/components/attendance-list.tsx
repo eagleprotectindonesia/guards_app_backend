@@ -105,11 +105,10 @@ export default function AttendanceList({
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Attendance</h1>
-          <p className="text-sm text-muted-foreground mt-1">View employee attendance records and status.</p>
+          <h1 className="text-2xl font-bold text-foreground">Guard Attendance</h1>
+          <p className="text-sm text-muted-foreground mt-1">View guard/on-site employee attendance records and status.</p>
         </div>
         <div className="flex items-center gap-2">
-          <AttendanceExport initialFilters={initialFilters} employees={employees} />
           <button
             onClick={() => setIsFilterOpen(true)}
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm"
@@ -117,6 +116,7 @@ export default function AttendanceList({
             <Filter className="w-4 h-4 mr-2" />
             Filter
           </button>
+          <AttendanceExport initialFilters={initialFilters} employees={employees} />
         </div>
       </div>
 

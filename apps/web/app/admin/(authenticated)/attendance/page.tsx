@@ -1,6 +1,5 @@
 import { getPaginationParams } from '@/lib/server-utils';
 import AttendanceList from './components/attendance-list';
-import AttendanceTabs from './components/attendance-tabs';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
@@ -128,7 +127,6 @@ export default async function AttendancePage(props: AttendancePageProps) {
 
   return (
     <div className="max-w-7xl mx-auto py-8">
-      <AttendanceTabs />
       <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <AttendanceList
           attendances={serializedAttendances}

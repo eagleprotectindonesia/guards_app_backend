@@ -48,7 +48,7 @@ export class ShiftPhotoReportProcessor {
           attendance: shift.attendance,
         });
 
-        const photoInputs = rawPhotos.map(p => ({ s3Key: p.s3Key, createdAt: p.createdAt }));
+        const photoInputs = rawPhotos.map(p => ({ s3Key: p.s3Key, createdAt: p.createdAt, latitude: p.latitude, longitude: p.longitude }));
         const fetchedPhotos = await fetchPhotos(photoInputs, AbortSignal.timeout(90_000));
 
         // Create report row in pending state

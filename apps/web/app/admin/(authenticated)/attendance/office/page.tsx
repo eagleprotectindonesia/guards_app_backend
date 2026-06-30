@@ -1,13 +1,12 @@
 import { getPaginationParams } from '@/lib/server-utils';
 import OfficeAttendanceList from './components/office-attendance-list';
-import AttendanceTabs from '../components/attendance-tabs';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
 import { getActiveEmployeesSummary, getActiveOffices } from '@repo/database';
 import {
+  getPairedOfficeAttendanceSessions,
   getScheduledPaidMinutesForOfficeAttendance,
-  listOfficeAttendance,
   resolveOfficeAttendanceContextForEmployee,
 } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
@@ -16,15 +15,13 @@ import { canAccessOfficeAttendance } from '@/lib/auth/admin-visibility';
 import {
   AttendanceEmployeeSummary,
   AttendanceOfficeSummary,
-  OfficeAttendanceMetadataDto,
-  SerializedOfficeAttendanceWithRelationsDto,
 } from '@/types/attendance';
 import { forbidden } from 'next/navigation';
-import { getCachedPresignedDownloadUrl } from '@/lib/s3';
 import {
-  buildOfficeAttendanceDisplayRows,
-  paginateOfficeAttendanceDisplayRows,
+  buildPairedSessionContextMap,
+  toDisplayRowsFromPairedSessions,
 } from './office-attendance-display';
+import { buildCachedAttendanceContextResolvers } from '@/lib/attendance-context-cache';
 import { AdminListSkeleton } from '../../components/loading/admin-list-skeleton';
 
 export const dynamic = 'force-dynamic';
@@ -41,17 +38,15 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
   const searchParams = await props.searchParams;
   const { page, perPage } = getPaginationParams(searchParams);
 
-  // Extract filters from searchParams
-  const employeeId = typeof searchParams.employeeId === 'string' ? searchParams.employeeId : undefined;
+  const employeeNumber = typeof searchParams.employeeNumber === 'string' ? searchParams.employeeNumber : undefined;
   const from = typeof searchParams.from === 'string' ? searchParams.from : undefined;
   const to = typeof searchParams.to === 'string' ? searchParams.to : undefined;
   const todayEnd = endOfDay(new Date());
 
-  // Build where clause for attendance records
   const where: Prisma.OfficeAttendanceWhereInput = {};
 
-  if (employeeId) {
-    where.employeeId = employeeId;
+  if (employeeNumber) {
+    where.employee = { employeeNumber };
   }
 
   if (from || to) {
@@ -73,63 +68,42 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
   const sortOrder =
     typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
       ? (searchParams.sortOrder as 'asc' | 'desc')
-      : 'asc';
+      : 'desc';
 
-  const sortFieldMap: Record<string, Prisma.OfficeAttendanceOrderByWithRelationInput> = {
-    businessDate: { businessDate: sortOrder },
-    employeeNumber: { employee: { employeeNumber: sortOrder } },
-    office: { office: { name: sortOrder } },
-  };
-  const validSortFields = Object.keys(sortFieldMap);
-  const orderBy = sortFieldMap[validSortFields.includes(sortBy) ? sortBy : 'businessDate'];
+  const validSortFields = ['businessDate', 'employeeNumber', 'office'] as const;
+  type ValidSort = (typeof validSortFields)[number];
+  const resolvedSortBy: ValidSort = (validSortFields as readonly string[]).includes(sortBy)
+    ? (sortBy as ValidSort)
+    : 'businessDate';
 
-  const [attendances, employees, offices] = await Promise.all([
-    listOfficeAttendance({
+  const skip = (page - 1) * perPage;
+
+  const [pairedResult, employees, offices] = await Promise.all([
+    getPairedOfficeAttendanceSessions({
       where,
-      orderBy,
+      orderBy: resolvedSortBy,
+      orderDirection: sortOrder,
+      skip,
+      take: perPage,
     }),
     getActiveEmployeesSummary('office'),
     getActiveOffices(),
   ]);
 
-  const serializedAttendances: SerializedOfficeAttendanceWithRelationsDto[] = attendances.map(att => ({
-    id: att.id,
-    businessDate: att.businessDate ? att.businessDate.toISOString().slice(0, 10) : null,
-    recordedAt: att.recordedAt.toISOString(),
-    status: att.status,
-    employeeId: att.employeeId,
-    officeId: att.officeId,
-    picture: att.picture ?? null,
-    metadata: att.metadata as OfficeAttendanceMetadataDto | null,
-    office: att.office
-      ? {
-          id: att.office.id,
-          name: att.office.name,
-        }
-      : null,
-    employee: att.employee
-      ? {
-          id: att.employee.id,
-          fullName: att.employee.fullName,
-          employeeNumber: att.employee.employeeNumber,
-        }
-      : null,
-  }));
+  const { sessions, total } = pairedResult;
 
-  await Promise.all(
-    serializedAttendances.map(async attendance => {
-      if (!attendance.picture || attendance.picture.startsWith('http')) return;
-      attendance.picture = await getCachedPresignedDownloadUrl(attendance.picture);
-    })
-  );
+  const cachedResolvers = buildCachedAttendanceContextResolvers({
+    resolveContext: resolveOfficeAttendanceContextForEmployee,
+    getScheduledPaidMinutes: getScheduledPaidMinutesForOfficeAttendance,
+  });
 
-  const unifiedAttendances = await buildOfficeAttendanceDisplayRows(
-    serializedAttendances,
-    getScheduledPaidMinutesForOfficeAttendance,
-    resolveOfficeAttendanceContextForEmployee
-  );
-  const totalCount = unifiedAttendances.length;
-  const paginatedAttendances = paginateOfficeAttendanceDisplayRows(unifiedAttendances, page, perPage);
+  const contextMap = await buildPairedSessionContextMap({
+    sessions,
+    resolveContext: cachedResolvers.resolveContext,
+    getScheduledPaidMinutes: cachedResolvers.getScheduledPaidMinutes,
+  });
+
+  const displayRows = toDisplayRowsFromPairedSessions({ sessions, contextMap });
 
   const serializedEmployees: AttendanceEmployeeSummary[] = employees.map(emp => ({
     id: emp.id,
@@ -143,20 +117,19 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
   }));
 
   const initialFilters = {
-    employeeId,
+    employeeNumber,
     startDate: from,
     endDate: to,
   };
 
   return (
     <div className="max-w-7xl mx-auto py-8">
-      <AttendanceTabs />
       <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <OfficeAttendanceList
-          attendances={paginatedAttendances}
+          attendances={displayRows}
           page={page}
           perPage={perPage}
-          totalCount={totalCount}
+          totalCount={total}
           offices={serializedOffices}
           employees={serializedEmployees}
           initialFilters={initialFilters}

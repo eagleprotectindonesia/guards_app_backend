@@ -108,6 +108,8 @@ type ShiftPhoto = {
   messageId: string;
   s3Key: string;
   createdAt: Date;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export async function getShiftReportPhotos(params: {
@@ -128,6 +130,8 @@ export async function getShiftReportPhotos(params: {
       id: true,
       attachments: true,
       createdAt: true,
+      latitude: true,
+      longitude: true,
     },
     orderBy: { createdAt: 'asc' },
   });
@@ -142,6 +146,8 @@ export async function getShiftReportPhotos(params: {
       messageId: 'attendance',
       s3Key: attendance.picture,
       createdAt: attendance.recordedAt,
+      latitude: null,
+      longitude: null,
     });
   }
 
@@ -155,6 +161,8 @@ export async function getShiftReportPhotos(params: {
         messageId: msg.id,
         s3Key: att,
         createdAt: msg.createdAt,
+        latitude: msg.latitude ?? null,
+        longitude: msg.longitude ?? null,
       });
     }
   }

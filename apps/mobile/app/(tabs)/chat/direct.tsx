@@ -17,6 +17,7 @@ import { useAuth } from '../../../src/contexts/AuthContext';
 import { useCustomToast } from '../../../src/hooks/useCustomToast';
 import { reserveChatDraft, uploadToS3 } from '../../../src/api/upload';
 import { isVideoFile } from '../../../src/utils/file';
+import { useActiveShift } from '../../../src/hooks/useActiveShift';
 import { ChatListItem, ChatListItemData } from '../../../src/components/chat/ChatListItem';
 import { ChatHeader } from '../../../src/components/chat/ChatHeader';
 import { ChatComposer } from '../../../src/components/chat/ChatComposer';
@@ -31,6 +32,7 @@ export default function ChatScreen() {
   const router = useRouter();
   const auth = useAuth();
   const toast = useCustomToast();
+  const { isOnActiveShift } = useActiveShift();
 
   const [inputText, setInputText] = useState('');
   const [selectedAttachments, setSelectedAttachments] = useState<ImagePicker.ImagePickerAsset[]>([]);
@@ -211,6 +213,34 @@ export default function ChatScreen() {
 
     setIsUploading(true);
     try {
+      let latitude: number | undefined;
+      let longitude: number | undefined;
+      const hasImages = selectedAttachments.some(a => a.type === 'image');
+
+      if (hasImages && selectedAttachments.length > 0) {
+        if (isOnActiveShift) {
+          const { status } = await Location.requestForegroundPermissionsAsync();
+          if (status !== 'granted') {
+            toast.error(
+              t('chat.location_required', 'Location required'),
+              t('chat.location_required_desc', 'Location permission is needed to send photos during an active shift.')
+            );
+            return;
+          }
+          try {
+            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            latitude = loc.coords.latitude;
+            longitude = loc.coords.longitude;
+          } catch {
+            toast.error(
+              t('chat.location_unavailable', 'Location unavailable'),
+              t('chat.location_unavailable_desc', 'Could not get your current location. Please ensure GPS is enabled.')
+            );
+            return;
+          }
+        }
+      }
+
       let attachmentKeys: string[] = [];
       let messageId: string | undefined;
 
@@ -242,6 +272,8 @@ export default function ChatScreen() {
         content: inputText.trim(),
         messageId,
         attachments: attachmentKeys,
+        latitude,
+        longitude,
       });
 
       setInputText('');

@@ -23,7 +23,7 @@ function mockS3Response(body: Buffer | null, contentType?: string) {
 }
 
 describe('fetchPhotos', () => {
-  const singleInput: PhotoInput[] = [{ s3Key: 'test/photo1.jpg', createdAt: new Date() }];
+  const singleInput: PhotoInput[] = [{ s3Key: 'test/photo1.jpg', createdAt: new Date(), latitude: null, longitude: null }];
 
   beforeEach(() => {
     mockSend.mockReset();
@@ -88,9 +88,9 @@ describe('fetchPhotos', () => {
 
   test('returns photos filtered by Promise.allSettled rejection', async () => {
     const inputs: PhotoInput[] = [
-      { s3Key: 'test/good.jpg', createdAt: new Date() },
-      { s3Key: 'test/bad.jpg', createdAt: new Date() },
-      { s3Key: 'test/ugly.jpg', createdAt: new Date() },
+      { s3Key: 'test/good.jpg', createdAt: new Date(), latitude: null, longitude: null },
+      { s3Key: 'test/bad.jpg', createdAt: new Date(), latitude: null, longitude: null },
+      { s3Key: 'test/ugly.jpg', createdAt: new Date(), latitude: null, longitude: null },
     ];
 
     mockSend
@@ -128,7 +128,7 @@ describe('fetchPhotos', () => {
       ContentType: 'image/webp',
     });
 
-    const result = await fetchPhotos([{ s3Key: 'test/large.webp', createdAt: new Date() }]);
+    const result = await fetchPhotos([{ s3Key: 'test/large.webp', createdAt: new Date(), latitude: null, longitude: null }]);
 
     expect(mockSend).toHaveBeenCalledTimes(1);
     expect(result).toHaveLength(1);

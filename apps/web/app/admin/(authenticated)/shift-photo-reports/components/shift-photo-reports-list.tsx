@@ -11,7 +11,7 @@ import Select from '../../components/select';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import { format, parseISO } from 'date-fns';
-import { Download, History, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Download, History, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
 import SortableHeader from '@/components/sortable-header';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
@@ -88,6 +88,7 @@ export default function ShiftPhotoReportsList({
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
   const [isBulkDownloading, setIsBulkDownloading] = useState(false);
 
   const downloadableReports = reports.filter(r => r.downloadUrl);
@@ -230,7 +231,8 @@ export default function ShiftPhotoReportsList({
   };
 
   const handleSingleDownload = async (report: ReportWithDownload) => {
-    if (!report.downloadUrl) return;
+    if (!report.downloadUrl || downloadingIds.has(report.id)) return;
+    setDownloadingIds(prev => new Set(prev).add(report.id));
     logDownload(report.id, 'single');
     try {
       const response = await fetch(report.downloadUrl);
@@ -246,6 +248,12 @@ export default function ShiftPhotoReportsList({
       URL.revokeObjectURL(url);
     } catch {
       toast.error('Failed to download report');
+    } finally {
+      setDownloadingIds(prev => {
+        const next = new Set(prev);
+        next.delete(report.id);
+        return next;
+      });
     }
   };
 
@@ -549,10 +557,15 @@ export default function ShiftPhotoReportsList({
                           report.downloadUrl ? (
                             <button
                               onClick={() => handleSingleDownload(report)}
-                              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
-                              title="Download PDF"
+                              disabled={downloadingIds.has(report.id)}
+                              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                              title={downloadingIds.has(report.id) ? 'Downloading\u2026' : 'Download PDF'}
                             >
-                              <Download className="w-4 h-4" />
+                              {downloadingIds.has(report.id) ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Download className="w-4 h-4" />
+                              )}
                             </button>
                           ) : (
                             <span className="p-2 text-muted-foreground/40" title="No PDF available">
@@ -565,8 +578,9 @@ export default function ShiftPhotoReportsList({
                             type="checkbox"
                             checked={selectedIds.has(report.id)}
                             onChange={e => handleCheckboxChange(report.id, e.target.checked)}
+                            disabled={downloadingIds.has(report.id)}
                             aria-label={`Select report ${report.reportNumber ?? report.id}`}
-                            className="h-4 w-4 rounded border-border text-red-600 focus:ring-red-500 cursor-pointer"
+                            className="h-4 w-4 rounded border-border text-red-600 focus:ring-red-500 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                           />
                         ) : (
                           <input

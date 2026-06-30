@@ -34,6 +34,8 @@ describe('generatePdf', () => {
         s3Key: 'test/photo.png',
         createdAt: new Date('2026-06-15T10:30:00Z'),
         contentType: 'image/png',
+        latitude: null,
+        longitude: null,
       },
     ];
 

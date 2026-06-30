@@ -201,7 +201,11 @@
     "leave_group": "Keluar grup",
     "leave_group_confirm": "Apakah Anda yakin ingin keluar dari grup ini?",
     "leave_group_action": "Keluar",
-    "support_description": "Layanan Bantuan Resmi Eagle Protect"
+    "support_description": "Layanan Bantuan Resmi Eagle Protect",
+    "location_required": "Lokasi diperlukan",
+    "location_required_desc": "Izin lokasi diperlukan untuk mengirim foto selama shift aktif.",
+    "location_unavailable": "Lokasi tidak tersedia",
+    "location_unavailable_desc": "Tidak dapat mengambil lokasi saat ini. Pastikan GPS aktif."
   },
   "account": {
     "title": "Akun",

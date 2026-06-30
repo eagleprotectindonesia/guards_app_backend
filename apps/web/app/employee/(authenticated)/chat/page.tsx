@@ -570,7 +570,7 @@ function ChatMessageItem({
             })}
           </div>
         )}
-        {message.latitude && message.longitude && (
+        {message.latitude && message.longitude && (!message.attachments || message.attachments.length === 0) && (
           <a
             href={`https://maps.google.com/?q=${message.latitude},${message.longitude}`}
             target="_blank"

@@ -264,6 +264,14 @@ export async function generatePdf(metadata: ReportMetadata, photos: FetchedPhoto
         doc.fontSize(9).font('Helvetica');
         doc.text(`Date & Time: ${formatTZ(photo.createdAt)}`, doc.page.margins.left, doc.y + 2);
 
+        if (photo.latitude != null && photo.longitude != null) {
+          const mapsUrl = `https://maps.google.com/?q=${photo.latitude},${photo.longitude}`;
+          doc.text('Location: ', doc.page.margins.left, doc.y + 2, { continued: true });
+          doc.fillColor('blue');
+          doc.text(`${photo.latitude.toFixed(6)}, ${photo.longitude.toFixed(6)}`, { link: mapsUrl, underline: true });
+          doc.fillColor('black');
+        }
+
         drawFooter(doc, pageNumber, contentWidth);
       }
     }

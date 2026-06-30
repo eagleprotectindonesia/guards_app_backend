@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, Eye, Hotel } from 'lucide-react';
+import { Clock, Eye, Filter, Hotel, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -13,6 +13,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PaginationNav from '../../../components/pagination-nav';
 import OfficeAttendanceExport from './office-attendance-export';
+import AttendanceFilterModal from '../../components/attendance-filter-modal';
 import SortableHeader from '@/components/sortable-header';
 import { useAdminRouter } from '../../../context/admin-router';
 
@@ -36,7 +37,7 @@ type OfficeAttendanceListProps = {
   initialFilters: {
     startDate?: string;
     endDate?: string;
-    employeeId?: string;
+    employeeNumber?: string;
   };
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
@@ -48,17 +49,50 @@ export default function OfficeAttendanceList({
   perPage,
   totalCount,
   offices,
+  employees,
+  initialFilters,
   sortBy = 'businessDate',
-  sortOrder = 'asc',
+  sortOrder = 'desc',
 }: OfficeAttendanceListProps) {
   const router = useAdminRouter();
   const searchParams = useSearchParams();
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [previewLabel, setPreviewLabel] = useState<string>('Attendance Photo');
+  const [loadingKey, setLoadingKey] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const openPreview = (url: string, label: string) => {
-    setPreviewImageUrl(url);
+  const openPreview = async (key: string, label: string) => {
     setPreviewLabel(label);
+    setPreviewError(null);
+
+    if (key.startsWith('http://') || key.startsWith('https://')) {
+      setPreviewImageUrl(key);
+      return;
+    }
+
+    setLoadingKey(key);
+    try {
+      const response = await fetch('/api/admin/office-attendance/presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to load photo (${response.status})`);
+      }
+
+      const data = (await response.json()) as { url?: string };
+      if (!data.url) {
+        throw new Error('Invalid response from server');
+      }
+      setPreviewImageUrl(data.url);
+    } catch (error) {
+      setPreviewError(error instanceof Error ? error.message : 'Failed to load photo');
+    } finally {
+      setLoadingKey(null);
+    }
   };
 
   const handleSort = (field: string) => {
@@ -73,15 +107,48 @@ export default function OfficeAttendanceList({
     router.push(`?${params.toString()}`);
   };
 
+  const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeNumber: string }) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    params.set('page', '1');
+
+    if (filters.startDate) {
+      params.set('from', format(filters.startDate, 'yyyy-MM-dd'));
+    } else {
+      params.delete('from');
+    }
+
+    if (filters.endDate) {
+      params.set('to', format(filters.endDate, 'yyyy-MM-dd'));
+    } else {
+      params.delete('to');
+    }
+
+    if (filters.employeeNumber) {
+      params.set('employeeNumber', filters.employeeNumber);
+    } else {
+      params.delete('employeeNumber');
+    }
+
+    router.push(`?${params.toString()}`);
+  };
+
   return (
     <div>
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Office Attendance</h1>
-          <p className="text-sm text-muted-foreground mt-1">View unified office attendance sessions.</p>
+          <p className="text-sm text-muted-foreground mt-1">View office employee attendance sessions.</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsFilterOpen(true)}
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm"
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            Filter
+          </button>
           <OfficeAttendanceExport offices={offices} />
         </div>
       </div>
@@ -203,14 +270,20 @@ export default function OfficeAttendanceList({
                         {(() => {
                           const clockInPicture = attendance.clockInPicture;
                           if (!clockInPicture) return null;
+                          const isLoading = loadingKey === clockInPicture;
                           return (
                             <button
                               type="button"
                               onClick={() => openPreview(clockInPicture, 'Clock In Photo')}
-                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-muted transition-colors"
+                              disabled={isLoading}
+                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium hover:bg-muted transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                               title="View clock-in photo"
                             >
-                              <Eye className="w-3.5 h-3.5" />
+                              {isLoading ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              ) : (
+                                <Eye className="w-3.5 h-3.5" />
+                              )}
                               In
                             </button>
                           );
@@ -251,12 +324,23 @@ export default function OfficeAttendanceList({
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
 
-      <Dialog open={Boolean(previewImageUrl)} onOpenChange={open => !open && setPreviewImageUrl(null)}>
+      <AttendanceFilterModal
+        title="Filter Office Attendance"
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        onApply={handleApplyFilters}
+        initialFilters={initialFilters}
+        employees={employees}
+      />
+
+      <Dialog open={Boolean(previewImageUrl) || Boolean(previewError)} onOpenChange={open => !open && (setPreviewImageUrl(null), setPreviewError(null))}>
         <DialogContent className="sm:max-w-4xl p-4">
           <DialogHeader>
             <DialogTitle>{previewLabel}</DialogTitle>
           </DialogHeader>
-          {previewImageUrl ? (
+          {previewError ? (
+            <div className="text-sm text-destructive py-8 text-center">{previewError}</div>
+          ) : previewImageUrl ? (
             <div className="w-full flex items-center justify-center overflow-auto">
               <img src={previewImageUrl} alt={previewLabel} className="max-h-[75vh] w-auto max-w-full rounded-md" />
             </div>
