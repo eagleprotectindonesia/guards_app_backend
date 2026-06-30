@@ -54,6 +54,15 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
     ? await getShiftPhotoReportDownloadCountsByReportIds(reportIds)
     : {} as Record<string, number>;
 
+  const statusOptions = [
+    { value: 'generated', label: 'Generated' },
+    { value: 'pending', label: 'Pending' },
+    { value: 'failed', label: 'Failed' },
+    { value: 'regenerated', label: 'Regenerated' },
+  ];
+
+  const initialFilters = { dateFrom, dateTo, employeeId, siteId, status };
+
   const enriched = await Promise.all(
     reports.map(async report => ({
       ...report,
@@ -69,11 +78,8 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
           reports={serialize(enriched)}
           employees={serialize(employees)}
           sites={sites}
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          employeeId={employeeId}
-          siteId={siteId}
-          status={status}
+          statusOptions={statusOptions}
+          initialFilters={initialFilters}
           sortBy={sortBy ?? 'createdAt'}
           sortOrder={sortOrder ?? 'desc'}
           page={page}
