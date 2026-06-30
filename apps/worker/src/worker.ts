@@ -1,8 +1,39 @@
 import path from 'path';
+import dns from 'dns';
+import { promisify } from 'util';
 import dotenv from 'dotenv';
 
 // Load root .env file
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
+
+const dnsLookup = promisify(dns.lookup);
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[Worker] unhandledRejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[Worker] uncaughtException:', err);
+});
+
+async function probeDns() {
+  const bucket = process.env.AWS_S3_BUCKET_NAME;
+  const region = process.env.AWS_REGION;
+  const host = bucket ? `${bucket}.s3.${region || 'us-east-1'}.amazonaws.com` : null;
+  if (!host) {
+    console.warn('[Worker] DNS probe skipped: AWS_S3_BUCKET_NAME or AWS_REGION not set');
+    return;
+  }
+  const t0 = Date.now();
+  try {
+    const result = await dnsLookup(host);
+    console.log('[Worker] DNS probe ok', { host, address: result.address, durationMs: Date.now() - t0 });
+  } catch (err) {
+    const errorName = err instanceof Error ? err.name : 'Error';
+    const errorCode = (err as { code?: string })?.code;
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('[Worker] DNS probe failed', { host, errorName, errorCode, errorMessage, durationMs: Date.now() - t0 });
+  }
+}
 
 import {
   SCHEDULING_QUEUE_NAME,
@@ -206,3 +237,5 @@ start().catch(err => {
   console.error('Error starting workers:', err);
   process.exit(1);
 });
+
+void probeDns();

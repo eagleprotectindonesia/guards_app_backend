@@ -62,8 +62,18 @@ export async function getOnsiteShiftPhotoReportCandidates(now: Date, graceAfterE
       startsAt: true,
       endsAt: true,
       employee: { select: { fullName: true, employeeNumber: true } },
-      site: { select: { name: true, clientName: true } },
-      attendance: { select: { picture: true, recordedAt: true } },
+      site: {
+        select: {
+          name: true,
+          clientName: true,
+          latitude: true,
+          longitude: true,
+          geofenceRadius: true,
+          geofenceStatus: true,
+        },
+      },
+      shiftType: { select: { name: true } },
+      attendance: { select: { picture: true, recordedAt: true, metadata: true } },
     },
     take: 10,
     orderBy: { lastAutoPhotoReportAt: { sort: 'asc', nulls: 'first' } },
@@ -378,6 +388,90 @@ export async function listShiftPhotoReportsPaginated(params: {
   });
 
   return { reports, totalCount };
+}
+
+export type ShiftLocationPoint = {
+  timestamp: Date;
+  latitude: number;
+  longitude: number;
+};
+
+export type ShiftLocationSources = {
+  attendancePoint: ShiftLocationPoint | null;
+  checkinPoints: ShiftLocationPoint[];
+  chatPoints: ShiftLocationPoint[];
+};
+
+export async function getShiftLocationPoints(params: {
+  shiftId: string;
+  employeeId: string;
+  startsAt: Date;
+  endsAt: Date;
+}): Promise<ShiftLocationSources> {
+  const { shiftId, employeeId, startsAt, endsAt } = params;
+
+  const [attendance, chatMessages, checkins] = await Promise.all([
+    prisma.attendance.findUnique({
+      where: { shiftId },
+      select: { recordedAt: true, metadata: true },
+    }),
+    prisma.chatMessage.findMany({
+      where: {
+        employeeId,
+        status: 'sent',
+        createdAt: { gte: startsAt, lte: endsAt },
+        latitude: { not: null },
+        longitude: { not: null },
+      },
+      select: { createdAt: true, latitude: true, longitude: true },
+      orderBy: { createdAt: 'asc' },
+    }),
+    prisma.checkin.findMany({
+      where: {
+        shiftId,
+        at: { gte: startsAt, lte: endsAt },
+      },
+      select: { at: true, metadata: true },
+    }),
+  ]);
+
+  const chatPoints: ShiftLocationPoint[] = [];
+  for (const m of chatMessages) {
+    if (m.latitude != null && m.longitude != null) {
+      chatPoints.push({
+        timestamp: m.createdAt,
+        latitude: m.latitude,
+        longitude: m.longitude,
+      });
+    }
+  }
+
+  const checkinPoints: ShiftLocationPoint[] = [];
+  for (const c of checkins) {
+    const meta = c.metadata as { latitude?: number; longitude?: number } | null;
+    if (meta && typeof meta.latitude === 'number' && typeof meta.longitude === 'number') {
+      checkinPoints.push({
+        timestamp: c.at,
+        latitude: meta.latitude,
+        longitude: meta.longitude,
+      });
+    }
+  }
+
+  let attendancePoint: ShiftLocationPoint | null = null;
+  if (attendance) {
+    const meta = attendance.metadata as { location?: { lat?: number; lng?: number } } | null;
+    const loc = meta?.location;
+    if (loc && typeof loc.lat === 'number' && typeof loc.lng === 'number') {
+      attendancePoint = {
+        timestamp: attendance.recordedAt,
+        latitude: loc.lat,
+        longitude: loc.lng,
+      };
+    }
+  }
+
+  return { attendancePoint, checkinPoints, chatPoints };
 }
 
 export async function resetShiftPhotoReportClaim(shiftId: string) {
