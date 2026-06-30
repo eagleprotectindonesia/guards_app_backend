@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       const encoder = new TextEncoder();
 
       // Write Header
-      const headers = ['Employee', 'Site', 'Shift Date', 'Check-in Time', 'Check-in Date', 'Status', 'Latitude', 'Longitude', 'Distance (m)', 'Nearest Post'];
+      const headers = ['employee id', 'Employee', 'Site', 'Shift Date', 'Check-in Time', 'Check-in Date', 'Status', 'Latitude', 'Longitude', 'Distance (m)', 'Nearest Post'];
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
       let cursor: string | undefined = undefined;
@@ -74,8 +74,11 @@ export async function GET(request: NextRequest) {
             // Escape quotes in CSV fields: " -> ""
             const escape = (str: string) => `"${str.replace(/"/g, '""')}"`;
 
+            const employeeId = item.employee.employeeNumber ?? '';
+
             chunk += 
               [
+                escape(employeeId),
                 escape(employeeName),
                 escape(siteName),
                 escape(shiftDate),
