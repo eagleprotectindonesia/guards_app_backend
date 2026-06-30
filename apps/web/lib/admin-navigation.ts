@@ -24,6 +24,7 @@ import {
   FileText,
   LineChart,
   type LucideIcon,
+  Briefcase,
 } from 'lucide-react';
 import { PermissionCode } from './auth/permissions';
 import { getAdminDashboardHref, type AdminTabSlug } from './admin-tab-routing';
@@ -33,6 +34,7 @@ export interface NavItem {
   href: string;
   icon: LucideIcon;
   requiredPermission?: PermissionCode;
+  requiresOfficeAttendanceAccess?: boolean;
 }
 
 export interface NavGroup {
@@ -114,7 +116,14 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
       icon: FileText,
       requiredPermission: 'shift-photo-reports:view',
     },
-    { name: 'Attendance', href: '/admin/attendance', icon: ClipboardCheck, requiredPermission: 'attendance:view' },
+    { name: 'Guard Attendance', href: '/admin/attendance', icon: ClipboardCheck, requiredPermission: 'attendance:view' },
+    {
+      name: 'Office Attendance',
+      href: '/admin/attendance/office',
+      icon: Briefcase,
+      requiredPermission: 'attendance:view',
+      requiresOfficeAttendanceAccess: true,
+    },
     {
       name: 'Guard Checkins',
       href: '/admin/guard-checkins',
@@ -125,7 +134,14 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
   ];
 }
 
-export function getAdminNavGroups(officeWorkSchedulesEnabled = true, _activeTab: AdminTabSlug = 'guard'): NavGroup[] {
+export function getAdminNavGroups(
+  officeWorkSchedulesEnabled = true,
+  _activeTab: AdminTabSlug = 'guard',
+  access: { hasPermission: (perm: PermissionCode) => boolean; canAccessOfficeAttendance: boolean } = {
+    hasPermission: () => true,
+    canAccessOfficeAttendance: true,
+  }
+): NavGroup[] {
   const allItems = getAdminNavItems(officeWorkSchedulesEnabled);
   const byName = new Map(allItems.map(item => [item.name, item]));
 
@@ -165,7 +181,8 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true, _activeTab:
       label: 'Employee Management',
       items: [
         byName.get('Employees'),
-        byName.get('Attendance'),
+        byName.get('Guard Attendance'),
+        byName.get('Office Attendance'),
         byName.get('Holiday Calendar'),
         byName.get('Leave Requests'),
         byName.get('Leave Balances'),
@@ -186,7 +203,16 @@ export function getAdminNavGroups(officeWorkSchedulesEnabled = true, _activeTab:
       label: 'System',
       items: ADMIN_SECONDARY_NAV_ITEMS,
     },
-  ].filter(group => group.items.length > 0);
+  ]
+    .map(group => ({
+      ...group,
+      items: group.items.filter(item => {
+        if (item.requiredPermission && !access.hasPermission(item.requiredPermission)) return false;
+        if (item.requiresOfficeAttendanceAccess && !access.canAccessOfficeAttendance) return false;
+        return true;
+      }),
+    }))
+    .filter(group => group.items.length > 0);
 }
 
 export const ADMIN_SECONDARY_NAV_ITEMS: NavItem[] = [
@@ -215,7 +241,7 @@ export const ADMIN_LABEL_MAP: Record<string, string> = {
   'office-memos': 'Office Memos',
   'guard-shift-types': 'Guard Shift Types',
   'guard-shifts': 'Guard Shifts',
-  attendance: 'Attendance',
+  attendance: 'Guard Attendance',
   'guard-checkins': 'Guard Checkins',
   alerts: 'Alerts',
   chat: 'Chat',

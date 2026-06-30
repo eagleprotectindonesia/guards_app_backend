@@ -1,6 +1,5 @@
 import { getPaginationParams } from '@/lib/server-utils';
 import OfficeAttendanceList from './components/office-attendance-list';
-import AttendanceTabs from '../components/attendance-tabs';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import { startOfDay, endOfDay } from 'date-fns';
@@ -42,7 +41,7 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
   const { page, perPage } = getPaginationParams(searchParams);
 
   // Extract filters from searchParams
-  const employeeId = typeof searchParams.employeeId === 'string' ? searchParams.employeeId : undefined;
+  const employeeNumber = typeof searchParams.employeeNumber === 'string' ? searchParams.employeeNumber : undefined;
   const from = typeof searchParams.from === 'string' ? searchParams.from : undefined;
   const to = typeof searchParams.to === 'string' ? searchParams.to : undefined;
   const todayEnd = endOfDay(new Date());
@@ -50,8 +49,8 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
   // Build where clause for attendance records
   const where: Prisma.OfficeAttendanceWhereInput = {};
 
-  if (employeeId) {
-    where.employeeId = employeeId;
+  if (employeeNumber) {
+    where.employee = { employeeNumber };
   }
 
   if (from || to) {
@@ -143,14 +142,13 @@ export default async function OfficeAttendancePage(props: AttendancePageProps) {
   }));
 
   const initialFilters = {
-    employeeId,
+    employeeNumber,
     startDate: from,
     endDate: to,
   };
 
   return (
     <div className="max-w-7xl mx-auto py-8">
-      <AttendanceTabs />
       <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <OfficeAttendanceList
           attendances={paginatedAttendances}

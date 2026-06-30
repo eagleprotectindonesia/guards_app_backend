@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, Eye, Hotel } from 'lucide-react';
+import { Clock, Eye, Filter, Hotel } from 'lucide-react';
 import { format } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -13,6 +13,7 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PaginationNav from '../../../components/pagination-nav';
 import OfficeAttendanceExport from './office-attendance-export';
+import AttendanceFilterModal from '../../components/attendance-filter-modal';
 import SortableHeader from '@/components/sortable-header';
 import { useAdminRouter } from '../../../context/admin-router';
 
@@ -36,7 +37,7 @@ type OfficeAttendanceListProps = {
   initialFilters: {
     startDate?: string;
     endDate?: string;
-    employeeId?: string;
+    employeeNumber?: string;
   };
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
@@ -48,11 +49,14 @@ export default function OfficeAttendanceList({
   perPage,
   totalCount,
   offices,
+  employees,
+  initialFilters,
   sortBy = 'businessDate',
   sortOrder = 'asc',
 }: OfficeAttendanceListProps) {
   const router = useAdminRouter();
   const searchParams = useSearchParams();
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [previewLabel, setPreviewLabel] = useState<string>('Attendance Photo');
 
@@ -73,15 +77,48 @@ export default function OfficeAttendanceList({
     router.push(`?${params.toString()}`);
   };
 
+  const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeNumber: string }) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    params.set('page', '1');
+
+    if (filters.startDate) {
+      params.set('from', format(filters.startDate, 'yyyy-MM-dd'));
+    } else {
+      params.delete('from');
+    }
+
+    if (filters.endDate) {
+      params.set('to', format(filters.endDate, 'yyyy-MM-dd'));
+    } else {
+      params.delete('to');
+    }
+
+    if (filters.employeeNumber) {
+      params.set('employeeNumber', filters.employeeNumber);
+    } else {
+      params.delete('employeeNumber');
+    }
+
+    router.push(`?${params.toString()}`);
+  };
+
   return (
     <div>
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Office Attendance</h1>
-          <p className="text-sm text-muted-foreground mt-1">View unified office attendance sessions.</p>
+          <p className="text-sm text-muted-foreground mt-1">View office employee attendance sessions.</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsFilterOpen(true)}
+            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm"
+          >
+            <Filter className="w-4 h-4 mr-2" />
+            Filter
+          </button>
           <OfficeAttendanceExport offices={offices} />
         </div>
       </div>
@@ -250,6 +287,15 @@ export default function OfficeAttendanceList({
       </div>
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
+
+      <AttendanceFilterModal
+        title="Filter Office Attendance"
+        isOpen={isFilterOpen}
+        onClose={() => setIsFilterOpen(false)}
+        onApply={handleApplyFilters}
+        initialFilters={initialFilters}
+        employees={employees}
+      />
 
       <Dialog open={Boolean(previewImageUrl)} onOpenChange={open => !open && setPreviewImageUrl(null)}>
         <DialogContent className="sm:max-w-4xl p-4">

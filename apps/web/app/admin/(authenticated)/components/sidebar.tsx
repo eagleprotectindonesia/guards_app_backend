@@ -74,7 +74,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const searchParams = useSearchParams();
   const routeTab = getAdminTabFromPath(pathname);
   const { selectedTab } = useAdminDashboardTab();
-  const { hasPermission } = useSession();
+  const { hasPermission, canAccessOfficeAttendance } = useSession();
   const { unreadCount } = useAdminNotifications();
   const currentUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
   const [ticketCounters, setTicketCounters] = useState<{
@@ -108,13 +108,19 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   }, [hasPermission]);
 
   const navGroups = useMemo(() => {
-    return getAdminNavGroups(officeWorkSchedulesEnabled, selectedTab)
-      .map(group => ({
-        ...group,
-        items: group.items.filter(item => !item.requiredPermission || hasPermission(item.requiredPermission)),
-      }))
-      .filter(group => group.items.length > 0);
-  }, [hasPermission, officeWorkSchedulesEnabled, selectedTab]);
+    return getAdminNavGroups(officeWorkSchedulesEnabled, selectedTab, {
+      hasPermission,
+      canAccessOfficeAttendance,
+    });
+  }, [hasPermission, canAccessOfficeAttendance, officeWorkSchedulesEnabled, selectedTab]);
+
+  const activeHref = useMemo(() => {
+    const allHrefs = navGroups.flatMap(g => g.items).map(i => i.href);
+    const matchingHrefs = allHrefs.filter(
+      href => pathname === href || pathname.startsWith(`${href}/`)
+    );
+    return matchingHrefs.sort((a, b) => b.length - a.length)[0] ?? null;
+  }, [navGroups, pathname]);
 
   const isGroupCollapsed = (label: string) => collapsedGroups[label] ?? false;
   const ticketCounterByHref: Record<string, number | undefined> = {
@@ -201,7 +207,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                 {group.items.map(item => {
                   const isActive = item.href.includes('?')
                     ? currentUrl === item.href
-                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    : item.href === activeHref;
                   const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
                   const ticketCounter = ticketCounterByHref[item.href];
                   const showTicketCounter = typeof ticketCounter === 'number' && ticketCounter > 0;
@@ -264,7 +270,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                 {group.items.map(item => {
                   const isActive = item.href.includes('?')
                     ? currentUrl === item.href
-                    : pathname === item.href || pathname.startsWith(`${item.href}/`);
+                    : item.href === activeHref;
                   const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
                   const ticketCounter = ticketCounterByHref[item.href];
                   const showTicketCounter = typeof ticketCounter === 'number' && ticketCounter > 0;
