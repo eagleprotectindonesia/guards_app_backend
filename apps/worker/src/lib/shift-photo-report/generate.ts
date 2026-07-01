@@ -185,7 +185,7 @@ function drawHeaderBand(doc: PDFKit.PDFDocument, reportNumberShort: string): voi
   const textY = y + 10;
 
   doc.fontSize(10).font('Helvetica-Bold').fillColor(COLORS.navy);
-  doc.text('PT. Eagle Protect International', MARGIN.left, textY, { lineBreak: false });
+  doc.text('PT. Eagle Protect Security', MARGIN.left, textY, { lineBreak: false });
 
   doc.fontSize(10).font('Helvetica-Bold').fillColor(COLORS.navy);
   doc.text(`CONFIDENTIAL | ${reportNumberShort}`, MARGIN.left, textY, {
@@ -204,7 +204,7 @@ function drawFooter(doc: PDFKit.PDFDocument, pageNumber: number, reportNumberSho
   doc.restore();
 
   doc.fontSize(7.5).font('Helvetica').fillColor(COLORS.textMuted);
-  const text = `Confidential | Property of PT. Eagle Protect International | Report ID: ${reportNumberShort} | Do not share without authorization | Page ${pageNumber}`;
+  const text = `Confidential | Property of PT. Eagle Protect Security | Report ID: ${reportNumberShort} | Do not share without authorization | Page ${pageNumber}`;
   doc.text(text, MARGIN.left, y, {
     width: doc.page.width - MARGIN.left - MARGIN.right,
     align: 'center',
@@ -650,10 +650,11 @@ export function buildPhotoEvidenceTitle(params: {
 }
 
 export function buildPhotoEvidenceCaption(photo: FetchedPhoto, locationName: string, photoIndex: number): string {
-  const remarks = photo.chatContent && photo.chatContent.trim().length > 0
-    ? photo.chatContent.trim()
-    : 'Sample visual';
-  const subText = `Captured ${formatTZ(photo.createdAt)} WITA | ${remarks}`;
+  const trimmed = photo.chatContent?.trim();
+  const remarks = trimmed && trimmed.length > 0 ? trimmed : null;
+  const subText = remarks
+    ? `Captured ${formatTZ(photo.createdAt)} | ${remarks}`
+    : `Captured ${formatTZ(photo.createdAt)}`;
   return `Photo Evidence #${photoIndex} - ${locationName} | ${subText}`;
 }
 
@@ -709,10 +710,11 @@ function drawImageWithOverlay(
     { width: w - 20, lineBreak: false, ellipsis: true },
   );
   doc.fontSize(8.5).font('Helvetica').fillColor('#E5E7EB');
-  const remarks = photo.chatContent && photo.chatContent.trim().length > 0
-    ? photo.chatContent.trim()
-    : 'Sample visual';
-  const subText = `Captured ${formatTZ(photo.createdAt)} WITA | ${remarks}`;
+  const trimmed = photo.chatContent?.trim();
+  const remarks = trimmed && trimmed.length > 0 ? trimmed : null;
+  const subText = remarks
+    ? `Captured ${formatTZ(photo.createdAt)} | ${remarks}`
+    : `Captured ${formatTZ(photo.createdAt)}`;
   doc.text(subText, x + 10, overlayY + 26, { width: w - 20, lineBreak: false, ellipsis: true });
 
   // "EP APP" badge in the top-right
@@ -863,8 +865,8 @@ export async function generatePdf(
 
     if (logoBuffer) {
       try {
-        const logoW = 80;
-        const logoH = 32;
+        const logoW = 160;
+        const logoH = 64;
         doc.image(logoBuffer, (doc.page.width - logoW) / 2, yCursor, { fit: [logoW, logoH] });
         yCursor += logoH + 6;
       } catch {
@@ -874,11 +876,9 @@ export async function generatePdf(
 
     yCursor = drawTitleBlock(doc, contentWidth, doc.page.margins.left + contentWidth / 2, yCursor);
 
-    yCursor = drawSectionHeader(doc, MARGIN.left, yCursor, contentWidth, 'Report Information');
     drawTable(doc, MARGIN.left, yCursor, contentWidth, buildReportInfoRows(metadata), 22);
     yCursor += 4 * 22 + 16;
 
-    yCursor = drawSectionHeader(doc, MARGIN.left, yCursor, contentWidth, 'Shift Details');
     drawTable(doc, MARGIN.left, yCursor, contentWidth, buildShiftDetailRows(metadata), 22);
     yCursor += 5 * 22 + 18;
 

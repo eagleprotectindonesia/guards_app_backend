@@ -203,16 +203,21 @@ describe('buildPhotoEvidenceCaption', () => {
     expect(caption).toContain('Photo Evidence #1 - Main Gate');
     expect(caption).toContain('Captured 2026-06-28 22:39:41 WITA');
     expect(caption).toContain('Front gate secured before shift start.');
+    // Only one occurrence of "WITA" in the entire caption
+    expect(caption.split('WITA').length - 1).toBe(1);
   });
 
-  test('falls back to "Sample visual" when chat content is empty', () => {
+  test('renders just the timestamp when chat content is empty (no "Sample visual", no trailing pipe after timestamp)', () => {
     const photo = makeFetchedPhoto({
       createdAt: new Date('2026-06-28T14:00:00Z'),
       locationName: 'Main Gate',
       chatContent: null,
     });
     const caption = buildPhotoEvidenceCaption(photo, 'Main Gate', 1);
-    expect(caption).toContain('Sample visual');
+    expect(caption).not.toContain('Sample visual');
+    // Caption is "Photo Evidence #1 - Main Gate | Captured 2026-06-28 22:00:00 WITA"
+    // (a single | between the title and the bare timestamp, no text after the timestamp)
+    expect(caption).toEqual('Photo Evidence #1 - Main Gate | Captured 2026-06-28 22:00:00 WITA');
   });
 
   test('trims whitespace in the chat content', () => {

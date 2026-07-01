@@ -108,7 +108,7 @@ export class ShiftPhotoReportProcessor {
         const photoInputs: PhotoInput[] = rawPhotos.map(p => {
           const hasPoint = p.latitude != null && p.longitude != null;
           const point = hasPoint ? { latitude: p.latitude as number, longitude: p.longitude as number } : null;
-          const locationName = resolveLocationName(point, p.attendanceMatchedName, sitePosts);
+          const locationName = resolveLocationName(point, p.attendanceMatchedName, sitePosts, site.name);
           const geofenceStatus = computeGeofenceStatus(point, geofenceContext);
           return {
             s3Key: p.s3Key,

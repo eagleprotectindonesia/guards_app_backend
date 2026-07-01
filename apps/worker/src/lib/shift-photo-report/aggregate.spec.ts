@@ -282,27 +282,44 @@ describe('resolveLocationName', () => {
   const nearMainGate = { latitude: -8.655812, longitude: 115.219442 };
   const nearHandover = { latitude: -8.655844, longitude: 115.219500 };
 
-  test('returns "Main Site" when the site has exactly one post (even when point is given)', () => {
-    expect(resolveLocationName(nearMainGate, null, SINGLE_POST)).toBe('Main Site');
-    expect(resolveLocationName(null, 'Stored', SINGLE_POST)).toBe('Main Site');
+  // ── Attendance photo (attendanceMatchedName wins) ──
+  test('attendance matched name wins over everything', () => {
+    expect(resolveLocationName(null, 'Main Gate', SITE_POSTS, 'Lilu Rental')).toBe('Main Gate');
+    expect(resolveLocationName(nearMainGate, 'Main Gate', SITE_POSTS, 'Lilu Rental')).toBe('Main Gate');
   });
 
+  test('ignores blank attendance matched names', () => {
+    expect(resolveLocationName(nearMainGate, '   ', SITE_POSTS, 'Lilu Rental')).toBe('Main Gate');
+  });
+
+  // ── Multi-post site (≥2 posts + point) ──
   test('returns the nearest post name when the site has multiple posts and a point is given', () => {
-    expect(resolveLocationName(nearMainGate, null, SITE_POSTS)).toBe('Main Gate');
-    expect(resolveLocationName(nearHandover, null, SITE_POSTS)).toBe('Handover Point');
+    expect(resolveLocationName(nearMainGate, null, SITE_POSTS, 'Lilu')).toBe('Main Gate');
+    expect(resolveLocationName(nearHandover, null, SITE_POSTS, 'Lilu')).toBe('Handover Point');
   });
 
-  test('returns "On Site" when no posts and no point', () => {
+  // ── 1 post — skip the post, use site name ──
+  test('uses site name when the site has exactly one post', () => {
+    expect(resolveLocationName(nearMainGate, null, SINGLE_POST, 'Lilu Rental')).toBe('Lilu Rental');
+    expect(resolveLocationName(null, null, SINGLE_POST, 'Lilu Rental')).toBe('Lilu Rental');
+  });
+
+  test('falls back to "On Site" when site has 1 post but no site name', () => {
+    expect(resolveLocationName(nearMainGate, null, SINGLE_POST, null)).toBe('On Site');
+    expect(resolveLocationName(nearMainGate, null, SINGLE_POST, '')).toBe('On Site');
+  });
+
+  // ── 0 posts — use site name ──
+  test('uses site name when no posts exist', () => {
+    expect(resolveLocationName(nearMainGate, null, [], 'Lilu Rental')).toBe('Lilu Rental');
+    expect(resolveLocationName(null, null, [], 'Lilu Rental')).toBe('Lilu Rental');
+  });
+
+  test('falls back to "On Site" when no posts and no site name', () => {
     expect(resolveLocationName(null, null, [])).toBe('On Site');
+    expect(resolveLocationName(nearMainGate, null, [])).toBe('On Site');
   });
 
-  test('falls back to the attendance matched name when the point is missing', () => {
-    expect(resolveLocationName(null, 'Main Gate', SITE_POSTS)).toBe('Main Gate');
-  });
-
-  test('ignores blank attendance matched names and returns the nearest post', () => {
-    expect(resolveLocationName(nearMainGate, '   ', SITE_POSTS)).toBe('Main Gate');
-  });
 });
 
 describe('computeGeofenceStatus', () => {

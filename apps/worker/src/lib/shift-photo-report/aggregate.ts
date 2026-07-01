@@ -286,14 +286,20 @@ export function resolveLocationName(
   point: LatLng | null,
   attendanceMatchedName: string | null,
   sitePosts: SitePost[],
+  siteName: string | null = null,
 ): string {
-  if (sitePosts.length === 1) return 'Main Site';
-  if (point) {
-    const name = nearestPointName(point, sitePosts);
-    if (name) return name;
-  }
+  // 1. Attendance photo — use the pre-resolved post name from check-in time.
   if (attendanceMatchedName && attendanceMatchedName.trim().length > 0) {
     return attendanceMatchedName.trim();
   }
+  // 2. Multi-post site: nearest SitePost by haversine.
+  if (sitePosts.length >= 2 && point) {
+    const name = nearestPointName(point, sitePosts);
+    if (name) return name;
+  }
+  // 3. Fallback to site name for any unresolved case
+  //    (0 posts, 1 post, no coords, out-of-range point).
+  if (siteName && siteName.trim().length > 0) return siteName.trim();
+  // 4. Defensive last-resort fallback.
   return 'On Site';
 }
