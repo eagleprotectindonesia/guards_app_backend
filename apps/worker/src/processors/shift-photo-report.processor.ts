@@ -26,8 +26,13 @@ import {
   summarizeSiteBoundary,
   resolveLocationName,
   computeGeofenceStatus,
+  buildLocationTrail,
+  bboxCenter,
+  bboxToZoomLevel,
+  computeTrailBoundingBox,
   type GeofenceContext,
 } from '../lib/shift-photo-report/aggregate';
+import { fetchTrailMapPng, type SitePostLike } from '../lib/shift-photo-report/static-map';
 
 export class ShiftPhotoReportProcessor {
   async process(job: Job) {
@@ -156,6 +161,51 @@ export class ShiftPhotoReportProcessor {
         ];
         const geofenceSummary = summarizeSiteBoundary(geofencePoints, geofenceContext);
 
+        const trail = buildLocationTrail(locationSources, sitePosts, {
+          siteName: site.name,
+          siteCenter: site.latitude != null && site.longitude != null
+            ? { latitude: site.latitude, longitude: site.longitude }
+            : null,
+        });
+
+        // Google Maps Static API hard-limit: 640px per axis (free tier).
+        const TRAIL_MAP_WIDTH = 640;
+        const TRAIL_MAP_HEIGHT = 480;
+        let trailMapBuffer: Buffer | null = null;
+        if (trail.length > 0) {
+          const trailPoints = trail.map(p => ({
+            seq: p.seq,
+            latitude: p.latitude,
+            longitude: p.longitude,
+          }));
+          const sitePostsForMap: SitePostLike[] = sitePosts.map(p => ({
+            name: p.name,
+            latitude: p.latitude,
+            longitude: p.longitude,
+          }));
+          const sitePostsForBbox = sitePostsForMap.map(p => ({ latitude: p.latitude, longitude: p.longitude }));
+          const trailPointsForBbox = trailPoints.map(p => ({ latitude: p.latitude, longitude: p.longitude }));
+          const bbox = computeTrailBoundingBox({
+            trailPoints: trailPointsForBbox,
+            sitePosts: sitePostsForBbox,
+          });
+          const center = bbox ? bboxCenter(bbox) : null;
+          const zoom = bbox ? bboxToZoomLevel(bbox, TRAIL_MAP_WIDTH, TRAIL_MAP_HEIGHT) : null;
+          trailMapBuffer = await timed('maps:trail-png', () => fetchTrailMapPng({
+            trailPoints,
+            sitePosts: sitePostsForMap,
+            siteCenter: site.latitude != null && site.longitude != null
+              ? { latitude: site.latitude, longitude: site.longitude }
+              : null,
+            siteRadius: site.geofenceRadius ?? null,
+            center,
+            zoom,
+            width: TRAIL_MAP_WIDTH,
+            height: TRAIL_MAP_HEIGHT,
+            signal: AbortSignal.timeout(15_000),
+          }));
+        }
+
         const metadata = buildReportMetadata({
           reportNumber: report.reportNumber,
           status: 'generated',
@@ -173,7 +223,11 @@ export class ShiftPhotoReportProcessor {
           geofenceSummary,
         });
 
-        const pdfBuffer = await timed('pdf:generate(bytes)', () => generatePdf(metadata, fetchedPhotos, AbortSignal.timeout(120_000)).then(b => (trace('pdf:size', { bytes: b.length }), b)));
+        const pdfBuffer = await timed('pdf:generate(bytes)', () => generatePdf(metadata, fetchedPhotos, {
+          trail,
+          trailMapBuffer,
+          signal: AbortSignal.timeout(120_000),
+        }).then(b => (trace('pdf:size', { bytes: b.length }), b)));
 
         if (!BUCKET_NAME) {
           throw new Error('AWS_S3_BUCKET_NAME is not configured');

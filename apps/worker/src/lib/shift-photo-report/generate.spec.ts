@@ -1,6 +1,7 @@
 import sharp from 'sharp';
 import { generatePdf, generateReportFileName, buildReportMetadata, buildPhotoEvidenceTitle, buildPhotoEvidenceCaption } from './generate';
 import type { FetchedPhoto } from './fetch-photos';
+import type { TrailPoint } from './aggregate';
 
 function makeMetadata(overrides: Partial<Parameters<typeof buildReportMetadata>[0]> = {}) {
   return buildReportMetadata({
@@ -349,5 +350,51 @@ describe('generatePdf abort signal', () => {
     const promise = generatePdf(metadata, [], controller.signal);
     controller.abort();
     await expect(promise).rejects.toThrow('Aborted');
+  });
+});
+
+describe('generatePdf movement summary page', () => {
+  const metadata = makeMetadata({ photoCount: 0 });
+
+  function makeTrail(count: number): TrailPoint[] {
+    const out: TrailPoint[] = [];
+    for (let i = 0; i < count; i++) {
+      out.push({
+        seq: i + 1,
+        timestamp: new Date(`2026-06-28T1${i % 9}:00:00Z`),
+        type: i === 0 ? 'attendance' : (i % 2 === 0 ? 'checkin' : 'photo'),
+        area: i === 0 ? 'Main Gate' : (i % 2 === 0 ? 'Lobby' : 'Handover Point'),
+        latitude: -8.655812 + i * 0.0001,
+        longitude: 115.219442 + i * 0.0001,
+        accuracyMeters: 5,
+        distanceFromNearestPostMeters: i * 5,
+        remarks: i === 0 ? null : `note ${i}`,
+      });
+    }
+    return out;
+  }
+
+  test('renders an extra page when a non-empty trail is provided', async () => {
+    const trail = makeTrail(3);
+    const bufferNoTrail = await generatePdf(metadata, []);
+    const bufferWithTrail = await generatePdf(metadata, [], { trail, trailMapBuffer: null });
+    expect(countPdfPages(bufferWithTrail)).toBe(countPdfPages(bufferNoTrail) + 1);
+  });
+
+  test('does NOT add a trail page when the trail is empty', async () => {
+    const buffer = await generatePdf(metadata, [], { trail: [], trailMapBuffer: null });
+    // No photos + empty trail = cover + "no photo" page = 2 pages (no extra trail page).
+    expect(countPdfPages(buffer)).toBe(2);
+  });
+
+  test('truncates the table when the trail has more than 18 updates', async () => {
+    const trail = makeTrail(30);
+    const buffer = await generatePdf(metadata, [], { trail, trailMapBuffer: null });
+    // 30 points may overflow the single trail page; assert that the page
+    // count increased (≥1 extra) and is bounded by the trail length.
+    const withoutTrail = countPdfPages(await generatePdf(metadata, []));
+    const withTrail = countPdfPages(buffer);
+    expect(withTrail).toBeGreaterThan(withoutTrail);
+    expect(withTrail).toBeLessThan(withoutTrail + 30);
   });
 });

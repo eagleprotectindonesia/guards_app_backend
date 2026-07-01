@@ -11,6 +11,7 @@ export type LocationPoint = {
   timestamp: Date;
   latitude: number;
   longitude: number;
+  accuracyMeters?: number | null;
 };
 
 export type ResolvedPoint = {
@@ -302,4 +303,234 @@ export function resolveLocationName(
   if (siteName && siteName.trim().length > 0) return siteName.trim();
   // 4. Defensive last-resort fallback.
   return 'On Site';
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Movement-trail helpers (used by the "Movement Summary" PDF page).
+// ────────────────────────────────────────────────────────────────────────────
+
+export type TrailPointType = 'attendance' | 'checkin' | 'photo';
+
+export type TrailPoint = {
+  seq: number;
+  timestamp: Date;
+  type: TrailPointType;
+  area: string;
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number | null;
+  distanceFromNearestPostMeters: number | null;
+  remarks: string | null;
+};
+
+export type TrailSourcePoint = LocationPoint & { remarks?: string | null };
+
+export type TrailSources = {
+  attendancePoint: TrailSourcePoint | null;
+  checkinPoints: TrailSourcePoint[];
+  chatPoints: TrailSourcePoint[];
+};
+
+export type BoundingBox = {
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+};
+
+const BBOX_PADDING_RATIO = 0.2;
+const MIN_BBOX_SPAN_DEG = 0.00009;
+
+export function computeBoundingBox(points: LatLng[]): BoundingBox | null {
+  if (points.length === 0) return null;
+  let minLat = points[0]!.latitude;
+  let maxLat = points[0]!.latitude;
+  let minLng = points[0]!.longitude;
+  let maxLng = points[0]!.longitude;
+  for (const p of points) {
+    if (p.latitude < minLat) minLat = p.latitude;
+    if (p.latitude > maxLat) maxLat = p.latitude;
+    if (p.longitude < minLng) minLng = p.longitude;
+    if (p.longitude > maxLng) maxLng = p.longitude;
+  }
+  let latSpan = maxLat - minLat;
+  let lngSpan = maxLng - minLng;
+  if (latSpan < MIN_BBOX_SPAN_DEG) {
+    const pad = MIN_BBOX_SPAN_DEG / 2;
+    minLat -= pad;
+    maxLat += pad;
+    latSpan = MIN_BBOX_SPAN_DEG;
+  }
+  if (lngSpan < MIN_BBOX_SPAN_DEG) {
+    const pad = MIN_BBOX_SPAN_DEG / 2;
+    minLng -= pad;
+    maxLng += pad;
+    lngSpan = MIN_BBOX_SPAN_DEG;
+  }
+  const latPad = latSpan * BBOX_PADDING_RATIO;
+  const lngPad = lngSpan * BBOX_PADDING_RATIO;
+  return {
+    minLat: minLat - latPad,
+    maxLat: maxLat + latPad,
+    minLng: minLng - lngPad,
+    maxLng: maxLng + lngPad,
+  };
+}
+
+const MERCATOR_RANGE = 256;
+
+function bboxToMercatorZoom(latSpan: number, lngSpan: number, imageWidth: number, imageHeight: number): number {
+  const latFraction = latSpan / 360;
+  const lngFraction = lngSpan / 360;
+  const latZoom = Math.log2(MERCATOR_RANGE / (latFraction * imageHeight));
+  const lngZoom = Math.log2(MERCATOR_RANGE / (lngFraction * imageWidth));
+  return Math.min(latZoom, lngZoom);
+}
+
+export function bboxToZoomLevel(bbox: BoundingBox, imageWidth: number, imageHeight: number): number {
+  if (imageWidth <= 0 || imageHeight <= 0) return 17;
+  const latSpan = bbox.maxLat - bbox.minLat;
+  const lngSpan = bbox.maxLng - bbox.minLng;
+  if (latSpan <= 0 || lngSpan <= 0) return 17;
+  const zoom = bboxToMercatorZoom(latSpan, lngSpan, imageWidth, imageHeight);
+  if (!Number.isFinite(zoom)) return 17;
+  return Math.max(1, Math.min(20, Math.floor(zoom)));
+}
+
+export function bboxCenter(bbox: BoundingBox): LatLng {
+  return {
+    latitude: (bbox.minLat + bbox.maxLat) / 2,
+    longitude: (bbox.minLng + bbox.maxLng) / 2,
+  };
+}
+
+function computeMedian(values: number[]): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1]! + sorted[mid]!) / 2
+    : sorted[mid]!;
+}
+
+/**
+ * Returns the set of trail-point indices whose adjacent segment is
+ * > `threshold × median(segmentLengths)`. Both endpoints of every outlier
+ * segment are included so the bbox can drop them. With fewer than 2 trail
+ * points (no segments), or when the median is 0 (all points coincide), the
+ * returned set is empty — outlier detection is skipped in those cases.
+ */
+export function findOutlierTrailIndices(
+  trailPoints: LatLng[],
+  threshold: number = 5,
+): Set<number> {
+  if (trailPoints.length < 2) return new Set();
+  const segments: number[] = [];
+  for (let i = 0; i < trailPoints.length - 1; i++) {
+    segments.push(haversineMeters(trailPoints[i]!, trailPoints[i + 1]!));
+  }
+  const median = computeMedian(segments);
+  if (median <= 0 || !Number.isFinite(median)) return new Set();
+  const limit = median * threshold;
+  const outliers = new Set<number>();
+  for (let i = 0; i < segments.length; i++) {
+    if (segments[i]! > limit) {
+      outliers.add(i);
+      outliers.add(i + 1);
+    }
+  }
+  return outliers;
+}
+
+/**
+ * Bbox of site posts + trail points, with outlier trail endpoints dropped
+ * (see `findOutlierTrailIndices`). Site posts are always included. The
+ * returned bbox is meant for the map's `center` + `zoom` calculation only —
+ * the full polyline is still drawn on top of the map using all trail
+ * points, so outlier movements remain visible (just at the edge of the
+ * frame).
+ */
+export function computeTrailBoundingBox(params: {
+  trailPoints: LatLng[];
+  sitePosts: LatLng[];
+  threshold?: number;
+}): BoundingBox | null {
+  const { trailPoints, sitePosts, threshold = 5 } = params;
+  const outliers = findOutlierTrailIndices(trailPoints, threshold);
+  const kept: LatLng[] = trailPoints.filter((_, i) => !outliers.has(i));
+  return computeBoundingBox([...sitePosts, ...kept]);
+}
+
+function distanceToNearestPostMeters(point: LatLng, posts: SitePost[], fallbackCenter: LatLng | null): number | null {
+  if (posts.length === 0) {
+    return fallbackCenter ? haversineMeters(point, fallbackCenter) : null;
+  }
+  let best = Number.POSITIVE_INFINITY;
+  for (const post of posts) {
+    const d = haversineMeters(point, { latitude: post.latitude, longitude: post.longitude });
+    if (d < best) best = d;
+  }
+  return Number.isFinite(best) ? best : null;
+}
+
+function resolveTrailAreaName(
+  point: LatLng,
+  sitePosts: SitePost[],
+  siteName: string | null,
+): string {
+  if (sitePosts.length >= 2) {
+    const name = nearestPointName(point, sitePosts);
+    if (name) return name;
+  }
+  if (siteName && siteName.trim().length > 0) return siteName.trim();
+  return 'On Site';
+}
+
+/**
+ * Merges attendance, check-in, and chat-message location points into a single
+ * chronologically sorted trail. Each entry resolves to a human-readable area
+ * name (nearest post for multi-post sites, site name otherwise) and the
+ * distance to the nearest site post (or site center if no posts).
+ */
+export function buildLocationTrail(
+  sources: TrailSources,
+  sitePosts: SitePost[],
+  options: {
+    siteName?: string | null;
+    siteCenter?: LatLng | null;
+  } = {},
+): TrailPoint[] {
+  const siteName = options.siteName ?? null;
+  const siteCenter = options.siteCenter ?? null;
+
+  type Tagged = TrailSourcePoint & { type: TrailPointType };
+  const tagged: Tagged[] = [];
+  if (sources.attendancePoint) tagged.push({ ...sources.attendancePoint, type: 'attendance' });
+  for (const p of sources.checkinPoints) tagged.push({ ...p, type: 'checkin' });
+  for (const p of sources.chatPoints) tagged.push({ ...p, type: 'photo' });
+
+  tagged.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+  return tagged.map((p, idx) => {
+    const latlng: LatLng = { latitude: p.latitude, longitude: p.longitude };
+    return {
+      seq: idx + 1,
+      timestamp: p.timestamp,
+      type: p.type,
+      area: resolveTrailAreaName(latlng, sitePosts, siteName),
+      latitude: p.latitude,
+      longitude: p.longitude,
+      accuracyMeters: p.accuracyMeters ?? null,
+      distanceFromNearestPostMeters: distanceToNearestPostMeters(latlng, sitePosts, siteCenter),
+      remarks: p.remarks ?? null,
+    };
+  });
+}
+
+export function trailPointTypeLabel(type: TrailPointType): string {
+  switch (type) {
+    case 'attendance': return 'Attendance';
+    case 'checkin': return 'Check-in';
+    case 'photo': return 'Photo evidence';
+  }
 }

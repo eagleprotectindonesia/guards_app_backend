@@ -3,8 +3,8 @@ import fs from 'fs';
 import path from 'path';
 import { buildShiftReportDownloadFilename } from '@repo/shared';
 import type { FetchedPhoto } from './fetch-photos';
-import type { ResolvedPoint } from './aggregate';
-import { geofenceStatusLabel } from './aggregate';
+import type { ResolvedPoint, TrailPoint } from './aggregate';
+import { geofenceStatusLabel, trailPointTypeLabel } from './aggregate';
 import { fetchStaticMapPng } from './static-map';
 
 const TZ = 'Asia/Makassar';
@@ -240,6 +240,7 @@ type CellSpec = {
   text: string;
   width: number;
   bold?: boolean;
+  italic?: boolean;
   color?: string;
   bg?: string;
   fontSize?: number;
@@ -264,7 +265,7 @@ function drawRow(
       doc.restore();
     }
 
-    doc.fontSize(cell.fontSize ?? defaultFontSize).font(cell.bold ? 'Helvetica-Bold' : 'Helvetica').fillColor(cell.color ?? COLORS.text);
+    doc.fontSize(cell.fontSize ?? defaultFontSize).font(cell.bold ? 'Helvetica-Bold' : (cell.italic ? 'Helvetica-Oblique' : 'Helvetica')).fillColor(cell.color ?? COLORS.text);
     doc.text(cell.text, cursorX + padding, y + padding / 1.5, {
       width: cell.width - padding * 2,
       height: rowHeight - padding,
@@ -826,11 +827,186 @@ function drawMapPlaceholderRoads(doc: PDFKit.PDFDocument, x: number, y: number, 
   doc.restore();
 }
 
+const TRAIL_TABLE_MAX_ROWS = 18;
+
+type TrailPageParams = {
+  contentWidth: number;
+  metadata: ReportMetadata;
+  trail: TrailPoint[];
+  trailMapBuffer: Buffer | null;
+};
+
+function formatMetersForTable(meters: number | null): string {
+  if (meters == null || !Number.isFinite(meters)) return '-';
+  if (meters < 1) return '<1 m';
+  return `${Math.round(meters)} m`;
+}
+
+function buildTrailTableRows(trail: TrailPoint[]): CellSpec[][] {
+  const visible = trail.slice(0, TRAIL_TABLE_MAX_ROWS);
+  const totalWidth = PAGE.width - MARGIN.left - MARGIN.right;
+  const cols = {
+    seq: 28,
+    time: 70,
+    type: 92,
+    area: 110,
+    coords: 118,
+    distance: 54,
+    remarks: 0,
+  };
+  cols.remarks = totalWidth - cols.seq - cols.time - cols.type - cols.area - cols.coords - cols.distance;
+
+  const headerBg = COLORS.navy;
+  const headerRow: CellSpec[] = [
+    { text: '#', width: cols.seq, bold: true, color: '#FFFFFF', bg: headerBg, align: 'center' },
+    { text: 'Time', width: cols.time, bold: true, color: '#FFFFFF', bg: headerBg, align: 'center' },
+    { text: 'Type', width: cols.type, bold: true, color: '#FFFFFF', bg: headerBg, align: 'center' },
+    { text: 'Area', width: cols.area, bold: true, color: '#FFFFFF', bg: headerBg, align: 'center' },
+    { text: 'Coordinates', width: cols.coords, bold: true, color: '#FFFFFF', bg: headerBg, align: 'center' },
+    { text: 'Distance', width: cols.distance, bold: true, color: '#FFFFFF', bg: headerBg, align: 'center' },
+    { text: 'Remarks', width: cols.remarks, bold: true, color: '#FFFFFF', bg: headerBg, align: 'center' },
+  ];
+
+  const dataRows: CellSpec[][] = visible.map(p => [
+    { text: String(p.seq), width: cols.seq, align: 'center' },
+    { text: formatTimeOnlyTZ(p.timestamp), width: cols.time, align: 'center' },
+    { text: trailPointTypeLabel(p.type), width: cols.type, align: 'center' },
+    { text: p.area, width: cols.area },
+    { text: `${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}`, width: cols.coords, fontSize: 8 },
+    { text: formatMetersForTable(p.distanceFromNearestPostMeters), width: cols.distance, align: 'center' },
+    { text: p.remarks && p.remarks.trim().length > 0 ? p.remarks.trim() : '-', width: cols.remarks, fontSize: 8 },
+  ]);
+
+  const rows: CellSpec[][] = [headerRow, ...dataRows];
+  if (trail.length > TRAIL_TABLE_MAX_ROWS) {
+    const remaining = trail.length - TRAIL_TABLE_MAX_ROWS;
+    rows.push([
+      {
+        text: `+ ${remaining} more update${remaining === 1 ? '' : 's'} not shown`,
+        width: totalWidth,
+        italic: true,
+        color: COLORS.textMuted,
+        align: 'center',
+      },
+    ]);
+  }
+  return rows;
+}
+
+function drawTrailMap(
+  doc: PDFKit.PDFDocument,
+  x: number, y: number, w: number, h: number,
+  mapBuffer: Buffer | null,
+  trail: TrailPoint[],
+): void {
+  doc.save();
+  doc.fillColor(COLORS.mapFill).rect(x, y, w, h).fill();
+  doc.strokeColor(COLORS.mapFrame).lineWidth(0.5).rect(x, y, w, h).stroke();
+  doc.restore();
+
+  if (mapBuffer) {
+    try {
+      doc.image(mapBuffer, x, y, { fit: [w, h], align: 'center', valign: 'center' });
+    } catch (err) {
+      console.warn('[ShiftPhotoReport] Failed to embed trail map PNG:', err);
+      drawMapPlaceholderRoads(doc, x, y, w, h);
+    }
+  } else {
+    drawMapPlaceholderRoads(doc, x, y, w, h);
+  }
+
+  // "Map Preview" badge (top-right)
+  const tagW = 64;
+  const tagH = 16;
+  const tagX = x + w - tagW - 8;
+  const tagY = y + 8;
+  doc.save();
+  doc.fillColor(COLORS.tooltipBg).strokeColor(COLORS.tableBorder).lineWidth(0.5);
+  doc.roundedRect(tagX, tagY, tagW, tagH, 3).fillAndStroke();
+  doc.restore();
+  doc.fontSize(8).font('Helvetica-Bold').fillColor(COLORS.navy);
+  doc.text('Map Preview', tagX + 4, tagY + 3, { width: tagW - 8, lineBreak: false, align: 'center' });
+
+  // Scale bar (bottom-right): 10 cm wide, labeled "approx. 50 m" (heuristic).
+  const barLen = 60;
+  const barX = x + w - barLen - 12;
+  const barY = y + h - 18;
+  doc.save();
+  doc.strokeColor(COLORS.text).lineWidth(0.6);
+  doc.moveTo(barX, barY).lineTo(barX + barLen, barY).stroke();
+  doc.moveTo(barX, barY - 3).lineTo(barX, barY + 3).stroke();
+  doc.moveTo(barX + barLen, barY - 3).lineTo(barX + barLen, barY + 3).stroke();
+  doc.restore();
+  doc.fontSize(7).font('Helvetica').fillColor(COLORS.textMuted);
+  doc.text('approx. 50 m', barX - 6, barY + 4, { width: barLen + 12, align: 'center', lineBreak: false });
+
+  // Guard name tooltip (top-left) — mirrors the photo evidence card.
+  const tooltipW = Math.min(w - 16, 200);
+  const tooltipH = 28;
+  const tooltipX = x + 8;
+  const tooltipY = y + 8;
+  doc.save();
+  doc.fillColor(COLORS.tooltipBg).strokeColor(COLORS.tableBorder).lineWidth(0.5);
+  doc.roundedRect(tooltipX, tooltipY, tooltipW, tooltipH, 3).fillAndStroke();
+  doc.restore();
+  doc.fontSize(8).font('Helvetica-Bold').fillColor(COLORS.navy);
+  doc.text('Assigned Site Boundary', tooltipX + 6, tooltipY + 4, { width: tooltipW - 12, lineBreak: false, ellipsis: true });
+  doc.fontSize(7).font('Helvetica').fillColor(COLORS.textMuted);
+  const trailCount = `${trail.length} update${trail.length === 1 ? '' : 's'}`;
+  doc.text(trailCount, tooltipX + 6, tooltipY + 15, { width: tooltipW - 12, lineBreak: false, ellipsis: true });
+}
+
+export async function renderMovementSummaryPage(
+  doc: PDFKit.PDFDocument,
+  params: TrailPageParams,
+): Promise<void> {
+  const { contentWidth, metadata, trail, trailMapBuffer } = params;
+  const yTop = MARGIN.top;
+
+  // Title row
+  const updateCount = trail.length;
+  const titleText = `Location Trail - ${updateCount} Update${updateCount === 1 ? '' : 's'}`;
+  doc.fontSize(18).font('Helvetica-Bold').fillColor(COLORS.navy);
+  doc.text(titleText, MARGIN.left, yTop, { width: contentWidth, lineBreak: false });
+  const ruleY = yTop + 26;
+  doc.save();
+  doc.strokeColor(COLORS.tableBorder).lineWidth(0.5);
+  doc.moveTo(MARGIN.left, ruleY).lineTo(MARGIN.left + contentWidth, ruleY).stroke();
+  doc.restore();
+
+  // Map area
+  const mapH = 300;
+  drawTrailMap(doc, MARGIN.left, ruleY + 10, contentWidth, mapH, trailMapBuffer, trail);
+  const mapBottom = ruleY + 10 + mapH + 8;
+
+  // Section header + table
+  const tableY = drawSectionHeader(doc, MARGIN.left, mapBottom, contentWidth, `Location Trail (${updateCount} update${updateCount === 1 ? '' : 's'})`);
+  const rows = buildTrailTableRows(trail);
+  drawTable(doc, MARGIN.left, tableY, contentWidth, rows, 22);
+
+  // Footer hint
+  const footerY = tableY + rows.length * 22 + 8;
+  doc.fontSize(8).font('Helvetica-Oblique').fillColor(COLORS.textMuted);
+  doc.text(
+    `Site: ${metadata.siteName}  |  Guard: ${metadata.guardName}  |  Generated: ${formatTZ(metadata.generatedAt)}`,
+    MARGIN.left, footerY, { width: contentWidth, lineBreak: false },
+  );
+}
+
+type GeneratePdfOptions = { trail?: TrailPoint[]; trailMapBuffer?: Buffer | null; signal?: AbortSignal };
+
 export async function generatePdf(
   metadata: ReportMetadata,
   photos: FetchedPhoto[],
-  signal?: AbortSignal,
+  optionsOrSignal?: GeneratePdfOptions | AbortSignal,
 ): Promise<Buffer> {
+  // Backwards-compat: an older 3rd-arg form passed an AbortSignal directly.
+  const options: GeneratePdfOptions =
+    optionsOrSignal == null
+      ? {}
+      : optionsOrSignal instanceof AbortSignal
+        ? { signal: optionsOrSignal }
+        : optionsOrSignal;
   const logoBuffer = await getLogoBuffer();
 
   const pdfPromise = new Promise<Buffer>((resolve, reject) => {
@@ -915,6 +1091,17 @@ export async function generatePdf(
             });
           }
         }
+
+        if (options.trail && options.trail.length > 0) {
+          doc.addPage();
+          await renderMovementSummaryPage(doc, {
+            contentWidth,
+            metadata,
+            trail: options.trail,
+            trailMapBuffer: options.trailMapBuffer ?? null,
+          });
+        }
+
         doc.fillColor(COLORS.text);
         doc.end();
       } catch (err) {
@@ -923,7 +1110,7 @@ export async function generatePdf(
     })();
   });
 
-  return withSignal(pdfPromise, signal);
+  return withSignal(pdfPromise, options.signal);
 }
 
 export function buildReportMetadata(params: {

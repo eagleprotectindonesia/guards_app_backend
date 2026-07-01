@@ -411,6 +411,7 @@ export type ShiftLocationPoint = {
   timestamp: Date;
   latitude: number;
   longitude: number;
+  accuracyMeters: number | null;
 };
 
 export type ShiftLocationSources = {
@@ -459,31 +460,36 @@ export async function getShiftLocationPoints(params: {
         timestamp: m.createdAt,
         latitude: m.latitude,
         longitude: m.longitude,
+        accuracyMeters: null,
       });
     }
   }
 
   const checkinPoints: ShiftLocationPoint[] = [];
   for (const c of checkins) {
-    const meta = c.metadata as { latitude?: number; longitude?: number } | null;
+    const meta = c.metadata as { latitude?: number; longitude?: number; accuracy?: number } | null;
     if (meta && typeof meta.latitude === 'number' && typeof meta.longitude === 'number') {
+      const accuracy = typeof meta.accuracy === 'number' && Number.isFinite(meta.accuracy) ? meta.accuracy : null;
       checkinPoints.push({
         timestamp: c.at,
         latitude: meta.latitude,
         longitude: meta.longitude,
+        accuracyMeters: accuracy,
       });
     }
   }
 
   let attendancePoint: ShiftLocationPoint | null = null;
   if (attendance) {
-    const meta = attendance.metadata as { location?: { lat?: number; lng?: number } } | null;
+    const meta = attendance.metadata as { location?: { lat?: number; lng?: number }; accuracy?: number } | null;
     const loc = meta?.location;
     if (loc && typeof loc.lat === 'number' && typeof loc.lng === 'number') {
+      const accuracy = meta && typeof meta.accuracy === 'number' && Number.isFinite(meta.accuracy) ? meta.accuracy : null;
       attendancePoint = {
         timestamp: attendance.recordedAt,
         latitude: loc.lat,
         longitude: loc.lng,
+        accuracyMeters: accuracy,
       };
     }
   }
