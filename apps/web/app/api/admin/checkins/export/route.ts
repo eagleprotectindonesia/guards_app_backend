@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Prisma } from '@prisma/client';
-import { startOfDay, endOfDay, format } from 'date-fns';
-import { getCheckinExportBatch } from '@repo/database';
+import { format } from 'date-fns';
+import { prisma, getCheckinExportBatch } from '@repo/database';
 import { getDistanceMeters, resolvePunchDistance } from '@/lib/site-post-location';
 import type { AttendanceMetadata } from '@/lib/site-post-location';
 
@@ -18,14 +18,40 @@ export async function GET(request: NextRequest) {
   }
 
   if (startDateStr || endDateStr) {
-    where.at = {};
+    const dateFilter: Prisma.DateTimeFilter = {};
     if (startDateStr) {
-      where.at.gte = startOfDay(new Date(startDateStr));
+      dateFilter.gte = new Date(`${startDateStr}T00:00:00Z`);
     }
     if (endDateStr) {
-      where.at.lte = endOfDay(new Date(endDateStr));
+      dateFilter.lte = new Date(`${endDateStr}T00:00:00Z`);
+    }
+    where.shift = { date: dateFilter };
+  }
+
+  // Build a descriptive filename from the filter parameters
+  const filenameParts: string[] = [];
+
+  if (employeeId) {
+    const emp = await prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { employeeNumber: true },
+    });
+    if (emp?.employeeNumber) {
+      filenameParts.push(emp.employeeNumber);
     }
   }
+
+  filenameParts.push('checkins');
+
+  if (startDateStr || endDateStr) {
+    if (startDateStr) filenameParts.push(startDateStr);
+    if (startDateStr && endDateStr) filenameParts.push('to');
+    if (endDateStr) filenameParts.push(endDateStr);
+  } else {
+    filenameParts.push(new Date().toISOString().split('T')[0]);
+  }
+
+  const filename = filenameParts.join('_') + '.csv';
 
   const BATCH_SIZE = 1000;
 
@@ -112,7 +138,7 @@ export async function GET(request: NextRequest) {
   return new NextResponse(stream, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': `attachment; filename="checkins_export_${new Date().toISOString().split('T')[0]}.csv"`,
+      'Content-Disposition': `attachment; filename="${filename}"`,
     },
   });
 }

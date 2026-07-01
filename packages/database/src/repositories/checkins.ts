@@ -193,7 +193,7 @@ export async function getCheckinExportBatch(params: {
   return prisma.checkin.findMany({
     take,
     where,
-    orderBy: { id: 'asc' },
+    orderBy: [{ shift: { date: 'asc' } }, { at: 'asc' }, { id: 'asc' }],
     include: {
       employee: true,
       shift: {

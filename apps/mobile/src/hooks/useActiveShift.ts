@@ -2,10 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { queryKeys } from '../api/queryKeys';
 import { useAuth } from '../contexts/AuthContext';
-import { ShiftWithRelations, CheckInWindowResult } from '@repo/types';
+import { ShiftWithRelations } from '@repo/types';
 
 export type ActiveShiftData = {
-  activeShift: (ShiftWithRelations & { checkInWindow?: CheckInWindowResult }) | null;
+  activeShift: ShiftWithRelations | null;
   nextShifts: ShiftWithRelations[];
 };
 
