@@ -7,10 +7,8 @@ import { useAdminRouter } from '../../context/admin-router';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import PaginationNav from '../../components/pagination-nav';
-import Select from '../../components/select';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
 import { format, parseISO } from 'date-fns';
+import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
 import { Download, History, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
 import SortableHeader from '@/components/sortable-header';
 import toast from 'react-hot-toast';
@@ -86,6 +84,7 @@ export default function ShiftPhotoReportsList({
 
   const { hasPermission } = useSession();
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+  const { apply } = useFilterUrlSync('/admin/shift-photo-reports');
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
@@ -100,24 +99,6 @@ export default function ShiftPhotoReportsList({
     setSelectedIds(new Set());
   }, [page]);
 
-  const employeeOptions = [
-    { value: '', label: 'All Guards' },
-    ...employees.map(emp => ({ value: emp.id, label: emp.fullName })),
-  ];
-
-  const siteOptions = [
-    { value: '', label: 'All Sites' },
-    ...sites.map(s => ({ value: s.id, label: s.name })),
-  ];
-
-  const statusOptions = [
-    { value: '', label: 'All Statuses' },
-    { value: 'generated', label: 'Generated' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'failed', label: 'Failed' },
-    { value: 'regenerated', label: 'Regenerated' },
-  ];
-
   const statusBadge = (s: string) => {
     const classes: Record<string, string> = {
       generated: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
@@ -129,41 +110,14 @@ export default function ShiftPhotoReportsList({
   };
 
   const handleApplyFilters = () => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    if (filterDateFrom) {
-      params.set('dateFrom', format(filterDateFrom, 'yyyy-MM-dd'));
-    } else {
-      params.delete('dateFrom');
-    }
-
-    if (filterDateTo) {
-      params.set('dateTo', format(filterDateTo, 'yyyy-MM-dd'));
-    } else {
-      params.delete('dateTo');
-    }
-
-    if (filterEmployeeId) {
-      params.set('employeeId', filterEmployeeId);
-    } else {
-      params.delete('employeeId');
-    }
-
-    if (filterSiteId) {
-      params.set('siteId', filterSiteId);
-    } else {
-      params.delete('siteId');
-    }
-
-    if (filterStatus) {
-      params.set('status', filterStatus);
-    } else {
-      params.delete('status');
-    }
-
-    params.set('page', '1');
     setSelectedIds(new Set());
-    router.push(`/admin/shift-photo-reports?${params.toString()}`);
+    apply({
+      dateFrom: filterDateFrom ? format(filterDateFrom, 'yyyy-MM-dd') : null,
+      dateTo: filterDateTo ? format(filterDateTo, 'yyyy-MM-dd') : null,
+      employeeId: filterEmployeeId || null,
+      siteId: filterSiteId || null,
+      status: filterStatus || null,
+    });
   };
 
   const handleClearFilters = () => {
@@ -173,10 +127,13 @@ export default function ShiftPhotoReportsList({
     setFilterSiteId('');
     setFilterStatus('');
     setSelectedIds(new Set());
-
-    const params = new URLSearchParams();
-    params.set('page', '1');
-    router.push(`/admin/shift-photo-reports?${params.toString()}`);
+    apply({
+      dateFrom: null,
+      dateTo: null,
+      employeeId: null,
+      siteId: null,
+      status: null,
+    });
   };
 
   const handleSort = (field: string) => {
@@ -324,93 +281,51 @@ export default function ShiftPhotoReportsList({
         </div>
       </div>
 
-      {/* Filters Card */}
-      <div className="bg-card rounded-xl shadow-sm border border-border p-4 mb-6">
-        <div className="flex flex-wrap gap-3 items-end">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Date From</label>
-            <DatePicker
-              selected={filterDateFrom}
-              onChange={date => setFilterDateFrom(date as Date)}
-              selectsStart
-              startDate={filterDateFrom}
-              endDate={filterDateTo}
-              maxDate={filterDateTo}
-              dateFormat="yyyy-MM-dd"
-              className="h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
-              placeholderText="Start Date"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Date To</label>
-            <DatePicker
-              selected={filterDateTo}
-              onChange={date => setFilterDateTo(date as Date)}
-              selectsEnd
-              startDate={filterDateFrom}
-              endDate={filterDateTo}
-              minDate={filterDateFrom}
-              dateFormat="yyyy-MM-dd"
-              className="h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
-              placeholderText="End Date"
-            />
-          </div>
-          <div>
-            <label htmlFor="filter-guard" className="block text-sm font-medium text-foreground mb-1">
-              Guard
-            </label>
-            <Select
-              id="filter-guard"
-              instanceId="filter-guard"
-              options={employeeOptions}
-              value={employeeOptions.find(option => option.value === filterEmployeeId)}
-              onChange={selectedOption => setFilterEmployeeId(selectedOption ? selectedOption.value : '')}
-              placeholder="All Guards"
-              isClearable={false}
-            />
-          </div>
-          <div>
-            <label htmlFor="filter-site" className="block text-sm font-medium text-foreground mb-1">
-              Site
-            </label>
-            <Select
-              id="filter-site"
-              instanceId="filter-site"
-              options={siteOptions}
-              value={siteOptions.find(option => option.value === filterSiteId)}
-              onChange={selectedOption => setFilterSiteId(selectedOption ? selectedOption.value : '')}
-              placeholder="All Sites"
-              isClearable={false}
-            />
-          </div>
-          <div>
-            <label htmlFor="filter-status" className="block text-sm font-medium text-foreground mb-1">
-              Status
-            </label>
-            <Select
-              id="filter-status"
-              instanceId="filter-status"
-              options={statusOptions}
-              value={statusOptions.find(option => option.value === filterStatus)}
-              onChange={selectedOption => setFilterStatus(selectedOption ? selectedOption.value : '')}
-              placeholder="All Statuses"
-              isClearable={false}
-            />
-          </div>
-          <button
-            onClick={handleApplyFilters}
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-foreground text-background text-sm font-bold rounded-lg hover:opacity-90 transition-colors shadow-sm"
-          >
-            Apply Filters
-          </button>
-          <button
-            onClick={handleClearFilters}
-            className="inline-flex items-center justify-center h-10 px-4 py-2 text-sm text-muted-foreground hover:text-foreground underline transition-colors"
-          >
-            Clear
-          </button>
-        </div>
-      </div>
+      {/* Filters */}
+      <FilterBar onApply={handleApplyFilters} onClear={handleClearFilters}>
+        <DateRangeFilter
+          from={filterDateFrom}
+          to={filterDateTo}
+          onChange={(from, to) => {
+            setFilterDateFrom(from);
+            setFilterDateTo(to);
+          }}
+          fromLabel="Date From"
+          toLabel="Date To"
+        />
+        <SelectFilter
+          label="Guard"
+          value={filterEmployeeId}
+          options={employees.map(emp => ({ value: emp.id, label: emp.fullName }))}
+          onChange={setFilterEmployeeId}
+          id="filter-guard"
+          instanceId="filter-guard"
+          allLabel="All Guards"
+        />
+        <SelectFilter
+          label="Site"
+          value={filterSiteId}
+          options={sites.map(s => ({ value: s.id, label: s.name }))}
+          onChange={setFilterSiteId}
+          id="filter-site"
+          instanceId="filter-site"
+          allLabel="All Sites"
+        />
+        <SelectFilter
+          label="Status"
+          value={filterStatus}
+          options={[
+            { value: 'generated', label: 'Generated' },
+            { value: 'pending', label: 'Pending' },
+            { value: 'failed', label: 'Failed' },
+            { value: 'regenerated', label: 'Regenerated' },
+          ]}
+          onChange={setFilterStatus}
+          id="filter-status"
+          instanceId="filter-status"
+          allLabel="All Statuses"
+        />
+      </FilterBar>
 
       {/* Table Section */}
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">

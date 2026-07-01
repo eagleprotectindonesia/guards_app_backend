@@ -3,14 +3,13 @@
 import { useState, useTransition } from 'react';
 import type { Serialized } from '@/lib/server-utils';
 import { deleteShift, cancelShift } from '../actions';
-import ShiftFilterModal from './shift-filter-modal';
 import BulkCreateModal from './bulk-create-modal';
 import ShiftExport from './shift-export';
 import ShiftActionModal from './shift-action-modal';
 import { EditButton, DeleteButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Upload, History } from 'lucide-react';
@@ -20,6 +19,7 @@ import { ShiftWithRelationsDto } from '@/types/shifts';
 import type { EmployeeSummary } from '@repo/database';
 import { useAdminRouter } from '../../context/admin-router';
 import SortableHeader from '@/components/sortable-header';
+import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
 
 type ShiftListProps = {
   shifts: Serialized<ShiftWithRelationsDto>[];
@@ -55,7 +55,6 @@ export default function ShiftList({
   const searchParams = useSearchParams();
   const { hasPermission, isSuperAdmin } = useSession();
 
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -64,6 +63,16 @@ export default function ShiftList({
   const canEdit = hasPermission(PERMISSIONS.SHIFTS.EDIT);
   const canDelete = hasPermission(PERMISSIONS.SHIFTS.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+  const { apply } = useFilterUrlSync('/admin/guard-shifts');
+
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(
+    startDate ? parseISO(startDate) : undefined
+  );
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(
+    endDate ? parseISO(endDate) : undefined
+  );
+  const [filterSiteId, setFilterSiteId] = useState(siteId || '');
+  const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
 
   const handleDeleteClick = (id: string) => {
     if (!canDelete) return;
@@ -110,43 +119,6 @@ export default function ShiftList({
     });
   };
 
-  const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date; siteId: string; employeeId: string }) => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    if (filters.startDate) {
-      params.set('startDate', format(filters.startDate, 'yyyy-MM-dd'));
-    } else {
-      // If cleared, explicitly set to empty string so server doesn't fallback to default (today)
-      params.set('startDate', '');
-    }
-
-    if (filters.endDate) {
-      params.set('endDate', format(filters.endDate, 'yyyy-MM-dd'));
-    } else {
-      params.delete('endDate');
-    }
-
-    if (filters.siteId) {
-      params.set('siteId', filters.siteId);
-    } else {
-      params.delete('siteId');
-    }
-
-    if (filters.employeeId) {
-      params.set('employeeId', filters.employeeId);
-    } else {
-      params.delete('employeeId');
-    }
-
-    if (sortBy && sortOrder) {
-      params.set('sortBy', sortBy);
-      params.set('sortOrder', sortOrder);
-    }
-
-    params.set('page', '1'); // Reset to page 1 when filtering
-    router.push(`/admin/guard-shifts?${params.toString()}`);
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'scheduled':
@@ -164,7 +136,27 @@ export default function ShiftList({
     }
   };
 
-  const activeFiltersCount = [startDate, endDate, employeeId, siteId].filter(Boolean).length;
+  const handleApplyFilters = () => {
+    apply({
+      startDate: filterStartDate ? format(filterStartDate, 'yyyy-MM-dd') : '',
+      endDate: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : null,
+      siteId: filterSiteId || null,
+      employeeId: filterEmployeeId || null,
+    });
+  };
+
+  const handleClearFilters = () => {
+    setFilterStartDate(undefined);
+    setFilterEndDate(undefined);
+    setFilterSiteId('');
+    setFilterEmployeeId('');
+    apply({
+      startDate: '',
+      endDate: null,
+      siteId: null,
+      employeeId: null,
+    });
+  };
 
   return (
     <div>
@@ -183,31 +175,8 @@ export default function ShiftList({
               siteId,
             }}
           />
-          <button
-            onClick={() => setIsFilterOpen(true)}
-            className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
-              activeFiltersCount > 0
-                ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400'
-                : ''
-            }`}
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-              />
-            </svg>
-            Filters
-            {activeFiltersCount > 0 && (
-              <span className="ml-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full text-xs">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
           {canCreate && (
-            <button
+          <button
               onClick={() => setIsBulkCreateOpen(true)}
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
             >
@@ -237,6 +206,36 @@ export default function ShiftList({
           )}
         </div>
       </div>
+
+      {/* Filters */}
+      <FilterBar onApply={handleApplyFilters} onClear={handleClearFilters}>
+        <DateRangeFilter
+          from={filterStartDate}
+          to={filterEndDate}
+          onChange={(from, to) => {
+            setFilterStartDate(from);
+            setFilterEndDate(to);
+          }}
+        />
+        <SelectFilter
+          label="Site"
+          value={filterSiteId}
+          options={sites.map(s => ({ value: s.id, label: s.name }))}
+          onChange={setFilterSiteId}
+          id="filter-site"
+          instanceId="filter-site"
+          allLabel="All Sites"
+        />
+        <SelectFilter
+          label="Employee"
+          value={filterEmployeeId}
+          options={employees.map(e => ({ value: e.id, label: e.fullName }))}
+          onChange={setFilterEmployeeId}
+          id="filter-employee"
+          instanceId="filter-employee"
+          allLabel="All Employees"
+        />
+      </FilterBar>
 
       {/* Table Section */}
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
@@ -365,22 +364,6 @@ export default function ShiftList({
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
 
       {/* Dialogs */}
-      {isFilterOpen && (
-        <ShiftFilterModal
-          isOpen={isFilterOpen}
-          onClose={() => setIsFilterOpen(false)}
-          onApply={handleApplyFilter}
-          initialFilters={{
-            startDate,
-            endDate,
-            siteId,
-            employeeId,
-          }}
-          sites={sites}
-          employees={employees}
-        />
-      )}
-
       <BulkCreateModal isOpen={isBulkCreateOpen} onClose={() => setIsBulkCreateOpen(false)} />
 
       <ShiftActionModal
