@@ -1,12 +1,10 @@
-import { prisma } from '@repo/database';
+import { prisma, getAllSites } from '@repo/database';
 import { getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
-import SiteChangelogFilterModal from '../../changelogs/components/site-changelog-filter-modal';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
-import { getAllSites } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
@@ -117,8 +115,12 @@ export default async function SiteAuditPage(props: PageProps) {
           hideEntityType={true}
           fixedEntityType="Site"
           showEntityName={true}
-          FilterModal={SiteChangelogFilterModal}
-          sites={serializedSites}
+          entityFilterConfig={{
+            urlKey: 'entityId',
+            label: 'Site',
+            allLabel: 'All sites',
+            options: serializedSites.map(s => ({ value: s.id, label: s.name || '' })),
+          }}
         />
       </Suspense>
     </div>

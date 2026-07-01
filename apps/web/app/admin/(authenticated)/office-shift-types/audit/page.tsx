@@ -1,12 +1,10 @@
-import { prisma } from '@repo/database';
+import { prisma, getOfficeShiftTypeSummaries } from '@repo/database';
 import { getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
-import OfficeShiftTypeChangelogFilterModal from '../../changelogs/components/office-shift-type-changelog-filter-modal';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
-import { getOfficeShiftTypeSummaries } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
@@ -117,8 +115,12 @@ export default async function OfficeShiftTypeAuditPage(props: PageProps) {
           hideEntityType={true}
           fixedEntityType="OfficeShiftType"
           showEntityName={true}
-          FilterModal={OfficeShiftTypeChangelogFilterModal}
-          shiftTypes={serializedOfficeShiftTypes}
+          entityFilterConfig={{
+            urlKey: 'entityId',
+            label: 'Office Shift Type',
+            allLabel: 'All office shift types',
+            options: serializedOfficeShiftTypes.map(ost => ({ value: ost.id, label: ost.name || '' })),
+          }}
         />
       </Suspense>
     </div>

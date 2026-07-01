@@ -2,7 +2,6 @@ import { notFound } from 'next/navigation';
 import { prisma, getAllOfficeWorkSchedules } from '@repo/database';
 import { getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
-import OfficeWorkScheduleChangelogFilterModal from '../../changelogs/components/office-work-schedule-changelog-filter-modal';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
@@ -123,8 +122,12 @@ export default async function OfficeWorkScheduleAuditPage(props: PageProps) {
           fixedEntityType="Office Work Schedule"
           exportEntityType="OfficeWorkSchedule"
           showEntityName={true}
-          FilterModal={OfficeWorkScheduleChangelogFilterModal}
-          officeWorkSchedules={serializedOfficeWorkSchedules}
+          entityFilterConfig={{
+            urlKey: 'entityId',
+            label: 'Office Schedule',
+            allLabel: 'All office schedules',
+            options: serializedOfficeWorkSchedules.map(s => ({ value: s.id, label: s.name || 'Unnamed Schedule' })),
+          }}
         />
       </Suspense>
     </div>

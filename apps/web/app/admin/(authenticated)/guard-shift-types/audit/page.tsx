@@ -1,12 +1,10 @@
-import { prisma } from '@repo/database';
+import { prisma, getShiftTypeSummaries } from '@repo/database';
 import { getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
-import ShiftTypeChangelogFilterModal from '../../changelogs/components/shift-type-changelog-filter-modal';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
-import { getShiftTypeSummaries } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
@@ -117,8 +115,12 @@ export default async function ShiftTypeAuditPage(props: PageProps) {
           hideEntityType={true}
           fixedEntityType="ShiftType"
           showEntityName={true}
-          FilterModal={ShiftTypeChangelogFilterModal}
-          shiftTypes={serializedShiftTypes}
+          entityFilterConfig={{
+            urlKey: 'entityId',
+            label: 'Shift Type',
+            allLabel: 'All shift types',
+            options: serializedShiftTypes.map(st => ({ value: st.id, label: st.name || '' })),
+          }}
         />
       </Suspense>
     </div>

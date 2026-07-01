@@ -1,7 +1,6 @@
 import { prisma } from '@repo/database';
 import { serialize, getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
-import OfficeShiftChangelogFilterModal from '../../changelogs/components/office-shift-changelog-filter-modal';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
@@ -98,7 +97,6 @@ export default async function OfficeShiftAuditPage(props: PageProps) {
           sortOrder={sortOrder}
           hideEntityType={true}
           fixedEntityType="OfficeShift"
-          FilterModal={OfficeShiftChangelogFilterModal}
         />
       </Suspense>
     </div>

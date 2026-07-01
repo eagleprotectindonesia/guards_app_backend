@@ -1,7 +1,6 @@
 import { prisma } from '@repo/database';
 import { serialize, getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from './components/changelog-list';
-import ChangelogFilterModal from './components/changelog-filter-modal';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
@@ -101,7 +100,6 @@ export default async function ChangelogsPage(props: ChangelogsPageProps) {
           totalCount={totalCount}
           sortBy={sortField}
           sortOrder={sortOrder}
-          FilterModal={ChangelogFilterModal}
         />
       </Suspense>
     </div>

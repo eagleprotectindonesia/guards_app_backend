@@ -1,7 +1,6 @@
 import { prisma } from '@repo/database';
 import { serialize, getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
-import ShiftChangelogFilterModal from '../../changelogs/components/shift-changelog-filter-modal';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
@@ -98,7 +97,6 @@ export default async function ShiftAuditPage(props: PageProps) {
           sortOrder={sortOrder}
           hideEntityType={true}
           fixedEntityType="Shift"
-          FilterModal={ShiftChangelogFilterModal}
         />
       </Suspense>
     </div>

@@ -1,12 +1,10 @@
-import { prisma } from '@repo/database';
+import { prisma, getAllEmployees } from '@repo/database';
 import { getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
-import EmployeeChangelogFilterModal from '../../changelogs/components/employee-changelog-filter-modal';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
-import { getAllEmployees } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
@@ -117,8 +115,12 @@ export default async function EmployeeAuditPage(props: PageProps) {
           hideEntityType={true}
           fixedEntityType="Employee"
           showEntityName={true}
-          FilterModal={EmployeeChangelogFilterModal}
-          employees={serializedEmployees}
+          entityFilterConfig={{
+            urlKey: 'entityId',
+            label: 'Employee',
+            allLabel: 'All employees',
+            options: serializedEmployees.map(e => ({ value: e.id, label: e.fullName || e.name || '' })),
+          }}
         />
       </Suspense>
     </div>

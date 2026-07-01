@@ -1,40 +1,30 @@
 'use client';
 
-import { useState, ComponentType } from 'react';
+import { useState } from 'react';
 import { Prisma } from '@prisma/client';
-import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
+import { SerializedChangelogWithAdminDto } from '@/types/changelogs';
 import PaginationNav from '../../components/pagination-nav';
 import { useSearchParams, usePathname } from 'next/navigation';
 import SortableHeader from '@/components/sortable-header';
-import { Eye, Filter } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import ChangelogDetailsModal from './changelog-details-modal';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import ChangelogExport from './changelog-export';
 import { useAdminRouter } from '../../context/admin-router';
+import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
 
+const ACTION_OPTIONS = [
+  { value: 'CREATE', label: 'Create' },
+  { value: 'UPDATE', label: 'Update' },
+  { value: 'DELETE', label: 'Delete' },
+  { value: 'BULK_CREATE', label: 'Bulk Create' },
+];
 
-type FilterModalProps = {
-  isOpen: boolean;
-  onClose: () => void;
-  onApply: (filters: {
-    startDate?: Date;
-    endDate?: Date;
-    action?: string;
-    entityType?: string;
-    entityId?: string;
-  }) => void;
-  initialFilters: {
-    startDate?: string | null;
-    endDate?: string | null;
-    action?: string | null;
-    entityType?: string | null;
-    entityId?: string | null;
-  };
-  employees?: EntitySummary[];
-  sites?: EntitySummary[];
-  shiftTypes?: EntitySummary[];
-  offices?: EntitySummary[];
-  officeWorkSchedules?: EntitySummary[];
+type EntityFilterConfig = {
+  urlKey: string;
+  label: string;
+  allLabel: string;
+  options: { value: string; label: string }[];
 };
 
 type ChangelogListProps = {
@@ -48,12 +38,8 @@ type ChangelogListProps = {
   fixedEntityType?: string;
   exportEntityType?: string;
   showEntityName?: boolean;
-  FilterModal: ComponentType<FilterModalProps>;
-  employees?: EntitySummary[];
-  sites?: EntitySummary[];
-  shiftTypes?: EntitySummary[];
-  offices?: EntitySummary[];
-  officeWorkSchedules?: EntitySummary[];
+  entityFilterConfig?: EntityFilterConfig;
+  actionOptions?: { value: string; label: string }[];
 };
 
 export default function ChangelogList({
@@ -67,18 +53,26 @@ export default function ChangelogList({
   fixedEntityType,
   exportEntityType,
   showEntityName = false,
-  FilterModal,
-  employees,
-  sites,
-  shiftTypes,
-  offices,
-  officeWorkSchedules,
+  entityFilterConfig,
+  actionOptions = ACTION_OPTIONS,
 }: ChangelogListProps) {
   const router = useAdminRouter();
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const [selectedLog, setSelectedLog] = useState<{ entityType: string; details: Prisma.JsonValue } | null>(null);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const { apply } = useFilterUrlSync(pathname);
+
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(
+    searchParams.get('startDate') ? parseISO(searchParams.get('startDate')!) : undefined
+  );
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(
+    searchParams.get('endDate') ? parseISO(searchParams.get('endDate')!) : undefined
+  );
+  const [filterAction, setFilterAction] = useState(searchParams.get('action') || '');
+  const [filterEntityType, setFilterEntityType] = useState(searchParams.get('entityType') || '');
+  const [filterEntity, setFilterEntity] = useState(
+    entityFilterConfig ? searchParams.get(entityFilterConfig.urlKey) || '' : ''
+  );
 
   const handleSort = (field: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -92,58 +86,51 @@ export default function ChangelogList({
     router.push(`${pathname}?${params.toString()}`);
   };
 
-  const handleApplyFilter = (filters: Record<string, string | Date | null | undefined>) => {
-    const params = new URLSearchParams(searchParams.toString());
+  const handleApplyFilters = () => {
+    const filters: Record<string, string | null> = {
+      startDate: filterStartDate ? format(filterStartDate, 'yyyy-MM-dd') : null,
+      endDate: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : null,
+      action: filterAction || null,
+    };
 
-    if (filters.startDate instanceof Date) {
-      params.set('startDate', format(filters.startDate, 'yyyy-MM-dd'));
-    } else if (typeof filters.startDate === 'string') {
-      params.set('startDate', filters.startDate);
-    } else {
-      params.delete('startDate');
+    if (!hideEntityType) {
+      filters.entityType = filterEntityType || null;
     }
 
-    if (filters.endDate instanceof Date) {
-      params.set('endDate', format(filters.endDate, 'yyyy-MM-dd'));
-    } else if (typeof filters.endDate === 'string') {
-      params.set('endDate', filters.endDate);
-    } else {
-      params.delete('endDate');
+    if (entityFilterConfig) {
+      filters[entityFilterConfig.urlKey] = filterEntity || null;
     }
 
-    if (typeof filters.action === 'string' && filters.action) {
-      params.set('action', filters.action);
-    } else {
-      params.delete('action');
-    }
-
-    if (typeof filters.entityType === 'string' && filters.entityType) {
-      params.set('entityType', filters.entityType);
-    } else {
-      params.delete('entityType');
-    }
-
-    if (typeof filters.entityId === 'string' && filters.entityId) {
-      params.set('entityId', filters.entityId);
-    } else {
-      params.delete('entityId');
-    }
-
-    params.set('page', '1');
-    router.push(`${pathname}?${params.toString()}`);
+    apply(filters);
   };
 
-  const activeFiltersCount = [
-    searchParams.get('startDate'),
-    searchParams.get('endDate'),
-    searchParams.get('action'),
-    searchParams.get('entityType'),
-    searchParams.get('entityId'),
-  ].filter(Boolean).length;
+  const handleClearFilters = () => {
+    setFilterStartDate(undefined);
+    setFilterEndDate(undefined);
+    setFilterAction('');
+    setFilterEntityType('');
+    setFilterEntity('');
+
+    const filters: Record<string, null> = {
+      startDate: null,
+      endDate: null,
+      action: null,
+    };
+
+    if (!hideEntityType) {
+      filters.entityType = null;
+    }
+
+    if (entityFilterConfig) {
+      filters[entityFilterConfig.urlKey] = null;
+    }
+
+    apply(filters);
+  };
 
   return (
     <div>
-      {/* Header & Filters */}
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">
@@ -157,24 +144,56 @@ export default function ChangelogList({
         </div>
         <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
           <ChangelogExport entityType={exportEntityType ?? fixedEntityType} />
-          <button
-            onClick={() => setIsFilterOpen(true)}
-            className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm w-full md:w-auto ${
-              activeFiltersCount > 0
-                ? 'text-red-600 dark:text-red-400 border-red-200 dark:border-red-900/30 bg-red-50 dark:bg-red-950/30'
-                : ''
-            }`}
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-            {activeFiltersCount > 0 && (
-              <span className="ml-2 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400 px-2 py-0.5 rounded-full text-xs">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
         </div>
       </div>
+
+      {/* Filters */}
+      <FilterBar onApply={handleApplyFilters} onClear={handleClearFilters}>
+        <SelectFilter
+          label="Action"
+          value={filterAction}
+          options={actionOptions}
+          onChange={setFilterAction}
+          id="filter-action"
+          instanceId="filter-action"
+          allLabel="All actions"
+        />
+        {!hideEntityType && (
+          <SelectFilter
+            label="Entity Type"
+            value={filterEntityType}
+            options={[
+              { value: 'Employee', label: 'Employee' },
+              { value: 'Site', label: 'Site' },
+              { value: 'Shift', label: 'Shift' },
+              { value: 'Alert', label: 'Alert' },
+            ]}
+            onChange={setFilterEntityType}
+            id="filter-entity-type"
+            instanceId="filter-entity-type"
+            allLabel="All entities"
+          />
+        )}
+        {entityFilterConfig && (
+          <SelectFilter
+            label={entityFilterConfig.label}
+            value={filterEntity}
+            options={entityFilterConfig.options}
+            onChange={setFilterEntity}
+            id="filter-entity"
+            instanceId="filter-entity"
+            allLabel={entityFilterConfig.allLabel}
+          />
+        )}
+        <DateRangeFilter
+          from={filterStartDate}
+          to={filterEndDate}
+          onChange={(from, to) => {
+            setFilterStartDate(from);
+            setFilterEndDate(to);
+          }}
+        />
+      </FilterBar>
 
       {/* Table */}
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
@@ -255,7 +274,6 @@ export default function ChangelogList({
                     {!hideEntityType && <td className="py-4 px-6 text-sm text-muted-foreground">{log.entityType}</td>}
                     {showEntityName && (
                       <td className="py-4 px-6 text-sm text-muted-foreground">
-                        {/* Safe access to details.name if it exists */}
                         {log.details && typeof log.details === 'object' && 'name' in log.details
                           ? String((log.details as Record<string, unknown>).name)
                           : '-'}
@@ -287,25 +305,6 @@ export default function ChangelogList({
         details={
           selectedLog?.details as Record<string, string> | { changes: Record<string, { from: string; to: string }> } | null
         }
-      />
-
-      <FilterModal
-        key={isFilterOpen ? 'open' : 'closed'}
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        onApply={handleApplyFilter}
-        initialFilters={{
-          startDate: searchParams.get('startDate'),
-          endDate: searchParams.get('endDate'),
-          action: searchParams.get('action'),
-          entityType: searchParams.get('entityType'),
-          entityId: searchParams.get('entityId'),
-        }}
-        employees={employees}
-        sites={sites}
-        shiftTypes={shiftTypes}
-        offices={offices}
-        officeWorkSchedules={officeWorkSchedules}
       />
     </div>
   );

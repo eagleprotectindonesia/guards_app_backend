@@ -1,12 +1,10 @@
-import { prisma } from '@repo/database';
+import { prisma, getAllOffices } from '@repo/database';
 import { getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
-import OfficeChangelogFilterModal from '../../changelogs/components/office-changelog-filter-modal';
 import { Suspense } from 'react';
 import { Prisma } from '@prisma/client';
 import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
-import { getAllOffices } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
@@ -117,8 +115,12 @@ export default async function OfficeAuditPage(props: PageProps) {
           hideEntityType={true}
           fixedEntityType="Office"
           showEntityName={true}
-          FilterModal={OfficeChangelogFilterModal}
-          offices={serializedOffices}
+          entityFilterConfig={{
+            urlKey: 'entityId',
+            label: 'Office',
+            allLabel: 'All offices',
+            options: serializedOffices.map(o => ({ value: o.id, label: o.name || '' })),
+          }}
         />
       </Suspense>
     </div>
