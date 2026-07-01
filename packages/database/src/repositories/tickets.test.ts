@@ -409,16 +409,15 @@ describe('tickets repository', () => {
     );
   });
 
-  test('getTicketSidebarCounts uses claim-based and closed-only counters', async () => {
+  test('getTicketSidebarCounts uses claim-based counters', async () => {
     (prisma.ticket.count as jest.Mock)
       .mockResolvedValueOnce(10)
       .mockResolvedValueOnce(3)
-      .mockResolvedValueOnce(4)
-      .mockResolvedValueOnce(2);
+      .mockResolvedValueOnce(4);
 
     const counts = await getTicketSidebarCounts('admin-9');
 
-    expect(counts).toEqual({ all: 10, acknowledged: 3, unassigned: 4, closed: 2 });
+    expect(counts).toEqual({ all: 10, acknowledged: 3, unassigned: 4 });
     expect(prisma.ticket.count).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
@@ -434,14 +433,6 @@ describe('tickets repository', () => {
       expect.objectContaining({
         where: expect.objectContaining({
           claimedByType: null,
-        }),
-      })
-    );
-    expect(prisma.ticket.count).toHaveBeenNthCalledWith(
-      4,
-      expect.objectContaining({
-        where: expect.objectContaining({
-          status: { in: ['CLOSED', 'CANCELLED'] },
         }),
       })
     );

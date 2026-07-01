@@ -81,7 +81,6 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
     all: number;
     acknowledged: number;
     unassigned: number;
-    closed: number;
   } | null>(null);
 
   useEffect(() => {
@@ -127,7 +126,6 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
     '/admin/ticket/all': ticketCounters?.all,
     '/admin/ticket/acknowledged': ticketCounters?.acknowledged,
     '/admin/ticket/unassigned': ticketCounters?.unassigned,
-    '/admin/ticket/closed': ticketCounters?.closed,
   };
 
   return (
