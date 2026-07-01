@@ -12,9 +12,7 @@ export default function FilterBar({ children, onApply, onClear }: FilterBarProps
   return (
     <div className="bg-card rounded-xl shadow-sm border border-border p-4 mb-6">
       <div className="flex items-end gap-3">
-        <div className="flex items-end gap-3 overflow-x-auto flex-1 min-w-0">
-          {children}
-        </div>
+        <div className="flex items-end gap-3 overflow-x-auto flex-1 min-w-0 pb-2">{children}</div>
         <div className="flex items-end gap-2 flex-shrink-0">
           <button
             onClick={onApply}
