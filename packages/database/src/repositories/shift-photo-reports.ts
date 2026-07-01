@@ -120,11 +120,20 @@ type ShiftPhoto = {
   createdAt: Date;
   latitude: number | null;
   longitude: number | null;
+  content: string | null;
+  attendanceMatchedName: string | null;
 };
+
+function extractAttendanceMatchedName(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== 'object') return null;
+  const meta = metadata as { matchedLocation?: { name?: unknown } | null };
+  const name = meta.matchedLocation?.name;
+  return typeof name === 'string' && name.trim().length > 0 ? name.trim() : null;
+}
 
 export async function getShiftReportPhotos(params: {
   shift: { employeeId: string | null; startsAt: Date; endsAt: Date };
-  attendance?: { picture: string | null; recordedAt: Date } | null;
+  attendance?: { picture: string | null; recordedAt: Date; metadata?: unknown } | null;
 }): Promise<ShiftPhoto[]> {
   const { shift, attendance } = params;
   if (!shift.employeeId) return [];
@@ -142,6 +151,7 @@ export async function getShiftReportPhotos(params: {
       createdAt: true,
       latitude: true,
       longitude: true,
+      content: true,
     },
     orderBy: { createdAt: 'asc' },
   });
@@ -158,10 +168,15 @@ export async function getShiftReportPhotos(params: {
       createdAt: attendance.recordedAt,
       latitude: null,
       longitude: null,
+      content: null,
+      attendanceMatchedName: extractAttendanceMatchedName(attendance.metadata),
     });
   }
 
   for (const msg of messages) {
+    const trimmedContent = typeof msg.content === 'string' && msg.content.trim().length > 0
+      ? msg.content.trim()
+      : null;
     for (const att of msg.attachments) {
       if (!att) continue;
       if (seen.has(att)) continue;
@@ -173,6 +188,8 @@ export async function getShiftReportPhotos(params: {
         createdAt: msg.createdAt,
         latitude: msg.latitude ?? null,
         longitude: msg.longitude ?? null,
+        content: trimmedContent,
+        attendanceMatchedName: null,
       });
     }
   }

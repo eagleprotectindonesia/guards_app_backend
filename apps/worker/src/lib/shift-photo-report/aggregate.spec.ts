@@ -1,6 +1,9 @@
 import {
   resolveFirstAndLastLocation,
   summarizeSiteBoundary,
+  resolveLocationName,
+  computeGeofenceStatus,
+  geofenceStatusLabel,
   type LocationPoint,
   type SitePost,
   type LocationSources,
@@ -269,5 +272,120 @@ describe('summarizeSiteBoundary', () => {
       geofenceStatusEnabled: true,
     });
     expect(result).toBe('1 of 1 GPS records are outside the expected site boundary.');
+  });
+});
+
+describe('resolveLocationName', () => {
+  const SINGLE_POST: SitePost[] = [
+    { id: 'p1', name: 'Only Post', latitude: -8.655812, longitude: 115.219442 },
+  ];
+  const nearMainGate = { latitude: -8.655812, longitude: 115.219442 };
+  const nearHandover = { latitude: -8.655844, longitude: 115.219500 };
+
+  test('returns "Main Site" when the site has exactly one post (even when point is given)', () => {
+    expect(resolveLocationName(nearMainGate, null, SINGLE_POST)).toBe('Main Site');
+    expect(resolveLocationName(null, 'Stored', SINGLE_POST)).toBe('Main Site');
+  });
+
+  test('returns the nearest post name when the site has multiple posts and a point is given', () => {
+    expect(resolveLocationName(nearMainGate, null, SITE_POSTS)).toBe('Main Gate');
+    expect(resolveLocationName(nearHandover, null, SITE_POSTS)).toBe('Handover Point');
+  });
+
+  test('returns "On Site" when no posts and no point', () => {
+    expect(resolveLocationName(null, null, [])).toBe('On Site');
+  });
+
+  test('falls back to the attendance matched name when the point is missing', () => {
+    expect(resolveLocationName(null, 'Main Gate', SITE_POSTS)).toBe('Main Gate');
+  });
+
+  test('ignores blank attendance matched names and returns the nearest post', () => {
+    expect(resolveLocationName(nearMainGate, '   ', SITE_POSTS)).toBe('Main Gate');
+  });
+});
+
+describe('computeGeofenceStatus', () => {
+  const point = { latitude: -8.655812, longitude: 115.219442 };
+  const farAway = { latitude: 0, longitude: 0 };
+
+  test('returns "no-location" when the point is null', () => {
+    expect(computeGeofenceStatus(null, {
+      latitude: -8.655812,
+      longitude: 115.219442,
+      sitePosts: SITE_POSTS,
+      maxDistanceMeters: 200,
+      geofenceStatusEnabled: true,
+    })).toBe('no-location');
+  });
+
+  test('returns "disabled" when geofence monitoring is off', () => {
+    expect(computeGeofenceStatus(point, {
+      latitude: null,
+      longitude: null,
+      sitePosts: SITE_POSTS,
+      maxDistanceMeters: 200,
+      geofenceStatusEnabled: false,
+    })).toBe('disabled');
+  });
+
+  test('returns "unconfigured" when no posts and no site center', () => {
+    expect(computeGeofenceStatus(point, {
+      latitude: null,
+      longitude: null,
+      sitePosts: [],
+      maxDistanceMeters: 200,
+      geofenceStatusEnabled: true,
+    })).toBe('unconfigured');
+  });
+
+  test('returns "unconfigured" when maxDistanceMeters is 0', () => {
+    expect(computeGeofenceStatus(point, {
+      latitude: null,
+      longitude: null,
+      sitePosts: SITE_POSTS,
+      maxDistanceMeters: 0,
+      geofenceStatusEnabled: true,
+    })).toBe('unconfigured');
+  });
+
+  test('returns "inside" when within maxDistanceMeters of any post', () => {
+    expect(computeGeofenceStatus(point, {
+      latitude: null,
+      longitude: null,
+      sitePosts: SITE_POSTS,
+      maxDistanceMeters: 200,
+      geofenceStatusEnabled: true,
+    })).toBe('inside');
+  });
+
+  test('returns "outside" when far from all posts and the site center', () => {
+    expect(computeGeofenceStatus(farAway, {
+      latitude: -8.655812,
+      longitude: 115.219442,
+      sitePosts: SITE_POSTS,
+      maxDistanceMeters: 200,
+      geofenceStatusEnabled: true,
+    })).toBe('outside');
+  });
+
+  test('falls back to the Site center when no posts exist', () => {
+    expect(computeGeofenceStatus(point, {
+      latitude: -8.655812,
+      longitude: 115.219442,
+      sitePosts: [],
+      maxDistanceMeters: 200,
+      geofenceStatusEnabled: true,
+    })).toBe('inside');
+  });
+});
+
+describe('geofenceStatusLabel', () => {
+  test('returns the human-readable status string', () => {
+    expect(geofenceStatusLabel('inside')).toBe('Inside assigned site boundary');
+    expect(geofenceStatusLabel('outside')).toBe('Outside assigned site boundary');
+    expect(geofenceStatusLabel('disabled')).toBe('Geofence monitoring disabled for this site.');
+    expect(geofenceStatusLabel('unconfigured')).toBe('Site geofence coordinates are not configured.');
+    expect(geofenceStatusLabel('no-location')).toBe('-');
   });
 });

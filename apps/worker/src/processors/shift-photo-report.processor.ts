@@ -15,7 +15,7 @@ import {
   resetShiftPhotoReportClaim,
 } from '@repo/database';
 import { uploadFile, BUCKET_NAME } from '@repo/storage';
-import { fetchPhotos } from '../lib/shift-photo-report/fetch-photos';
+import { fetchPhotos, type PhotoInput } from '../lib/shift-photo-report/fetch-photos';
 import {
   generatePdf,
   generateReportFileName,
@@ -24,6 +24,9 @@ import {
 import {
   resolveFirstAndLastLocation,
   summarizeSiteBoundary,
+  resolveLocationName,
+  computeGeofenceStatus,
+  type GeofenceContext,
 } from '../lib/shift-photo-report/aggregate';
 
 export class ShiftPhotoReportProcessor {
@@ -83,12 +86,42 @@ export class ShiftPhotoReportProcessor {
 
       try {
 
-        const rawPhotos = await timed('db:photos', () => getShiftReportPhotos({
-          shift: { employeeId, startsAt, endsAt },
-          attendance: attendance ?? undefined,
-        }));
+        const [rawPhotos, sitePosts, maxDistanceSetting] = await Promise.all([
+          timed('db:photos', () => getShiftReportPhotos({
+            shift: { employeeId, startsAt, endsAt },
+            attendance: attendance ?? undefined,
+          })),
+          timed('db:site-posts', () => getActiveSitePosts(siteId)),
+          timed('db:system-setting(MAX_CHECKIN_DISTANCE_METERS)', () => getSystemSetting('MAX_CHECKIN_DISTANCE_METERS')),
+        ]);
 
-        const photoInputs = rawPhotos.map(p => ({ s3Key: p.s3Key, createdAt: p.createdAt, latitude: p.latitude, longitude: p.longitude }));
+        const maxDistanceMeters = parseInt(maxDistanceSetting?.value ?? process.env.MAX_CHECKIN_DISTANCE_METERS ?? '0', 10);
+        const resolvedMaxDistance = Number.isFinite(maxDistanceMeters) && maxDistanceMeters > 0 ? maxDistanceMeters : 0;
+        const geofenceContext: GeofenceContext = {
+          latitude: site.latitude ?? null,
+          longitude: site.longitude ?? null,
+          sitePosts,
+          maxDistanceMeters: resolvedMaxDistance,
+          geofenceStatusEnabled: site.geofenceStatus !== false,
+        };
+
+        const photoInputs: PhotoInput[] = rawPhotos.map(p => {
+          const hasPoint = p.latitude != null && p.longitude != null;
+          const point = hasPoint ? { latitude: p.latitude as number, longitude: p.longitude as number } : null;
+          const locationName = resolveLocationName(point, p.attendanceMatchedName, sitePosts);
+          const geofenceStatus = computeGeofenceStatus(point, geofenceContext);
+          return {
+            s3Key: p.s3Key,
+            createdAt: p.createdAt,
+            latitude: p.latitude,
+            longitude: p.longitude,
+            locationName,
+            geofenceStatus,
+            chatContent: p.content,
+            attendanceMatchedName: p.attendanceMatchedName,
+          };
+        });
+
         const fetchedPhotos = await timed(`s3:download-photos(count=${photoInputs.length})`, () => fetchPhotos(photoInputs, AbortSignal.timeout(90_000)));
 
         const report = await timed('db:create-report', () => createShiftPhotoReport({
@@ -109,7 +142,6 @@ export class ShiftPhotoReportProcessor {
           fallbackId: report.id,
         });
 
-        const sitePosts = await timed('db:site-posts', () => getActiveSitePosts(siteId));
         const locationSources = await timed('db:location-points', () => getShiftLocationPoints({
           shiftId,
           employeeId,
@@ -122,15 +154,7 @@ export class ShiftPhotoReportProcessor {
           ...locationSources.checkinPoints,
           ...locationSources.chatPoints,
         ];
-        const maxDistanceSetting = await timed('db:system-setting(MAX_CHECKIN_DISTANCE_METERS)', () => getSystemSetting('MAX_CHECKIN_DISTANCE_METERS'));
-        const maxDistanceMeters = parseInt(maxDistanceSetting?.value ?? process.env.MAX_CHECKIN_DISTANCE_METERS ?? '0', 10);
-        const geofenceSummary = summarizeSiteBoundary(geofencePoints, {
-          latitude: site.latitude ?? null,
-          longitude: site.longitude ?? null,
-          sitePosts,
-          maxDistanceMeters: Number.isFinite(maxDistanceMeters) && maxDistanceMeters > 0 ? maxDistanceMeters : 0,
-          geofenceStatusEnabled: site.geofenceStatus !== false,
-        });
+        const geofenceSummary = summarizeSiteBoundary(geofencePoints, geofenceContext);
 
         const metadata = buildReportMetadata({
           reportNumber: report.reportNumber,

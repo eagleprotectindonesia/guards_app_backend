@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import { generatePdf, generateReportFileName, buildReportMetadata } from './generate';
+import { generatePdf, generateReportFileName, buildReportMetadata, buildPhotoEvidenceTitle, buildPhotoEvidenceCaption } from './generate';
 import type { FetchedPhoto } from './fetch-photos';
 
 function makeMetadata(overrides: Partial<Parameters<typeof buildReportMetadata>[0]> = {}) {
@@ -20,6 +20,23 @@ function makeMetadata(overrides: Partial<Parameters<typeof buildReportMetadata>[
     geofenceSummary: 'No GPS records available for this shift.',
     ...overrides,
   });
+}
+
+function makeFetchedPhoto(overrides: Partial<FetchedPhoto> = {}): FetchedPhoto {
+  return {
+    buffer: Buffer.from([]),
+    s3Key: 'test/photo.png',
+    createdAt: new Date('2026-06-15T10:30:00Z'),
+    uploadedAt: new Date('2026-06-15T10:30:31Z'),
+    contentType: 'image/png',
+    latitude: null,
+    longitude: null,
+    locationName: 'On Site',
+    geofenceStatus: 'no-location',
+    chatContent: null,
+    attendanceMatchedName: null,
+    ...overrides,
+  };
 }
 
 function countPdfPages(buffer: Buffer): number {
@@ -45,14 +62,16 @@ describe('generatePdf', () => {
     }).png().toBuffer();
 
     const photos: FetchedPhoto[] = [
-      {
+      makeFetchedPhoto({
         buffer: photoBuffer,
         s3Key: 'test/photo.png',
         createdAt: new Date('2026-06-15T10:30:00Z'),
         contentType: 'image/png',
-        latitude: null,
-        longitude: null,
-      },
+        latitude: -8.655812,
+        longitude: 115.219442,
+        locationName: 'Main Gate',
+        geofenceStatus: 'inside',
+      }),
     ];
 
     const buffer = await generatePdf(metadata, photos);
@@ -120,14 +139,18 @@ describe('generatePdf', () => {
       create: { width: 1, height: 1, channels: 3, background: { r: 255, g: 0, b: 0 } },
     }).png().toBuffer();
 
-    const photos: FetchedPhoto[] = [1, 2, 3].map(i => ({
-      buffer: photoBuffer,
-      s3Key: `test/photo${i}.png`,
-      createdAt: new Date(`2026-06-15T1${i}:00:00Z`),
-      contentType: 'image/png',
-      latitude: null,
-      longitude: null,
-    }));
+    const photos: FetchedPhoto[] = [1, 2, 3].map(i =>
+      makeFetchedPhoto({
+        buffer: photoBuffer,
+        s3Key: `test/photo${i}.png`,
+        createdAt: new Date(`2026-06-15T1${i}:00:00Z`),
+        contentType: 'image/png',
+        latitude: -8.655812,
+        longitude: 115.219442,
+        locationName: 'Main Gate',
+        geofenceStatus: 'inside',
+      }),
+    );
 
     const buffer = await generatePdf(metadata, photos);
     expect(countPdfPages(buffer)).toBe(photos.length + 1);
@@ -149,6 +172,135 @@ describe('generatePdf', () => {
   test('extracts RPTxxxxx from a YYYY-MM-DD-NNNNN reportNumber', async () => {
     const m = makeMetadata({ reportNumber: '2026-06-15-00042' });
     expect(m.reportNumberShort).toBe('RPT00042');
+  });
+});
+
+describe('buildPhotoEvidenceTitle', () => {
+  test('uses the post name and "Location Verified" when coordinates are present', () => {
+    const title = buildPhotoEvidenceTitle({ photoIndex: 1, locationName: 'Main Gate', hasLocation: true });
+    expect(title).toBe('Photo Evidence #1 - Main Gate | Location Verified');
+  });
+
+  test('uses the post name and "Location Unavailable" when coordinates are missing', () => {
+    const title = buildPhotoEvidenceTitle({ photoIndex: 3, locationName: 'Handover Point', hasLocation: false });
+    expect(title).toBe('Photo Evidence #3 - Handover Point | Location Unavailable');
+  });
+
+  test('uses "Main Site" when the site has a single post', () => {
+    const title = buildPhotoEvidenceTitle({ photoIndex: 1, locationName: 'Main Site', hasLocation: true });
+    expect(title).toBe('Photo Evidence #1 - Main Site | Location Verified');
+  });
+});
+
+describe('buildPhotoEvidenceCaption', () => {
+  test('renders the photo-overlay caption with chat content as remarks', () => {
+    const photo = makeFetchedPhoto({
+      createdAt: new Date('2026-06-28T14:39:41Z'),
+      locationName: 'Main Gate',
+      chatContent: 'Front gate secured before shift start.',
+    });
+    const caption = buildPhotoEvidenceCaption(photo, 'Main Gate', 1);
+    expect(caption).toContain('Photo Evidence #1 - Main Gate');
+    expect(caption).toContain('Captured 2026-06-28 22:39:41 WITA');
+    expect(caption).toContain('Front gate secured before shift start.');
+  });
+
+  test('falls back to "Sample visual" when chat content is empty', () => {
+    const photo = makeFetchedPhoto({
+      createdAt: new Date('2026-06-28T14:00:00Z'),
+      locationName: 'Main Gate',
+      chatContent: null,
+    });
+    const caption = buildPhotoEvidenceCaption(photo, 'Main Gate', 1);
+    expect(caption).toContain('Sample visual');
+  });
+
+  test('trims whitespace in the chat content', () => {
+    const photo = makeFetchedPhoto({
+      createdAt: new Date('2026-06-28T14:00:00Z'),
+      locationName: 'Main Gate',
+      chatContent: '   Lots of trailing whitespace   ',
+    });
+    const caption = buildPhotoEvidenceCaption(photo, 'Main Gate', 1);
+    expect(caption).toContain('Lots of trailing whitespace');
+    expect(caption).not.toContain('   Lots');
+  });
+});
+
+describe('generatePdf photo evidence page (render integration)', () => {
+  const metadata = makeMetadata();
+
+  async function makePhotoBuffer(): Promise<Buffer> {
+    return sharp({
+      create: { width: 1, height: 1, channels: 3, background: { r: 255, g: 0, b: 0 } },
+    }).png().toBuffer();
+  }
+
+  test('photo with location generates a valid photo page (cover + photo = 2 pages)', async () => {
+    const photoBuffer = await makePhotoBuffer();
+    const photos: FetchedPhoto[] = [
+      makeFetchedPhoto({
+        buffer: photoBuffer,
+        s3Key: 'evidence/main-gate.png',
+        createdAt: new Date('2026-06-28T14:39:41Z'),
+        contentType: 'image/png',
+        latitude: -8.655812,
+        longitude: 115.219442,
+        locationName: 'Main Gate',
+        geofenceStatus: 'inside',
+        chatContent: 'Front gate secured before shift start.',
+      }),
+    ];
+
+    const buffer = await generatePdf(metadata, photos);
+
+    expect(Buffer.isBuffer(buffer)).toBe(true);
+    expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
+    // Cover page + 1 evidence page = 2 pages
+    expect(countPdfPages(buffer)).toBe(2);
+    // The evidence page is substantially larger than the cover alone because of
+    // the image embed, map widget, and detail table.
+    expect(buffer.length).toBeGreaterThan(4000);
+  });
+
+  test('photo with no coordinates still produces a valid photo page', async () => {
+    const photoBuffer = await makePhotoBuffer();
+    const photos: FetchedPhoto[] = [
+      makeFetchedPhoto({
+        buffer: photoBuffer,
+        s3Key: 'evidence/attendance.png',
+        createdAt: new Date('2026-06-28T14:00:00Z'),
+        contentType: 'image/png',
+        latitude: null,
+        longitude: null,
+        locationName: 'Main Gate',
+        geofenceStatus: 'no-location',
+        attendanceMatchedName: 'Main Gate',
+      }),
+    ];
+
+    const buffer = await generatePdf(metadata, photos);
+    expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
+    expect(countPdfPages(buffer)).toBe(2);
+  });
+
+  test('three photos produce cover + three evidence pages = 4 pages', async () => {
+    const photoBuffer = await makePhotoBuffer();
+    const photos: FetchedPhoto[] = [1, 2, 3].map(i =>
+      makeFetchedPhoto({
+        buffer: photoBuffer,
+        s3Key: `evidence/photo${i}.png`,
+        createdAt: new Date(`2026-06-28T1${i}:00:00Z`),
+        contentType: 'image/png',
+        latitude: -8.655812,
+        longitude: 115.219442,
+        locationName: 'Main Gate',
+        geofenceStatus: 'inside',
+      }),
+    );
+
+    const buffer = await generatePdf(metadata, photos);
+    expect(countPdfPages(buffer)).toBe(4);
   });
 });
 

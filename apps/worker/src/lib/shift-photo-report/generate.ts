@@ -4,6 +4,8 @@ import path from 'path';
 import { buildShiftReportDownloadFilename } from '@repo/shared';
 import type { FetchedPhoto } from './fetch-photos';
 import type { ResolvedPoint } from './aggregate';
+import { geofenceStatusLabel } from './aggregate';
+import { fetchStaticMapPng } from './static-map';
 
 const TZ = 'Asia/Makassar';
 const TZ_LABEL = 'WITA';
@@ -19,6 +21,16 @@ const COLORS = {
   tableBorder: '#D1D5DB',
   watermark: '#E5E7EB',
   statValue: '#0F2E5C',
+  overlayBg: '#111827',
+  overlayBgMuted: 'rgba(0,0,0,0.55)',
+  badgeRed: '#B91C1C',
+  mapFrame: '#E5E7EB',
+  mapFill: '#DEE5DC',
+  mapWater: '#CFE0EE',
+  mapRoad: '#FFFFFF',
+  markerRed: '#D93025',
+  tooltipBg: '#FFFFFF',
+  linkBlue: '#1A73E8',
 };
 
 const PAGE = { width: 595.28, height: 841.89 };
@@ -504,6 +516,314 @@ function drawSectionHeader(doc: PDFKit.PDFDocument, x: number, y: number, totalW
   return nextY + 8;
 }
 
+type PhotoEvidenceParams = {
+  contentWidth: number;
+  metadata: ReportMetadata;
+  photo: FetchedPhoto;
+  photoIndex: number;
+  totalPhotos: number;
+};
+
+async function renderPhotoEvidencePage(
+  doc: PDFKit.PDFDocument,
+  params: PhotoEvidenceParams,
+): Promise<void> {
+  const { contentWidth, metadata, photo, photoIndex } = params;
+
+  const hasLocation = photo.latitude != null && photo.longitude != null;
+  const locationName = photo.locationName || 'On Site';
+
+  // ── Title row ──
+  const titleY = MARGIN.top;
+  const titleText = buildPhotoEvidenceTitle({ photoIndex, locationName, hasLocation });
+  doc.fontSize(14).font('Helvetica-Bold').fillColor(COLORS.navy);
+  doc.text(titleText, MARGIN.left, titleY, { width: contentWidth, lineBreak: false });
+  const ruleY = titleY + 20;
+  doc.save();
+  doc.strokeColor(COLORS.tableBorder).lineWidth(0.5);
+  doc.moveTo(MARGIN.left, ruleY).lineTo(MARGIN.left + contentWidth, ruleY).stroke();
+  doc.restore();
+
+  // ── Two-column body: image (left) | map (right) ──
+  const gap = 10;
+  const leftW = (contentWidth - gap) * 0.58;
+  const rightW = contentWidth - leftW - gap;
+  const bodyY = ruleY + 8;
+  const maxBodyH = 320;
+  const bodyH = maxBodyH;
+
+  const leftX = MARGIN.left;
+  const rightX = leftX + leftW + gap;
+
+  // Left: image with overlay strip
+  drawImageWithOverlay(doc, {
+    x: leftX,
+    y: bodyY,
+    w: leftW,
+    h: bodyH,
+    photo,
+    photoIndex,
+    locationName,
+    metadata,
+  });
+
+  // Right: map (real or placeholder)
+  if (hasLocation) {
+    const mapPng = await fetchStaticMapPng({
+      lat: photo.latitude!,
+      lng: photo.longitude!,
+      width: rightW,
+      height: bodyH,
+    });
+    drawMapColumn(doc, {
+      x: rightX,
+      y: bodyY,
+      w: rightW,
+      h: bodyH,
+      photo,
+      mapPng,
+    });
+  } else {
+    drawMapUnavailable(doc, rightX, bodyY, rightW, bodyH);
+  }
+
+  // ── Detail table ──
+  const tableY = bodyY + bodyH + 12;
+  const tableH = 22;
+  drawTable(doc, MARGIN.left, tableY, contentWidth, buildPhotoEvidenceRows(photo, metadata, locationName), tableH);
+}
+
+function buildPhotoEvidenceRows(photo: FetchedPhoto, metadata: ReportMetadata, locationName: string): CellSpec[][] {
+  const hasLocation = photo.latitude != null && photo.longitude != null;
+  const lat = photo.latitude != null ? photo.latitude.toFixed(6) : '-';
+  const lng = photo.longitude != null ? photo.longitude.toFixed(6) : '-';
+  const coordinates = hasLocation ? `${lat}, ${lng}` : '-';
+  const capturedAt = formatTZ(photo.createdAt);
+  const uploadedAt = photo.uploadedAt ? formatTZ(photo.uploadedAt) : capturedAt;
+  const remarks = photo.chatContent && photo.chatContent.trim().length > 0 ? photo.chatContent.trim() : '-';
+  const geofence = geofenceStatusLabel(photo.geofenceStatus);
+
+  return [
+    [
+      { text: 'Captured At', width: 140, bold: true, bg: COLORS.labelBg },
+      { text: capturedAt, width: contentWidthOf(140) },
+    ],
+    [
+      { text: 'Uploaded At', width: 140, bold: true, bg: COLORS.labelBg },
+      { text: uploadedAt, width: contentWidthOf(140) },
+    ],
+    [
+      { text: 'Location Name', width: 140, bold: true, bg: COLORS.labelBg },
+      { text: locationName, width: contentWidthOf(140) },
+    ],
+    [
+      { text: 'Latitude', width: 140, bold: true, bg: COLORS.labelBg },
+      { text: lat, width: contentWidthOf(140) },
+    ],
+    [
+      { text: 'Longitude', width: 140, bold: true, bg: COLORS.labelBg },
+      { text: lng, width: contentWidthOf(140) },
+    ],
+    [
+      { text: 'Coordinates', width: 140, bold: true, bg: COLORS.labelBg },
+      { text: coordinates, width: contentWidthOf(140) },
+    ],
+    [
+      { text: 'Geofence Status', width: 140, bold: true, bg: COLORS.labelBg },
+      { text: geofence, width: contentWidthOf(140) },
+    ],
+    [
+      { text: 'Remarks', width: 140, bold: true, bg: COLORS.labelBg },
+      { text: remarks, width: contentWidthOf(140) },
+    ],
+  ];
+}
+
+export function buildPhotoEvidenceTitle(params: {
+  photoIndex: number;
+  locationName: string;
+  hasLocation: boolean;
+}): string {
+  const { photoIndex, locationName, hasLocation } = params;
+  const statusSuffix = hasLocation ? 'Location Verified' : 'Location Unavailable';
+  return `Photo Evidence #${photoIndex} - ${locationName} | ${statusSuffix}`;
+}
+
+export function buildPhotoEvidenceCaption(photo: FetchedPhoto, locationName: string, photoIndex: number): string {
+  const remarks = photo.chatContent && photo.chatContent.trim().length > 0
+    ? photo.chatContent.trim()
+    : 'Sample visual';
+  const subText = `Captured ${formatTZ(photo.createdAt)} WITA | ${remarks}`;
+  return `Photo Evidence #${photoIndex} - ${locationName} | ${subText}`;
+}
+
+// Helper: width of the value cell so the row spans the full content width.
+// contentWidth is captured by drawTable at call time, so we recompute here
+// from the constant 140 label width.
+function contentWidthOf(labelWidth: number): number {
+  return (PAGE.width - MARGIN.left - MARGIN.right) - labelWidth;
+}
+
+function drawImageWithOverlay(
+  doc: PDFKit.PDFDocument,
+  p: {
+    x: number; y: number; w: number; h: number;
+    photo: FetchedPhoto;
+    photoIndex: number;
+    locationName: string;
+    metadata: ReportMetadata;
+  },
+): void {
+  const { x, y, w, h, photo, photoIndex, locationName, metadata } = p;
+
+  // Background frame so the cell looks intentional even if the image fails
+  doc.save();
+  doc.fillColor('#1F2937').rect(x, y, w, h).fill();
+  doc.restore();
+
+  let imagePlaced = true;
+  try {
+    doc.image(photo.buffer, x, y, { fit: [w, h], align: 'center', valign: 'center' });
+  } catch (err) {
+    imagePlaced = false;
+    console.warn(`[ShiftPhotoReport] Failed to embed image ${photo.s3Key}:`, err);
+  }
+  if (!imagePlaced) {
+    doc.fontSize(11).font('Helvetica').fillColor('#F3F4F6');
+    doc.text('[Image not available]', x, y + h / 2 - 6, { width: w, align: 'center', lineBreak: false });
+    doc.fillColor(COLORS.text);
+  }
+
+  // Bottom overlay strip (dark, ~50pt tall) with caption
+  const overlayH = 50;
+  const overlayY = y + h - overlayH;
+  doc.save();
+  doc.fillColor(COLORS.overlayBg).rect(x, overlayY, w, overlayH).fill();
+  doc.restore();
+
+  doc.fontSize(10).font('Helvetica-Bold').fillColor('#FFFFFF');
+  doc.text(
+    `Photo Evidence #${photoIndex} - ${locationName}`,
+    x + 10,
+    overlayY + 8,
+    { width: w - 20, lineBreak: false, ellipsis: true },
+  );
+  doc.fontSize(8.5).font('Helvetica').fillColor('#E5E7EB');
+  const remarks = photo.chatContent && photo.chatContent.trim().length > 0
+    ? photo.chatContent.trim()
+    : 'Sample visual';
+  const subText = `Captured ${formatTZ(photo.createdAt)} WITA | ${remarks}`;
+  doc.text(subText, x + 10, overlayY + 26, { width: w - 20, lineBreak: false, ellipsis: true });
+
+  // "EP APP" badge in the top-right
+  const badgeW = 50;
+  const badgeH = 16;
+  const badgeX = x + w - badgeW - 8;
+  const badgeY = y + 8;
+  doc.save();
+  doc.fillColor(COLORS.badgeRed).strokeColor('#7F1D1D').lineWidth(0.5);
+  doc.roundedRect(badgeX, badgeY, badgeW, badgeH, 3).fillAndStroke();
+  doc.restore();
+  doc.fontSize(8).font('Helvetica-Bold').fillColor('#FFFFFF');
+  doc.text('EP APP', badgeX, badgeY + 4, { width: badgeW, align: 'center', lineBreak: false });
+
+  // Restore default fill
+  doc.fillColor(COLORS.text);
+  // Reference to metadata kept to satisfy linter for any future use
+  void metadata;
+}
+
+function drawMapColumn(
+  doc: PDFKit.PDFDocument,
+  p: { x: number; y: number; w: number; h: number; photo: FetchedPhoto; mapPng: Buffer | null },
+): void {
+  const { x, y, w, h, photo, mapPng } = p;
+
+  // Map frame border
+  doc.save();
+  doc.fillColor(COLORS.mapFill).rect(x, y, w, h).fill();
+  doc.strokeColor(COLORS.mapFrame).lineWidth(0.5).rect(x, y, w, h).stroke();
+  doc.restore();
+
+  if (mapPng) {
+    try {
+      doc.image(mapPng, x, y, { fit: [w, h], align: 'center', valign: 'center' });
+    } catch (err) {
+      console.warn('[ShiftPhotoReport] Failed to embed static map PNG:', err);
+      drawMapPlaceholderRoads(doc, x, y, w, h);
+    }
+  } else {
+    drawMapPlaceholderRoads(doc, x, y, w, h);
+  }
+
+  // Red marker dot in the center
+  const markerR = 5;
+  const markerX = x + w / 2 - markerR;
+  const markerY = y + h / 2 - markerR;
+  doc.save();
+  doc.fillColor(COLORS.markerRed).strokeColor('#7F1D1D').lineWidth(0.5);
+  doc.circle(markerX + markerR, markerY + markerR, markerR).fillAndStroke();
+  doc.restore();
+
+  // "GPS location verified" tooltip (top-left of map)
+  const tooltipW = Math.min(w - 16, 150);
+  const tooltipH = 24;
+  const tooltipX = x + 8;
+  const tooltipY = y + 8;
+  doc.save();
+  doc.fillColor(COLORS.tooltipBg).strokeColor(COLORS.tableBorder).lineWidth(0.5);
+  doc.roundedRect(tooltipX, tooltipY, tooltipW, tooltipH, 3).fillAndStroke();
+  doc.restore();
+  doc.fontSize(8).font('Helvetica-Bold').fillColor(COLORS.navy);
+  doc.text('GPS location verified', tooltipX + 6, tooltipY + 4, { width: tooltipW - 12, lineBreak: false, ellipsis: true });
+  const coordsText = photo.latitude != null && photo.longitude != null
+    ? `${photo.latitude.toFixed(6)}, ${photo.longitude.toFixed(6)}`
+    : '';
+  doc.fontSize(7).font('Helvetica').fillColor(COLORS.textMuted);
+  doc.text(coordsText, tooltipX + 6, tooltipY + 14, { width: tooltipW - 12, lineBreak: false, ellipsis: true });
+
+  // "Map Preview" tag (top-right)
+  const tagW = 60;
+  const tagH = 14;
+  const tagX = x + w - tagW - 8;
+  const tagY = y + 8;
+  doc.save();
+  doc.fillColor(COLORS.tooltipBg).strokeColor(COLORS.tableBorder).lineWidth(0.5);
+  doc.roundedRect(tagX, tagY, tagW, tagH, 3).fillAndStroke();
+  doc.restore();
+  doc.fontSize(7).font('Helvetica-Bold').fillColor(COLORS.textMuted);
+  doc.text('Map Preview', tagX, tagY + 3, { width: tagW, align: 'center', lineBreak: false });
+
+  // "Open location in Google Maps" link below the map
+  if (photo.latitude != null && photo.longitude != null) {
+    const mapsUrl = `https://maps.google.com/?q=${photo.latitude},${photo.longitude}`;
+    const linkY = y + h + 4;
+    doc.fontSize(9).font('Helvetica').fillColor(COLORS.linkBlue);
+    doc.text('Open location in Google Maps', x, linkY, { width: w, lineBreak: false, link: mapsUrl, underline: true });
+    doc.fillColor(COLORS.text);
+  }
+}
+
+function drawMapUnavailable(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number): void {
+  doc.save();
+  doc.fillColor('#F3F4F6').strokeColor(COLORS.tableBorder).lineWidth(0.5);
+  doc.rect(x, y, w, h).fillAndStroke();
+  doc.restore();
+  doc.fontSize(11).font('Helvetica-Bold').fillColor(COLORS.textMuted);
+  doc.text('Location not recorded', x, y + h / 2 - 8, { width: w, align: 'center', lineBreak: false });
+}
+
+function drawMapPlaceholderRoads(doc: PDFKit.PDFDocument, x: number, y: number, w: number, h: number): void {
+  doc.save();
+  doc.strokeColor(COLORS.mapRoad).lineWidth(1);
+  // a few stylized diagonal "roads" so the fallback map doesn't look empty
+  doc.moveTo(x, y + h * 0.3).lineTo(x + w, y + h * 0.2).stroke();
+  doc.moveTo(x + w * 0.2, y).lineTo(x + w * 0.35, y + h).stroke();
+  doc.moveTo(x + w * 0.7, y).lineTo(x + w * 0.55, y + h).stroke();
+  doc.moveTo(x, y + h * 0.7).lineTo(x + w, y + h * 0.85).stroke();
+  doc.restore();
+}
+
 export async function generatePdf(
   metadata: ReportMetadata,
   photos: FetchedPhoto[],
@@ -571,68 +891,36 @@ export async function generatePdf(
     drawTable(doc, MARGIN.left, yCursor, contentWidth, buildLocationVerificationRows(metadata), 22);
 
     // ── Photo Pages ──
-    if (photos.length === 0) {
-      doc.addPage();
-      doc.fontSize(16).font('Helvetica-Bold').fillColor(COLORS.navy);
-      doc.text('No photo evidence submitted during this shift.', MARGIN.left, doc.page.height / 2 - 20, {
-        align: 'center',
-        width: contentWidth,
-      });
-    } else {
-      for (const photo of photos) {
-        doc.addPage();
-
-        const topY = HEADER_HEIGHT + 18;
-        const maxImageH = doc.page.height - topY - FOOTER_HEIGHT - 90;
-
-        try {
-          doc.image(photo.buffer, MARGIN.left, topY, {
-            fit: [contentWidth, maxImageH],
+    (async () => {
+      try {
+        if (photos.length === 0) {
+          doc.addPage();
+          doc.fontSize(16).font('Helvetica-Bold').fillColor(COLORS.navy);
+          doc.text('No photo evidence submitted during this shift.', MARGIN.left, doc.page.height / 2 - 20, {
             align: 'center',
-          });
-        } catch (err) {
-          console.warn(`[ShiftPhotoReport] Failed to embed image ${photo.s3Key}:`, err);
-          doc.fontSize(12).font('Helvetica').fillColor(COLORS.text);
-          doc.text('[Image not available]', MARGIN.left, topY);
-        }
-
-        // Caption: 3 lines. With `lineBreak: false`, PDFKit does NOT advance
-        // doc.y past the input y, so we must use absolute y for each line
-        // and pick a line height that gives a visible gap.
-        const captionY = doc.page.height - FOOTER_HEIGHT - 76;
-        const captionLineH = 12;
-
-        doc.fontSize(9).font('Helvetica-Bold').fillColor(COLORS.text);
-        doc.text(
-          `Guard: ${metadata.guardName}  |  Employee No: ${metadata.employeeNumber}  |  Site: ${metadata.siteName}`,
-          MARGIN.left,
-          captionY,
-          { width: contentWidth, lineBreak: false },
-        );
-
-        doc.fontSize(9).font('Helvetica').fillColor(COLORS.text);
-        doc.text(`Date & Time: ${formatTZ(photo.createdAt)}`, MARGIN.left, captionY + captionLineH, {
-          width: contentWidth,
-          lineBreak: false,
-        });
-
-        if (photo.latitude != null && photo.longitude != null) {
-          const mapsUrl = `https://maps.google.com/?q=${photo.latitude},${photo.longitude}`;
-          const locationText = `Location: ${photo.latitude.toFixed(6)}, ${photo.longitude.toFixed(6)}`;
-          doc.fillColor('blue');
-          doc.text(locationText, MARGIN.left, captionY + captionLineH * 2, {
             width: contentWidth,
-            lineBreak: false,
-            link: mapsUrl,
-            underline: true,
           });
-          doc.fillColor(COLORS.text);
-        }
-      }
-    }
+        } else {
+          for (let i = 0; i < photos.length; i++) {
+            const photo = photos[i]!;
+            const photoIndex = i + 1;
+            doc.addPage();
 
-    doc.fillColor(COLORS.text);
-    doc.end();
+            await renderPhotoEvidencePage(doc, {
+              contentWidth,
+              metadata,
+              photo,
+              photoIndex,
+              totalPhotos: photos.length,
+            });
+          }
+        }
+        doc.fillColor(COLORS.text);
+        doc.end();
+      } catch (err) {
+        doc.destroy(err instanceof Error ? err : new Error(String(err)));
+      }
+    })();
   });
 
   return withSignal(pdfPromise, signal);

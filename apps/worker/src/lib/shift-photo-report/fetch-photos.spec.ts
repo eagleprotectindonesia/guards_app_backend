@@ -1,5 +1,4 @@
 import sharp from 'sharp';
-import { Readable } from 'stream';
 
 const mockSend = jest.fn();
 
@@ -22,8 +21,22 @@ function mockS3Response(body: Buffer | null, contentType?: string) {
   };
 }
 
+function makePhotoInput(overrides: Partial<PhotoInput> = {}): PhotoInput {
+  return {
+    s3Key: 'test/photo.jpg',
+    createdAt: new Date(),
+    latitude: null,
+    longitude: null,
+    locationName: 'On Site',
+    geofenceStatus: 'no-location',
+    chatContent: null,
+    attendanceMatchedName: null,
+    ...overrides,
+  };
+}
+
 describe('fetchPhotos', () => {
-  const singleInput: PhotoInput[] = [{ s3Key: 'test/photo1.jpg', createdAt: new Date(), latitude: null, longitude: null }];
+  const singleInput: PhotoInput[] = [makePhotoInput({ s3Key: 'test/photo1.jpg' })];
 
   beforeEach(() => {
     mockSend.mockReset();
@@ -88,9 +101,9 @@ describe('fetchPhotos', () => {
 
   test('returns photos filtered by Promise.allSettled rejection', async () => {
     const inputs: PhotoInput[] = [
-      { s3Key: 'test/good.jpg', createdAt: new Date(), latitude: null, longitude: null },
-      { s3Key: 'test/bad.jpg', createdAt: new Date(), latitude: null, longitude: null },
-      { s3Key: 'test/ugly.jpg', createdAt: new Date(), latitude: null, longitude: null },
+      makePhotoInput({ s3Key: 'test/good.jpg' }),
+      makePhotoInput({ s3Key: 'test/bad.jpg' }),
+      makePhotoInput({ s3Key: 'test/ugly.jpg' }),
     ];
 
     mockSend
@@ -128,7 +141,7 @@ describe('fetchPhotos', () => {
       ContentType: 'image/webp',
     });
 
-    const result = await fetchPhotos([{ s3Key: 'test/large.webp', createdAt: new Date(), latitude: null, longitude: null }]);
+    const result = await fetchPhotos([makePhotoInput({ s3Key: 'test/large.webp' })]);
 
     expect(mockSend).toHaveBeenCalledTimes(1);
     expect(result).toHaveLength(1);

@@ -220,3 +220,80 @@ export function summarizeSiteBoundary(points: LocationPoint[], site: BoundarySit
   }
   return `${outside} of ${points.length} GPS records are outside the expected site boundary.`;
 }
+
+export type GeofenceResultLabel =
+  | 'inside'
+  | 'outside'
+  | 'disabled'
+  | 'unconfigured'
+  | 'no-location';
+
+export type GeofenceContext = {
+  latitude: number | null;
+  longitude: number | null;
+  sitePosts: SitePost[];
+  maxDistanceMeters: number;
+  geofenceStatusEnabled: boolean;
+};
+
+/**
+ * Per-photo geofence check used by the photo evidence page. Mirrors the
+ * candidate-pool rules from `summarizeSiteBoundary`, but returns a discrete
+ * label so the PDF table can render the result as a fixed string.
+ */
+export function computeGeofenceStatus(
+  point: LatLng | null,
+  site: GeofenceContext,
+): GeofenceResultLabel {
+  if (!point) return 'no-location';
+  if (!site.geofenceStatusEnabled) return 'disabled';
+
+  const candidates: LatLng[] = site.sitePosts.length > 0
+    ? site.sitePosts.map(p => ({ latitude: p.latitude, longitude: p.longitude }))
+    : site.latitude != null && site.longitude != null
+      ? [{ latitude: site.latitude, longitude: site.longitude }]
+      : [];
+
+  if (candidates.length === 0) return 'unconfigured';
+  if (!Number.isFinite(site.maxDistanceMeters) || site.maxDistanceMeters <= 0) return 'unconfigured';
+
+  let nearest = Number.POSITIVE_INFINITY;
+  for (const c of candidates) {
+    const d = haversineMeters(point, c);
+    if (d < nearest) nearest = d;
+  }
+  return nearest <= site.maxDistanceMeters ? 'inside' : 'outside';
+}
+
+export function geofenceStatusLabel(status: GeofenceResultLabel): string {
+  switch (status) {
+    case 'inside': return 'Inside assigned site boundary';
+    case 'outside': return 'Outside assigned site boundary';
+    case 'disabled': return 'Geofence monitoring disabled for this site.';
+    case 'unconfigured': return 'Site geofence coordinates are not configured.';
+    case 'no-location': return '-';
+  }
+}
+
+/**
+ * Resolves the human-readable location name for a photo:
+ *   1. If the site has exactly one SitePost → "Main Site" (the post is the whole site).
+ *   2. If the photo carries coordinates → nearest SitePost name, else "On Site".
+ *   3. If there's no point, fall back to the attendance's stored `matchedLocation.name`.
+ *   4. Final fallback: "On Site".
+ */
+export function resolveLocationName(
+  point: LatLng | null,
+  attendanceMatchedName: string | null,
+  sitePosts: SitePost[],
+): string {
+  if (sitePosts.length === 1) return 'Main Site';
+  if (point) {
+    const name = nearestPointName(point, sitePosts);
+    if (name) return name;
+  }
+  if (attendanceMatchedName && attendanceMatchedName.trim().length > 0) {
+    return attendanceMatchedName.trim();
+  }
+  return 'On Site';
+}
