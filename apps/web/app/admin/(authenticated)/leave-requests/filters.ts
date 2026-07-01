@@ -32,14 +32,14 @@ export type LeaveRequestSortField = (typeof ALLOWED_LEAVE_SORT_FIELDS)[number];
 
 export function parseStatusesParam(rawStatuses: string | string[] | undefined): LeaveRequestStatus[] {
   const raw = Array.isArray(rawStatuses) ? rawStatuses[0] : rawStatuses;
-  if (!raw) return ALLOWED_LEAVE_STATUSES;
+  if (!raw) return [];
 
   const parsed = raw
     .split(',')
     .map(value => value.trim())
     .filter((status): status is LeaveRequestStatus => ALLOWED_LEAVE_STATUSES.includes(status as LeaveRequestStatus));
 
-  return parsed.length > 0 ? parsed : ALLOWED_LEAVE_STATUSES;
+  return parsed.length > 0 ? parsed : [];
 }
 
 export function parseReasonsParam(rawReasons: string | string[] | undefined): LeaveRequestReason[] {

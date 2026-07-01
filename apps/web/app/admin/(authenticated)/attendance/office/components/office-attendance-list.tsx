@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, Eye, Filter, Hotel, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Clock, Eye, Hotel, Loader2 } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import {
   AttendanceOfficeSummary,
@@ -13,9 +13,9 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import PaginationNav from '../../../components/pagination-nav';
 import OfficeAttendanceExport from './office-attendance-export';
-import AttendanceFilterModal from '../../components/attendance-filter-modal';
 import SortableHeader from '@/components/sortable-header';
 import { useAdminRouter } from '../../../context/admin-router';
+import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../../components/filters';
 
 function buildLocationSummary(metadata: OfficeAttendanceMetadataDto | null) {
   if (!metadata?.location) return '-';
@@ -56,7 +56,35 @@ export default function OfficeAttendanceList({
 }: OfficeAttendanceListProps) {
   const router = useAdminRouter();
   const searchParams = useSearchParams();
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const { apply } = useFilterUrlSync('');
+
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(
+    initialFilters.startDate ? parseISO(initialFilters.startDate) : undefined
+  );
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(
+    initialFilters.endDate ? parseISO(initialFilters.endDate) : undefined
+  );
+  const [filterEmployeeNumber, setFilterEmployeeNumber] = useState(initialFilters.employeeNumber || '');
+
+  const handleApplyFilters = () => {
+    apply({
+      from: filterStartDate ? format(filterStartDate, 'yyyy-MM-dd') : null,
+      to: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : null,
+      employeeNumber: filterEmployeeNumber || null,
+    });
+  };
+
+  const handleClearFilters = () => {
+    setFilterStartDate(undefined);
+    setFilterEndDate(undefined);
+    setFilterEmployeeNumber('');
+    apply({
+      from: null,
+      to: null,
+      employeeNumber: null,
+    });
+  };
+
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [previewLabel, setPreviewLabel] = useState<string>('Attendance Photo');
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
@@ -107,32 +135,6 @@ export default function OfficeAttendanceList({
     router.push(`?${params.toString()}`);
   };
 
-  const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeNumber: string }) => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    params.set('page', '1');
-
-    if (filters.startDate) {
-      params.set('from', format(filters.startDate, 'yyyy-MM-dd'));
-    } else {
-      params.delete('from');
-    }
-
-    if (filters.endDate) {
-      params.set('to', format(filters.endDate, 'yyyy-MM-dd'));
-    } else {
-      params.delete('to');
-    }
-
-    if (filters.employeeNumber) {
-      params.set('employeeNumber', filters.employeeNumber);
-    } else {
-      params.delete('employeeNumber');
-    }
-
-    router.push(`?${params.toString()}`);
-  };
-
   return (
     <div>
       {/* Header Section */}
@@ -142,16 +144,30 @@ export default function OfficeAttendanceList({
           <p className="text-sm text-muted-foreground mt-1">View office employee attendance sessions.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsFilterOpen(true)}
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm"
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            Filter
-          </button>
           <OfficeAttendanceExport offices={offices} />
         </div>
       </div>
+
+      {/* Filters */}
+      <FilterBar onApply={handleApplyFilters} onClear={handleClearFilters}>
+        <DateRangeFilter
+          from={filterStartDate}
+          to={filterEndDate}
+          onChange={(from, to) => {
+            setFilterStartDate(from);
+            setFilterEndDate(to);
+          }}
+        />
+        <SelectFilter
+          label="Employee"
+          value={filterEmployeeNumber}
+          options={employees.map(e => ({ value: e.employeeNumber || e.id, label: e.fullName }))}
+          onChange={setFilterEmployeeNumber}
+          id="filter-employee"
+          instanceId="filter-employee"
+          allLabel="All Employees"
+        />
+      </FilterBar>
 
       {/* Table Section */}
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
@@ -323,15 +339,6 @@ export default function OfficeAttendanceList({
       </div>
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
-
-      <AttendanceFilterModal
-        title="Filter Office Attendance"
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        onApply={handleApplyFilters}
-        initialFilters={initialFilters}
-        employees={employees}
-      />
 
       <Dialog open={Boolean(previewImageUrl) || Boolean(previewError)} onOpenChange={open => !open && (setPreviewImageUrl(null), setPreviewError(null))}>
         <DialogContent className="sm:max-w-4xl p-4">

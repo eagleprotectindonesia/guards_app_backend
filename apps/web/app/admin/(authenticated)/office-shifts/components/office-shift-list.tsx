@@ -5,10 +5,9 @@ import type { Serialized } from '@/lib/server-utils';
 import { bulkDeleteOfficeShifts, cancelOfficeShift, deleteOfficeShift } from '../actions';
 import PaginationNav from '../../components/pagination-nav';
 import OfficeBulkCreateModal from './office-bulk-create-modal';
-import OfficeShiftFilterModal from './office-shift-filter-modal';
 import { EditButton, DeleteButton } from '../../components/action-buttons';
 import toast from 'react-hot-toast';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import { Upload, History } from 'lucide-react';
 import { useSession } from '../../context/session-context';
@@ -19,6 +18,7 @@ import SortableHeader from '@/components/sortable-header';
 import OfficeShiftExport from './office-shift-export';
 import { useAdminRouter } from '../../context/admin-router';
 import { AdminNavLink } from '../../components/admin-nav-link';
+import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
 
 type Props = {
   officeShifts: Serialized<OfficeShiftWithRelationsDto>[];
@@ -53,7 +53,6 @@ export default function OfficeShiftList({
   const searchParams = useSearchParams();
   const { hasPermission, isSuperAdmin } = useSession();
 
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(searchParams.get('bulk') === 'true');
   const [selectedOfficeShiftId, setSelectedOfficeShiftId] = useState<string | null>(null);
   const [selectedOfficeShiftIds, setSelectedOfficeShiftIds] = useState<Set<string>>(new Set());
@@ -64,6 +63,16 @@ export default function OfficeShiftList({
   const canEdit = hasPermission(PERMISSIONS.OFFICE_SHIFTS.EDIT);
   const canDelete = hasPermission(PERMISSIONS.OFFICE_SHIFTS.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.OFFICE_SHIFTS.VIEW) && hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
+  const { apply } = useFilterUrlSync('/admin/office-shifts');
+
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(
+    startDate ? parseISO(startDate) : undefined
+  );
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(
+    endDate ? parseISO(endDate) : undefined
+  );
+  const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
+  const [filterDepartment, setFilterDepartment] = useState(department || '');
 
   const handleDeleteClick = (id: string) => setSelectedOfficeShiftId(id);
 
@@ -146,47 +155,27 @@ export default function OfficeShiftList({
     });
   };
 
-  const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date; employeeId: string; department: string }) => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    if (filters.startDate) {
-      params.set('startDate', format(filters.startDate, 'yyyy-MM-dd'));
-    } else {
-      params.set('startDate', '');
-    }
-
-    if (filters.endDate) {
-      params.set('endDate', format(filters.endDate, 'yyyy-MM-dd'));
-    } else {
-      params.delete('endDate');
-    }
-
-    if (filters.employeeId) {
-      params.set('employeeId', filters.employeeId);
-    } else {
-      params.delete('employeeId');
-    }
-
-    if (filters.department) {
-      params.set('department', filters.department);
-    } else {
-      params.delete('department');
-    }
-
-    if (sortBy) {
-      params.set('sortBy', sortBy);
-    }
-
-    if (sortOrder) {
-      params.set('sortOrder', sortOrder);
-    }
-
-    params.set('page', '1');
-    const href = `/admin/office-shifts?${params.toString()}`;
-    router.push(href);
+  const handleApplyFilters = () => {
+    apply({
+      startDate: filterStartDate ? format(filterStartDate, 'yyyy-MM-dd') : '',
+      endDate: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : null,
+      employeeId: filterEmployeeId || null,
+      department: filterDepartment || null,
+    });
   };
 
-  const activeFiltersCount = [startDate, endDate, employeeId, department].filter(Boolean).length;
+  const handleClearFilters = () => {
+    setFilterStartDate(undefined);
+    setFilterEndDate(undefined);
+    setFilterEmployeeId('');
+    setFilterDepartment('');
+    apply({
+      startDate: '',
+      endDate: null,
+      employeeId: null,
+      department: null,
+    });
+  };
 
   return (
     <div>
@@ -211,29 +200,6 @@ export default function OfficeShiftList({
             endpoint="/api/admin/office-shifts/export"
             title="Export Office Shifts"
           />
-          <button
-            onClick={() => setIsFilterOpen(true)}
-            className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
-              activeFiltersCount > 0
-                ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400'
-                : ''
-            }`}
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-              />
-            </svg>
-            Filters
-            {activeFiltersCount > 0 && (
-              <span className="ml-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full text-xs">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
           {canCreate && (
             <button
               onClick={() => setIsBulkCreateOpen(true)}
@@ -263,6 +229,38 @@ export default function OfficeShiftList({
           )}
         </div>
       </div>
+
+      {/* Filters */}
+      <FilterBar onApply={handleApplyFilters} onClear={handleClearFilters}>
+        <DateRangeFilter
+          from={filterStartDate}
+          to={filterEndDate}
+          onChange={(from, to) => {
+            setFilterStartDate(from);
+            setFilterEndDate(to);
+          }}
+        />
+        <SelectFilter
+          label="Site"
+          value={filterEmployeeId}
+          options={employees.map(e => ({ value: e.id, label: e.fullName }))}
+          onChange={setFilterEmployeeId}
+          id="filter-employee"
+          instanceId="filter-employee"
+          allLabel="All Employees"
+        />
+        {departments.length > 0 && (
+          <SelectFilter
+            label="Department"
+            value={filterDepartment}
+            options={departments.map(d => ({ value: d, label: d }))}
+            onChange={setFilterDepartment}
+            id="filter-department"
+            instanceId="filter-department"
+            allLabel="All Departments"
+          />
+        )}
+      </FilterBar>
 
       {/* Table Section */}
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
@@ -413,22 +411,6 @@ export default function OfficeShiftList({
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
 
       {/* Dialogs */}
-      {isFilterOpen && (
-        <OfficeShiftFilterModal
-          isOpen={isFilterOpen}
-          onClose={() => setIsFilterOpen(false)}
-          onApply={handleApplyFilter}
-          initialFilters={{
-            startDate,
-            endDate,
-            employeeId,
-            department,
-          }}
-          employees={employees}
-          departments={departments}
-        />
-      )}
-
       <OfficeBulkCreateModal isOpen={isBulkCreateOpen} onClose={() => setIsBulkCreateOpen(false)} />
 
       {selectedOfficeShiftId && (

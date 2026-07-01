@@ -40,6 +40,8 @@ export default function SelectFilter({
         onChange={selectedOption => onChange(selectedOption ? selectedOption.value : '')}
         placeholder={placeholder || 'All'}
         isClearable={false}
+        menuPlacement="auto"
+        menuPosition="fixed"
       />
     </div>
   );

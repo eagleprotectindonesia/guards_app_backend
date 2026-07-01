@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import type { EmployeeSummary } from '@repo/database';
 import PaginationNav from '../../components/pagination-nav';
-import OfficeShiftFilterModal from '../../office-shifts/components/office-shift-filter-modal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import OfficeShiftExport from '../../office-shifts/components/office-shift-export';
+import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
 
 type OnsiteDayOff = {
   id: string;
@@ -31,7 +31,34 @@ export default function OnsiteDayOffList({ startDate, endDate, employeeId, emplo
   const searchParams = useSearchParams();
   const [dayOffs, setDayOffs] = useState<OnsiteDayOff[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const { apply } = useFilterUrlSync('/admin/guard-shifts/day-offs');
+
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(
+    startDate ? parseISO(startDate) : undefined
+  );
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(
+    endDate ? parseISO(endDate) : undefined
+  );
+  const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
+
+  const handleApplyFilters = () => {
+    apply({
+      startDate: filterStartDate ? format(filterStartDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+      endDate: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : null,
+      employeeId: filterEmployeeId || null,
+    });
+  };
+
+  const handleClearFilters = () => {
+    setFilterStartDate(undefined);
+    setFilterEndDate(undefined);
+    setFilterEmployeeId('');
+    apply({
+      startDate: format(new Date(), 'yyyy-MM-dd'),
+      endDate: null,
+      employeeId: null,
+    });
+  };
 
   useEffect(() => {
     if (!startDate) return;
@@ -51,33 +78,6 @@ export default function OnsiteDayOffList({ startDate, endDate, employeeId, emplo
         // Silently handle errors
       });
   }, [startDate, endDate, employeeId]);
-
-  const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    if (filters.startDate) {
-      params.set('startDate', format(filters.startDate, 'yyyy-MM-dd'));
-    } else {
-      params.set('startDate', format(new Date(), 'yyyy-MM-dd'));
-    }
-
-    if (filters.endDate) {
-      params.set('endDate', format(filters.endDate, 'yyyy-MM-dd'));
-    } else {
-      params.delete('endDate');
-    }
-
-    if (filters.employeeId) {
-      params.set('employeeId', filters.employeeId);
-    } else {
-      params.delete('employeeId');
-    }
-
-    params.set('page', '1');
-    router.push(`/admin/guard-shifts/day-offs?${params.toString()}`);
-  };
-
-  const activeFiltersCount = [startDate, endDate, employeeId].filter(Boolean).length;
 
   const dayOffsByDate = new Map<string, OnsiteDayOff[]>();
   dayOffs.forEach(dayOff => {
@@ -101,18 +101,29 @@ export default function OnsiteDayOffList({ startDate, endDate, employeeId, emplo
         </div>
         <div className="flex gap-2">
           <OfficeShiftExport endpoint="/api/admin/shifts/day-offs/export" title="Export Employee Days Off" />
-          <button
-            onClick={() => setIsFilterOpen(true)}
-            className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
-              activeFiltersCount > 0
-                ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400'
-                : ''
-            }`}
-          >
-            Filters
-          </button>
         </div>
       </div>
+
+      {/* Filters */}
+      <FilterBar onApply={handleApplyFilters} onClear={handleClearFilters}>
+        <DateRangeFilter
+          from={filterStartDate}
+          to={filterEndDate}
+          onChange={(from, to) => {
+            setFilterStartDate(from);
+            setFilterEndDate(to);
+          }}
+        />
+        <SelectFilter
+          label="Employee"
+          value={filterEmployeeId}
+          options={employees.map(e => ({ value: e.id, label: e.fullName }))}
+          onChange={setFilterEmployeeId}
+          id="filter-employee"
+          instanceId="filter-employee"
+          allLabel="All Employees"
+        />
+      </FilterBar>
 
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         {dayOffs.length === 0 ? (
@@ -156,20 +167,6 @@ export default function OnsiteDayOffList({ startDate, endDate, employeeId, emplo
       </div>
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
-
-      {isFilterOpen && (
-        <OfficeShiftFilterModal
-          isOpen={isFilterOpen}
-          onClose={() => setIsFilterOpen(false)}
-          onApply={handleApplyFilter}
-          initialFilters={{
-            startDate,
-            endDate,
-            employeeId,
-          }}
-          employees={employees}
-        />
-      )}
     </div>
   );
 }

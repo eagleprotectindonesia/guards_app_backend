@@ -3,16 +3,16 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { Download, Filter } from 'lucide-react';
-import { format } from 'date-fns';
+import { Download } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
 import PaginationNav from '../../components/pagination-nav';
-import LeaveRequestFilterModal from './leave-request-filter-modal';
 import LeaveExportModal from './leave-export-modal';
 import { SerializedLeaveRequestAdminListItemDto } from '@/types/leave-requests';
 import SortableHeader from '@/components/sortable-header';
 import { getLeaveReasonMeta } from '@/lib/leave-requests';
 import { useAdminRouter } from '../../context/admin-router';
 import { getLeaveRequestReviewerName } from './leave-request-list-utils';
+import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
 
 type LeaveRequestListProps = {
   leaveRequests: SerializedLeaveRequestAdminListItemDto[];
@@ -74,53 +74,48 @@ export default function LeaveRequestList({
   sortBy = 'startDate',
   sortOrder = 'desc',
 }: LeaveRequestListProps) {
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isExportOpen, setIsExportOpen] = useState(false);
   const router = useAdminRouter();
   const searchParams = useSearchParams();
+  const { apply } = useFilterUrlSync('');
 
-  const handleApplyFilters = (filters: {
-    statuses: string[];
-    reasons: string[];
-    categories: string[];
-    employeeId?: string;
-    startDate?: Date;
-    endDate?: Date;
-  }) => {
-    const params = new URLSearchParams(searchParams.toString());
+  const [filterStatus, setFilterStatus] = useState(initialFilters.statuses[0] || '');
+  const [filterReason, setFilterReason] = useState(initialFilters.reasons[0] || '');
+  const [filterCategory, setFilterCategory] = useState(initialFilters.categories[0] || '');
+  const [filterEmployeeId, setFilterEmployeeId] = useState(initialFilters.employeeId || '');
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(
+    initialFilters.startDate ? parseISO(initialFilters.startDate) : undefined
+  );
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(
+    initialFilters.endDate ? parseISO(initialFilters.endDate) : undefined
+  );
 
-    params.set('page', '1');
-    params.set('statuses', filters.statuses.join(','));
-    if (filters.reasons.length > 0) {
-      params.set('reasons', filters.reasons.join(','));
-    } else {
-      params.delete('reasons');
-    }
-    if (filters.categories.length > 0) {
-      params.set('categories', filters.categories.join(','));
-    } else {
-      params.delete('categories');
-    }
+  const handleApplyFilters = () => {
+    apply({
+      statuses: filterStatus || null,
+      reasons: filterReason || null,
+      categories: filterCategory || null,
+      employeeId: filterEmployeeId || null,
+      startDate: filterStartDate ? format(filterStartDate, 'yyyy-MM-dd') : null,
+      endDate: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : null,
+    });
+  };
 
-    if (filters.employeeId) {
-      params.set('employeeId', filters.employeeId);
-    } else {
-      params.delete('employeeId');
-    }
-
-    if (filters.startDate) {
-      params.set('startDate', format(filters.startDate, 'yyyy-MM-dd'));
-    } else {
-      params.delete('startDate');
-    }
-
-    if (filters.endDate) {
-      params.set('endDate', format(filters.endDate, 'yyyy-MM-dd'));
-    } else {
-      params.delete('endDate');
-    }
-
-    router.push(`?${params.toString()}`);
+  const handleClearFilters = () => {
+    setFilterStatus('');
+    setFilterReason('');
+    setFilterCategory('');
+    setFilterEmployeeId('');
+    setFilterStartDate(undefined);
+    setFilterEndDate(undefined);
+    apply({
+      statuses: null,
+      reasons: null,
+      categories: null,
+      employeeId: null,
+      startDate: null,
+      endDate: null,
+    });
   };
 
   const handleSort = (field: string) => {
@@ -154,16 +149,6 @@ export default function LeaveRequestList({
     window.location.href = '/api/admin/leave-requests/export?' + params.toString();
   };
 
-  const isDefaultStatusFilter = initialFilters.statuses.length === 6;
-  const activeFiltersCount = [
-    initialFilters.employeeId,
-    initialFilters.startDate,
-    initialFilters.endDate,
-    initialFilters.reasons.join(','),
-    initialFilters.categories.join(','),
-    isDefaultStatusFilter ? '' : initialFilters.statuses.join(','),
-  ].filter(Boolean).length;
-
   return (
     <div>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
@@ -189,24 +174,80 @@ export default function LeaveRequestList({
             <Download className="w-4 h-4 mr-2" />
             Export CSV
           </button>
-          <button
-            onClick={() => setIsFilterOpen(true)}
-            className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
-              activeFiltersCount > 0
-                ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400'
-                : ''
-            }`}
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            Filters
-            {activeFiltersCount > 0 && (
-              <span className="ml-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full text-xs">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
         </div>
       </div>
+
+      {/* Filters */}
+      <FilterBar onApply={handleApplyFilters} onClear={handleClearFilters}>
+        <SelectFilter
+          label="Status"
+          value={filterStatus}
+          options={[
+            { value: 'pending', label: 'Pending' },
+            { value: 'pending_hr', label: 'Pending HR Approval' },
+            { value: 'pending_manager', label: 'Pending Manager Approval' },
+            { value: 'approved', label: 'Approved' },
+            { value: 'rejected', label: 'Rejected' },
+            { value: 'cancelled', label: 'Cancelled' },
+          ]}
+          onChange={setFilterStatus}
+          id="filter-status"
+          instanceId="filter-status"
+          allLabel="All statuses"
+        />
+        <SelectFilter
+          label="Category"
+          value={filterCategory}
+          options={[
+            { value: 'sick', label: 'Sick' },
+            { value: 'family', label: 'Family' },
+            { value: 'special', label: 'Special' },
+            { value: 'annual', label: 'Annual' },
+          ]}
+          onChange={setFilterCategory}
+          id="filter-category"
+          instanceId="filter-category"
+          allLabel="All categories"
+        />
+        <SelectFilter
+          label="Leave Type"
+          value={filterReason}
+          options={[
+            { value: 'sick', label: 'Sick Leave' },
+            { value: 'family_marriage', label: 'Marriage Leave' },
+            { value: 'family_child_marriage', label: 'Child Marriage' },
+            { value: 'family_child_circumcision_baptism', label: 'Child Circumcision/Baptism' },
+            { value: 'family_death', label: 'Death of Family Member' },
+            { value: 'family_spouse_death', label: 'Spouse Death' },
+            { value: 'special_maternity', label: 'Maternity Leave' },
+            { value: 'special_miscarriage', label: 'Miscarriage Leave' },
+            { value: 'special_paternity', label: 'Paternity Leave' },
+            { value: 'special_emergency', label: 'Emergency Leave' },
+            { value: 'annual', label: 'Annual Leave' },
+          ]}
+          onChange={setFilterReason}
+          id="filter-reason"
+          instanceId="filter-reason"
+          allLabel="All leave types"
+        />
+        <SelectFilter
+          label="Employee"
+          value={filterEmployeeId}
+          options={employees.map(e => ({ value: e.id, label: `${e.fullName}${e.employeeNumber ? ` (${e.employeeNumber})` : ''}` }))}
+          onChange={setFilterEmployeeId}
+          id="filter-employee"
+          instanceId="filter-employee"
+          allLabel="All employees"
+        />
+        <DateRangeFilter
+          from={filterStartDate}
+          to={filterEndDate}
+          onChange={(from, to) => {
+            setFilterStartDate(from);
+            setFilterEndDate(to);
+          }}
+        />
+      </FilterBar>
 
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         <div className="overflow-x-auto">
@@ -305,17 +346,6 @@ export default function LeaveRequestList({
         initialStartDate={initialFilters.startDate}
         initialEndDate={initialFilters.endDate}
         onExport={handleExportCsv}
-      />
-
-      <LeaveRequestFilterModal
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        onApply={filters => {
-          handleApplyFilters(filters);
-          setIsFilterOpen(false);
-        }}
-        employees={employees}
-        initialFilters={initialFilters}
       />
     </div>
   );

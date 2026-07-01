@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import type { EmployeeSummary } from '@repo/database';
 import PaginationNav from '../../components/pagination-nav';
-import OfficeShiftFilterModal from './office-shift-filter-modal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import OfficeShiftExport from './office-shift-export';
+import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
 
 type EmployeeDayOff = {
   id: string;
@@ -31,7 +31,34 @@ export default function EmployeeDayOffList({ startDate, endDate, employeeId, emp
   const searchParams = useSearchParams();
   const [dayOffs, setDayOffs] = useState<EmployeeDayOff[]>([]);
   const [totalCount, setTotalCount] = useState(0);
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const { apply } = useFilterUrlSync('/admin/office-shifts/day-offs');
+
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(
+    startDate ? parseISO(startDate) : undefined
+  );
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(
+    endDate ? parseISO(endDate) : undefined
+  );
+  const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
+
+  const handleApplyFilters = () => {
+    apply({
+      startDate: filterStartDate ? format(filterStartDate, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+      endDate: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : null,
+      employeeId: filterEmployeeId || null,
+    });
+  };
+
+  const handleClearFilters = () => {
+    setFilterStartDate(undefined);
+    setFilterEndDate(undefined);
+    setFilterEmployeeId('');
+    apply({
+      startDate: format(new Date(), 'yyyy-MM-dd'),
+      endDate: null,
+      employeeId: null,
+    });
+  };
 
   useEffect(() => {
     if (!startDate) return;
@@ -51,33 +78,6 @@ export default function EmployeeDayOffList({ startDate, endDate, employeeId, emp
         // Silently handle errors
       });
   }, [startDate, endDate, employeeId]);
-
-  const handleApplyFilter = (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    if (filters.startDate) {
-      params.set('startDate', format(filters.startDate, 'yyyy-MM-dd'));
-    } else {
-      params.set('startDate', format(new Date(), 'yyyy-MM-dd'));
-    }
-
-    if (filters.endDate) {
-      params.set('endDate', format(filters.endDate, 'yyyy-MM-dd'));
-    } else {
-      params.delete('endDate');
-    }
-
-    if (filters.employeeId) {
-      params.set('employeeId', filters.employeeId);
-    } else {
-      params.delete('employeeId');
-    }
-
-    params.set('page', '1');
-    router.push(`/admin/office-shifts/day-offs?${params.toString()}`);
-  };
-
-  const activeFiltersCount = [startDate, endDate, employeeId].filter(Boolean).length;
 
   // Group day offs by date
   const dayOffsByDate = new Map<string, EmployeeDayOff[]>();
@@ -106,49 +106,29 @@ export default function EmployeeDayOffList({ startDate, endDate, employeeId, emp
             endpoint="/api/admin/office-shifts/day-offs/export"
             title="Export Employee Days Off"
           />
-          <button
-            onClick={() => setIsFilterOpen(true)}
-            className={`inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm ${
-              activeFiltersCount > 0
-                ? 'text-red-600 border-red-200 bg-red-50 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400'
-                : ''
-            }`}
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-              />
-            </svg>
-            Filters
-            {activeFiltersCount > 0 && (
-              <span className="ml-2 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 px-2 py-0.5 rounded-full text-xs">
-                {activeFiltersCount}
-              </span>
-            )}
-          </button>
         </div>
       </div>
 
-      {/* Active filters display */}
-      {activeFiltersCount > 0 && (
-        <div className="mb-4 p-3 bg-muted/50 rounded-lg border border-border">
-          <p className="text-sm text-muted-foreground">
-            {startDate && endDate
-              ? `Showing days off from ${format(new Date(startDate), 'MMM d, yyyy')} to ${format(new Date(endDate), 'MMM d, yyyy')}`
-              : startDate
-                ? `Showing days off from ${format(new Date(startDate), 'MMM d, yyyy')}`
-                : 'Showing all days off'}
-            {employeeId &&
-              (() => {
-                const emp = employees.find(e => e.id === employeeId);
-                return emp ? ` for ${emp.fullName}` : '';
-              })()}
-          </p>
-        </div>
-      )}
+      {/* Filters */}
+      <FilterBar onApply={handleApplyFilters} onClear={handleClearFilters}>
+        <DateRangeFilter
+          from={filterStartDate}
+          to={filterEndDate}
+          onChange={(from, to) => {
+            setFilterStartDate(from);
+            setFilterEndDate(to);
+          }}
+        />
+        <SelectFilter
+          label="Employee"
+          value={filterEmployeeId}
+          options={employees.map(e => ({ value: e.id, label: e.fullName }))}
+          onChange={setFilterEmployeeId}
+          id="filter-employee"
+          instanceId="filter-employee"
+          allLabel="All Employees"
+        />
+      </FilterBar>
 
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
         {dayOffs.length === 0 ? (
@@ -195,21 +175,6 @@ export default function EmployeeDayOffList({ startDate, endDate, employeeId, emp
       </div>
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
-
-      {/* Filter Modal */}
-      {isFilterOpen && (
-        <OfficeShiftFilterModal
-          isOpen={isFilterOpen}
-          onClose={() => setIsFilterOpen(false)}
-          onApply={handleApplyFilter}
-          initialFilters={{
-            startDate,
-            endDate,
-            employeeId,
-          }}
-          employees={employees}
-        />
-      )}
     </div>
   );
 }

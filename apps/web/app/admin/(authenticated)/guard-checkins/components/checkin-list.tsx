@@ -6,13 +6,13 @@ import { Checkin, Shift, Site } from '@prisma/client';
 import type { EmployeeSummary } from '@repo/database';
 import type { Serialized } from '@/lib/server-utils';
 import PaginationNav from '../../components/pagination-nav';
-import { MapPin, Clock, Filter } from 'lucide-react'; // Added Globe icon
-import CheckinFilterModal from './checkin-filter-modal';
+import { MapPin, Clock } from 'lucide-react';
 import CheckinExport from './checkin-export';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { JsonValue } from '@prisma/client/runtime/client';
 import { useAdminRouter } from '../../context/admin-router';
 import SortableHeader from '@/components/sortable-header';
+import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
 
 // Define the type for a Checkin with its relations
 // Define a type for the checkin metadata that includes location information
@@ -66,9 +66,36 @@ export default function CheckinList({
   sortBy = 'time',
   sortOrder = 'desc',
 }: CheckinListProps) {
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
   const router = useAdminRouter();
   const searchParams = useSearchParams();
+  const { apply } = useFilterUrlSync('');
+
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(
+    initialFilters.startDate ? parseISO(initialFilters.startDate) : undefined
+  );
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(
+    initialFilters.endDate ? parseISO(initialFilters.endDate) : undefined
+  );
+  const [filterEmployeeId, setFilterEmployeeId] = useState(initialFilters.employeeId || '');
+
+  const handleApplyFilters = () => {
+    apply({
+      from: filterStartDate ? format(filterStartDate, 'yyyy-MM-dd') : null,
+      to: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : null,
+      employeeId: filterEmployeeId || null,
+    });
+  };
+
+  const handleClearFilters = () => {
+    setFilterStartDate(undefined);
+    setFilterEndDate(undefined);
+    setFilterEmployeeId('');
+    apply({
+      from: null,
+      to: null,
+      employeeId: null,
+    });
+  };
 
   const handleSort = (field: string) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -82,33 +109,6 @@ export default function CheckinList({
     router.push(`?${params.toString()}`);
   };
 
-  const handleApplyFilters = (filters: { startDate?: Date; endDate?: Date; employeeId: string }) => {
-    const params = new URLSearchParams(searchParams.toString());
-
-    // Reset pagination when filtering
-    params.set('page', '1');
-
-    if (filters.startDate) {
-      params.set('from', format(filters.startDate, 'yyyy-MM-dd'));
-    } else {
-      params.delete('from');
-    }
-
-    if (filters.endDate) {
-      params.set('to', format(filters.endDate, 'yyyy-MM-dd'));
-    } else {
-      params.delete('to');
-    }
-
-    if (filters.employeeId) {
-      params.set('employeeId', filters.employeeId);
-    } else {
-      params.delete('employeeId');
-    }
-
-    router.push(`?${params.toString()}`);
-  };
-
   return (
     <div>
       {/* Header Section */}
@@ -119,15 +119,29 @@ export default function CheckinList({
         </div>
         <div className="flex items-center gap-2">
           <CheckinExport initialFilters={initialFilters} employees={employees} />
-          <button
-            onClick={() => setIsFilterOpen(true)}
-            className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors shadow-sm"
-          >
-            <Filter className="w-4 h-4 mr-2" />
-            Filter
-          </button>
         </div>
       </div>
+
+      {/* Filters */}
+      <FilterBar onApply={handleApplyFilters} onClear={handleClearFilters}>
+        <DateRangeFilter
+          from={filterStartDate}
+          to={filterEndDate}
+          onChange={(from, to) => {
+            setFilterStartDate(from);
+            setFilterEndDate(to);
+          }}
+        />
+        <SelectFilter
+          label="Employee"
+          value={filterEmployeeId}
+          options={employees.map(e => ({ value: e.id, label: e.fullName }))}
+          onChange={setFilterEmployeeId}
+          id="filter-employee"
+          instanceId="filter-employee"
+          allLabel="All Employees"
+        />
+      </FilterBar>
 
       {/* Table Section */}
       <div className="bg-card rounded-xl shadow-sm border border-border overflow-hidden">
@@ -227,14 +241,6 @@ export default function CheckinList({
       </div>
 
       <PaginationNav page={page} perPage={perPage} totalCount={totalCount} />
-
-      <CheckinFilterModal
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        onApply={handleApplyFilters}
-        initialFilters={initialFilters}
-        employees={employees}
-      />
     </div>
   );
 }
