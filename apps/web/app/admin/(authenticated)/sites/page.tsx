@@ -28,11 +28,13 @@ export default async function SitesPage(props: SitesPageProps) {
     typeof searchParams.sortOrder === 'string' && ['asc', 'desc'].includes(searchParams.sortOrder)
       ? (searchParams.sortOrder as 'asc' | 'desc')
       : 'asc';
-  const validSortFields = ['name', 'clientName', 'status', 'posts'];
+  const validSortFields = ['name', 'clientName', 'status', 'posts', 'kind'];
   const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
+  const kind = typeof searchParams.kind === 'string' ? searchParams.kind : undefined;
 
   const { sites, totalCount } = await getPaginatedSites({
     query,
+    kind: kind as 'fixed' | 'escort' | undefined,
     skip,
     take: perPage,
     sortBy: sortField,
@@ -51,6 +53,7 @@ export default async function SitesPage(props: SitesPageProps) {
           totalCount={totalCount}
           sortBy={sortField}
           sortOrder={sortOrder}
+          kind={kind}
         />
       </Suspense>
     </div>

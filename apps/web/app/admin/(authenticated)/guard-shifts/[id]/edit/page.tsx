@@ -2,7 +2,7 @@ import { prisma } from '@repo/database';
 import { serialize } from '@/lib/server-utils';
 import ShiftForm from '../../components/shift-form';
 import { notFound } from 'next/navigation';
-import { getActiveSites } from '@repo/database';
+import { getActiveFixedSites, getActiveEscortSites } from '@repo/database';
 import { getActiveEmployeesSummary } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
@@ -13,9 +13,10 @@ export default async function EditShiftPage({ params }: { params: Promise<{ id: 
   await requirePermission(PERMISSIONS.SHIFTS.EDIT);
   const { id } = await params;
 
-  const [shift, sites, shiftTypes, employees] = await Promise.all([
+  const [shift, fixedSites, escortEndSites, shiftTypes, employees] = await Promise.all([
     prisma.shift.findUnique({ where: { id } }),
-    getActiveSites(),
+    getActiveFixedSites(),
+    getActiveEscortSites(),
     prisma.shiftType.findMany({ orderBy: { name: 'asc' } }),
     getActiveEmployeesSummary('on_site'),
   ]);
@@ -34,7 +35,8 @@ export default async function EditShiftPage({ params }: { params: Promise<{ id: 
     <div className="max-w-6xl mx-auto py-8">
       <ShiftForm
         shift={serialize(shift)}
-        sites={serialize(sites)}
+        fixedSites={serialize(fixedSites)}
+        escortEndSites={serialize(escortEndSites)}
         shiftTypes={serialize(shiftTypes)}
         employees={employees}
       />
