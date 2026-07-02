@@ -45,6 +45,7 @@ export async function createSite(
     latitude: Number(firstPost.latitude),
     longitude: Number(firstPost.longitude),
     geofenceRadius: parseFloat(formData.get('geofenceRadius') as string),
+    kind: formData.get('kind') || 'fixed',
     status: formData.get('status') === 'true',
     posts: postsPayload,
   });
@@ -95,6 +96,7 @@ export async function updateSite(
     latitude: Number(firstPost.latitude),
     longitude: Number(firstPost.longitude),
     geofenceRadius: parseFloat(formData.get('geofenceRadius') as string),
+    kind: formData.get('kind') || 'fixed',
     status: formData.get('status') === 'true',
     posts: postsPayload,
   });

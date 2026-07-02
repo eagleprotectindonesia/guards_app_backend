@@ -24,6 +24,8 @@ const sitePostSchema = z.object({
 });
 
 // --- Site ---
+export const SiteKindEnum = z.enum(['fixed', 'escort']);
+
 export const createSiteSchema = z.object({
   name: z.string().min(1),
   clientName: z.string(),
@@ -31,6 +33,7 @@ export const createSiteSchema = z.object({
   latitude: z.number(),
   longitude: z.number(),
   geofenceRadius: optionalNumber,
+  kind: SiteKindEnum.default('fixed'),
   status: z.boolean().optional(),
   note: z.string().optional(),
   posts: z.array(sitePostSchema).min(1),
@@ -161,6 +164,8 @@ export const createOfficeShiftTypeSchema = z.object({
 });
 
 // --- Shift ---
+export const ShiftKindEnum = z.enum(['onsite', 'escort']);
+
 export const createShiftSchema = z
   .object({
     siteId: z.uuid(),
@@ -168,6 +173,8 @@ export const createShiftSchema = z
     employeeId: z.string().min(1).optional(),
     // For backward compatibility
     guardId: z.string().min(1).optional(),
+    kind: ShiftKindEnum.default('onsite'),
+    escortEndSiteId: z.string().uuid().optional(),
     date: z.string().min(1), // Expects "YYYY-MM-DD"
     requiredCheckinIntervalMins: z.number().int().min(5).default(60),
     graceMinutes: z.number().int().min(1).default(15),
@@ -176,7 +183,21 @@ export const createShiftSchema = z
   .refine(data => data.employeeId || data.guardId, {
     message: 'Employee ID or Guard ID is required',
     path: ['employeeId'],
-  });
+  })
+  .refine(
+    data => {
+      if (data.kind === 'escort') return !!data.escortEndSiteId;
+      return true;
+    },
+    { message: 'Escort end site is required for escort shifts', path: ['escortEndSiteId'] }
+  )
+  .refine(
+    data => {
+      if (data.kind === 'onsite') return !data.escortEndSiteId;
+      return true;
+    },
+    { message: 'Escort end site must not be set for on-site shifts', path: ['escortEndSiteId'] }
+  );
 
 export const createOfficeShiftSchema = z.object({
   officeShiftTypeId: z.uuid(),

@@ -8,7 +8,7 @@ import { getShiftById } from '@repo/database';
 import { redis } from '@repo/database/redis';
 import { ATTENDANCE_REQUIRE_PHOTO_SETTING } from '@repo/shared';
 import { employeeShiftErrorResponse } from '../shared-errors';
-import { findNearestAllowedSiteLocation } from '@/lib/site-post-location';
+import { findNearestAllowedSiteLocation, isEndOfShiftWindow } from '@/lib/site-post-location';
 
 // Define a schema for the incoming request body
 const attendanceSchema = z.object({
@@ -51,6 +51,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           },
         },
       },
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
     });
 
     if (!shift) {
@@ -84,7 +85,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     let matchedLocation:
       | {
-          type: 'post' | 'legacy_site';
+          type: 'post' | 'legacy_site' | 'escort_end';
           id: string | null;
           name: string;
           latitude: number;
@@ -109,11 +110,31 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
           });
         }
 
+        // Build extra candidates for escort end site (if in the late-shift window)
+        const extraCandidates:
+          | { type: 'escort_end'; id: string | null; name: string; latitude: number; longitude: number }[]
+          | undefined =
+          shift.kind === 'escort' &&
+          shift.escortEndSite?.latitude != null &&
+          shift.escortEndSite?.longitude != null &&
+          isEndOfShiftWindow(new Date(), shift.endsAt, shift.requiredCheckinIntervalMins, shift.graceMinutes)
+            ? [
+                {
+                  type: 'escort_end',
+                  id: shift.escortEndSite.id,
+                  name: shift.escortEndSite.name,
+                  latitude: shift.escortEndSite.latitude,
+                  longitude: shift.escortEndSite.longitude,
+                },
+              ]
+            : undefined;
+
         const locationResult = findNearestAllowedSiteLocation({
           site: shift.site,
           employeeLocation: parsedBody.location,
           maxDistanceMeters: maxDistance,
           calculateDistance,
+          extraCandidates,
         });
 
         matchedLocation = locationResult.matchedLocation;
@@ -125,10 +146,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
             code: 'too_far_from_site',
             error:
               nearestDistance != null
-                ? `You are too far from the assigned site. Current distance: ${Math.round(
+                ? `You are too far from the assigned location. Current distance: ${Math.round(
                     nearestDistance
                   )}m (Maximum: ${maxDistance}m). Please move to the required location.`
-                : 'No valid location is configured for this site. Please contact an administrator.',
+                : 'No valid location is configured for this shift. Please contact an administrator.',
             details: {
               currentDistanceMeters: nearestDistance != null ? Math.round(nearestDistance) : null,
               maxDistanceMeters: maxDistance,
