@@ -4,7 +4,7 @@ import type { Serialized } from '@/lib/server-utils';
 import { createShift, updateShift } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateShiftInput } from '@repo/validations';
-import { useActionState, useEffect, useState } from 'react';
+import { useActionState, useEffect, useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { Shift, Site, ShiftType } from '@prisma/client';
 import type { EmployeeSummary } from '@repo/database';
@@ -14,14 +14,26 @@ import Select from '../../components/select';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 
+function getDurationInMins(startTime: string, endTime: string) {
+  const toMins = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  };
+  const start = toMins(startTime);
+  let end = toMins(endTime);
+  if (end < start) end += 24 * 60;
+  return end - start;
+}
+
 type Props = {
   shift?: Serialized<Shift>;
-  sites: Serialized<Site>[];
+  fixedSites: Serialized<Site>[];
+  escortEndSites: Serialized<Site>[];
   shiftTypes: Serialized<ShiftType>[];
   employees: EmployeeSummary[];
 };
 
-export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props) {
+export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftTypes, employees }: Props) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<ActionState<CreateShiftInput>, FormData>(
     shift ? updateShift.bind(null, shift.id) : createShift,
@@ -32,8 +44,16 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
   const [selectedShiftTypeId, setSelectedShiftTypeId] = useState<string>(shift?.shiftTypeId || '');
   const [selectedSiteId, setSelectedSiteId] = useState<string>(shift?.siteId || '');
   const [selectedemployeeId, setSelectedemployeeId] = useState<string>(shift?.employeeId || '');
+  const [selectedKind, setSelectedKind] = useState<'onsite' | 'escort'>(shift?.kind || 'onsite');
+  const [selectedEscortEndSiteId, setSelectedEscortEndSiteId] = useState<string>(shift?.escortEndSiteId || '');
 
   const isReadOnly = shift ? shift.status !== 'scheduled' : false;
+
+  const shiftTypeDurationMins = useMemo(() => {
+    const st = shiftTypes.find(st => st.id === selectedShiftTypeId);
+    if (!st) return 0;
+    return getDurationInMins(st.startTime, st.endTime);
+  }, [selectedShiftTypeId, shiftTypes]);
 
   useEffect(() => {
     if (state.success) {
@@ -44,7 +64,8 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
     }
   }, [state, shift, router]);
 
-  const siteOptions = sites.map(site => ({ value: site.id, label: site.name }));
+  const fixedSiteOptions = fixedSites.map(site => ({ value: site.id, label: site.name }));
+  const escortEndSiteOptions = escortEndSites.map(site => ({ value: site.id, label: site.name }));
   const employeeOptions = employees.map(employee => ({
     value: employee.id,
     label: employee.fullName,
@@ -55,32 +76,110 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
     label: `${st.name} (${st.startTime} - ${st.endTime})`,
   }));
 
+  const handleKindChange = (kind: 'onsite' | 'escort') => {
+    setSelectedKind(kind);
+    if (kind === 'onsite') {
+      setSelectedEscortEndSiteId('');
+    }
+  };
+
+  const currentShiftSiteName = fixedSites.find(s => s.id === (shift?.siteId || ''))?.name || shift?.siteId;
+  const currentEscortEndSiteName = shift?.escortEndSiteId
+    ? escortEndSites.find(s => s.id === shift.escortEndSiteId)?.name || shift.escortEndSiteId
+    : null;
+
   return (
     <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
       <h1 className="text-2xl font-bold text-foreground mb-6">
         {isReadOnly ? 'View Guard Shift' : shift ? 'Edit Guard Shift' : 'Schedule New Guard Shift'}
       </h1>
       <form action={formAction} className="space-y-8">
+        {/* Kind Field */}
+        <div>
+          <label className="block font-medium text-foreground mb-2">Shift Type</label>
+          {isReadOnly ? (
+            <p className="text-sm text-foreground capitalize">{shift?.kind || 'onsite'}</p>
+          ) : (
+            <div className="flex items-center gap-6">
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="kind"
+                  value="onsite"
+                  checked={selectedKind === 'onsite'}
+                  onChange={() => handleKindChange('onsite')}
+                  className="text-red-600 focus:ring-red-600"
+                />
+                <span className="ml-2 text-foreground text-sm">On-site</span>
+              </label>
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="kind"
+                  value="escort"
+                  checked={selectedKind === 'escort'}
+                  onChange={() => handleKindChange('escort')}
+                  className="text-red-600 focus:ring-red-600"
+                />
+                <span className="ml-2 text-foreground text-sm">Escort</span>
+              </label>
+            </div>
+          )}
+          {state.errors?.kind && (
+            <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.kind[0]}</p>
+          )}
+        </div>
+
         {/* Site Field */}
         <div>
           <label htmlFor="siteId" className="block font-medium text-foreground mb-1">
             Site
           </label>
-          <Select
-            id="site-select"
-            instanceId="site-select"
-            options={siteOptions}
-            value={siteOptions.find(opt => opt.value === selectedSiteId) || null}
-            onChange={option => setSelectedSiteId(option?.value || '')}
-            placeholder="Select a site..."
-            isClearable={!isReadOnly}
-            isDisabled={isReadOnly}
-          />
+          {isReadOnly ? (
+            <p className="text-sm text-foreground">{currentShiftSiteName}</p>
+          ) : (
+            <Select
+              id="site-select"
+              instanceId="site-select"
+              options={fixedSiteOptions}
+              value={fixedSiteOptions.find(opt => opt.value === selectedSiteId) || null}
+              onChange={option => setSelectedSiteId(option?.value || '')}
+              placeholder="Select a site..."
+              isClearable={!isReadOnly}
+              isDisabled={isReadOnly}
+            />
+          )}
           <input type="hidden" name="siteId" value={selectedSiteId} />
           {state.errors?.siteId && (
             <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.siteId[0]}</p>
           )}
         </div>
+
+        {/* Escort End Site Field */}
+        {selectedKind === 'escort' && (
+          <div>
+            <label htmlFor="escortEndSiteId" className="block font-medium text-foreground mb-1">
+              Escort End Site
+            </label>
+            {isReadOnly ? (
+              <p className="text-sm text-foreground">{currentEscortEndSiteName}</p>
+            ) : (
+              <Select
+                id="escort-end-site-select"
+                instanceId="escort-end-site-select"
+                options={escortEndSiteOptions}
+                value={escortEndSiteOptions.find(opt => opt.value === selectedEscortEndSiteId) || null}
+                onChange={option => setSelectedEscortEndSiteId(option?.value || '')}
+                placeholder="Select an escort end site..."
+                isClearable={false}
+              />
+            )}
+            <input type="hidden" name="escortEndSiteId" value={selectedEscortEndSiteId} />
+            {state.errors?.escortEndSiteId && (
+              <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.escortEndSiteId[0]}</p>
+            )}
+          </div>
+        )}
 
         {/* Shift Type Field */}
         <div>
@@ -160,25 +259,44 @@ export default function ShiftForm({ shift, sites, shiftTypes, employees }: Props
 
         {/* Config Fields */}
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="requiredCheckinIntervalMins" className="block font-medium text-foreground mb-1">
-              Interval (min)
-            </label>
-            <input
-              type="number"
-              name="requiredCheckinIntervalMins"
-              id="requiredCheckinIntervalMins"
-              defaultValue={shift?.requiredCheckinIntervalMins || 20}
-              min={5}
-              disabled={isReadOnly}
-              className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-muted disabled:text-muted-foreground"
-            />
-            {state.errors?.requiredCheckinIntervalMins && (
-              <p className="text-red-500 dark:text-red-400 text-xs mt-1">
-                {state.errors.requiredCheckinIntervalMins[0]}
+          {selectedKind === 'escort' ? (
+            <div>
+              <label className="block font-medium text-foreground mb-1">
+                Interval (min)
+              </label>
+              <input
+                type="number"
+                value={shiftTypeDurationMins}
+                readOnly
+                disabled
+                className="w-full h-10 px-3 rounded-lg border border-border bg-muted text-muted-foreground cursor-not-allowed"
+              />
+              <input type="hidden" name="requiredCheckinIntervalMins" value={shiftTypeDurationMins} />
+              <p className="text-xs text-muted-foreground mt-1">
+                Auto-set to shift duration — only one check-in required for escort shifts.
               </p>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="requiredCheckinIntervalMins" className="block font-medium text-foreground mb-1">
+                Interval (min)
+              </label>
+              <input
+                type="number"
+                name="requiredCheckinIntervalMins"
+                id="requiredCheckinIntervalMins"
+                defaultValue={shift?.requiredCheckinIntervalMins || 20}
+                min={5}
+                disabled={isReadOnly}
+                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-muted disabled:text-muted-foreground"
+              />
+              {state.errors?.requiredCheckinIntervalMins && (
+                <p className="text-red-500 dark:text-red-400 text-xs mt-1">
+                  {state.errors.requiredCheckinIntervalMins[0]}
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <label htmlFor="graceMinutes" className="block font-medium text-foreground mb-1">

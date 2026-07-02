@@ -35,6 +35,20 @@ export async function getActiveSites() {
   });
 }
 
+export async function getActiveFixedSites() {
+  return prisma.site.findMany({
+    where: { status: true, deletedAt: null, kind: 'fixed' },
+    orderBy: { name: 'asc' },
+  });
+}
+
+export async function getActiveEscortSites() {
+  return prisma.site.findMany({
+    where: { status: true, deletedAt: null, kind: 'escort' },
+    orderBy: { name: 'asc' },
+  });
+}
+
 export async function getPaginatedSites(params: {
   query?: string;
   kind?: 'fixed' | 'escort';
@@ -45,7 +59,7 @@ export async function getPaginatedSites(params: {
 }) {
   const { query, skip, take, sortBy = 'name', sortOrder = 'asc' } = params;
 
-  const validSortFields = ['name', 'clientName', 'status', 'posts'];
+  const validSortFields = ['name', 'clientName', 'status', 'posts', 'kind'];
   const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
 
     const where: Prisma.SiteWhereInput = {
