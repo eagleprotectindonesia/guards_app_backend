@@ -135,3 +135,54 @@ describe('ticket validation', () => {
     }
   });
 });
+
+describe('shift schema validation', () => {
+  const { createShiftSchema } = require('./index');
+
+  const baseInput = {
+    siteId: '550e8400-e29b-41d4-a716-446655440000',
+    shiftTypeId: '550e8400-e29b-41d4-a716-446655440001',
+    employeeId: '550e8400-e29b-41d4-a716-446655440010',
+    date: '2026-07-02',
+    requiredCheckinIntervalMins: 60,
+    graceMinutes: 5,
+  };
+
+  test('accepts on-site shift without escortEndSiteId', () => {
+    const result = createShiftSchema.safeParse(baseInput);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.kind).toBe('onsite');
+      expect(result.data.escortEndSiteId).toBeUndefined();
+    }
+  });
+
+  test('rejects on-site shift with escortEndSiteId', () => {
+    const result = createShiftSchema.safeParse({
+      ...baseInput,
+      escortEndSiteId: '550e8400-e29b-41d4-a716-446655440002',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test('rejects escort shift without escortEndSiteId', () => {
+    const result = createShiftSchema.safeParse({
+      ...baseInput,
+      kind: 'escort',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  test('accepts escort shift with escortEndSiteId', () => {
+    const result = createShiftSchema.safeParse({
+      ...baseInput,
+      kind: 'escort',
+      escortEndSiteId: '550e8400-e29b-41d4-a716-446655440002',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.kind).toBe('escort');
+      expect(result.data.escortEndSiteId).toBe('550e8400-e29b-41d4-a716-446655440002');
+    }
+  });
+});

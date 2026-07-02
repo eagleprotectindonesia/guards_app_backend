@@ -22,6 +22,7 @@ export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
           },
         },
       },
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
     },
@@ -47,6 +48,7 @@ export async function getPaginatedShifts(params: {
         take,
         include: include || {
           site: { select: { name: true } },
+          escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
           shiftType: { select: { name: true, startTime: true, endTime: true } },
           employee: { include: { office: { select: { name: true } } } },
           createdBy: { select: { name: true } },
@@ -159,12 +161,14 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
         },
         include: {
           site: true,
+          escortEndSite: { select: { id: true, name: true } },
           shiftType: true,
           employee: { include: { office: { select: { name: true } } } },
         },
       });
 
       const emp = createdShift.employee as any;
+      const endSite = createdShift.escortEndSite as any;
 
       await tx.changelog.create({
         data: {
@@ -174,6 +178,7 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
           actor: 'admin',
           actorId: adminId,
           details: {
+            kind: createdShift.kind,
             siteName: createdShift.site.name,
             typeName: createdShift.shiftType.name,
             employeeName: emp ? emp.fullName : 'Unassigned',
@@ -186,6 +191,8 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
             siteId: createdShift.siteId,
             shiftTypeId: createdShift.shiftTypeId,
             employeeId: createdShift.employeeId,
+            escortEndSiteId: createdShift.escortEndSiteId,
+            escortEndSiteName: endSite ? endSite.name : undefined,
           },
         },
       });
@@ -243,6 +250,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
         where: { id, deletedAt: null },
         include: {
           site: true,
+          escortEndSite: { select: { id: true, name: true } },
           shiftType: true,
           employee: { include: { office: { select: { name: true } } } },
         },
@@ -260,6 +268,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
         },
         include: {
           site: true,
+          escortEndSite: { select: { id: true, name: true } },
           shiftType: true,
           employee: { include: { office: { select: { name: true } } } },
         },
@@ -271,12 +280,17 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
       const updatedEmpName = emp ? emp.fullName : 'Unassigned';
       const beforeEmpName = prevEmp ? prevEmp.fullName : 'Unassigned';
 
+      const endSite = updatedShift.escortEndSite as any;
+      const prevEndSite = beforeShift.escortEndSite as any;
+
       // Calculate changes
       const changes: Record<string, { from: any; to: any }> = {};
       const fieldsToTrack = [
         'siteId',
         'shiftTypeId',
         'employeeId',
+        'kind',
+        'escortEndSiteId',
         'date',
         'startsAt',
         'endsAt',
@@ -308,6 +322,11 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
       if (beforeShift.shiftType.name !== updatedShift.shiftType.name) {
         changes['typeName'] = { from: beforeShift.shiftType.name, to: updatedShift.shiftType.name };
       }
+      const prevEndSiteName = prevEndSite ? prevEndSite.name : null;
+      const endSiteName = endSite ? endSite.name : null;
+      if (prevEndSiteName !== endSiteName) {
+        changes['escortEndSiteName'] = { from: prevEndSiteName, to: endSiteName };
+      }
 
       await tx.changelog.create({
         data: {
@@ -317,6 +336,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
           actor: 'admin',
           actorId: adminId,
           details: {
+            kind: updatedShift.kind,
             siteName: updatedShift.site.name,
             typeName: updatedShift.shiftType.name,
             employeeName: updatedEmpName,
@@ -329,6 +349,8 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
             siteId: updatedShift.siteId,
             shiftTypeId: updatedShift.shiftTypeId,
             employeeId: updatedShift.employeeId,
+            escortEndSiteId: updatedShift.escortEndSiteId,
+            escortEndSiteName: endSite ? endSite.name : undefined,
             changes: Object.keys(changes).length > 0 ? changes : undefined,
           },
         },
@@ -373,7 +395,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
     async tx => {
       const shiftToDelete = await tx.shift.findUnique({
         where: { id, deletedAt: null },
-        include: { site: true, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
+        include: { site: true, escortEndSite: { select: { id: true, name: true } }, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
       });
 
       if (!shiftToDelete) return null;
@@ -387,6 +409,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
       });
 
       const emp = shiftToDelete.employee as any;
+      const endSite = shiftToDelete.escortEndSite as any;
 
       await tx.changelog.create({
         data: {
@@ -396,6 +419,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
           actor: 'admin',
           actorId: adminId,
           details: {
+            kind: shiftToDelete.kind,
             siteName: shiftToDelete.site.name,
             typeName: shiftToDelete.shiftType.name,
             employeeName: emp ? emp.fullName : 'Unassigned',
@@ -408,6 +432,8 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
             siteId: shiftToDelete.siteId,
             shiftTypeId: shiftToDelete.shiftTypeId,
             employeeId: shiftToDelete.employeeId,
+            escortEndSiteId: shiftToDelete.escortEndSiteId,
+            escortEndSiteName: endSite ? endSite.name : undefined,
             deletedAt: new Date(),
           },
         },
@@ -504,6 +530,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
         data: shiftsToCreate.map(s => ({ ...s, createdById: adminId, lastUpdatedById: adminId })),
         include: {
           site: { select: { name: true } },
+          escortEndSite: { select: { id: true, name: true } },
           shiftType: { select: { name: true } },
           employee: { include: { office: { select: { name: true } } } },
         },
@@ -512,6 +539,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
       await tx.changelog.createMany({
         data: results.map(s => {
           const emp = s.employee as any;
+          const endSite = s.escortEndSite as any;
           return {
             action: 'CREATE',
             entityType: 'Shift',
@@ -520,6 +548,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
             actorId: adminId,
             details: {
               method: 'BULK_UPLOAD',
+              kind: s.kind,
               siteName: s.site.name,
               typeName: s.shiftType.name,
               employeeName: emp ? emp.fullName : 'Unassigned',
@@ -532,6 +561,8 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
               siteId: s.siteId,
               shiftTypeId: s.shiftTypeId,
               employeeId: s.employeeId,
+              escortEndSiteId: s.escortEndSiteId,
+              escortEndSiteName: endSite ? endSite.name : undefined,
             },
           };
         }),
@@ -969,7 +1000,7 @@ export async function processGuardShiftBulkImport(
       if (deleteIds.size > 0) {
         const shiftsToDelete = await tx.shift.findMany({
           where: { id: { in: Array.from(deleteIds) }, deletedAt: null },
-          include: { site: true, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
+          include: { site: true, escortEndSite: { select: { id: true, name: true } }, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
         });
 
         if (shiftsToDelete.length > 0) {
@@ -982,6 +1013,7 @@ export async function processGuardShiftBulkImport(
           await tx.changelog.createMany({
             data: shiftsToDelete.map(shift => {
               const emp = shift.employee as any;
+              const endSite = shift.escortEndSite as any;
               return {
                 action: 'DELETE',
                 entityType: 'Shift',
@@ -989,6 +1021,7 @@ export async function processGuardShiftBulkImport(
                 actor: 'admin',
                 actorId: adminId,
                 details: {
+                  kind: shift.kind,
                   siteName: shift.site.name,
                   typeName: shift.shiftType.name,
                   employeeName: emp ? emp.fullName : 'Unassigned',
@@ -1001,6 +1034,8 @@ export async function processGuardShiftBulkImport(
                   siteId: shift.siteId,
                   shiftTypeId: shift.shiftTypeId,
                   employeeId: shift.employeeId,
+                  escortEndSiteId: shift.escortEndSiteId,
+                  escortEndSiteName: endSite ? endSite.name : undefined,
                   deletedAt: nowDeletedAt,
                 },
               };
@@ -1036,6 +1071,7 @@ export async function processGuardShiftBulkImport(
           where: { id: update.id, deletedAt: null },
           include: {
             site: true,
+            escortEndSite: { select: { id: true, name: true } },
             shiftType: true,
             employee: { include: { office: { select: { name: true } } } },
           },
@@ -1059,6 +1095,7 @@ export async function processGuardShiftBulkImport(
           },
           include: {
             site: true,
+            escortEndSite: { select: { id: true, name: true } },
             shiftType: true,
             employee: { include: { office: { select: { name: true } } } },
           },
@@ -1066,6 +1103,8 @@ export async function processGuardShiftBulkImport(
 
         const emp = updatedShift.employee as any;
         const prevEmp = beforeShift.employee as any;
+        const endSite = updatedShift.escortEndSite as any;
+        const prevEndSite = beforeShift.escortEndSite as any;
         const updatedEmpName = emp ? emp.fullName : 'Unassigned';
         const beforeEmpName = prevEmp ? prevEmp.fullName : 'Unassigned';
         const changes: Record<string, { from: any; to: any }> = {};
@@ -1112,6 +1151,7 @@ export async function processGuardShiftBulkImport(
             actor: 'admin',
             actorId: adminId,
             details: {
+              kind: updatedShift.kind,
               siteName: updatedShift.site.name,
               typeName: updatedShift.shiftType.name,
               employeeName: updatedEmpName,
@@ -1124,6 +1164,8 @@ export async function processGuardShiftBulkImport(
               siteId: updatedShift.siteId,
               shiftTypeId: updatedShift.shiftTypeId,
               employeeId: updatedShift.employeeId,
+              escortEndSiteId: updatedShift.escortEndSiteId,
+              escortEndSiteName: endSite ? endSite.name : undefined,
               changes: Object.keys(changes).length > 0 ? changes : undefined,
             },
           },
@@ -1145,6 +1187,7 @@ export async function processGuardShiftBulkImport(
           data: createInputs.map(row => ({ ...row, createdById: adminId, lastUpdatedById: adminId })),
           include: {
             site: { select: { name: true } },
+            escortEndSite: { select: { id: true, name: true } },
             shiftType: { select: { name: true } },
             employee: { include: { office: { select: { name: true } } } },
           },
@@ -1153,6 +1196,7 @@ export async function processGuardShiftBulkImport(
         await tx.changelog.createMany({
           data: createdRows.map(shift => {
             const emp = shift.employee as any;
+            const endSite = shift.escortEndSite as any;
             return {
               action: 'CREATE',
               entityType: 'Shift',
@@ -1161,6 +1205,7 @@ export async function processGuardShiftBulkImport(
               actorId: adminId,
               details: {
                 method: 'BULK_UPLOAD',
+                kind: shift.kind,
                 siteName: shift.site.name,
                 typeName: shift.shiftType.name,
                 employeeName: emp ? emp.fullName : 'Unassigned',
@@ -1173,6 +1218,8 @@ export async function processGuardShiftBulkImport(
                 siteId: shift.siteId,
                 shiftTypeId: shift.shiftTypeId,
                 employeeId: shift.employeeId,
+                escortEndSiteId: shift.escortEndSiteId,
+                escortEndSiteName: endSite ? endSite.name : undefined,
               },
             };
           }),
@@ -1341,6 +1388,7 @@ export async function getExportShiftsBatch(params: { where: Prisma.ShiftWhereInp
     orderBy: { id: 'asc' },
     include: {
       site: true,
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       createdBy: { select: { name: true } },
@@ -1379,6 +1427,7 @@ export async function getActiveShifts(now: Date) {
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       site: true,
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       attendance: true,
     },
   });
@@ -1543,6 +1592,7 @@ export async function getUpcomingShifts(now: Date, take = 50) {
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       site: true,
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
     },
     orderBy: {
       startsAt: 'asc',
@@ -1579,6 +1629,7 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
     },
     include: {
       site: true,
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       attendance: true,
@@ -1601,6 +1652,7 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
     take: 4,
     include: {
       site: true,
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       attendance: true,
@@ -1774,6 +1826,7 @@ export async function getActiveShiftsForDashboard(now: Date) {
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       site: true,
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       attendance: true,
       checkins: { orderBy: { at: 'desc' }, take: 1 },
     },

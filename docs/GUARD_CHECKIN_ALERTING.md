@@ -119,3 +119,32 @@ records the initial presence for a shift.
 Records routine check-ins (single or bulk if late).
 -   **Body**: `{ "location": { "lat": number, "lng": number }, "source": "web" }`
 -   **Outcome**: Creates check-in(s), updates heartbeat/status, and auto-resolves `missed_checkin` alerts.
+
+## 5. Escort Shifts (ShiftKind = `escort`)
+
+### Data Model
+- `ShiftKind` enum: `onsite` (default), `escort`.
+- `Shift.kind` discriminator to distinguish escort shifts from regular on-site shifts.
+- `SiteKind` enum: `fixed` (default), `escort`.
+- `Site.kind` discriminator — escort sites are registered as `kind='escort'` and used exclusively as end-location references.
+- `Shift.escortEndSiteId` FK to `Site` (kind must be `'escort'`) marks the custom end location.
+
+### Lifecycle
+Same lifecycle as on-site (scheduled → in_progress → completed/missed/cancelled). Attendance and recurring check-ins behave identically.
+
+### Geofence
+- Start location = `Shift.site` (must be `kind='fixed'`).
+- End location = `Shift.escortEndSite` (must be `kind='escort'`).
+- End-location geofence is only active in the **late-shift window**: last `(requiredCheckinIntervalMins + graceMinutes)` minutes before `endsAt`.
+- In the late-shift window, guard proximity to **either** the start site or the end site satisfies the distance check.
+
+### Alerts
+- Alert channel `alerts:site:<shift.siteId>` unchanged (keyed by start site).
+- No separate alerting rules for escort shifts.
+
+### Photo Reports
+- Escort shifts auto-generate photo reports using the same logic as on-site shifts.
+- PDF reports use the start site's client info and include `escortEndSite.name` as metadata.
+
+### Bulk Import
+- `kind='escort'` rows are rejected with a clear error. Bulk import for escorts is not supported in v1.

@@ -74,6 +74,7 @@ export default async function ShiftsPage({
     take: perPage,
     include: {
       site: true,
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       shiftType: true,
       employee: true,
       attendance: true,
@@ -91,6 +92,8 @@ export default async function ShiftsPage({
     siteId: shift.siteId,
     shiftTypeId: shift.shiftTypeId,
     employeeId: shift.employeeId,
+    kind: shift.kind,
+    escortEndSiteId: shift.escortEndSiteId,
     date: shift.date.toISOString(),
     startsAt: shift.startsAt.toISOString(),
     endsAt: shift.endsAt.toISOString(),
@@ -110,9 +113,22 @@ export default async function ShiftsPage({
       address: shift.site.address,
       latitude: shift.site.latitude,
       longitude: shift.site.longitude,
+      kind: shift.site.kind,
       status: shift.site.status,
       note: shift.site.note,
     },
+    escortEndSite: shift.escortEndSite
+      ? {
+          id: shift.escortEndSite.id,
+          name: shift.escortEndSite.name,
+          address: shift.escortEndSite.address,
+          latitude: shift.escortEndSite.latitude,
+          longitude: shift.escortEndSite.longitude,
+          kind: 'escort',
+          status: null,
+          note: null,
+        }
+      : null,
     shiftType: {
       id: shift.shiftType.id,
       name: shift.shiftType.name,

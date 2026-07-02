@@ -27,6 +27,8 @@ export async function createShift(
     siteId: formData.get('siteId'),
     shiftTypeId: formData.get('shiftTypeId'),
     employeeId: formData.get('employeeId') || null, // Handle empty string as null
+    kind: formData.get('kind') || 'onsite',
+    escortEndSiteId: formData.get('escortEndSiteId') || undefined,
     date: formData.get('date'),
     requiredCheckinIntervalMins: Number(formData.get('requiredCheckinIntervalMins')),
     graceMinutes: Number(formData.get('graceMinutes')),
@@ -41,7 +43,7 @@ export async function createShift(
     };
   }
 
-  const { date, shiftTypeId, siteId, employeeId, requiredCheckinIntervalMins, graceMinutes, note } =
+  const { date, shiftTypeId, siteId, employeeId, kind, escortEndSiteId, requiredCheckinIntervalMins, graceMinutes, note } =
     validatedFields.data;
 
   try {
@@ -107,11 +109,40 @@ export async function createShift(
       }
     }
 
+    // Validate site kind: start site must be fixed, escort end site must be escort
+    const [startSite, endSite] = await Promise.all([
+      prisma.site.findUnique({ where: { id: siteId }, select: { kind: true } }),
+      escortEndSiteId ? prisma.site.findUnique({ where: { id: escortEndSiteId }, select: { kind: true } }) : null,
+    ]);
+
+    if (!startSite) {
+      return { message: 'Start site not found.', success: false };
+    }
+
+    if (kind === 'onsite' && startSite.kind !== 'fixed') {
+      return { message: 'On-site shifts must use a fixed site as the start location.', success: false };
+    }
+
+    if (kind === 'escort' && startSite.kind !== 'fixed') {
+      return { message: 'Escort shifts must use a fixed site as the start location.', success: false };
+    }
+
+    if (escortEndSiteId) {
+      if (!endSite) {
+        return { message: 'Escort end site not found.', success: false };
+      }
+      if (endSite.kind !== 'escort') {
+        return { message: 'Escort end site must be an escort site.', success: false };
+      }
+    }
+
     await createShiftWithChangelog(
       {
         site: { connect: { id: siteId } },
         shiftType: { connect: { id: shiftTypeId } },
         employee: employeeId ? { connect: { id: employeeId } } : undefined,
+        kind,
+        escortEndSite: escortEndSiteId ? { connect: { id: escortEndSiteId } } : undefined,
         date: dateObj,
         startsAt: startDateTime,
         endsAt: endDateTime,
@@ -144,6 +175,8 @@ export async function updateShift(
     siteId: formData.get('siteId'),
     shiftTypeId: formData.get('shiftTypeId'),
     employeeId: formData.get('employeeId') || null,
+    kind: formData.get('kind') || 'onsite',
+    escortEndSiteId: formData.get('escortEndSiteId') || undefined,
     date: formData.get('date'),
     requiredCheckinIntervalMins: Number(formData.get('requiredCheckinIntervalMins')),
     graceMinutes: Number(formData.get('graceMinutes')),
@@ -158,7 +191,7 @@ export async function updateShift(
     };
   }
 
-  const { date, shiftTypeId, siteId, employeeId, requiredCheckinIntervalMins, graceMinutes, note } =
+  const { date, shiftTypeId, siteId, employeeId, kind, escortEndSiteId, requiredCheckinIntervalMins, graceMinutes, note } =
     validatedFields.data;
 
   try {
@@ -210,12 +243,41 @@ export async function updateShift(
       }
     }
 
+    // Validate site kind
+    const [startSite, endSite] = await Promise.all([
+      prisma.site.findUnique({ where: { id: siteId }, select: { kind: true } }),
+      escortEndSiteId ? prisma.site.findUnique({ where: { id: escortEndSiteId }, select: { kind: true } }) : null,
+    ]);
+
+    if (!startSite) {
+      return { message: 'Start site not found.', success: false };
+    }
+
+    if (kind === 'onsite' && startSite.kind !== 'fixed') {
+      return { message: 'On-site shifts must use a fixed site as the start location.', success: false };
+    }
+
+    if (kind === 'escort' && startSite.kind !== 'fixed') {
+      return { message: 'Escort shifts must use a fixed site as the start location.', success: false };
+    }
+
+    if (escortEndSiteId) {
+      if (!endSite) {
+        return { message: 'Escort end site not found.', success: false };
+      }
+      if (endSite.kind !== 'escort') {
+        return { message: 'Escort end site must be an escort site.', success: false };
+      }
+    }
+
     await updateShiftWithChangelog(
       id,
       {
         site: { connect: { id: siteId } },
         shiftType: { connect: { id: shiftTypeId } },
         employee: employeeId ? { connect: { id: employeeId } } : { disconnect: true },
+        kind,
+        escortEndSite: escortEndSiteId ? { connect: { id: escortEndSiteId } } : { disconnect: true },
         date: dateObj,
         startsAt: startDateTime,
         endsAt: endDateTime,

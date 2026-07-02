@@ -36,6 +36,8 @@ export type EmployeeGender = 'male' | 'female';
 export type OfficeJobTitleCategory = 'staff' | 'management';
 export type OfficeShiftAttendanceMode = 'office_required' | 'non_office';
 export type OfficeAttendancePolicySource = 'employee_default' | 'shift_override' | 'no_office_employee';
+export type ShiftKind = 'onsite' | 'escort';
+export type SiteKind = 'fixed' | 'escort';
 export type EmailTemplateId = 'admin.leave_request_created';
 
 export interface EmailRecipient {
@@ -145,6 +147,7 @@ export interface Site {
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  kind?: SiteKind | null;
   status?: boolean | null;
   note?: string | null;
 }
@@ -254,6 +257,8 @@ export interface Shift {
   siteId: string;
   shiftTypeId: string;
   employeeId?: string | null;
+  kind: ShiftKind;
+  escortEndSiteId?: string | null;
   date: string | Date;
   startsAt: string | Date;
   endsAt: string | Date;
@@ -275,6 +280,7 @@ export interface GuardShift extends Shift {
 
 export interface ShiftWithRelations extends Shift {
   site: Site;
+  escortEndSite?: Site | null;
   shiftType: ShiftType;
   employee?: Employee | null;
   attendance?: Attendance | null;

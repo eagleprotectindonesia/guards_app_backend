@@ -578,6 +578,7 @@ model Site {
   longitude       Float?
   geofenceRadius  Float      @default(100.0) @map("geofence_radius")
   geofenceStatus  Boolean?   @default(true) @map("geofence_status")
+  kind            SiteKind   @default(fixed)
   status          Boolean?   @default(true)
   lastUpdatedById String?    @map("last_updated_by_id")
   createdById     String?    @map("created_by_id")
@@ -587,11 +588,13 @@ model Site {
   note            String?    @db.Text
   alerts          Alert[]
   shifts          Shift[]
+  escortEndShifts Shift[]    @relation("ShiftEscortEndSite")
   posts           SitePost[]
   lastUpdatedBy   Admin?     @relation("SiteLastUpdatedBy", fields: [lastUpdatedById], references: [id])
   createdBy       Admin?     @relation("SiteCreatedBy", fields: [createdById], references: [id])
 
   @@index([status])
+  @@index([status, kind, deletedAt])
   @@index([deletedAt])
   @@map("sites")
 }
@@ -682,6 +685,8 @@ model Shift {
   siteId                      String         @map("site_id")
   shiftTypeId                 String         @map("shift_type_id")
   employeeId                  String?        @map("employee_id")
+  kind                        ShiftKind      @default(onsite)
+  escortEndSiteId             String?        @map("escort_end_site_id")
   date                        DateTime       @db.Date
   startsAt                    DateTime       @map("starts_at")
   endsAt                      DateTime       @map("ends_at")
@@ -710,6 +715,7 @@ model Shift {
   employee              Employee?               @relation(fields: [employeeId], references: [id])
   shiftType             ShiftType               @relation(fields: [shiftTypeId], references: [id])
   site                  Site                    @relation(fields: [siteId], references: [id])
+  escortEndSite         Site?                   @relation("ShiftEscortEndSite", fields: [escortEndSiteId], references: [id])
   createdBy             Admin?                  @relation("ShiftCreatedBy", fields: [createdById], references: [id])
   lastUpdatedBy         Admin?                  @relation("ShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
   attendance            Attendance?
@@ -723,6 +729,8 @@ model Shift {
   @@index([status, startsAt, reminderSentAt, deletedAt])
   @@index([status, endsAt, endReminderSentAt, deletedAt])
   @@index([status, endsAt, autoPhotoReportStatus, deletedAt])
+  @@index([siteId, kind, status, startsAt])
+  @@index([escortEndSiteId])
   @@index([deletedAt])
   @@map("shifts")
 }
@@ -811,6 +819,16 @@ enum AlertResolution {
   standard
   forgiven
   auto
+}
+
+enum SiteKind {
+  fixed
+  escort
+}
+
+enum ShiftKind {
+  onsite
+  escort
 }
 
 model ShiftPhotoReport {
