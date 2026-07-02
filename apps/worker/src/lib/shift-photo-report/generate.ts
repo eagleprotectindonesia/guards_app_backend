@@ -129,6 +129,10 @@ function resolveLogoPath(): string {
   for (const p of candidates) {
     if (fs.existsSync(p)) return p;
   }
+  console.warn(
+    '[ShiftPhotoReport] Logo not found at any candidate path:\n  ' +
+    candidates.join('\n  '),
+  );
   return candidates[0]!;
 }
 
