@@ -6,6 +6,7 @@ import type { FetchedPhoto } from './fetch-photos';
 import type { ResolvedPoint, TrailPoint } from './aggregate';
 import { geofenceStatusLabel, trailPointTypeLabel } from './aggregate';
 import { fetchStaticMapPng } from './static-map';
+import { DISCLAIMER_TITLE, EN_SECTION, ID_SECTION, DISCLAIMER_EN_PARAGRAPHS, DISCLAIMER_ID_PARAGRAPHS } from './disclaimer-text';
 
 const TZ = 'Asia/Makassar';
 const TZ_LABEL = 'WITA';
@@ -997,6 +998,64 @@ export async function renderMovementSummaryPage(
   );
 }
 
+export async function renderDisclaimerPage(
+  doc: PDFKit.PDFDocument,
+  params: { contentWidth: number },
+): Promise<void> {
+  const { contentWidth } = params;
+  const bodyFontSize = 9.5;
+  const sectionFontSize = 12;
+  const titleFontSize = 18;
+  const paragraphGap = 6;
+  const sectionSpacing = 14;
+
+  let yCursor = MARGIN.top;
+
+  // Title
+  doc.fontSize(titleFontSize).font('Helvetica-Bold').fillColor(COLORS.navy);
+  doc.text(DISCLAIMER_TITLE, MARGIN.left, yCursor, { width: contentWidth, lineBreak: false });
+  yCursor = doc.y + 10;
+
+  doc.save();
+  doc.strokeColor(COLORS.tableBorder).lineWidth(0.5);
+  doc.moveTo(MARGIN.left, yCursor).lineTo(MARGIN.left + contentWidth, yCursor).stroke();
+  doc.restore();
+  yCursor += 14;
+
+  // English section
+  doc.fontSize(sectionFontSize).font('Helvetica-Bold').fillColor(COLORS.text);
+  doc.text(EN_SECTION, MARGIN.left, yCursor, { width: contentWidth, lineBreak: false });
+  yCursor = doc.y + 8;
+
+  doc.fontSize(bodyFontSize).font('Helvetica').fillColor(COLORS.text);
+  for (const para of DISCLAIMER_EN_PARAGRAPHS) {
+    doc.text(para.text, MARGIN.left, yCursor, {
+      width: contentWidth,
+      align: 'justify',
+      lineGap: 1.5,
+    });
+    yCursor = doc.y + paragraphGap;
+  }
+
+  // Spacer between languages
+  yCursor += sectionSpacing;
+
+  // Bahasa Indonesia section
+  doc.fontSize(sectionFontSize).font('Helvetica-Bold').fillColor(COLORS.text);
+  doc.text(ID_SECTION, MARGIN.left, yCursor, { width: contentWidth, lineBreak: false });
+  yCursor = doc.y + 8;
+
+  doc.fontSize(bodyFontSize).font('Helvetica').fillColor(COLORS.text);
+  for (const para of DISCLAIMER_ID_PARAGRAPHS) {
+    doc.text(para.text, MARGIN.left, yCursor, {
+      width: contentWidth,
+      align: 'justify',
+      lineGap: 1.5,
+    });
+    yCursor = doc.y + paragraphGap;
+  }
+}
+
 type GeneratePdfOptions = { trail?: TrailPoint[]; trailMapBuffer?: Buffer | null; signal?: AbortSignal };
 
 export async function generatePdf(
@@ -1105,6 +1164,10 @@ export async function generatePdf(
             trailMapBuffer: options.trailMapBuffer ?? null,
           });
         }
+
+        // ── Disclaimer Page (always last) ──
+        doc.addPage();
+        await renderDisclaimerPage(doc, { contentWidth });
 
         doc.fillColor(COLORS.text);
         doc.end();

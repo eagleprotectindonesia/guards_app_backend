@@ -129,10 +129,10 @@ describe('generatePdf', () => {
     expect(buffer.length).toBeGreaterThan(2000);
   });
 
-  test('no-photos case produces 2 pages (cover + no-photos message), both with chrome', async () => {
+  test('no-photos case produces 3 pages (cover + no-photos message + disclaimer), all with chrome', async () => {
     const buffer = await generatePdf(metadata, []);
-    // 1 cover + 1 "No photo evidence submitted during this shift." page
-    expect(countPdfPages(buffer)).toBe(2);
+    // 1 cover + 1 "No photo evidence submitted during this shift." + 1 disclaimer page
+    expect(countPdfPages(buffer)).toBe(3);
   });
 
   test('N photos produce N+1 pages (cover + one per photo), all with chrome', async () => {
@@ -154,15 +154,15 @@ describe('generatePdf', () => {
     );
 
     const buffer = await generatePdf(metadata, photos);
-    expect(countPdfPages(buffer)).toBe(photos.length + 1);
+    expect(countPdfPages(buffer)).toBe(photos.length + 2);
   });
 
   test('cover page does not trigger a second empty chrome-only page (regression)', async () => {
     // Regression test: the old chrome bug produced an extra blank page (chrome only,
-    // no content) before the actual cover. With max pages = 2 for the no-photos case,
-    // a blank third page would mean the chrome is triggering auto-pagination again.
+    // no content) before the actual cover. With max pages = 3 for the no-photos case,
+    // a blank fourth page would mean the chrome is triggering auto-pagination again.
     const buffer = await generatePdf(metadata, []);
-    expect(countPdfPages(buffer)).toBeLessThanOrEqual(2);
+    expect(countPdfPages(buffer)).toBeLessThanOrEqual(3);
   });
 
   test('falls back to "PENDING" reportNumberShort when no reportNumber is provided', async () => {
@@ -242,7 +242,7 @@ describe('generatePdf photo evidence page (render integration)', () => {
     }).png().toBuffer();
   }
 
-  test('photo with location generates a valid photo page (cover + photo = 2 pages)', async () => {
+  test('photo with location generates a valid photo page (cover + photo + disclaimer = 3 pages)', async () => {
     const photoBuffer = await makePhotoBuffer();
     const photos: FetchedPhoto[] = [
       makeFetchedPhoto({
@@ -262,8 +262,8 @@ describe('generatePdf photo evidence page (render integration)', () => {
 
     expect(Buffer.isBuffer(buffer)).toBe(true);
     expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
-    // Cover page + 1 evidence page = 2 pages
-    expect(countPdfPages(buffer)).toBe(2);
+    // Cover page + 1 evidence page + 1 disclaimer = 3 pages
+    expect(countPdfPages(buffer)).toBe(3);
     // The evidence page is substantially larger than the cover alone because of
     // the image embed, map widget, and detail table.
     expect(buffer.length).toBeGreaterThan(4000);
@@ -287,10 +287,10 @@ describe('generatePdf photo evidence page (render integration)', () => {
 
     const buffer = await generatePdf(metadata, photos);
     expect(buffer.subarray(0, 5).toString()).toBe('%PDF-');
-    expect(countPdfPages(buffer)).toBe(2);
+    expect(countPdfPages(buffer)).toBe(3);
   });
 
-  test('three photos produce cover + three evidence pages = 4 pages', async () => {
+  test('three photos produce cover + three evidence pages + disclaimer = 5 pages', async () => {
     const photoBuffer = await makePhotoBuffer();
     const photos: FetchedPhoto[] = [1, 2, 3].map(i =>
       makeFetchedPhoto({
@@ -306,7 +306,7 @@ describe('generatePdf photo evidence page (render integration)', () => {
     );
 
     const buffer = await generatePdf(metadata, photos);
-    expect(countPdfPages(buffer)).toBe(4);
+    expect(countPdfPages(buffer)).toBe(5);
   });
 });
 
@@ -353,26 +353,26 @@ describe('generatePdf abort signal', () => {
   });
 });
 
+function makeTrail(count: number): TrailPoint[] {
+  const out: TrailPoint[] = [];
+  for (let i = 0; i < count; i++) {
+    out.push({
+      seq: i + 1,
+      timestamp: new Date(`2026-06-28T1${i % 9}:00:00Z`),
+      type: i === 0 ? 'attendance' : (i % 2 === 0 ? 'checkin' : 'photo'),
+      area: i === 0 ? 'Main Gate' : (i % 2 === 0 ? 'Lobby' : 'Handover Point'),
+      latitude: -8.655812 + i * 0.0001,
+      longitude: 115.219442 + i * 0.0001,
+      accuracyMeters: 5,
+      distanceFromNearestPostMeters: i * 5,
+      remarks: i === 0 ? null : `note ${i}`,
+    });
+  }
+  return out;
+}
+
 describe('generatePdf movement summary page', () => {
   const metadata = makeMetadata({ photoCount: 0 });
-
-  function makeTrail(count: number): TrailPoint[] {
-    const out: TrailPoint[] = [];
-    for (let i = 0; i < count; i++) {
-      out.push({
-        seq: i + 1,
-        timestamp: new Date(`2026-06-28T1${i % 9}:00:00Z`),
-        type: i === 0 ? 'attendance' : (i % 2 === 0 ? 'checkin' : 'photo'),
-        area: i === 0 ? 'Main Gate' : (i % 2 === 0 ? 'Lobby' : 'Handover Point'),
-        latitude: -8.655812 + i * 0.0001,
-        longitude: 115.219442 + i * 0.0001,
-        accuracyMeters: 5,
-        distanceFromNearestPostMeters: i * 5,
-        remarks: i === 0 ? null : `note ${i}`,
-      });
-    }
-    return out;
-  }
 
   test('renders an extra page when a non-empty trail is provided', async () => {
     const trail = makeTrail(3);
@@ -383,8 +383,8 @@ describe('generatePdf movement summary page', () => {
 
   test('does NOT add a trail page when the trail is empty', async () => {
     const buffer = await generatePdf(metadata, [], { trail: [], trailMapBuffer: null });
-    // No photos + empty trail = cover + "no photo" page = 2 pages (no extra trail page).
-    expect(countPdfPages(buffer)).toBe(2);
+    // No photos + empty trail = cover + "no photo" page + disclaimer = 3 pages (no extra trail page).
+    expect(countPdfPages(buffer)).toBe(3);
   });
 
   test('truncates the table when the trail has more than 18 updates', async () => {
@@ -396,5 +396,27 @@ describe('generatePdf movement summary page', () => {
     const withTrail = countPdfPages(buffer);
     expect(withTrail).toBeGreaterThan(withoutTrail);
     expect(withTrail).toBeLessThan(withoutTrail + 30);
+  });
+});
+
+describe('generatePdf disclaimer page', () => {
+  const metadata = makeMetadata();
+
+  test('appends the disclaimer page when no photos and no trail', async () => {
+    const buffer = await generatePdf(metadata, []);
+    // 1 cover + 1 no-photos + 1 disclaimer = 3 pages
+    expect(countPdfPages(buffer)).toBe(3);
+  });
+
+  test('appends the disclaimer page after the trail page when a trail is provided', async () => {
+    const trail = makeTrail(3);
+    const buffer = await generatePdf(metadata, [], { trail, trailMapBuffer: null });
+    // 1 cover + 1 no-photos + 1 trail + 1 disclaimer = 4 pages
+    expect(countPdfPages(buffer)).toBe(4);
+  });
+
+  test('disclaimer page increases PDF size measurably', async () => {
+    const buffer = await generatePdf(metadata, []);
+    expect(buffer.length).toBeGreaterThan(2000);
   });
 });
