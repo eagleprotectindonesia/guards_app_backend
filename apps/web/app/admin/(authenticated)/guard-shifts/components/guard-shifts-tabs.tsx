@@ -6,10 +6,15 @@ import { AdminNavLink } from '../../components/admin-nav-link';
 export default function GuardShiftsTabs() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const activeTab = pathname.includes('/day-offs') ? 'day-offs' : 'shifts';
+  const activeTab = pathname.includes('/day-offs')
+    ? 'day-offs'
+    : pathname.includes('/group-shifts')
+      ? 'group-shifts'
+      : 'shifts';
 
   const queryString = searchParams.toString();
   const shiftsHref = queryString ? `/admin/guard-shifts?${queryString}` : '/admin/guard-shifts';
+  const groupShiftsHref = queryString ? `/admin/guard-shifts/group-shifts?${queryString}` : '/admin/guard-shifts/group-shifts';
   const dayOffsHref = queryString ? `/admin/guard-shifts/day-offs?${queryString}` : '/admin/guard-shifts/day-offs';
 
   return (
@@ -23,6 +28,16 @@ export default function GuardShiftsTabs() {
         }`}
       >
         Guard Shifts
+      </AdminNavLink>
+      <AdminNavLink
+        href={groupShiftsHref}
+        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          activeTab === 'group-shifts'
+            ? 'border-red-600 text-red-600'
+            : 'border-transparent text-muted-foreground hover:text-foreground'
+        }`}
+      >
+        Group Shifts
       </AdminNavLink>
       <AdminNavLink
         href={dayOffsHref}
