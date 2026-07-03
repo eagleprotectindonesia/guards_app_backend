@@ -1268,6 +1268,7 @@ export async function processGuardShiftBulkImport(
             graceMinutes: update.graceMinutes,
             note: update.note,
             status: 'scheduled',
+            groupShift: { disconnect: true },
             lastUpdatedBy: { connect: { id: adminId } },
           },
           include: {
@@ -1277,6 +1278,24 @@ export async function processGuardShiftBulkImport(
             employee: { include: { office: { select: { name: true } } } },
           },
         });
+
+        if (beforeShift.groupShiftId && updatedShift.employeeId) {
+          const gc = await tx.groupChat.findUnique({
+            where: { groupShiftId: beforeShift.groupShiftId },
+            include: { participants: { where: { status: 'active' } } },
+          });
+          if (gc) {
+            const participant = gc.participants.find(
+              p => p.employeeId === updatedShift.employeeId
+            );
+            if (participant) {
+              await tx.groupChatParticipant.update({
+                where: { id: participant.id },
+                data: { status: 'removed', removedAt: new Date() },
+              });
+            }
+          }
+        }
 
         const emp = updatedShift.employee as any;
         const prevEmp = beforeShift.employee as any;
@@ -1296,6 +1315,7 @@ export async function processGuardShiftBulkImport(
           'graceMinutes',
           'status',
           'note',
+          'groupShiftId',
         ] as const;
 
         for (const field of fieldsToTrack) {
