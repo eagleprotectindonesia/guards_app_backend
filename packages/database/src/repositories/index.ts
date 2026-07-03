@@ -8,6 +8,7 @@ export * from './attendance-with-checkins';
 export * from './api-keys';
 export * from './chat';
 export * from './group-chat';
+export * from './group-shifts';
 export * from './checkins';
 export * from './employees';
 export * from './employee-sessions';

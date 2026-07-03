@@ -270,6 +270,7 @@ export interface Shift {
   missedCount: number;
   departedAt?: string | Date | null;
   arrivedAt?: string | Date | null;
+  groupShiftId?: string | null;
   note?: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -369,7 +370,7 @@ export interface GroupChatConversation {
   groupId: string;
   title: string;
   description?: string | null;
-  sourceType?: string | null;
+  groupShiftId?: string | null;
   memberCount: number;
   currentUserRole: GroupChatParticipantRole;
   isArchived: boolean;
@@ -393,7 +394,7 @@ export interface ChatInboxItem {
   id: string;
   title: string;
   subtitle?: string;
-  sourceType?: string | null;
+  groupShiftId?: string | null;
   unreadCount: number;
   isMuted: boolean;
   isArchived: boolean;
@@ -402,6 +403,19 @@ export interface ChatInboxItem {
     senderName: string;
     createdAt: string;
   } | null;
+}
+
+export interface GroupShift {
+  id: string;
+  siteId: string;
+  endSiteId: string;
+  shiftTypeId: string;
+  date: string | Date;
+  kind: ShiftKind;
+  clientName?: string | null;
+  note?: string | null;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
