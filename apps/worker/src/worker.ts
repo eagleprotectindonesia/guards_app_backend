@@ -28,6 +28,7 @@ import {
   SHIFT_PHOTO_REPORT_QUEUE_NAME,
   SHIFT_PHOTO_REPORT_JOB_NAME,
   SHIFT_PHOTO_REPORT_CLEAN_JOB_NAME,
+  GROUP_CHAT_ARCHIVE_JOB_NAME,
   // SHIFT_ATTENDANCE_CLEAN_JOB_NAME,
 } from '@repo/database';
 
@@ -107,6 +108,16 @@ async function start() {
 
   await maintenanceQueue.add(
     SHIFT_PHOTO_REPORT_CLEAN_JOB_NAME,
+    {},
+    {
+      repeat: { pattern: DAILY_CRON_PATTERN },
+      removeOnComplete: true,
+      removeOnFail: true,
+    }
+  );
+
+  await maintenanceQueue.add(
+    GROUP_CHAT_ARCHIVE_JOB_NAME,
     {},
     {
       repeat: { pattern: DAILY_CRON_PATTERN },

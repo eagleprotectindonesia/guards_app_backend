@@ -382,6 +382,8 @@ model GroupChat {
   id                    String    @id @default(uuid())
   title                 String
   description           String?   @db.Text
+  sourceType            String?   @map("source_type")
+  sourceRef             String?   @map("source_ref")
   createdByAdminId      String?   @map("created_by_admin_id")
   createdByEmployeeId   String?   @map("created_by_employee_id")
   lastMessageAt         DateTime? @map("last_message_at")
@@ -397,6 +399,8 @@ model GroupChat {
 
   @@index([lastMessageAt(sort: Desc)])
   @@index([archivedAt])
+  @@index([sourceType, sourceRef])
+  @@index([sourceType, sourceRef], map: "idx_group_chats_active_escort", where: raw("archived_at IS NULL AND source_type = 'escort'"))
   @@map("group_chats")
 }
 

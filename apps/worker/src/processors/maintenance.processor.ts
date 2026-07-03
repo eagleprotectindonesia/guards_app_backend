@@ -3,6 +3,8 @@ import {
   DATA_CLEAN_JOB_NAME,
   SHIFT_PHOTO_REPORT_CLEAN_JOB_NAME,
   SHIFT_ATTENDANCE_CLEAN_JOB_NAME,
+  GROUP_CHAT_ARCHIVE_JOB_NAME,
+  archiveExpiredGroupChats,
   deleteOldShiftPhotoReports,
   deleteOldShiftsAndRelated,
   deleteOldOfficeShiftsAndRelated,
@@ -22,6 +24,19 @@ export class MaintenanceProcessor {
       await this.cleanOldShiftsAndAttendances();
     } else if (job.name === SHIFT_PHOTO_REPORT_CLEAN_JOB_NAME) {
       await this.cleanOldShiftPhotoReports();
+    } else if (job.name === GROUP_CHAT_ARCHIVE_JOB_NAME) {
+      await this.archiveExpiredGroupChats();
+    }
+  }
+
+  private async archiveExpiredGroupChats() {
+    try {
+      const count = await archiveExpiredGroupChats();
+      if (count > 0) {
+        console.log(`[MaintenanceProcessor] Archived ${count} expired group chat(s).`);
+      }
+    } catch (error) {
+      console.error(`[MaintenanceProcessor] Group chat archive error:`, error);
     }
   }
 
