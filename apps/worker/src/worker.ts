@@ -4,6 +4,13 @@ import dotenv from 'dotenv';
 // Load root .env file
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
+process.on('unhandledRejection', reason => {
+  console.error('[Worker] unhandledRejection:', reason);
+});
+process.on('uncaughtException', err => {
+  console.error('[Worker] uncaughtException:', err);
+});
+
 import {
   SCHEDULING_QUEUE_NAME,
   CHECK_SHIFTS_JOB_NAME,

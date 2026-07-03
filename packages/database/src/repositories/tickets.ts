@@ -611,7 +611,7 @@ export async function getTicketSidebarCounts(adminId: string, tx: TxLike = prism
     status: { notIn: CLOSED_VIEW_STATUSES },
   };
 
-  const [all, acknowledged, unassigned, closed] = await Promise.all([
+  const [all, acknowledged, unassigned] = await Promise.all([
     tx.ticket.count({ where: activeStatusFilter }),
     tx.ticket.count({
       where: {
@@ -627,10 +627,9 @@ export async function getTicketSidebarCounts(adminId: string, tx: TxLike = prism
         claimedByType: null,
       },
     }),
-    tx.ticket.count({ where: { status: { in: CLOSED_VIEW_STATUSES } } }),
   ]);
 
-  return { all, acknowledged, unassigned, closed };
+  return { all, acknowledged, unassigned };
 }
 
 export async function getTicketDashboardSidebarStats(

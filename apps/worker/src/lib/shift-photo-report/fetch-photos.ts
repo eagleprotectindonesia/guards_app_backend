@@ -1,20 +1,37 @@
 import { GetObjectCommand, s3Client, BUCKET_NAME } from '@repo/storage';
 import sharp from 'sharp';
 
+export type GeofenceStatusLabel =
+  | 'inside'
+  | 'outside'
+  | 'disabled'
+  | 'unconfigured'
+  | 'no-location';
+
 export type PhotoInput = {
   s3Key: string;
   createdAt: Date;
+  uploadedAt?: Date | null;
   latitude: number | null;
   longitude: number | null;
+  locationName: string | null;
+  geofenceStatus: GeofenceStatusLabel;
+  chatContent: string | null;
+  attendanceMatchedName: string | null;
 };
 
 export type FetchedPhoto = {
   buffer: Buffer;
   s3Key: string;
   createdAt: Date;
+  uploadedAt: Date | null;
   contentType: string;
   latitude: number | null;
   longitude: number | null;
+  locationName: string;
+  geofenceStatus: GeofenceStatusLabel;
+  chatContent: string | null;
+  attendanceMatchedName: string | null;
 };
 
 export async function fetchPhotos(inputs: PhotoInput[], abortSignal?: AbortSignal): Promise<FetchedPhoto[]> {
@@ -22,7 +39,8 @@ export async function fetchPhotos(inputs: PhotoInput[], abortSignal?: AbortSigna
     throw new Error('AWS_S3_BUCKET_NAME is not configured');
   }
 
-  const fetchOne = async ({ s3Key, createdAt, latitude, longitude }: PhotoInput): Promise<FetchedPhoto | null> => {
+  const fetchOne = async (input: PhotoInput): Promise<FetchedPhoto | null> => {
+    const { s3Key, createdAt, uploadedAt, latitude, longitude } = input;
     try {
       const command = new GetObjectCommand({
         Bucket: BUCKET_NAME,
@@ -72,7 +90,22 @@ export async function fetchPhotos(inputs: PhotoInput[], abortSignal?: AbortSigna
         }
       }
 
-      return { buffer: imageBuffer, s3Key, createdAt, contentType, latitude, longitude };
+      const resolvedUploadedAt = uploadedAt
+        ?? (response.LastModified instanceof Date ? response.LastModified : null);
+
+      return {
+        buffer: imageBuffer,
+        s3Key,
+        createdAt,
+        uploadedAt: resolvedUploadedAt,
+        contentType,
+        latitude,
+        longitude,
+        locationName: input.locationName ?? 'On Site',
+        geofenceStatus: input.geofenceStatus,
+        chatContent: input.chatContent,
+        attendanceMatchedName: input.attendanceMatchedName,
+      };
     } catch (err) {
       console.warn(`[ShiftPhotoReport] Failed to fetch S3 object ${s3Key}:`, err);
       return null;

@@ -163,6 +163,11 @@ RUN apk add --no-cache libc6-compat && \
 # Copy deployed worker package as a self-contained pnpm runtime unit
 COPY --from=worker-deployer /out/worker-deploy ./
 
+# pnpm deploy only ships the built dist/ + node_modules/, not the source tree.
+# Copy the eagle logo (used in the shift-photo-report PDF) and any other
+# assets needed at runtime so they are available alongside the bundled JS.
+COPY --from=worker-builder /app/apps/worker/src/lib/assets ./assets
+
 USER workeruser
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
