@@ -1,9 +1,8 @@
 'use client';
 
 import type { Serialized } from '@/lib/server-utils';
-import { updateOffice } from '../actions';
-import { ActionState } from '@/types/actions';
-import { UpdateOfficeInput } from '@repo/validations';
+import { createOffice, updateOffice } from '../actions';
+import { ActionState } from '@repo/types';
 import { startTransition, useActionState, useEffect, useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import { APIProvider, Map, Marker, useMapsLibrary, MapMouseEvent, useMap } from '@vis.gl/react-google-maps';
@@ -11,10 +10,9 @@ import { Office } from '@prisma/client';
 import { useAdminRouter } from '../../context/admin-router';
 
 type Props = {
-  office: Serialized<Office>; // Always an edit form — offices come from external sync
+  office?: Serialized<Office>;
 };
 
-// MapUpdater component to update map position externally
 function MapUpdater({
   center,
   zoom,
@@ -36,7 +34,6 @@ function MapUpdater({
   return null;
 }
 
-// MapComponent handles the Google Map rendering and interactions
 function MapComponent({
   initialPosition,
   onPlaceSelect,
@@ -104,7 +101,6 @@ function MapComponent({
   );
 }
 
-// LocationSearchInput component for the autocomplete functionality
 function LocationSearchInput({
   onPlaceSelect,
   initialAddress,
@@ -157,24 +153,26 @@ function LocationSearchInput({
 
 export default function OfficeForm({ office }: Props) {
   const router = useAdminRouter();
-  const [state, formAction, isPending] = useActionState<ActionState<UpdateOfficeInput>, FormData>(
-    updateOffice.bind(null, office.id),
+  const isEdit = !!office;
+
+  const [state, formAction, isPending] = useActionState<ActionState, FormData>(
+    isEdit ? updateOffice.bind(null, office.id) : createOffice,
     { success: false }
   );
 
-  const defaultPosition = { lat: -8.643, lng: 115.158 }; // Default to Kuta Utara, Bali
+  const defaultPosition = { lat: -8.643, lng: 115.158 };
   const [currentAddress, setCurrentAddress] = useState(office?.address || null);
   const [currentLatitude, setCurrentLatitude] = useState(office?.latitude || defaultPosition.lat);
   const [currentLongitude, setCurrentLongitude] = useState(office?.longitude || defaultPosition.lng);
 
   useEffect(() => {
     if (state.success) {
-      toast.success(state.message || 'Office updated successfully!');
+      toast.success(state.message || (isEdit ? 'Office updated successfully!' : 'Office created successfully!'));
       router.push('/admin/offices');
     } else if (state.message && !state.success) {
       toast.error(state.message);
     }
-  }, [state, router]);
+  }, [state, router, isEdit]);
 
   const handlePlaceSelect = useCallback((address: string, lat: number, lng: number) => {
     setCurrentAddress(address);
@@ -185,26 +183,71 @@ export default function OfficeForm({ office }: Props) {
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}>
       <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold text-foreground mb-1">Edit Office</h1>
-        <div className="mb-6 p-3 rounded-lg bg-muted border border-border flex items-center gap-3">
-          <div>
-            <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
-              Office Name (from external system)
-            </div>
-            <div className="text-base font-semibold text-foreground">{office.name}</div>
-          </div>
-          <span
-            className={`ml-auto inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-              office.status
-                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
-                : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
-            }`}
-          >
-            {office.status ? 'Active' : 'Inactive'}
-          </span>
-        </div>
+        <h1 className="text-2xl font-bold text-foreground mb-6">{isEdit ? 'Edit Office' : 'Create Office'}</h1>
 
         <form action={formAction} className="space-y-6">
+          {/* Office Name */}
+          {isEdit ? (
+            <div className="mb-6 p-3 rounded-lg bg-muted border border-border flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
+                  Office Name
+                </div>
+                {office.source === 'external' ? (
+                  <div className="text-base font-semibold text-foreground truncate">{office.name}</div>
+                ) : (
+                  <input
+                    type="text"
+                    name="name"
+                    id="name"
+                    defaultValue={office.name}
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  />
+                )}
+              </div>
+              <span
+                className={`shrink-0 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  office.status
+                    ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
+                    : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'
+                }`}
+              >
+                {office.status ? 'Active' : 'Inactive'}
+              </span>
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="name" className="block font-medium text-foreground mb-1">
+                Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="name"
+                id="name"
+                required
+                className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all placeholder:text-muted-foreground"
+                placeholder="Enter office name..."
+              />
+              {state.errors?.name && <p className="text-red-500 text-xs mt-1">{state.errors.name[0]}</p>}
+            </div>
+          )}
+
+          {/* Status Toggle (create only) */}
+          {!isEdit && (
+            <div>
+              <label className="block font-medium text-foreground mb-2">Status</label>
+              <label className="inline-flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="status"
+                  defaultChecked
+                  className="w-4 h-4 rounded border-border text-red-600 focus:ring-red-500/20"
+                />
+                <span className="text-sm text-muted-foreground">Active</span>
+              </label>
+            </div>
+          )}
+
           {/* Location Search Input */}
           <div className="relative">
             <label htmlFor="locationSearch" className="block font-medium text-foreground mb-1">
@@ -276,7 +319,7 @@ export default function OfficeForm({ office }: Props) {
               disabled={isPending}
               className="px-6 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/20"
             >
-              {isPending ? 'Saving...' : 'Save Changes'}
+              {isPending ? 'Saving...' : isEdit ? 'Save Changes' : 'Create Office'}
             </button>
           </div>
         </form>

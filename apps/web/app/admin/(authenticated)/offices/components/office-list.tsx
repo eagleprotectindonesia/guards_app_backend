@@ -182,7 +182,7 @@ export default function OfficeList({ offices, page, perPage, totalCount, sortBy 
               {offices.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="py-8 text-center text-muted-foreground">
-                    No offices found. Offices are synced automatically from the external system.
+                    No offices found.
                   </td>
                 </tr>
               ) : (

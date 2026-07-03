@@ -432,9 +432,19 @@ export const createEmployeeOfficeWorkScheduleAssignmentSchema = z.object({
 });
 
 // --- Office ---
-// Note: Offices are managed by the external employee sync. Admins may only edit
-// location/supplementary details not provided by the external system.
+export const createOfficeSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  address: z.string().optional(),
+  latitude: z.number().optional(),
+  longitude: z.number().optional(),
+  status: z.boolean().optional(),
+  note: z.string().optional(),
+});
+
+// Note: Offices from the external employee sync cannot have their name edited.
+// Admins may edit location/supplementary details not provided by the external system.
 export const updateOfficeSchema = z.object({
+  name: z.string().min(1).optional(),
   address: z.string().optional(),
   latitude: z.number().optional(),
   longitude: z.number().optional(),
@@ -633,6 +643,7 @@ export type UpdateDepartmentInput = CreateDepartmentInput;
 export type CreateDesignationInput = z.infer<typeof createDesignationSchema>;
 export type UpdateDesignationInput = CreateDesignationInput;
 export type UpdateSettingsInput = z.infer<typeof updateSettingsSchema>;
+export type CreateOfficeInput = z.infer<typeof createOfficeSchema>;
 export type UpdateOfficeInput = z.infer<typeof updateOfficeSchema>;
 export type UpdateOfficeWorkScheduleInput = z.infer<typeof updateOfficeWorkScheduleSchema>;
 export type UpdateDefaultOfficeWorkScheduleInput = z.infer<typeof updateDefaultOfficeWorkScheduleSchema>;

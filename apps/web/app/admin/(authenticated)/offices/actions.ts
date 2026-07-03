@@ -1,9 +1,9 @@
 'use server';
 
-import { UpdateOfficeInput, updateOfficeSchema } from '@repo/validations';
+import { CreateOfficeInput, UpdateOfficeInput, createOfficeSchema, updateOfficeSchema } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
-import { updateOfficeWithChangelog, getAllOffices, deleteOfficeWithChangelog } from '@repo/database';
+import { createOfficeWithChangelog, updateOfficeWithChangelog, getAllOffices, deleteOfficeWithChangelog } from '@repo/database';
 import { ActionState } from '@/types/actions';
 import { Office } from '@prisma/client';
 import { serialize } from '@/lib/server-utils';
@@ -16,6 +16,43 @@ export async function getAllOfficesForExport(): Promise<
   return serialize(offices);
 }
 
+export async function createOffice(
+  prevState: ActionState<CreateOfficeInput>,
+  formData: FormData
+): Promise<ActionState<CreateOfficeInput>> {
+  const adminId = await getAdminIdFromToken();
+
+  const validatedFields = createOfficeSchema.safeParse({
+    name: formData.get('name'),
+    address: formData.get('address') || undefined,
+    latitude: formData.get('latitude') ? parseFloat(formData.get('latitude') as string) : undefined,
+    longitude: formData.get('longitude') ? parseFloat(formData.get('longitude') as string) : undefined,
+    status: formData.get('status') === 'true',
+    note: formData.get('note') || undefined,
+  });
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Missing Fields. Failed to Create Office.',
+      success: false,
+    };
+  }
+
+  try {
+    await createOfficeWithChangelog(validatedFields.data, adminId!);
+  } catch (error) {
+    console.error('Database Error:', error);
+    return {
+      message: 'Database Error: Failed to Create Office.',
+      success: false,
+    };
+  }
+
+  revalidatePath('/admin/offices');
+  return { success: true, message: 'Office created successfully' };
+}
+
 export async function updateOffice(
   id: string,
   prevState: ActionState<UpdateOfficeInput>,
@@ -23,6 +60,7 @@ export async function updateOffice(
 ): Promise<ActionState<UpdateOfficeInput>> {
   const adminId = await getAdminIdFromToken();
   const validatedFields = updateOfficeSchema.safeParse({
+    name: formData.get('name') || undefined,
     address: formData.get('address') || undefined,
     latitude: formData.get('latitude') ? parseFloat(formData.get('latitude') as string) : undefined,
     longitude: formData.get('longitude') ? parseFloat(formData.get('longitude') as string) : undefined,
