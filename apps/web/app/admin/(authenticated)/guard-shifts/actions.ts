@@ -1,6 +1,6 @@
 'use server';
 
-import { prisma, addGroupMembers, createGroupChat, findGroupChatBySourceRef, removeGroupMember, unarchiveGroupChat } from '@repo/database';
+import { prisma, addGroupMembers, createGroupChat, findGroupChatByGroupShiftId, removeGroupMember, unarchiveGroupChat, upsertGroupShift } from '@repo/database';
 import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { format, isBefore, subMinutes } from 'date-fns';
@@ -137,45 +137,71 @@ export async function createShift(
       }
     }
 
-    await createShiftWithChangelog(
-      {
-        site: { connect: { id: siteId } },
-        shiftType: { connect: { id: shiftTypeId } },
-        employee: employeeId ? { connect: { id: employeeId } } : undefined,
-        kind,
-        escortEndSite: escortEndSiteId ? { connect: { id: escortEndSiteId } } : undefined,
+    if (kind === 'escort' && escortEndSiteId) {
+      const groupShift = await upsertGroupShift({
+        siteId,
+        endSiteId: escortEndSiteId,
+        shiftTypeId,
         date: dateObj,
-        startsAt: startDateTime,
-        endsAt: endDateTime,
-        requiredCheckinIntervalMins,
-        graceMinutes,
-        note,
-        status: 'scheduled',
-      },
-      adminId
-    );
+      });
 
-    if (kind === 'escort' && employeeId && escortEndSiteId) {
-      const dateStr = format(dateObj, 'yyyy-MM-dd');
-      const sourceRef = `escort:${siteId}:${escortEndSiteId}:${dateStr}`;
-      const existing = await findGroupChatBySourceRef({ sourceType: 'escort', sourceRef });
-      if (existing) {
-        if (existing.archivedAt) {
-          await unarchiveGroupChat(existing.id);
-        }
-        const existingMember = existing.participants.find(
-          p => p.employeeId === employeeId && p.status === 'active'
-        );
-        if (!existingMember) {
-          const visibleFromAt = subMinutes(startDateTime, 30);
-          await addGroupMembers({
-            groupId: existing.id,
-            actor: { participantType: 'admin', adminId },
-            employeeIds: [employeeId],
-            visibleFromAt,
-          });
+      await createShiftWithChangelog(
+        {
+          site: { connect: { id: siteId } },
+          shiftType: { connect: { id: shiftTypeId } },
+          employee: employeeId ? { connect: { id: employeeId } } : undefined,
+          kind,
+          escortEndSite: escortEndSiteId ? { connect: { id: escortEndSiteId } } : undefined,
+          date: dateObj,
+          startsAt: startDateTime,
+          endsAt: endDateTime,
+          requiredCheckinIntervalMins,
+          graceMinutes,
+          note,
+          status: 'scheduled',
+          groupShift: { connect: { id: groupShift.id } },
+        },
+        adminId
+      );
+
+      if (employeeId) {
+        const groupChat = await findGroupChatByGroupShiftId(groupShift.id);
+        if (groupChat) {
+          if (groupChat.archivedAt) {
+            await unarchiveGroupChat(groupChat.id);
+          }
+          const existingMember = groupChat.participants.find(
+            p => p.employeeId === employeeId && p.status === 'active'
+          );
+          if (!existingMember) {
+            const visibleFromAt = subMinutes(startDateTime, 30);
+            await addGroupMembers({
+              groupId: groupChat.id,
+              actor: { participantType: 'admin', adminId },
+              employeeIds: [employeeId],
+              visibleFromAt,
+            });
+          }
         }
       }
+    } else {
+      await createShiftWithChangelog(
+        {
+          site: { connect: { id: siteId } },
+          shiftType: { connect: { id: shiftTypeId } },
+          employee: employeeId ? { connect: { id: employeeId } } : undefined,
+          kind,
+          escortEndSite: escortEndSiteId ? { connect: { id: escortEndSiteId } } : undefined,
+          date: dateObj,
+          startsAt: startDateTime,
+          endsAt: endDateTime,
+          requiredCheckinIntervalMins,
+          graceMinutes,
+          note,
+          status: 'scheduled',
+        },
+        adminId
+      );
     }
   } catch (error) {
     console.error('Database Error:', error);
@@ -328,16 +354,14 @@ export async function deleteShift(id: string) {
     const adminId = await getAdminIdFromToken();
     const shift = await prisma.shift.findUnique({
       where: { id, deletedAt: null },
-      select: { kind: true, employeeId: true, siteId: true, escortEndSiteId: true, date: true },
+      select: { kind: true, employeeId: true, groupShiftId: true },
     });
 
     await deleteShiftWithChangelog(id, adminId);
     revalidatePath('/admin/guard-shifts');
 
-    if (shift?.kind === 'escort' && shift.employeeId && shift.escortEndSiteId) {
-      const dateStr = format(shift.date, 'yyyy-MM-dd');
-      const sourceRef = `escort:${shift.siteId}:${shift.escortEndSiteId}:${dateStr}`;
-      const group = await findGroupChatBySourceRef({ sourceType: 'escort', sourceRef });
+    if (shift?.kind === 'escort' && shift.employeeId && shift.groupShiftId) {
+      const group = await findGroupChatByGroupShiftId(shift.groupShiftId);
       if (group) {
         const participant = group.participants.find(
           p => p.employeeId === shift.employeeId && p.status === 'active'
@@ -365,7 +389,7 @@ export async function cancelShift(id: string, cancelNote?: string) {
 
     const shift = await prisma.shift.findUnique({
       where: { id, deletedAt: null },
-      select: { status: true, note: true, kind: true, employeeId: true, siteId: true, escortEndSiteId: true, date: true },
+      select: { status: true, note: true, kind: true, employeeId: true, groupShiftId: true },
     });
 
     if (!shift) {
@@ -386,10 +410,8 @@ export async function cancelShift(id: string, cancelNote?: string) {
     await updateShiftWithChangelog(id, { status: ShiftStatus.cancelled, note: updatedNote }, adminId);
     revalidatePath('/admin/guard-shifts');
 
-    if (shift.kind === 'escort' && shift.employeeId && shift.escortEndSiteId) {
-      const dateStr = format(shift.date, 'yyyy-MM-dd');
-      const sourceRef = `escort:${shift.siteId}:${shift.escortEndSiteId}:${dateStr}`;
-      const group = await findGroupChatBySourceRef({ sourceType: 'escort', sourceRef });
+    if (shift.kind === 'escort' && shift.employeeId && shift.groupShiftId) {
+      const group = await findGroupChatByGroupShiftId(shift.groupShiftId);
       if (group) {
         const participant = group.participants.find(
           p => p.employeeId === shift.employeeId && p.status === 'active'
@@ -589,14 +611,30 @@ export async function bulkCreateShiftsFromFormAction(
   }
 
   try {
-    const result = await bulkCreateShiftsFromForm(input, adminId);
+    const uniqueDates = [...new Set(input.dates)].sort();
+    let groupShiftIds: Record<string, string> | undefined;
+
+    if (input.kind === 'escort' && input.escortEndSiteId) {
+      groupShiftIds = {};
+      for (const dateStr of uniqueDates) {
+        const groupShift = await upsertGroupShift({
+          siteId: input.siteId,
+          endSiteId: input.escortEndSiteId,
+          shiftTypeId: input.shiftTypeId,
+          date: new Date(dateStr + 'T00:00:00'),
+          clientName: input.clientName,
+        });
+        groupShiftIds[dateStr] = groupShift.id;
+      }
+    }
+
+    const result = await bulkCreateShiftsFromForm({ ...input, groupShiftIds }, adminId);
     revalidatePath('/admin/guard-shifts');
 
     const groupIds: string[] = [];
-    if (input.autoCreateChatRoom && input.kind === 'escort' && input.escortEndSiteId) {
+    if (input.autoCreateChatRoom && input.kind === 'escort' && input.escortEndSiteId && groupShiftIds) {
       const allAdmins = await prisma.admin.findMany({ where: { deletedAt: null }, select: { id: true } });
       const adminIds = allAdmins.map(a => a.id);
-      const uniqueDates = [...new Set(input.dates)].sort();
       const startSiteName = startSite.name;
       const endSiteName = endSite?.name ?? 'Destination';
       const clientLabel = input.clientName?.trim() || `${startSiteName} → ${endSiteName}`;
@@ -609,12 +647,10 @@ export async function bulkCreateShiftsFromFormAction(
         const startsAt = parseShiftTypeTimeOnDate(dateStr, shiftType!.startTime);
         const visibleFromAt = subMinutes(startsAt, 30);
 
-        const sourceRef = `escort:${input.siteId}:${input.escortEndSiteId}:${dateStr}`;
         const group = await createGroupChat({
           title,
           description,
-          sourceType: 'escort',
-          sourceRef,
+          groupShiftId: groupShiftIds[dateStr],
           creator: { participantType: 'admin', adminId },
           employeeIds: input.employeeIds,
           leadEmployeeId: input.leadGuardId,

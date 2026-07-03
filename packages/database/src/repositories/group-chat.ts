@@ -86,8 +86,7 @@ async function resolveSenderEmployeeNumber(tx: Prisma.TransactionClient, employe
 export async function createGroupChat(params: {
   title: string;
   description?: string | null;
-  sourceType?: string | null;
-  sourceRef?: string | null;
+  groupShiftId?: string | null;
   creator: Actor;
   employeeIds?: string[];
   leadEmployeeId?: string | null;
@@ -105,8 +104,7 @@ export async function createGroupChat(params: {
       data: {
         title,
         description: params.description ?? null,
-        sourceType: params.sourceType ?? null,
-        sourceRef: params.sourceRef ?? null,
+        groupShiftId: params.groupShiftId ?? null,
         createdByAdminId: actorAdminId(params.creator) ?? null,
         createdByEmployeeId: actorEmployeeId(params.creator) ?? null,
       },
@@ -573,9 +571,9 @@ export async function leaveGroup(params: { groupId: string; actor: Actor }) {
   });
 }
 
-export async function findGroupChatBySourceRef(params: { sourceType: string; sourceRef: string }) {
+export async function findGroupChatByGroupShiftId(groupShiftId: string) {
   return db.groupChat.findFirst({
-    where: { sourceType: params.sourceType, sourceRef: params.sourceRef },
+    where: { groupShiftId },
     include: { participants: true },
   });
 }
@@ -589,32 +587,25 @@ export async function unarchiveGroupChat(groupId: string) {
 
 export async function archiveExpiredGroupChats() {
   const now = new Date();
-  const cutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000); // 2 days ago
+  const cutoff = new Date(now.getTime() - 48 * 60 * 60 * 1000);
 
   const groups = await db.groupChat.findMany({
     where: {
-      sourceType: 'escort',
-      sourceRef: { not: null },
+      groupShiftId: { not: null },
       archivedAt: null,
+      groupShift: { date: { lt: cutoff } },
     },
-    select: { id: true, sourceRef: true },
+    select: { id: true },
   });
 
-  const toArchive = groups.filter(g => {
-    const dateStr = g.sourceRef!.split(':').pop();
-    if (!dateStr) return false;
-    const shiftDate = new Date(dateStr + 'T00:00:00Z');
-    return shiftDate < cutoff;
-  });
-
-  if (toArchive.length === 0) return 0;
+  if (groups.length === 0) return 0;
 
   await db.groupChat.updateMany({
-    where: { id: { in: toArchive.map(g => g.id) } },
+    where: { id: { in: groups.map(g => g.id) } },
     data: { archivedAt: now },
   });
 
-  return toArchive.length;
+  return groups.length;
 }
 
 export async function reserveGroupMessageDraft(params: { groupId: string; actor: Actor }) {

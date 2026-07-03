@@ -249,6 +249,7 @@ export async function bulkCreateShiftsFromForm(
     requiredCheckinIntervalMins: number;
     graceMinutes: number;
     note?: string | null;
+    groupShiftIds?: Record<string, string>;
   },
   adminId: string
 ) {
@@ -366,6 +367,9 @@ export async function bulkCreateShiftsFromForm(
           graceMinutes: input.graceMinutes,
           note: input.note || undefined,
           status: 'scheduled' as const,
+          groupShift: input.groupShiftIds?.[p.dateStr]
+            ? { connect: { id: input.groupShiftIds[p.dateStr] } }
+            : undefined,
         };
 
         const created = await createShiftInTransaction(tx, shiftData, adminId);

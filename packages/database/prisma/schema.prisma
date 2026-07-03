@@ -383,8 +383,7 @@ model GroupChat {
   id                    String    @id @default(uuid())
   title                 String
   description           String?   @db.Text
-  sourceType            String?   @map("source_type")
-  sourceRef             String?   @map("source_ref")
+  groupShiftId          String?   @unique @map("group_shift_id")
   createdByAdminId      String?   @map("created_by_admin_id")
   createdByEmployeeId   String?   @map("created_by_employee_id")
   lastMessageAt         DateTime? @map("last_message_at")
@@ -397,12 +396,35 @@ model GroupChat {
   participants GroupChatParticipant[]
   messages     GroupChatMessage[]
   events       GroupChatMembershipEvent[]
+  groupShift   GroupShift?                @relation(fields: [groupShiftId], references: [id])
 
   @@index([lastMessageAt(sort: Desc)])
   @@index([archivedAt])
-  @@index([sourceType, sourceRef])
-  @@index([sourceType, sourceRef], map: "idx_group_chats_active_escort", where: raw("archived_at IS NULL AND source_type = 'escort'"))
   @@map("group_chats")
+}
+
+model GroupShift {
+  id          String    @id @default(uuid())
+  siteId      String    @map("site_id")
+  endSiteId   String    @map("end_site_id")
+  shiftTypeId String    @map("shift_type_id")
+  date        DateTime  @db.Date
+  kind        ShiftKind @default(escort)
+  clientName  String?   @map("client_name")
+  note        String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  shifts    Shift[]
+  groupChat GroupChat?
+
+  site      Site      @relation(fields: [siteId], references: [id])
+  endSite   Site?     @relation("GroupShiftEndSite", fields: [endSiteId], references: [id])
+  shiftType ShiftType @relation(fields: [shiftTypeId], references: [id])
+
+  @@unique([siteId, endSiteId, date])
+  @@index([siteId, endSiteId, date])
+  @@map("group_shifts")
 }
 
 model GroupChatParticipant {
@@ -575,28 +597,30 @@ model EmployeePasswordHistory {
 }
 
 model Site {
-  id              String     @id @default(uuid())
-  name            String     @unique
-  clientName      String?    @map("client_name")
-  address         String?
-  latitude        Float?
-  longitude       Float?
-  geofenceRadius  Float      @default(100.0) @map("geofence_radius")
-  geofenceStatus  Boolean?   @default(true) @map("geofence_status")
-  kind            SiteKind   @default(fixed)
-  status          Boolean?   @default(true)
-  lastUpdatedById String?    @map("last_updated_by_id")
-  createdById     String?    @map("created_by_id")
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  deletedAt       DateTime?  @map("deleted_at")
-  note            String?    @db.Text
-  alerts          Alert[]
-  shifts          Shift[]
-  escortEndShifts Shift[]    @relation("ShiftEscortEndSite")
-  posts           SitePost[]
-  lastUpdatedBy   Admin?     @relation("SiteLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  createdBy       Admin?     @relation("SiteCreatedBy", fields: [createdById], references: [id])
+  id                 String       @id @default(uuid())
+  name               String       @unique
+  clientName         String?      @map("client_name")
+  address            String?
+  latitude           Float?
+  longitude          Float?
+  geofenceRadius     Float        @default(100.0) @map("geofence_radius")
+  geofenceStatus     Boolean?     @default(true) @map("geofence_status")
+  kind               SiteKind     @default(fixed)
+  status             Boolean?     @default(true)
+  lastUpdatedById    String?      @map("last_updated_by_id")
+  createdById        String?      @map("created_by_id")
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  deletedAt          DateTime?    @map("deleted_at")
+  note               String?      @db.Text
+  alerts             Alert[]
+  shifts             Shift[]
+  escortEndShifts    Shift[]      @relation("ShiftEscortEndSite")
+  groupShifts        GroupShift[] // group shifts starting at this site
+  groupShiftEndSites GroupShift[] @relation("GroupShiftEndSite")
+  posts              SitePost[]
+  lastUpdatedBy      Admin?       @relation("SiteLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  createdBy          Admin?       @relation("SiteCreatedBy", fields: [createdById], references: [id])
 
   @@index([status])
   @@index([status, kind, deletedAt])
@@ -650,18 +674,19 @@ model Office {
 }
 
 model ShiftType {
-  id              String    @id @default(uuid())
-  name            String    @unique(map: "shift_types_active_name_key", where: { deletedAt: null })
-  startTime       String    @map("start_time")
-  endTime         String    @map("end_time")
-  lastUpdatedById String?   @map("last_updated_by_id")
-  createdById     String?   @map("created_by_id")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime? @map("deleted_at")
+  id              String       @id @default(uuid())
+  name            String       @unique(map: "shift_types_active_name_key", where: { deletedAt: null })
+  startTime       String       @map("start_time")
+  endTime         String       @map("end_time")
+  lastUpdatedById String?      @map("last_updated_by_id")
+  createdById     String?      @map("created_by_id")
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?    @map("deleted_at")
   shifts          Shift[]
-  lastUpdatedBy   Admin?    @relation("ShiftTypeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  createdBy       Admin?    @relation("ShiftTypeCreatedBy", fields: [createdById], references: [id])
+  groupShifts     GroupShift[]
+  lastUpdatedBy   Admin?       @relation("ShiftTypeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  createdBy       Admin?       @relation("ShiftTypeCreatedBy", fields: [createdById], references: [id])
 
   @@index([deletedAt])
   @@map("shift_types")
@@ -716,6 +741,7 @@ model Shift {
   lastAutoPhotoReportId String?                 @map("last_auto_photo_report_id")
   lastAutoPhotoReportAt DateTime?               @map("last_auto_photo_report_at")
   note                  String?                 @db.Text
+  groupShiftId          String?                 @map("group_shift_id")
   alerts                Alert[]
   checkins              Checkin[]
   photoReports          ShiftPhotoReport[]
@@ -723,6 +749,7 @@ model Shift {
   shiftType             ShiftType               @relation(fields: [shiftTypeId], references: [id])
   site                  Site                    @relation(fields: [siteId], references: [id])
   escortEndSite         Site?                   @relation("ShiftEscortEndSite", fields: [escortEndSiteId], references: [id])
+  groupShift            GroupShift?             @relation(fields: [groupShiftId], references: [id])
   createdBy             Admin?                  @relation("ShiftCreatedBy", fields: [createdById], references: [id])
   lastUpdatedBy         Admin?                  @relation("ShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
   attendance            Attendance?
@@ -739,6 +766,7 @@ model Shift {
   @@index([siteId, kind, status, startsAt])
   @@index([escortEndSiteId])
   @@index([deletedAt])
+  @@index([groupShiftId])
   @@map("shifts")
 }
 
