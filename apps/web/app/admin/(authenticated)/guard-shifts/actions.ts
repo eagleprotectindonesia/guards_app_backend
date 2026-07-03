@@ -14,6 +14,7 @@ import {
   updateShiftWithChangelog,
   deleteShiftWithChangelog,
   processGuardShiftBulkImport,
+  bulkCreateShiftsFromForm,
 } from '@repo/database';
 import { getShiftTypeDurationInMins } from '@repo/database';
 import { ActionState } from '@/types/actions';
@@ -479,4 +480,59 @@ export async function bulkCreateShifts(
     success: true,
     message: messages.join('; ') || 'No changes made.',
   };
+}
+
+type BulkCreateFromFormInput = {
+  kind: 'onsite' | 'escort';
+  siteId: string;
+  escortEndSiteId?: string;
+  shiftTypeId: string;
+  employeeIds: string[];
+  dates: string[];
+  requiredCheckinIntervalMins: number;
+  graceMinutes: number;
+  note?: string | null;
+};
+
+export async function bulkCreateShiftsFromFormAction(
+  input: BulkCreateFromFormInput
+): Promise<{ success: boolean; message: string; created?: number; ids?: string[] }> {
+  const adminId = await getAdminIdFromToken();
+
+  if (input.employeeIds.length === 0) {
+    return { success: false, message: 'At least one employee is required.' };
+  }
+  if (input.dates.length === 0) {
+    return { success: false, message: 'At least one date is required.' };
+  }
+
+  const [startSite, endSite] = await Promise.all([
+    prisma.site.findUnique({ where: { id: input.siteId }, select: { kind: true } }),
+    input.escortEndSiteId ? prisma.site.findUnique({ where: { id: input.escortEndSiteId }, select: { kind: true } }) : null,
+  ]);
+
+  if (!startSite) return { success: false, message: 'Start site not found.' };
+  if (startSite.kind !== 'fixed') return { success: false, message: 'Start site must be a fixed site.' };
+
+  if (input.escortEndSiteId) {
+    if (!endSite) return { success: false, message: 'Escort end site not found.' };
+    if (endSite.kind !== 'escort') return { success: false, message: 'Escort end site must be an escort site.' };
+  }
+
+  try {
+    const result = await bulkCreateShiftsFromForm(input, adminId);
+    revalidatePath('/admin/guard-shifts');
+    return {
+      success: true,
+      message: `Created ${result.created} schedule(s) successfully.`,
+      created: result.created,
+      ids: result.ids,
+    };
+  } catch (error) {
+    console.error('[bulkCreateShiftsFromFormAction] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to create schedules. Please try again.',
+    };
+  }
 }
