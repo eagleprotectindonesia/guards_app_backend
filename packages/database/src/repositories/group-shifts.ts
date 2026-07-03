@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 
 export async function upsertGroupShift(params: {
@@ -47,5 +48,85 @@ export async function getGroupShiftByKeys(params: { siteId: string; endSiteId: s
   return prisma.groupShift.findUnique({
     where: { siteId_endSiteId_date: { siteId, endSiteId, date } },
     include: { groupChat: true },
+  });
+}
+
+export async function getPaginatedGroupShifts(params: {
+  startDate?: Date;
+  endDate?: Date;
+  siteId?: string;
+  endSiteId?: string;
+  page: number;
+  perPage: number;
+  sortBy: string;
+  sortOrder: 'asc' | 'desc';
+}) {
+  const { startDate, endDate, siteId, endSiteId, page, perPage, sortBy, sortOrder } = params;
+
+  const where: Prisma.GroupShiftWhereInput = {};
+  const dateFilter: Prisma.DateTimeFilter = {};
+  if (startDate) dateFilter.gte = startDate;
+  if (endDate) dateFilter.lte = endDate;
+  if (startDate || endDate) where.date = dateFilter;
+  if (siteId) where.siteId = siteId;
+  if (endSiteId) where.endSiteId = endSiteId;
+
+  const orderBy: Prisma.GroupShiftOrderByWithRelationInput =
+    sortBy === 'site'
+      ? { site: { name: sortOrder } }
+      : sortBy === 'endSite'
+        ? { endSite: { name: sortOrder } }
+        : sortBy === 'shiftType'
+          ? { shiftType: { name: sortOrder } }
+          : { date: sortOrder };
+
+  const [groupShifts, totalCount] = await Promise.all([
+    prisma.groupShift.findMany({
+      where,
+      orderBy,
+      skip: (page - 1) * perPage,
+      take: perPage,
+      include: {
+        site: { select: { id: true, name: true } },
+        endSite: { select: { id: true, name: true } },
+        shiftType: { select: { id: true, name: true, startTime: true, endTime: true } },
+        groupChat: { select: { id: true } },
+        shifts: { select: { id: true, status: true, employeeId: true } },
+      },
+    }),
+    prisma.groupShift.count({ where }),
+  ]);
+
+  return { groupShifts, totalCount };
+}
+
+export async function getGroupShiftDetail(id: string) {
+  return prisma.groupShift.findUnique({
+    where: { id },
+    include: {
+      site: { select: { id: true, name: true, kind: true } },
+      endSite: { select: { id: true, name: true, address: true, kind: true } },
+      shiftType: { select: { id: true, name: true, startTime: true, endTime: true } },
+      groupChat: { select: { id: true, title: true } },
+      shifts: {
+        where: { deletedAt: null },
+        include: {
+          employee: { select: { id: true, fullName: true, employeeNumber: true } },
+          attendance: { select: { id: true, status: true, recordedAt: true } },
+        },
+        orderBy: [{ employee: { fullName: 'asc' } }],
+      },
+    },
+  });
+}
+
+export async function updateGroupShift(id: string, data: { clientName?: string | null; note?: string | null }) {
+  const updateData: Record<string, string | null> = {};
+  if (data.clientName !== undefined) updateData.clientName = data.clientName;
+  if (data.note !== undefined) updateData.note = data.note;
+
+  return prisma.groupShift.update({
+    where: { id },
+    data: updateData,
   });
 }

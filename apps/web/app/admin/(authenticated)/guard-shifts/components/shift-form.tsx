@@ -48,6 +48,7 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
   const [selectedEscortEndSiteId, setSelectedEscortEndSiteId] = useState<string>(shift?.escortEndSiteId || '');
 
   const isReadOnly = shift ? shift.status !== 'scheduled' : false;
+  const isGroupLocked = shift ? !!(shift as any).groupShiftId : false;
 
   const shiftTypeDurationMins = useMemo(() => {
     const st = shiftTypes.find(st => st.id === selectedShiftTypeId);
@@ -93,11 +94,16 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
       <h1 className="text-2xl font-bold text-foreground mb-6">
         {isReadOnly ? 'View Guard Shift' : shift ? 'Edit Guard Shift' : 'Schedule New Guard Shift'}
       </h1>
+      {isGroupLocked && (
+        <div className="mb-6 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm">
+          This shift belongs to a group. Site, date, shift type, and timing are managed at the group level.
+        </div>
+      )}
       <form action={formAction} className="space-y-8">
         {/* Kind Field */}
         <div>
           <label className="block font-medium text-foreground mb-2">Shift Type</label>
-          {isReadOnly ? (
+          {(isReadOnly || isGroupLocked) ? (
             <p className="text-sm text-foreground capitalize">{shift?.kind || 'onsite'}</p>
           ) : (
             <div className="flex items-center gap-6">
@@ -135,7 +141,7 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
           <label htmlFor="siteId" className="block font-medium text-foreground mb-1">
             Site
           </label>
-          {isReadOnly ? (
+          {(isReadOnly || isGroupLocked) ? (
             <p className="text-sm text-foreground">{currentShiftSiteName}</p>
           ) : (
             <Select
@@ -161,7 +167,7 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
             <label htmlFor="escortEndSiteId" className="block font-medium text-foreground mb-1">
               Escort End Site
             </label>
-            {isReadOnly ? (
+            {(isReadOnly || isGroupLocked) ? (
               <p className="text-sm text-foreground">{currentEscortEndSiteName}</p>
             ) : (
               <Select
@@ -186,6 +192,9 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
           <label htmlFor="shiftTypeId" className="block font-medium text-foreground mb-1">
             Guard Shift Type
           </label>
+          {(isReadOnly || isGroupLocked) ? (
+            <p className="text-sm text-foreground">{shiftTypes.find(st => st.id === (shift?.shiftTypeId || ''))?.name || shift?.shiftTypeId}</p>
+          ) : (
           <Select
             id="shift-type-select"
             instanceId="shift-type-select"
@@ -197,6 +206,7 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
             isSearchable={false}
             isDisabled={isReadOnly}
           />
+          )}
           <input type="hidden" name="shiftTypeId" value={selectedShiftTypeId} />
           {state.errors?.shiftTypeId && (
             <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.shiftTypeId[0]}</p>
@@ -243,7 +253,10 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
           <label htmlFor="date" className="block font-medium text-foreground mb-1">
             Date
           </label>
-          {/* Hidden input for formatted date string YYYY-MM-DD */}
+          {(isReadOnly || isGroupLocked) ? (
+            <p className="text-sm text-foreground">{date ? format(date, 'yyyy-MM-dd') : '—'}</p>
+          ) : (
+          <>
           <input type="hidden" name="date" value={date ? format(date, 'yyyy-MM-dd') : ''} />
           <DatePicker
             selected={date}
@@ -255,6 +268,8 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
             wrapperClassName="w-full"
           />
           {state.errors?.date && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.date[0]}</p>}
+          </>
+          )}
         </div>
 
         {/* Config Fields */}
@@ -287,7 +302,7 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
                 id="requiredCheckinIntervalMins"
                 defaultValue={shift?.requiredCheckinIntervalMins || 20}
                 min={5}
-                disabled={isReadOnly}
+                disabled={isReadOnly || isGroupLocked}
                 className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-muted disabled:text-muted-foreground"
               />
               {state.errors?.requiredCheckinIntervalMins && (
@@ -308,7 +323,7 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
               id="graceMinutes"
               defaultValue={shift?.graceMinutes || 2}
               min={1}
-              disabled={isReadOnly}
+              disabled={isReadOnly || isGroupLocked}
               className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all disabled:bg-muted disabled:text-muted-foreground"
             />
             {state.errors?.graceMinutes && (
