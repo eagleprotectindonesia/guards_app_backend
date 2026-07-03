@@ -268,6 +268,8 @@ export interface Shift {
   graceMinutes: number;
   lastHeartbeatAt?: string | Date | null;
   missedCount: number;
+  departedAt?: string | Date | null;
+  arrivedAt?: string | Date | null;
   note?: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;

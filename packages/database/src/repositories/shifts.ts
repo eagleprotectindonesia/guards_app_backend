@@ -2208,3 +2208,45 @@ export async function deleteOldShiftsAndRelated(olderThan: Date) {
 
   return { shifts, checkins, alerts, attendances, photoReports, changelogs, s3Keys: Array.from(s3Keys) };
 }
+
+export async function departShift(shiftId: string, employeeId: string) {
+  const shift = await prisma.shift.findUnique({ where: { id: shiftId, deletedAt: null } });
+  if (!shift) throw new Error('Shift not found');
+  if (shift.employeeId !== employeeId) throw new Error('Not assigned to this shift');
+  if (shift.status !== 'in_progress') throw new Error('Shift is not in progress');
+  if (shift.departedAt) throw new Error('Already departed');
+  if (shift.kind !== 'escort') throw new Error('Only escort shifts can depart');
+
+  return prisma.shift.update({
+    where: { id: shiftId },
+    data: { departedAt: new Date() },
+  });
+}
+
+export async function arriveShift(shiftId: string, employeeId: string) {
+  const shift = await prisma.shift.findUnique({ where: { id: shiftId, deletedAt: null } });
+  if (!shift) throw new Error('Shift not found');
+  if (shift.employeeId !== employeeId) throw new Error('Not assigned to this shift');
+  if (shift.status !== 'in_progress') throw new Error('Shift is not in progress');
+  if (!shift.departedAt) throw new Error('Must depart before arriving');
+  if (shift.arrivedAt) throw new Error('Already arrived');
+  if (shift.kind !== 'escort') throw new Error('Only escort shifts can arrive');
+
+  return prisma.shift.update({
+    where: { id: shiftId },
+    data: { arrivedAt: new Date() },
+  });
+}
+
+export async function completeShift(shiftId: string, employeeId: string) {
+  const shift = await prisma.shift.findUnique({ where: { id: shiftId, deletedAt: null } });
+  if (!shift) throw new Error('Shift not found');
+  if (shift.employeeId !== employeeId) throw new Error('Not assigned to this shift');
+  if (shift.status === 'completed') return shift;
+  if (shift.status === 'missed' || shift.status === 'cancelled') throw new Error('Shift is already missed or cancelled');
+
+  return prisma.shift.update({
+    where: { id: shiftId },
+    data: { status: 'completed' },
+  });
+}
