@@ -4,6 +4,7 @@ import { redis } from '../redis/client';
 import { parseShiftTypeTimeOnDate } from '@repo/shared';
 import { getShiftTypeDurationInMins } from './shift-types';
 import { deleteEmployeeOnsiteDayOffsByEmployeeAndDates, upsertEmployeeOnsiteDayOff } from './onsite-day-offs';
+import { isBefore } from 'date-fns';
 import { reconcileApprovedOnsiteLeavesForCoverage } from './leave-requests';
 import { isSecurityStandbyTitle } from './employees';
 
@@ -150,55 +151,61 @@ async function cancelShiftIfOverlapsApprovedLeave(params: { shiftId: string; emp
   });
 }
 
+export async function createShiftInTransaction(
+  tx: Prisma.TransactionClient,
+  data: Prisma.ShiftCreateInput,
+  adminId: string
+) {
+  const createdShift = await tx.shift.create({
+    data: {
+      ...data,
+      createdBy: { connect: { id: adminId } },
+      lastUpdatedBy: { connect: { id: adminId } },
+    },
+    include: {
+      site: true,
+      escortEndSite: { select: { id: true, name: true } },
+      shiftType: true,
+      employee: { include: { office: { select: { name: true } } } },
+    },
+  });
+
+  const emp = createdShift.employee as any;
+  const endSite = createdShift.escortEndSite as any;
+
+  await tx.changelog.create({
+    data: {
+      action: 'CREATE',
+      entityType: 'Shift',
+      entityId: createdShift.id,
+      actor: 'admin',
+      actorId: adminId,
+      details: {
+        kind: createdShift.kind,
+        siteName: createdShift.site.name,
+        typeName: createdShift.shiftType.name,
+        employeeName: emp ? emp.fullName : 'Unassigned',
+        date: createdShift.date,
+        startsAt: createdShift.startsAt,
+        endsAt: createdShift.endsAt,
+        requiredCheckinIntervalMins: createdShift.requiredCheckinIntervalMins,
+        status: createdShift.status,
+        note: createdShift.note,
+        siteId: createdShift.siteId,
+        shiftTypeId: createdShift.shiftTypeId,
+        employeeId: createdShift.employeeId,
+        escortEndSiteId: createdShift.escortEndSiteId,
+        escortEndSiteName: endSite ? endSite.name : undefined,
+      },
+    },
+  });
+
+  return createdShift;
+}
+
 export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, adminId: string) {
   const result = await prisma.$transaction(
-    async tx => {
-      const createdShift = await tx.shift.create({
-        data: {
-          ...data,
-          createdBy: { connect: { id: adminId } },
-          lastUpdatedBy: { connect: { id: adminId } },
-        },
-        include: {
-          site: true,
-          escortEndSite: { select: { id: true, name: true } },
-          shiftType: true,
-          employee: { include: { office: { select: { name: true } } } },
-        },
-      });
-
-      const emp = createdShift.employee as any;
-      const endSite = createdShift.escortEndSite as any;
-
-      await tx.changelog.create({
-        data: {
-          action: 'CREATE',
-          entityType: 'Shift',
-          entityId: createdShift.id,
-          actor: 'admin',
-          actorId: adminId,
-          details: {
-            kind: createdShift.kind,
-            siteName: createdShift.site.name,
-            typeName: createdShift.shiftType.name,
-            employeeName: emp ? emp.fullName : 'Unassigned',
-            date: createdShift.date,
-            startsAt: createdShift.startsAt,
-            endsAt: createdShift.endsAt,
-            requiredCheckinIntervalMins: createdShift.requiredCheckinIntervalMins,
-            status: createdShift.status,
-            note: createdShift.note,
-            siteId: createdShift.siteId,
-            shiftTypeId: createdShift.shiftTypeId,
-            employeeId: createdShift.employeeId,
-            escortEndSiteId: createdShift.escortEndSiteId,
-            escortEndSiteName: endSite ? endSite.name : undefined,
-          },
-        },
-      });
-
-      return createdShift;
-    },
+    async tx => createShiftInTransaction(tx, data, adminId),
     { timeout: 10000 }
   );
 
@@ -229,6 +236,172 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
   await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_CREATED', id: result.id }));
 
   return result;
+}
+
+export async function bulkCreateShiftsFromForm(
+  input: {
+    siteId: string;
+    shiftTypeId: string;
+    kind: 'onsite' | 'escort';
+    escortEndSiteId?: string;
+    employeeIds: string[];
+    dates: string[];
+    requiredCheckinIntervalMins: number;
+    graceMinutes: number;
+    note?: string | null;
+  },
+  adminId: string
+) {
+  const results: Awaited<ReturnType<typeof createShiftInTransaction>>[] = [];
+
+  if (input.employeeIds.length === 0) throw new Error('At least one employee is required');
+  if (input.dates.length === 0) throw new Error('At least one date is required');
+
+  const shiftType = await prisma.shiftType.findUnique({
+    where: { id: input.shiftTypeId },
+  });
+  if (!shiftType) throw new Error('Shift type not found');
+
+  const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
+  if (durationInMins % input.requiredCheckinIntervalMins !== 0) {
+    throw new Error(`Shift duration (${durationInMins} mins) must be a multiple of check-in interval (${input.requiredCheckinIntervalMins} mins)`);
+  }
+  if (durationInMins < input.requiredCheckinIntervalMins) {
+    throw new Error(`Shift duration (${durationInMins} mins) does not allow at least 1 check-in`);
+  }
+
+  // Pre-compute all planned shifts
+  type PlannedShift = { employeeId: string; dateStr: string; startsAt: Date; endsAt: Date };
+  const planned: PlannedShift[] = [];
+  const seenKeys = new Set<string>();
+
+  let minStartsAt: Date | null = null;
+  let maxEndsAt: Date | null = null;
+
+  for (const empId of input.employeeIds) {
+    for (const dateStr of input.dates) {
+      const pairKey = `${empId}::${dateStr}`;
+      if (seenKeys.has(pairKey)) {
+        throw new Error(`Duplicate employee/date pair (${empId}, ${dateStr}) in the input.`);
+      }
+      seenKeys.add(pairKey);
+
+      const startDateTime = parseShiftTypeTimeOnDate(dateStr, shiftType.startTime);
+      let endDateTime = parseShiftTypeTimeOnDate(dateStr, shiftType.endTime);
+
+      if (isBefore(endDateTime, startDateTime)) {
+        endDateTime = new Date(endDateTime.getTime() + 24 * 60 * 60 * 1000);
+      }
+
+      if (!minStartsAt || startDateTime < minStartsAt) minStartsAt = startDateTime;
+      if (!maxEndsAt || endDateTime > maxEndsAt) maxEndsAt = endDateTime;
+
+      planned.push({ employeeId: empId, dateStr, startsAt: startDateTime, endsAt: endDateTime });
+    }
+  }
+
+  // External overlap check: find existing shifts for these employees in the planned time range
+  const uniqueEmployeeIds = [...new Set(planned.map(p => p.employeeId))];
+  if (minStartsAt && maxEndsAt && uniqueEmployeeIds.length > 0) {
+    const existingShifts = await prisma.shift.findMany({
+      where: {
+        deletedAt: null,
+        employeeId: { in: uniqueEmployeeIds },
+        startsAt: { lt: maxEndsAt },
+        endsAt: { gt: minStartsAt },
+      },
+      select: { id: true, employeeId: true, startsAt: true, endsAt: true },
+    });
+
+    for (const plannedShift of planned) {
+      const conflict = existingShifts.find(
+        existing =>
+          existing.employeeId === plannedShift.employeeId &&
+          existing.startsAt.getTime() < plannedShift.endsAt.getTime() &&
+          existing.endsAt.getTime() > plannedShift.startsAt.getTime()
+      );
+      if (conflict) {
+        throw new Error(
+          `Overlap detected: employee ${plannedShift.employeeId} already has shift ${conflict.id} during ` +
+          `${plannedShift.startsAt.toISOString()} – ${plannedShift.endsAt.toISOString()}.`
+        );
+      }
+    }
+  }
+
+  // Internal overlap check: planned shifts must not overlap each other for the same employee
+  const byEmployee = new Map<string, PlannedShift[]>();
+  for (const p of planned) {
+    const list = byEmployee.get(p.employeeId) ?? [];
+    list.push(p);
+    byEmployee.set(p.employeeId, list);
+  }
+  for (const [, list] of byEmployee) {
+    const sorted = [...list].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (sorted[i].endsAt.getTime() > sorted[i + 1].startsAt.getTime()) {
+        throw new Error(
+          `Internal overlap: the planned shifts on ${sorted[i].dateStr} and ${sorted[i + 1].dateStr} for employee ` +
+          `${sorted[i].employeeId} overlap in time.`
+        );
+      }
+    }
+  }
+
+  // Transaction: create all shifts atomically
+  await prisma.$transaction(
+    async tx => {
+      for (const p of planned) {
+        const dateObj = new Date(`${p.dateStr}T00:00:00Z`);
+        const shiftData: Prisma.ShiftCreateInput = {
+          site: { connect: { id: input.siteId } },
+          shiftType: { connect: { id: input.shiftTypeId } },
+          employee: { connect: { id: p.employeeId } },
+          kind: input.kind,
+          escortEndSite: input.escortEndSiteId ? { connect: { id: input.escortEndSiteId } } : undefined,
+          date: dateObj,
+          startsAt: p.startsAt,
+          endsAt: p.endsAt,
+          requiredCheckinIntervalMins: input.requiredCheckinIntervalMins,
+          graceMinutes: input.graceMinutes,
+          note: input.note || undefined,
+          status: 'scheduled' as const,
+        };
+
+        const created = await createShiftInTransaction(tx, shiftData, adminId);
+        results.push(created);
+      }
+    },
+    { timeout: 30000 }
+  );
+
+  for (const result of results) {
+    if (result.employeeId) {
+      try {
+        await cancelShiftIfOverlapsApprovedLeave({ shiftId: result.id, employeeId: result.employeeId, adminId });
+
+        const dateKey = result.date.toISOString().slice(0, 10);
+        await reconcileApprovedOnsiteLeavesForCoverage({
+          employeeId: result.employeeId,
+          startDateKey: dateKey,
+          endDateKey: dateKey,
+          adminId,
+        });
+
+        await redis.xadd(
+          `employee:stream:${result.employeeId}`,
+          'MAXLEN', '~', 100, '*',
+          'type', 'shift_updated', 'shiftId', result.id
+        );
+      } catch (err) {
+        console.error(`[bulkCreateShiftsFromForm] Post-create side effect failed for shift ${result.id}:`, err);
+      }
+    }
+
+    await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_CREATED', id: result.id }));
+  }
+
+  return { created: results.length, ids: results.map(r => r.id) };
 }
 
 export const SHIFT_TRACKED_FIELDS = [

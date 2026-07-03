@@ -1,6 +1,6 @@
 import { prisma } from '@repo/database';
 import { serialize } from '@/lib/server-utils';
-import ShiftForm from '../components/shift-form';
+import ScheduleBuilder from '../components/schedule-builder';
 import { getActiveFixedSites, getActiveEscortSites } from '@repo/database';
 import { getActiveEmployeesSummary } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
@@ -19,7 +19,7 @@ export default async function CreateShiftPage() {
 
   return (
     <div className="max-w-6xl mx-auto py-8">
-      <ShiftForm fixedSites={serialize(fixedSites)} escortEndSites={serialize(escortEndSites)} shiftTypes={serialize(shiftTypes)} employees={employees} />
+      <ScheduleBuilder fixedSites={serialize(fixedSites)} escortEndSites={serialize(escortEndSites)} shiftTypes={serialize(shiftTypes)} employees={employees} />
     </div>
   );
 }
