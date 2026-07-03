@@ -11,8 +11,10 @@ import type { EmployeeSummary } from '@repo/database';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Select from '../../components/select';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
+import { ExternalLink } from 'lucide-react';
 
 function getDurationInMins(startTime: string, endTime: string) {
   const toMins = (t: string) => {
@@ -48,7 +50,8 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
   const [selectedEscortEndSiteId, setSelectedEscortEndSiteId] = useState<string>(shift?.escortEndSiteId || '');
 
   const isReadOnly = shift ? shift.status !== 'scheduled' : false;
-  const isGroupLocked = shift ? !!(shift as any).groupShiftId : false;
+  const groupShiftId = shift?.groupShiftId;
+  const isGroupLocked = !!groupShiftId;
 
   const shiftTypeDurationMins = useMemo(() => {
     const st = shiftTypes.find(st => st.id === selectedShiftTypeId);
@@ -95,8 +98,15 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
         {isReadOnly ? 'View Guard Shift' : shift ? 'Edit Guard Shift' : 'Schedule New Guard Shift'}
       </h1>
       {isGroupLocked && (
-        <div className="mb-6 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm">
-          This shift belongs to a group. Site, date, shift type, and timing are managed at the group level.
+        <div className="mb-6 p-3 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-sm flex items-center justify-between">
+          <span>This shift belongs to a group. Site, date, shift type, and timing are managed at the group level.</span>
+          <Link
+            href={`/admin/guard-shifts/group-shifts/${groupShiftId}`}
+            className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 font-medium shrink-0"
+          >
+            <ExternalLink size={14} />
+            View Group Shift
+          </Link>
         </div>
       )}
       <form action={formAction} className="space-y-8">
