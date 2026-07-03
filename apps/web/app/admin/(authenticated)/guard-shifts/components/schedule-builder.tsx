@@ -204,6 +204,8 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
         requiredCheckinIntervalMins: assignmentType === 'escort_special' ? escortInterval : interval,
         graceMinutes: grace,
         note: combinedNote || null,
+        autoCreateChatRoom,
+        clientName: clientName || undefined,
         ...escortKit,
       });
 

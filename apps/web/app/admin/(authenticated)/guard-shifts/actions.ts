@@ -1,9 +1,9 @@
 'use server';
 
-import { prisma } from '@repo/database';
+import { prisma, addGroupMembers, createGroupChat, findGroupChatBySourceRef, removeGroupMember, unarchiveGroupChat } from '@repo/database';
 import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
-import { isBefore } from 'date-fns';
+import { format, isBefore } from 'date-fns';
 import { ShiftStatus } from '@prisma/client';
 import { parseShiftTypeTimeOnDate } from '@repo/shared';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
@@ -154,6 +154,27 @@ export async function createShift(
       },
       adminId
     );
+
+    if (kind === 'escort' && employeeId && escortEndSiteId) {
+      const dateStr = format(dateObj, 'yyyy-MM-dd');
+      const sourceRef = `escort:${siteId}:${escortEndSiteId}:${dateStr}`;
+      const existing = await findGroupChatBySourceRef({ sourceType: 'escort', sourceRef });
+      if (existing) {
+        if (existing.archivedAt) {
+          await unarchiveGroupChat(existing.id);
+        }
+        const existingMember = existing.participants.find(
+          p => p.employeeId === employeeId && p.status === 'active'
+        );
+        if (!existingMember) {
+          await addGroupMembers({
+            groupId: existing.id,
+            actor: { participantType: 'admin', adminId },
+            employeeIds: [employeeId],
+          });
+        }
+      }
+    }
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -303,8 +324,32 @@ export async function updateShift(
 export async function deleteShift(id: string) {
   try {
     const adminId = await getAdminIdFromToken();
+    const shift = await prisma.shift.findUnique({
+      where: { id, deletedAt: null },
+      select: { kind: true, employeeId: true, siteId: true, escortEndSiteId: true, date: true },
+    });
+
     await deleteShiftWithChangelog(id, adminId);
     revalidatePath('/admin/guard-shifts');
+
+    if (shift?.kind === 'escort' && shift.employeeId && shift.escortEndSiteId) {
+      const dateStr = format(shift.date, 'yyyy-MM-dd');
+      const sourceRef = `escort:${shift.siteId}:${shift.escortEndSiteId}:${dateStr}`;
+      const group = await findGroupChatBySourceRef({ sourceType: 'escort', sourceRef });
+      if (group) {
+        const participant = group.participants.find(
+          p => p.employeeId === shift.employeeId && p.status === 'active'
+        );
+        if (participant) {
+          await removeGroupMember({
+            groupId: group.id,
+            actor: { participantType: 'admin', adminId },
+            participantId: participant.id,
+          });
+        }
+      }
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Database Error:', error);
@@ -316,10 +361,9 @@ export async function cancelShift(id: string, cancelNote?: string) {
   try {
     const adminId = await getAdminIdFromToken();
 
-    // Validate that the shift exists and is in_progress
     const shift = await prisma.shift.findUnique({
       where: { id, deletedAt: null },
-      select: { status: true, note: true },
+      select: { status: true, note: true, kind: true, employeeId: true, siteId: true, escortEndSiteId: true, date: true },
     });
 
     if (!shift) {
@@ -339,6 +383,25 @@ export async function cancelShift(id: string, cancelNote?: string) {
 
     await updateShiftWithChangelog(id, { status: ShiftStatus.cancelled, note: updatedNote }, adminId);
     revalidatePath('/admin/guard-shifts');
+
+    if (shift.kind === 'escort' && shift.employeeId && shift.escortEndSiteId) {
+      const dateStr = format(shift.date, 'yyyy-MM-dd');
+      const sourceRef = `escort:${shift.siteId}:${shift.escortEndSiteId}:${dateStr}`;
+      const group = await findGroupChatBySourceRef({ sourceType: 'escort', sourceRef });
+      if (group) {
+        const participant = group.participants.find(
+          p => p.employeeId === shift.employeeId && p.status === 'active'
+        );
+        if (participant) {
+          await removeGroupMember({
+            groupId: group.id,
+            actor: { participantType: 'admin', adminId },
+            participantId: participant.id,
+          });
+        }
+      }
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Database Error:', error);
@@ -492,11 +555,13 @@ type BulkCreateFromFormInput = {
   requiredCheckinIntervalMins: number;
   graceMinutes: number;
   note?: string | null;
+  autoCreateChatRoom?: boolean;
+  clientName?: string;
 };
 
 export async function bulkCreateShiftsFromFormAction(
   input: BulkCreateFromFormInput
-): Promise<{ success: boolean; message: string; created?: number; ids?: string[] }> {
+): Promise<{ success: boolean; message: string; created?: number; ids?: string[]; groupIds?: string[] }> {
   const adminId = await getAdminIdFromToken();
 
   if (input.employeeIds.length === 0) {
@@ -507,8 +572,8 @@ export async function bulkCreateShiftsFromFormAction(
   }
 
   const [startSite, endSite] = await Promise.all([
-    prisma.site.findUnique({ where: { id: input.siteId }, select: { kind: true } }),
-    input.escortEndSiteId ? prisma.site.findUnique({ where: { id: input.escortEndSiteId }, select: { kind: true } }) : null,
+    prisma.site.findUnique({ where: { id: input.siteId }, select: { kind: true, name: true } }),
+    input.escortEndSiteId ? prisma.site.findUnique({ where: { id: input.escortEndSiteId }, select: { kind: true, name: true } }) : null,
   ]);
 
   if (!startSite) return { success: false, message: 'Start site not found.' };
@@ -522,11 +587,42 @@ export async function bulkCreateShiftsFromFormAction(
   try {
     const result = await bulkCreateShiftsFromForm(input, adminId);
     revalidatePath('/admin/guard-shifts');
+
+    const groupIds: string[] = [];
+    if (input.autoCreateChatRoom && input.kind === 'escort' && input.escortEndSiteId) {
+      const allAdmins = await prisma.admin.findMany({ where: { deletedAt: null }, select: { id: true } });
+      const adminIds = allAdmins.map(a => a.id);
+      const uniqueDates = [...new Set(input.dates)].sort();
+      const startSiteName = startSite.name;
+      const endSiteName = endSite?.name ?? 'Destination';
+      const clientLabel = input.clientName?.trim() || `${startSiteName} → ${endSiteName}`;
+
+      for (const dateStr of uniqueDates) {
+        const title = `Escort: ${clientLabel} - ${format(new Date(dateStr + 'T00:00:00'), 'dd MMM yyyy')}`;
+        const guardCount = input.employeeIds.length;
+        const description = `Escort duty: ${startSiteName} → ${endSiteName}. ${guardCount} guard(s) assigned.`;
+
+        const sourceRef = `escort:${input.siteId}:${input.escortEndSiteId}:${dateStr}`;
+        const group = await createGroupChat({
+          title,
+          description,
+          sourceType: 'escort',
+          sourceRef,
+          creator: { participantType: 'admin', adminId },
+          employeeIds: input.employeeIds,
+          adminIds,
+          adminRole: 'admin',
+        });
+        groupIds.push(group.id);
+      }
+    }
+
     return {
       success: true,
-      message: `Created ${result.created} schedule(s) successfully.`,
+      message: `Created ${result.created} schedule(s) successfully.${groupIds.length > 0 ? ` Created ${groupIds.length} group chat(s).` : ''}`,
       created: result.created,
       ids: result.ids,
+      groupIds: groupIds.length > 0 ? groupIds : undefined,
     };
   } catch (error) {
     console.error('[bulkCreateShiftsFromFormAction] Error:', error);

@@ -223,6 +223,11 @@ export function UnifiedConversationList({
                         {item.kind === 'direct' && item.subtitle ? (
                           <span className="text-[10px] font-normal text-muted-foreground block md:inline md:text-xs"> ({item.subtitle})</span>
                         ) : null}
+                        {item.kind === 'group' && item.sourceType === 'escort' && (
+                          <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                            Escort
+                          </span>
+                        )}
                       </p>
                       {item.lastMessage?.createdAt && (
                         <span className="text-[10px] text-muted-foreground shrink-0 mt-0.5">

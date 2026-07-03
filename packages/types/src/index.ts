@@ -367,6 +367,7 @@ export interface GroupChatConversation {
   groupId: string;
   title: string;
   description?: string | null;
+  sourceType?: string | null;
   memberCount: number;
   currentUserRole: GroupChatParticipantRole;
   isArchived: boolean;
@@ -390,6 +391,7 @@ export interface ChatInboxItem {
   id: string;
   title: string;
   subtitle?: string;
+  sourceType?: string | null;
   unreadCount: number;
   isMuted: boolean;
   isArchived: boolean;

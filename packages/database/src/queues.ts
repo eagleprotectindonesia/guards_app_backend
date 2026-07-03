@@ -23,3 +23,4 @@ export const SHIFT_PHOTO_REPORT_JOB_NAME = 'shift-photo-report-scan';
 
 export const SHIFT_PHOTO_REPORT_CLEAN_JOB_NAME = 'shift-photo-report-clean';
 export const SHIFT_ATTENDANCE_CLEAN_JOB_NAME = 'shift-attendance-clean';
+export const GROUP_CHAT_ARCHIVE_JOB_NAME = 'group-chat-archive';
