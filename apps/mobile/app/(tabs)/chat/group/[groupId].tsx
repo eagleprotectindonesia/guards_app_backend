@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Alert, BackHandler, FlatList, Platform, StyleSheet, View, ViewToken } from 'react-native';
+import { Alert, BackHandler, FlatList, Platform, StyleSheet, TouchableOpacity, View, ViewToken } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { Text } from '@/components/ui/text';
 import { Spinner } from '@/components/ui/spinner';
@@ -23,6 +23,7 @@ import { client } from '../../../../src/api/client';
 import { queryKeys } from '../../../../src/api/queryKeys';
 import { useQueryClient } from '@tanstack/react-query';
 import { useFocusEffect } from '@react-navigation/native';
+import { Camera, MapPin } from 'lucide-react-native';
 import ImageView from 'react-native-image-viewing';
 
 const MAX_CHAT_VIDEO_SIZE_BYTES = 20 * 1024 * 1024;
@@ -171,6 +172,40 @@ export default function GroupChatScreen() {
     }
   };
 
+  const takeAndSendPhoto = async () => {
+    if (isUploading || !socket || !groupId) return;
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted')
+      return toast.error(t('chat.camera_permission'), t('chat.camera_permission_desc'));
+
+    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 });
+    if (result.canceled || !result.assets[0]) return;
+
+    setIsUploading(true);
+    try {
+      const asset = result.assets[0];
+      const draft = await reserveGroupChatDraft(groupId);
+      const fileName = asset.fileName || `photo_${Date.now()}.jpg`;
+      const mimeType = asset.mimeType || 'image/jpeg';
+      const response = await uploadToS3(asset.uri, fileName, mimeType, asset.fileSize || 0, {
+        folder: 'group-chat',
+        conversationId: groupId,
+        messageId: draft.messageId,
+        fileType: 'image',
+      });
+      socket.emit('group_send_message', {
+        groupId,
+        content: '',
+        messageId: draft.messageId,
+        attachments: [response.key],
+      });
+    } catch {
+      toast.error(t('chat.send_error'), t('chat.send_error_desc'));
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const leaveGroup = useCallback(() => {
     if (!groupId) return;
     Alert.alert(
@@ -260,6 +295,30 @@ export default function GroupChatScreen() {
             </View>
           )}
         </View>
+        <View style={styles.quickActionBar}>
+          <TouchableOpacity
+            style={styles.quickActionBtn}
+            onPress={shareLocation}
+            disabled={isUploading}
+            activeOpacity={0.7}
+          >
+            <MapPin size={14} color="#3B82F6" />
+            <Text style={styles.quickActionText}>
+              {t('chat.send_location', 'Send Location')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickActionBtn}
+            onPress={takeAndSendPhoto}
+            disabled={isUploading}
+            activeOpacity={0.7}
+          >
+            <Camera size={14} color="#22C55E" />
+            <Text style={styles.quickActionText}>
+              {t('chat.send_photo', 'Send Photo')}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <ChatComposer
           selectedAttachments={selectedAttachments}
           inputText={inputText}
@@ -302,4 +361,27 @@ const styles = StyleSheet.create({
   },
   stickyDateBg: { paddingHorizontal: 16, paddingVertical: 6, backgroundColor: 'rgba(30, 30, 30, 0.6)' },
   stickyDateText: { fontSize: 11, fontWeight: '600', color: '#94A3B8', textTransform: 'uppercase' },
+  quickActionBar: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  quickActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
+  quickActionText: {
+    color: '#94A3B8',
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
 });

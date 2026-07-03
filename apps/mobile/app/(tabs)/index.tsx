@@ -11,6 +11,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../../src/api/client';
 import AttendanceRecord from '../../src/components/AttendanceRecord';
 import CheckInCard from '../../src/components/CheckInCard';
+import EscortDutyCard from '../../src/components/EscortDutyCard';
 import OfficeAttendanceCard from '../../src/components/OfficeAttendanceCard';
 import OfficeAttendanceCarousel from '../../src/components/OfficeAttendanceCarousel';
 import ShiftCarousel from '../../src/components/ShiftCarousel';
@@ -188,7 +189,16 @@ export default function HomeScreen() {
                 )}
               </Box>
 
-              {activeShift ? (
+              {activeShift && activeShift.kind === 'escort' ? (
+                <Box className="px-6">
+                  <VStack space="md">
+                    <AttendanceRecord shift={activeShift} onAttendanceRecorded={refetch} />
+                    {activeShift.attendance && (
+                      <EscortDutyCard shift={activeShift} refetchShift={refetch} />
+                    )}
+                  </VStack>
+                </Box>
+              ) : activeShift ? (
                 <Box className="px-6">
                   <VStack space="md">
                     <CheckInCard activeShift={activeShift} refetchShift={refetch} />
