@@ -90,11 +90,15 @@ export async function createGroupChat(params: {
   sourceRef?: string | null;
   creator: Actor;
   employeeIds?: string[];
+  leadEmployeeId?: string | null;
   adminIds?: string[];
   adminRole?: 'admin' | 'member';
+  visibleFromAt?: Date;
 }) {
   const title = params.title.trim();
   if (!title) throw new Error('Group title is required');
+
+  const visibleFrom = params.visibleFromAt ?? new Date();
 
   return db.$transaction(async tx => {
     const group = await tx.groupChat.create({
@@ -116,25 +120,46 @@ export async function createGroupChat(params: {
         employeeId: actorEmployeeId(params.creator) ?? null,
         role: 'owner',
         status: 'active',
+        visibleFromAt: visibleFrom,
       },
     });
 
     const uniqueEmployeeIds = Array.from(new Set(params.employeeIds ?? [])).filter(Boolean);
+    const leadId = params.leadEmployeeId ?? null;
     const uniqueAdminIds = Array.from(new Set(params.adminIds ?? [])).filter(Boolean);
     const creatorEmployeeId = actorEmployeeId(params.creator) ?? null;
     const creatorAdminId = actorAdminId(params.creator) ?? null;
 
     if (uniqueEmployeeIds.length > 0) {
-      await tx.groupChatParticipant.createMany({
-        data: uniqueEmployeeIds
-          .filter(employeeId => employeeId !== creatorEmployeeId)
-          .map(employeeId => ({
+      const memberIds = uniqueEmployeeIds.filter(eid => eid !== creatorEmployeeId && eid !== leadId);
+      if (memberIds.length > 0) {
+        await tx.groupChatParticipant.createMany({
+          data: memberIds.map(employeeId => ({
             groupId: group.id,
             participantType: GroupChatParticipantType.employee,
             employeeId,
             role: 'member',
             status: 'active',
+            visibleFromAt: visibleFrom,
           })),
+        });
+      }
+    }
+
+    if (leadId && !uniqueEmployeeIds.includes(leadId)) {
+      throw new Error('Lead guard must be a selected employee.');
+    }
+
+    if (leadId && leadId !== creatorEmployeeId) {
+      await tx.groupChatParticipant.create({
+        data: {
+          groupId: group.id,
+          participantType: GroupChatParticipantType.employee,
+          employeeId: leadId,
+          role: 'lead',
+          status: 'active',
+          visibleFromAt: visibleFrom,
+        },
       });
     }
 
@@ -148,6 +173,7 @@ export async function createGroupChat(params: {
             adminId,
             role: params.adminRole ?? 'member',
             status: 'active',
+            visibleFromAt: visibleFrom,
           })),
       });
     }
@@ -169,6 +195,7 @@ export async function getGroupChatForParticipant(params: { groupId: string; acto
   return db.$transaction(async tx => {
     const participant = await getActiveParticipantForActor(tx, params.groupId, params.actor);
     if (!participant) return null;
+    if (participant.visibleFromAt > new Date()) return null;
     return tx.groupChat.findUnique({ where: { id: params.groupId } });
   });
 }
@@ -178,9 +205,11 @@ export async function getActiveGroupParticipant(params: { groupId: string; actor
 }
 
 export async function listActiveGroupIdsForParticipant(params: { actor: Actor }) {
+  const now = new Date();
   const rows = await db.groupChatParticipant.findMany({
     where: {
       status: GroupChatParticipantStatus.active,
+      visibleFromAt: { lte: now },
       participantType: params.actor.participantType,
       adminId: actorAdminId(params.actor),
       employeeId: actorEmployeeId(params.actor),
@@ -221,6 +250,7 @@ export async function getGroupChatListForParticipant(params: {
   const rows = await db.groupChatParticipant.findMany({
     where: {
       status: GroupChatParticipantStatus.active,
+      visibleFromAt: { lte: new Date() },
       participantType: params.actor.participantType,
       adminId: actorAdminId(params.actor),
       employeeId: actorEmployeeId(params.actor),
@@ -263,10 +293,12 @@ export async function setGroupChatArchiveState(params: { groupId: string; actor:
   });
 }
 
-export async function addGroupMembers(params: { groupId: string; actor: Actor; employeeIds?: string[]; adminIds?: string[] }) {
+export async function addGroupMembers(params: { groupId: string; actor: Actor; employeeIds?: string[]; adminIds?: string[]; visibleFromAt?: Date }) {
   const employeeIds = params.employeeIds ?? [];
   const adminIds = params.adminIds ?? [];
   if (employeeIds.length === 0 && adminIds.length === 0) return [];
+
+  const visibleFrom = params.visibleFromAt ?? new Date();
 
   return db.$transaction(async tx => {
     await assertCanManageMembers(tx, params.groupId, params.actor);
@@ -306,7 +338,7 @@ export async function addGroupMembers(params: { groupId: string; actor: Actor; e
     for (const participant of inactiveParticipants) {
       await tx.groupChatParticipant.update({
         where: { id: participant.id },
-        data: { status: 'active', leftAt: null, removedAt: null, removedByParticipantId: null, visibleFromAt: now, joinedAt: now },
+        data: { status: 'active', leftAt: null, removedAt: null, removedByParticipantId: null, visibleFromAt: visibleFrom, joinedAt: now },
       });
       reactivated.push(participant.id);
     }
@@ -330,7 +362,7 @@ export async function addGroupMembers(params: { groupId: string; actor: Actor; e
           employeeId,
           role: 'member' as const,
           status: 'active' as const,
-          visibleFromAt: now,
+          visibleFromAt: visibleFrom,
         })),
         ...adminToCreate.map(adminId => ({
           groupId: params.groupId,
@@ -338,7 +370,7 @@ export async function addGroupMembers(params: { groupId: string; actor: Actor; e
           adminId,
           role: 'member' as const,
           status: 'active' as const,
-          visibleFromAt: now,
+          visibleFromAt: visibleFrom,
         })),
       ],
     });

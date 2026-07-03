@@ -3,7 +3,7 @@
 import { prisma, addGroupMembers, createGroupChat, findGroupChatBySourceRef, removeGroupMember, unarchiveGroupChat } from '@repo/database';
 import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
-import { format, isBefore } from 'date-fns';
+import { format, isBefore, subMinutes } from 'date-fns';
 import { ShiftStatus } from '@prisma/client';
 import { parseShiftTypeTimeOnDate } from '@repo/shared';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
@@ -167,10 +167,12 @@ export async function createShift(
           p => p.employeeId === employeeId && p.status === 'active'
         );
         if (!existingMember) {
+          const visibleFromAt = subMinutes(startDateTime, 30);
           await addGroupMembers({
             groupId: existing.id,
             actor: { participantType: 'admin', adminId },
             employeeIds: [employeeId],
+            visibleFromAt,
           });
         }
       }
@@ -557,6 +559,7 @@ type BulkCreateFromFormInput = {
   note?: string | null;
   autoCreateChatRoom?: boolean;
   clientName?: string;
+  leadGuardId?: string;
 };
 
 export async function bulkCreateShiftsFromFormAction(
@@ -571,9 +574,10 @@ export async function bulkCreateShiftsFromFormAction(
     return { success: false, message: 'At least one date is required.' };
   }
 
-  const [startSite, endSite] = await Promise.all([
+  const [startSite, endSite, shiftType] = await Promise.all([
     prisma.site.findUnique({ where: { id: input.siteId }, select: { kind: true, name: true } }),
     input.escortEndSiteId ? prisma.site.findUnique({ where: { id: input.escortEndSiteId }, select: { kind: true, name: true } }) : null,
+    prisma.shiftType.findUnique({ where: { id: input.shiftTypeId }, select: { startTime: true } }),
   ]);
 
   if (!startSite) return { success: false, message: 'Start site not found.' };
@@ -602,6 +606,9 @@ export async function bulkCreateShiftsFromFormAction(
         const guardCount = input.employeeIds.length;
         const description = `Escort duty: ${startSiteName} → ${endSiteName}. ${guardCount} guard(s) assigned.`;
 
+        const startsAt = parseShiftTypeTimeOnDate(dateStr, shiftType!.startTime);
+        const visibleFromAt = subMinutes(startsAt, 30);
+
         const sourceRef = `escort:${input.siteId}:${input.escortEndSiteId}:${dateStr}`;
         const group = await createGroupChat({
           title,
@@ -610,8 +617,10 @@ export async function bulkCreateShiftsFromFormAction(
           sourceRef,
           creator: { participantType: 'admin', adminId },
           employeeIds: input.employeeIds,
+          leadEmployeeId: input.leadGuardId,
           adminIds,
           adminRole: 'admin',
+          visibleFromAt,
         });
         groupIds.push(group.id);
       }

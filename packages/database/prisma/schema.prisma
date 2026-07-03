@@ -360,6 +360,7 @@ enum GroupChatParticipantRole {
   owner
   admin
   member
+  lead
 }
 
 enum GroupChatParticipantStatus {

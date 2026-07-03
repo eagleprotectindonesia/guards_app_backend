@@ -206,6 +206,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
         note: combinedNote || null,
         autoCreateChatRoom,
         clientName: clientName || undefined,
+        leadGuardId: leadGuardId || undefined,
         ...escortKit,
       });
 
