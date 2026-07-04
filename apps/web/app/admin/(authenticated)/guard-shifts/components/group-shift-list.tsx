@@ -3,14 +3,13 @@
 import { useState } from 'react';
 import PaginationNav from '../../components/pagination-nav';
 import { useSearchParams } from 'next/navigation';
-import { useSession } from '../../context/session-context';
 import { useAdminRouter } from '../../context/admin-router';
 import SortableHeader from '@/components/sortable-header';
 import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
 import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
 import { MessageSquare, ExternalLink } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+
 
 type GroupShiftRow = {
   id: string;
@@ -63,7 +62,7 @@ export default function GroupShiftList({
 }: GroupShiftListProps) {
   const router = useAdminRouter();
   const searchParams = useSearchParams();
-  const { hasPermission } = useSession();
+
   const { apply } = useFilterUrlSync('/admin/guard-shifts/group-shifts');
 
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(

@@ -1300,7 +1300,7 @@ export async function processGuardShiftBulkImport(
         const emp = updatedShift.employee as any;
         const prevEmp = beforeShift.employee as any;
         const endSite = updatedShift.escortEndSite as any;
-        const prevEndSite = beforeShift.escortEndSite as any;
+        
         const updatedEmpName = emp ? emp.fullName : 'Unassigned';
         const beforeEmpName = prevEmp ? prevEmp.fullName : 'Unassigned';
         const changes: Record<string, { from: any; to: any }> = {};

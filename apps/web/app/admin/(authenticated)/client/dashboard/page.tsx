@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Building2, MapPin, Layers, ShieldCheck, CalendarClock, MapPinned, FileCheck } from 'lucide-react';
+import { Building2, MapPin, Layers, CalendarClock, MapPinned, FileCheck } from 'lucide-react';
 import {
   getClientSiteDashboardMetrics,
   getSiteAssignmentDashboardMetrics,

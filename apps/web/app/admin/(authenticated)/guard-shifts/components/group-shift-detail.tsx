@@ -48,7 +48,7 @@ const statusBadge: Record<string, string> = {
   cancelled: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
 };
 
-export default function GroupShiftDetail({ groupShift, admins, availableEmployees }: Props) {
+export default function GroupShiftDetail({ groupShift, availableEmployees }: Props) {
   const router = useRouter();
   const [clientName, setClientName] = useState(groupShift.clientName || '');
   const [note, setNote] = useState(groupShift.note || '');
@@ -96,8 +96,6 @@ export default function GroupShiftDetail({ groupShift, admins, availableEmployee
       setRemovingShiftId(null);
     }
   };
-
-  const canEdit = groupShift.shifts.every(s => s.status === 'scheduled');
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">

@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import type { EmployeeSummary } from '@repo/database';
 import PaginationNav from '../../components/pagination-nav';
-import { useRouter, useSearchParams } from 'next/navigation';
 import OfficeShiftExport from '../../office-shifts/components/office-shift-export';
 import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
 
@@ -27,8 +26,6 @@ type Props = {
 };
 
 export default function OnsiteDayOffList({ startDate, endDate, employeeId, employees, page, perPage }: Props) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const [dayOffs, setDayOffs] = useState<OnsiteDayOff[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const { apply } = useFilterUrlSync('/admin/guard-shifts/day-offs');
