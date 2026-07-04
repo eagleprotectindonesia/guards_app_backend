@@ -136,6 +136,7 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
 
 export function getAdminNavGroups(
   officeWorkSchedulesEnabled = true,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _activeTab: AdminTabSlug = 'guard',
   access: { hasPermission: (perm: PermissionCode) => boolean; canAccessOfficeAttendance: boolean } = {
     hasPermission: () => true,

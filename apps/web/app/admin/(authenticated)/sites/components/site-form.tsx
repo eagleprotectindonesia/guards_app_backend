@@ -5,7 +5,7 @@ import type { Serialized } from '@/lib/server-utils';
 import { createSite, updateSite } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateSiteInput } from '@repo/validations';
-import { startTransition, useActionState, useEffect, useState, useCallback, useRef } from 'react';
+import { startTransition, useActionState, useEffect, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { APIProvider, Map, Marker, useMapsLibrary, MapMouseEvent, useMap } from '@vis.gl/react-google-maps';
 import { Site } from '@prisma/client';

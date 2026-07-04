@@ -56,7 +56,7 @@ const rowStyles: Record<RowAccent, { row: string; icon: string }> = {
   },
 };
 
-export function MetricListCard({ icon: TitleIcon, iconAccent = 'emerald', title, subtitle, rows }: Props) {
+export function MetricListCard({ icon: TitleIcon, iconAccent = 'emerald', title, rows }: Props) {
   return (
     <Card className="border-border/60 bg-card shadow-md flex flex-col">
       <div className="px-5 py-4">

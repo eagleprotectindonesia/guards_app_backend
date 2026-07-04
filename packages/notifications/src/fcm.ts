@@ -39,6 +39,7 @@ export type GroupChatPushNotificationResult = {
 
 const maskToken = (token: string) => (token.length <= 8 ? token : token.slice(-8));
 
+// eslint-disable-next-line no-unused-vars
 type ChatUnreadCountProvider = (params: { employeeId: string; isAdmin: boolean }) => Promise<number>;
 
 let getUnreadCountProvider: ChatUnreadCountProvider | null = null;

@@ -53,7 +53,7 @@ export default function SitesMapFullscreen({ sites, initialPanicAlerts }: SitesM
   const router = useRouter();
   const canEditSite = hasPermission(PERMISSIONS.SITES.EDIT);
 
-  const [panicAlerts, setPanicAlerts] = useState<PanicAlert[]>(initialPanicAlerts);
+  const [panicAlerts] = useState<PanicAlert[]>(initialPanicAlerts);
   const [selectedItem, setSelectedItem] = useState<SelectedMapItem | null>(null);
 
   const [now, setNow] = useState(() => Date.now());

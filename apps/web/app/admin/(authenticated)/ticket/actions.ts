@@ -512,7 +512,7 @@ export async function updateTicketAssignedRolesAction(input: unknown) {
 }
 
 export async function createTicketAttachmentUploadUrlAction(input: unknown) {
-  const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
+  await requirePermission(PERMISSIONS.TICKETS.VIEW);
   const parsed = ticketAttachmentUploadRequestSchema.safeParse(input);
   if (!parsed.success) {
     throw new Error(parsed.error.issues[0]?.message || 'Invalid upload payload');

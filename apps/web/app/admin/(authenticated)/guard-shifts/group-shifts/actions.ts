@@ -5,7 +5,6 @@ import { createShiftWithChangelog, deleteShiftWithChangelog } from '@repo/databa
 import { revalidatePath } from 'next/cache';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { subMinutes } from 'date-fns';
-import { parseShiftTypeTimeOnDate } from '@repo/shared';
 
 export async function updateGroupShiftAction(id: string, data: { clientName?: string; note?: string }) {
   const adminId = await getAdminIdFromToken();

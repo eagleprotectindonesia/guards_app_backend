@@ -22,8 +22,6 @@ function DeltaBadge({ current, previous }: { current: number; previous: number }
     return <span className="text-[10px] text-muted-foreground">—</span>;
   }
   const isUp = diff > 0;
-  const isPositive = isUp; // For present/rate, up is good; for late/absent, we handle separately
-
   return (
     <span className={cn(
       'inline-flex items-center gap-0.5 text-[10px] font-medium',

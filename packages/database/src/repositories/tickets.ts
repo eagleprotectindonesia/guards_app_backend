@@ -4,6 +4,7 @@ import { TICKET_DEPARTMENT_MAPPINGS } from '@repo/shared';
 import { redis } from '../redis/client';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
+// eslint-disable-next-line no-unused-vars
 type TxCallback<T> = (tx: TxLike) => Promise<T>;
 
 export const TICKET_OPERATIONAL_EDITOR_PERMISSION = 'tickets:edit';
