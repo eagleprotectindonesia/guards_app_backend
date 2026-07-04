@@ -144,7 +144,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           date,
           guardId: gId,
           guardName: emp?.fullName || gId,
-          type: assignmentType === 'site_duty' ? 'Site Duty' : 'Escort/Special',
+          type: assignmentType === 'site_duty' ? 'Site Duty' : assignmentType === 'office_control' ? 'Office Control' : 'Escort/Special',
           siteName,
           shiftTypeName: selectedShiftType?.name || '',
           startTime: selectedShiftType?.startTime || '',
@@ -243,7 +243,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
         shiftTypeId,
         employeeIds: guardIds,
         dates: effectiveDates,
-        requiredCheckinIntervalMins: assignmentType === 'escort_special' ? escortInterval : interval,
+        requiredCheckinIntervalMins: assignmentType === 'escort_special' ? escortInterval : assignmentType === 'office_control' ? shiftTypeDurationMins : interval,
         graceMinutes: grace,
         note: combinedNote || null,
         flexibleEndTime,
@@ -265,7 +265,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
 
   const selectableCards: { key: AssignmentType; label: string; description: string; enabled: boolean }[] = [
     { key: 'site_duty', label: 'Site Duty', description: 'Guard at a fixed site location with regular check-ins.', enabled: true },
-    { key: 'office_control', label: 'Office Control Duty', description: 'Control room duty at head office.', enabled: false },
+    { key: 'office_control', label: 'Office Control Duty', description: 'Control room duty at head office.', enabled: true },
     { key: 'escort_special', label: 'Escort / Special Duty', description: 'Escort or special assignment; client may move.', enabled: true },
     { key: 'event_temporary', label: 'Event / Temporary Duty', description: 'Temporary event or short-term assignment.', enabled: false },
   ];
@@ -346,6 +346,47 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
                     min={5}
                     className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
                   />
+                </div>
+                <div>
+                  <label htmlFor="builder-grace" className="block font-medium text-foreground mb-1">Grace Period (min)</label>
+                  <input
+                    type="number"
+                    id="builder-grace"
+                    value={grace}
+                    onChange={e => setGrace(Number(e.target.value))}
+                    min={1}
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {assignmentType === 'office_control' && (
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="builder-site-id" className="block font-medium text-foreground mb-1">Site</label>
+                <Select
+                  id="builder-site-id"
+                  instanceId="builder-site-id"
+                  options={fixedSiteOptions}
+                  value={fixedSiteOptions.find(o => o.value === siteId) || null}
+                  onChange={option => setSiteId(option?.value || '')}
+                  placeholder="Select site..."
+                  isClearable
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="builder-interval-office" className="block font-medium text-foreground mb-1">Check-in Interval (min)</label>
+                  <input
+                    type="number"
+                    id="builder-interval-office"
+                    value={shiftTypeDurationMins}
+                    disabled
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-muted text-muted-foreground cursor-not-allowed"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Locked to shift duration ({shiftTypeDurationMins} mins).</p>
                 </div>
                 <div>
                   <label htmlFor="builder-grace" className="block font-medium text-foreground mb-1">Grace Period (min)</label>
