@@ -1,16 +1,78 @@
 'use server';
 
-import { prisma, updateGroupShift, addGroupMembers, findGroupChatByGroupShiftId } from '@repo/database';
+import { prisma, updateGroupShift, addGroupMembers, findGroupChatByGroupShiftId, updateSiteWithChangelog } from '@repo/database';
 import { createShiftWithChangelog, deleteShiftWithChangelog } from '@repo/database';
 import { revalidatePath } from 'next/cache';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { subMinutes } from 'date-fns';
 
-export async function updateGroupShiftAction(id: string, data: { clientName?: string; note?: string }) {
+export async function updateGroupShiftAction(
+  id: string,
+  data: {
+    clientName?: string;
+    note?: string;
+    startAddress?: string;
+    startLat?: number;
+    startLng?: number;
+    endAddress?: string;
+    endLat?: number;
+    endLng?: number;
+  }
+) {
   const adminId = await getAdminIdFromToken();
   if (!adminId) throw new Error('Unauthorized');
 
-  await updateGroupShift(id, data);
+  // Update site addresses when provided
+  const groupShift = await prisma.groupShift.findUnique({ where: { id }, select: { siteId: true, endSiteId: true } });
+  if (!groupShift) throw new Error('Group shift not found');
+
+  if (groupShift.siteId && data.startAddress && data.startLat != null && data.startLng != null) {
+    const baseName = data.clientName?.trim()
+      ? `Site: ${data.clientName.trim()}`
+      : `Site: ${data.startAddress.substring(0, 30)}`;
+    let siteName = baseName;
+    let counter = 1;
+    while (await prisma.site.findFirst({ where: { name: siteName, id: { not: groupShift.siteId } } })) {
+      siteName = `${baseName} (${counter})`;
+      counter++;
+    }
+    await updateSiteWithChangelog(
+      groupShift.siteId,
+      {
+        address: data.startAddress,
+        latitude: data.startLat,
+        longitude: data.startLng,
+        name: siteName,
+        clientName: data.clientName || '',
+      },
+      adminId
+    );
+  }
+
+  if (groupShift.endSiteId && data.endAddress && data.endLat != null && data.endLng != null) {
+    const baseName = data.clientName?.trim()
+      ? `Escort: ${data.clientName.trim()}`
+      : `Escort: ${data.endAddress.substring(0, 30)}`;
+    let siteName = baseName;
+    let counter = 1;
+    while (await prisma.site.findFirst({ where: { name: siteName, id: { not: groupShift.endSiteId } } })) {
+      siteName = `${baseName} (${counter})`;
+      counter++;
+    }
+    await updateSiteWithChangelog(
+      groupShift.endSiteId,
+      {
+        address: data.endAddress,
+        latitude: data.endLat,
+        longitude: data.endLng,
+        name: siteName,
+        clientName: data.clientName || '',
+      },
+      adminId
+    );
+  }
+
+  await updateGroupShift(id, { clientName: data.clientName, note: data.note });
   revalidatePath(`/admin/guard-shifts/group-shifts/${id}`);
   revalidatePath('/admin/guard-shifts/group-shifts');
 }

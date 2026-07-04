@@ -1,6 +1,6 @@
 'use server';
 
-import { prisma, addGroupMembers, createGroupChat, findGroupChatByGroupShiftId, removeGroupMember, unarchiveGroupChat, upsertGroupShift, createSiteWithPostsAndChangelog } from '@repo/database';
+import { prisma, addGroupMembers, createGroupChat, findGroupChatByGroupShiftId, removeGroupMember, unarchiveGroupChat, upsertGroupShift, createSiteWithPostsAndChangelog, updateSiteWithChangelog } from '@repo/database';
 import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { format, isBefore, subMinutes } from 'date-fns';
@@ -246,6 +246,13 @@ export async function updateShift(
   formData: FormData
 ): Promise<ActionState<UpdateShiftInput>> {
   const adminId = await getAdminIdFromToken();
+
+  // Extract address data for potential site update (event_temporary)
+  const startAddress = formData.get('startAddress') as string | undefined;
+  const startLatRaw = formData.get('startLat') as string;
+  const startLngRaw = formData.get('startLng') as string;
+  const formClientName = formData.get('clientName') as string | undefined;
+
   const validatedFields = createShiftSchema.safeParse({
     siteId: formData.get('siteId'),
     shiftTypeId: formData.get('shiftTypeId'),
@@ -342,6 +349,34 @@ export async function updateShift(
       }
       if (endSite.kind !== 'escort') {
         return { message: 'Escort end site must be an escort site.', success: false };
+      }
+    }
+
+    // Update existing site address when provided (event_temporary edit)
+    if (siteId && startAddress && startLatRaw && startLngRaw) {
+      const lat = Number(startLatRaw);
+      const lng = Number(startLngRaw);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        const baseName = formClientName?.trim()
+          ? `Site: ${formClientName.trim()}`
+          : `Site: ${startAddress.substring(0, 30)}`;
+        let siteName = baseName;
+        let counter = 1;
+        while (await prisma.site.findFirst({ where: { name: siteName, id: { not: siteId } } })) {
+          siteName = `${baseName} (${counter})`;
+          counter++;
+        }
+        await updateSiteWithChangelog(
+          siteId,
+          {
+            address: startAddress,
+            latitude: lat,
+            longitude: lng,
+            name: siteName,
+            clientName: formClientName || '',
+          },
+          adminId
+        );
       }
     }
 

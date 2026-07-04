@@ -11,6 +11,7 @@ import type { EmployeeSummary } from '@repo/database';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Select from '../../components/select';
+import { Select as RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
@@ -51,12 +52,27 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
   const [selectedemployeeId, setSelectedemployeeId] = useState<string>(shift?.employeeId || '');
   const [selectedKind, setSelectedKind] = useState<'onsite' | 'escort' | 'office_control' | 'event_temporary'>(shift?.kind || 'onsite');
   const [selectedEscortEndSiteId, setSelectedEscortEndSiteId] = useState<string>(shift?.escortEndSiteId || '');
-  const [startAddress, setStartAddress] = useState('');
-  const [startLat, setStartLat] = useState<number | null>(null);
-  const [startLng, setStartLng] = useState<number | null>(null);
+  const eventInitialSite = shift?.kind === 'event_temporary' && shift?.siteId
+    ? fixedSites.find(s => s.id === shift.siteId)
+    : null;
+
+  const [startAddress, setStartAddress] = useState(eventInitialSite?.address || '');
+  const [startLat, setStartLat] = useState<number | null>(eventInitialSite?.latitude ?? null);
+  const [startLng, setStartLng] = useState<number | null>(eventInitialSite?.longitude ?? null);
   const [escortEndAddress, setEscortEndAddress] = useState('');
   const [escortEndLat, setEscortEndLat] = useState<number | null>(null);
   const [escortEndLng, setEscortEndLng] = useState<number | null>(null);
+
+  const parseInitialEvent = () => {
+    if (shift?.kind !== 'event_temporary' || !shift?.note) return { eventName: '', eventType: '', clientNote: '' };
+    const match = shift.note.match(/^\[(.*?) Event\]\s*(.+?)(?:\n(.*))?$/s);
+    if (match) return { eventType: match[1], eventName: match[2], clientNote: match[3] || '' };
+    return { eventName: '', eventType: '', clientNote: shift.note };
+  };
+  const initialEvent = parseInitialEvent();
+  const [eventName, setEventName] = useState(initialEvent.eventName);
+  const [eventType, setEventType] = useState(initialEvent.eventType);
+  const [clientNote, setClientNote] = useState(initialEvent.clientNote);
 
   const isReadOnly = shift ? shift.status !== 'scheduled' : false;
   const groupShiftId = shift?.groupShiftId;
@@ -179,11 +195,79 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
 
         {/* Site Field */}
         <div>
-          <label htmlFor="siteId" className="block font-medium text-foreground mb-1">
-            Site
+          <label className="block font-medium text-foreground mb-1">
+            {selectedKind === 'event_temporary' ? 'Event Details' : 'Site'}
           </label>
           {(isReadOnly || isGroupLocked) ? (
             <p className="text-sm text-foreground">{currentShiftSiteName}</p>
+          ) : selectedKind === 'event_temporary' ? (
+            <div className="space-y-4">
+              <div>
+                <label className="block font-medium text-foreground mb-1">Event Name</label>
+                <input
+                  type="text"
+                  value={eventName}
+                  onChange={e => setEventName(e.target.value)}
+                  placeholder="Enter event name..."
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="block font-medium text-foreground mb-1">Event Type</label>
+                <RadixSelect value={eventType} onValueChange={setEventType}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select event type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Wedding">Wedding</SelectItem>
+                    <SelectItem value="Private Event">Private Event</SelectItem>
+                    <SelectItem value="Temporary Villa Security">Temporary Villa Security</SelectItem>
+                    <SelectItem value="Festival">Festival</SelectItem>
+                  </SelectContent>
+                </RadixSelect>
+              </div>
+              <div className="space-y-2">
+                <label className="block font-medium text-foreground mb-1">Event Location</label>
+                <AddressAutocompleteInput
+                  value={startAddress}
+                  onChange={setStartAddress}
+                  onPlaceSelect={(address, lat, lng) => {
+                    setStartAddress(address);
+                    setStartLat(lat);
+                    setStartLng(lng);
+                  }}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    value={startLat ?? ''}
+                    onChange={e => setStartLat(e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Latitude"
+                    step="any"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  />
+                  <input
+                    type="number"
+                    value={startLng ?? ''}
+                    onChange={e => setStartLng(e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Longitude"
+                    step="any"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  />
+                </div>
+                <AddressMapPreview
+                  latitude={startLat}
+                  longitude={startLng}
+                  onLocationChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
+                  onAddressChange={setStartAddress}
+                />
+              </div>
+              <input type="hidden" name="startAddress" value={startAddress} />
+              <input type="hidden" name="startLat" value={startLat ?? ''} />
+              <input type="hidden" name="startLng" value={startLng ?? ''} />
+              <input type="hidden" name="clientName" value={eventName} />
+              <input type="hidden" name="siteId" value={selectedSiteId || shift?.siteId || ''} />
+            </div>
           ) : hideEscortSites && selectedKind === 'escort' && !shift ? (
             <div className="space-y-2">
               <AddressAutocompleteInput
@@ -460,15 +544,37 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
           <label htmlFor="note" className="block font-medium text-foreground mb-1">
             Note
           </label>
-          <textarea
-            name="note"
-            id="note"
-            defaultValue={shift?.note || ''}
-            rows={3}
-            disabled={isReadOnly}
-            className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all resize-none disabled:bg-muted disabled:text-muted-foreground placeholder:text-muted-foreground/50"
-            placeholder="Add any special instructions or notes for this guard shift..."
-          />
+          {selectedKind === 'event_temporary' ? (
+            <>
+              <textarea
+                value={clientNote}
+                onChange={e => setClientNote(e.target.value)}
+                rows={3}
+                disabled={isReadOnly}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all resize-none disabled:bg-muted disabled:text-muted-foreground placeholder:text-muted-foreground/50"
+                placeholder="Add any special instructions or notes for this guard shift..."
+              />
+              <input
+                type="hidden"
+                name="note"
+                value={
+                  eventName && eventType
+                    ? `[${eventType} Event] ${eventName}${clientNote ? '\n' + clientNote : ''}`
+                    : clientNote || ''
+                }
+              />
+            </>
+          ) : (
+            <textarea
+              name="note"
+              id="note"
+              defaultValue={shift?.note || ''}
+              rows={3}
+              disabled={isReadOnly}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all resize-none disabled:bg-muted disabled:text-muted-foreground placeholder:text-muted-foreground/50"
+              placeholder="Add any special instructions or notes for this guard shift..."
+            />
+          )}
           {state.errors?.note && <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.note[0]}</p>}
         </div>
 

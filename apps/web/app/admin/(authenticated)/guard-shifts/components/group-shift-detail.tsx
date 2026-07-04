@@ -7,6 +7,8 @@ import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { MessageSquare, Plus, Trash2, ExternalLink, ArrowLeft } from 'lucide-react';
 import { updateGroupShiftAction, addGuardToGroupAction, removeGuardFromGroupAction } from '../group-shifts/actions';
+import AddressAutocompleteInput from '@/components/address-autocomplete-input';
+import AddressMapPreview from '@/components/address-map-preview';
 
 type GroupShiftDetailData = {
   id: string;
@@ -19,8 +21,8 @@ type GroupShiftDetailData = {
   note: string | null;
   createdAt: Date;
   updatedAt: Date;
-  site: { id: string; name: string; kind: string };
-  endSite: { id: string; name: string; address: string | null; kind: string } | null;
+  site: { id: string; name: string; kind: string; address: string | null; latitude: number | null; longitude: number | null };
+  endSite: { id: string; name: string; address: string | null; kind: string; latitude: number | null; longitude: number | null } | null;
   shiftType: { id: string; name: string; startTime: string; endTime: string };
   groupChat: { id: string; title: string } | null;
   shifts: {
@@ -38,6 +40,7 @@ type Props = {
   groupShift: GroupShiftDetailData;
   admins: { id: string; name: string }[];
   availableEmployees: { id: string; fullName: string; employeeNumber: string | null }[];
+  hideEscortSites?: boolean;
 };
 
 const statusBadge: Record<string, string> = {
@@ -48,10 +51,16 @@ const statusBadge: Record<string, string> = {
   cancelled: 'bg-slate-500/10 text-slate-400 border-slate-500/20',
 };
 
-export default function GroupShiftDetail({ groupShift, availableEmployees }: Props) {
+export default function GroupShiftDetail({ groupShift, availableEmployees, hideEscortSites = false }: Props) {
   const router = useRouter();
   const [clientName, setClientName] = useState(groupShift.clientName || '');
   const [note, setNote] = useState(groupShift.note || '');
+  const [startAddress, setStartAddress] = useState(groupShift.site.address || '');
+  const [startLat, setStartLat] = useState<number | null>(groupShift.site.latitude ?? null);
+  const [startLng, setStartLng] = useState<number | null>(groupShift.site.longitude ?? null);
+  const [endAddress, setEndAddress] = useState(groupShift.endSite?.address || '');
+  const [endLat, setEndLat] = useState<number | null>(groupShift.endSite?.latitude ?? null);
+  const [endLng, setEndLng] = useState<number | null>(groupShift.endSite?.longitude ?? null);
   const [isSavingMeta, setIsSavingMeta] = useState(false);
   const [isAddingGuard, setIsAddingGuard] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -60,7 +69,18 @@ export default function GroupShiftDetail({ groupShift, availableEmployees }: Pro
   const handleSaveMeta = async () => {
     setIsSavingMeta(true);
     try {
-      await updateGroupShiftAction(groupShift.id, { clientName, note });
+      await updateGroupShiftAction(groupShift.id, {
+        clientName,
+        note,
+        ...(hideEscortSites ? {
+          startAddress,
+          startLat: startLat ?? undefined,
+          startLng: startLng ?? undefined,
+          endAddress,
+          endLat: endLat ?? undefined,
+          endLng: endLng ?? undefined,
+        } : {}),
+      });
       toast.success('Group shift updated');
     } catch {
       toast.error('Failed to update group shift');
@@ -125,7 +145,7 @@ export default function GroupShiftDetail({ groupShift, availableEmployees }: Pro
       <div className="bg-card rounded-xl shadow-sm border border-border p-6 space-y-4">
         <h2 className="text-lg font-semibold text-foreground">Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-foreground/80 mb-1">Client Name</label>
             <input
               type="text"
@@ -135,21 +155,100 @@ export default function GroupShiftDetail({ groupShift, availableEmployees }: Pro
               placeholder="Client name"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground/80 mb-1">Start Site</label>
-            <p className="px-3 py-2 text-sm text-foreground bg-background/50 rounded-lg border border-border">
-              {groupShift.site.name}
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-foreground/80 mb-1">End Site</label>
-            <p className="px-3 py-2 text-sm text-foreground bg-background/50 rounded-lg border border-border">
-              {groupShift.endSite?.name || '—'}
-              {groupShift.endSite?.address && (
-                <span className="text-foreground/60 ml-1">({groupShift.endSite.address})</span>
-              )}
-            </p>
-          </div>
+          {hideEscortSites ? (
+            <>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-foreground/80 mb-1">Start Location</label>
+                <AddressAutocompleteInput
+                  value={startAddress}
+                  onChange={setStartAddress}
+                  onPlaceSelect={(address, lat, lng) => {
+                    setStartAddress(address);
+                    setStartLat(lat);
+                    setStartLng(lng);
+                  }}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    value={startLat ?? ''}
+                    onChange={e => setStartLat(e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Latitude"
+                    step="any"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                  />
+                  <input
+                    type="number"
+                    value={startLng ?? ''}
+                    onChange={e => setStartLng(e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Longitude"
+                    step="any"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                  />
+                </div>
+                <AddressMapPreview
+                  latitude={startLat}
+                  longitude={startLng}
+                  onLocationChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
+                  onAddressChange={setStartAddress}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-foreground/80 mb-1">End Location</label>
+                <AddressAutocompleteInput
+                  value={endAddress}
+                  onChange={setEndAddress}
+                  onPlaceSelect={(address, lat, lng) => {
+                    setEndAddress(address);
+                    setEndLat(lat);
+                    setEndLng(lng);
+                  }}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    value={endLat ?? ''}
+                    onChange={e => setEndLat(e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Latitude"
+                    step="any"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                  />
+                  <input
+                    type="number"
+                    value={endLng ?? ''}
+                    onChange={e => setEndLng(e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Longitude"
+                    step="any"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                  />
+                </div>
+                <AddressMapPreview
+                  latitude={endLat}
+                  longitude={endLng}
+                  onLocationChange={(lat, lng) => { setEndLat(lat); setEndLng(lng); }}
+                  onAddressChange={setEndAddress}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-foreground/80 mb-1">Start Site</label>
+                <p className="px-3 py-2 text-sm text-foreground bg-background/50 rounded-lg border border-border">
+                  {groupShift.site.name}
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground/80 mb-1">End Site</label>
+                <p className="px-3 py-2 text-sm text-foreground bg-background/50 rounded-lg border border-border">
+                  {groupShift.endSite?.name || '—'}
+                  {groupShift.endSite?.address && (
+                    <span className="text-foreground/60 ml-1">({groupShift.endSite.address})</span>
+                  )}
+                </p>
+              </div>
+            </>
+          )}
           <div>
             <label className="block text-sm font-medium text-foreground/80 mb-1">Shift Type</label>
             <p className="px-3 py-2 text-sm text-foreground bg-background/50 rounded-lg border border-border">
