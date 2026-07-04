@@ -129,8 +129,8 @@ export async function getGroupShiftDetail(id: string) {
   return prisma.groupShift.findUnique({
     where: { id },
     include: {
-      site: { select: { id: true, name: true, kind: true } },
-      endSite: { select: { id: true, name: true, address: true, kind: true } },
+      site: { select: { id: true, name: true, kind: true, address: true, latitude: true, longitude: true } },
+      endSite: { select: { id: true, name: true, address: true, kind: true, latitude: true, longitude: true } },
       shiftType: { select: { id: true, name: true, startTime: true, endTime: true } },
       groupChat: { select: { id: true, title: true } },
       shifts: {

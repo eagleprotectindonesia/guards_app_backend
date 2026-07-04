@@ -900,6 +900,7 @@ export async function processGuardShiftBulkImport(
       date: true,
       requiredCheckinIntervalMins: true,
       graceMinutes: true,
+      kind: true,
     },
   });
 
@@ -926,6 +927,7 @@ export async function processGuardShiftBulkImport(
     requiredCheckinIntervalMins: number;
     graceMinutes: number;
     note: string | null;
+    kind: 'onsite' | 'office_control';
   }> = [];
   const deleteIds = new Set<string>();
   const offDateKeysByEmployee = new Map<string, Set<string>>();
@@ -991,6 +993,10 @@ export async function processGuardShiftBulkImport(
       continue;
     }
 
+    const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
+    const kind: 'onsite' | 'office_control' =
+      interval >= 120 && interval === durationInMins ? 'office_control' : 'onsite';
+
     const startsAt = parseShiftTypeTimeOnDate(row.date, shiftType.startTime);
     let endsAt = parseShiftTypeTimeOnDate(row.date, shiftType.endTime);
     if (endsAt.getTime() < startsAt.getTime()) {
@@ -1010,7 +1016,6 @@ export async function processGuardShiftBulkImport(
     }
 
     if (existingForKey.length === 0) {
-      const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
       if (durationInMins % interval !== 0) {
         errors.push(
           `Row ${row.rowNumber}: shift duration (${durationInMins} mins) must be a multiple of interval (${interval} mins).`
@@ -1033,6 +1038,7 @@ export async function processGuardShiftBulkImport(
         endsAt,
         requiredCheckinIntervalMins: interval,
         graceMinutes: grace,
+        kind,
         status: 'scheduled',
         note: row.note ?? null,
       });
@@ -1050,6 +1056,10 @@ export async function processGuardShiftBulkImport(
     }
 
     const existingShift = existingForKey[0];
+    if (existingShift.kind === 'escort' || existingShift.kind === 'event_temporary') {
+      pastDatesSkipped++;
+      continue;
+    }
     updates.push({
       id: existingShift.id,
       employeeId,
@@ -1061,6 +1071,7 @@ export async function processGuardShiftBulkImport(
       note: row.note ?? null,
       requiredCheckinIntervalMins: interval,
       graceMinutes: grace,
+      kind,
     });
     const existing = workingDateKeysByEmployee.get(employeeId) ?? new Set<string>();
     existing.add(row.date);
@@ -1264,6 +1275,7 @@ export async function processGuardShiftBulkImport(
             date: update.date,
             startsAt: update.startsAt,
             endsAt: update.endsAt,
+            kind: update.kind,
             requiredCheckinIntervalMins: update.requiredCheckinIntervalMins,
             graceMinutes: update.graceMinutes,
             note: update.note,
@@ -1311,6 +1323,7 @@ export async function processGuardShiftBulkImport(
           'date',
           'startsAt',
           'endsAt',
+          'kind',
           'requiredCheckinIntervalMins',
           'graceMinutes',
           'status',

@@ -1,4 +1,4 @@
-import { prisma, getGroupShiftDetail } from '@repo/database';
+import { prisma, getGroupShiftDetail, getSystemSetting } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { notFound } from 'next/navigation';
@@ -11,8 +11,12 @@ export default async function GroupShiftDetailPage({ params }: { params: Promise
   await requirePermission(PERMISSIONS.SHIFTS.VIEW);
   const { id } = await params;
 
-  const groupShift = await getGroupShiftDetail(id);
+  const [groupShift, hideEscortSetting] = await Promise.all([
+    getGroupShiftDetail(id),
+    getSystemSetting('HIDE_ESCORT_SITES'),
+  ]);
   if (!groupShift) notFound();
+  const hideEscortSites = hideEscortSetting?.value === '1';
 
   const allAdmins = await prisma.admin.findMany({ where: { deletedAt: null }, select: { id: true, name: true } });
   const employees = await prisma.employee.findMany({
@@ -31,6 +35,7 @@ export default async function GroupShiftDetailPage({ params }: { params: Promise
         groupShift={groupShift}
         admins={allAdmins}
         availableEmployees={availableEmployees}
+        hideEscortSites={hideEscortSites}
       />
     </div>
   );
