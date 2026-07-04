@@ -77,8 +77,8 @@ export default function GroupShiftDetail({ groupShift, admins, availableEmployee
       toast.success('Guard added');
       setSelectedEmployeeId('');
       router.refresh();
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to add guard');
+    } catch (error: unknown) {
+      toast.error((error as { message?: string })?.message || 'Failed to add guard');
     } finally {
       setIsAddingGuard(false);
     }
@@ -90,8 +90,8 @@ export default function GroupShiftDetail({ groupShift, admins, availableEmployee
       await removeGuardFromGroupAction(groupShift.id, shiftId);
       toast.success('Guard removed');
       router.refresh();
-    } catch (e: any) {
-      toast.error(e?.message || 'Failed to remove guard');
+    } catch (e: unknown) {
+      toast.error((e as { message?: string })?.message || 'Failed to remove guard');
     } finally {
       setRemovingShiftId(null);
     }
@@ -117,9 +117,9 @@ export default function GroupShiftDetail({ groupShift, admins, availableEmployee
           Escort: {groupShift.site.name} → {groupShift.endSite?.name || '—'}
         </h1>
         <p className="text-foreground/60 text-sm">
-          {format(new Date(groupShift.date), 'dd MMM yyyy')} &middot;{' '}
-          {groupShift.shiftType.name} ({groupShift.shiftType.startTime} - {groupShift.shiftType.endTime}) &middot;{' '}
-          {groupShift.shifts.length} guard(s)
+          {format(new Date(groupShift.date), 'dd MMM yyyy')} &middot; {groupShift.shiftType.name} (
+          {groupShift.shiftType.startTime} - {groupShift.shiftType.endTime}) &middot; {groupShift.shifts.length}{' '}
+          guard(s)
         </p>
       </div>
 
@@ -147,7 +147,9 @@ export default function GroupShiftDetail({ groupShift, admins, availableEmployee
             <label className="block text-sm font-medium text-foreground/80 mb-1">End Site</label>
             <p className="px-3 py-2 text-sm text-foreground bg-background/50 rounded-lg border border-border">
               {groupShift.endSite?.name || '—'}
-              {groupShift.endSite?.address && <span className="text-foreground/60 ml-1">({groupShift.endSite.address})</span>}
+              {groupShift.endSite?.address && (
+                <span className="text-foreground/60 ml-1">({groupShift.endSite.address})</span>
+              )}
             </p>
           </div>
           <div>
@@ -223,7 +225,9 @@ export default function GroupShiftDetail({ groupShift, admins, availableEmployee
                     )}
                   </td>
                   <td className="py-3 px-2">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadge[shift.status] || ''}`}>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${statusBadge[shift.status] || ''}`}
+                    >
                       {shift.status.replace('_', ' ')}
                     </span>
                   </td>
@@ -277,7 +281,8 @@ export default function GroupShiftDetail({ groupShift, admins, availableEmployee
                 <option value="">Select guard...</option>
                 {availableEmployees.map(emp => (
                   <option key={emp.id} value={emp.id}>
-                    {emp.fullName}{emp.employeeNumber ? ` (${emp.employeeNumber})` : ''}
+                    {emp.fullName}
+                    {emp.employeeNumber ? ` (${emp.employeeNumber})` : ''}
                   </option>
                 ))}
               </select>
