@@ -13,6 +13,12 @@ README.md
 !.env.example
 .DS_Store
 tests
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+**/__tests__
+**/__mocks__
 dist
 **/dist
 coverage
