@@ -12,6 +12,7 @@ import { client } from '../../src/api/client';
 import AttendanceRecord from '../../src/components/AttendanceRecord';
 import CheckInCard from '../../src/components/CheckInCard';
 import EscortDutyCard from '../../src/components/EscortDutyCard';
+import EventInfoCard from '../../src/components/EventInfoCard';
 import OfficeAttendanceCard from '../../src/components/OfficeAttendanceCard';
 import OfficeAttendanceCarousel from '../../src/components/OfficeAttendanceCarousel';
 import ShiftCarousel from '../../src/components/ShiftCarousel';
@@ -19,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShiftWithRelations } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
+import { parseEventNote } from '../../src/utils/shift-helpers';
 import GlassLanguageToggle from '../../src/components/GlassLanguageToggle';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useProfile } from '../../src/hooks/useProfile';
@@ -101,6 +103,8 @@ export default function HomeScreen() {
       setIsManualRefreshing(false);
     }
   };
+
+  const parsedEventNote = activeShift?.kind === 'event_temporary' ? parseEventNote(activeShift.note) : { eventType: null, eventName: null };
 
   return (
     <Box className="flex-1 bg-background-950 relative">
@@ -195,6 +199,19 @@ export default function HomeScreen() {
                     <AttendanceRecord shift={activeShift} onAttendanceRecorded={refetch} />
                     {activeShift.attendance && (
                       <EscortDutyCard shift={activeShift} refetchShift={refetch} />
+                    )}
+                  </VStack>
+                </Box>
+              ) : activeShift && activeShift.kind === 'event_temporary' ? (
+                <Box className="px-6">
+                  <VStack space="md">
+                    <AttendanceRecord shift={activeShift} onAttendanceRecorded={refetch} />
+                    {activeShift.attendance && (
+                      <EventInfoCard
+                        shift={activeShift}
+                        eventType={parsedEventNote.eventType ?? ''}
+                        eventName={parsedEventNote.eventName ?? ''}
+                      />
                     )}
                   </VStack>
                 </Box>

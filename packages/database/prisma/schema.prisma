@@ -712,48 +712,47 @@ model OfficeShiftType {
 }
 
 model Shift {
-  id                          String         @id @default(uuid())
-  siteId                      String         @map("site_id")
-  shiftTypeId                 String         @map("shift_type_id")
-  employeeId                  String?        @map("employee_id")
-  kind                        ShiftKind      @default(onsite)
-  escortEndSiteId             String?        @map("escort_end_site_id")
-  date                        DateTime       @db.Date
-  startsAt                    DateTime       @map("starts_at")
-  endsAt                      DateTime       @map("ends_at")
-  status                      ShiftStatus    @default(scheduled)
-  checkInStatus               CheckInStatus? @map("check_in_status")
-  requiredCheckinIntervalMins Int            @default(20) @map("required_checkin_interval_minutes")
-  graceMinutes                Int            @default(2) @map("grace_minutes")
-  lastHeartbeatAt             DateTime?      @map("last_heartbeat_at") @db.Timestamptz(6)
-  lastDeviceHeartbeatAt       DateTime?      @map("last_device_heartbeat_at") @db.Timestamptz(6)
-  departedAt                  DateTime?      @map("departed_at") @db.Timestamptz(6)
-  arrivedAt                   DateTime?      @map("arrived_at") @db.Timestamptz(6)
-
-  missedCount           Int                     @default(0) @map("missed_count")
-  createdById           String?                 @map("created_by_id")
-  lastUpdatedById       String?                 @map("last_updated_by_id")
-  createdAt             DateTime                @default(now()) @map("created_at")
-  updatedAt             DateTime                @updatedAt
-  deletedAt             DateTime?               @map("deleted_at")
-  reminderSentAt        DateTime?               @map("reminder_sent_at")
-  endReminderSentAt     DateTime?               @map("end_reminder_sent_at")
-  autoPhotoReportStatus ShiftPhotoReportStatus? @map("auto_photo_report_status")
-  lastAutoPhotoReportId String?                 @map("last_auto_photo_report_id")
-  lastAutoPhotoReportAt DateTime?               @map("last_auto_photo_report_at")
-  note                  String?                 @db.Text
-  groupShiftId          String?                 @map("group_shift_id")
-  alerts                Alert[]
-  checkins              Checkin[]
-  photoReports          ShiftPhotoReport[]
-  employee              Employee?               @relation(fields: [employeeId], references: [id])
-  shiftType             ShiftType               @relation(fields: [shiftTypeId], references: [id])
-  site                  Site                    @relation(fields: [siteId], references: [id])
-  escortEndSite         Site?                   @relation("ShiftEscortEndSite", fields: [escortEndSiteId], references: [id])
-  groupShift            GroupShift?             @relation(fields: [groupShiftId], references: [id])
-  createdBy             Admin?                  @relation("ShiftCreatedBy", fields: [createdById], references: [id])
-  lastUpdatedBy         Admin?                  @relation("ShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  attendance            Attendance?
+  id                          String                  @id @default(uuid())
+  siteId                      String                  @map("site_id")
+  shiftTypeId                 String                  @map("shift_type_id")
+  employeeId                  String?                 @map("employee_id")
+  kind                        ShiftKind               @default(onsite)
+  escortEndSiteId             String?                 @map("escort_end_site_id")
+  date                        DateTime                @db.Date
+  startsAt                    DateTime                @map("starts_at")
+  endsAt                      DateTime                @map("ends_at")
+  status                      ShiftStatus             @default(scheduled)
+  checkInStatus               CheckInStatus?          @map("check_in_status")
+  requiredCheckinIntervalMins Int                     @default(20) @map("required_checkin_interval_minutes")
+  graceMinutes                Int                     @default(2) @map("grace_minutes")
+  lastHeartbeatAt             DateTime?               @map("last_heartbeat_at") @db.Timestamptz(6)
+  lastDeviceHeartbeatAt       DateTime?               @map("last_device_heartbeat_at") @db.Timestamptz(6)
+  departedAt                  DateTime?               @map("departed_at") @db.Timestamptz(6)
+  arrivedAt                   DateTime?               @map("arrived_at") @db.Timestamptz(6)
+  missedCount                 Int                     @default(0) @map("missed_count")
+  createdById                 String?                 @map("created_by_id")
+  lastUpdatedById             String?                 @map("last_updated_by_id")
+  createdAt                   DateTime                @default(now()) @map("created_at")
+  updatedAt                   DateTime                @updatedAt
+  deletedAt                   DateTime?               @map("deleted_at")
+  reminderSentAt              DateTime?               @map("reminder_sent_at")
+  endReminderSentAt           DateTime?               @map("end_reminder_sent_at")
+  autoPhotoReportStatus       ShiftPhotoReportStatus? @map("auto_photo_report_status")
+  lastAutoPhotoReportId       String?                 @map("last_auto_photo_report_id")
+  lastAutoPhotoReportAt       DateTime?               @map("last_auto_photo_report_at")
+  note                        String?                 @db.Text
+  groupShiftId                String?                 @map("group_shift_id")
+  alerts                      Alert[]
+  checkins                    Checkin[]
+  photoReports                ShiftPhotoReport[]
+  employee                    Employee?               @relation(fields: [employeeId], references: [id])
+  shiftType                   ShiftType               @relation(fields: [shiftTypeId], references: [id])
+  site                        Site                    @relation(fields: [siteId], references: [id])
+  escortEndSite               Site?                   @relation("ShiftEscortEndSite", fields: [escortEndSiteId], references: [id])
+  groupShift                  GroupShift?             @relation(fields: [groupShiftId], references: [id])
+  createdBy                   Admin?                  @relation("ShiftCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy               Admin?                  @relation("ShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  attendance                  Attendance?
 
   @@index([siteId])
   @@index([employeeId, startsAt])
@@ -865,6 +864,8 @@ enum SiteKind {
 enum ShiftKind {
   onsite
   escort
+  office_control
+  event_temporary
 }
 
 model ShiftPhotoReport {

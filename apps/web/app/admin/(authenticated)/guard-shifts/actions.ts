@@ -145,7 +145,7 @@ export async function createShift(
       return { message: 'Start site not found.', success: false };
     }
 
-    if (kind === 'onsite' && startSite.kind !== 'fixed') {
+    if (kind !== 'escort' && startSite.kind !== 'fixed') {
       return { message: 'On-site shifts must use a fixed site as the start location.', success: false };
     }
 
@@ -328,7 +328,7 @@ export async function updateShift(
       return { message: 'Start site not found.', success: false };
     }
 
-    if (kind === 'onsite' && startSite.kind !== 'fixed') {
+    if (kind !== 'escort' && startSite.kind !== 'fixed') {
       return { message: 'On-site shifts must use a fixed site as the start location.', success: false };
     }
 
@@ -595,7 +595,7 @@ export async function bulkCreateShifts(
 }
 
 type BulkCreateFromFormInput = {
-  kind: 'onsite' | 'escort';
+  kind: 'onsite' | 'escort' | 'office_control' | 'event_temporary';
   siteId: string;
   startAddress?: string;
   startLat?: number;
@@ -665,7 +665,7 @@ export async function bulkCreateShiftsFromFormAction(
   let finalSiteId = input.siteId;
   let finalEscortEndSiteId = input.escortEndSiteId;
 
-  if (input.kind === 'escort' && input.startAddress && input.startLat != null && input.startLng != null) {
+  if ((input.kind === 'escort' || input.kind === 'event_temporary') && input.startAddress && input.startLat != null && input.startLng != null) {
     finalSiteId = await autoCreateSiteFromAddress('fixed', input.clientName, input.startAddress, input.startLat, input.startLng, adminId);
   }
 

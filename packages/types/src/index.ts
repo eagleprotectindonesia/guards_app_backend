@@ -36,7 +36,7 @@ export type EmployeeGender = 'male' | 'female';
 export type OfficeJobTitleCategory = 'staff' | 'management';
 export type OfficeShiftAttendanceMode = 'office_required' | 'non_office';
 export type OfficeAttendancePolicySource = 'employee_default' | 'shift_override' | 'no_office_employee';
-export type ShiftKind = 'onsite' | 'escort';
+export type ShiftKind = 'onsite' | 'escort' | 'office_control' | 'event_temporary';
 export type SiteKind = 'fixed' | 'escort';
 export type EmailTemplateId = 'admin.leave_request_created';
 

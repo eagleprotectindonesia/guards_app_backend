@@ -242,7 +242,7 @@ export async function bulkCreateShiftsFromForm(
   input: {
     siteId: string;
     shiftTypeId: string;
-    kind: 'onsite' | 'escort';
+    kind: 'onsite' | 'escort' | 'office_control' | 'event_temporary';
     escortEndSiteId?: string;
     employeeIds: string[];
     dates: string[];

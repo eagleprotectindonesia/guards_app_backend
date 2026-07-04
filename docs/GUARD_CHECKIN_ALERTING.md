@@ -120,11 +120,11 @@ Records routine check-ins (single or bulk if late).
 -   **Body**: `{ "location": { "lat": number, "lng": number }, "source": "web" }`
 -   **Outcome**: Creates check-in(s), updates heartbeat/status, and auto-resolves `missed_checkin` alerts.
 
-## 5. Escort Shifts (ShiftKind = `escort`)
+## 5. Non-Escort Shift Behavior
 
 ### Data Model
-- `ShiftKind` enum: `onsite` (default), `escort`.
-- `Shift.kind` discriminator to distinguish escort shifts from regular on-site shifts.
+- `ShiftKind` enum: `onsite` (default), `office_control`, `event_temporary`, `escort`.
+- `Shift.kind` discriminator — `office_control` and `event_temporary` behave identically to `onsite` in the backend but render distinct labels.
 - `SiteKind` enum: `fixed` (default), `escort`.
 - `Site.kind` discriminator — escort sites are registered as `kind='escort'` and used exclusively as end-location references.
 - `Shift.escortEndSiteId` FK to `Site` (kind must be `'escort'`) marks the custom end location.

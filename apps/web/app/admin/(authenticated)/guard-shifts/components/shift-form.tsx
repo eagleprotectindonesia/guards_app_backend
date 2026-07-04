@@ -49,7 +49,7 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
   const [selectedShiftTypeId, setSelectedShiftTypeId] = useState<string>(shift?.shiftTypeId || '');
   const [selectedSiteId, setSelectedSiteId] = useState<string>(shift?.siteId || '');
   const [selectedemployeeId, setSelectedemployeeId] = useState<string>(shift?.employeeId || '');
-  const [selectedKind, setSelectedKind] = useState<'onsite' | 'escort'>(shift?.kind || 'onsite');
+  const [selectedKind, setSelectedKind] = useState<'onsite' | 'escort' | 'office_control' | 'event_temporary'>(shift?.kind || 'onsite');
   const [selectedEscortEndSiteId, setSelectedEscortEndSiteId] = useState<string>(shift?.escortEndSiteId || '');
   const [startAddress, setStartAddress] = useState('');
   const [startLat, setStartLat] = useState<number | null>(null);
@@ -89,9 +89,9 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
     label: `${st.name} (${st.startTime} - ${st.endTime})`,
   }));
 
-  const handleKindChange = (kind: 'onsite' | 'escort') => {
+  const handleKindChange = (kind: 'onsite' | 'escort' | 'office_control' | 'event_temporary') => {
     setSelectedKind(kind);
-    if (kind === 'onsite') {
+    if (kind !== 'escort') {
       setSelectedEscortEndSiteId('');
     }
   };
@@ -125,7 +125,7 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
           {(isReadOnly || isGroupLocked) ? (
             <p className="text-sm text-foreground capitalize">{shift?.kind || 'onsite'}</p>
           ) : (
-            <div className="flex items-center gap-6">
+            <div className="flex flex-wrap items-center gap-6">
               <label className="inline-flex items-center cursor-pointer">
                 <input
                   type="radio"
@@ -136,6 +136,28 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
                   className="text-red-600 focus:ring-red-600"
                 />
                 <span className="ml-2 text-foreground text-sm">On-site</span>
+              </label>
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="kind"
+                  value="office_control"
+                  checked={selectedKind === 'office_control'}
+                  onChange={() => handleKindChange('office_control')}
+                  className="text-red-600 focus:ring-red-600"
+                />
+                <span className="ml-2 text-foreground text-sm">Office Control</span>
+              </label>
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="kind"
+                  value="event_temporary"
+                  checked={selectedKind === 'event_temporary'}
+                  onChange={() => handleKindChange('event_temporary')}
+                  className="text-red-600 focus:ring-red-600"
+                />
+                <span className="ml-2 text-foreground text-sm">Event / Temporary</span>
               </label>
               <label className="inline-flex items-center cursor-pointer">
                 <input
@@ -375,7 +397,7 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
 
         {/* Config Fields */}
         <div className="grid grid-cols-2 gap-4">
-          {selectedKind === 'escort' ? (
+          {selectedKind !== 'onsite' ? (
             <div>
               <label className="block font-medium text-foreground mb-1">
                 Interval (min)
