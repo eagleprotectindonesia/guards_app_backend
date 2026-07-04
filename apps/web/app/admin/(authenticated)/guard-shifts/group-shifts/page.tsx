@@ -1,9 +1,8 @@
-import { Prisma } from '@prisma/client';
 import { getPaginationParams } from '@/lib/server-utils';
 import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { prisma, getPaginatedGroupShifts } from '@repo/database';
+import { prisma, getPaginatedGroupShifts, getSystemSetting } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import GuardShiftsTabs from '../components/guard-shifts-tabs';
@@ -42,16 +41,21 @@ export default async function GroupShiftsPage({
   const parsedStartDate = startDate ? startOfDay(parseISO(startDate)) : undefined;
   const parsedEndDate = endDate ? endOfDay(parseISO(endDate)) : undefined;
 
-  const { groupShifts, totalCount } = await getPaginatedGroupShifts({
-    startDate: parsedStartDate,
-    endDate: parsedEndDate,
-    siteId,
-    endSiteId,
-    page,
-    perPage,
-    sortBy,
-    sortOrder,
-  });
+  const [groupShiftsResult, hideEscortSetting] = await Promise.all([
+    getPaginatedGroupShifts({
+      startDate: parsedStartDate,
+      endDate: parsedEndDate,
+      siteId,
+      endSiteId,
+      page,
+      perPage,
+      sortBy,
+      sortOrder,
+    }),
+    getSystemSetting('HIDE_ESCORT_SITES'),
+  ]);
+  const hideEscortSites = hideEscortSetting?.value === '1';
+  const { groupShifts, totalCount } = groupShiftsResult;
 
   const sites = await prisma.site.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' } });
   const escortSites = sites.filter(s => s.kind === 'escort');
@@ -76,6 +80,7 @@ export default async function GroupShiftsPage({
           page={page}
           perPage={perPage}
           totalCount={totalCount}
+          hideEscortSites={hideEscortSites}
         />
       </Suspense>
     </div>

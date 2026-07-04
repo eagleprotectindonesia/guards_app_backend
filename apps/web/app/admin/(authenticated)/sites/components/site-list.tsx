@@ -32,9 +32,10 @@ type SiteListProps = {
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   kind?: string;
+  hideEscortSites?: boolean;
 };
 
-export default function SiteList({ sites, page, perPage, totalCount, sortBy = 'name', sortOrder = 'asc', kind }: SiteListProps) {
+export default function SiteList({ sites, page, perPage, totalCount, sortBy = 'name', sortOrder = 'asc', kind, hideEscortSites = false }: SiteListProps) {
   const router = useAdminRouter();
   const searchParams = useSearchParams();
   const [isPending, startTransition] = useTransition();
@@ -147,20 +148,22 @@ export default function SiteList({ sites, page, perPage, totalCount, sortBy = 'n
           <p className="text-sm text-muted-foreground mt-1">Manage your locations and clients.</p>
         </div>
         <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
-          <div className="w-44">
-            <SelectFilter
-              label=""
-              value={filterKind}
-              options={[
-                { value: 'fixed', label: 'Fixed' },
-                { value: 'escort', label: 'Escort' },
-              ]}
-              onChange={handleKindFilter}
-              id="filter-kind"
-              instanceId="filter-kind"
-              allLabel="All Sites"
-            />
-          </div>
+          {!hideEscortSites && (
+            <div className="w-44">
+              <SelectFilter
+                label=""
+                value={filterKind}
+                options={[
+                  { value: 'fixed', label: 'Fixed' },
+                  { value: 'escort', label: 'Escort' },
+                ]}
+                onChange={handleKindFilter}
+                id="filter-kind"
+                instanceId="filter-kind"
+                allLabel="All Sites"
+              />
+            </div>
+          )}
           <div className="w-full md:w-64">
             <Search placeholder="Search sites..." />
           </div>
@@ -201,7 +204,7 @@ export default function SiteList({ sites, page, perPage, totalCount, sortBy = 'n
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
                 <SortableHeader label="Name" field="name" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <SortableHeader label="Client Name" field="clientName" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
-                <SortableHeader label="Kind" field="kind" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                {!hideEscortSites && <SortableHeader label="Kind" field="kind" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />}
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Address</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Latitude</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Longitude</th>
@@ -222,7 +225,7 @@ export default function SiteList({ sites, page, perPage, totalCount, sortBy = 'n
             <tbody className="divide-y divide-border">
               {sites.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={hideEscortSites ? 11 : 12} className="py-8 text-center text-muted-foreground">
                     No sites found. Create one to get started.
                   </td>
                 </tr>
@@ -234,17 +237,19 @@ export default function SiteList({ sites, page, perPage, totalCount, sortBy = 'n
                     <td className="py-4 px-6 text-sm text-muted-foreground font-mono bg-muted/50 rounded w-fit">
                       {site.clientName || 'N/A'}
                     </td>
-                    <td className="py-4 px-6 text-sm">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          site.kind === 'escort'
-                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                        }`}
-                      >
-                        {site.kind === 'escort' ? 'Escort' : 'Fixed'}
-                      </span>
-                    </td>
+                    {!hideEscortSites && (
+                      <td className="py-4 px-6 text-sm">
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            site.kind === 'escort'
+                              ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          {site.kind === 'escort' ? 'Escort' : 'Fixed'}
+                        </span>
+                      </td>
+                    )}
                     <td className="py-4 px-6 text-sm text-muted-foreground">{site.address || 'N/A'}</td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
                       {site.latitude !== null && site.latitude !== undefined ? site.latitude.toFixed(6) : 'N/A'}

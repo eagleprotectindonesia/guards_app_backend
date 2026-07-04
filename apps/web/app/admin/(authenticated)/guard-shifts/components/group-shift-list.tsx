@@ -43,6 +43,7 @@ type GroupShiftListProps = {
   page: number;
   perPage: number;
   totalCount: number;
+  hideEscortSites?: boolean;
 };
 
 export default function GroupShiftList({
@@ -58,6 +59,7 @@ export default function GroupShiftList({
   page,
   perPage,
   totalCount,
+  hideEscortSites = false,
 }: GroupShiftListProps) {
   const router = useAdminRouter();
   const searchParams = useSearchParams();
@@ -140,14 +142,16 @@ export default function GroupShiftList({
           value={filterSiteId}
           onChange={v => setFilterSiteId(v || '')}
         />
-        <SelectFilter
-          id="end-site-filter"
-          instanceId="end-site-filter"
-          label="End Site"
-          options={escortSites.map(s => ({ value: s.id, label: s.name }))}
-          value={filterEndSiteId}
-          onChange={v => setFilterEndSiteId(v || '')}
-        />
+        {!hideEscortSites && (
+          <SelectFilter
+            id="end-site-filter"
+            instanceId="end-site-filter"
+            label="End Site"
+            options={escortSites.map(s => ({ value: s.id, label: s.name }))}
+            value={filterEndSiteId}
+            onChange={v => setFilterEndSiteId(v || '')}
+          />
+        )}
       </FilterBar>
 
       <div className="overflow-x-auto mt-4">

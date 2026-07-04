@@ -2,7 +2,7 @@ import { serialize, getPaginationParams } from '@/lib/server-utils';
 import SiteList from './components/site-list';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { getPaginatedSites } from '@repo/database';
+import { getPaginatedSites, getSystemSetting } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
@@ -32,9 +32,13 @@ export default async function SitesPage(props: SitesPageProps) {
   const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
   const kind = typeof searchParams.kind === 'string' ? searchParams.kind : undefined;
 
+  const hideEscortSetting = await getSystemSetting('HIDE_ESCORT_SITES');
+  const hideEscortSites = hideEscortSetting?.value === '1';
+  const effectiveKind: 'fixed' | 'escort' | undefined = hideEscortSites ? 'fixed' : (kind as 'fixed' | 'escort' | undefined);
+
   const { sites, totalCount } = await getPaginatedSites({
     query,
-    kind: kind as 'fixed' | 'escort' | undefined,
+    kind: effectiveKind,
     skip,
     take: perPage,
     sortBy: sortField,
@@ -54,6 +58,7 @@ export default async function SitesPage(props: SitesPageProps) {
           sortBy={sortField}
           sortOrder={sortOrder}
           kind={kind}
+          hideEscortSites={hideEscortSites}
         />
       </Suspense>
     </div>

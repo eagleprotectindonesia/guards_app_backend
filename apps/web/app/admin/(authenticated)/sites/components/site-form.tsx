@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { APIProvider, Map, Marker, useMapsLibrary, MapMouseEvent, useMap } from '@vis.gl/react-google-maps';
 import { Site } from '@prisma/client';
 import { useAdminRouter } from '../../context/admin-router';
+import AddressAutocompleteInput from '@/components/address-autocomplete-input';
 
 type SitePostFormValue = {
   id?: string;
@@ -23,6 +24,7 @@ type SitePostFormValue = {
 type Props = {
   site?: Serialized<Site & { posts?: SitePostFormValue[] }>;
   isMonitoringEnabled?: boolean;
+  hideEscortSites?: boolean;
 };
 
 // MapUpdater component to update map position externally
@@ -116,55 +118,7 @@ function MapComponent({
   );
 }
 
-function PostAddressAutocompleteInput({
-  value,
-  onFocus,
-  onChange,
-  onPlaceSelect,
-}: {
-  value: string;
-  onFocus: () => void;
-  onChange: (value: string) => void;
-  onPlaceSelect: (address: string, lat: number, lng: number) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const placesLib = useMapsLibrary('places');
-
-  useEffect(() => {
-    if (!placesLib || !inputRef.current) return;
-
-    const autocomplete = new placesLib.Autocomplete(inputRef.current, {
-      fields: ['geometry', 'formatted_address', 'name'],
-      types: ['establishment', 'geocode'],
-    });
-
-    const listener = autocomplete.addListener('place_changed', () => {
-      const place = autocomplete.getPlace();
-      if (!place.geometry?.location) return;
-      const lat = place.geometry.location.lat();
-      const lng = place.geometry.location.lng();
-      const address = place.formatted_address || place.name || '';
-      onPlaceSelect(address, lat, lng);
-    });
-
-    return () => {
-      google.maps.event.removeListener(listener);
-    };
-  }, [placesLib, onPlaceSelect]);
-
-  return (
-    <input
-      ref={inputRef}
-      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
-      value={value}
-      onFocus={onFocus}
-      onChange={e => onChange(e.target.value)}
-      placeholder="Address"
-    />
-  );
-}
-
-export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
+export default function SiteForm({ site, isMonitoringEnabled = true, hideEscortSites = false }: Props) {
   const router = useAdminRouter();
   const [state, formAction, isPending] = useActionState<ActionState<CreateSiteInput>, FormData>(
     site ? updateSite.bind(null, site.id) : createSite,
@@ -243,17 +197,19 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
                 />
                 <span className="ml-2 text-foreground text-sm">Fixed</span>
               </label>
-              <label className="inline-flex items-center cursor-pointer">
-                <input
-                  type="radio"
-                  name="kind"
-                  value="escort"
-                  checked={kind === 'escort'}
-                  onChange={() => handleKindChange('escort')}
-                  className="text-red-600 focus:ring-red-600"
-                />
-                <span className="ml-2 text-foreground text-sm">Escort</span>
-              </label>
+              {!hideEscortSites && (
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="kind"
+                    value="escort"
+                    checked={kind === 'escort'}
+                    onChange={() => handleKindChange('escort')}
+                    className="text-red-600 focus:ring-red-600"
+                  />
+                  <span className="ml-2 text-foreground text-sm">Escort</span>
+                </label>
+              )}
             </div>
             {state.errors?.kind && (
               <p className="text-red-500 text-xs mt-1">{state.errors.kind[0]}</p>
@@ -407,7 +363,7 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
                     />
                   </div>
                   <div className="md:col-span-5">
-                    <PostAddressAutocompleteInput
+                    <AddressAutocompleteInput
                       value={post.address || ''}
                       onFocus={() => focusPost(idx)}
                       onChange={nextValue =>
@@ -480,7 +436,7 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 p-4 border rounded-xl border-red-500 bg-red-50/5 dark:bg-red-500/5">
                 <div className="md:col-span-5">
-                  <PostAddressAutocompleteInput
+                  <AddressAutocompleteInput
                     value={posts[0]?.address || ''}
                     onFocus={() => focusPost(0)}
                     onChange={nextValue =>

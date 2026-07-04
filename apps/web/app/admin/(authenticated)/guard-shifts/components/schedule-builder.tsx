@@ -13,6 +13,8 @@ import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import Link from 'next/link';
 import { X, Info, Calendar } from 'lucide-react';
+import AddressAutocompleteInput from '@/components/address-autocomplete-input';
+import AddressMapPreview from '@/components/address-map-preview';
 
 function getDurationInMins(startTime: string, endTime: string) {
   const toMins = (t: string) => {
@@ -30,11 +32,12 @@ type Props = {
   escortEndSites: Serialized<Site>[];
   shiftTypes: Serialized<ShiftType>[];
   employees: EmployeeSummary[];
+  hideEscortSites?: boolean;
 };
 
 type AssignmentType = 'site_duty' | 'escort_special' | 'office_control' | 'event_temporary';
 
-export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes, employees }: Props) {
+export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes, employees, hideEscortSites = false }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -54,6 +57,12 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
   const [grace, setGrace] = useState(2);
   const [note, setNote] = useState('');
   const [clientName, setClientName] = useState('');
+  const [startAddress, setStartAddress] = useState('');
+  const [startLat, setStartLat] = useState<number | null>(null);
+  const [startLng, setStartLng] = useState<number | null>(null);
+  const [escortEndAddress, setEscortEndAddress] = useState('');
+  const [escortEndLat, setEscortEndLat] = useState<number | null>(null);
+  const [escortEndLng, setEscortEndLng] = useState<number | null>(null);
   const [flexibleEndTime, setFlexibleEndTime] = useState(true);
   const [autoCreateChatRoom, setAutoCreateChatRoom] = useState(true);
   const [overwrite, setOverwrite] = useState(false);
@@ -125,12 +134,18 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
       for (const gId of guardIds) {
         const emp = employees.find(e => e.id === gId);
         const site = fixedSites.find(s => s.id === siteId);
+        let siteName = site?.name || '';
+        if (assignmentType === 'escort_special' && hideEscortSites) {
+          siteName = startAddress || escortEndAddress || '';
+        } else if (!siteName && assignmentType === 'escort_special') {
+          siteName = escortEndSites.find(s => s.id === escortEndSiteId)?.name || '';
+        }
         rows.push({
           date,
           guardId: gId,
           guardName: emp?.fullName || gId,
           type: assignmentType === 'site_duty' ? 'Site Duty' : 'Escort/Special',
-          siteName: site?.name || (assignmentType === 'escort_special' && escortEndSites.find(s => s.id === escortEndSiteId)?.name) || '',
+          siteName,
           shiftTypeName: selectedShiftType?.name || '',
           startTime: selectedShiftType?.startTime || '',
           endTime: selectedShiftType?.endTime || '',
@@ -138,7 +153,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
       }
     }
     return rows;
-  }, [effectiveDates, guardIds, employees, fixedSites, siteId, assignmentType, escortEndSites, escortEndSiteId, selectedShiftType]);
+  }, [effectiveDates, guardIds, employees, fixedSites, siteId, assignmentType, escortEndSites, escortEndSiteId, selectedShiftType, hideEscortSites, startAddress, escortEndAddress]);
 
   const totalRowCount = previewRows.length;
 
@@ -177,7 +192,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
       toast.error('Please select at least one date.');
       return;
     }
-    if (!siteId) {
+    if (!siteId && !(assignmentType === 'escort_special' && hideEscortSites)) {
       toast.error('Please select a site.');
       return;
     }
@@ -185,10 +200,37 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
       toast.error('Please select a shift type.');
       return;
     }
+    if (assignmentType === 'escort_special' && hideEscortSites) {
+      if (!startAddress) {
+        toast.error('Please enter the start location address.');
+        return;
+      }
+      if (startLat == null || startLng == null) {
+        toast.error('Please enter the start location coordinates.');
+        return;
+      }
+      if (!escortEndAddress) {
+        toast.error('Please enter the escort end location address.');
+        return;
+      }
+      if (escortEndLat == null || escortEndLng == null) {
+        toast.error('Please enter the escort end location coordinates.');
+        return;
+      }
+    }
 
-    const escortKit = assignmentType === 'escort_special' ? {
-      escortEndSiteId: escortEndSiteId || undefined,
-    } : {};
+    const escortKit = assignmentType === 'escort_special' && hideEscortSites && startAddress && startLat != null && startLng != null
+      ? {
+          startAddress,
+          startLat,
+          startLng,
+          escortEndAddress,
+          escortEndLat: escortEndLat ?? undefined,
+          escortEndLng: escortEndLng ?? undefined,
+        }
+      : assignmentType === 'escort_special'
+        ? { escortEndSiteId: escortEndSiteId || undefined }
+        : {};
 
     const combinedNote = assignmentType === 'escort_special' && clientName
       ? `[Client: ${clientName}]${note ? '\n' + note : ''}`
@@ -336,27 +378,103 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="builder-start-site" className="block font-medium text-foreground mb-1">Start Location</label>
-                  <Select
-                    id="builder-start-site"
-                    instanceId="builder-start-site"
-                    options={fixedSiteOptions}
-                    value={fixedSiteOptions.find(o => o.value === siteId) || null}
-                    onChange={option => setSiteId(option?.value || '')}
-                    placeholder="Select start location..."
-                    isClearable
-                  />
+                  {hideEscortSites ? (
+                    <div className="space-y-2">
+                      <AddressAutocompleteInput
+                        value={startAddress}
+                        onChange={setStartAddress}
+                        onPlaceSelect={(address, lat, lng) => {
+                          setStartAddress(address);
+                          setStartLat(lat);
+                          setStartLng(lng);
+                        }}
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          value={startLat ?? ''}
+                          onChange={e => setStartLat(e.target.value === '' ? null : Number(e.target.value))}
+                          placeholder="Latitude"
+                          step="any"
+                          className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                        />
+                        <input
+                          type="number"
+                          value={startLng ?? ''}
+                          onChange={e => setStartLng(e.target.value === '' ? null : Number(e.target.value))}
+                          placeholder="Longitude"
+                          step="any"
+                          className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                        />
+                      </div>
+                      <AddressMapPreview
+                        latitude={startLat}
+                        longitude={startLng}
+                        onLocationChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
+                        onAddressChange={setStartAddress}
+                      />
+                    </div>
+                  ) : (
+                    <Select
+                      id="builder-start-site"
+                      instanceId="builder-start-site"
+                      options={fixedSiteOptions}
+                      value={fixedSiteOptions.find(o => o.value === siteId) || null}
+                      onChange={option => setSiteId(option?.value || '')}
+                      placeholder="Select start location..."
+                      isClearable
+                    />
+                  )}
                 </div>
                 <div>
                   <label htmlFor="builder-end-site" className="block font-medium text-foreground mb-1">Expected End Location</label>
-                  <Select
-                    id="builder-end-site"
-                    instanceId="builder-end-site"
-                    options={escortEndSiteOptions}
-                    value={escortEndSiteOptions.find(o => o.value === escortEndSiteId) || null}
-                    onChange={option => setEscortEndSiteId(option?.value || '')}
-                    placeholder="Select end location (optional)..."
-                    isClearable
-                  />
+                  {hideEscortSites ? (
+                    <div className="space-y-2">
+                      <AddressAutocompleteInput
+                        value={escortEndAddress}
+                        onChange={setEscortEndAddress}
+                        onPlaceSelect={(address, lat, lng) => {
+                          setEscortEndAddress(address);
+                          setEscortEndLat(lat);
+                          setEscortEndLng(lng);
+                        }}
+                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          type="number"
+                          value={escortEndLat ?? ''}
+                          onChange={e => setEscortEndLat(e.target.value === '' ? null : Number(e.target.value))}
+                          placeholder="Latitude"
+                          step="any"
+                          className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                        />
+                        <input
+                          type="number"
+                          value={escortEndLng ?? ''}
+                          onChange={e => setEscortEndLng(e.target.value === '' ? null : Number(e.target.value))}
+                          placeholder="Longitude"
+                          step="any"
+                          className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                        />
+                      </div>
+                      <AddressMapPreview
+                        latitude={escortEndLat}
+                        longitude={escortEndLng}
+                        onLocationChange={(lat, lng) => { setEscortEndLat(lat); setEscortEndLng(lng); }}
+                        onAddressChange={setEscortEndAddress}
+                      />
+                    </div>
+                  ) : (
+                    <Select
+                      id="builder-end-site"
+                      instanceId="builder-end-site"
+                      options={escortEndSiteOptions}
+                      value={escortEndSiteOptions.find(o => o.value === escortEndSiteId) || null}
+                      onChange={option => setEscortEndSiteId(option?.value || '')}
+                      placeholder="Select end location (optional)..."
+                      isClearable
+                    />
+                  )}
                 </div>
               </div>
 
