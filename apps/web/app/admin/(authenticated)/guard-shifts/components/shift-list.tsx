@@ -30,6 +30,7 @@ type ShiftListProps = {
   endDate?: string;
   employeeId?: string;
   siteId?: string;
+  kind?: string;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
   page: number;
@@ -45,6 +46,7 @@ export default function ShiftList({
   endDate,
   employeeId,
   siteId,
+  kind,
   sortBy = 'startsAt',
   sortOrder = 'asc',
   page,
@@ -73,6 +75,7 @@ export default function ShiftList({
   );
   const [filterSiteId, setFilterSiteId] = useState(siteId || '');
   const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
+  const [filterKind, setFilterKind] = useState(kind || '');
 
   const handleDeleteClick = (id: string) => {
     if (!canDelete) return;
@@ -142,6 +145,7 @@ export default function ShiftList({
       endDate: filterEndDate ? format(filterEndDate, 'yyyy-MM-dd') : null,
       siteId: filterSiteId || null,
       employeeId: filterEmployeeId || null,
+      kind: filterKind || null,
     });
   };
 
@@ -150,11 +154,13 @@ export default function ShiftList({
     setFilterEndDate(undefined);
     setFilterSiteId('');
     setFilterEmployeeId('');
+    setFilterKind('');
     apply({
       startDate: '',
       endDate: null,
       siteId: null,
       employeeId: null,
+      kind: null,
     });
   };
 
@@ -235,6 +241,20 @@ export default function ShiftList({
           instanceId="filter-employee"
           allLabel="All Employees"
         />
+        <SelectFilter
+          label="Kind"
+          value={filterKind}
+          options={[
+            { value: 'onsite', label: 'On-site' },
+            { value: 'escort', label: 'Escort' },
+            { value: 'office_control', label: 'Office Control' },
+            { value: 'event_temporary', label: 'Event / Temporary' },
+          ]}
+          onChange={setFilterKind}
+          id="filter-kind"
+          instanceId="filter-kind"
+          allLabel="All Kinds"
+        />
       </FilterBar>
 
       {/* Table Section */}
@@ -246,6 +266,7 @@ export default function ShiftList({
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
                 <SortableHeader label="Site" field="site" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <SortableHeader label="Shift Type" field="shiftType" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <SortableHeader label="Kind" field="kind" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <SortableHeader label="Employee" field="employee" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <SortableHeader label="Date / Time" field="startsAt" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
                 <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
@@ -264,7 +285,7 @@ export default function ShiftList({
             <tbody className="divide-y divide-border">
               {shifts.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={10} className="py-8 text-center text-muted-foreground">
                     No shifts found. Schedule one to get started.
                   </td>
                 </tr>
@@ -275,6 +296,18 @@ export default function ShiftList({
                       <td className="py-4 px-6 text-sm text-muted-foreground text-center">{shifts.indexOf(shift) + 1 + (page - 1) * perPage}</td>
                       <td className="py-4 px-6 text-sm font-medium text-foreground">{shift.site.name}</td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">{shift.shiftType.name}</td>
+                      <td className="py-4 px-6 text-sm">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          shift.kind === 'onsite' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
+                          shift.kind === 'escort' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
+                          shift.kind === 'office_control' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' :
+                          'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300'
+                        }`}>
+                          {shift.kind === 'office_control' ? 'OFFICE CONTROL' :
+                           shift.kind === 'event_temporary' ? 'EVENT' :
+                           shift.kind.toUpperCase()}
+                        </span>
+                      </td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">
                         {shift.employee ? (
                           <div className="flex items-center gap-2">{shift.employee.fullName}</div>

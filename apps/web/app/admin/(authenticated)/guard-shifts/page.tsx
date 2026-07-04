@@ -38,6 +38,7 @@ export default async function ShiftsPage({
   const endDate = typeof resolvedSearchParams.endDate === 'string' ? resolvedSearchParams.endDate : undefined;
   const employeeId = typeof resolvedSearchParams.employeeId === 'string' ? resolvedSearchParams.employeeId : undefined;
   const siteId = typeof resolvedSearchParams.siteId === 'string' ? resolvedSearchParams.siteId : undefined;
+  const kind = typeof resolvedSearchParams.kind === 'string' ? resolvedSearchParams.kind as import('@repo/types').ShiftKind : undefined;
   const sortBy =
     typeof resolvedSearchParams.sortBy === 'string' ? resolvedSearchParams.sortBy : 'startsAt';
   const sortOrder =
@@ -55,11 +56,13 @@ export default async function ShiftsPage({
     },
     employeeId: employeeId || undefined,
     siteId: siteId || undefined,
+    kind: kind || undefined,
   };
 
   const sortFieldMap: Record<string, Prisma.ShiftOrderByWithRelationInput> = {
     startsAt: { startsAt: sortOrder },
     status: { status: sortOrder },
+    kind: { kind: sortOrder },
     site: { site: { name: sortOrder } },
     shiftType: { shiftType: { name: sortOrder } },
     employee: { employee: { fullName: sortOrder } },
@@ -178,6 +181,7 @@ export default async function ShiftsPage({
           endDate={endDate}
           employeeId={employeeId}
           siteId={siteId}
+          kind={kind}
           sortBy={sortBy}
           sortOrder={sortOrder}
           page={page}
