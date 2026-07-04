@@ -94,33 +94,6 @@ export async function createShift(
       };
     }
 
-    // Overwrite: delete any existing shift for this employee+date before creating
-    const overwrite = formData.get('overwrite') === 'on';
-    if (overwrite && employeeId) {
-      const existingShift = await prisma.shift.findFirst({
-        where: { employeeId, date: dateObj, deletedAt: null },
-        select: { id: true, kind: true, groupShiftId: true },
-      });
-      if (existingShift) {
-        await deleteShiftWithChangelog(existingShift.id, adminId);
-        if (existingShift.kind === 'escort' && existingShift.groupShiftId) {
-          const group = await findGroupChatByGroupShiftId(existingShift.groupShiftId);
-          if (group) {
-            const participant = group.participants.find(
-              p => p.employeeId === employeeId && p.status === 'active'
-            );
-            if (participant) {
-              await removeGroupMember({
-                groupId: group.id,
-                actor: { participantType: 'admin', adminId },
-                participantId: participant.id,
-              });
-            }
-          }
-        }
-      }
-    }
-
     // Check for overlapping shifts
     if (employeeId) {
       const conflictingShift = await checkOverlappingShift({
@@ -607,6 +580,7 @@ type BulkCreateFromFormInput = {
   graceMinutes: number;
   note?: string | null;
   autoCreateChatRoom?: boolean;
+  overwrite?: boolean;
   clientName?: string;
   leadGuardId?: string;
   flexibleEndTime?: boolean;
@@ -654,6 +628,32 @@ export async function bulkCreateShiftsFromFormAction(
           flexibleEndTime: input.flexibleEndTime,
         });
         groupShiftIds[dateStr] = groupShift.id;
+      }
+    }
+
+    if (input.overwrite && input.employeeIds.length > 0 && input.dates.length > 0) {
+      const dateObjs = uniqueDates.map(d => new Date(d + 'T00:00:00'));
+      const existingShifts = await prisma.shift.findMany({
+        where: { employeeId: { in: input.employeeIds }, date: { in: dateObjs }, deletedAt: null },
+        select: { id: true, kind: true, groupShiftId: true, employeeId: true },
+      });
+      for (const shift of existingShifts) {
+        await deleteShiftWithChangelog(shift.id, adminId);
+        if (shift.kind === 'escort' && shift.groupShiftId && shift.employeeId) {
+          const group = await findGroupChatByGroupShiftId(shift.groupShiftId);
+          if (group) {
+            const participant = group.participants.find(
+              p => p.employeeId === shift.employeeId && p.status === 'active'
+            );
+            if (participant) {
+              await removeGroupMember({
+                groupId: group.id,
+                actor: { participantType: 'admin', adminId },
+                participantId: participant.id,
+              });
+            }
+          }
+        }
       }
     }
 
