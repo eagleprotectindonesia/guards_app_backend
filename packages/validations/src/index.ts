@@ -164,7 +164,7 @@ export const createOfficeShiftTypeSchema = z.object({
 });
 
 // --- Shift ---
-export const ShiftKindEnum = z.enum(['onsite', 'escort']);
+export const ShiftKindEnum = z.enum(['onsite', 'escort', 'office_control', 'event_temporary']);
 
 export const createShiftSchema = z
   .object({
@@ -186,7 +186,7 @@ export const createShiftSchema = z
   })
   .refine(
     data => {
-      if (data.kind === 'onsite') return !data.escortEndSiteId;
+      if (data.kind !== 'escort') return !data.escortEndSiteId;
       return true;
     },
     { message: 'Escort end site must not be set for on-site shifts', path: ['escortEndSiteId'] }

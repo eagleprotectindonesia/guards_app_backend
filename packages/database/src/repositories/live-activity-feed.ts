@@ -9,7 +9,7 @@ export type LiveActivityFeedItem = {
   status: string;
   shiftId: string;
   employeeId: string | null;
-  shiftKind?: 'onsite' | 'escort';
+  shiftKind?: 'onsite' | 'escort' | 'office_control' | 'event_temporary';
   escortEndSiteName?: string | null;
 };
 

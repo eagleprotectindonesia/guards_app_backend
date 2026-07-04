@@ -8,6 +8,7 @@ import type { EmployeeSummary } from '@repo/database';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import Select from '../../components/select';
+import { Select as RadixSelect, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
@@ -37,7 +38,13 @@ type Props = {
 
 type AssignmentType = 'site_duty' | 'escort_special' | 'office_control' | 'event_temporary';
 
-export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes, employees, hideEscortSites = false }: Props) {
+export default function ScheduleBuilder({
+  fixedSites,
+  escortEndSites,
+  shiftTypes,
+  employees,
+  hideEscortSites = false,
+}: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -57,6 +64,8 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
   const [grace, setGrace] = useState(2);
   const [note, setNote] = useState('');
   const [clientName, setClientName] = useState('');
+  const [eventName, setEventName] = useState('');
+  const [eventType, setEventType] = useState('');
   const [startAddress, setStartAddress] = useState('');
   const [startLat, setStartLat] = useState<number | null>(null);
   const [startLng, setStartLng] = useState<number | null>(null);
@@ -79,10 +88,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
     label: `${st.name} (${st.startTime} - ${st.endTime})`,
   }));
 
-  const selectedShiftType = useMemo(
-    () => shiftTypes.find(st => st.id === shiftTypeId),
-    [shiftTypeId, shiftTypes]
-  );
+  const selectedShiftType = useMemo(() => shiftTypes.find(st => st.id === shiftTypeId), [shiftTypeId, shiftTypes]);
 
   const shiftTypeDurationMins = useMemo(() => {
     if (!selectedShiftType) return 0;
@@ -109,10 +115,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
     return result;
   }, [repeatMode, dates, repeatStartDate, repeatEndDate]);
 
-  const selectedEmployees = useMemo(
-    () => employees.filter(e => guardIds.includes(e.id)),
-    [employees, guardIds]
-  );
+  const selectedEmployees = useMemo(() => employees.filter(e => guardIds.includes(e.id)), [employees, guardIds]);
 
   const leadGuardOptions = useMemo(
     () => selectedEmployees.map(e => ({ value: e.id, label: e.fullName })),
@@ -139,12 +142,21 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           siteName = startAddress || escortEndAddress || '';
         } else if (!siteName && assignmentType === 'escort_special') {
           siteName = escortEndSites.find(s => s.id === escortEndSiteId)?.name || '';
+        } else if (assignmentType === 'event_temporary' && startAddress) {
+          siteName = startAddress;
         }
         rows.push({
           date,
           guardId: gId,
           guardName: emp?.fullName || gId,
-          type: assignmentType === 'site_duty' ? 'Site Duty' : assignmentType === 'office_control' ? 'Office Control' : 'Escort/Special',
+          type:
+            assignmentType === 'site_duty'
+              ? 'Site Duty'
+              : assignmentType === 'office_control'
+                ? 'Office Control'
+                : assignmentType === 'event_temporary'
+                  ? 'Event'
+                  : 'Escort/Special',
           siteName,
           shiftTypeName: selectedShiftType?.name || '',
           startTime: selectedShiftType?.startTime || '',
@@ -153,7 +165,20 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
       }
     }
     return rows;
-  }, [effectiveDates, guardIds, employees, fixedSites, siteId, assignmentType, escortEndSites, escortEndSiteId, selectedShiftType, hideEscortSites, startAddress, escortEndAddress]);
+  }, [
+    effectiveDates,
+    guardIds,
+    employees,
+    fixedSites,
+    siteId,
+    assignmentType,
+    escortEndSites,
+    escortEndSiteId,
+    selectedShiftType,
+    hideEscortSites,
+    startAddress,
+    escortEndAddress,
+  ]);
 
   const totalRowCount = previewRows.length;
 
@@ -175,7 +200,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
     if (dateMode === 'single') {
       setDates([key]);
     } else {
-      setDates(prev => prev.includes(key) ? prev : [...prev, key].sort());
+      setDates(prev => (prev.includes(key) ? prev : [...prev, key].sort()));
     }
   };
 
@@ -192,7 +217,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
       toast.error('Please select at least one date.');
       return;
     }
-    if (!siteId && !(assignmentType === 'escort_special' && hideEscortSites)) {
+    if (!siteId && !(assignmentType === 'escort_special' && hideEscortSites) && assignmentType !== 'event_temporary') {
       toast.error('Please select a site.');
       return;
     }
@@ -219,37 +244,76 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
       }
     }
 
-    const escortKit = assignmentType === 'escort_special' && hideEscortSites && startAddress && startLat != null && startLng != null
-      ? {
-          startAddress,
-          startLat,
-          startLng,
-          escortEndAddress,
-          escortEndLat: escortEndLat ?? undefined,
-          escortEndLng: escortEndLng ?? undefined,
-        }
-      : assignmentType === 'escort_special'
-        ? { escortEndSiteId: escortEndSiteId || undefined }
-        : {};
+    if (assignmentType === 'event_temporary') {
+      if (!startAddress) {
+        toast.error('Please enter the event location address.');
+        return;
+      }
+      if (startLat == null || startLng == null) {
+        toast.error('Please enter the event location coordinates.');
+        return;
+      }
+    }
 
-    const combinedNote = assignmentType === 'escort_special' && clientName
-      ? `[Client: ${clientName}]${note ? '\n' + note : ''}`
-      : note || undefined;
+    if (assignmentType === 'event_temporary' && !eventName) {
+      toast.error('Please enter the event name.');
+      return;
+    }
+
+    if (assignmentType === 'event_temporary' && !eventType) {
+      toast.error('Please select an event type.');
+      return;
+    }
+
+    const escortKit =
+      assignmentType === 'escort_special' && hideEscortSites && startAddress && startLat != null && startLng != null
+        ? {
+            startAddress,
+            startLat,
+            startLng,
+            escortEndAddress,
+            escortEndLat: escortEndLat ?? undefined,
+            escortEndLng: escortEndLng ?? undefined,
+          }
+        : assignmentType === 'escort_special'
+          ? { escortEndSiteId: escortEndSiteId || undefined }
+          : assignmentType === 'event_temporary' && startAddress && startLat != null && startLng != null
+            ? { startAddress, startLat, startLng }
+            : {};
+
+    const combinedNote =
+      assignmentType === 'escort_special' && clientName
+        ? `[Client: ${clientName}]${note ? '\n' + note : ''}`
+        : assignmentType === 'event_temporary' && eventName && eventType
+          ? `[${eventType} Event] ${eventName}${note ? '\n' + note : ''}`
+          : note || undefined;
 
     startTransition(async () => {
       const result = await bulkCreateShiftsFromFormAction({
-        kind: assignmentType === 'escort_special' ? 'escort' : 'onsite',
+        kind:
+          assignmentType === 'escort_special'
+            ? 'escort'
+            : assignmentType === 'office_control'
+              ? 'office_control'
+              : assignmentType === 'event_temporary'
+                ? 'event_temporary'
+                : 'onsite',
         siteId,
         shiftTypeId,
         employeeIds: guardIds,
         dates: effectiveDates,
-        requiredCheckinIntervalMins: assignmentType === 'escort_special' ? escortInterval : assignmentType === 'office_control' ? shiftTypeDurationMins : interval,
+        requiredCheckinIntervalMins:
+          assignmentType === 'escort_special'
+            ? escortInterval
+            : assignmentType === 'office_control' || assignmentType === 'event_temporary'
+              ? shiftTypeDurationMins
+              : interval,
         graceMinutes: grace,
         note: combinedNote || null,
         flexibleEndTime,
         autoCreateChatRoom,
         overwrite,
-        clientName: clientName || undefined,
+        clientName: assignmentType === 'event_temporary' ? eventName || undefined : clientName || undefined,
         leadGuardId: leadGuardId || undefined,
         ...escortKit,
       });
@@ -264,10 +328,30 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
   };
 
   const selectableCards: { key: AssignmentType; label: string; description: string; enabled: boolean }[] = [
-    { key: 'site_duty', label: 'Site Duty', description: 'Guard at a fixed site location with regular check-ins.', enabled: true },
-    { key: 'office_control', label: 'Office Control Duty', description: 'Control room duty at head office.', enabled: true },
-    { key: 'escort_special', label: 'Escort / Special Duty', description: 'Escort or special assignment; client may move.', enabled: true },
-    { key: 'event_temporary', label: 'Event / Temporary Duty', description: 'Temporary event or short-term assignment.', enabled: false },
+    {
+      key: 'site_duty',
+      label: 'Site Duty',
+      description: 'Guard at a fixed site location with regular check-ins.',
+      enabled: true,
+    },
+    {
+      key: 'office_control',
+      label: 'Office Control Duty',
+      description: 'Control room duty at head office.',
+      enabled: true,
+    },
+    {
+      key: 'escort_special',
+      label: 'Escort / Special Duty',
+      description: 'Escort or special assignment; client may move.',
+      enabled: true,
+    },
+    {
+      key: 'event_temporary',
+      label: 'Event / Temporary Duty',
+      description: 'Temporary event or short-term assignment.',
+      enabled: true,
+    },
   ];
 
   return (
@@ -287,7 +371,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
         {/* Assignment Type */}
         <div className="bg-card rounded-xl shadow-sm border border-border p-6">
           <h2 className="text-lg font-semibold text-foreground mb-1">Assignment Type</h2>
-          <p className="text-sm text-muted-foreground mb-4">Select the type of assignment this guard shift falls under.</p>
+          <p className="text-sm text-muted-foreground mb-4">
+            Select the type of assignment this guard shift falls under.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             {selectableCards.map(card => (
               <button
@@ -324,7 +410,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           {assignmentType === 'site_duty' && (
             <div className="space-y-4">
               <div>
-                <label htmlFor="builder-site-id" className="block font-medium text-foreground mb-1">Site</label>
+                <label htmlFor="builder-site-id" className="block font-medium text-foreground mb-1">
+                  Site
+                </label>
                 <Select
                   id="builder-site-id"
                   instanceId="builder-site-id"
@@ -337,7 +425,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="builder-interval" className="block font-medium text-foreground mb-1">Check-in Interval (min)</label>
+                  <label htmlFor="builder-interval" className="block font-medium text-foreground mb-1">
+                    Check-in Interval (min)
+                  </label>
                   <input
                     type="number"
                     id="builder-interval"
@@ -348,7 +438,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
                   />
                 </div>
                 <div>
-                  <label htmlFor="builder-grace" className="block font-medium text-foreground mb-1">Grace Period (min)</label>
+                  <label htmlFor="builder-grace" className="block font-medium text-foreground mb-1">
+                    Grace Period (min)
+                  </label>
                   <input
                     type="number"
                     id="builder-grace"
@@ -365,7 +457,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           {assignmentType === 'office_control' && (
             <div className="space-y-4">
               <div>
-                <label htmlFor="builder-site-id" className="block font-medium text-foreground mb-1">Site</label>
+                <label htmlFor="builder-site-id" className="block font-medium text-foreground mb-1">
+                  Site
+                </label>
                 <Select
                   id="builder-site-id"
                   instanceId="builder-site-id"
@@ -378,7 +472,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="builder-interval-office" className="block font-medium text-foreground mb-1">Check-in Interval (min)</label>
+                  <label htmlFor="builder-interval-office" className="block font-medium text-foreground mb-1">
+                    Check-in Interval (min)
+                  </label>
                   <input
                     type="number"
                     id="builder-interval-office"
@@ -386,10 +482,121 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
                     disabled
                     className="w-full h-10 px-3 rounded-lg border border-border bg-muted text-muted-foreground cursor-not-allowed"
                   />
-                  <p className="text-xs text-muted-foreground mt-1">Locked to shift duration ({shiftTypeDurationMins} mins).</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Locked to shift duration ({shiftTypeDurationMins} mins).
+                  </p>
                 </div>
                 <div>
-                  <label htmlFor="builder-grace" className="block font-medium text-foreground mb-1">Grace Period (min)</label>
+                  <label htmlFor="builder-grace" className="block font-medium text-foreground mb-1">
+                    Grace Period (min)
+                  </label>
+                  <input
+                    type="number"
+                    id="builder-grace"
+                    value={grace}
+                    onChange={e => setGrace(Number(e.target.value))}
+                    min={1}
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {assignmentType === 'event_temporary' && (
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="builder-event-name" className="block font-medium text-foreground mb-1">
+                  Event Name
+                </label>
+                <input
+                  type="text"
+                  id="builder-event-name"
+                  value={eventName}
+                  onChange={e => setEventName(e.target.value)}
+                  placeholder="Enter event name..."
+                  className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label htmlFor="builder-event-type" className="block font-medium text-foreground mb-1">
+                  Event Type
+                </label>
+                <RadixSelect value={eventType} onValueChange={setEventType}>
+                  <SelectTrigger id="builder-event-type" className="w-full">
+                    <SelectValue placeholder="Select event type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Wedding">Wedding</SelectItem>
+                    <SelectItem value="Private Event">Private Event</SelectItem>
+                    <SelectItem value="Temporary Villa Security">Temporary Villa Security</SelectItem>
+                    <SelectItem value="Festival">Festival</SelectItem>
+                  </SelectContent>
+                </RadixSelect>
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="builder-event-address" className="block font-medium text-foreground mb-1">
+                  Event Location
+                </label>
+                <AddressAutocompleteInput
+                  value={startAddress}
+                  onChange={setStartAddress}
+                  onPlaceSelect={(address, lat, lng) => {
+                    setStartAddress(address);
+                    setStartLat(lat);
+                    setStartLng(lng);
+                  }}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    id="builder-event-lat"
+                    value={startLat ?? ''}
+                    onChange={e => setStartLat(e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Latitude"
+                    step="any"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  />
+                  <input
+                    type="number"
+                    id="builder-event-lng"
+                    value={startLng ?? ''}
+                    onChange={e => setStartLng(e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Longitude"
+                    step="any"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  />
+                </div>
+                <AddressMapPreview
+                  latitude={startLat}
+                  longitude={startLng}
+                  onLocationChange={(lat, lng) => {
+                    setStartLat(lat);
+                    setStartLng(lng);
+                  }}
+                  onAddressChange={setStartAddress}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label htmlFor="builder-interval-event" className="block font-medium text-foreground mb-1">
+                    Check-in Interval (min)
+                  </label>
+                  <input
+                    type="number"
+                    id="builder-interval-event"
+                    value={shiftTypeDurationMins}
+                    disabled
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-muted text-muted-foreground cursor-not-allowed"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Check-ins are not periodic. Locked to shift duration.
+                  </p>
+                </div>
+                <div>
+                  <label htmlFor="builder-grace" className="block font-medium text-foreground mb-1">
+                    Grace Period (min)
+                  </label>
                   <input
                     type="number"
                     id="builder-grace"
@@ -406,7 +613,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           {assignmentType === 'escort_special' && (
             <div className="space-y-4">
               <div>
-                <label htmlFor="builder-client-name" className="block font-medium text-foreground mb-1">Client Name</label>
+                <label htmlFor="builder-client-name" className="block font-medium text-foreground mb-1">
+                  Client Name
+                </label>
                 <input
                   type="text"
                   id="builder-client-name"
@@ -418,7 +627,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="builder-start-site" className="block font-medium text-foreground mb-1">Start Location</label>
+                  <label htmlFor="builder-start-site" className="block font-medium text-foreground mb-1">
+                    Start Location
+                  </label>
                   {hideEscortSites ? (
                     <div className="space-y-2">
                       <AddressAutocompleteInput
@@ -451,7 +662,10 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
                       <AddressMapPreview
                         latitude={startLat}
                         longitude={startLng}
-                        onLocationChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
+                        onLocationChange={(lat, lng) => {
+                          setStartLat(lat);
+                          setStartLng(lng);
+                        }}
                         onAddressChange={setStartAddress}
                       />
                     </div>
@@ -468,7 +682,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
                   )}
                 </div>
                 <div>
-                  <label htmlFor="builder-end-site" className="block font-medium text-foreground mb-1">Expected End Location</label>
+                  <label htmlFor="builder-end-site" className="block font-medium text-foreground mb-1">
+                    Expected End Location
+                  </label>
                   {hideEscortSites ? (
                     <div className="space-y-2">
                       <AddressAutocompleteInput
@@ -501,7 +717,10 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
                       <AddressMapPreview
                         latitude={escortEndLat}
                         longitude={escortEndLng}
-                        onLocationChange={(lat, lng) => { setEscortEndLat(lat); setEscortEndLng(lng); }}
+                        onLocationChange={(lat, lng) => {
+                          setEscortEndLat(lat);
+                          setEscortEndLng(lng);
+                        }}
                         onAddressChange={setEscortEndAddress}
                       />
                     </div>
@@ -567,9 +786,15 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           />
           {selectedShiftType && (
             <div className="mt-3 flex items-center gap-4 text-sm text-muted-foreground">
-              <span>Start: <strong className="text-foreground">{selectedShiftType.startTime}</strong></span>
-              <span>End: <strong className="text-foreground">{selectedShiftType.endTime}</strong></span>
-              <span>Duration: <strong className="text-foreground">{shiftTypeDurationMins} mins</strong></span>
+              <span>
+                Start: <strong className="text-foreground">{selectedShiftType.startTime}</strong>
+              </span>
+              <span>
+                End: <strong className="text-foreground">{selectedShiftType.endTime}</strong>
+              </span>
+              <span>
+                Duration: <strong className="text-foreground">{shiftTypeDurationMins} mins</strong>
+              </span>
             </div>
           )}
         </div>
@@ -640,7 +865,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
                   ) : (
                     <div className="flex items-center gap-2">
                       <span>{option.label}</span>
-                      {option.employeeNumber && <span className="text-muted-foreground">({option.employeeNumber})</span>}
+                      {option.employeeNumber && (
+                        <span className="text-muted-foreground">({option.employeeNumber})</span>
+                      )}
                     </div>
                   )
                 }
@@ -725,7 +952,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           {/* Chip row + calendar icon */}
           <div>
             <label className="block font-medium text-foreground mb-2">Select Dates *</label>
-            <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-border bg-card min-h-[2.5rem]">
+            <div className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-border bg-card min-h-10">
               {dates.length > 0 ? (
                 dates.map(date => (
                   <span
@@ -745,7 +972,10 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
                 selected={null}
                 onChange={handleDatePickerChange}
                 customInput={
-                  <button type="button" className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-muted transition-colors">
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-muted transition-colors"
+                  >
                     <Calendar className="w-5 h-5 text-muted-foreground" />
                   </button>
                 }
@@ -786,9 +1016,16 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
                         if (date) setRepeatStartDate(format(date, 'yyyy-MM-dd'));
                       }}
                       customInput={
-                        <button type="button" className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all flex items-center gap-2"
+                        >
                           <Calendar className="w-5 h-5 text-muted-foreground shrink-0" />
-                          <span className="text-sm">{repeatStartDate ? format(new Date(repeatStartDate + 'T00:00:00'), 'dd MMM yyyy') : 'Start date'}</span>
+                          <span className="text-sm">
+                            {repeatStartDate
+                              ? format(new Date(repeatStartDate + 'T00:00:00'), 'dd MMM yyyy')
+                              : 'Start date'}
+                          </span>
                         </button>
                       }
                       minDate={new Date()}
@@ -804,9 +1041,14 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
                         if (date) setRepeatEndDate(format(date, 'yyyy-MM-dd'));
                       }}
                       customInput={
-                        <button type="button" className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all flex items-center gap-2">
+                        <button
+                          type="button"
+                          className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all flex items-center gap-2"
+                        >
                           <Calendar className="w-5 h-5 text-muted-foreground shrink-0" />
-                          <span className="text-sm">{repeatEndDate ? format(new Date(repeatEndDate + 'T00:00:00'), 'dd MMM yyyy') : 'End date'}</span>
+                          <span className="text-sm">
+                            {repeatEndDate ? format(new Date(repeatEndDate + 'T00:00:00'), 'dd MMM yyyy') : 'End date'}
+                          </span>
                         </button>
                       }
                       minDate={repeatStartDate ? new Date(repeatStartDate + 'T00:00:00') : new Date()}
@@ -850,7 +1092,8 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
             <span className="text-sm font-medium text-foreground">Overwrite existing shifts on same dates</span>
           </label>
           <p className="text-xs text-muted-foreground mt-1 ml-6">
-            When enabled, any existing shift for the same guard on the same date will be deleted before creating the new one.
+            When enabled, any existing shift for the same guard on the same date will be deleted before creating the new
+            one.
           </p>
         </div>
 
@@ -877,11 +1120,13 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
                       <td className="py-2 px-3 text-foreground">{row.date}</td>
                       <td className="py-2 px-3 text-muted-foreground">{row.siteName}</td>
                       <td className="py-2 px-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                          row.type === 'Escort/Special'
-                            ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-                        }`}>
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                            row.type === 'Escort/Special'
+                              ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400'
+                              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
                           {row.type}
                         </span>
                       </td>
@@ -898,8 +1143,8 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
             <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 flex items-start gap-2">
               <Info className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
               <p className="text-xs text-blue-700 dark:text-blue-300">
-                Total: <strong>{totalRowCount} schedule(s)</strong> will be created
-                ({selectedEmployees.length} guard{selectedEmployees.length !== 1 ? 's' : ''} &times; {dates.length} date{dates.length !== 1 ? 's' : ''})
+                Total: <strong>{totalRowCount} schedule(s)</strong> will be created ({selectedEmployees.length} guard
+                {selectedEmployees.length !== 1 ? 's' : ''} &times; {dates.length} date{dates.length !== 1 ? 's' : ''})
                 and {totalRowCount} attendance record{totalRowCount !== 1 ? 's' : ''}.
               </p>
             </div>
@@ -918,7 +1163,13 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isPending || guardIds.length === 0 || dates.length === 0 || !siteId || !shiftTypeId}
+            disabled={
+              isPending ||
+              guardIds.length === 0 ||
+              dates.length === 0 ||
+              (!siteId && assignmentType !== 'event_temporary') ||
+              !shiftTypeId
+            }
             className="px-6 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"
           >
             {isPending ? 'Creating...' : `Create ${totalRowCount} Schedule${totalRowCount !== 1 ? 's' : ''}`}
