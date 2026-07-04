@@ -258,20 +258,6 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
           <input type="hidden" name="employeeId" value={selectedemployeeId} />
         </div>
 
-        {!shift && (
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              name="overwrite"
-              id="overwrite"
-              className="rounded border-border bg-card text-red-600 focus:ring-red-600"
-            />
-            <label htmlFor="overwrite" className="text-sm text-foreground">
-              Overwrite existing shift on same day
-            </label>
-          </div>
-        )}
-
         {/* Date Field */}
         <div>
           <label htmlFor="date" className="block font-medium text-foreground mb-1">

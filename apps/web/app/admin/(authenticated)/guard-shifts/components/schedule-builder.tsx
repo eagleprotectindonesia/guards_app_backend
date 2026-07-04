@@ -54,8 +54,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
   const [grace, setGrace] = useState(2);
   const [note, setNote] = useState('');
   const [clientName, setClientName] = useState('');
-  const [flexibleEndTime, setFlexibleEndTime] = useState(false);
-  const [autoCreateChatRoom, setAutoCreateChatRoom] = useState(false);
+  const [flexibleEndTime, setFlexibleEndTime] = useState(true);
+  const [autoCreateChatRoom, setAutoCreateChatRoom] = useState(true);
+  const [overwrite, setOverwrite] = useState(false);
 
   const fixedSiteOptions = fixedSites.map(s => ({ value: s.id, label: s.name }));
   const escortEndSiteOptions = escortEndSites.map(s => ({ value: s.id, label: s.name }));
@@ -205,6 +206,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
         note: combinedNote || null,
         flexibleEndTime,
         autoCreateChatRoom,
+        overwrite,
         clientName: clientName || undefined,
         leadGuardId: leadGuardId || undefined,
         ...escortKit,
@@ -240,9 +242,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
       </div>
 
       <div className="space-y-6">
-        {/* Step 1 - Assignment Type */}
+        {/* Assignment Type */}
         <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-1">Step 1 — Assignment Type</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-1">Assignment Type</h2>
           <p className="text-sm text-muted-foreground mb-4">Select the type of assignment this guard shift falls under.</p>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             {selectableCards.map(card => (
@@ -273,9 +275,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           </div>
         </div>
 
-        {/* Step 2 - Assignment Details */}
+        {/* Assignment Details */}
         <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Step 2 — Assignment Details</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">Assignment Details</h2>
 
           {assignmentType === 'site_duty' && (
             <div className="space-y-4">
@@ -382,10 +384,10 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           )}
         </div>
 
-        {/* Step 3 - Guard Shift Type */}
+        {/* Guard Shift Type */}
         <div className="bg-card rounded-xl shadow-sm border border-border p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Step 3 — Guard Shift Type</h2>
+            <h2 className="text-lg font-semibold text-foreground">Guard Shift Type</h2>
             <Link
               href="/admin/guard-shift-types"
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium"
@@ -413,9 +415,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           )}
         </div>
 
-        {/* Step 4 - Guard Assignment */}
+        {/* Guard Assignment */}
         <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Step 4 — Guard Assignment</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">Guard Assignment</h2>
 
           {guardMode === 'multiple' && (
             <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/30 flex items-start gap-2">
@@ -532,9 +534,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           )}
         </div>
 
-        {/* Step 5 - Date Selection */}
+        {/* Date Selection */}
         <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-4">Step 5 — Date Selection</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-4">Date Selection</h2>
 
           {/* Mode radios */}
           <div className="flex items-center gap-6 mb-4">
@@ -664,9 +666,9 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           </div>
         </div>
 
-        {/* Step 6 - Notes */}
+        {/* Notes */}
         <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-          <h2 className="text-lg font-semibold text-foreground mb-1">Step 6 — Notes</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-1">Notes</h2>
           <p className="text-sm text-muted-foreground mb-3">Optional instructions or notes for this assignment.</p>
           <textarea
             value={note}
@@ -677,10 +679,26 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
           />
         </div>
 
-        {/* Step 7 - Schedule Preview */}
+        {/* Overwrite Toggle */}
+        <div className="bg-card rounded-xl shadow-sm border border-border p-6">
+          <label className="inline-flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={overwrite}
+              onChange={e => setOverwrite(e.target.checked)}
+              className="text-red-600 focus:ring-red-600 rounded"
+            />
+            <span className="text-sm font-medium text-foreground">Overwrite existing shifts on same dates</span>
+          </label>
+          <p className="text-xs text-muted-foreground mt-1 ml-6">
+            When enabled, any existing shift for the same guard on the same date will be deleted before creating the new one.
+          </p>
+        </div>
+
+        {/* Schedule Preview */}
         {totalRowCount > 0 && (
           <div className="bg-card rounded-xl shadow-sm border border-border p-6">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Step 7 — Schedule Preview</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Schedule Preview</h2>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-sm">
                 <thead>
