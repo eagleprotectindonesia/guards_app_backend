@@ -28,6 +28,7 @@ export async function createShift(
   let siteId = (formData.get('siteId') as string) || '';
   let escortEndSiteId = (formData.get('escortEndSiteId') as string) || undefined;
   const clientName = formData.get('clientName') as string | undefined;
+  const formKind = (formData.get('kind') as string) || 'onsite';
 
   // Auto-create start site from address input when toggled
   if (!siteId && formData.get('startAddress')) {
@@ -35,7 +36,7 @@ export async function createShift(
     const lat = Number(formData.get('startLat'));
     const lng = Number(formData.get('startLng'));
     if (address && !isNaN(lat) && !isNaN(lng)) {
-      siteId = await autoCreateSiteFromAddress('fixed', clientName, address, lat, lng, adminId);
+      siteId = await autoCreateSiteFromAddress('fixed', clientName, address, lat, lng, adminId, formKind);
     }
   }
 
@@ -45,7 +46,7 @@ export async function createShift(
     const lat = Number(formData.get('escortEndLat'));
     const lng = Number(formData.get('escortEndLng'));
     if (address && !isNaN(lat) && !isNaN(lng)) {
-      escortEndSiteId = await autoCreateSiteFromAddress('escort', clientName, address, lat, lng, adminId);
+      escortEndSiteId = await autoCreateSiteFromAddress('escort', clientName, address, lat, lng, adminId, formKind);
     }
   }
 
@@ -658,9 +659,10 @@ async function autoCreateSiteFromAddress(
   address: string,
   lat: number,
   lng: number,
-  adminId: string
+  adminId: string,
+  shiftKind?: string
 ): Promise<string> {
-  const prefix = kind === 'fixed' ? 'Site' : 'Escort';
+  const prefix = kind === 'fixed' ? (shiftKind === 'event_temporary' ? 'Event' : 'Site') : 'Escort';
   const baseName = clientName?.trim() ? `${prefix}: ${clientName.trim()}` : `${prefix}: ${address.substring(0, 30)}`;
   let name = baseName;
   let counter = 1;
@@ -701,11 +703,11 @@ export async function bulkCreateShiftsFromFormAction(
   let finalEscortEndSiteId = input.escortEndSiteId;
 
   if ((input.kind === 'escort' || input.kind === 'event_temporary') && input.startAddress && input.startLat != null && input.startLng != null) {
-    finalSiteId = await autoCreateSiteFromAddress('fixed', input.clientName, input.startAddress, input.startLat, input.startLng, adminId);
+    finalSiteId = await autoCreateSiteFromAddress('fixed', input.clientName, input.startAddress, input.startLat, input.startLng, adminId, input.kind);
   }
 
-  if (input.kind === 'escort' && !finalEscortEndSiteId && input.escortEndAddress && input.escortEndLat != null && input.escortEndLng != null) {
-    finalEscortEndSiteId = await autoCreateSiteFromAddress('escort', input.clientName, input.escortEndAddress, input.escortEndLat, input.escortEndLng, adminId);
+  if ((input.kind === 'escort' || input.kind === 'event_temporary') && !finalEscortEndSiteId && input.escortEndAddress && input.escortEndLat != null && input.escortEndLng != null) {
+    finalEscortEndSiteId = await autoCreateSiteFromAddress('escort', input.clientName, input.escortEndAddress, input.escortEndLat, input.escortEndLng, adminId, input.kind);
   }
 
   const [startSite, endSite, shiftType] = await Promise.all([
