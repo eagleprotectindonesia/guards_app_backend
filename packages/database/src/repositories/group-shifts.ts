@@ -3,22 +3,38 @@ import { db as prisma } from '../prisma/client';
 
 export async function upsertGroupShift(params: {
   siteId: string;
-  endSiteId: string;
+  endSiteId?: string | null;
   shiftTypeId: string;
   date: Date;
   clientName?: string | null;
+  flexibleEndTime?: boolean;
 }) {
-  const { siteId, endSiteId, shiftTypeId, date, clientName } = params;
+  const { siteId, endSiteId, shiftTypeId, date, clientName, flexibleEndTime } = params;
 
-  const existing = await prisma.groupShift.findUnique({
-    where: { siteId_endSiteId_date: { siteId, endSiteId, date } },
-  });
+  let existing: Awaited<ReturnType<typeof prisma.groupShift.findFirst>>;
+
+  if (endSiteId) {
+    existing = await prisma.groupShift.findUnique({
+      where: { siteId_endSiteId_date: { siteId, endSiteId, date } },
+    });
+  } else {
+    existing = await prisma.groupShift.findFirst({
+      where: { siteId, endSiteId: null, date },
+    });
+  }
 
   if (existing) {
+    const updateData: Record<string, unknown> = {};
     if (clientName !== undefined && clientName !== existing.clientName) {
+      updateData.clientName = clientName;
+    }
+    if (flexibleEndTime !== undefined && flexibleEndTime !== existing.flexibleEndTime) {
+      updateData.flexibleEndTime = flexibleEndTime;
+    }
+    if (Object.keys(updateData).length > 0) {
       return prisma.groupShift.update({
         where: { id: existing.id },
-        data: { clientName },
+        data: updateData,
       });
     }
     return existing;
@@ -27,11 +43,12 @@ export async function upsertGroupShift(params: {
   return prisma.groupShift.create({
     data: {
       siteId,
-      endSiteId,
+      endSiteId: endSiteId ?? null,
       shiftTypeId,
       date,
-      clientName,
+      clientName: clientName ?? null,
       kind: 'escort',
+      flexibleEndTime: flexibleEndTime ?? false,
     },
   });
 }
@@ -43,10 +60,18 @@ export async function getGroupShiftById(id: string) {
   });
 }
 
-export async function getGroupShiftByKeys(params: { siteId: string; endSiteId: string; date: Date }) {
+export async function getGroupShiftByKeys(params: { siteId: string; endSiteId?: string | null; date: Date }) {
   const { siteId, endSiteId, date } = params;
-  return prisma.groupShift.findUnique({
-    where: { siteId_endSiteId_date: { siteId, endSiteId, date } },
+
+  if (endSiteId) {
+    return prisma.groupShift.findUnique({
+      where: { siteId_endSiteId_date: { siteId, endSiteId, date } },
+      include: { groupChat: true },
+    });
+  }
+
+  return prisma.groupShift.findFirst({
+    where: { siteId, endSiteId: null, date },
     include: { groupChat: true },
   });
 }

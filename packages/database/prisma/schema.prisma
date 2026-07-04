@@ -404,16 +404,17 @@ model GroupChat {
 }
 
 model GroupShift {
-  id          String    @id @default(uuid())
-  siteId      String    @map("site_id")
-  endSiteId   String    @map("end_site_id")
-  shiftTypeId String    @map("shift_type_id")
-  date        DateTime  @db.Date
-  kind        ShiftKind @default(escort)
-  clientName  String?   @map("client_name")
-  note        String?   @db.Text
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
+  id              String    @id @default(uuid())
+  siteId          String    @map("site_id")
+  endSiteId       String?   @map("end_site_id")
+  shiftTypeId     String    @map("shift_type_id")
+  date            DateTime  @db.Date
+  kind            ShiftKind @default(escort)
+  clientName      String?   @map("client_name")
+  note            String?   @db.Text
+  flexibleEndTime Boolean   @default(false) @map("flexible_end_time")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
 
   shifts    Shift[]
   groupChat GroupChat?

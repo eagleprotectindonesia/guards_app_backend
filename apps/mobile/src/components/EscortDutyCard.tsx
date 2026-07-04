@@ -2,8 +2,6 @@ import React from 'react';
 import { useCustomToast } from '../hooks/useCustomToast';
 import { Box } from '@/components/ui/box';
 import { Heading } from '@/components/ui/heading';
-import { Text } from '@/components/ui/text';
-import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
 import { Button, ButtonText, ButtonSpinner } from '@/components/ui/button';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -26,6 +24,10 @@ export default function EscortDutyCard({ shift, refetchShift }: EscortDutyCardPr
 
   const departed = !!shift.departedAt;
   const arrived = !!shift.arrivedAt;
+  const flexibleEndTime = shift.groupShift?.flexibleEndTime ?? false;
+  const now = new Date();
+  const endsAt = new Date(shift.endsAt);
+  const canEnd = flexibleEndTime || now >= endsAt;
 
   const departMutation = useMutation({
     mutationFn: async () => {
@@ -120,16 +122,10 @@ export default function EscortDutyCard({ shift, refetchShift }: EscortDutyCardPr
             variant="outline"
             className="flex-1"
             onPress={() => completeMutation.mutate()}
-            isDisabled={completeMutation.isPending}
+            isDisabled={!canEnd || completeMutation.isPending}
           >
-            {completeMutation.isPending ? (
-              <ButtonSpinner />
-            ) : (
-              <CheckCircle size={16} color="#EF4444" />
-            )}
-            <ButtonText>
-              {t('dashboard.endDuty', 'End')}
-            </ButtonText>
+            {completeMutation.isPending ? <ButtonSpinner /> : <CheckCircle size={16} color="#EF4444" />}
+            <ButtonText>{t('dashboard.endDuty', 'End')}</ButtonText>
           </Button>
         </HStack>
       </Box>
