@@ -31,6 +31,8 @@ export function AdminBreadcrumb() {
     .map((path, index) => ({ path, index }))
     .filter(({ path, index }) => !(path === 'admin' && index === 0));
 
+  const isEditPage = paths.length > 0 && paths[paths.length - 1].path === 'edit';
+
   return (
     <Breadcrumb>
       <BreadcrumbList>
@@ -46,13 +48,14 @@ export function AdminBreadcrumb() {
         {paths.map(({ path, index }, filteredIndex) => {
           const href = `/${allPaths.slice(0, index + 1).join('/')}`;
           const isLast = filteredIndex === paths.length - 1;
+          const isIdSegmentOnEditPage = isEditPage && filteredIndex === paths.length - 2;
           const label = ADMIN_LABEL_MAP[path] || path.charAt(0).toUpperCase() + path.slice(1).replace(/-/g, ' ');
 
           return (
             <React.Fragment key={href}>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                {isLast ? (
+                {isLast || isIdSegmentOnEditPage ? (
                   <BreadcrumbPage>{label}</BreadcrumbPage>
                 ) : (
                   <BreadcrumbLink asChild>
