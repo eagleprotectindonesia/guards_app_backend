@@ -15,7 +15,7 @@ import { toast } from 'react-hot-toast';
 type GroupShiftRow = {
   id: string;
   siteId: string;
-  endSiteId: string;
+  endSiteId: string | null;
   shiftTypeId: string;
   date: Date;
   kind: string;

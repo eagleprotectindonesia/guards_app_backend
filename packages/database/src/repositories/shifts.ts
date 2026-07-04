@@ -1830,6 +1830,7 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       attendance: true,
+      groupShift: { select: { id: true, flexibleEndTime: true } },
     },
     orderBy: { startsAt: 'asc' },
   });
@@ -1853,6 +1854,7 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       attendance: true,
+      groupShift: { select: { id: true, flexibleEndTime: true } },
     },
   });
 

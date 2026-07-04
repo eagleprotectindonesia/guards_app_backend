@@ -56,7 +56,6 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
   const [clientName, setClientName] = useState('');
   const [flexibleEndTime, setFlexibleEndTime] = useState(false);
   const [autoCreateChatRoom, setAutoCreateChatRoom] = useState(false);
-  const [proofRequired, setProofRequired] = useState(true);
 
   const fixedSiteOptions = fixedSites.map(s => ({ value: s.id, label: s.name }));
   const escortEndSiteOptions = escortEndSites.map(s => ({ value: s.id, label: s.name }));
@@ -204,6 +203,7 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
         requiredCheckinIntervalMins: assignmentType === 'escort_special' ? escortInterval : interval,
         graceMinutes: grace,
         note: combinedNote || null,
+        flexibleEndTime,
         autoCreateChatRoom,
         clientName: clientName || undefined,
         leadGuardId: leadGuardId || undefined,
@@ -376,15 +376,6 @@ export default function ScheduleBuilder({ fixedSites, escortEndSites, shiftTypes
                     className="text-red-600 focus:ring-red-600 rounded"
                   />
                   <span className="text-sm text-foreground">Auto Create Chat Room</span>
-                </label>
-                <label className="inline-flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={proofRequired}
-                    onChange={e => setProofRequired(e.target.checked)}
-                    className="text-red-600 focus:ring-red-600 rounded"
-                  />
-                  <span className="text-sm text-foreground">Proof Required</span>
                 </label>
               </div>
             </div>

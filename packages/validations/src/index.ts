@@ -186,13 +186,6 @@ export const createShiftSchema = z
   })
   .refine(
     data => {
-      if (data.kind === 'escort') return !!data.escortEndSiteId;
-      return true;
-    },
-    { message: 'Escort end site is required for escort shifts', path: ['escortEndSiteId'] }
-  )
-  .refine(
-    data => {
       if (data.kind === 'onsite') return !data.escortEndSiteId;
       return true;
     },

@@ -94,6 +94,33 @@ export async function createShift(
       };
     }
 
+    // Overwrite: delete any existing shift for this employee+date before creating
+    const overwrite = formData.get('overwrite') === 'on';
+    if (overwrite && employeeId) {
+      const existingShift = await prisma.shift.findFirst({
+        where: { employeeId, date: dateObj, deletedAt: null },
+        select: { id: true, kind: true, groupShiftId: true },
+      });
+      if (existingShift) {
+        await deleteShiftWithChangelog(existingShift.id, adminId);
+        if (existingShift.kind === 'escort' && existingShift.groupShiftId) {
+          const group = await findGroupChatByGroupShiftId(existingShift.groupShiftId);
+          if (group) {
+            const participant = group.participants.find(
+              p => p.employeeId === employeeId && p.status === 'active'
+            );
+            if (participant) {
+              await removeGroupMember({
+                groupId: group.id,
+                actor: { participantType: 'admin', adminId },
+                participantId: participant.id,
+              });
+            }
+          }
+        }
+      }
+    }
+
     // Check for overlapping shifts
     if (employeeId) {
       const conflictingShift = await checkOverlappingShift({
@@ -137,10 +164,10 @@ export async function createShift(
       }
     }
 
-    if (kind === 'escort' && escortEndSiteId) {
+    if (kind === 'escort') {
       const groupShift = await upsertGroupShift({
         siteId,
-        endSiteId: escortEndSiteId,
+        endSiteId: escortEndSiteId || null,
         shiftTypeId,
         date: dateObj,
       });
@@ -582,6 +609,7 @@ type BulkCreateFromFormInput = {
   autoCreateChatRoom?: boolean;
   clientName?: string;
   leadGuardId?: string;
+  flexibleEndTime?: boolean;
 };
 
 export async function bulkCreateShiftsFromFormAction(
@@ -614,15 +642,16 @@ export async function bulkCreateShiftsFromFormAction(
     const uniqueDates = [...new Set(input.dates)].sort();
     let groupShiftIds: Record<string, string> | undefined;
 
-    if (input.kind === 'escort' && input.escortEndSiteId) {
+    if (input.kind === 'escort') {
       groupShiftIds = {};
       for (const dateStr of uniqueDates) {
         const groupShift = await upsertGroupShift({
           siteId: input.siteId,
-          endSiteId: input.escortEndSiteId,
+          endSiteId: input.escortEndSiteId || null,
           shiftTypeId: input.shiftTypeId,
           date: new Date(dateStr + 'T00:00:00'),
           clientName: input.clientName,
+          flexibleEndTime: input.flexibleEndTime,
         });
         groupShiftIds[dateStr] = groupShift.id;
       }
@@ -632,7 +661,7 @@ export async function bulkCreateShiftsFromFormAction(
     revalidatePath('/admin/guard-shifts');
 
     const groupIds: string[] = [];
-    if (input.autoCreateChatRoom && input.kind === 'escort' && input.escortEndSiteId && groupShiftIds) {
+    if (input.autoCreateChatRoom && input.kind === 'escort' && groupShiftIds) {
       const allAdmins = await prisma.admin.findMany({ where: { deletedAt: null }, select: { id: true } });
       const adminIds = allAdmins.map(a => a.id);
       const startSiteName = startSite.name;

@@ -11,7 +11,7 @@ import { updateGroupShiftAction, addGuardToGroupAction, removeGuardFromGroupActi
 type GroupShiftDetailData = {
   id: string;
   siteId: string;
-  endSiteId: string;
+  endSiteId: string | null;
   shiftTypeId: string;
   date: Date;
   kind: string;

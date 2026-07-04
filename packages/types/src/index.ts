@@ -287,6 +287,7 @@ export interface ShiftWithRelations extends Shift {
   shiftType: ShiftType;
   employee?: Employee | null;
   attendance?: Attendance | null;
+  groupShift?: GroupShift | null;
 }
 
 export interface Conversation {
@@ -408,12 +409,13 @@ export interface ChatInboxItem {
 export interface GroupShift {
   id: string;
   siteId: string;
-  endSiteId: string;
+  endSiteId: string | null;
   shiftTypeId: string;
   date: string | Date;
   kind: ShiftKind;
   clientName?: string | null;
   note?: string | null;
+  flexibleEndTime?: boolean;
   createdAt?: string | Date;
   updatedAt?: string | Date;
 }
