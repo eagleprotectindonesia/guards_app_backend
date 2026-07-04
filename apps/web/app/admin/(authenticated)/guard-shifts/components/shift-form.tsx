@@ -15,6 +15,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ExternalLink } from 'lucide-react';
+import AddressAutocompleteInput from '@/components/address-autocomplete-input';
+import AddressMapPreview from '@/components/address-map-preview';
 
 function getDurationInMins(startTime: string, endTime: string) {
   const toMins = (t: string) => {
@@ -33,9 +35,10 @@ type Props = {
   escortEndSites: Serialized<Site>[];
   shiftTypes: Serialized<ShiftType>[];
   employees: EmployeeSummary[];
+  hideEscortSites?: boolean;
 };
 
-export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftTypes, employees }: Props) {
+export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftTypes, employees, hideEscortSites = false }: Props) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<ActionState<CreateShiftInput>, FormData>(
     shift ? updateShift.bind(null, shift.id) : createShift,
@@ -48,6 +51,12 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
   const [selectedemployeeId, setSelectedemployeeId] = useState<string>(shift?.employeeId || '');
   const [selectedKind, setSelectedKind] = useState<'onsite' | 'escort'>(shift?.kind || 'onsite');
   const [selectedEscortEndSiteId, setSelectedEscortEndSiteId] = useState<string>(shift?.escortEndSiteId || '');
+  const [startAddress, setStartAddress] = useState('');
+  const [startLat, setStartLat] = useState<number | null>(null);
+  const [startLng, setStartLng] = useState<number | null>(null);
+  const [escortEndAddress, setEscortEndAddress] = useState('');
+  const [escortEndLat, setEscortEndLat] = useState<number | null>(null);
+  const [escortEndLng, setEscortEndLng] = useState<number | null>(null);
 
   const isReadOnly = shift ? shift.status !== 'scheduled' : false;
   const groupShiftId = shift?.groupShiftId;
@@ -153,19 +162,60 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
           </label>
           {(isReadOnly || isGroupLocked) ? (
             <p className="text-sm text-foreground">{currentShiftSiteName}</p>
-          ) : (
-            <Select
-              id="site-select"
-              instanceId="site-select"
-              options={fixedSiteOptions}
-              value={fixedSiteOptions.find(opt => opt.value === selectedSiteId) || null}
-              onChange={option => setSelectedSiteId(option?.value || '')}
-              placeholder="Select a site..."
-              isClearable={!isReadOnly}
-              isDisabled={isReadOnly}
-            />
+          ) : hideEscortSites && selectedKind === 'escort' && !shift ? (
+            <div className="space-y-2">
+              <AddressAutocompleteInput
+                value={startAddress}
+                onChange={setStartAddress}
+                onPlaceSelect={(address, lat, lng) => {
+                  setStartAddress(address);
+                  setStartLat(lat);
+                  setStartLng(lng);
+                }}
+              />
+              <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    value={startLat ?? ''}
+                    onChange={e => setStartLat(e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Latitude"
+                    step="any"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  />
+                  <input
+                    type="number"
+                    value={startLng ?? ''}
+                    onChange={e => setStartLng(e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Longitude"
+                    step="any"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  />
+                </div>
+                <AddressMapPreview
+                  latitude={startLat}
+                  longitude={startLng}
+                  onLocationChange={(lat, lng) => { setStartLat(lat); setStartLng(lng); }}
+                  onAddressChange={setStartAddress}
+                />
+                <input type="hidden" name="startAddress" value={startAddress} />
+                <input type="hidden" name="startLat" value={startLat ?? ''} />
+                <input type="hidden" name="startLng" value={startLng ?? ''} />
+              </div>
+            ) : (
+            <>
+              <Select
+                id="site-select"
+                instanceId="site-select"
+                options={fixedSiteOptions}
+                value={fixedSiteOptions.find(opt => opt.value === selectedSiteId) || null}
+                onChange={option => setSelectedSiteId(option?.value || '')}
+                placeholder="Select a site..."
+                isClearable={!isReadOnly}
+                isDisabled={isReadOnly}
+              />
+              <input type="hidden" name="siteId" value={selectedSiteId} />
+            </>
           )}
-          <input type="hidden" name="siteId" value={selectedSiteId} />
           {state.errors?.siteId && (
             <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.siteId[0]}</p>
           )}
@@ -179,18 +229,59 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
             </label>
             {(isReadOnly || isGroupLocked) ? (
               <p className="text-sm text-foreground">{currentEscortEndSiteName}</p>
+            ) : hideEscortSites && !shift ? (
+              <div className="space-y-2">
+                <AddressAutocompleteInput
+                  value={escortEndAddress}
+                  onChange={setEscortEndAddress}
+                  onPlaceSelect={(address, lat, lng) => {
+                    setEscortEndAddress(address);
+                    setEscortEndLat(lat);
+                    setEscortEndLng(lng);
+                  }}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    value={escortEndLat ?? ''}
+                    onChange={e => setEscortEndLat(e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Latitude"
+                    step="any"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  />
+                  <input
+                    type="number"
+                    value={escortEndLng ?? ''}
+                    onChange={e => setEscortEndLng(e.target.value === '' ? null : Number(e.target.value))}
+                    placeholder="Longitude"
+                    step="any"
+                    className="w-full h-10 px-3 rounded-lg border border-border bg-card text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all"
+                  />
+                </div>
+                <AddressMapPreview
+                  latitude={escortEndLat}
+                  longitude={escortEndLng}
+                  onLocationChange={(lat, lng) => { setEscortEndLat(lat); setEscortEndLng(lng); }}
+                  onAddressChange={setEscortEndAddress}
+                />
+                <input type="hidden" name="escortEndAddress" value={escortEndAddress} />
+                <input type="hidden" name="escortEndLat" value={escortEndLat ?? ''} />
+                <input type="hidden" name="escortEndLng" value={escortEndLng ?? ''} />
+              </div>
             ) : (
-              <Select
-                id="escort-end-site-select"
-                instanceId="escort-end-site-select"
-                options={escortEndSiteOptions}
-                value={escortEndSiteOptions.find(opt => opt.value === selectedEscortEndSiteId) || null}
-                onChange={option => setSelectedEscortEndSiteId(option?.value || '')}
-                placeholder="Select an escort end site..."
-                isClearable={false}
-              />
+              <>
+                <Select
+                  id="escort-end-site-select"
+                  instanceId="escort-end-site-select"
+                  options={escortEndSiteOptions}
+                  value={escortEndSiteOptions.find(opt => opt.value === selectedEscortEndSiteId) || null}
+                  onChange={option => setSelectedEscortEndSiteId(option?.value || '')}
+                  placeholder="Select an escort end site..."
+                  isClearable={false}
+                />
+                <input type="hidden" name="escortEndSiteId" value={selectedEscortEndSiteId} />
+              </>
             )}
-            <input type="hidden" name="escortEndSiteId" value={selectedEscortEndSiteId} />
             {state.errors?.escortEndSiteId && (
               <p className="text-red-500 dark:text-red-400 text-xs mt-1">{state.errors.escortEndSiteId[0]}</p>
             )}

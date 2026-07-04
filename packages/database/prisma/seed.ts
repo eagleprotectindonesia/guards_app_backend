@@ -449,6 +449,11 @@ async function main() {
         value: '10',
         note: 'Minutes to wait after shift ends before generating auto photo report.',
       },
+      {
+        name: 'HIDE_ESCORT_SITES',
+        value: '0',
+        note: 'When enabled, escort sites are hidden from the UI and auto-created via address input (1=ON, 0=OFF).',
+      },
     ];
 
     await Promise.all(

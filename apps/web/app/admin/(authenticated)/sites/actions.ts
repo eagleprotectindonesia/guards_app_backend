@@ -22,7 +22,7 @@ export async function getAllSitesForExport(): Promise<
   Serialized<Site & { lastUpdatedBy?: { name: string } | null; createdBy?: { name: string } | null }>[]
 > {
   const sites = await getAllSites(true);
-  return serialize(sites);
+  return serialize(sites.filter(s => s.kind === 'fixed'));
 }
 
 export async function createSite(

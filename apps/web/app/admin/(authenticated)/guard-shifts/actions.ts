@@ -1,10 +1,10 @@
 'use server';
 
-import { prisma, addGroupMembers, createGroupChat, findGroupChatByGroupShiftId, removeGroupMember, unarchiveGroupChat, upsertGroupShift } from '@repo/database';
+import { prisma, addGroupMembers, createGroupChat, findGroupChatByGroupShiftId, removeGroupMember, unarchiveGroupChat, upsertGroupShift, createSiteWithPostsAndChangelog } from '@repo/database';
 import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { format, isBefore, subMinutes } from 'date-fns';
-import { ShiftStatus } from '@prisma/client';
+import { ShiftStatus, Prisma } from '@prisma/client';
 import { parseShiftTypeTimeOnDate } from '@repo/shared';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
 import { parse as parseCsv } from 'csv-parse/sync';
@@ -24,12 +24,37 @@ export async function createShift(
   formData: FormData
 ): Promise<ActionState<CreateShiftInput>> {
   const adminId = await getAdminIdFromToken();
+
+  let siteId = (formData.get('siteId') as string) || '';
+  let escortEndSiteId = (formData.get('escortEndSiteId') as string) || undefined;
+  const clientName = formData.get('clientName') as string | undefined;
+
+  // Auto-create start site from address input when toggled
+  if (!siteId && formData.get('startAddress')) {
+    const address = formData.get('startAddress') as string;
+    const lat = Number(formData.get('startLat'));
+    const lng = Number(formData.get('startLng'));
+    if (address && !isNaN(lat) && !isNaN(lng)) {
+      siteId = await autoCreateSiteFromAddress('fixed', clientName, address, lat, lng, adminId);
+    }
+  }
+
+  // Auto-create escort end site from address input when toggled
+  if (!escortEndSiteId && formData.get('escortEndAddress')) {
+    const address = formData.get('escortEndAddress') as string;
+    const lat = Number(formData.get('escortEndLat'));
+    const lng = Number(formData.get('escortEndLng'));
+    if (address && !isNaN(lat) && !isNaN(lng)) {
+      escortEndSiteId = await autoCreateSiteFromAddress('escort', clientName, address, lat, lng, adminId);
+    }
+  }
+
   const validatedFields = createShiftSchema.safeParse({
-    siteId: formData.get('siteId'),
+    siteId,
     shiftTypeId: formData.get('shiftTypeId'),
     employeeId: formData.get('employeeId') || null, // Handle empty string as null
     kind: formData.get('kind') || 'onsite',
-    escortEndSiteId: formData.get('escortEndSiteId') || undefined,
+    escortEndSiteId,
     date: formData.get('date'),
     requiredCheckinIntervalMins: Number(formData.get('requiredCheckinIntervalMins')),
     graceMinutes: Number(formData.get('graceMinutes')),
@@ -44,7 +69,7 @@ export async function createShift(
     };
   }
 
-  const { date, shiftTypeId, siteId, employeeId, kind, escortEndSiteId, requiredCheckinIntervalMins, graceMinutes, note } =
+  const { date, shiftTypeId, employeeId, kind, requiredCheckinIntervalMins, graceMinutes, note } =
     validatedFields.data;
 
   try {
@@ -572,7 +597,13 @@ export async function bulkCreateShifts(
 type BulkCreateFromFormInput = {
   kind: 'onsite' | 'escort';
   siteId: string;
+  startAddress?: string;
+  startLat?: number;
+  startLng?: number;
   escortEndSiteId?: string;
+  escortEndAddress?: string;
+  escortEndLat?: number;
+  escortEndLng?: number;
   shiftTypeId: string;
   employeeIds: string[];
   dates: string[];
@@ -586,6 +617,39 @@ type BulkCreateFromFormInput = {
   flexibleEndTime?: boolean;
 };
 
+async function autoCreateSiteFromAddress(
+  kind: 'fixed' | 'escort',
+  clientName: string | undefined,
+  address: string,
+  lat: number,
+  lng: number,
+  adminId: string
+): Promise<string> {
+  const prefix = kind === 'fixed' ? 'Site' : 'Escort';
+  const baseName = clientName?.trim() ? `${prefix}: ${clientName.trim()}` : `${prefix}: ${address.substring(0, 30)}`;
+  let name = baseName;
+  let counter = 1;
+  while (await prisma.site.findUnique({ where: { name } })) {
+    name = `${baseName} (${counter})`;
+    counter++;
+  }
+  const site = await createSiteWithPostsAndChangelog(
+    {
+      name,
+      clientName: clientName || '',
+      kind,
+      status: true,
+      address,
+      latitude: lat,
+      longitude: lng,
+      geofenceRadius: 100,
+    } as Prisma.SiteCreateInput,
+    [{ name: kind === 'fixed' ? 'Main Post' : 'Escort End', address, latitude: lat, longitude: lng, sortOrder: 0 }],
+    adminId
+  );
+  return site.id;
+}
+
 export async function bulkCreateShiftsFromFormAction(
   input: BulkCreateFromFormInput
 ): Promise<{ success: boolean; message: string; created?: number; ids?: string[]; groupIds?: string[] }> {
@@ -598,16 +662,27 @@ export async function bulkCreateShiftsFromFormAction(
     return { success: false, message: 'At least one date is required.' };
   }
 
+  let finalSiteId = input.siteId;
+  let finalEscortEndSiteId = input.escortEndSiteId;
+
+  if (input.kind === 'escort' && input.startAddress && input.startLat != null && input.startLng != null) {
+    finalSiteId = await autoCreateSiteFromAddress('fixed', input.clientName, input.startAddress, input.startLat, input.startLng, adminId);
+  }
+
+  if (input.kind === 'escort' && !finalEscortEndSiteId && input.escortEndAddress && input.escortEndLat != null && input.escortEndLng != null) {
+    finalEscortEndSiteId = await autoCreateSiteFromAddress('escort', input.clientName, input.escortEndAddress, input.escortEndLat, input.escortEndLng, adminId);
+  }
+
   const [startSite, endSite, shiftType] = await Promise.all([
-    prisma.site.findUnique({ where: { id: input.siteId }, select: { kind: true, name: true } }),
-    input.escortEndSiteId ? prisma.site.findUnique({ where: { id: input.escortEndSiteId }, select: { kind: true, name: true } }) : null,
+    prisma.site.findUnique({ where: { id: finalSiteId }, select: { kind: true, name: true } }),
+    finalEscortEndSiteId ? prisma.site.findUnique({ where: { id: finalEscortEndSiteId }, select: { kind: true, name: true } }) : null,
     prisma.shiftType.findUnique({ where: { id: input.shiftTypeId }, select: { startTime: true } }),
   ]);
 
   if (!startSite) return { success: false, message: 'Start site not found.' };
   if (startSite.kind !== 'fixed') return { success: false, message: 'Start site must be a fixed site.' };
 
-  if (input.escortEndSiteId) {
+  if (finalEscortEndSiteId) {
     if (!endSite) return { success: false, message: 'Escort end site not found.' };
     if (endSite.kind !== 'escort') return { success: false, message: 'Escort end site must be an escort site.' };
   }
@@ -620,8 +695,8 @@ export async function bulkCreateShiftsFromFormAction(
       groupShiftIds = {};
       for (const dateStr of uniqueDates) {
         const groupShift = await upsertGroupShift({
-          siteId: input.siteId,
-          endSiteId: input.escortEndSiteId || null,
+          siteId: finalSiteId,
+          endSiteId: finalEscortEndSiteId || null,
           shiftTypeId: input.shiftTypeId,
           date: new Date(dateStr + 'T00:00:00'),
           clientName: input.clientName,
@@ -657,7 +732,18 @@ export async function bulkCreateShiftsFromFormAction(
       }
     }
 
-    const result = await bulkCreateShiftsFromForm({ ...input, groupShiftIds }, adminId);
+    const result = await bulkCreateShiftsFromForm({
+      siteId: finalSiteId,
+      shiftTypeId: input.shiftTypeId,
+      kind: input.kind,
+      escortEndSiteId: finalEscortEndSiteId || undefined,
+      employeeIds: input.employeeIds,
+      dates: input.dates,
+      requiredCheckinIntervalMins: input.requiredCheckinIntervalMins,
+      graceMinutes: input.graceMinutes,
+      note: input.note,
+      groupShiftIds,
+    }, adminId);
     revalidatePath('/admin/guard-shifts');
 
     const groupIds: string[] = [];
