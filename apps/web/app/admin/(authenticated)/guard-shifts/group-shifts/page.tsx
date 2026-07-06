@@ -60,8 +60,8 @@ export default async function GroupShiftsPage({
   const sites = await prisma.site.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' } });
   const escortSites = sites.filter(s => s.kind === 'escort');
 
-  const siteOptions = sites.map(s => ({ id: s.id, name: s.name }));
   const escortSiteOptions = escortSites.map(s => ({ id: s.id, name: s.name }));
+  const siteOptions = escortSiteOptions;
 
   return (
     <div className="max-w-7xl mx-auto">

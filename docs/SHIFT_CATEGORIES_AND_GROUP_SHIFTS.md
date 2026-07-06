@@ -31,7 +31,7 @@ The system supports four kinds of guard shifts: **onsite** (guard stays at a sin
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | UUID | Primary key |
-| `siteId` | FK → Site | Start site (must be `kind='fixed'`) |
+| `siteId` | FK → Site | Start site (must be `kind='fixed'` for onsite/office_control/event_temporary; `kind='escort'` for escort) |
 | `shiftTypeId` | FK → ShiftType | Defines start/end time template |
 | `employeeId` | FK → Employee (nullable) | Assigned guard |
 | `kind` | `onsite \| office_control \| event_temporary \| escort` | Shift category |
@@ -81,7 +81,7 @@ A Group Shift represents a single escort duty event on a given `(siteId, endSite
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | UUID | Primary key |
-| `siteId` | FK → Site | Start site (must be `kind='fixed'`) |
+| `siteId` | FK → Site | Start site (must be `kind='escort'`) |
 | `endSiteId` | FK → Site | End site (must be `kind='escort'`) |
 | `shiftTypeId` | FK → ShiftType | Shared shift type template |
 | `date` | Date | Calendar date |
