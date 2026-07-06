@@ -13,6 +13,7 @@ import {
   markShiftPhotoReportFailed,
   getShiftPhotoReportByShiftId,
   resetShiftPhotoReportClaim,
+  prisma,
 } from '@repo/database';
 import { uploadFile, BUCKET_NAME } from '@repo/storage';
 import { fetchPhotos, type PhotoInput } from '../lib/shift-photo-report/fetch-photos';
@@ -89,12 +90,20 @@ export class ShiftPhotoReportProcessor {
       const site = shift.site;
       const attendance = shift.attendance;
 
+      const groupChatId = shift.groupShiftId
+        ? ((await prisma.groupChat.findUnique({
+            where: { groupShiftId: shift.groupShiftId },
+            select: { id: true },
+          }))?.id ?? null)
+        : null;
+
       try {
 
         const [rawPhotos, sitePosts, maxDistanceSetting] = await Promise.all([
           timed('db:photos', () => getShiftReportPhotos({
             shift: { employeeId, startsAt, endsAt },
             attendance: attendance ?? undefined,
+            groupChatId,
           })),
           timed('db:site-posts', () => getActiveSitePosts(siteId)),
           timed('db:system-setting(MAX_CHECKIN_DISTANCE_METERS)', () => getSystemSetting('MAX_CHECKIN_DISTANCE_METERS')),
@@ -152,6 +161,7 @@ export class ShiftPhotoReportProcessor {
           employeeId,
           startsAt,
           endsAt,
+          groupChatId,
         }));
         const { first: firstLocation, last: lastLocation } = resolveFirstAndLastLocation(locationSources, sitePosts, endsAt);
         const geofencePoints = [
