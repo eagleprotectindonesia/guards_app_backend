@@ -8,10 +8,11 @@ import {
   getLatestOfficeAttendanceForDay,
   getTodayOfficeAttendance,
   resolveOfficeAttendanceContextForEmployee,
+  getBusinessDayRange,
+  BUSINESS_TIMEZONE,
 } from '@repo/database';
 import type { OfficeAttendance, OfficeAttendanceState } from '@repo/types';
 import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING, OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS } from '@repo/shared';
-import { startOfDay } from 'date-fns';
 
 function formatMinutesAsTime(minutes: number | null | undefined) {
   if (minutes == null || !Number.isFinite(minutes)) return null;
@@ -250,7 +251,7 @@ export async function GET() {
 
   try {
     const now = new Date();
-    const displayDate = startOfDay(now);
+    const { start: displayDate } = getBusinessDayRange(now, BUSINESS_TIMEZONE);
     const [attendances, displayScheduleContext, stateScheduleContext, latestAttendanceForDay, latestAttendanceForEmployee, leaveEffectsSetting] =
       await Promise.all([
       getTodayOfficeAttendance(employee.id, displayDate),
