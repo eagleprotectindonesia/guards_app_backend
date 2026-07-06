@@ -18,10 +18,17 @@ export default async function CreateShiftPage() {
     getSystemSetting('HIDE_ESCORT_SITES'),
   ]);
   const hideEscortSites = hideEscortSetting?.value === '1';
+  console.log(hideEscortSites);
 
   return (
     <div className="max-w-6xl mx-auto py-8">
-      <ScheduleBuilder fixedSites={serialize(fixedSites)} escortEndSites={serialize(escortEndSites)} shiftTypes={serialize(shiftTypes)} employees={employees} hideEscortSites={hideEscortSites} />
+      <ScheduleBuilder
+        fixedSites={serialize(fixedSites)}
+        escortEndSites={serialize(escortEndSites)}
+        shiftTypes={serialize(shiftTypes)}
+        employees={employees}
+        hideEscortSites={hideEscortSites}
+      />
     </div>
   );
 }

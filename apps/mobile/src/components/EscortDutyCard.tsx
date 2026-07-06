@@ -3,6 +3,7 @@ import { useCustomToast } from '../hooks/useCustomToast';
 import { Box } from '@/components/ui/box';
 import { Heading } from '@/components/ui/heading';
 import { HStack } from '@/components/ui/hstack';
+import { VStack } from '@/components/ui/vstack';
 import { Button, ButtonText, ButtonSpinner } from '@/components/ui/button';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
@@ -82,52 +83,54 @@ export default function EscortDutyCard({ shift, refetchShift }: EscortDutyCardPr
     <Box className="rounded-[32px] overflow-hidden bg-background-900 border border-outline-800 mb-6 shadow-xl">
       <Box className="p-6">
         <Heading size="sm" className="text-white mb-4 text-center">
-          {t('dashboard.escortDuty', 'Escort Duty')}
+          {t('dashboard.escortDuty')}
         </Heading>
 
-        <HStack space="sm" className="justify-center">
-          <Button
-            variant="outline"
-            className="flex-1"
-            onPress={() => departMutation.mutate()}
-            isDisabled={departed || departMutation.isPending}
-          >
-            {departMutation.isPending ? (
-              <ButtonSpinner />
-            ) : (
-              <LogOut size={16} color={departed ? '#22C55E' : '#94A3B8'} />
-            )}
-            <ButtonText className={departed ? 'text-success-400' : ''}>
-              {departed ? t('dashboard.left', 'Left') : t('dashboard.leaveLocation', 'Leave')}
-            </ButtonText>
-          </Button>
+        <VStack space="sm">
+          <HStack space="sm">
+            <Button
+              variant="outline"
+              className="flex-1 bg-white/5 border-white/10"
+              onPress={() => departMutation.mutate()}
+              isDisabled={departed || departMutation.isPending}
+            >
+              {departMutation.isPending ? (
+                <ButtonSpinner />
+              ) : (
+                <LogOut size={16} color={departed ? '#22C55E' : '#94A3B8'} />
+              )}
+              <ButtonText className={departed ? 'text-success-400' : 'text-typography-400'}>
+                {departed ? t('dashboard.left') : t('dashboard.leaveLocation')}
+              </ButtonText>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="flex-1 bg-white/5 border-white/10"
+              onPress={() => arriveMutation.mutate()}
+              isDisabled={!departed || arrived || arriveMutation.isPending}
+            >
+              {arriveMutation.isPending ? (
+                <ButtonSpinner />
+              ) : (
+                <MapPin size={16} color={arrived ? '#22C55E' : '#94A3B8'} />
+              )}
+              <ButtonText className={arrived ? 'text-success-400' : 'text-typography-400'}>
+                {arrived ? t('dashboard.arrived') : t('dashboard.arriveLocation')}
+              </ButtonText>
+            </Button>
+          </HStack>
 
           <Button
             variant="outline"
-            className="flex-1"
-            onPress={() => arriveMutation.mutate()}
-            isDisabled={!departed || arrived || arriveMutation.isPending}
-          >
-            {arriveMutation.isPending ? (
-              <ButtonSpinner />
-            ) : (
-              <MapPin size={16} color={arrived ? '#22C55E' : '#94A3B8'} />
-            )}
-            <ButtonText className={arrived ? 'text-success-400' : ''}>
-              {arrived ? t('dashboard.arrived', 'Arrived') : t('dashboard.arriveLocation', 'Arrive')}
-            </ButtonText>
-          </Button>
-
-          <Button
-            variant="outline"
-            className="flex-1"
+            className="bg-white/5 border-white/10 self-center"
             onPress={() => completeMutation.mutate()}
             isDisabled={!canEnd || completeMutation.isPending}
           >
             {completeMutation.isPending ? <ButtonSpinner /> : <CheckCircle size={16} color="#EF4444" />}
-            <ButtonText>{t('dashboard.endDuty', 'End')}</ButtonText>
+            <ButtonText className="text-typography-400">{t('dashboard.endDuty')}</ButtonText>
           </Button>
-        </HStack>
+        </VStack>
       </Box>
     </Box>
   );

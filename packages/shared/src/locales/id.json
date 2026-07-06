@@ -25,7 +25,14 @@
     "logoutConfirmMessage": "Apakah Anda yakin?",
     "cancel": "Batal",
     "sessionExpiredTitle": "Sesi Berakhir",
-    "sessionExpiredMessage": "Akun Anda telah login di perangkat lain atau sesi telah berakhir."
+    "sessionExpiredMessage": "Akun Anda telah login di perangkat lain atau sesi telah berakhir.",
+    "escortDuty": "Tugas Pengawalan",
+    "left": "Berangkat",
+    "leaveLocation": "Berangkat",
+    "arrived": "Tiba",
+    "arriveLocation": "Tiba",
+    "endDuty": "Selesai",
+    "shiftCompleted": "Shift berhasil diselesaikan"
   },
   "common": {
     "cancel": "Batal",
@@ -35,7 +42,9 @@
     "loading": "Memuat...",
     "processing": "Memproses...",
     "today": "Hari Ini",
-    "successTitle": "Berhasil"
+    "successTitle": "Berhasil",
+    "success": "Berhasil",
+    "error": "Error"
   },
   "attendance": {
     "success": "Kehadiran Berhasil Direkam!",

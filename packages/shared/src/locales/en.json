@@ -25,7 +25,14 @@
     "logoutConfirmMessage": "Are you sure you want to logout?",
     "cancel": "Cancel",
     "sessionExpiredTitle": "Session Expired",
-    "sessionExpiredMessage": "Your account has been logged in on another device or the session has ended."
+    "sessionExpiredMessage": "Your account has been logged in on another device or the session has ended.",
+    "escortDuty": "Escort Duty",
+    "left": "Left",
+    "leaveLocation": "Leave",
+    "arrived": "Arrived",
+    "arriveLocation": "Arrive",
+    "endDuty": "End",
+    "shiftCompleted": "Shift completed successfully"
   },
   "common": {
     "cancel": "Cancel",
@@ -35,7 +42,9 @@
     "loading": "Loading...",
     "processing": "Processing...",
     "today": "Today",
-    "successTitle": "Success"
+    "successTitle": "Success",
+    "success": "Success",
+    "error": "Error"
   },
   "attendance": {
     "success": "Attendance Recorded Successfully!",
