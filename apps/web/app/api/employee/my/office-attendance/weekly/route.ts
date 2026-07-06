@@ -6,10 +6,12 @@ import {
   getLatestOfficeAttendanceForDay,
   getTodayOfficeAttendance,
   resolveOfficeAttendanceContextForEmployee,
+  getBusinessDayRange,
+  BUSINESS_TIMEZONE,
 } from '@repo/database';
 import type { OfficeAttendance, OfficeAttendanceState } from '@repo/types';
 import { ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS_SETTING, OFFICE_ATTENDANCE_CLOCK_OUT_GRACE_HOURS } from '@repo/shared';
-import { addDays, startOfDay } from 'date-fns';
+import { addDays } from 'date-fns';
 
 function formatMinutesAsTime(minutes: number | null | undefined) {
   if (minutes == null || !Number.isFinite(minutes)) return null;
@@ -140,7 +142,7 @@ export async function GET() {
 
     // Fetch for the next 7 days (including today)
     for (let i = 0; i < 7; i++) {
-      const displayDate = startOfDay(addDays(now, i));
+      const { start: displayDate } = getBusinessDayRange(addDays(now, i), BUSINESS_TIMEZONE);
       const stateDate = i === 0 ? now : displayDate;
 
       const [attendances, displayScheduleContext, stateScheduleContext, latestAttendanceForDay] = await Promise.all([
