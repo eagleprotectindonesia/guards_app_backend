@@ -1,6 +1,6 @@
 'use server';
 
-import { prisma, addGroupMembers, createGroupChat, findGroupChatByGroupShiftId, removeGroupMember, unarchiveGroupChat, upsertGroupShift, createSiteWithPostsAndChangelog, updateSiteWithChangelog } from '@repo/database';
+import { prisma, addGroupMembers, createGroupChat, findGroupChatByGroupShiftId, removeGroupMember, unarchiveGroupChat, upsertGroupShift, deleteGroupShiftIfOrphaned, createSiteWithPostsAndChangelog, updateSiteWithChangelog } from '@repo/database';
 import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { format, isBefore, subMinutes } from 'date-fns';
@@ -477,9 +477,11 @@ export async function deleteShift(id: string) {
       select: { kind: true, employeeId: true, groupShiftId: true },
     });
 
+    const groupShiftId = shift?.groupShiftId;
+
     // Remove from group chat before mutating the shift
-    if (shift?.kind === 'escort' && shift.employeeId && shift.groupShiftId) {
-      const group = await findGroupChatByGroupShiftId(shift.groupShiftId);
+    if (shift?.kind === 'escort' && shift.employeeId && groupShiftId) {
+      const group = await findGroupChatByGroupShiftId(groupShiftId);
       if (group) {
         const participant = group.participants.find(
           p => p.employeeId === shift.employeeId && p.status === 'active'
@@ -495,6 +497,11 @@ export async function deleteShift(id: string) {
     }
 
     await deleteShiftWithChangelog(id, adminId);
+
+    if (groupShiftId) {
+      await deleteGroupShiftIfOrphaned(groupShiftId);
+    }
+
     revalidatePath('/admin/guard-shifts');
 
     return { success: true };
@@ -816,6 +823,7 @@ export async function bulkCreateShiftsFromFormAction(
         where: { employeeId: { in: input.employeeIds }, date: { in: dateObjs }, deletedAt: null },
         select: { id: true, kind: true, groupShiftId: true, employeeId: true },
       });
+      const orphanedGroupShiftIds = new Set<string>();
       for (const shift of existingShifts) {
         await deleteShiftWithChangelog(shift.id, adminId);
         if (shift.kind === 'escort' && shift.groupShiftId && shift.employeeId) {
@@ -832,7 +840,11 @@ export async function bulkCreateShiftsFromFormAction(
               });
             }
           }
+          orphanedGroupShiftIds.add(shift.groupShiftId);
         }
+      }
+      for (const gsId of orphanedGroupShiftIds) {
+        await deleteGroupShiftIfOrphaned(gsId);
       }
     }
 
