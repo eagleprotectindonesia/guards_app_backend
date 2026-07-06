@@ -65,6 +65,7 @@ export default function GroupShiftDetail({ groupShift, availableEmployees, hideE
   const [isAddingGuard, setIsAddingGuard] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [removingShiftId, setRemovingShiftId] = useState<string | null>(null);
+  const isOngoing = groupShift.shifts.some(s => s.status !== 'scheduled');
 
   const handleSaveMeta = async () => {
     setIsSavingMeta(true);
@@ -368,31 +369,35 @@ export default function GroupShiftDetail({ groupShift, availableEmployees, hideE
         {/* Add Guard */}
         <div className="mt-6 p-4 border border-dashed border-border rounded-lg">
           <h3 className="text-sm font-medium text-foreground mb-3">Add Guard</h3>
-          <div className="flex items-end gap-3">
-            <div className="flex-1">
-              <select
-                value={selectedEmployeeId}
-                onChange={e => setSelectedEmployeeId(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+          {isOngoing ? (
+            <p className="text-sm text-foreground/40">Cannot add guards to an ongoing group shift.</p>
+          ) : (
+            <div className="flex items-end gap-3">
+              <div className="flex-1">
+                <select
+                  value={selectedEmployeeId}
+                  onChange={e => setSelectedEmployeeId(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                >
+                  <option value="">Select guard...</option>
+                  {availableEmployees.map(emp => (
+                    <option key={emp.id} value={emp.id}>
+                      {emp.fullName}
+                      {emp.employeeNumber ? ` (${emp.employeeNumber})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={handleAddGuard}
+                disabled={!selectedEmployeeId || isAddingGuard}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-1"
               >
-                <option value="">Select guard...</option>
-                {availableEmployees.map(emp => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.fullName}
-                    {emp.employeeNumber ? ` (${emp.employeeNumber})` : ''}
-                  </option>
-                ))}
-              </select>
+                <Plus size={14} />
+                {isAddingGuard ? 'Adding...' : 'Add Guard'}
+              </button>
             </div>
-            <button
-              onClick={handleAddGuard}
-              disabled={!selectedEmployeeId || isAddingGuard}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-1"
-            >
-              <Plus size={14} />
-              {isAddingGuard ? 'Adding...' : 'Add Guard'}
-            </button>
-          </div>
+          )}
         </div>
       </div>
     </div>

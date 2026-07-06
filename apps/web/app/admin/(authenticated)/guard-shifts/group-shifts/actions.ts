@@ -3,7 +3,8 @@
 import { prisma, updateGroupShift, addGroupMembers, findGroupChatByGroupShiftId, updateSiteWithChangelog, deleteGroupShiftIfOrphaned } from '@repo/database';
 import { createShiftWithChangelog, deleteShiftWithChangelog } from '@repo/database';
 import { revalidatePath } from 'next/cache';
-import { getAdminIdFromToken } from '@/lib/admin-auth';
+import { requirePermission } from '@/lib/admin-auth';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 import { subMinutes } from 'date-fns';
 
 export async function updateGroupShiftAction(
@@ -19,8 +20,7 @@ export async function updateGroupShiftAction(
     endLng?: number;
   }
 ) {
-  const adminId = await getAdminIdFromToken();
-  if (!adminId) throw new Error('Unauthorized');
+  const { id: adminId } = await requirePermission(PERMISSIONS.SHIFTS.EDIT);
 
   // Update site addresses when provided
   const groupShift = await prisma.groupShift.findUnique({ where: { id }, select: { siteId: true, endSiteId: true } });
@@ -78,8 +78,7 @@ export async function updateGroupShiftAction(
 }
 
 export async function addGuardToGroupAction(groupShiftId: string, employeeId: string) {
-  const adminId = await getAdminIdFromToken();
-  if (!adminId) throw new Error('Unauthorized');
+  const { id: adminId } = await requirePermission(PERMISSIONS.SHIFTS.CREATE);
 
   const groupShift = await prisma.groupShift.findUnique({
     where: { id: groupShiftId },
@@ -104,10 +103,12 @@ export async function addGuardToGroupAction(groupShiftId: string, employeeId: st
       requiredCheckinIntervalMins: true,
       graceMinutes: true,
       note: true,
+      status: true,
     },
   });
 
   if (!ref) throw new Error('Reference shift not found');
+  if (ref.status !== 'scheduled') throw new Error('Cannot add guards to an ongoing group shift');
 
   await createShiftWithChangelog(
     {
@@ -145,8 +146,7 @@ export async function addGuardToGroupAction(groupShiftId: string, employeeId: st
 }
 
 export async function removeGuardFromGroupAction(groupShiftId: string, shiftId: string) {
-  const adminId = await getAdminIdFromToken();
-  if (!adminId) throw new Error('Unauthorized');
+  const { id: adminId } = await requirePermission(PERMISSIONS.SHIFTS.DELETE);
 
   const shift = await prisma.shift.findUnique({
     where: { id: shiftId, deletedAt: null },
