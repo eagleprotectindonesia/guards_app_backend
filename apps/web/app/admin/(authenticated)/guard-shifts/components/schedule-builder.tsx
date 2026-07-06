@@ -96,6 +96,7 @@ export default function ScheduleBuilder({
   }, [selectedShiftType]);
 
   const escortInterval = shiftTypeDurationMins;
+  const needSite = assignmentType !== 'event_temporary' && !(assignmentType === 'escort_special' && hideEscortSites);
 
   const effectiveDates = useMemo(() => {
     if (!repeatMode || dates.length === 0 || !repeatStartDate || !repeatEndDate) {
@@ -217,7 +218,7 @@ export default function ScheduleBuilder({
       toast.error('Please select at least one date.');
       return;
     }
-    if (!siteId && !(assignmentType === 'escort_special' && hideEscortSites) && assignmentType !== 'event_temporary') {
+    if (!siteId && needSite) {
       toast.error('Please select a site.');
       return;
     }
@@ -1167,7 +1168,7 @@ export default function ScheduleBuilder({
               isPending ||
               guardIds.length === 0 ||
               dates.length === 0 ||
-              (!siteId && assignmentType !== 'event_temporary') ||
+              (!siteId && needSite) ||
               !shiftTypeId
             }
             className="px-6 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 active:bg-red-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-red-500/30"

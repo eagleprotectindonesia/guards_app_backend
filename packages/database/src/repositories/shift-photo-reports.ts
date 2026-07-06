@@ -36,6 +36,7 @@ export type ShiftPhotoReportCandidate = {
   siteName: string;
   startsAt: Date;
   endsAt: Date;
+  groupShiftId: string | null;
 };
 
 export async function getOnsiteShiftPhotoReportCandidates(now: Date, graceAfterEndMins = 10) {
@@ -61,6 +62,7 @@ export async function getOnsiteShiftPhotoReportCandidates(now: Date, graceAfterE
       siteId: true,
       startsAt: true,
       endsAt: true,
+      groupShiftId: true,
       employee: { select: { fullName: true, employeeNumber: true } },
       site: {
         select: {
@@ -134,27 +136,50 @@ function extractAttendanceMatchedName(metadata: unknown): string | null {
 export async function getShiftReportPhotos(params: {
   shift: { employeeId: string | null; startsAt: Date; endsAt: Date };
   attendance?: { picture: string | null; recordedAt: Date; metadata?: unknown } | null;
+  groupChatId?: string | null;
 }): Promise<ShiftPhoto[]> {
-  const { shift, attendance } = params;
+  const { shift, attendance, groupChatId } = params;
   if (!shift.employeeId) return [];
 
-  const messages = await prisma.chatMessage.findMany({
-    where: {
-      employeeId: shift.employeeId,
-      status: 'sent' as const,
-      createdAt: { gte: shift.startsAt, lte: shift.endsAt },
-      attachments: { isEmpty: false },
-    },
-    select: {
-      id: true,
-      attachments: true,
-      createdAt: true,
-      latitude: true,
-      longitude: true,
-      content: true,
-    },
-    orderBy: { createdAt: 'asc' },
-  });
+  const [directMessages, groupMessages] = await Promise.all([
+    prisma.chatMessage.findMany({
+      where: {
+        employeeId: shift.employeeId,
+        status: 'sent' as const,
+        createdAt: { gte: shift.startsAt, lte: shift.endsAt },
+        attachments: { isEmpty: false },
+      },
+      select: {
+        id: true,
+        attachments: true,
+        createdAt: true,
+        latitude: true,
+        longitude: true,
+        content: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    }),
+    groupChatId
+      ? prisma.groupChatMessage.findMany({
+          where: {
+            groupId: groupChatId,
+            employeeId: shift.employeeId,
+            status: 'sent' as const,
+            createdAt: { gte: shift.startsAt, lte: shift.endsAt },
+            attachments: { isEmpty: false },
+          },
+          select: {
+            id: true,
+            attachments: true,
+            createdAt: true,
+            latitude: true,
+            longitude: true,
+            content: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        })
+      : Promise.resolve([]),
+  ]);
 
   const seen = new Set<string>();
   const photos: ShiftPhoto[] = [];
@@ -173,7 +198,28 @@ export async function getShiftReportPhotos(params: {
     });
   }
 
-  for (const msg of messages) {
+  for (const msg of directMessages) {
+    const trimmedContent = typeof msg.content === 'string' && msg.content.trim().length > 0
+      ? msg.content.trim()
+      : null;
+    for (const att of msg.attachments) {
+      if (!att) continue;
+      if (seen.has(att)) continue;
+      seen.add(att);
+
+      photos.push({
+        messageId: msg.id,
+        s3Key: att,
+        createdAt: msg.createdAt,
+        latitude: msg.latitude ?? null,
+        longitude: msg.longitude ?? null,
+        content: trimmedContent,
+        attendanceMatchedName: null,
+      });
+    }
+  }
+
+  for (const msg of groupMessages) {
     const trimmedContent = typeof msg.content === 'string' && msg.content.trim().length > 0
       ? msg.content.trim()
       : null;
@@ -425,10 +471,11 @@ export async function getShiftLocationPoints(params: {
   employeeId: string;
   startsAt: Date;
   endsAt: Date;
+  groupChatId?: string | null;
 }): Promise<ShiftLocationSources> {
-  const { shiftId, employeeId, startsAt, endsAt } = params;
+  const { shiftId, employeeId, startsAt, endsAt, groupChatId } = params;
 
-  const [attendance, chatMessages, checkins] = await Promise.all([
+  const [attendance, chatMessages, groupChatMessages, checkins] = await Promise.all([
     prisma.attendance.findUnique({
       where: { shiftId },
       select: { recordedAt: true, metadata: true },
@@ -444,6 +491,20 @@ export async function getShiftLocationPoints(params: {
       select: { createdAt: true, latitude: true, longitude: true },
       orderBy: { createdAt: 'asc' },
     }),
+    groupChatId
+      ? prisma.groupChatMessage.findMany({
+          where: {
+            groupId: groupChatId,
+            employeeId,
+            status: 'sent',
+            createdAt: { gte: startsAt, lte: endsAt },
+            latitude: { not: null },
+            longitude: { not: null },
+          },
+          select: { createdAt: true, latitude: true, longitude: true },
+          orderBy: { createdAt: 'asc' },
+        })
+      : Promise.resolve([]),
     prisma.checkin.findMany({
       where: {
         shiftId,
@@ -455,6 +516,17 @@ export async function getShiftLocationPoints(params: {
 
   const chatPoints: ShiftLocationPoint[] = [];
   for (const m of chatMessages) {
+    if (m.latitude != null && m.longitude != null) {
+      chatPoints.push({
+        timestamp: m.createdAt,
+        latitude: m.latitude,
+        longitude: m.longitude,
+        accuracyMeters: null,
+      });
+    }
+  }
+
+  for (const m of groupChatMessages) {
     if (m.latitude != null && m.longitude != null) {
       chatPoints.push({
         timestamp: m.createdAt,
