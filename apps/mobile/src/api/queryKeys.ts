@@ -17,6 +17,7 @@ export const queryKeys = {
     inbox: ['chat', 'inbox'] as const,
     groupList: ['chat', 'groups'] as const,
     groupMessages: (groupId?: string) => ['chat', 'group-messages', groupId] as const,
+    groupMetadata: (groupId: string) => ['chat', 'group-metadata', groupId] as const,
   },
   leaveRequests: {
     list: ['leave-requests'] as const,
