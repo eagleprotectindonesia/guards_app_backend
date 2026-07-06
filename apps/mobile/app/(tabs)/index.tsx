@@ -207,11 +207,14 @@ export default function HomeScreen() {
                   <VStack space="md">
                     <AttendanceRecord shift={activeShift} onAttendanceRecorded={refetch} />
                     {activeShift.attendance && (
-                      <EventInfoCard
-                        shift={activeShift}
-                        eventType={parsedEventNote.eventType ?? ''}
-                        eventName={parsedEventNote.eventName ?? ''}
-                      />
+                      <>
+                        <EventInfoCard
+                          shift={activeShift}
+                          eventType={parsedEventNote.eventType ?? ''}
+                          eventName={parsedEventNote.eventName ?? ''}
+                        />
+                        <CheckInCard activeShift={activeShift} refetchShift={refetch} />
+                      </>
                     )}
                   </VStack>
                 </Box>

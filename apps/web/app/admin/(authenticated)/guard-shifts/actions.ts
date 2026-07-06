@@ -101,6 +101,13 @@ export async function createShift(
       };
     }
 
+    if ((kind === 'office_control' || kind === 'event_temporary') && requiredCheckinIntervalMins !== durationInMins) {
+      return {
+        message: `${kind === 'office_control' ? 'Office control' : 'Event temporary'} shifts must have check-in interval equal to the full shift duration (${durationInMins} mins).`,
+        success: false,
+      };
+    }
+
     // Parse times
     // date is YYYY-MM-DD
     // startTime/endTime is HH:mm
@@ -301,6 +308,13 @@ export async function updateShift(
       };
     }
 
+    if ((kind === 'office_control' || kind === 'event_temporary') && requiredCheckinIntervalMins !== durationInMins) {
+      return {
+        message: `${kind === 'office_control' ? 'Office control' : 'Event temporary'} shifts must have check-in interval equal to the full shift duration (${durationInMins} mins).`,
+        success: false,
+      };
+    }
+
     const dateObj = new Date(`${date}T00:00:00Z`);
     const startDateTime = parseShiftTypeTimeOnDate(date, shiftType.startTime);
     let endDateTime = parseShiftTypeTimeOnDate(date, shiftType.endTime);
@@ -353,6 +367,15 @@ export async function updateShift(
       }
     }
 
+    // Capture current shift state for group chat sync on reassignment
+    const existingShift = await prisma.shift.findUnique({
+      where: { id },
+      select: { employeeId: true, groupShiftId: true, kind: true, startsAt: true },
+    });
+    const oldEmployeeId = existingShift?.employeeId ?? null;
+    const oldGroupShiftId = existingShift?.groupShiftId ?? null;
+    const oldKind = existingShift?.kind;
+
     // Update existing site address when provided (event_temporary edit)
     if (siteId && startAddress && startLatRaw && startLngRaw) {
       const lat = Number(startLatRaw);
@@ -398,6 +421,41 @@ export async function updateShift(
       },
       adminId
     );
+
+    // Sync group chat membership on employee reassignment for group escort shifts
+    if (oldKind === 'escort' && oldGroupShiftId && (employeeId ?? null) !== oldEmployeeId) {
+      const groupChat = await findGroupChatByGroupShiftId(oldGroupShiftId);
+      if (groupChat) {
+        if (groupChat.archivedAt) {
+          await unarchiveGroupChat(groupChat.id);
+        }
+        if (oldEmployeeId) {
+          const oldPart = groupChat.participants.find(
+            p => p.employeeId === oldEmployeeId && p.status === 'active'
+          );
+          if (oldPart) {
+            await removeGroupMember({
+              groupId: groupChat.id,
+              actor: { participantType: 'admin', adminId },
+              participantId: oldPart.id,
+            });
+          }
+        }
+        if (employeeId) {
+          const newPart = groupChat.participants.find(
+            p => p.employeeId === employeeId && p.status === 'active'
+          );
+          if (!newPart) {
+            await addGroupMembers({
+              groupId: groupChat.id,
+              actor: { participantType: 'admin', adminId },
+              employeeIds: [employeeId],
+              visibleFromAt: subMinutes(startDateTime, 30),
+            });
+          }
+        }
+      }
+    }
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -418,9 +476,7 @@ export async function deleteShift(id: string) {
       select: { kind: true, employeeId: true, groupShiftId: true },
     });
 
-    await deleteShiftWithChangelog(id, adminId);
-    revalidatePath('/admin/guard-shifts');
-
+    // Remove from group chat before mutating the shift
     if (shift?.kind === 'escort' && shift.employeeId && shift.groupShiftId) {
       const group = await findGroupChatByGroupShiftId(shift.groupShiftId);
       if (group) {
@@ -436,6 +492,9 @@ export async function deleteShift(id: string) {
         }
       }
     }
+
+    await deleteShiftWithChangelog(id, adminId);
+    revalidatePath('/admin/guard-shifts');
 
     return { success: true };
   } catch (error) {
@@ -468,9 +527,7 @@ export async function cancelShift(id: string, cancelNote?: string) {
       updatedNote = updatedNote ? `${formattedCancelNote}\n\n${updatedNote}` : formattedCancelNote;
     }
 
-    await updateShiftWithChangelog(id, { status: ShiftStatus.cancelled, note: updatedNote }, adminId);
-    revalidatePath('/admin/guard-shifts');
-
+    // Remove from group chat before mutating the shift
     if (shift.kind === 'escort' && shift.employeeId && shift.groupShiftId) {
       const group = await findGroupChatByGroupShiftId(shift.groupShiftId);
       if (group) {
@@ -486,6 +543,9 @@ export async function cancelShift(id: string, cancelNote?: string) {
         }
       }
     }
+
+    await updateShiftWithChangelog(id, { status: ShiftStatus.cancelled, note: updatedNote }, adminId);
+    revalidatePath('/admin/guard-shifts');
 
     return { success: true };
   } catch (error) {

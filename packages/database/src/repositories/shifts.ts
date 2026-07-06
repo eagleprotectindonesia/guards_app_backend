@@ -271,6 +271,12 @@ export async function bulkCreateShiftsFromForm(
     throw new Error(`Shift duration (${durationInMins} mins) does not allow at least 1 check-in`);
   }
 
+  if ((input.kind === 'office_control' || input.kind === 'event_temporary') && input.requiredCheckinIntervalMins !== durationInMins) {
+    throw new Error(
+      `${input.kind === 'office_control' ? 'Office control' : 'Event temporary'} shifts must have check-in interval equal to the full shift duration (${durationInMins} mins).`
+    );
+  }
+
   // Pre-compute all planned shifts
   type PlannedShift = { employeeId: string; dateStr: string; startsAt: Date; endsAt: Date };
   const planned: PlannedShift[] = [];

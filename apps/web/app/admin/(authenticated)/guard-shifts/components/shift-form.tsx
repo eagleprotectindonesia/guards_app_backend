@@ -495,7 +495,7 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
               />
               <input type="hidden" name="requiredCheckinIntervalMins" value={shiftTypeDurationMins} />
               <p className="text-xs text-muted-foreground mt-1">
-                Auto-set to shift duration — only one check-in required for escort shifts.
+                Auto-set to shift duration — only one check-in required for non-onsite shifts.
               </p>
             </div>
           ) : (
