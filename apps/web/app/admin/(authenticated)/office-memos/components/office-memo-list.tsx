@@ -29,10 +29,10 @@ export default function OfficeMemoList({ officeMemos }: Props) {
     startTransition(async () => {
       const result = await deleteOfficeMemoAction(deleteId);
       if (result.success) {
-        toast.success('Office memo deleted successfully.');
+        toast.success('Company announcement deleted successfully.');
         setDeleteId(null);
       } else {
-        toast.error(result.message || 'Failed to delete office memo.');
+        toast.error(result.message || 'Failed to delete company announcement.');
       }
     });
   };
@@ -41,8 +41,8 @@ export default function OfficeMemoList({ officeMemos }: Props) {
     <div>
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Office Memos</h1>
-          <p className="text-sm text-muted-foreground mt-1">Manage office announcements by date range and department scope.</p>
+          <h1 className="text-2xl font-bold text-foreground">Company Announcements</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage company announcements by date range and department scope.</p>
         </div>
         {canCreate && (
           <AdminNavLink
@@ -50,7 +50,7 @@ export default function OfficeMemoList({ officeMemos }: Props) {
             className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 transition-colors shadow-sm shadow-red-500/30"
           >
             <span className="mr-2 text-lg leading-none">+</span>
-            Add Office Memo
+            Add Company Announcement
           </AdminNavLink>
         )}
       </div>
@@ -72,7 +72,7 @@ export default function OfficeMemoList({ officeMemos }: Props) {
               {officeMemos.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-muted-foreground">
-                    No office memos found. Add one to get started.
+                    No company announcements found. Add one to get started.
                   </td>
                 </tr>
               ) : (
@@ -120,9 +120,9 @@ export default function OfficeMemoList({ officeMemos }: Props) {
         isOpen={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={handleConfirmDelete}
-        title="Delete Office Memo"
-        description="Are you sure you want to delete this office memo?"
-        confirmText="Delete Office Memo"
+        title="Delete Company Announcement"
+        description="Are you sure you want to delete this company announcement?"
+        confirmText="Delete Company Announcement"
         isPending={isPending}
       />
     </div>

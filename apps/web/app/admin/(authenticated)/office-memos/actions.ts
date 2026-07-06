@@ -48,11 +48,11 @@ export async function createOfficeMemoAction(
   try {
     await createOfficeMemo(parsed.data, session.id);
     revalidateOfficeMemoPaths();
-    return { success: true, message: 'Office memo created successfully.' };
+    return { success: true, message: 'Company announcement created successfully.' };
   } catch (error) {
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Failed to create office memo.',
+      message: error instanceof Error ? error.message : 'Failed to create company announcement.',
     };
   }
 }
@@ -76,11 +76,11 @@ export async function updateOfficeMemoAction(
   try {
     await updateOfficeMemo(id, parsed.data, session.id);
     revalidateOfficeMemoPaths();
-    return { success: true, message: 'Office memo updated successfully.' };
+    return { success: true, message: 'Company announcement updated successfully.' };
   } catch (error) {
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Failed to update office memo.',
+      message: error instanceof Error ? error.message : 'Failed to update company announcement.',
     };
   }
 }
@@ -95,7 +95,7 @@ export async function deleteOfficeMemoAction(id: string) {
   } catch (error) {
     return {
       success: false,
-      message: error instanceof Error ? error.message : 'Failed to delete office memo.',
+      message: error instanceof Error ? error.message : 'Failed to delete company announcement.',
     };
   }
 }

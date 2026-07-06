@@ -6,7 +6,7 @@ import OfficeMemoList from './components/office-memo-list';
 import { SerializedOfficeMemoWithAdminInfoDto } from '@/types/office-memos';
 
 export const metadata: Metadata = {
-  title: 'Office Memos',
+  title: 'Company Announcements',
 };
 
 export const dynamic = 'force-dynamic';

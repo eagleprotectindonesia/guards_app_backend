@@ -96,7 +96,7 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
       requiredPermission: 'holiday-calendars:view',
     },
     {
-      name: 'Office Memos',
+      name: 'Company Announcement',
       href: '/admin/office-memos',
       icon: MessageSquare,
       requiredPermission: 'office-memos:view',
@@ -192,7 +192,7 @@ export function getAdminNavGroups(
       label: 'Reporting',
       items: [
         byName.get('Shift Photo Reports'),
-        byName.get('Office Memos'),
+        byName.get('Company Announcement'),
       ].filter(Boolean) as NavItem[],
     },
     {
@@ -238,7 +238,7 @@ export const ADMIN_LABEL_MAP: Record<string, string> = {
   'leave-requests': 'Leave Requests',
   'leave-balances': 'Leave Balances',
   'holiday-calendars': 'Holiday Calendar',
-  'office-memos': 'Office Memos',
+  'office-memos': 'Company Announcement',
   'guard-shift-types': 'Guard Shift Types',
   'guard-shifts': 'Guard Shifts',
   attendance: 'Guard Attendance',

@@ -39,7 +39,7 @@ export default function OfficeMemoForm({ officeMemo, departmentOptions }: Props)
 
   useEffect(() => {
     if (state.success) {
-      toast.success(state.message || (officeMemo ? 'Office memo updated successfully.' : 'Office memo created successfully.'));
+      toast.success(state.message || (officeMemo ? 'Company announcement updated successfully.' : 'Company announcement created successfully.'));
       router.push('/admin/office-memos');
     } else if (state.message && !state.success) {
       toast.error(state.message);
@@ -53,7 +53,7 @@ export default function OfficeMemoForm({ officeMemo, departmentOptions }: Props)
 
   return (
     <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold text-foreground mb-6">{officeMemo ? 'Edit Office Memo' : 'Create Office Memo'}</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-6">{officeMemo ? 'Edit Company Announcement' : 'Create Company Announcement'}</h1>
 
       <form
         action={formData => {
