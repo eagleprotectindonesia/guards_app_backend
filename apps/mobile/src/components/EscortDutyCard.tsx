@@ -10,6 +10,7 @@ import { client } from '../api/client';
 import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { LogOut, MapPin, CheckCircle } from 'lucide-react-native';
 import { queryKeys } from '../api/queryKeys';
 
@@ -64,7 +65,16 @@ export default function EscortDutyCard({ shift, refetchShift }: EscortDutyCardPr
 
   const completeMutation = useMutation({
     mutationFn: async () => {
-      const res = await client.post(`/api/employee/shifts/${shift.id}/complete`);
+      let location;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({});
+          location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        }
+      } catch {}
+
+      const res = await client.post(`/api/employee/shifts/${shift.id}/complete`, { location });
       return res.data;
     },
     onSuccess: () => {

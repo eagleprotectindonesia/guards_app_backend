@@ -12,6 +12,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { useCustomToast } from '../hooks/useCustomToast';
 import * as Haptics from 'expo-haptics';
+import * as Location from 'expo-location';
 import { ShiftWithRelations } from '@repo/types';
 import { CheckInWindowResult } from '@repo/shared';
 import { queryKeys } from '../api/queryKeys';
@@ -36,7 +37,16 @@ export default function EventInfoCard({ shift, eventType, eventName, refetchShif
 
   const completeMutation = useMutation({
     mutationFn: async () => {
-      const res = await client.post(`/api/employee/shifts/${shift.id}/complete`);
+      let location;
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({});
+          location = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        }
+      } catch {}
+
+      const res = await client.post(`/api/employee/shifts/${shift.id}/complete`, { location });
       return res.data;
     },
     onSuccess: () => {
