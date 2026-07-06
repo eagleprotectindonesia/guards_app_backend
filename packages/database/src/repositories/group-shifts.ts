@@ -116,7 +116,7 @@ export async function getPaginatedGroupShifts(params: {
         endSite: { select: { id: true, name: true } },
         shiftType: { select: { id: true, name: true, startTime: true, endTime: true } },
         groupChat: { select: { id: true } },
-        shifts: { select: { id: true, status: true, employeeId: true } },
+        shifts: { where: { deletedAt: null }, select: { id: true, status: true, employeeId: true } },
       },
     }),
     prisma.groupShift.count({ where }),
@@ -143,6 +143,24 @@ export async function getGroupShiftDetail(id: string) {
       },
     },
   });
+}
+
+export async function deleteGroupShiftIfOrphaned(groupShiftId: string) {
+  const gs = await prisma.groupShift.findUnique({
+    where: { id: groupShiftId },
+    select: {
+      _count: { select: { shifts: { where: { deletedAt: null } } } },
+      groupChat: { select: { id: true } },
+    },
+  });
+  if (!gs || gs._count.shifts > 0) return false;
+
+  if (gs.groupChat) {
+    await prisma.groupChat.delete({ where: { id: gs.groupChat.id } });
+  }
+
+  await prisma.groupShift.delete({ where: { id: groupShiftId } });
+  return true;
 }
 
 export async function updateGroupShift(id: string, data: { clientName?: string | null; note?: string | null }) {

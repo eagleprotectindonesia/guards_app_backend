@@ -1,6 +1,6 @@
 'use server';
 
-import { prisma, updateGroupShift, addGroupMembers, findGroupChatByGroupShiftId, updateSiteWithChangelog } from '@repo/database';
+import { prisma, updateGroupShift, addGroupMembers, findGroupChatByGroupShiftId, updateSiteWithChangelog, deleteGroupShiftIfOrphaned } from '@repo/database';
 import { createShiftWithChangelog, deleteShiftWithChangelog } from '@repo/database';
 import { revalidatePath } from 'next/cache';
 import { getAdminIdFromToken } from '@/lib/admin-auth';
@@ -176,6 +176,8 @@ export async function removeGuardFromGroupAction(groupShiftId: string, shiftId: 
   }
 
   await deleteShiftWithChangelog(shiftId, adminId);
+
+  await deleteGroupShiftIfOrphaned(groupShiftId);
 
   revalidatePath(`/admin/guard-shifts/group-shifts/${groupShiftId}`);
   revalidatePath('/admin/guard-shifts/group-shifts');
