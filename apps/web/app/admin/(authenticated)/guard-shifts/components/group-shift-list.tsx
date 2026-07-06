@@ -159,7 +159,6 @@ export default function GroupShiftList({
             <tr className="border-b border-border">
               <th className="text-left py-3 px-2 font-medium text-foreground/60 w-12">#</th>
               <th className="text-left py-3 px-2 font-medium text-foreground/60">Client Name</th>
-              <th className="text-left py-3 px-2 font-medium text-foreground/60">Site → End Site</th>
               <SortableHeader label="Date" field="date" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
               <SortableHeader label="Shift Type" field="shiftType" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
               <th className="text-left py-3 px-2 font-medium text-foreground/60">Guards</th>
@@ -172,7 +171,6 @@ export default function GroupShiftList({
               <tr key={gs.id} className="border-b border-border hover:bg-accent/50 transition-colors">
                 <td className="py-3 px-2 text-foreground/60">{totalCount - (page - 1) * perPage - i}</td>
                 <td className="py-3 px-2 font-medium text-foreground">{gs.clientName || '—'}</td>
-                <td className="py-3 px-2 text-foreground">{gs.site.name} → {gs.endSite?.name || '—'}</td>
                 <td className="py-3 px-2 text-foreground">{format(new Date(gs.date), 'dd MMM yyyy')}</td>
                 <td className="py-3 px-2 text-foreground">{gs.shiftType.name}</td>
                 <td className="py-3 px-2 text-foreground">
@@ -205,7 +203,7 @@ export default function GroupShiftList({
             ))}
             {groupShifts.length === 0 && (
               <tr>
-                <td colSpan={8} className="py-12 text-center text-foreground/40">No group shifts found.</td>
+                <td colSpan={7} className="py-12 text-center text-foreground/40">No group shifts found.</td>
               </tr>
             )}
           </tbody>
