@@ -55,14 +55,14 @@ The system supports four kinds of guard shifts: **onsite** (guard stays at a sin
 ```
 scheduled → in_progress → completed
                 ↓             ↓
-             missed        cancelled
+             missed        cancelled (from in_progress only)
 ```
 
-- `scheduled`: Shift created, awaiting guard action.
+- `scheduled`: Shift created, awaiting guard action. Managed via edit/delete (soft delete) — the `cancelShift` action only accepts `in_progress` shifts.
 - `in_progress`: Guard recorded attendance (`POST .../attendance`).
 - `completed`: All duties finished (last check-in for onsite; End Duty action for escort).
 - `missed`: Guard never attended or the shift was abandoned.
-- `cancelled`: Admin cancelled the shift.
+- `cancelled`: Admin cancelled the shift (only available for `in_progress` shifts; `scheduled` shifts are removed via `deleteShift`).
 
 ---
 
@@ -161,6 +161,8 @@ deleteShiftWithChangelog(id)
 ```
 
 ### Shift cancellation (`cancelShift`)
+
+**Note:** The `cancelShift` action only accepts shifts with `status === 'in_progress'`. `scheduled` shifts are removed via `deleteShift` (soft delete) instead.
 
 Same as deletion — removes guard from group chat, then cancels.
 
