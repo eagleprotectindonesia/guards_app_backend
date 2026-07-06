@@ -312,8 +312,8 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
               <Select
                 id="site-select"
                 instanceId="site-select"
-                options={fixedSiteOptions}
-                value={fixedSiteOptions.find(opt => opt.value === selectedSiteId) || null}
+                options={selectedKind === 'escort' ? escortEndSiteOptions : fixedSiteOptions}
+                value={selectedKind === 'escort' ? escortEndSiteOptions.find(opt => opt.value === selectedSiteId) || null : fixedSiteOptions.find(opt => opt.value === selectedSiteId) || null}
                 onChange={option => setSelectedSiteId(option?.value || '')}
                 placeholder="Select a site..."
                 isClearable={!isReadOnly}

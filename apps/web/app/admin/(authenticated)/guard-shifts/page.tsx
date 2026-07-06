@@ -5,7 +5,7 @@ import ShiftList from './components/shift-list';
 import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { getActiveSites } from '@repo/database';
+import { getActiveFixedSites } from '@repo/database';
 import { getActiveEmployeesSummary } from '@repo/database';
 import { getPaginatedShifts } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
@@ -86,7 +86,7 @@ export default async function ShiftsPage({
     },
   });
 
-  const sites = await getActiveSites();
+  const sites = await getActiveFixedSites();
   const shiftTypes = await prisma.shiftType.findMany({ orderBy: { name: 'asc' } });
   const employees = await getActiveEmployeesSummary('on_site');
 

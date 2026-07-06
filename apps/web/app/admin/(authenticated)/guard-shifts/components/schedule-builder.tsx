@@ -137,7 +137,9 @@ export default function ScheduleBuilder({
     for (const date of effectiveDates) {
       for (const gId of guardIds) {
         const emp = employees.find(e => e.id === gId);
-        const site = fixedSites.find(s => s.id === siteId);
+        const site = assignmentType === 'escort_special'
+          ? escortEndSites.find(s => s.id === siteId)
+          : fixedSites.find(s => s.id === siteId);
         let siteName = site?.name || '';
         if (assignmentType === 'escort_special' && hideEscortSites) {
           siteName = startAddress || escortEndAddress || '';
@@ -674,8 +676,8 @@ export default function ScheduleBuilder({
                     <Select
                       id="builder-start-site"
                       instanceId="builder-start-site"
-                      options={fixedSiteOptions}
-                      value={fixedSiteOptions.find(o => o.value === siteId) || null}
+                      options={escortEndSiteOptions}
+                      value={escortEndSiteOptions.find(o => o.value === siteId) || null}
                       onChange={option => setSiteId(option?.value || '')}
                       placeholder="Select start location..."
                       isClearable
