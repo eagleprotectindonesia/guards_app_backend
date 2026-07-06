@@ -61,7 +61,7 @@ export default function ScheduleBuilder({
   const [repeatStartDate, setRepeatStartDate] = useState('');
   const [repeatEndDate, setRepeatEndDate] = useState('');
   const [interval, setInterval] = useState(30);
-  const [grace, setGrace] = useState(2);
+  const [grace, setGrace] = useState(5);
   const [note, setNote] = useState('');
   const [clientName, setClientName] = useState('');
   const [eventName, setEventName] = useState('');

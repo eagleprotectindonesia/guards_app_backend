@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ScrollView, Dimensions, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { ScrollView, Dimensions, NativeScrollEvent, NativeSyntheticEvent, Linking, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
 import { Text } from '@/components/ui/text';
@@ -8,7 +8,9 @@ import { format } from 'date-fns';
 import { id, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
-import { CalendarCheck, MapPin, CalendarClock, Building2, Star, ArrowLeftRight } from 'lucide-react-native';
+import { CalendarCheck, MapPin, CalendarClock, Building2, Star, ArrowLeftRight, ExternalLink } from 'lucide-react-native';
+import { calculateDistance } from '@repo/shared';
+import * as Location from 'expo-location';
 import { useSettings } from '../hooks/useSettings';
 import { parseShiftCarouselDisplayDate } from './shift-carousel-date';
 import { parseEventNote } from '../utils/shift-helpers';
@@ -29,6 +31,7 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
   const [activeIndex, setActiveIndex] = useState(0);
   const totalShifts = (activeShift ? 1 : 0) + nextShifts.length;
   const dateLocale = i18n.language === 'id' ? id : enUS;
+  const [isOpeningMap, setIsOpeningMap] = useState(false);
 
   const renderKindBadge = (shift: ShiftWithRelations) => {
     const kind = shift.kind;
@@ -100,6 +103,43 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
 
   const renderActiveShiftCard = (shift: ShiftWithRelations) => {
     const displayDate = parseShiftCarouselDisplayDate({ shiftDate: shift.date, startsAt: shift.startsAt });
+    const site = shift.site;
+    const hasLocationData = !!(site?.posts?.length || site?.latitude || site?.longitude || site?.address);
+
+    const handleOpenMaps = async () => {
+      setIsOpeningMap(true);
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const location = await Location.getCurrentPositionAsync({});
+          const { latitude: userLat, longitude: userLng } = location.coords;
+
+          const posts = site?.posts?.filter(p => p.latitude != null && p.longitude != null) ?? [];
+          if (posts.length > 0) {
+            let nearest = posts[0];
+            let minDist = calculateDistance(userLat, userLng, nearest.latitude, nearest.longitude);
+            for (let i = 1; i < posts.length; i++) {
+              const dist = calculateDistance(userLat, userLng, posts[i].latitude, posts[i].longitude);
+              if (dist < minDist) {
+                minDist = dist;
+                nearest = posts[i];
+              }
+            }
+            await Linking.openURL(`https://maps.google.com/?q=${nearest.latitude},${nearest.longitude}`);
+            return;
+          }
+        }
+      } catch {
+        // fall through to fallbacks
+      }
+
+      if (site?.latitude != null && site?.longitude != null) {
+        await Linking.openURL(`https://maps.google.com/?q=${site.latitude},${site.longitude}`);
+      } else if (site?.address) {
+        await Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(site.address)}`);
+      }
+      setIsOpeningMap(false);
+    };
 
     return (
       <Box
@@ -143,12 +183,28 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
                 <Text size="xs" className="text-typography-500 uppercase tracking-[1.5px] mb-1.5 font-semibold">
                   {t('shift.station')}
                 </Text>
-                <HStack space="xs" className="items-center">
-                  <MapPin size={14} color="#D92323" />
-                  <Text size="md" className="text-typography-200 font-medium">
-                    {shift.site?.name || t('shift.defaultLocation')}
-                  </Text>
-                </HStack>
+                {hasLocationData ? (
+                  <TouchableOpacity onPress={handleOpenMaps} disabled={isOpeningMap} activeOpacity={0.6}>
+                    <HStack space="xs" className="items-center">
+                      <MapPin size={14} color="#D92323" />
+                      <Text size="md" className="text-typography-200 font-medium">
+                        {site?.name || t('shift.defaultLocation')}
+                      </Text>
+                      {isOpeningMap ? (
+                        <ActivityIndicator size={12} color="#D92323" />
+                      ) : (
+                        <ExternalLink size={12} color="#A3A3A3" />
+                      )}
+                    </HStack>
+                  </TouchableOpacity>
+                ) : (
+                  <HStack space="xs" className="items-center">
+                    <MapPin size={14} color="#D92323" />
+                    <Text size="md" className="text-typography-200 font-medium">
+                      {site?.name || t('shift.defaultLocation')}
+                    </Text>
+                  </HStack>
+                )}
               </Box>
               <Box className="flex-1 items-flex-end">
                 <Text size="xs" className="text-typography-500 uppercase tracking-[1.5px] mb-1.5 font-semibold">

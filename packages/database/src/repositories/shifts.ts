@@ -1844,7 +1844,14 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
       ],
     },
     include: {
-      site: true,
+      site: {
+        include: {
+          posts: {
+            where: { status: true, deletedAt: null },
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+          },
+        },
+      },
       escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
@@ -1868,7 +1875,14 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
     },
     take: 4,
     include: {
-      site: true,
+      site: {
+        include: {
+          posts: {
+            where: { status: true, deletedAt: null },
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+          },
+        },
+      },
       escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },

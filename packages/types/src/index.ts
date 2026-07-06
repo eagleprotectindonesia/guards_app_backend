@@ -140,6 +140,20 @@ export interface EmployeeLeaveRequest {
   updatedAt: string | Date;
 }
 
+export interface SitePost {
+  id: string;
+  siteId: string;
+  name: string;
+  address?: string | null;
+  latitude: number;
+  longitude: number;
+  status?: boolean | null;
+  sortOrder: number;
+  deletedAt?: string | Date | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
 export interface Site {
   id: string;
   name: string;
@@ -150,6 +164,7 @@ export interface Site {
   kind?: SiteKind | null;
   status?: boolean | null;
   note?: string | null;
+  posts?: SitePost[];
 }
 
 export interface ShiftType {
