@@ -4,17 +4,53 @@ import { VStack } from '@/components/ui/vstack';
 import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
 import { Heading } from '@/components/ui/heading';
-import { Star, MapPin, Clock } from 'lucide-react-native';
+import { Button, ButtonText, ButtonSpinner } from '@/components/ui/button';
+import { Star, MapPin, Clock, CheckCircle } from 'lucide-react-native';
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { client } from '../api/client';
+import { useCustomToast } from '../hooks/useCustomToast';
+import * as Haptics from 'expo-haptics';
 import { ShiftWithRelations } from '@repo/types';
+import { CheckInWindowResult } from '@repo/shared';
+import { queryKeys } from '../api/queryKeys';
 
 interface EventInfoCardProps {
   shift: ShiftWithRelations;
   eventType: string;
   eventName: string;
+  refetchShift: () => void;
+  checkInWindow?: CheckInWindowResult;
 }
 
-export default function EventInfoCard({ shift, eventType, eventName }: EventInfoCardProps) {
+export default function EventInfoCard({ shift, eventType, eventName, refetchShift, checkInWindow }: EventInfoCardProps) {
+  const { t } = useTranslation();
+  const queryClient = useQueryClient();
+  const toast = useCustomToast();
+  const now = new Date();
+  const endsAt = new Date(shift.endsAt);
+  const canEnd = checkInWindow
+    ? (checkInWindow.status === 'open' || checkInWindow.status === 'late')
+    : now >= endsAt;
+
+  const completeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await client.post(`/api/employee/shifts/${shift.id}/complete`);
+      return res.data;
+    },
+    onSuccess: () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      queryClient.invalidateQueries({ queryKey: queryKeys.shifts.active });
+      refetchShift();
+      toast.success(t('common.success'), t('dashboard.shiftCompleted'));
+    },
+    onError: (error: any) => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      toast.error(t('common.error'), error?.response?.data?.error || error.message);
+    },
+  });
+
   return (
     <Box className="rounded-[32px] overflow-hidden bg-background-900 border border-outline-800 relative p-6">
       <VStack space="md">
@@ -53,6 +89,16 @@ export default function EventInfoCard({ shift, eventType, eventName }: EventInfo
             {format(new Date(shift.startsAt), 'HH:mm')} — {format(new Date(shift.endsAt), 'HH:mm')}
           </Text>
         </HStack>
+
+        <Button
+          variant="outline"
+          className="bg-white/5 border-white/10 self-center"
+          onPress={() => completeMutation.mutate()}
+          isDisabled={!canEnd || completeMutation.isPending}
+        >
+          {completeMutation.isPending ? <ButtonSpinner /> : <CheckCircle size={16} color="#EF4444" />}
+          <ButtonText className="text-typography-400">{t('dashboard.endDuty')}</ButtonText>
+        </Button>
       </VStack>
     </Box>
   );

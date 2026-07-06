@@ -809,7 +809,7 @@ export async function bulkCreateShiftsFromFormAction(
           siteId: finalSiteId,
           endSiteId: finalEscortEndSiteId || null,
           shiftTypeId: input.shiftTypeId,
-          date: new Date(dateStr + 'T00:00:00'),
+          date: new Date(dateStr + 'T00:00:00Z'),
           clientName: input.clientName,
           flexibleEndTime: input.flexibleEndTime,
         });
