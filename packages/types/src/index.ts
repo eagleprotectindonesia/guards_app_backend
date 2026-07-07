@@ -487,7 +487,19 @@ export interface PanicWebhookPayload {
 // ============================================================================
 // Calendar Types
 // ============================================================================
-export type CalendarItemKind = 'holiday' | 'office_memo' | 'leave';
+export type CalendarItemKind =
+  | 'holiday'
+  | 'office_memo'
+  | 'leave'
+  | 'meeting'
+  | 'client_meeting'
+  | 'reminder'
+  | 'task'
+  | 'deadline'
+  | 'follow_up'
+  | 'training'
+  | 'personal_event'
+  | 'other';
 
 export interface CalendarItem {
   id: string;
@@ -509,6 +521,68 @@ export type CalendarDetailKind = CalendarItemKind;
 export interface CalendarDetailResponse {
   kind: CalendarDetailKind;
   data: Record<string, unknown>;
+}
+
+export type CalendarEventKind =
+  | 'meeting'
+  | 'client_meeting'
+  | 'reminder'
+  | 'task'
+  | 'deadline'
+  | 'follow_up'
+  | 'training'
+  | 'personal_event'
+  | 'other';
+
+export interface CreateCalendarEventInput {
+  kind: CalendarEventKind;
+  title: string;
+  description?: string;
+  startDate: string;
+  endDate: string;
+  startTime?: string;
+  endTime?: string;
+  allDay: boolean;
+  location?: string;
+  clientName?: string;
+  trainerName?: string;
+  priority?: string;
+  color?: string;
+}
+
+export interface UpdateCalendarEventInput {
+  kind?: CalendarEventKind;
+  title?: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  startTime?: string;
+  endTime?: string;
+  allDay?: boolean;
+  location?: string;
+  clientName?: string;
+  trainerName?: string;
+  priority?: string;
+  color?: string;
+}
+
+export interface CalendarEventItem {
+  id: string;
+  kind: CalendarEventKind;
+  title: string;
+  description: string | null;
+  startDate: string;
+  endDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  allDay: boolean;
+  location: string | null;
+  clientName: string | null;
+  trainerName: string | null;
+  priority: string | null;
+  color: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export * from './socket-events';

@@ -2,9 +2,14 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 
-type CalendarType = 'holiday' | 'office_memo' | 'leave';
+const EVENT_KINDS = [
+  'meeting', 'client_meeting', 'reminder', 'task', 'deadline',
+  'follow_up', 'training', 'personal_event', 'other',
+] as const;
 
-const VALID_TYPES: CalendarType[] = ['holiday', 'office_memo', 'leave'];
+type CalendarType = 'holiday' | 'office_memo' | 'leave' | (typeof EVENT_KINDS)[number];
+
+const VALID_TYPES: CalendarType[] = ['holiday', 'office_memo', 'leave', ...EVENT_KINDS];
 
 export async function GET(
   _req: Request,
@@ -46,6 +51,14 @@ export async function GET(
           where: { id, employeeId: employee.id },
         });
         data = leave as unknown as Record<string, unknown>;
+        break;
+      }
+
+      default: {
+        const event = await prisma.calendarEvent.findFirst({
+          where: { id, employeeId: employee.id, deletedAt: null },
+        });
+        data = event as unknown as Record<string, unknown>;
         break;
       }
     }

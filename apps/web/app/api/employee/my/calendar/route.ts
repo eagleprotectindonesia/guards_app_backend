@@ -36,7 +36,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
     }
 
-    const [holidays, memos, leaves] = await Promise.all([
+    const [holidays, memos, leaves, events] = await Promise.all([
       prisma.holidayCalendarEntry.findMany({
         where: {
           endDate: { gte: fromDate },
@@ -74,12 +74,24 @@ export async function GET(req: Request) {
         },
         orderBy: [{ startDate: 'asc' }],
       }),
+
+      prisma.calendarEvent.findMany({
+        where: {
+          employeeId: employee.id,
+          deletedAt: null,
+          endDate: { gte: fromDate },
+          startDate: { lte: toDate },
+        },
+        orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
+      }),
     ]);
+
+    type Kind = 'holiday' | 'office_memo' | 'leave' | 'meeting' | 'client_meeting' | 'reminder' | 'task' | 'deadline' | 'follow_up' | 'training' | 'personal_event' | 'other';
 
     const items: Array<{
       id: string;
       originalId: string;
-      kind: 'holiday' | 'office_memo' | 'leave';
+      kind: Kind;
       title: string;
       date: string;
       startsAt: string | null;
@@ -152,6 +164,39 @@ export async function GET(req: Request) {
               : l.status === 'pending' || l.status === 'pending_hr' || l.status === 'pending_manager'
                 ? '#FFEB3B'
                 : '#FF3B30',
+        });
+      }
+    }
+
+    const defaultColors: Record<string, string> = {
+      meeting: '#FF3B30',
+      client_meeting: '#FF2D55',
+      reminder: '#FF9500',
+      task: '#34C759',
+      deadline: '#FF3B30',
+      follow_up: '#FF9500',
+      training: '#007AFF',
+      personal_event: '#007AFF',
+      other: '#AF52DE',
+    };
+
+    for (const e of events) {
+      const days = expandToDays(e.startDate, e.endDate, fromDate, toDate);
+      for (const day of days) {
+        const kind = e.kind as Kind;
+        items.push({
+          id: `${kind}:${e.id}:${day.toISOString().slice(0, 10)}`,
+          originalId: e.id,
+          kind,
+          title: e.title,
+          date: day.toISOString().slice(0, 10),
+          startsAt: e.startTime ? `${day.toISOString().slice(0, 10)}T${e.startTime}:00` : null,
+          endsAt: e.endTime ? `${day.toISOString().slice(0, 10)}T${e.endTime}:00` : null,
+          allDay: e.allDay,
+          priority: (e.priority as 'urgent' | 'high' | 'normal' | 'low') ?? null,
+          location: e.location ?? null,
+          status: null,
+          colorHint: e.color ?? defaultColors[kind] ?? '#8E8E93',
         });
       }
     }

@@ -5,7 +5,22 @@ import { Text } from '@/components/ui/text';
 import { Pressable } from '@/components/ui/pressable';
 import { CalendarItem } from '@repo/types';
 import { format, parseISO } from 'date-fns';
-import { Calendar, Clock, MapPin, Sun, Moon, FileText } from 'lucide-react-native';
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  Sun,
+  Moon,
+  FileText,
+  Briefcase,
+  UserRound,
+  Bell,
+  CheckSquare,
+  AlertTriangle,
+  Repeat,
+  GraduationCap,
+  CalendarHeart,
+} from 'lucide-react-native';
 
 function getKindIcon(kind: string, color: string) {
   switch (kind) {
@@ -15,6 +30,22 @@ function getKindIcon(kind: string, color: string) {
       return <Moon size={14} color={color} />;
     case 'office_memo':
       return <FileText size={14} color={color} />;
+    case 'meeting':
+      return <Briefcase size={14} color={color} />;
+    case 'client_meeting':
+      return <UserRound size={14} color={color} />;
+    case 'reminder':
+      return <Bell size={14} color={color} />;
+    case 'task':
+      return <CheckSquare size={14} color={color} />;
+    case 'deadline':
+      return <AlertTriangle size={14} color={color} />;
+    case 'follow_up':
+      return <Repeat size={14} color={color} />;
+    case 'training':
+      return <GraduationCap size={14} color={color} />;
+    case 'personal_event':
+      return <CalendarHeart size={14} color={color} />;
     default:
       return <Calendar size={14} color={color} />;
   }
@@ -35,14 +66,18 @@ function formatTimeRange(item: CalendarItem): string | null {
 
 function getKindLabel(kind: string): string {
   switch (kind) {
-    case 'holiday':
-      return 'Holiday';
-    case 'leave':
-      return 'Leave';
-    case 'office_memo':
-      return 'Memo';
-    default:
-      return kind;
+    case 'holiday': return 'Holiday';
+    case 'leave': return 'Leave';
+    case 'office_memo': return 'Memo';
+    case 'meeting': return 'Meeting';
+    case 'client_meeting': return 'Client';
+    case 'reminder': return 'Reminder';
+    case 'task': return 'Task';
+    case 'deadline': return 'Deadline';
+    case 'follow_up': return 'Follow-up';
+    case 'training': return 'Training';
+    case 'personal_event': return 'Personal';
+    default: return kind;
   }
 }
 
