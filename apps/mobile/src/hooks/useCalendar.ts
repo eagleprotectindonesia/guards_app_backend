@@ -4,6 +4,14 @@ import { CalendarItem } from '@repo/types';
 import { queryKeys } from '../api/queryKeys';
 import { useAuth } from '../contexts/AuthContext';
 
+export type TaggedUserResult = {
+  id: string;
+  type: 'employee' | 'admin';
+  name: string;
+  email?: string;
+  employeeNumber?: string;
+};
+
 type CalendarResponse = {
   items: CalendarItem[];
 };
@@ -99,5 +107,24 @@ export function useDuplicateCalendarEvent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['calendar'] });
     },
+  });
+}
+
+type UserSearchResponse = {
+  users: TaggedUserResult[];
+};
+
+export function useUserSearch(query: string) {
+  const { isAuthenticated } = useAuth();
+  const enabled = isAuthenticated && query.length >= 2;
+
+  return useQuery<UserSearchResponse>({
+    queryKey: queryKeys.users.search(query),
+    enabled,
+    queryFn: async () => {
+      const res = await client.get(`/api/employee/my/users/search?q=${encodeURIComponent(query)}`);
+      return res.data as UserSearchResponse;
+    },
+    staleTime: 1000 * 30,
   });
 }

@@ -32,4 +32,7 @@ export const queryKeys = {
     list: (from: string, to: string) => ['calendar', from, to] as const,
     item: (type: string, id: string) => ['calendar', 'item', type, id] as const,
   },
+  users: {
+    search: (query: string) => ['users', 'search', query] as const,
+  },
 };

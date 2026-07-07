@@ -16,6 +16,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CalendarEventKind } from '@repo/types';
+import { UserTagPicker } from './UserTagPicker';
+import type { TaggedUserResult } from '../../hooks/useCalendar';
 
 const KIND_ICONS: Record<string, string> = {
   meeting: '📅',
@@ -71,6 +73,7 @@ interface CalendarEventFormProps {
     trainerName?: string;
     priority?: string;
     color?: string;
+    taggedUsers?: TaggedUserResult[];
   };
   onSubmit: (data: Record<string, unknown>) => void;
   isSubmitting: boolean;
@@ -94,6 +97,7 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
   const [trainerName, setTrainerName] = useState(initialData?.trainerName ?? '');
   const [priority, setPriority] = useState(initialData?.priority ?? 'normal');
   const [color, setColor] = useState(initialData?.color ?? DEFAULT_COLORS[kind]);
+  const [selectedTaggedUsers, setSelectedTaggedUsers] = useState<TaggedUserResult[]>(initialData?.taggedUsers ?? []);
 
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -134,6 +138,8 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
       trainerName: (kind === 'training' && trainerName) ? trainerName : undefined,
       priority: showPriorityField ? priority : undefined,
       color: color || undefined,
+      taggedEmployeeIds: selectedTaggedUsers.filter((u) => u.type === 'employee').map((u) => u.id),
+      taggedAdminIds: selectedTaggedUsers.filter((u) => u.type === 'admin').map((u) => u.id),
     };
     onSubmit(data);
   };
@@ -352,6 +358,15 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
                 />
               </Input>
             </FormControl>
+          </VStack>
+        </View>
+
+        {/* Tag Users */}
+        <View style={[styles.glassCard, { marginTop: 12 }]}>
+          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+          <VStack className="p-6" space="md">
+            <Text className="text-white text-sm font-semibold uppercase tracking-wide">{t('calendar.tagUsers', 'Tag Users')}</Text>
+            <UserTagPicker selectedUsers={selectedTaggedUsers} onChange={setSelectedTaggedUsers} />
           </VStack>
         </View>
 

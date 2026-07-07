@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@repo/database';
+import { prisma, getCalendarEventTags } from '@repo/database';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { updateCalendarEventSchema } from '@repo/validations';
 import { updateCalendarEvent, deleteCalendarEvent } from '@repo/database';
+import { notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { ZodError } from 'zod';
 
 export async function PUT(
@@ -27,6 +28,25 @@ export async function PUT(
 
     const body = updateCalendarEventSchema.parse(await req.json());
 
+    const taggedEmployeeIds = body.taggedEmployeeIds !== undefined
+      ? (body.taggedEmployeeIds ?? []).filter((uid) => uid !== employee.id)
+      : undefined;
+    const taggedAdminIds = body.taggedAdminIds;
+
+    if ((taggedEmployeeIds && taggedEmployeeIds.length > 0) || (taggedAdminIds && taggedAdminIds.length > 0)) {
+      const validationErrors = await validateTaggedUsers(taggedEmployeeIds ?? [], taggedAdminIds ?? []);
+      if (validationErrors.length > 0) {
+        return NextResponse.json({ error: validationErrors.join('; ') }, { status: 400 });
+      }
+    }
+
+    const oldTags = await getCalendarEventTags(id);
+    const oldEmployeeIds = oldTags.filter((t) => t.type === 'employee').map((t) => t.id);
+    const oldAdminIds = oldTags.filter((t) => t.type === 'admin').map((t) => t.id);
+
+    const newEmployeeIds = taggedEmployeeIds ?? oldEmployeeIds;
+    const newAdminIds = taggedAdminIds ?? oldAdminIds;
+
     const event = await updateCalendarEvent(id, {
       kind: body.kind,
       title: body.title,
@@ -41,9 +61,32 @@ export async function PUT(
       trainerName: body.trainerName,
       priority: body.priority,
       color: body.color,
+      taggedEmployeeIds: newEmployeeIds,
+      taggedAdminIds: newAdminIds,
     });
 
-    return NextResponse.json({ item: event });
+    const newlyTaggedEmployees = newEmployeeIds.filter((uid) => !oldEmployeeIds.includes(uid));
+    const newlyTaggedAdmins = newAdminIds.filter((uid) => !oldAdminIds.includes(uid));
+
+    if (newlyTaggedEmployees.length > 0 || newlyTaggedAdmins.length > 0) {
+      await notifyCalendarEventTags(
+        id,
+        body.title ?? existing.title,
+        newlyTaggedEmployees,
+        newlyTaggedAdmins,
+        employee.fullName
+      );
+    }
+
+    const taggedUsers = await getCalendarEventTags(id);
+
+    return NextResponse.json({
+      item: {
+        ...(event as unknown as Record<string, unknown>),
+        taggedUsers,
+        isOwner: true,
+      },
+    });
   } catch (error: unknown) {
     if (error instanceof ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });

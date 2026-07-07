@@ -522,6 +522,15 @@
     "startDate": "Tanggal Mulai",
     "endDate": "Tanggal Selesai",
     "startTime": "Waktu Mulai",
-    "endTime": "Waktu Selesai"
+    "endTime": "Waktu Selesai",
+    "tagUsers": "Tag Pengguna",
+    "searchUsers": "Cari pengguna...",
+    "noUsersFound": "Tidak ada pengguna ditemukan",
+    "taggedUsers": "Pengguna yang Ditandai",
+    "emptyTaggedUsers": "Tidak ada pengguna yang ditandai",
+    "adminTag": "Admin",
+    "employeeTag": "Karyawan",
+    "eventTaggedTitle": "Anda telah ditandai dalam sebuah acara",
+    "eventTaggedBody": "{name} menandai Anda di \"{title}\""
   }
 }
