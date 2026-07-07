@@ -4,8 +4,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSocket } from '@/components/socket-provider';
 import { MonthGrid } from './components/MonthGrid';
-import { WeekView } from './components/WeekView';
-import { DayView } from './components/DayView';
+import { TimeGridView } from './components/TimeGridView';
 import { EventDetailPanel } from './components/EventDetailPanel';
 import { EventForm } from './components/EventForm';
 import { FilterBar } from './components/FilterBar';
@@ -83,7 +82,12 @@ export function CalendarView() {
     staleTime: 30000,
   });
 
-  const { data: itemsData, isLoading } = useQuery({
+  const {
+    data: itemsData,
+    isLoading,
+    isError,
+    error,
+  } = useQuery({
     queryKey: ['admin', 'calendar', 'items', queryString],
     queryFn: async () => {
       const res = await fetch(`/api/admin/calendar?${queryString}`);
@@ -95,7 +99,7 @@ export function CalendarView() {
 
   useEffect(() => {
     if (!socket) return;
-    const handler = () => {
+    const handler = (_payload: { type: string; eventId: string }) => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'calendar'] });
     };
     socket.on('calendar_changed', handler);
@@ -163,26 +167,28 @@ export function CalendarView() {
             onEventClick={handleEventClick}
           />
         )}
-        {view === 'week' && (
-          <WeekView
+        {(view === 'week' || view === 'day') && (
+          <TimeGridView
             currentDate={currentDate}
-            items={items}
-            onEventClick={handleEventClick}
-          />
-        )}
-        {view === 'day' && (
-          <DayView
-            currentDate={currentDate}
+            viewType={view === 'week' ? 'timeGridWeek' : 'timeGridDay'}
             items={items}
             onEventClick={handleEventClick}
           />
         )}
 
-        {isLoading && (
-          <div className="flex items-center justify-center py-8 text-muted-foreground">
-            Loading...
+        {isError && (
+          <div className="flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-400">
+            <span>Failed to load calendar events. {(error as Error)?.message ?? 'Please try again.'}</span>
+            <button
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['admin', 'calendar', 'items'] })}
+              className="ml-auto rounded-lg bg-red-600/20 px-3 py-1 font-medium text-red-400 hover:bg-red-600/30"
+            >
+              Retry
+            </button>
           </div>
         )}
+
+        {isLoading && <div className="flex items-center justify-center py-8 text-muted-foreground">Loading...</div>}
       </div>
 
       {selectedEvent && (
@@ -191,24 +197,23 @@ export function CalendarView() {
           onClose={() => setSelectedEvent(null)}
           onEdit={handleEditEvent}
           onDelete={handleFormSuccess}
-          hasEditPermission={session.hasPermission('user-calendar:edit') && selectedEvent.ownerType === 'admin' && selectedEvent.ownerId === session.userId}
-          hasDeletePermission={session.hasPermission('user-calendar:delete') && selectedEvent.ownerType === 'admin' && selectedEvent.ownerId === session.userId}
+          hasEditPermission={
+            session.hasPermission('user-calendar:edit') &&
+            selectedEvent.ownerType === 'admin' &&
+            selectedEvent.ownerId === session.userId
+          }
+          hasDeletePermission={
+            session.hasPermission('user-calendar:delete') &&
+            selectedEvent.ownerType === 'admin' &&
+            selectedEvent.ownerId === session.userId
+          }
         />
       )}
 
-      {showCreateModal && (
-        <EventForm
-          onClose={() => setShowCreateModal(false)}
-          onSuccess={handleFormSuccess}
-        />
-      )}
+      {showCreateModal && <EventForm onClose={() => setShowCreateModal(false)} onSuccess={handleFormSuccess} />}
 
       {editEventId && (
-        <EventForm
-          eventId={editEventId}
-          onClose={() => setEditEventId(null)}
-          onSuccess={handleFormSuccess}
-        />
+        <EventForm eventId={editEventId} onClose={() => setEditEventId(null)} onSuccess={handleFormSuccess} />
       )}
     </div>
   );

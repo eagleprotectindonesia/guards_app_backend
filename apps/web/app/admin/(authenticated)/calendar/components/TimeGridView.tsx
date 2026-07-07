@@ -1,19 +1,19 @@
+'use client';
+
 import { useMemo, useRef, useEffect, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { format } from 'date-fns';
 import type { CalendarItem } from '../types';
 
-interface MonthGridProps {
+interface TimeGridViewProps {
   currentDate: Date;
+  viewType: 'timeGridWeek' | 'timeGridDay';
   items: CalendarItem[];
-  daySummary: Map<string, number>;
-  onDateClick: (date: string) => void;
   onEventClick: (item: CalendarItem) => void;
 }
 
-export function MonthGrid({ currentDate, items, daySummary, onDateClick, onEventClick }: MonthGridProps) {
+export function TimeGridView({ currentDate, viewType, items, onEventClick }: TimeGridViewProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const [initialDateStr] = useState(() => currentDate.toISOString());
 
@@ -27,8 +27,9 @@ export function MonthGrid({ currentDate, items, daySummary, onDateClick, onEvent
     return items.map(item => ({
       id: item.id,
       title: item.title,
-      start: item.date,
-      allDay: true,
+      start: item.startsAt ?? item.date,
+      end: item.endsAt ?? undefined,
+      allDay: item.allDay,
       backgroundColor: item.colorHint ?? '#8E8E93',
       borderColor: 'transparent',
       textColor: '#fff',
@@ -41,29 +42,18 @@ export function MonthGrid({ currentDate, items, daySummary, onDateClick, onEvent
     <div className="rounded-lg border border-border bg-card">
       <FullCalendar
         ref={calendarRef}
-        plugins={[dayGridPlugin, interactionPlugin]}
-        initialView="dayGridMonth"
+        plugins={[timeGridPlugin, interactionPlugin]}
+        initialView={viewType}
         initialDate={initialDateStr}
         events={events}
         headerToolbar={false}
-        dayMaxEvents={3}
         height="auto"
-        dateClick={info => onDateClick(info.dateStr)}
+        slotMinTime="06:00:00"
+        slotMaxTime="22:00:00"
+        allDaySlot={true}
         eventClick={info => {
           const item = info.event.extendedProps.item as CalendarItem;
           if (item) onEventClick(item);
-        }}
-        dayCellClassNames="border-border hover:bg-muted cursor-pointer"
-        dayHeaderClassNames="text-muted-foreground text-xs font-medium py-2 border-border"
-        dayCellDidMount={info => {
-          const dateStr = format(info.date, 'yyyy-MM-dd');
-          const count = daySummary.get(dateStr);
-          if (count && !info.isOutside) {
-            const dot = document.createElement('div');
-            dot.className = 'flex justify-center mt-0.5';
-            dot.innerHTML = `<span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>`;
-            info.el.querySelector('.fc-daygrid-day-events')?.prepend(dot);
-          }
         }}
       />
     </div>

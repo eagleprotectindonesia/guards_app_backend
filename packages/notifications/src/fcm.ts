@@ -637,6 +637,8 @@ export async function sendCalendarEventTagPushNotification(params: {
   eventTitle: string;
   eventId: string;
   taggedByName: string;
+  title?: string;
+  body?: string;
 }): Promise<CalendarEventTagPushNotificationResult> {
   const { employeeId, eventTitle, eventId, taggedByName } = params;
 
@@ -673,8 +675,8 @@ export async function sendCalendarEventTagPushNotification(params: {
     }
 
     const tokenStrings = tokensResult.map(t => t.token);
-    const title = "You've been tagged in an event";
-    const body = `${taggedByName} tagged you in "${eventTitle}"`;
+    const title = params.title ?? "You've been tagged in an event";
+    const body = params.body ?? `${taggedByName} tagged you in "${eventTitle}"`;
     const androidNotification = {
       title,
       body,
@@ -772,4 +774,3 @@ export async function sendCalendarEventTagPushNotification(params: {
     };
   }
 }
-

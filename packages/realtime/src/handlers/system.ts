@@ -66,7 +66,10 @@ export function registerSystemHandlers(io: UnifiedServer) {
         const { type, data } = payload;
         if (type === 'calendar:event_created') {
           if (data.employeeId) {
-            io.to(`employee:${data.employeeId}`).emit('calendar_event_created', { eventId: data.eventId, kind: data.kind });
+            io.to(`employee:${data.employeeId}`).emit('calendar_event_created', {
+              eventId: data.eventId,
+              kind: data.kind,
+            });
           }
           if (data.adminId) {
             io.to(`admin:${data.adminId}`).emit('calendar_event_created', { eventId: data.eventId, kind: data.kind });
@@ -89,7 +92,20 @@ export function registerSystemHandlers(io: UnifiedServer) {
           }
           io.to('admin').emit('calendar_changed', { type: 'deleted', eventId: data.eventId });
         } else if (type === 'calendar:event_tagged') {
-          io.to(`admin:${data.adminId}`).emit('calendar_event_tagged', { eventId: data.eventId, eventTitle: data.eventTitle, taggedByName: data.taggedByName });
+          if (data.adminId) {
+            io.to(`admin:${data.adminId}`).emit('calendar_event_tagged', {
+              eventId: data.eventId,
+              eventTitle: data.eventTitle,
+              taggedByName: data.taggedByName,
+            });
+          }
+          if (data.employeeId) {
+            io.to(`employee:${data.employeeId}`).emit('calendar_event_tagged', {
+              eventId: data.eventId,
+              eventTitle: data.eventTitle,
+              taggedByName: data.taggedByName,
+            });
+          }
         }
       }
     } catch (err) {
@@ -118,7 +134,9 @@ export function registerSystemHandlers(io: UnifiedServer) {
         'webhooks:panic',
         'events:calendar'
       );
-      console.log('[Socket Redis Sub] Subscribed to alerts, dashboard, ticket, HR activity, panic, and calendar channels');
+      console.log(
+        '[Socket Redis Sub] Subscribed to alerts, dashboard, ticket, HR activity, panic, and calendar channels'
+      );
     } catch (err) {
       console.error('[Socket Redis Sub] Subscription Failed:', err);
     }

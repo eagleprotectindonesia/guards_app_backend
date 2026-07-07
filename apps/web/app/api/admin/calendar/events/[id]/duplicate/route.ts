@@ -1,12 +1,9 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@repo/database';
+import { prisma, createCalendarEvent } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
-import { createCalendarEvent } from '@repo/database';
+import { redis } from '@repo/database/redis';
 
-export async function POST(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requirePermission('user-calendar:create');
   const { id } = await params;
 
@@ -35,6 +32,16 @@ export async function POST(
       priority: existing.priority ?? undefined,
       color: existing.color ?? undefined,
     });
+
+    redis
+      .publish(
+        'events:calendar',
+        JSON.stringify({
+          type: 'calendar:event_created',
+          data: { eventId: event.id, kind: existing.kind, adminId: session.id },
+        })
+      )
+      .catch(err => console.error('[Calendar] Redis publish error:', err));
 
     return NextResponse.json({ item: event }, { status: 201 });
   } catch (error: unknown) {

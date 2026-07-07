@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { X, Calendar, Clock, MapPin, User, Tag } from 'lucide-react';
+import { KIND_LABELS } from '@repo/shared';
 import type { CalendarItem } from '../types';
 
 interface EventDetailPanelProps {
@@ -10,35 +12,35 @@ interface EventDetailPanelProps {
   hasDeletePermission: boolean;
 }
 
-const KIND_LABELS: Record<string, string> = {
-  holiday: 'Holiday',
-  office_memo: 'Office Memo',
-  leave: 'Leave',
-  meeting: 'Meeting',
-  client_meeting: 'Client Meeting',
-  reminder: 'Reminder',
-  task: 'Task',
-  deadline: 'Deadline',
-  follow_up: 'Follow-up',
-  training: 'Training',
-  personal_event: 'Personal Event',
-  other: 'Other',
-};
+export function EventDetailPanel({
+  event,
+  onClose,
+  onEdit,
+  onDelete,
+  hasEditPermission,
+  hasDeletePermission,
+}: EventDetailPanelProps) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-export function EventDetailPanel({ event, onClose, onEdit, onDelete, hasEditPermission, hasDeletePermission }: EventDetailPanelProps) {
   const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this event?')) return;
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
     try {
       const res = await fetch(`/api/admin/calendar/events/${event.originalId}`, {
         method: 'DELETE',
       });
       if (res.ok) {
+        setConfirmDelete(false);
         onDelete();
       }
     } catch (err) {
       console.error('Failed to delete event:', err);
     }
   };
+
+  const cancelDelete = () => setConfirmDelete(false);
 
   return (
     <div className="w-96 rounded-lg border border-border bg-card p-4">
@@ -77,20 +79,26 @@ export function EventDetailPanel({ event, onClose, onEdit, onDelete, hasEditPerm
           <div className="flex items-center gap-2">
             <User className="h-4 w-4 text-muted-foreground" />
             <span>{event.ownerName}</span>
-            <span className={`ml-1 rounded px-1.5 py-0.5 text-xs ${
-              event.ownerType === 'admin' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
-            }`}>
+            <span
+              className={`ml-1 rounded px-1.5 py-0.5 text-xs ${
+                event.ownerType === 'admin' ? 'bg-blue-500/20 text-blue-400' : 'bg-green-500/20 text-green-400'
+              }`}
+            >
               {event.ownerType === 'employee' ? 'Employee' : 'Admin'}
             </span>
           </div>
 
           {event.priority && event.priority !== 'normal' && (
             <div className="flex items-center gap-2">
-              <span className={`rounded px-2 py-0.5 text-xs font-medium ${
-                event.priority === 'urgent' ? 'bg-red-500/20 text-red-400' :
-                event.priority === 'high' ? 'bg-orange-500/20 text-orange-400' :
-                'bg-muted text-muted-foreground'
-              }`}>
+              <span
+                className={`rounded px-2 py-0.5 text-xs font-medium ${
+                  event.priority === 'urgent'
+                    ? 'bg-red-500/20 text-red-400'
+                    : event.priority === 'high'
+                      ? 'bg-orange-500/20 text-orange-400'
+                      : 'bg-muted text-muted-foreground'
+                }`}
+              >
                 {event.priority.toUpperCase()}
               </span>
             </div>
@@ -104,13 +112,11 @@ export function EventDetailPanel({ event, onClose, onEdit, onDelete, hasEditPerm
               <span>Tagged users</span>
             </div>
             <div className="flex flex-wrap gap-1">
-              {event.taggedUsers.map((u) => (
+              {event.taggedUsers.map(u => (
                 <span
                   key={u.id}
                   className={`rounded px-2 py-0.5 text-xs ${
-                    u.type === 'admin'
-                      ? 'bg-blue-500/10 text-blue-400'
-                      : 'bg-green-500/10 text-green-400'
+                    u.type === 'admin' ? 'bg-blue-500/10 text-blue-400' : 'bg-green-500/10 text-green-400'
                   }`}
                 >
                   {u.name}
@@ -123,7 +129,7 @@ export function EventDetailPanel({ event, onClose, onEdit, onDelete, hasEditPerm
 
       {(hasEditPermission || hasDeletePermission) && (
         <div className="flex gap-2 border-t border-border pt-3">
-          {hasEditPermission && (
+          {hasEditPermission && !confirmDelete && (
             <button
               onClick={() => onEdit(event.originalId)}
               className="flex-1 rounded-lg bg-muted py-2 text-sm font-medium text-foreground hover:bg-muted/70"
@@ -131,13 +137,29 @@ export function EventDetailPanel({ event, onClose, onEdit, onDelete, hasEditPerm
               Edit
             </button>
           )}
-          {hasDeletePermission && (
+          {hasDeletePermission && !confirmDelete && (
             <button
               onClick={handleDelete}
               className="flex-1 rounded-lg bg-red-600/20 py-2 text-sm font-medium text-red-400 hover:bg-red-600/30"
             >
               Delete
             </button>
+          )}
+          {confirmDelete && (
+            <div className="flex w-full gap-2">
+              <button
+                onClick={cancelDelete}
+                className="flex-1 rounded-lg bg-muted py-2 text-sm font-medium text-foreground hover:bg-muted/70"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                Confirm Delete
+              </button>
+            </div>
           )}
         </div>
       )}

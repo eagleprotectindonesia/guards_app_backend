@@ -6,13 +6,9 @@ function dateKeyToDate(value: string): Date {
   return new Date(`${value}T00:00:00Z`);
 }
 
-export type CalendarEventCreator =
-  | { type: 'employee'; id: string }
-  | { type: 'admin'; id: string };
+export type CalendarEventCreator = { type: 'employee'; id: string } | { type: 'admin'; id: string };
 
-export type CalendarEventOwner =
-  | { type: 'employee'; id: string }
-  | { type: 'admin'; id: string };
+export type CalendarEventOwner = { type: 'employee'; id: string } | { type: 'admin'; id: string };
 
 export interface CreateCalendarEventInput {
   employeeId?: string;
@@ -68,10 +64,7 @@ export interface ListCalendarEventsParams {
   tx?: TxLike;
 }
 
-export async function createCalendarEvent(
-  input: CreateCalendarEventInput,
-  tx: TxLike = prisma
-) {
+export async function createCalendarEvent(input: CreateCalendarEventInput, tx: TxLike = prisma) {
   const { taggedEmployeeIds, taggedAdminIds, ...eventData } = input;
   const event = await tx.calendarEvent.create({
     data: {
@@ -109,11 +102,7 @@ export async function createCalendarEvent(
   return event;
 }
 
-export async function updateCalendarEvent(
-  id: string,
-  input: UpdateCalendarEventInput,
-  tx: TxLike = prisma
-) {
+export async function updateCalendarEvent(id: string, input: UpdateCalendarEventInput, tx: TxLike = prisma) {
   const { taggedEmployeeIds, taggedAdminIds, ...eventData } = input;
   const data: Record<string, unknown> = {};
   if (eventData.kind !== undefined) data.kind = eventData.kind;
@@ -123,7 +112,13 @@ export async function updateCalendarEvent(
   if (eventData.endDate !== undefined) data.endDate = dateKeyToDate(eventData.endDate);
   if (eventData.startTime !== undefined) data.startTime = eventData.startTime;
   if (eventData.endTime !== undefined) data.endTime = eventData.endTime;
-  if (eventData.allDay !== undefined) data.allDay = eventData.allDay;
+  if (eventData.allDay !== undefined) {
+    data.allDay = eventData.allDay;
+    if (eventData.allDay === true) {
+      data.startTime = null;
+      data.endTime = null;
+    }
+  }
   if (eventData.location !== undefined) data.location = eventData.location;
   if (eventData.clientName !== undefined) data.clientName = eventData.clientName;
   if (eventData.trainerName !== undefined) data.trainerName = eventData.trainerName;
@@ -170,7 +165,21 @@ export async function getCalendarEventById(id: string, tx: TxLike = prisma) {
 }
 
 export async function listCalendarEvents(params: ListCalendarEventsParams) {
-  const { fromDate, toDate, employeeId, adminId, employeeIds, kinds, search, priority, clientName, taggedUserId, includeTags, includeOwner, tx = prisma } = params;
+  const {
+    fromDate,
+    toDate,
+    employeeId,
+    adminId,
+    employeeIds,
+    kinds,
+    search,
+    priority,
+    clientName,
+    taggedUserId,
+    includeTags,
+    includeOwner,
+    tx = prisma,
+  } = params;
 
   const where: Prisma.CalendarEventWhereInput = {
     deletedAt: null,
@@ -181,14 +190,11 @@ export async function listCalendarEvents(params: ListCalendarEventsParams) {
   const orClauses: Prisma.CalendarEventWhereInput[] = [];
 
   if (employeeId) {
-    orClauses.push(
-      { employeeId },
-      { tags: { some: { employeeId, participantType: 'employee' as const } } },
-    );
+    orClauses.push({ employeeId }, { tags: { some: { employeeId, participantType: 'employee' as const } } });
   }
 
   if (adminId) {
-    orClauses.push({ adminId });
+    orClauses.push({ adminId }, { tags: { some: { adminId, participantType: 'admin' as const } } });
   }
 
   if (employeeIds && employeeIds.length > 0) {
@@ -269,12 +275,13 @@ export async function listEmployeeCalendarEvents(
       deletedAt: null,
       endDate: { gte: fromDate },
       startDate: { lte: toDate },
-      OR: [
-        { employeeId },
-        { tags: { some: { employeeId, participantType: 'employee' } } },
-      ],
+      OR: [{ employeeId }, { tags: { some: { employeeId, participantType: 'employee' } } }],
     },
     orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
+    include: {
+      employee: { select: { id: true, fullName: true } },
+      admin: { select: { id: true, name: true } },
+    },
   });
 }
 
@@ -292,7 +299,18 @@ export interface CalendarDaySummaryParams {
 }
 
 export async function listCalendarDaySummary(params: CalendarDaySummaryParams) {
-  const { fromDate, toDate, employeeId, employeeIds, adminId, kinds, priority, clientName, taggedUserId, tx = prisma } = params;
+  const {
+    fromDate,
+    toDate,
+    employeeId,
+    employeeIds,
+    adminId,
+    kinds,
+    priority,
+    clientName,
+    taggedUserId,
+    tx = prisma,
+  } = params;
 
   const where: Prisma.CalendarEventWhereInput = {
     deletedAt: null,
@@ -348,7 +366,7 @@ export async function listCalendarDaySummary(params: CalendarDaySummaryParams) {
     orderBy: { startDate: 'asc' },
   });
 
-  return rows.map((r) => ({
+  return rows.map(r => ({
     date: r.startDate.toISOString().slice(0, 10),
     count: r._count.id,
   }));

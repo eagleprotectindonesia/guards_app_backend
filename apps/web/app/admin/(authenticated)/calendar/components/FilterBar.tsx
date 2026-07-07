@@ -1,18 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, X } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { ALL_CALENDAR_EVENT_KINDS, KIND_LABELS } from '@repo/shared';
 
-const KIND_OPTIONS = [
-  { value: 'meeting', label: 'Meeting' },
-  { value: 'client_meeting', label: 'Client Meeting' },
-  { value: 'reminder', label: 'Reminder' },
-  { value: 'task', label: 'Task' },
-  { value: 'deadline', label: 'Deadline' },
-  { value: 'follow_up', label: 'Follow-up' },
-  { value: 'training', label: 'Training' },
-  { value: 'personal_event', label: 'Personal' },
-  { value: 'other', label: 'Other' },
-];
+const KIND_OPTIONS = ALL_CALENDAR_EVENT_KINDS.map(k => ({
+  value: k,
+  label: KIND_LABELS[k],
+}));
 
 const PRIORITY_OPTIONS = [
   { value: 'urgent', label: 'Urgent' },
@@ -80,13 +74,13 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
 
   const toggleKind = (kind: string) => {
     const current = filters.kinds ?? [];
-    const next = current.includes(kind) ? current.filter((k) => k !== kind) : [...current, kind];
+    const next = current.includes(kind) ? current.filter(k => k !== kind) : [...current, kind];
     onFiltersChange({ ...filters, kinds: next.length > 0 ? next : undefined });
   };
 
   const togglePriority = (priority: string) => {
     const current = filters.priority ?? [];
-    const next = current.includes(priority) ? current.filter((p) => p !== priority) : [...current, priority];
+    const next = current.includes(priority) ? current.filter(p => p !== priority) : [...current, priority];
     onFiltersChange({ ...filters, priority: next.length > 0 ? next : undefined });
   };
 
@@ -95,7 +89,8 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
     onFiltersChange({});
   };
 
-  const hasAnyFilter = filters.search || filters.kinds?.length || filters.priority?.length || filters.employeeId || filters.clientName;
+  const hasAnyFilter =
+    filters.search || filters.kinds?.length || filters.priority?.length || filters.employeeId || filters.clientName;
 
   return (
     <div className="flex items-center gap-2">
@@ -104,7 +99,7 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
         <input
           type="text"
           value={searchInput}
-          onChange={(e) => handleSearchChange(e.target.value)}
+          onChange={e => handleSearchChange(e.target.value)}
           placeholder="Search events..."
           className="w-56 rounded-lg border border-input bg-card py-2 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-red-500 focus:outline-none"
         />
@@ -114,14 +109,16 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
         <button
           onClick={() => setShowKindDropdown(!showKindDropdown)}
           className={`rounded-lg border px-3 py-2 text-sm ${
-            filters.kinds?.length ? 'border-red-600 bg-red-600/10 text-red-400' : 'border-input text-foreground hover:border-ring/50'
+            filters.kinds?.length
+              ? 'border-red-600 bg-red-600/10 text-red-400'
+              : 'border-input text-foreground hover:border-ring/50'
           }`}
         >
           {filters.kinds?.length ? `Kind (${filters.kinds.length})` : 'Kind'}
         </button>
         {showKindDropdown && (
           <div className="absolute left-0 top-full z-10 mt-1 w-44 rounded-lg border border-border bg-popover p-2 shadow-lg">
-            {KIND_OPTIONS.map((k) => (
+            {KIND_OPTIONS.map(k => (
               <button
                 key={k.value}
                 onClick={() => toggleKind(k.value)}
@@ -141,14 +138,16 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
         <button
           onClick={() => setShowPriorityDropdown(!showPriorityDropdown)}
           className={`rounded-lg border px-3 py-2 text-sm ${
-            filters.priority?.length ? 'border-red-600 bg-red-600/10 text-red-400' : 'border-input text-foreground hover:border-ring/50'
+            filters.priority?.length
+              ? 'border-red-600 bg-red-600/10 text-red-400'
+              : 'border-input text-foreground hover:border-ring/50'
           }`}
         >
           {filters.priority?.length ? `Priority (${filters.priority.length})` : 'Priority'}
         </button>
         {showPriorityDropdown && (
           <div className="absolute left-0 top-full z-10 mt-1 w-36 rounded-lg border border-border bg-popover p-2 shadow-lg">
-            {PRIORITY_OPTIONS.map((p) => (
+            {PRIORITY_OPTIONS.map(p => (
               <button
                 key={p.value}
                 onClick={() => togglePriority(p.value)}
@@ -168,7 +167,9 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
         <button
           onClick={() => setShowEmployeeDropdown(!showEmployeeDropdown)}
           className={`rounded-lg border px-3 py-2 text-sm ${
-            filters.employeeId ? 'border-red-600 bg-red-600/10 text-red-400' : 'border-input text-foreground hover:border-ring/50'
+            filters.employeeId
+              ? 'border-red-600 bg-red-600/10 text-red-400'
+              : 'border-input text-foreground hover:border-ring/50'
           }`}
         >
           {filters.employeeId ? 'Employee' : 'All Employees'}
@@ -176,15 +177,21 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
         {showEmployeeDropdown && (
           <div className="absolute left-0 top-full z-10 mt-1 max-h-64 w-64 overflow-y-auto rounded-lg border border-border bg-popover p-2 shadow-lg">
             <button
-              onClick={() => { onFiltersChange({ ...filters, employeeId: undefined }); setShowEmployeeDropdown(false); }}
+              onClick={() => {
+                onFiltersChange({ ...filters, employeeId: undefined });
+                setShowEmployeeDropdown(false);
+              }}
               className={`flex w-full items-center rounded px-2 py-1.5 text-sm ${!filters.employeeId ? 'text-red-400' : 'text-foreground hover:bg-muted'}`}
             >
               All Employees
             </button>
-            {(employees ?? []).map((emp) => (
+            {(employees ?? []).map(emp => (
               <button
                 key={emp.id}
-                onClick={() => { onFiltersChange({ ...filters, employeeId: emp.id }); setShowEmployeeDropdown(false); }}
+                onClick={() => {
+                  onFiltersChange({ ...filters, employeeId: emp.id });
+                  setShowEmployeeDropdown(false);
+                }}
                 className={`flex w-full items-center rounded px-2 py-1.5 text-sm ${
                   filters.employeeId === emp.id ? 'text-red-400' : 'text-foreground hover:bg-muted'
                 }`}
