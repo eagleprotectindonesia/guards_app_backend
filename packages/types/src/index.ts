@@ -401,9 +401,7 @@ export interface GroupChatConversation {
 
 export type ConversationKind = 'direct' | 'group';
 
-export type ConversationKey =
-  | { kind: 'direct'; employeeId: string }
-  | { kind: 'group'; groupId: string };
+export type ConversationKey = { kind: 'direct'; employeeId: string } | { kind: 'group'; groupId: string };
 
 export interface ChatInboxItem {
   kind: ConversationKind;
@@ -436,7 +434,15 @@ export interface GroupShift {
 }
 
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type TicketStatus = 'NEW' | 'ACKNOWLEDGED' | 'WAITING_INFORMATION' | 'IN_PROGRESS' | 'SOLVED' | 'CLOSED' | 'CANNOT_RESOLVE' | 'CANCELLED';
+export type TicketStatus =
+  | 'NEW'
+  | 'ACKNOWLEDGED'
+  | 'WAITING_INFORMATION'
+  | 'IN_PROGRESS'
+  | 'SOLVED'
+  | 'CLOSED'
+  | 'CANNOT_RESOLVE'
+  | 'CANCELLED';
 export type TicketClaimantType = 'ADMIN' | 'EMPLOYEE';
 
 export interface Ticket {
@@ -512,6 +518,8 @@ export interface CalendarItem {
   allDay: boolean;
   priority: 'urgent' | 'high' | 'normal' | 'low' | null;
   location: string | null;
+  latitude: number | null;
+  longitude: number | null;
   status: string | null;
   colorHint: string | null;
 }
@@ -553,6 +561,8 @@ export interface CreateCalendarEventInput {
   endTime?: string;
   allDay: boolean;
   location?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   clientName?: string;
   trainerName?: string;
   priority?: 'urgent' | 'high' | 'normal' | 'low';
@@ -571,6 +581,8 @@ export interface UpdateCalendarEventInput {
   endTime?: string;
   allDay?: boolean;
   location?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   clientName?: string;
   trainerName?: string;
   priority?: 'urgent' | 'high' | 'normal' | 'low';
@@ -590,6 +602,8 @@ export interface CalendarEventItem {
   endTime: string | null;
   allDay: boolean;
   location: string | null;
+  latitude: number | null;
+  longitude: number | null;
   clientName: string | null;
   trainerName: string | null;
   priority: 'urgent' | 'high' | 'normal' | 'low' | null;
@@ -603,4 +617,3 @@ export interface CalendarEventItem {
 }
 
 export * from './socket-events';
-

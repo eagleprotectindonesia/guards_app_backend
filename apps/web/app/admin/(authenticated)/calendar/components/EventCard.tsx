@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Clock, User } from 'lucide-react';
 import { KIND_COLORS } from '@repo/shared';
 import type { CalendarItem } from '../types';
@@ -7,12 +8,13 @@ interface EventCardProps {
   onClick: () => void;
 }
 
-export function EventCard({ item, onClick }: EventCardProps) {
+export const EventCard = memo(function EventCard({ item, onClick }: EventCardProps) {
   const color = item.colorHint ?? KIND_COLORS[item.kind] ?? '#8E8E93';
 
   return (
     <button
       onClick={onClick}
+      aria-label={`${item.title}, ${item.kind}, ${item.startsAt ? 'at ' + item.startsAt.slice(11, 16) : ''}`}
       className="w-full rounded-lg border border-border bg-card/50 p-3 text-left transition-colors hover:bg-muted"
     >
       <div className="flex items-start gap-3">
@@ -59,4 +61,4 @@ export function EventCard({ item, onClick }: EventCardProps) {
       </div>
     </button>
   );
-}
+});

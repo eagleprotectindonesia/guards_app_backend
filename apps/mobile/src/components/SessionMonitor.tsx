@@ -110,14 +110,20 @@ export default function SessionMonitor() {
         refreshShiftQueries();
       };
 
+      const onCalendarChanged = () => {
+        queryClient.invalidateQueries({ queryKey: ['calendar'] });
+      };
+
       socket.on('auth:force_logout', onForceLogout);
       socket.on('connect_error', onConnectError);
       socket.on('shift:updated', onShiftUpdated);
+      socket.on('calendar_changed', onCalendarChanged);
 
       cleanupSocketListeners = () => {
         socket.off('auth:force_logout', onForceLogout);
         socket.off('connect_error', onConnectError);
         socket.off('shift:updated', onShiftUpdated);
+        socket.off('calendar_changed', onCalendarChanged);
       };
     };
 

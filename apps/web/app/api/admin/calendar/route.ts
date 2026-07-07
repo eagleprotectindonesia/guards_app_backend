@@ -32,8 +32,18 @@ export async function GET(req: Request) {
     const fromDate = startOfDay(parseISO(parsed.data.from));
     const toDate = endOfDay(parseISO(parsed.data.to));
 
-    const kinds = kindFilter ? kindFilter.split(',').map((k) => k.trim()).filter(Boolean) : undefined;
-    const priorities = priorityFilter ? priorityFilter.split(',').map((p) => p.trim()).filter(Boolean) : undefined;
+    const kinds = kindFilter
+      ? kindFilter
+          .split(',')
+          .map(k => k.trim())
+          .filter(Boolean)
+      : undefined;
+    const priorities = priorityFilter
+      ? priorityFilter
+          .split(',')
+          .map(p => p.trim())
+          .filter(Boolean)
+      : undefined;
 
     const employeeEventWhere: Record<string, unknown> = {
       deletedAt: null,
@@ -117,7 +127,19 @@ export async function GET(req: Request) {
       }),
     ]);
 
-    type Kind = 'holiday' | 'office_memo' | 'leave' | 'meeting' | 'client_meeting' | 'reminder' | 'task' | 'deadline' | 'follow_up' | 'training' | 'personal_event' | 'other';
+    type Kind =
+      | 'holiday'
+      | 'office_memo'
+      | 'leave'
+      | 'meeting'
+      | 'client_meeting'
+      | 'reminder'
+      | 'task'
+      | 'deadline'
+      | 'follow_up'
+      | 'training'
+      | 'personal_event'
+      | 'other';
 
     const items: Array<{
       id: string;
@@ -130,6 +152,8 @@ export async function GET(req: Request) {
       allDay: boolean;
       priority: 'urgent' | 'high' | 'normal' | 'low' | null;
       location: string | null;
+      latitude: number | null;
+      longitude: number | null;
       status: string | null;
       colorHint: string | null;
       ownerId: string;
@@ -152,6 +176,8 @@ export async function GET(req: Request) {
           allDay: true,
           priority: null,
           location: null,
+          latitude: null,
+          longitude: null,
           status: h.type,
           colorHint: '#FF9500',
           ownerId: '',
@@ -176,6 +202,8 @@ export async function GET(req: Request) {
           allDay: true,
           priority: null,
           location: null,
+          latitude: null,
+          longitude: null,
           status: null,
           colorHint: '#AF52DE',
           ownerId: '',
@@ -199,16 +227,18 @@ export async function GET(req: Request) {
       const days = expandToDays(e.startDate, e.endDate, fromDate, toDate);
       for (const day of days) {
         const kind = e.kind as Kind;
-        const taggedUsers = (e.tags ?? []).map((t: unknown) => {
-          const row = t as TagRow;
-          if (row.participantType === 'employee' && row.employee) {
-            return { id: row.employee.id, type: 'employee' as const, name: row.employee.fullName };
-          }
-          if (row.participantType === 'admin' && row.admin) {
-            return { id: row.admin.id, type: 'admin' as const, name: row.admin.name, email: row.admin.email };
-          }
-          return null;
-        }).filter(Boolean) as TaggedUser[];
+        const taggedUsers = (e.tags ?? [])
+          .map((t: unknown) => {
+            const row = t as TagRow;
+            if (row.participantType === 'employee' && row.employee) {
+              return { id: row.employee.id, type: 'employee' as const, name: row.employee.fullName };
+            }
+            if (row.participantType === 'admin' && row.admin) {
+              return { id: row.admin.id, type: 'admin' as const, name: row.admin.name, email: row.admin.email };
+            }
+            return null;
+          })
+          .filter(Boolean) as TaggedUser[];
         items.push({
           id: `${kind}:${e.id}:${day.toISOString().slice(0, 10)}`,
           originalId: e.id,
@@ -220,6 +250,8 @@ export async function GET(req: Request) {
           allDay: e.allDay,
           priority: (e.priority as 'urgent' | 'high' | 'normal' | 'low') ?? null,
           location: e.location ?? null,
+          latitude: e.latitude ?? null,
+          longitude: e.longitude ?? null,
           status: null,
           colorHint: e.color ?? defaultColors[kind] ?? '#8E8E93',
           ownerId: e.employee?.id ?? '',
@@ -234,16 +266,18 @@ export async function GET(req: Request) {
       const days = expandToDays(e.startDate, e.endDate, fromDate, toDate);
       for (const day of days) {
         const kind = e.kind as Kind;
-        const taggedUsers = (e.tags ?? []).map((t: unknown) => {
-          const row = t as TagRow;
-          if (row.participantType === 'employee' && row.employee) {
-            return { id: row.employee.id, type: 'employee' as const, name: row.employee.fullName };
-          }
-          if (row.participantType === 'admin' && row.admin) {
-            return { id: row.admin.id, type: 'admin' as const, name: row.admin.name, email: row.admin.email };
-          }
-          return null;
-        }).filter(Boolean) as TaggedUser[];
+        const taggedUsers = (e.tags ?? [])
+          .map((t: unknown) => {
+            const row = t as TagRow;
+            if (row.participantType === 'employee' && row.employee) {
+              return { id: row.employee.id, type: 'employee' as const, name: row.employee.fullName };
+            }
+            if (row.participantType === 'admin' && row.admin) {
+              return { id: row.admin.id, type: 'admin' as const, name: row.admin.name, email: row.admin.email };
+            }
+            return null;
+          })
+          .filter(Boolean) as TaggedUser[];
         items.push({
           id: `${kind}:${e.id}:${day.toISOString().slice(0, 10)}`,
           originalId: e.id,
@@ -255,6 +289,8 @@ export async function GET(req: Request) {
           allDay: e.allDay,
           priority: (e.priority as 'urgent' | 'high' | 'normal' | 'low') ?? null,
           location: e.location ?? null,
+          latitude: e.latitude ?? null,
+          longitude: e.longitude ?? null,
           status: null,
           colorHint: e.color ?? defaultColors[kind] ?? '#8E8E93',
           ownerId: e.admin?.id ?? '',

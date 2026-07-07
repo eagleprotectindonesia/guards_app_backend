@@ -1,6 +1,9 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
 import { QueryClient } from '@tanstack/react-query';
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
+import { persistQueryClient } from '@tanstack/query-persist-client-core';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { storage, STORAGE_KEYS } from '../utils/storage';
 
 let authTokenCache: string | null = null;
@@ -84,6 +87,25 @@ export const queryClient = new QueryClient({
     },
   },
 });
+
+const asyncStoragePersister = createAsyncStoragePersister({
+  storage: AsyncStorage,
+  key: 'REACT_QUERY_OFFLINE_CACHE',
+});
+
+export function persistCalendarQueries() {
+  persistQueryClient({
+    queryClient,
+    persister: asyncStoragePersister,
+    maxAge: 1000 * 60 * 60 * 24, // 24 hours
+    dehydrateOptions: {
+      shouldDehydrateQuery: (query: { queryKey: readonly unknown[] }): boolean => {
+        const key = (query.queryKey as unknown[])[0];
+        return key === 'calendar';
+      },
+    },
+  } as any);
+}
 
 // Add interceptor to handle 401s (Global Logout)
 export const setupInterceptors = (onUnauthorized: () => Promise<void> | void) => {

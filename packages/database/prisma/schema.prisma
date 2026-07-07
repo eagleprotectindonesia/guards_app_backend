@@ -1186,6 +1186,8 @@ model CalendarEvent {
   endTime     String?           @map("end_time")
   allDay      Boolean           @default(false) @map("all_day")
   location    String?
+  latitude    Float?            @map("latitude")
+  longitude   Float?            @map("longitude")
   clientName  String?           @map("client_name")
   trainerName String?           @map("trainer_name")
   priority              String?           @default("normal")

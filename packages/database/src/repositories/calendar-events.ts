@@ -23,6 +23,8 @@ export interface CreateCalendarEventInput {
   endTime?: string;
   allDay: boolean;
   location?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   clientName?: string;
   trainerName?: string;
   priority?: string;
@@ -53,6 +55,8 @@ export interface UpdateCalendarEventInput {
   endTime?: string;
   allDay?: boolean;
   location?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   clientName?: string;
   trainerName?: string;
   priority?: string;
@@ -94,6 +98,8 @@ export async function createCalendarEvent(input: CreateCalendarEventInput, tx: T
       endTime: eventData.endTime ?? null,
       allDay: eventData.allDay,
       location: eventData.location ?? null,
+      latitude: eventData.latitude ?? null,
+      longitude: eventData.longitude ?? null,
       clientName: eventData.clientName ?? null,
       trainerName: eventData.trainerName ?? null,
       priority: eventData.priority ?? null,
@@ -139,6 +145,8 @@ export async function updateCalendarEvent(id: string, input: UpdateCalendarEvent
     }
   }
   if (eventData.location !== undefined) data.location = eventData.location;
+  if (eventData.latitude !== undefined) data.latitude = eventData.latitude;
+  if (eventData.longitude !== undefined) data.longitude = eventData.longitude;
   if (eventData.clientName !== undefined) data.clientName = eventData.clientName;
   if (eventData.trainerName !== undefined) data.trainerName = eventData.trainerName;
   if (eventData.priority !== undefined) data.priority = eventData.priority;

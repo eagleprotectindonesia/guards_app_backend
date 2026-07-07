@@ -59,8 +59,10 @@ export function MonthGrid({ currentDate, items, daySummary, onDateClick, onEvent
           const dateStr = format(info.date, 'yyyy-MM-dd');
           const count = daySummary.get(dateStr);
           if (count && !info.isOutside) {
+            const existing = info.el.querySelector('.calendar-dot-marker');
+            if (existing) existing.remove();
             const dot = document.createElement('div');
-            dot.className = 'flex justify-center mt-0.5';
+            dot.className = 'calendar-dot-marker flex justify-center mt-0.5';
             dot.innerHTML = `<span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>`;
             info.el.querySelector('.fc-daygrid-day-events')?.prepend(dot);
           }

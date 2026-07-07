@@ -1,3 +1,5 @@
+import { memo } from 'react';
+import { Linking } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { HStack } from '@/components/ui/hstack';
 import { VStack } from '@/components/ui/vstack';
@@ -71,7 +73,7 @@ function getKindLabel(kind: string): string {
   return KIND_LABELS[kind] ?? kind;
 }
 
-export function CalendarEventCard({
+export const CalendarEventCard = memo(function CalendarEventCard({
   item,
   onPress,
   compact = false,
@@ -84,10 +86,13 @@ export function CalendarEventCard({
   const timeStr = formatTimeRange(item)?.replace('All day', t('calendar.allDay', 'All day'));
   const kindColor = item.colorHint || '#FF3B30';
   const icon = getKindIcon(item.kind, kindColor);
+  const kindLabel = getKindLabel(item.kind);
+
+  const a11yLabel = `${kindLabel}: ${item.title}${timeStr ? ', ' + timeStr : ''}`;
 
   if (compact) {
     return (
-      <Pressable onPress={onPress}>
+      <Pressable onPress={onPress} accessibilityLabel={a11yLabel}>
         <Box className="flex-row items-center py-1.5 px-2 bg-[#0D0D0D] rounded-lg border border-white/5">
           <Box className="w-1.5 h-full rounded-full mr-2" style={{ backgroundColor: kindColor }} />
           <VStack className="flex-1">
@@ -102,7 +107,7 @@ export function CalendarEventCard({
   }
 
   return (
-    <Pressable onPress={onPress}>
+    <Pressable onPress={onPress} accessibilityLabel={a11yLabel}>
       <Box className="bg-[#0D0D0D] rounded-xl border border-white/5 p-3">
         <HStack space="sm" className="items-center mb-1">
           <Box className="w-1.5 h-full rounded-full" style={{ backgroundColor: kindColor }} />
@@ -116,7 +121,7 @@ export function CalendarEventCard({
           </VStack>
           <Box className="px-2 py-0.5 rounded-full" style={{ backgroundColor: `${kindColor}20` }}>
             <Text className="text-xs font-semibold" style={{ color: kindColor }}>
-              {getKindLabel(item.kind)}
+              {kindLabel}
             </Text>
           </Box>
         </HStack>
@@ -137,6 +142,18 @@ export function CalendarEventCard({
           </HStack>
         )}
 
+        {item.latitude != null && item.longitude != null && (
+          <Pressable
+            onPress={() => Linking.openURL(`https://maps.google.com/?q=${item.latitude},${item.longitude}`)}
+            accessibilityLabel="Open in Maps"
+          >
+            <HStack space="xs" className="items-center ml-4 mt-1">
+              <MapPin size={12} color="#FF3B30" />
+              <Text className="text-[#FF3B30] text-xs">Open in Maps</Text>
+            </HStack>
+          </Pressable>
+        )}
+
         {item.status && (
           <HStack space="xs" className="items-center ml-4 mt-1">
             <Text className="text-[#737373] text-xs">{item.status}</Text>
@@ -145,4 +162,4 @@ export function CalendarEventCard({
       </Box>
     </Pressable>
   );
-}
+});
