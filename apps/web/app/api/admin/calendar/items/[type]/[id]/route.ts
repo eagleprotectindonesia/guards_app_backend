@@ -3,16 +3,22 @@ import { prisma } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 
 const VALID_TYPES = [
-  'holiday', 'office_memo', 'leave',
-  'meeting', 'client_meeting', 'reminder', 'task', 'deadline',
-  'follow_up', 'training', 'personal_event', 'other',
+  'holiday',
+  'office_memo',
+  'leave',
+  'meeting',
+  'client_meeting',
+  'reminder',
+  'task',
+  'deadline',
+  'follow_up',
+  'training',
+  'personal_event',
+  'other',
 ] as const;
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ type: string; id: string }> }
-) {
-  await requirePermission('user-calendar:view');
+export async function GET(_req: Request, { params }: { params: Promise<{ type: string; id: string }> }) {
+  const session = await requirePermission('user-calendar:view');
 
   const { type, id } = await params;
 
@@ -47,21 +53,26 @@ export async function GET(
         },
       });
       if (event) {
+        if (event.adminId && event.adminId !== session.id) {
+          return NextResponse.json({ error: 'Not authorized to view this event' }, { status: 403 });
+        }
         type TagRow = {
           participantType: string;
           employee: { id: string; fullName: string } | null;
           admin: { id: string; name: string; email: string } | null;
         };
-        const taggedUsers = (event.tags ?? []).map((t: unknown) => {
-          const row = t as TagRow;
-          if (row.participantType === 'employee' && row.employee) {
-            return { id: row.employee.id, type: 'employee' as const, name: row.employee.fullName };
-          }
-          if (row.participantType === 'admin' && row.admin) {
-            return { id: row.admin.id, type: 'admin' as const, name: row.admin.name, email: row.admin.email };
-          }
-          return null;
-        }).filter(Boolean);
+        const taggedUsers = (event.tags ?? [])
+          .map((t: unknown) => {
+            const row = t as TagRow;
+            if (row.participantType === 'employee' && row.employee) {
+              return { id: row.employee.id, type: 'employee' as const, name: row.employee.fullName };
+            }
+            if (row.participantType === 'admin' && row.admin) {
+              return { id: row.admin.id, type: 'admin' as const, name: row.admin.name, email: row.admin.email };
+            }
+            return null;
+          })
+          .filter(Boolean);
 
         data = {
           ...(event as unknown as Record<string, unknown>),

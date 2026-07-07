@@ -5,12 +5,7 @@ import { calendarListSchema } from '@repo/validations';
 import { KIND_COLORS } from '@repo/shared';
 import { startOfDay, endOfDay, eachDayOfInterval, parseISO } from 'date-fns';
 
-function expandToDays(
-  startDate: Date,
-  endDate: Date,
-  from: Date,
-  to: Date
-): Date[] {
+function expandToDays(startDate: Date, endDate: Date, from: Date, to: Date): Date[] {
   const rangeStart = startDate > from ? startDate : from;
   const rangeEnd = endDate < to ? endDate : to;
   return eachDayOfInterval({ start: rangeStart, end: rangeEnd });
@@ -86,6 +81,8 @@ export async function GET(req: Request) {
         },
         orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
         include: {
+          employee: { select: { id: true, fullName: true } },
+          admin: { select: { id: true, name: true } },
           tags: {
             include: {
               employee: { select: { id: true, fullName: true, employeeNumber: true } },
@@ -96,7 +93,19 @@ export async function GET(req: Request) {
       }),
     ]);
 
-    type Kind = 'holiday' | 'office_memo' | 'leave' | 'meeting' | 'client_meeting' | 'reminder' | 'task' | 'deadline' | 'follow_up' | 'training' | 'personal_event' | 'other';
+    type Kind =
+      | 'holiday'
+      | 'office_memo'
+      | 'leave'
+      | 'meeting'
+      | 'client_meeting'
+      | 'reminder'
+      | 'task'
+      | 'deadline'
+      | 'follow_up'
+      | 'training'
+      | 'personal_event'
+      | 'other';
 
     const items: Array<{
       id: string;
@@ -112,6 +121,9 @@ export async function GET(req: Request) {
       status: string | null;
       colorHint: string | null;
       isOwner: boolean;
+      ownerId: string;
+      ownerType: 'employee' | 'admin';
+      ownerName: string;
       taggedUsers: Array<{ id: string; type: 'employee' | 'admin'; name: string; email?: string }>;
     }> = [];
 
@@ -132,6 +144,9 @@ export async function GET(req: Request) {
           status: h.type,
           colorHint: '#FF9500',
           isOwner: false,
+          ownerId: '',
+          ownerType: 'admin',
+          ownerName: 'System',
           taggedUsers: [],
         });
       }
@@ -154,6 +169,9 @@ export async function GET(req: Request) {
           status: null,
           colorHint: '#AF52DE',
           isOwner: false,
+          ownerId: '',
+          ownerType: 'admin',
+          ownerName: 'System',
           taggedUsers: [],
         });
       }
@@ -175,6 +193,9 @@ export async function GET(req: Request) {
           location: null,
           status: l.status,
           isOwner: true,
+          ownerId: employee.id,
+          ownerType: 'employee',
+          ownerName: employee.fullName,
           taggedUsers: [],
           colorHint:
             l.status === 'approved'
@@ -192,15 +213,17 @@ export async function GET(req: Request) {
       const days = expandToDays(e.startDate, e.endDate, fromDate, toDate);
       for (const day of days) {
         const kind = e.kind as Kind;
-        const taggedUsers = (e.tags ?? []).map((t) => {
-          if (t.participantType === 'employee' && t.employee) {
-            return { id: t.employee.id, type: 'employee' as const, name: t.employee.fullName };
-          }
-          if (t.participantType === 'admin' && t.admin) {
-            return { id: t.admin.id, type: 'admin' as const, name: t.admin.name, email: t.admin.email };
-          }
-          return null;
-        }).filter(Boolean) as Array<{ id: string; type: 'employee' | 'admin'; name: string; email?: string }>;
+        const taggedUsers = (e.tags ?? [])
+          .map(t => {
+            if (t.participantType === 'employee' && t.employee) {
+              return { id: t.employee.id, type: 'employee' as const, name: t.employee.fullName };
+            }
+            if (t.participantType === 'admin' && t.admin) {
+              return { id: t.admin.id, type: 'admin' as const, name: t.admin.name, email: t.admin.email };
+            }
+            return null;
+          })
+          .filter(Boolean) as Array<{ id: string; type: 'employee' | 'admin'; name: string; email?: string }>;
         items.push({
           id: `${kind}:${e.id}:${day.toISOString().slice(0, 10)}`,
           originalId: e.id,
@@ -215,6 +238,9 @@ export async function GET(req: Request) {
           status: null,
           colorHint: e.color ?? defaultColors[kind] ?? '#8E8E93',
           isOwner: e.employeeId === employee.id,
+          ownerId: e.employee?.id ?? e.admin?.id ?? '',
+          ownerType: e.employee ? 'employee' : 'admin',
+          ownerName: e.employee?.fullName ?? e.admin?.name ?? 'Unknown',
           taggedUsers,
         });
       }

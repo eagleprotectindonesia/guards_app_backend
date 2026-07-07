@@ -1,6 +1,12 @@
 'use server';
 
-import { prisma, createCalendarEvent, updateCalendarEvent, deleteCalendarEvent } from '@repo/database';
+import {
+  prisma,
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+  getCalendarEventTags,
+} from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { createCalendarEventSchema, updateCalendarEventSchema } from '@repo/validations';
 import { notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
@@ -33,35 +39,43 @@ export async function createEvent(data: unknown) {
 
   const adminName = await getAdminName(session.id);
 
-  const event = await prisma.$transaction(async (tx) => {
-    return createCalendarEvent({
-      adminId: session.id,
-      kind: body.kind,
-      title: body.title,
-      description: body.description,
-      startDate: body.startDate,
-      endDate: body.endDate,
-      startTime: body.startTime,
-      endTime: body.endTime,
-      allDay: body.allDay,
-      location: body.location,
-      clientName: body.clientName,
-      trainerName: body.trainerName,
-      priority: body.priority,
-      color: body.color,
-      taggedEmployeeIds,
-      taggedAdminIds,
-    }, tx);
+  const event = await prisma.$transaction(async tx => {
+    return createCalendarEvent(
+      {
+        adminId: session.id,
+        kind: body.kind,
+        title: body.title,
+        description: body.description,
+        startDate: body.startDate,
+        endDate: body.endDate,
+        startTime: body.startTime,
+        endTime: body.endTime,
+        allDay: body.allDay,
+        location: body.location,
+        clientName: body.clientName,
+        trainerName: body.trainerName,
+        priority: body.priority,
+        color: body.color,
+        taggedEmployeeIds,
+        taggedAdminIds,
+      },
+      tx
+    );
   });
 
   if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0) {
     await notifyCalendarEventTags(event.id, body.title, taggedEmployeeIds, taggedAdminIds, adminName);
   }
 
-  redis.publish('events:calendar', JSON.stringify({
-    type: 'calendar:event_created',
-    data: { eventId: event.id, kind: body.kind, adminId: session.id },
-  })).catch((err) => console.error('[Calendar] Redis publish error:', err));
+  redis
+    .publish(
+      'events:calendar',
+      JSON.stringify({
+        type: 'calendar:event_created',
+        data: { eventId: event.id, kind: body.kind, adminId: session.id },
+      })
+    )
+    .catch(err => console.error('[Calendar] Redis publish error:', err));
 
   revalidatePath('/admin/calendar');
   return { success: true };
@@ -85,6 +99,23 @@ export async function updateEvent(id: string, data: unknown) {
 
   const body = parsed.data;
 
+  const taggedEmployeeIds = body.taggedEmployeeIds !== undefined ? (body.taggedEmployeeIds ?? []) : undefined;
+  const taggedAdminIds = body.taggedAdminIds;
+
+  if ((taggedEmployeeIds && taggedEmployeeIds.length > 0) || (taggedAdminIds && taggedAdminIds.length > 0)) {
+    const validationErrors = await validateTaggedUsers(taggedEmployeeIds ?? [], taggedAdminIds ?? []);
+    if (validationErrors.length > 0) {
+      return { success: false, error: validationErrors.join('; ') };
+    }
+  }
+
+  const oldTags = await getCalendarEventTags(id);
+  const oldEmployeeIds = oldTags.filter(t => t.type === 'employee').map(t => t.id);
+  const oldAdminIds = oldTags.filter(t => t.type === 'admin').map(t => t.id);
+
+  const newEmployeeIds = taggedEmployeeIds ?? oldEmployeeIds;
+  const newAdminIds = taggedAdminIds ?? oldAdminIds;
+
   await updateCalendarEvent(id, {
     kind: body.kind,
     title: body.title,
@@ -99,12 +130,27 @@ export async function updateEvent(id: string, data: unknown) {
     trainerName: body.trainerName,
     priority: body.priority,
     color: body.color,
+    taggedEmployeeIds: newEmployeeIds,
+    taggedAdminIds: newAdminIds,
   });
 
-  redis.publish('events:calendar', JSON.stringify({
-    type: 'calendar:event_updated',
-    data: { eventId: id, adminId: session.id },
-  })).catch((err) => console.error('[Calendar] Redis publish error:', err));
+  const newlyTaggedEmployees = newEmployeeIds.filter(uid => !oldEmployeeIds.includes(uid));
+  const newlyTaggedAdmins = newAdminIds.filter(uid => !oldAdminIds.includes(uid));
+
+  if (newlyTaggedEmployees.length > 0 || newlyTaggedAdmins.length > 0) {
+    const adminName = await getAdminName(session.id);
+    await notifyCalendarEventTags(id, body.title ?? existing.title, newlyTaggedEmployees, newlyTaggedAdmins, adminName);
+  }
+
+  redis
+    .publish(
+      'events:calendar',
+      JSON.stringify({
+        type: 'calendar:event_updated',
+        data: { eventId: id, adminId: session.id },
+      })
+    )
+    .catch(err => console.error('[Calendar] Redis publish error:', err));
 
   revalidatePath('/admin/calendar');
   return { success: true };
@@ -123,10 +169,15 @@ export async function deleteEvent(id: string) {
 
   await deleteCalendarEvent(id);
 
-  redis.publish('events:calendar', JSON.stringify({
-    type: 'calendar:event_deleted',
-    data: { eventId: id, adminId: session.id },
-  })).catch((err) => console.error('[Calendar] Redis publish error:', err));
+  redis
+    .publish(
+      'events:calendar',
+      JSON.stringify({
+        type: 'calendar:event_deleted',
+        data: { eventId: id, adminId: session.id },
+      })
+    )
+    .catch(err => console.error('[Calendar] Redis publish error:', err));
 
   revalidatePath('/admin/calendar');
   return { success: true };
@@ -143,7 +194,7 @@ export async function duplicateEvent(id: string) {
     return { success: false, error: 'Calendar event not found' };
   }
 
-  await createCalendarEvent({
+  const event = await createCalendarEvent({
     adminId: session.id,
     kind: existing.kind,
     title: existing.title,
@@ -159,6 +210,16 @@ export async function duplicateEvent(id: string) {
     priority: existing.priority ?? undefined,
     color: existing.color ?? undefined,
   });
+
+  redis
+    .publish(
+      'events:calendar',
+      JSON.stringify({
+        type: 'calendar:event_created',
+        data: { eventId: event.id, kind: existing.kind, adminId: session.id },
+      })
+    )
+    .catch(err => console.error('[Calendar] Redis publish error:', err));
 
   revalidatePath('/admin/calendar');
   return { success: true };

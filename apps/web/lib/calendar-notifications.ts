@@ -1,6 +1,9 @@
-import { prisma } from '@repo/database';
+import { prisma, createAdminNotifications } from '@repo/database';
 import { sendCalendarEventTagPushNotification } from '@repo/notifications';
 import { redis } from '@repo/database/redis';
+import { locales } from '@repo/shared';
+
+const en = locales.en;
 
 export async function notifyCalendarEventTags(
   eventId: string,
@@ -11,6 +14,9 @@ export async function notifyCalendarEventTags(
 ) {
   const results = { employeeNotified: 0, adminNotified: 0 };
 
+  const title = en.calendar.eventTaggedTitle;
+  const body = en.calendar.eventTaggedBody.replace('{name}', taggedByName).replace('{title}', eventTitle);
+
   for (const empId of taggedEmployeeIds) {
     try {
       await sendCalendarEventTagPushNotification({
@@ -18,20 +24,46 @@ export async function notifyCalendarEventTags(
         eventTitle,
         eventId,
         taggedByName,
+        title,
+        body,
       });
       results.employeeNotified++;
     } catch (err) {
       console.error(`[CalendarTag] Failed to notify employee ${empId}:`, err);
     }
+
+    redis
+      .publish(
+        'events:calendar',
+        JSON.stringify({
+          type: 'calendar:event_tagged',
+          data: { eventId, eventTitle, taggedByName, employeeId: empId },
+        })
+      )
+      .catch(err => console.error('[Calendar] Redis publish error:', err));
   }
 
   if (taggedAdminIds.length > 0) {
     for (const adminId of taggedAdminIds) {
-      redis.publish('events:calendar', JSON.stringify({
-        type: 'calendar:event_tagged',
-        data: { eventId, eventTitle, taggedByName, adminId },
-      })).catch((err) => console.error('[Calendar] Redis publish error:', err));
+      redis
+        .publish(
+          'events:calendar',
+          JSON.stringify({
+            type: 'calendar:event_tagged',
+            data: { eventId, eventTitle, taggedByName, adminId },
+          })
+        )
+        .catch(err => console.error('[Calendar] Redis publish error:', err));
     }
+
+    await createAdminNotifications({
+      adminIds: taggedAdminIds,
+      type: 'calendar_event_tagged',
+      title,
+      body,
+      payload: { eventId, eventTitle, taggedByName },
+    }).catch(err => console.error('[CalendarTag] Failed to persist admin notifications:', err));
+
     results.adminNotified = taggedAdminIds.length;
   }
 
@@ -49,7 +81,7 @@ export async function validateTaggedUsers(
       where: { id: { in: taggedEmployeeIds }, deletedAt: null },
       select: { id: true },
     });
-    const foundIds = new Set(employees.map((e) => e.id));
+    const foundIds = new Set(employees.map(e => e.id));
     for (const id of taggedEmployeeIds) {
       if (!foundIds.has(id)) {
         errors.push(`Employee ${id} not found`);
@@ -62,7 +94,7 @@ export async function validateTaggedUsers(
       where: { id: { in: taggedAdminIds }, deletedAt: null },
       select: { id: true },
     });
-    const foundIds = new Set(admins.map((a) => a.id));
+    const foundIds = new Set(admins.map(a => a.id));
     for (const id of taggedAdminIds) {
       if (!foundIds.has(id)) {
         errors.push(`Admin ${id} not found`);

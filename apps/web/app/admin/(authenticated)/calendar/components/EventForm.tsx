@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Loader2 } from 'lucide-react';
+import { ALL_CALENDAR_EVENT_KINDS, KIND_LABELS, KIND_COLORS } from '@repo/shared';
+import { createCalendarEventSchema, updateCalendarEventSchema } from '@repo/validations';
 
 interface EventFormProps {
   eventId?: string;
@@ -9,17 +11,11 @@ interface EventFormProps {
   onSuccess: () => void;
 }
 
-const KINDS = [
-  { value: 'meeting', label: 'Meeting', defaultColor: '#FF3B30' },
-  { value: 'client_meeting', label: 'Client Meeting', defaultColor: '#FF2D55' },
-  { value: 'reminder', label: 'Reminder', defaultColor: '#FF9500' },
-  { value: 'task', label: 'Task', defaultColor: '#34C759' },
-  { value: 'deadline', label: 'Deadline', defaultColor: '#FF3B30' },
-  { value: 'follow_up', label: 'Follow-up', defaultColor: '#FF9500' },
-  { value: 'training', label: 'Training', defaultColor: '#007AFF' },
-  { value: 'personal_event', label: 'Personal Event', defaultColor: '#007AFF' },
-  { value: 'other', label: 'Other', defaultColor: '#AF52DE' },
-] as const;
+const KINDS = ALL_CALENDAR_EVENT_KINDS.map(k => ({
+  value: k,
+  label: KIND_LABELS[k],
+  defaultColor: KIND_COLORS[k],
+}));
 
 const COLORS = ['#FF3B30', '#FF2D55', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#5AC8FA', '#AF52DE'];
 
@@ -63,13 +59,46 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [initialLoading, setInitialLoading] = useState(!!eventId);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = modalRef.current;
+    if (!el) return;
+    const focusable = el.querySelectorAll<HTMLElement>(
+      'input, textarea, select, button, [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusable.length > 0) focusable[0].focus();
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+      if (e.key !== 'Tab') return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    el.addEventListener('keydown', handleKey);
+    return () => el.removeEventListener('keydown', handleKey);
+  }, [onClose]);
 
   useEffect(() => {
     if (!eventId) return;
     fetch(`/api/admin/calendar/events/${eventId}`)
-      .then((res) => res.json())
-      .then((data) => {
+      .then(res => res.json())
+      .then(data => {
         const item = data.item;
         setForm({
           kind: (item.kind as string) ?? 'meeting',
@@ -89,13 +118,13 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
           taggedAdminIds: [],
         });
       })
-      .catch((err) => console.error('Failed to load event:', err))
+      .catch(err => console.error('Failed to load event:', err))
       .finally(() => setInitialLoading(false));
   }, [eventId]);
 
   const handleKindChange = (kind: string) => {
-    const k = KINDS.find((k) => k.value === kind);
-    setForm((prev) => ({
+    const k = KINDS.find(k => k.value === kind);
+    setForm(prev => ({
       ...prev,
       kind,
       color: prev.color === EMPTY_FORM.color ? (k?.defaultColor ?? '#8E8E93') : prev.color,
@@ -116,29 +145,43 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setFieldErrors({});
+
+    const body: Record<string, unknown> = {
+      kind: form.kind,
+      title: form.title,
+      description: form.description || undefined,
+      startDate: form.startDate,
+      endDate: showEndDate ? form.endDate : form.startDate,
+      startTime: !form.allDay && showStartTime && form.startTime ? form.startTime : undefined,
+      endTime: !form.allDay && showEndTime && form.endTime ? form.endTime : undefined,
+      allDay: form.allDay,
+      priority: form.priority === 'normal' ? undefined : form.priority,
+      color: form.color || undefined,
+      taggedEmployeeIds: form.taggedEmployeeIds.length > 0 ? form.taggedEmployeeIds : undefined,
+      taggedAdminIds: form.taggedAdminIds.length > 0 ? form.taggedAdminIds : undefined,
+    };
+    if (showLocation && form.location) body.location = form.location;
+    if (showClientName && form.clientName) body.clientName = form.clientName;
+    if (showTrainerName && form.trainerName) body.trainerName = form.trainerName;
+
+    const schema = eventId ? updateCalendarEventSchema : createCalendarEventSchema;
+    const parsed = schema.safeParse(body);
+    if (!parsed.success) {
+      const errors: Record<string, string> = {};
+      for (const issue of parsed.error.issues) {
+        const path = issue.path.join('.');
+        if (!errors[path]) {
+          errors[path] = issue.message;
+        }
+      }
+      setFieldErrors(errors);
+      setLoading(false);
+      return;
+    }
 
     try {
-      const body: Record<string, unknown> = {
-        kind: form.kind,
-        title: form.title,
-        description: form.description || undefined,
-        startDate: form.startDate,
-        endDate: showEndDate ? form.endDate : form.startDate,
-        startTime: (!form.allDay && showStartTime && form.startTime) ? form.startTime : undefined,
-        endTime: (!form.allDay && showEndTime && form.endTime) ? form.endTime : undefined,
-        allDay: form.allDay,
-        priority: form.priority === 'normal' ? undefined : form.priority,
-        color: form.color || undefined,
-        taggedEmployeeIds: form.taggedEmployeeIds.length > 0 ? form.taggedEmployeeIds : undefined,
-        taggedAdminIds: form.taggedAdminIds.length > 0 ? form.taggedAdminIds : undefined,
-      };
-      if (showLocation && form.location) body.location = form.location;
-      if (showClientName && form.clientName) body.clientName = form.clientName;
-      if (showTrainerName && form.trainerName) body.trainerName = form.trainerName;
-
-      const url = eventId
-        ? `/api/admin/calendar/events/${eventId}`
-        : '/api/admin/calendar/events';
+      const url = eventId ? `/api/admin/calendar/events/${eventId}` : '/api/admin/calendar/events';
       const method = eventId ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
@@ -172,7 +215,11 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={modalRef}
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6"
+        onClick={e => e.stopPropagation()}
+      >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">{eventId ? 'Edit Event' : 'New Event'}</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
@@ -180,15 +227,13 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
           </button>
         </div>
 
-        {error && (
-          <div className="mb-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">{error}</div>
-        )}
+        {error && <div className="mb-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">Event Type</label>
             <div className="flex flex-wrap gap-1.5">
-              {KINDS.map((k) => (
+              {KINDS.map(k => (
                 <button
                   key={k.value}
                   type="button"
@@ -211,11 +256,12 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
               type="text"
               required
               value={form.title}
-              onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
-              className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-red-500 focus:outline-none"
+              onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+              className={`w-full rounded-lg border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none ${fieldErrors.title ? 'border-red-500' : 'border-input focus:border-red-500'}`}
               placeholder="Event title"
               maxLength={120}
             />
+            {fieldErrors.title && <p className="mt-1 text-xs text-red-400">{fieldErrors.title}</p>}
           </div>
 
           <div className="flex items-center gap-2">
@@ -223,7 +269,14 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
               <input
                 type="checkbox"
                 checked={form.allDay}
-                onChange={(e) => setForm((p) => ({ ...p, allDay: e.target.checked, startTime: e.target.checked ? '' : p.startTime, endTime: e.target.checked ? '' : p.endTime }))}
+                onChange={e =>
+                  setForm(p => ({
+                    ...p,
+                    allDay: e.target.checked,
+                    startTime: e.target.checked ? '' : p.startTime,
+                    endTime: e.target.checked ? '' : p.endTime,
+                  }))
+                }
                 className="rounded border-input bg-card text-red-600 focus:ring-red-500"
               />
               All day
@@ -237,9 +290,10 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
                 type="date"
                 required
                 value={form.startDate}
-                onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
-                className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:border-red-500 focus:outline-none"
+                onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))}
+                className={`w-full rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none ${fieldErrors.startDate ? 'border-red-500' : 'border-input focus:border-red-500'}`}
               />
+              {fieldErrors.startDate && <p className="mt-1 text-xs text-red-400">{fieldErrors.startDate}</p>}
             </div>
             {showEndDate && (
               <div>
@@ -248,9 +302,10 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
                   type="date"
                   required
                   value={form.endDate}
-                  onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
-                  className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:border-red-500 focus:outline-none"
+                  onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))}
+                  className={`w-full rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none ${fieldErrors.endDate ? 'border-red-500' : 'border-input focus:border-red-500'}`}
                 />
+                {fieldErrors.endDate && <p className="mt-1 text-xs text-red-400">{fieldErrors.endDate}</p>}
               </div>
             )}
           </div>
@@ -263,9 +318,10 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
                   <input
                     type="time"
                     value={form.startTime}
-                    onChange={(e) => setForm((p) => ({ ...p, startTime: e.target.value }))}
-                    className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:border-red-500 focus:outline-none"
+                    onChange={e => setForm(p => ({ ...p, startTime: e.target.value }))}
+                    className={`w-full rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none ${fieldErrors.startTime ? 'border-red-500' : 'border-input focus:border-red-500'}`}
                   />
+                  {fieldErrors.startTime && <p className="mt-1 text-xs text-red-400">{fieldErrors.startTime}</p>}
                 </div>
               )}
               {showEndTime && (
@@ -274,9 +330,10 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
                   <input
                     type="time"
                     value={form.endTime}
-                    onChange={(e) => setForm((p) => ({ ...p, endTime: e.target.value }))}
-                    className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:border-red-500 focus:outline-none"
+                    onChange={e => setForm(p => ({ ...p, endTime: e.target.value }))}
+                    className={`w-full rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none ${fieldErrors.endTime ? 'border-red-500' : 'border-input focus:border-red-500'}`}
                   />
+                  {fieldErrors.endTime && <p className="mt-1 text-xs text-red-400">{fieldErrors.endTime}</p>}
                 </div>
               )}
             </div>
@@ -288,7 +345,7 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
               <input
                 type="text"
                 value={form.location}
-                onChange={(e) => setForm((p) => ({ ...p, location: e.target.value }))}
+                onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
                 className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-red-500 focus:outline-none"
                 placeholder="Location"
               />
@@ -301,7 +358,7 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
               <input
                 type="text"
                 value={form.clientName}
-                onChange={(e) => setForm((p) => ({ ...p, clientName: e.target.value }))}
+                onChange={e => setForm(p => ({ ...p, clientName: e.target.value }))}
                 className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-red-500 focus:outline-none"
                 placeholder="Client name"
               />
@@ -314,7 +371,7 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
               <input
                 type="text"
                 value={form.trainerName}
-                onChange={(e) => setForm((p) => ({ ...p, trainerName: e.target.value }))}
+                onChange={e => setForm(p => ({ ...p, trainerName: e.target.value }))}
                 className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-red-500 focus:outline-none"
                 placeholder="Trainer name"
               />
@@ -326,7 +383,7 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
               <label className="mb-1 block text-xs text-muted-foreground">Priority</label>
               <select
                 value={form.priority}
-                onChange={(e) => setForm((p) => ({ ...p, priority: e.target.value }))}
+                onChange={e => setForm(p => ({ ...p, priority: e.target.value }))}
                 className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:border-red-500 focus:outline-none"
               >
                 <option value="normal">Normal</option>
@@ -340,11 +397,11 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">Color</label>
             <div className="flex gap-2">
-              {COLORS.map((c) => (
+              {COLORS.map(c => (
                 <button
                   key={c}
                   type="button"
-                  onClick={() => setForm((p) => ({ ...p, color: c }))}
+                  onClick={() => setForm(p => ({ ...p, color: c }))}
                   className={`h-7 w-7 rounded-full transition-transform ${
                     form.color === c ? 'scale-125 ring-2 ring-white ring-offset-2 ring-offset-card' : ''
                   }`}
@@ -358,7 +415,7 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
             <label className="mb-1 block text-xs text-muted-foreground">Description</label>
             <textarea
               value={form.description}
-              onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+              onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
               className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-red-500 focus:outline-none"
               placeholder="Add a description..."
               rows={3}

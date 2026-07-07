@@ -696,10 +696,18 @@ export type PanicWebhookPayloadInput = z.infer<typeof panicWebhookPayloadSchema>
 // ============================================================================
 // Calendar Schemas
 // ============================================================================
-export const calendarListSchema = z.object({
-  from: isoDateKeySchema,
-  to: isoDateKeySchema,
-});
+export const calendarListSchema = z
+  .object({
+    from: isoDateKeySchema,
+    to: isoDateKeySchema,
+  })
+  .refine(
+    d => {
+      const ms = Date.parse(d.to) - Date.parse(d.from);
+      return ms >= 0 && ms / 86400000 <= 367;
+    },
+    { message: 'Date range must not exceed 367 days' }
+  );
 
 export type CalendarListInput = z.infer<typeof calendarListSchema>;
 
@@ -768,7 +776,7 @@ export const createCalendarEventSchema = z
       });
     }
     if (data.taggedEmployeeIds && data.taggedAdminIds) {
-      const overlap = data.taggedEmployeeIds.filter((id) => data.taggedAdminIds?.includes(id));
+      const overlap = data.taggedEmployeeIds.filter(id => data.taggedAdminIds?.includes(id));
       if (overlap.length > 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
@@ -829,7 +837,7 @@ export const updateCalendarEventSchema = z
       });
     }
     if (data.taggedEmployeeIds && data.taggedAdminIds) {
-      const overlap = data.taggedEmployeeIds.filter((id) => data.taggedAdminIds?.includes(id));
+      const overlap = data.taggedEmployeeIds.filter(id => data.taggedAdminIds?.includes(id));
       if (overlap.length > 0) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
