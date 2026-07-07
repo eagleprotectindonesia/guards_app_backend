@@ -18,9 +18,10 @@ export default function EditCalendarEventScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const toast = useCustomToast();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, kind: kindParam } = useLocalSearchParams<{ id: string; kind?: string }>();
 
-  const { data, isLoading, error } = useCalendarItem('meeting', id!);
+  const eventKind = kindParam ?? 'meeting';
+  const { data, isLoading, error } = useCalendarItem(eventKind, id!);
   const updateMutation = useUpdateCalendarEvent();
 
   if (isLoading) {
@@ -109,6 +110,7 @@ export default function EditCalendarEventScreen() {
         </HStack>
 
         <CalendarEventForm
+          mode="edit"
           initialData={initialData}
           onSubmit={handleSubmit}
           isSubmitting={updateMutation.isPending}

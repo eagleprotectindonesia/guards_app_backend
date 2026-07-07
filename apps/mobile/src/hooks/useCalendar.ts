@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
-import { CalendarItem } from '@repo/types';
+import { CalendarItem, CalendarDetailResponse } from '@repo/types';
 import { queryKeys } from '../api/queryKeys';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -14,13 +14,6 @@ export type TaggedUserResult = {
 
 type CalendarResponse = {
   items: CalendarItem[];
-};
-
-type CalendarDetailResponse = {
-  item: {
-    kind: string;
-    data: Record<string, unknown>;
-  };
 };
 
 type CalendarEventItemResponse = {

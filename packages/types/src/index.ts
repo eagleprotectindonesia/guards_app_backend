@@ -519,8 +519,10 @@ export interface CalendarItem {
 export type CalendarDetailKind = CalendarItemKind;
 
 export interface CalendarDetailResponse {
-  kind: CalendarDetailKind;
-  data: Record<string, unknown>;
+  item: {
+    kind: CalendarDetailKind;
+    data: Record<string, unknown>;
+  };
 }
 
 export type CalendarEventKind =
@@ -553,7 +555,7 @@ export interface CreateCalendarEventInput {
   location?: string;
   clientName?: string;
   trainerName?: string;
-  priority?: string;
+  priority?: 'urgent' | 'high' | 'normal' | 'low';
   color?: string;
   taggedEmployeeIds?: string[];
   taggedAdminIds?: string[];
@@ -571,7 +573,7 @@ export interface UpdateCalendarEventInput {
   location?: string;
   clientName?: string;
   trainerName?: string;
-  priority?: string;
+  priority?: 'urgent' | 'high' | 'normal' | 'low';
   color?: string;
   taggedEmployeeIds?: string[];
   taggedAdminIds?: string[];
@@ -590,7 +592,7 @@ export interface CalendarEventItem {
   location: string | null;
   clientName: string | null;
   trainerName: string | null;
-  priority: string | null;
+  priority: 'urgent' | 'high' | 'normal' | 'low' | null;
   color: string | null;
   taggedUsers: TaggedUser[];
   createdAt: string;

@@ -124,6 +124,12 @@ export interface ServerToClientEvents {
   'shift:updated': (data: { shiftId: string }) => void;
   error: (data: { message: string }) => void;
 
+  // Calendar events
+  calendar_event_tagged: (data: { eventId: string; eventTitle: string; taggedByName: string }) => void;
+  calendar_event_created: (data: { eventId: string; kind: string }) => void;
+  calendar_event_updated: (data: { eventId: string }) => void;
+  calendar_event_deleted: (data: { eventId: string }) => void;
+
   // Ticket events
   ticket_created: (payload: { ticket: any }) => void;
   ticket_status_updated: (payload: { ticketId: string; status: string; ticket: any }) => void;

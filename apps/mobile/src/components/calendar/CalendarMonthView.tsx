@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { View } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { Text } from '@/components/ui/text';
+import { useTranslation } from 'react-i18next';
 import { CalendarItem } from '@repo/types';
 import {
   startOfMonth,
@@ -14,14 +15,14 @@ import {
   format,
 } from 'date-fns';
 
-const DAY_HEADERS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-
 const EVENTS_PER_CELL_SHOWN = 2;
 
 function getItemsForDate(items: CalendarItem[], date: Date): CalendarItem[] {
   const dateStr = format(date, 'yyyy-MM-dd');
   return items.filter(item => item.date === dateStr);
 }
+
+const DAY_HEADERS_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
 
 export function CalendarMonthView({
   currentMonth,
@@ -34,6 +35,7 @@ export function CalendarMonthView({
   onSelectDate: (date: Date) => void;
   onSelectItem: (item: CalendarItem) => void;
 }) {
+  const { t } = useTranslation();
   const weeks = useMemo(() => {
     const monthStart = startOfMonth(currentMonth);
     const monthEnd = endOfMonth(currentMonth);
@@ -51,9 +53,9 @@ export function CalendarMonthView({
   return (
     <Box className="px-2">
       <View className="flex-row mb-1">
-        {DAY_HEADERS.map(d => (
-          <View key={d} className="flex-1 items-center py-2">
-            <Text className="text-[#737373] text-xs font-semibold">{d}</Text>
+        {DAY_HEADERS_KEYS.map(k => (
+          <View key={k} className="flex-1 items-center py-2">
+            <Text className="text-[#737373] text-xs font-semibold">{t(`calendar.${k}`, k)}</Text>
           </View>
         ))}
       </View>
@@ -104,7 +106,7 @@ export function CalendarMonthView({
                     </View>
                     {dayItems.length > EVENTS_PER_CELL_SHOWN && (
                       <Text className="text-[#737373] text-[10px] mt-0.5">
-                        +{dayItems.length - EVENTS_PER_CELL_SHOWN}
+                        {t('calendar.moreEvents', '+{count} more', { count: dayItems.length - EVENTS_PER_CELL_SHOWN })}
                       </Text>
                     )}
                   </View>

@@ -4,6 +4,7 @@ import { VStack } from '@/components/ui/vstack';
 import { Text } from '@/components/ui/text';
 import { Pressable } from '@/components/ui/pressable';
 import { CalendarItem } from '@repo/types';
+import { useTranslation } from 'react-i18next';
 import { format, parseISO } from 'date-fns';
 import {
   Calendar,
@@ -64,21 +65,10 @@ function formatTimeRange(item: CalendarItem): string | null {
   return null;
 }
 
+import { KIND_LABELS } from '@repo/shared';
+
 function getKindLabel(kind: string): string {
-  switch (kind) {
-    case 'holiday': return 'Holiday';
-    case 'leave': return 'Leave';
-    case 'office_memo': return 'Memo';
-    case 'meeting': return 'Meeting';
-    case 'client_meeting': return 'Client';
-    case 'reminder': return 'Reminder';
-    case 'task': return 'Task';
-    case 'deadline': return 'Deadline';
-    case 'follow_up': return 'Follow-up';
-    case 'training': return 'Training';
-    case 'personal_event': return 'Personal';
-    default: return kind;
-  }
+  return KIND_LABELS[kind] ?? kind;
 }
 
 export function CalendarEventCard({
@@ -90,7 +80,8 @@ export function CalendarEventCard({
   onPress: () => void;
   compact?: boolean;
 }) {
-  const timeStr = formatTimeRange(item);
+  const { t } = useTranslation();
+  const timeStr = formatTimeRange(item)?.replace('All day', t('calendar.allDay', 'All day'));
   const kindColor = item.colorHint || '#FF3B30';
   const icon = getKindIcon(item.kind, kindColor);
 

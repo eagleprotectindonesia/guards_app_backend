@@ -702,6 +702,12 @@ export async function sendCalendarEventTagPushNotification(params: {
         eventId: String(eventId),
         eventTitle,
         taggedByName,
+        targetPath: `/calendar/events/${eventId}/detail`,
+      },
+      webpush: {
+        fcmOptions: {
+          link: `${WEB_APP_URL}/employee/calendar?eventId=${eventId}`,
+        },
       },
       tokens: tokenStrings,
     };

@@ -34,6 +34,10 @@ export async function GET(
         const holiday = await prisma.holidayCalendarEntry.findUnique({
           where: { id },
         });
+        if (!holiday) break;
+        if (holiday.scope === 'department' && (!employee.department || !holiday.departmentKeys.includes(employee.department))) {
+          return NextResponse.json({ error: 'Calendar item not found' }, { status: 404 });
+        }
         data = holiday as unknown as Record<string, unknown>;
         break;
       }
@@ -42,6 +46,10 @@ export async function GET(
         const memo = await prisma.officeMemo.findUnique({
           where: { id },
         });
+        if (!memo) break;
+        if (memo.scope === 'department' && (!employee.department || !memo.departmentKeys.includes(employee.department))) {
+          return NextResponse.json({ error: 'Calendar item not found' }, { status: 404 });
+        }
         data = memo as unknown as Record<string, unknown>;
         break;
       }

@@ -1,6 +1,6 @@
-import type { AdminNotificationType } from '@prisma/client';
-import { prisma, createAdminNotifications } from '@repo/database';
+import { prisma } from '@repo/database';
 import { sendCalendarEventTagPushNotification } from '@repo/notifications';
+import { redis } from '@repo/database/redis';
 
 export async function notifyCalendarEventTags(
   eventId: string,
@@ -26,18 +26,13 @@ export async function notifyCalendarEventTags(
   }
 
   if (taggedAdminIds.length > 0) {
-    try {
-      await createAdminNotifications({
-        adminIds: taggedAdminIds,
-        type: 'calendar_event_tagged' as AdminNotificationType,
-        title: "You've been tagged in an event",
-        body: `${taggedByName} tagged you in "${eventTitle}"`,
-        payload: { eventId, eventTitle, taggedByName },
-      });
-      results.adminNotified = taggedAdminIds.length;
-    } catch (err) {
-      console.error(`[CalendarTag] Failed to notify admins:`, err);
+    for (const adminId of taggedAdminIds) {
+      redis.publish('events:calendar', JSON.stringify({
+        type: 'calendar:event_tagged',
+        data: { eventId, eventTitle, taggedByName, adminId },
+      })).catch((err) => console.error('[Calendar] Redis publish error:', err));
     }
+    results.adminNotified = taggedAdminIds.length;
   }
 
   return results;

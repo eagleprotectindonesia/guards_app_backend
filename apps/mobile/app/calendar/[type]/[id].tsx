@@ -35,6 +35,7 @@ import {
   Shield,
 } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
+import { KIND_COLORS } from '@repo/shared';
 import { useCalendarItem, useDeleteCalendarEvent, useDuplicateCalendarEvent } from '../../../src/hooks/useCalendar';
 
 const USER_EVENT_KINDS = new Set([
@@ -88,21 +89,24 @@ function ActionButton({ icon, label, color, onPress }: { icon: React.ReactNode; 
 }
 
 function KindHeader({ kind }: { kind: string }) {
-  const icons: Record<string, { icon: React.ReactNode; color: string }> = {
-    holiday: { icon: <Sun size={24} color="#FF9500" />, color: '#FF9500' },
-    office_memo: { icon: <FileText size={24} color="#AF52DE" />, color: '#AF52DE' },
-    leave: { icon: <Moon size={24} color="#34C759" />, color: '#34C759' },
-    meeting: { icon: <Briefcase size={24} color="#FF3B30" />, color: '#FF3B30' },
-    client_meeting: { icon: <UserRound size={24} color="#FF2D55" />, color: '#FF2D55' },
-    reminder: { icon: <Bell size={24} color="#FF9500" />, color: '#FF9500' },
-    task: { icon: <CheckSquare size={24} color="#34C759" />, color: '#34C759' },
-    deadline: { icon: <AlertTriangle size={24} color="#FF3B30" />, color: '#FF3B30' },
-    follow_up: { icon: <Repeat size={24} color="#FF9500" />, color: '#FF9500' },
-    training: { icon: <GraduationCap size={24} color="#007AFF" />, color: '#007AFF' },
-    personal_event: { icon: <CalendarHeart size={24} color="#007AFF" />, color: '#007AFF' },
-    other: { icon: <Calendar size={24} color="#AF52DE" />, color: '#AF52DE' },
+  const color = KIND_COLORS[kind] ?? '#FF3B30';
+  const getIcon = (): React.ReactNode => {
+    switch (kind) {
+      case 'holiday': return <Sun size={24} color={color} />;
+      case 'office_memo': return <FileText size={24} color={color} />;
+      case 'leave': return <Moon size={24} color={color} />;
+      case 'meeting': return <Briefcase size={24} color={color} />;
+      case 'client_meeting': return <UserRound size={24} color={color} />;
+      case 'reminder': return <Bell size={24} color={color} />;
+      case 'task': return <CheckSquare size={24} color={color} />;
+      case 'deadline': return <AlertTriangle size={24} color={color} />;
+      case 'follow_up': return <Repeat size={24} color={color} />;
+      case 'training': return <GraduationCap size={24} color={color} />;
+      case 'personal_event': return <CalendarHeart size={24} color={color} />;
+      default: return <Calendar size={24} color={color} />;
+    }
   };
-  const info = icons[kind] || { icon: <Calendar size={24} color="#FF3B30" />, color: '#FF3B30' };
+  const info = { icon: getIcon(), color };
   return (
     <Box
       className="w-10 h-10 rounded-xl items-center justify-center border"
@@ -307,7 +311,7 @@ export default function CalendarItemDetailScreen() {
                       icon={<Pencil size={18} color="#007AFF" />}
                       label={t('calendar.editEvent', 'Edit')}
                       color="#007AFF"
-                      onPress={() => router.push(`/calendar/events/${id}/edit`)}
+                      onPress={() => router.push(`/calendar/events/${id}/edit?kind=${kind}`)}
                     />
                     <ActionButton
                       icon={<Trash2 size={18} color="#FF3B30" />}

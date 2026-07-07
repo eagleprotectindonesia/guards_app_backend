@@ -49,6 +49,7 @@ export default function CreateCalendarEventScreen() {
         </HStack>
 
         <CalendarEventForm
+          mode="create"
           initialData={{ startDate: prefillDate, endDate: prefillDate }}
           onSubmit={handleSubmit}
           isSubmitting={createMutation.isPending}

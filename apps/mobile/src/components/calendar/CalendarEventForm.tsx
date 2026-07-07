@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { ScrollView, StyleSheet, View, Platform } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Box } from '@/components/ui/box';
@@ -16,6 +16,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CalendarEventKind } from '@repo/types';
+import { createCalendarEventSchema, updateCalendarEventSchema } from '@repo/validations';
+import { ALL_CALENDAR_EVENT_KINDS, KINDS_WITH_END_DATE, KINDS_WITH_TIME, KINDS_WITH_LOCATION, KINDS_WITH_PRIORITY, KIND_COLORS } from '@repo/shared';
 import { UserTagPicker } from './UserTagPicker';
 import type { TaggedUserResult } from '../../hooks/useCalendar';
 
@@ -31,34 +33,13 @@ const KIND_ICONS: Record<string, string> = {
   other: '📌',
 };
 
-const ALL_KINDS: CalendarEventKind[] = [
-  'meeting', 'client_meeting', 'reminder', 'task', 'deadline',
-  'follow_up', 'training', 'personal_event', 'other',
-];
-
-const KINDS_WITH_END_DATE = new Set(['meeting', 'client_meeting', 'deadline', 'follow_up', 'training', 'personal_event', 'other']);
-const KINDS_WITH_TIME = new Set(['meeting', 'client_meeting', 'reminder', 'follow_up', 'training', 'personal_event', 'other']);
-const KINDS_WITH_LOCATION = new Set(['meeting', 'client_meeting', 'training', 'personal_event', 'other']);
-const KINDS_WITH_PRIORITY = new Set(['meeting', 'client_meeting', 'task', 'deadline', 'follow_up', 'training', 'personal_event', 'other']);
-
 const COLOR_PRESETS = [
   '#FF3B30', '#FF9500', '#FFCC00', '#34C759',
   '#007AFF', '#AF52DE', '#FF2D55', '#5AC8FA',
 ];
 
-const DEFAULT_COLORS: Record<string, string> = {
-  meeting: '#FF3B30',
-  client_meeting: '#FF2D55',
-  reminder: '#FF9500',
-  task: '#34C759',
-  deadline: '#FF3B30',
-  follow_up: '#FF9500',
-  training: '#007AFF',
-  personal_event: '#007AFF',
-  other: '#AF52DE',
-};
-
 interface CalendarEventFormProps {
+  mode: 'create' | 'edit';
   initialData?: {
     kind?: CalendarEventKind;
     title?: string;
@@ -80,7 +61,7 @@ interface CalendarEventFormProps {
   submitLabel: string;
 }
 
-export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitLabel }: CalendarEventFormProps) {
+export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, submitLabel }: CalendarEventFormProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
@@ -96,8 +77,31 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
   const [clientName, setClientName] = useState(initialData?.clientName ?? '');
   const [trainerName, setTrainerName] = useState(initialData?.trainerName ?? '');
   const [priority, setPriority] = useState(initialData?.priority ?? 'normal');
-  const [color, setColor] = useState(initialData?.color ?? DEFAULT_COLORS[kind]);
+  const [color, setColor] = useState(initialData?.color ?? KIND_COLORS[kind]);
   const [selectedTaggedUsers, setSelectedTaggedUsers] = useState<TaggedUserResult[]>(initialData?.taggedUsers ?? []);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+  const prevInitialDataRef = useRef(initialData);
+  useEffect(() => {
+    if (initialData !== prevInitialDataRef.current) {
+      prevInitialDataRef.current = initialData;
+      setKind(initialData?.kind ?? 'personal_event');
+      setTitle(initialData?.title ?? '');
+      setDescription(initialData?.description ?? '');
+      setStartDate(initialData?.startDate ?? new Date().toISOString().slice(0, 10));
+      setEndDate(initialData?.endDate ?? new Date().toISOString().slice(0, 10));
+      setStartTime(initialData?.startTime ?? '09:00');
+      setEndTime(initialData?.endTime ?? '10:00');
+      setAllDay(initialData?.allDay ?? false);
+      setLocation(initialData?.location ?? '');
+      setClientName(initialData?.clientName ?? '');
+      setTrainerName(initialData?.trainerName ?? '');
+      setPriority(initialData?.priority ?? 'normal');
+      setColor(initialData?.color ?? KIND_COLORS[initialData?.kind ?? 'personal_event']);
+      setSelectedTaggedUsers(initialData?.taggedUsers ?? []);
+      setValidationErrors({});
+    }
+  }, [initialData]);
 
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -113,18 +117,26 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
   const showLocationField = KINDS_WITH_LOCATION.has(kind);
   const showPriorityField = KINDS_WITH_PRIORITY.has(kind);
 
+  const clearFieldError = (field: string) => {
+    setValidationErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
   const handleKindChange = (newKind: CalendarEventKind) => {
     setKind(newKind);
     if (!KINDS_WITH_END_DATE.has(newKind)) {
       setEndDate(startDate);
     }
-    if (!color || color === DEFAULT_COLORS[kind]) {
-      setColor(DEFAULT_COLORS[newKind]);
+    if (!color || color === KIND_COLORS[kind]) {
+      setColor(KIND_COLORS[newKind]);
     }
   };
 
   const handleSubmit = () => {
-    const data: Record<string, unknown> = {
+    const data = {
       kind,
       title,
       description: description || undefined,
@@ -140,7 +152,24 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
       color: color || undefined,
       taggedEmployeeIds: selectedTaggedUsers.filter((u) => u.type === 'employee').map((u) => u.id),
       taggedAdminIds: selectedTaggedUsers.filter((u) => u.type === 'admin').map((u) => u.id),
-    };
+    } as Record<string, unknown>;
+
+    const schema = mode === 'create' ? createCalendarEventSchema : updateCalendarEventSchema;
+    const result = schema.safeParse(data);
+
+    if (!result.success) {
+      const errors: Record<string, string> = {};
+      for (const issue of result.error.issues) {
+        const path = issue.path.join('.');
+        if (!errors[path]) {
+          errors[path] = issue.message;
+        }
+      }
+      setValidationErrors(errors);
+      return;
+    }
+
+    setValidationErrors({});
     onSubmit(data);
   };
 
@@ -154,7 +183,7 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
             <Text className="text-white text-sm font-semibold uppercase tracking-wide">{t('calendar.kind', 'Event Type')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <HStack space="sm">
-                {ALL_KINDS.map(k => {
+                {ALL_CALENDAR_EVENT_KINDS.map(k => {
                   const isActive = kind === k;
                   const kindKey = `kind${k.charAt(0).toUpperCase()}${k.slice(1).replace(/_([a-z])/g, (_, c) => c.toUpperCase())}`;
                   const label = t(`calendar.${kindKey}`, k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
@@ -195,9 +224,12 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
                   placeholder="Event title"
                   placeholderTextColor="#737373"
                   value={title}
-                  onChangeText={setTitle}
+                  onChangeText={(v) => { setTitle(v); clearFieldError('title'); }}
                 />
               </Input>
+              {validationErrors.title && (
+                <Text className="text-[#FF3B30] text-xs mt-1">{validationErrors.title}</Text>
+              )}
             </FormControl>
           </VStack>
         </View>
@@ -227,6 +259,12 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
                 </VStack>
               )}
             </HStack>
+            {validationErrors.startDate && (
+              <Text className="text-[#FF3B30] text-xs">{validationErrors.startDate}</Text>
+            )}
+            {validationErrors.endDate && (
+              <Text className="text-[#FF3B30] text-xs">{validationErrors.endDate}</Text>
+            )}
 
             {showTimeFields && (
               <HStack space="sm">
@@ -243,6 +281,12 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
                   </Pressable>
                 </VStack>
               </HStack>
+            )}
+            {validationErrors.startTime && (
+              <Text className="text-[#FF3B30] text-xs">{validationErrors.startTime}</Text>
+            )}
+            {validationErrors.endTime && (
+              <Text className="text-[#FF3B30] text-xs">{validationErrors.endTime}</Text>
             )}
           </VStack>
         </View>
@@ -420,6 +464,8 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
               setStartDate(val);
               if (!showEndDateField) setEndDate(val);
             }
+            clearFieldError('startDate');
+            clearFieldError('endDate');
             setShowStartPicker(false);
           }}
         />
@@ -431,6 +477,8 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
           display={Platform.OS === 'ios' ? 'inline' : 'default'}
           onChange={(_, date) => {
             if (date) setEndDate(date.toISOString().slice(0, 10));
+            clearFieldError('startDate');
+            clearFieldError('endDate');
             setShowEndPicker(false);
           }}
         />
@@ -444,6 +492,8 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
             if (date) {
               setStartTime(`${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`);
             }
+            clearFieldError('startTime');
+            clearFieldError('endTime');
             setShowStartTimePicker(false);
           }}
         />
@@ -457,6 +507,8 @@ export function CalendarEventForm({ initialData, onSubmit, isSubmitting, submitL
             if (date) {
               setEndTime(`${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`);
             }
+            clearFieldError('startTime');
+            clearFieldError('endTime');
             setShowEndTimePicker(false);
           }}
         />
