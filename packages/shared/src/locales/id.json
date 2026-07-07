@@ -464,5 +464,28 @@
       "CANNOT_RESOLVE": "Tidak Dapat Diselesaikan",
       "CANCELLED": "Dibatalkan"
     }
+  },
+  "calendar": {
+    "title": "Kalender",
+    "today": "Hari Ini",
+    "monthView": "Bulan",
+    "weekView": "Minggu",
+    "dayView": "Hari",
+    "listView": "Daftar",
+    "noEvents": "Tidak ada acara pada hari ini",
+    "noEventsTitle": "Tidak Ada Acara",
+    "shift": "Shift",
+    "holiday": "Libur",
+    "leave": "Cuti",
+    "memo": "Memo",
+    "officeShift": "Shift Kantor",
+    "schedule": "Jadwal",
+    "eventDetail": "Detail Acara",
+    "time": "Waktu",
+    "location": "Lokasi",
+    "status": "Status",
+    "notes": "Catatan",
+    "allDay": "Seharian",
+    "backToCalendar": "Kembali ke Kalender"
   }
 }

@@ -28,4 +28,8 @@ export const queryKeys = {
   tickets: {
     list: ['tickets'] as const,
   },
+  calendar: {
+    list: (from: string, to: string) => ['calendar', from, to] as const,
+    item: (type: string, id: string) => ['calendar', 'item', type, id] as const,
+  },
 };

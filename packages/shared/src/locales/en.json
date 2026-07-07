@@ -464,5 +464,28 @@
       "CANNOT_RESOLVE": "Cannot Resolve",
       "CANCELLED": "Cancelled"
     }
+  },
+  "calendar": {
+    "title": "Calendar",
+    "today": "Today",
+    "monthView": "Month",
+    "weekView": "Week",
+    "dayView": "Day",
+    "listView": "List",
+    "noEvents": "No events on this day",
+    "noEventsTitle": "No Events",
+    "shift": "Shift",
+    "holiday": "Holiday",
+    "leave": "Leave",
+    "memo": "Memo",
+    "officeShift": "Office Shift",
+    "schedule": "Schedule",
+    "eventDetail": "Event Details",
+    "time": "Time",
+    "location": "Location",
+    "status": "Status",
+    "notes": "Notes",
+    "allDay": "All day",
+    "backToCalendar": "Back to Calendar"
   }
 }
