@@ -739,6 +739,7 @@ export const createCalendarEventSchema = z
       .string()
       .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a hex color')
       .optional(),
+    reminderMinutesBefore: z.number().int().min(0, 'Reminder offset must be non-negative').nullable().optional(),
     taggedEmployeeIds: taggedEmployeeIdsSchema,
     taggedAdminIds: taggedAdminIdsSchema,
   })
@@ -800,6 +801,7 @@ export const updateCalendarEventSchema = z
       .string()
       .regex(/^#[0-9A-Fa-f]{6}$/)
       .optional(),
+    reminderMinutesBefore: z.number().int().min(0, 'Reminder offset must be non-negative').nullable().optional(),
     taggedEmployeeIds: taggedEmployeeIdsSchema,
     taggedAdminIds: taggedAdminIdsSchema,
   })

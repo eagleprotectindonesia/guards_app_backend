@@ -10,14 +10,31 @@ import { Input, InputField } from '@/components/ui/input';
 import { FormControl, FormControlLabel, FormControlLabelText } from '@/components/ui/form-control';
 import { Switch } from '@/components/ui/switch';
 import { ButtonSpinner } from '@/components/ui/button';
-import { Actionsheet, ActionsheetBackdrop, ActionsheetContent, ActionsheetDragIndicatorWrapper, ActionsheetDragIndicator, ActionsheetItem, ActionsheetItemText, ActionsheetScrollView } from '@/components/ui/actionsheet';
+import {
+  Actionsheet,
+  ActionsheetBackdrop,
+  ActionsheetContent,
+  ActionsheetDragIndicatorWrapper,
+  ActionsheetDragIndicator,
+  ActionsheetItem,
+  ActionsheetItemText,
+  ActionsheetScrollView,
+} from '@/components/ui/actionsheet';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { CalendarEventKind } from '@repo/types';
 import { createCalendarEventSchema, updateCalendarEventSchema } from '@repo/validations';
-import { ALL_CALENDAR_EVENT_KINDS, KINDS_WITH_END_DATE, KINDS_WITH_TIME, KINDS_WITH_LOCATION, KINDS_WITH_PRIORITY, KIND_COLORS } from '@repo/shared';
+import {
+  ALL_CALENDAR_EVENT_KINDS,
+  KINDS_WITH_END_DATE,
+  KINDS_WITH_TIME,
+  KINDS_WITH_LOCATION,
+  KINDS_WITH_PRIORITY,
+  KIND_COLORS,
+  REMINDER_PRESETS,
+} from '@repo/shared';
 import { UserTagPicker } from './UserTagPicker';
 import type { TaggedUserResult } from '../../hooks/useCalendar';
 
@@ -33,10 +50,7 @@ const KIND_ICONS: Record<string, string> = {
   other: '📌',
 };
 
-const COLOR_PRESETS = [
-  '#FF3B30', '#FF9500', '#FFCC00', '#34C759',
-  '#007AFF', '#AF52DE', '#FF2D55', '#5AC8FA',
-];
+const COLOR_PRESETS = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#AF52DE', '#FF2D55', '#5AC8FA'];
 
 interface CalendarEventFormProps {
   mode: 'create' | 'edit';
@@ -54,6 +68,7 @@ interface CalendarEventFormProps {
     trainerName?: string;
     priority?: string;
     color?: string;
+    reminderMinutesBefore?: number | null;
     taggedUsers?: TaggedUserResult[];
   };
   onSubmit: (data: Record<string, unknown>) => void;
@@ -79,6 +94,8 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
   const [priority, setPriority] = useState(initialData?.priority ?? 'normal');
   const [color, setColor] = useState(initialData?.color ?? KIND_COLORS[kind]);
   const [selectedTaggedUsers, setSelectedTaggedUsers] = useState<TaggedUserResult[]>(initialData?.taggedUsers ?? []);
+  const [reminderMinutesBefore, setReminderMinutesBefore] = useState<number | null>(null);
+  const [showReminderSheet, setShowReminderSheet] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const prevInitialDataRef = useRef(initialData);
@@ -99,6 +116,7 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
       setPriority(initialData?.priority ?? 'normal');
       setColor(initialData?.color ?? KIND_COLORS[initialData?.kind ?? 'personal_event']);
       setSelectedTaggedUsers(initialData?.taggedUsers ?? []);
+      setReminderMinutesBefore(initialData?.reminderMinutesBefore ?? null);
       setValidationErrors({});
     }
   }, [initialData]);
@@ -118,7 +136,7 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
   const showPriorityField = KINDS_WITH_PRIORITY.has(kind);
 
   const clearFieldError = (field: string) => {
-    setValidationErrors((prev) => {
+    setValidationErrors(prev => {
       const next = { ...prev };
       delete next[field];
       return next;
@@ -146,12 +164,13 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
       endTime: showTimeFields ? endTime : undefined,
       allDay,
       location: showLocationField ? location || undefined : undefined,
-      clientName: (kind === 'client_meeting' && clientName) ? clientName : undefined,
-      trainerName: (kind === 'training' && trainerName) ? trainerName : undefined,
+      clientName: kind === 'client_meeting' && clientName ? clientName : undefined,
+      trainerName: kind === 'training' && trainerName ? trainerName : undefined,
       priority: showPriorityField ? priority : undefined,
       color: color || undefined,
-      taggedEmployeeIds: selectedTaggedUsers.filter((u) => u.type === 'employee').map((u) => u.id),
-      taggedAdminIds: selectedTaggedUsers.filter((u) => u.type === 'admin').map((u) => u.id),
+      taggedEmployeeIds: selectedTaggedUsers.filter(u => u.type === 'employee').map(u => u.id),
+      taggedAdminIds: selectedTaggedUsers.filter(u => u.type === 'admin').map(u => u.id),
+      reminderMinutesBefore: reminderMinutesBefore ?? null,
     } as Record<string, unknown>;
 
     const schema = mode === 'create' ? createCalendarEventSchema : updateCalendarEventSchema;
@@ -180,13 +199,18 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
         <View style={styles.glassCard}>
           <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
           <VStack className="p-6" space="md">
-            <Text className="text-white text-sm font-semibold uppercase tracking-wide">{t('calendar.kind', 'Event Type')}</Text>
+            <Text className="text-white text-sm font-semibold uppercase tracking-wide">
+              {t('calendar.kind', 'Event Type')}
+            </Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <HStack space="sm">
                 {ALL_CALENDAR_EVENT_KINDS.map(k => {
                   const isActive = kind === k;
                   const kindKey = `kind${k.charAt(0).toUpperCase()}${k.slice(1).replace(/_([a-z])/g, (_, c) => c.toUpperCase())}`;
-                  const label = t(`calendar.${kindKey}`, k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()));
+                  const label = t(
+                    `calendar.${kindKey}`,
+                    k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                  );
                   return (
                     <Pressable
                       key={k}
@@ -224,12 +248,13 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
                   placeholder="Event title"
                   placeholderTextColor="#737373"
                   value={title}
-                  onChangeText={(v) => { setTitle(v); clearFieldError('title'); }}
+                  onChangeText={v => {
+                    setTitle(v);
+                    clearFieldError('title');
+                  }}
                 />
               </Input>
-              {validationErrors.title && (
-                <Text className="text-[#FF3B30] text-xs mt-1">{validationErrors.title}</Text>
-              )}
+              {validationErrors.title && <Text className="text-[#FF3B30] text-xs mt-1">{validationErrors.title}</Text>}
             </FormControl>
           </VStack>
         </View>
@@ -239,8 +264,15 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
           <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
           <VStack className="p-6" space="md">
             <HStack space="sm" className="items-center justify-between">
-              <Text className="text-white text-sm font-semibold uppercase tracking-wide">{t('calendar.allDay', 'All day')}</Text>
-              <Switch value={allDay} onValueChange={setAllDay} trackColor={{ false: '#3A3A3C', true: '#FF3B3066' }} thumbColor={allDay ? '#FF3B30' : '#8E8E93'} />
+              <Text className="text-white text-sm font-semibold uppercase tracking-wide">
+                {t('calendar.allDay', 'All day')}
+              </Text>
+              <Switch
+                value={allDay}
+                onValueChange={setAllDay}
+                trackColor={{ false: '#3A3A3C', true: '#FF3B3066' }}
+                thumbColor={allDay ? '#FF3B30' : '#8E8E93'}
+              />
             </HStack>
 
             <HStack space="sm">
@@ -259,12 +291,8 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
                 </VStack>
               )}
             </HStack>
-            {validationErrors.startDate && (
-              <Text className="text-[#FF3B30] text-xs">{validationErrors.startDate}</Text>
-            )}
-            {validationErrors.endDate && (
-              <Text className="text-[#FF3B30] text-xs">{validationErrors.endDate}</Text>
-            )}
+            {validationErrors.startDate && <Text className="text-[#FF3B30] text-xs">{validationErrors.startDate}</Text>}
+            {validationErrors.endDate && <Text className="text-[#FF3B30] text-xs">{validationErrors.endDate}</Text>}
 
             {showTimeFields && (
               <HStack space="sm">
@@ -282,12 +310,33 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
                 </VStack>
               </HStack>
             )}
-            {validationErrors.startTime && (
-              <Text className="text-[#FF3B30] text-xs">{validationErrors.startTime}</Text>
-            )}
-            {validationErrors.endTime && (
-              <Text className="text-[#FF3B30] text-xs">{validationErrors.endTime}</Text>
-            )}
+            {validationErrors.startTime && <Text className="text-[#FF3B30] text-xs">{validationErrors.startTime}</Text>}
+            {validationErrors.endTime && <Text className="text-[#FF3B30] text-xs">{validationErrors.endTime}</Text>}
+          </VStack>
+        </View>
+
+        {/* Reminder */}
+        <View style={[styles.glassCard, { marginTop: 12 }]}>
+          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
+          <VStack className="p-6" space="md">
+            <Text className="text-white text-sm font-semibold uppercase tracking-wide">
+              {t('calendar.reminder', 'Reminder')}
+            </Text>
+            <Pressable onPress={() => setShowReminderSheet(true)} className="bg-[#2C2C2E] rounded-xl p-3.5">
+              <Text className="text-white text-sm">
+                {reminderMinutesBefore === null
+                  ? t('calendar.reminderNone', 'No reminder')
+                  : reminderMinutesBefore < 0
+                    ? `${reminderMinutesBefore * -1} min`
+                    : reminderMinutesBefore === 0
+                      ? t('calendar.reminderAtEvent', 'At event time')
+                      : reminderMinutesBefore < 60
+                        ? t('calendar.reminderMinutesBefore', `${reminderMinutesBefore} minutes before`)
+                        : reminderMinutesBefore < 1440
+                          ? t('calendar.reminderHoursBefore', `${Math.round(reminderMinutesBefore / 60)} hours before`)
+                          : t('calendar.reminderDaysBefore', `${Math.round(reminderMinutesBefore / 1440)} days before`)}
+              </Text>
+            </Pressable>
           </VStack>
         </View>
 
@@ -371,9 +420,13 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
           <View style={[styles.glassCard, { marginTop: 12 }]}>
             <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
             <VStack className="p-6" space="md">
-              <Text className="text-white text-sm font-semibold uppercase tracking-wide">{t('calendar.priority', 'Priority')}</Text>
+              <Text className="text-white text-sm font-semibold uppercase tracking-wide">
+                {t('calendar.priority', 'Priority')}
+              </Text>
               <Pressable onPress={() => setShowPrioritySheet(true)} className="bg-[#2C2C2E] rounded-xl p-3.5">
-                <Text className="text-white text-sm">{t(`calendar.priority${priority.charAt(0).toUpperCase() + priority.slice(1)}`, priority)}</Text>
+                <Text className="text-white text-sm">
+                  {t(`calendar.priority${priority.charAt(0).toUpperCase() + priority.slice(1)}`, priority)}
+                </Text>
               </Pressable>
             </VStack>
           </View>
@@ -409,7 +462,9 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
         <View style={[styles.glassCard, { marginTop: 12 }]}>
           <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
           <VStack className="p-6" space="md">
-            <Text className="text-white text-sm font-semibold uppercase tracking-wide">{t('calendar.tagUsers', 'Tag Users')}</Text>
+            <Text className="text-white text-sm font-semibold uppercase tracking-wide">
+              {t('calendar.tagUsers', 'Tag Users')}
+            </Text>
             <UserTagPicker selectedUsers={selectedTaggedUsers} onChange={setSelectedTaggedUsers} />
           </VStack>
         </View>
@@ -418,7 +473,9 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
         <View style={[styles.glassCard, { marginTop: 12 }]}>
           <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
           <VStack className="p-6" space="md">
-            <Text className="text-white text-sm font-semibold uppercase tracking-wide">{t('calendar.color', 'Color')}</Text>
+            <Text className="text-white text-sm font-semibold uppercase tracking-wide">
+              {t('calendar.color', 'Color')}
+            </Text>
             <HStack space="sm" className="flex-wrap">
               {COLOR_PRESETS.map(c => (
                 <Pressable
@@ -533,6 +590,49 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
               >
                 <ActionsheetItemText className="text-white font-bold text-md">
                   {t(`calendar.priority${p.charAt(0).toUpperCase() + p.slice(1)}`, p)}
+                </ActionsheetItemText>
+              </ActionsheetItem>
+            ))}
+          </ActionsheetScrollView>
+        </ActionsheetContent>
+      </Actionsheet>
+
+      {/* Reminder Actionsheet */}
+      <Actionsheet isOpen={showReminderSheet} onClose={() => setShowReminderSheet(false)}>
+        <ActionsheetBackdrop />
+        <ActionsheetContent className="bg-[#1C1C1E] border-t border-white/10">
+          <ActionsheetDragIndicatorWrapper>
+            <ActionsheetDragIndicator className="bg-white/20" />
+          </ActionsheetDragIndicatorWrapper>
+          <ActionsheetScrollView>
+            <ActionsheetItem
+              onPress={() => {
+                setReminderMinutesBefore(null);
+                setShowReminderSheet(false);
+              }}
+              className="border-b border-white/5"
+            >
+              <ActionsheetItemText className="text-white font-bold text-md">
+                {t('calendar.reminderNone', 'No reminder')}
+              </ActionsheetItemText>
+            </ActionsheetItem>
+            {REMINDER_PRESETS.map(p => (
+              <ActionsheetItem
+                key={p.minutes}
+                onPress={() => {
+                  setReminderMinutesBefore(p.minutes);
+                  setShowReminderSheet(false);
+                }}
+                className="border-b border-white/5"
+              >
+                <ActionsheetItemText className="text-white font-bold text-md">
+                  {t(
+                    `calendar.${p.labelKey}`,
+                    p.labelKey
+                      .replace('reminder', '')
+                      .replace(/([A-Z])/g, ' $1')
+                      .trim()
+                  )}
                 </ActionsheetItemText>
               </ActionsheetItem>
             ))}
