@@ -668,6 +668,9 @@ importers:
       '@repo/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@repo/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
       '@repo/shared':
         specifier: workspace:*
         version: link:../../packages/shared
