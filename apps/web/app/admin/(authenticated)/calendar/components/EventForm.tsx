@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { X, Loader2 } from 'lucide-react';
-import { ALL_CALENDAR_EVENT_KINDS, KIND_LABELS, KIND_COLORS } from '@repo/shared';
+import { ALL_CALENDAR_EVENT_KINDS, KIND_LABELS, KIND_COLORS, REMINDER_PRESETS } from '@repo/shared';
 import { createCalendarEventSchema, updateCalendarEventSchema } from '@repo/validations';
 
 interface EventFormProps {
@@ -35,6 +35,7 @@ interface FormData {
   color: string;
   taggedEmployeeIds: string[];
   taggedAdminIds: string[];
+  reminderMinutesBefore: number | null;
 }
 
 const EMPTY_FORM: FormData = {
@@ -53,6 +54,7 @@ const EMPTY_FORM: FormData = {
   color: '#FF3B30',
   taggedEmployeeIds: [],
   taggedAdminIds: [],
+  reminderMinutesBefore: null,
 };
 
 export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
@@ -116,6 +118,7 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
           color: (item.color as string) ?? '#FF3B30',
           taggedEmployeeIds: [],
           taggedAdminIds: [],
+          reminderMinutesBefore: (item.reminderMinutesBefore as number | null) ?? null,
         });
       })
       .catch(err => console.error('Failed to load event:', err))
@@ -164,6 +167,10 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
     if (showLocation && form.location) body.location = form.location;
     if (showClientName && form.clientName) body.clientName = form.clientName;
     if (showTrainerName && form.trainerName) body.trainerName = form.trainerName;
+
+    if (form.reminderMinutesBefore !== null) {
+      body.reminderMinutesBefore = form.reminderMinutesBefore;
+    }
 
     const schema = eventId ? updateCalendarEventSchema : createCalendarEventSchema;
     const parsed = schema.safeParse(body);
@@ -338,6 +345,47 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
               )}
             </div>
           )}
+
+          <div>
+            <label className="mb-1 block text-xs text-muted-foreground">Reminder</label>
+            <select
+              value={form.reminderMinutesBefore === null ? '' : String(form.reminderMinutesBefore)}
+              onChange={e => {
+                const val = e.target.value;
+                setForm(p => ({
+                  ...p,
+                  reminderMinutesBefore: val === '' ? null : val === '-1' ? -1 : Number(val),
+                }));
+              }}
+              className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:border-red-500 focus:outline-none"
+            >
+              <option value="">No reminder</option>
+              {REMINDER_PRESETS.map(p => (
+                <option key={p.minutes} value={p.minutes}>
+                  {p.labelKey === 'reminderAtEvent' && 'At event time'}
+                  {p.labelKey === 'reminder10Min' && '10 minutes before'}
+                  {p.labelKey === 'reminder30Min' && '30 minutes before'}
+                  {p.labelKey === 'reminder1Hour' && '1 hour before'}
+                  {p.labelKey === 'reminder1Day' && '1 day before'}
+                  {p.labelKey === 'reminder3Days' && '3 days before'}
+                  {p.labelKey === 'reminder1Week' && '1 week before'}
+                </option>
+              ))}
+              <option value="-1">Custom...</option>
+            </select>
+            {form.reminderMinutesBefore === -1 && (
+              <div className="mt-2">
+                <input
+                  type="number"
+                  min={0}
+                  value={form.reminderMinutesBefore === -1 ? '' : (form.reminderMinutesBefore ?? '')}
+                  onChange={e => setForm(p => ({ ...p, reminderMinutesBefore: Number(e.target.value) || 0 }))}
+                  className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:border-red-500 focus:outline-none"
+                  placeholder="Minutes before event"
+                />
+              </div>
+            )}
+          </div>
 
           {showLocation && (
             <div>

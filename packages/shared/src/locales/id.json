@@ -541,6 +541,19 @@
     "adminTag": "Admin",
     "employeeTag": "Karyawan",
     "eventTaggedTitle": "Anda telah ditandai dalam sebuah acara",
-    "eventTaggedBody": "{name} menandai Anda di \"{title}\""
+    "eventTaggedBody": "{name} menandai Anda di \"{title}\"",
+    "reminder": "Pengingat",
+    "reminderNone": "Tidak ada pengingat",
+    "reminderAtEvent": "Saat acara",
+    "reminder10Min": "10 menit sebelumnya",
+    "reminder30Min": "30 menit sebelumnya",
+    "reminder1Hour": "1 jam sebelumnya",
+    "reminder1Day": "1 hari sebelumnya",
+    "reminder3Days": "3 hari sebelumnya",
+    "reminder1Week": "1 minggu sebelumnya",
+    "reminderMinutesBefore": "{minutes} menit sebelumnya",
+    "reminderHoursBefore": "{hours} jam sebelumnya",
+    "reminderDaysBefore": "{days} hari sebelumnya",
+    "reminderCustom": "Kustom..."
   }
 }

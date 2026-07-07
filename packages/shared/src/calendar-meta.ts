@@ -80,3 +80,28 @@ export const KIND_LABELS: Record<string, string> = {
   personal_event: 'Personal',
   other: 'Other',
 };
+
+export interface ReminderPreset {
+  labelKey: string;
+  minutes: number;
+}
+
+export const REMINDER_PRESETS: ReminderPreset[] = [
+  { labelKey: 'reminderAtEvent', minutes: 0 },
+  { labelKey: 'reminder10Min', minutes: 10 },
+  { labelKey: 'reminder30Min', minutes: 30 },
+  { labelKey: 'reminder1Hour', minutes: 60 },
+  { labelKey: 'reminder1Day', minutes: 1440 },
+  { labelKey: 'reminder3Days', minutes: 4320 },
+  { labelKey: 'reminder1Week', minutes: 10080 },
+];
+
+const APP_TZ_OFFSET_HOURS = 8;
+
+export function computeReminderScheduledAt(startDate: string, startTime: string | null, offsetMinutes: number): Date {
+  const [y, m, d] = startDate.split('-').map(Number);
+  const [hh = 0, mm = 0] = (startTime ?? '00:00').split(':').map(Number);
+  const utcHours = hh - APP_TZ_OFFSET_HOURS;
+  const utcMs = Date.UTC(y, m - 1, d, utcHours, mm, 0);
+  return new Date(utcMs - offsetMinutes * 60_000);
+}

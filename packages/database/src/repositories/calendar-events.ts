@@ -1,3 +1,4 @@
+import { computeReminderScheduledAt } from '@repo/shared';
 import { db as prisma, Prisma } from '../prisma/client';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
@@ -26,8 +27,20 @@ export interface CreateCalendarEventInput {
   trainerName?: string;
   priority?: string;
   color?: string;
+  reminderMinutesBefore?: number | null;
   taggedEmployeeIds?: string[];
   taggedAdminIds?: string[];
+}
+
+export interface CalendarReminderCandidate {
+  id: string;
+  employeeId: string | null;
+  adminId: string | null;
+  title: string;
+  startDate: Date;
+  startTime: string | null;
+  reminderMinutesBefore: number | null;
+  tags: { id: string; participantType: string; employeeId: string | null; adminId: string | null }[];
 }
 
 export interface UpdateCalendarEventInput {
@@ -44,6 +57,7 @@ export interface UpdateCalendarEventInput {
   trainerName?: string;
   priority?: string;
   color?: string;
+  reminderMinutesBefore?: number | null;
   taggedEmployeeIds?: string[];
   taggedAdminIds?: string[];
 }
@@ -66,6 +80,7 @@ export interface ListCalendarEventsParams {
 
 export async function createCalendarEvent(input: CreateCalendarEventInput, tx: TxLike = prisma) {
   const { taggedEmployeeIds, taggedAdminIds, ...eventData } = input;
+  const hasReminder = eventData.reminderMinutesBefore !== null && eventData.reminderMinutesBefore !== undefined;
   const event = await tx.calendarEvent.create({
     data: {
       employeeId: eventData.employeeId ?? null,
@@ -83,6 +98,10 @@ export async function createCalendarEvent(input: CreateCalendarEventInput, tx: T
       trainerName: eventData.trainerName ?? null,
       priority: eventData.priority ?? null,
       color: eventData.color ?? null,
+      reminderMinutesBefore: hasReminder ? eventData.reminderMinutesBefore! : null,
+      reminderScheduledAt: hasReminder
+        ? computeReminderScheduledAt(eventData.startDate, eventData.startTime ?? null, eventData.reminderMinutesBefore!)
+        : null,
     },
   });
 
@@ -124,6 +143,40 @@ export async function updateCalendarEvent(id: string, input: UpdateCalendarEvent
   if (eventData.trainerName !== undefined) data.trainerName = eventData.trainerName;
   if (eventData.priority !== undefined) data.priority = eventData.priority;
   if (eventData.color !== undefined) data.color = eventData.color;
+
+  const schedulingChanged =
+    eventData.startDate !== undefined ||
+    eventData.startTime !== undefined ||
+    eventData.reminderMinutesBefore !== undefined;
+
+  if (eventData.reminderMinutesBefore !== undefined) {
+    data.reminderMinutesBefore = eventData.reminderMinutesBefore;
+  }
+
+  if (schedulingChanged) {
+    const current = await tx.calendarEvent.findUnique({
+      where: { id },
+      select: { startDate: true, startTime: true, reminderMinutesBefore: true },
+    });
+    const resolvedMinutesBefore =
+      eventData.reminderMinutesBefore !== undefined
+        ? eventData.reminderMinutesBefore
+        : (current?.reminderMinutesBefore ?? null);
+    const resolvedStartDate =
+      eventData.startDate ?? (current?.startDate ? String(current.startDate).slice(0, 10) : null);
+    if (resolvedMinutesBefore !== null && resolvedMinutesBefore !== undefined && resolvedStartDate) {
+      const resolvedStartTime = eventData.startTime !== undefined ? eventData.startTime : (current?.startTime ?? null);
+      data.reminderScheduledAt = computeReminderScheduledAt(
+        resolvedStartDate,
+        resolvedStartTime,
+        resolvedMinutesBefore
+      );
+      data.reminderSentAt = null;
+    } else if (eventData.reminderMinutesBefore === null) {
+      data.reminderScheduledAt = null;
+      data.reminderSentAt = null;
+    }
+  }
 
   const event = await tx.calendarEvent.update({
     where: { id },
@@ -380,4 +433,42 @@ export async function getCalendarEventTagsRaw(eventId: string, tx: TxLike = pris
       admin: { select: { id: true, name: true, email: true } },
     },
   });
+}
+
+export async function getCalendarEventReminderCandidates(now: Date, tx: TxLike = prisma) {
+  return tx.calendarEvent.findMany({
+    where: {
+      deletedAt: null,
+      reminderScheduledAt: { lte: now },
+      reminderSentAt: null,
+      reminderMinutesBefore: { not: null },
+    },
+    select: {
+      id: true,
+      employeeId: true,
+      adminId: true,
+      title: true,
+      startDate: true,
+      startTime: true,
+      reminderMinutesBefore: true,
+      tags: {
+        select: {
+          id: true,
+          participantType: true,
+          employeeId: true,
+          adminId: true,
+        },
+      },
+    },
+    orderBy: { reminderScheduledAt: 'asc' },
+  });
+}
+
+export async function claimCalendarEventReminders(eventIds: string[], now: Date, tx: TxLike = prisma) {
+  if (eventIds.length === 0) return 0;
+  const result = await tx.calendarEvent.updateMany({
+    where: { id: { in: eventIds }, reminderSentAt: null },
+    data: { reminderSentAt: now },
+  });
+  return result.count;
 }

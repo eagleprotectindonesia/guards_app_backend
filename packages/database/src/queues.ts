@@ -21,6 +21,9 @@ export const SHIFT_REMINDER_JOB_NAME = 'shift-reminder-send';
 export const SHIFT_PHOTO_REPORT_QUEUE_NAME = 'shift-photo-report';
 export const SHIFT_PHOTO_REPORT_JOB_NAME = 'shift-photo-report-scan';
 
+export const CALENDAR_EVENT_REMINDER_QUEUE_NAME = 'calendar-event-reminder';
+export const CALENDAR_EVENT_REMINDER_JOB_NAME = 'send-calendar-event-reminder';
+
 export const SHIFT_PHOTO_REPORT_CLEAN_JOB_NAME = 'shift-photo-report-clean';
 export const SHIFT_ATTENDANCE_CLEAN_JOB_NAME = 'shift-attendance-clean';
 export const GROUP_CHAT_ARCHIVE_JOB_NAME = 'group-chat-archive';
