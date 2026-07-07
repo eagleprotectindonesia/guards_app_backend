@@ -597,6 +597,9 @@ export interface CalendarEventItem {
   taggedUsers: TaggedUser[];
   createdAt: string;
   updatedAt: string;
+  ownerId: string;
+  ownerType: 'employee' | 'admin';
+  ownerName: string;
 }
 
 export * from './socket-events';

@@ -65,11 +65,29 @@ export function registerSystemHandlers(io: UnifiedServer) {
       } else if (channel === 'events:calendar') {
         const { type, data } = payload;
         if (type === 'calendar:event_created') {
-          io.to(`employee:${data.employeeId}`).emit('calendar_event_created', { eventId: data.eventId, kind: data.kind });
+          if (data.employeeId) {
+            io.to(`employee:${data.employeeId}`).emit('calendar_event_created', { eventId: data.eventId, kind: data.kind });
+          }
+          if (data.adminId) {
+            io.to(`admin:${data.adminId}`).emit('calendar_event_created', { eventId: data.eventId, kind: data.kind });
+          }
+          io.to('admin').emit('calendar_changed', { type: 'created', eventId: data.eventId });
         } else if (type === 'calendar:event_updated') {
-          io.to(`employee:${data.employeeId}`).emit('calendar_event_updated', { eventId: data.eventId });
+          if (data.employeeId) {
+            io.to(`employee:${data.employeeId}`).emit('calendar_event_updated', { eventId: data.eventId });
+          }
+          if (data.adminId) {
+            io.to(`admin:${data.adminId}`).emit('calendar_event_updated', { eventId: data.eventId });
+          }
+          io.to('admin').emit('calendar_changed', { type: 'updated', eventId: data.eventId });
         } else if (type === 'calendar:event_deleted') {
-          io.to(`employee:${data.employeeId}`).emit('calendar_event_deleted', { eventId: data.eventId });
+          if (data.employeeId) {
+            io.to(`employee:${data.employeeId}`).emit('calendar_event_deleted', { eventId: data.eventId });
+          }
+          if (data.adminId) {
+            io.to(`admin:${data.adminId}`).emit('calendar_event_deleted', { eventId: data.eventId });
+          }
+          io.to('admin').emit('calendar_changed', { type: 'deleted', eventId: data.eventId });
         } else if (type === 'calendar:event_tagged') {
           io.to(`admin:${data.adminId}`).emit('calendar_event_tagged', { eventId: data.eventId, eventTitle: data.eventTitle, taggedByName: data.taggedByName });
         }

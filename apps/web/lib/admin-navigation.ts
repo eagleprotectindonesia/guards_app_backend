@@ -25,6 +25,7 @@ import {
   LineChart,
   type LucideIcon,
   Briefcase,
+  CalendarDays,
 } from 'lucide-react';
 import { PermissionCode } from './auth/permissions';
 import { getAdminDashboardHref, type AdminTabSlug } from './admin-tab-routing';
@@ -131,6 +132,7 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
       requiredPermission: 'checkins:view',
     },
     { name: 'Alerts', href: '/admin/alerts', icon: Bell, requiredPermission: 'alerts:view' },
+    { name: 'User Calendar', href: '/admin/calendar', icon: CalendarDays, requiredPermission: 'user-calendar:view' },
   ];
 }
 
@@ -187,6 +189,7 @@ export function getAdminNavGroups(
         byName.get('Holiday Calendar'),
         byName.get('Leave Requests'),
         byName.get('Leave Balances'),
+        byName.get('User Calendar'),
       ].filter(Boolean) as NavItem[],
     },
     {
