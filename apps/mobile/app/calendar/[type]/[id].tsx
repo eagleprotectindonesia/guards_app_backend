@@ -31,6 +31,8 @@ import {
   Pencil,
   Trash2,
   Copy,
+  Users,
+  Shield,
 } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
 import { useCalendarItem, useDeleteCalendarEvent, useDuplicateCalendarEvent } from '../../../src/hooks/useCalendar';
@@ -264,10 +266,41 @@ export default function CalendarItemDetailScreen() {
                     label="Admin Note"
                     value={item.data?.adminNote ? String(item.data.adminNote) : null}
                   />
+
+                  {/* Tagged Users */}
+                  {(() => {
+                    const rawTags = (item.data as Record<string, unknown>)?.taggedUsers;
+                    const tags = Array.isArray(rawTags) ? (rawTags as Array<{id: string; type: string; name: string; email?: string}>) : [];
+                    if (tags.length === 0) return null;
+                    return (
+                      <VStack space="sm" className="pt-2 border-t border-white/5">
+                        <Text className="text-[#737373] text-xs font-semibold uppercase tracking-wide">
+                          {t('calendar.taggedUsers', 'Tagged Users')}
+                        </Text>
+                        {tags.map((tu) => (
+                        <HStack key={`${tu.type}:${tu.id}`} space="sm" className="items-center py-1">
+                          <Box className="w-7 h-7 rounded-full bg-[#2C2C2E] items-center justify-center">
+                            {tu.type === 'admin' ? (
+                              <Shield size={14} color="#AF52DE" />
+                            ) : (
+                              <UserRound size={14} color="#007AFF" />
+                            )}
+                          </Box>
+                          <VStack className="flex-1">
+                            <Text className="text-white text-sm">{tu.name}</Text>
+                            <Text className="text-[#737373] text-xs">
+                              {tu.type === 'admin' ? t('calendar.adminTag', 'Admin') : t('calendar.employeeTag', 'Employee')}
+                            </Text>
+                          </VStack>
+                        </HStack>
+                      ))}
+                    </VStack>
+                  );
+                })()}
                 </VStack>
               </View>
 
-              {isUserEvent && (
+              {(isUserEvent && item.data?.isOwner === true) && (
                 <VStack space="sm" className="mt-6">
                   <HStack space="sm">
                     <ActionButton

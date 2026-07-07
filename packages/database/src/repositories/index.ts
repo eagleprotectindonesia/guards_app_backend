@@ -44,4 +44,5 @@ export * from './changelogs';
 export * from './shift-photo-report-downloads';
 export * from './executive-overview';
 export * from './calendar-events';
+export * from './calendar-event-tags';
 

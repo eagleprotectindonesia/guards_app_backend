@@ -522,6 +522,15 @@
     "startDate": "Start Date",
     "endDate": "End Date",
     "startTime": "Start Time",
-    "endTime": "End Time"
+    "endTime": "End Time",
+    "tagUsers": "Tag Users",
+    "searchUsers": "Search users...",
+    "noUsersFound": "No users found",
+    "taggedUsers": "Tagged Users",
+    "emptyTaggedUsers": "No tagged users",
+    "adminTag": "Admin",
+    "employeeTag": "Employee",
+    "eventTaggedTitle": "You've been tagged in an event",
+    "eventTaggedBody": "{name} tagged you in \"{title}\""
   }
 }

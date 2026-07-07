@@ -534,6 +534,13 @@ export type CalendarEventKind =
   | 'personal_event'
   | 'other';
 
+export interface TaggedUser {
+  id: string;
+  type: 'employee' | 'admin';
+  name: string;
+  email?: string;
+}
+
 export interface CreateCalendarEventInput {
   kind: CalendarEventKind;
   title: string;
@@ -548,6 +555,8 @@ export interface CreateCalendarEventInput {
   trainerName?: string;
   priority?: string;
   color?: string;
+  taggedEmployeeIds?: string[];
+  taggedAdminIds?: string[];
 }
 
 export interface UpdateCalendarEventInput {
@@ -564,6 +573,8 @@ export interface UpdateCalendarEventInput {
   trainerName?: string;
   priority?: string;
   color?: string;
+  taggedEmployeeIds?: string[];
+  taggedAdminIds?: string[];
 }
 
 export interface CalendarEventItem {
@@ -581,6 +592,7 @@ export interface CalendarEventItem {
   trainerName: string | null;
   priority: string | null;
   color: string | null;
+  taggedUsers: TaggedUser[];
   createdAt: string;
   updatedAt: string;
 }

@@ -7,7 +7,7 @@ import { ChatMessage, GroupChatMessage, GroupChatParticipant, PanicAlert } from 
 export type AdminNotificationEventItem = {
   id: string;
   adminId: string;
-  type: 'leave_request_created' | 'ticket_assigned_role' | 'ticket_status_updated' | 'ticket_message_added';
+  type: 'leave_request_created' | 'ticket_assigned_role' | 'ticket_status_updated' | 'ticket_message_added' | 'calendar_event_tagged';
   title: string;
   body: string;
   payload: any;

@@ -715,6 +715,9 @@ export const calendarEventKindSchema = z.enum([
   'other',
 ]);
 
+const taggedEmployeeIdsSchema = z.array(z.string().uuid()).optional();
+const taggedAdminIdsSchema = z.array(z.string().uuid()).optional();
+
 export const createCalendarEventSchema = z
   .object({
     kind: calendarEventKindSchema.default('personal_event'),
@@ -739,6 +742,8 @@ export const createCalendarEventSchema = z
       .string()
       .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a hex color')
       .optional(),
+    taggedEmployeeIds: taggedEmployeeIdsSchema,
+    taggedAdminIds: taggedAdminIdsSchema,
   })
   .superRefine((data, ctx) => {
     if (data.startDate > data.endDate) {
@@ -754,6 +759,16 @@ export const createCalendarEventSchema = z
         path: ['startTime'],
         message: 'Time must be empty for all-day events',
       });
+    }
+    if (data.taggedEmployeeIds && data.taggedAdminIds) {
+      const overlap = data.taggedEmployeeIds.filter((id) => data.taggedAdminIds?.includes(id));
+      if (overlap.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['taggedEmployeeIds'],
+          message: 'Same user cannot be tagged as both employee and admin',
+        });
+      }
     }
   });
 
@@ -780,6 +795,8 @@ export const updateCalendarEventSchema = z.object({
     .string()
     .regex(/^#[0-9A-Fa-f]{6}$/)
     .optional(),
+  taggedEmployeeIds: taggedEmployeeIdsSchema,
+  taggedAdminIds: taggedAdminIdsSchema,
 });
 
 export type CalendarEventKindInput = z.infer<typeof calendarEventKindSchema>;

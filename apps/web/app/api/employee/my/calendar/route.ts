@@ -77,12 +77,23 @@ export async function GET(req: Request) {
 
       prisma.calendarEvent.findMany({
         where: {
-          employeeId: employee.id,
           deletedAt: null,
           endDate: { gte: fromDate },
           startDate: { lte: toDate },
+          OR: [
+            { employeeId: employee.id },
+            { tags: { some: { employeeId: employee.id, participantType: 'employee' } } },
+          ],
         },
         orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
+        include: {
+          tags: {
+            include: {
+              employee: { select: { id: true, fullName: true, employeeNumber: true } },
+              admin: { select: { id: true, name: true, email: true } },
+            },
+          },
+        },
       }),
     ]);
 
@@ -101,6 +112,8 @@ export async function GET(req: Request) {
       location: string | null;
       status: string | null;
       colorHint: string | null;
+      isOwner: boolean;
+      taggedUsers: Array<{ id: string; type: 'employee' | 'admin'; name: string; email?: string }>;
     }> = [];
 
     for (const h of holidays) {
@@ -119,6 +132,8 @@ export async function GET(req: Request) {
           location: null,
           status: h.type,
           colorHint: '#FF9500',
+          isOwner: false,
+          taggedUsers: [],
         });
       }
     }
@@ -139,6 +154,8 @@ export async function GET(req: Request) {
           location: null,
           status: null,
           colorHint: '#AF52DE',
+          isOwner: false,
+          taggedUsers: [],
         });
       }
     }
@@ -158,6 +175,8 @@ export async function GET(req: Request) {
           priority: null,
           location: null,
           status: l.status,
+          isOwner: true,
+          taggedUsers: [],
           colorHint:
             l.status === 'approved'
               ? '#34C759'
@@ -184,6 +203,15 @@ export async function GET(req: Request) {
       const days = expandToDays(e.startDate, e.endDate, fromDate, toDate);
       for (const day of days) {
         const kind = e.kind as Kind;
+        const taggedUsers = (e.tags ?? []).map((t) => {
+          if (t.participantType === 'employee' && t.employee) {
+            return { id: t.employee.id, type: 'employee' as const, name: t.employee.fullName };
+          }
+          if (t.participantType === 'admin' && t.admin) {
+            return { id: t.admin.id, type: 'admin' as const, name: t.admin.name, email: t.admin.email };
+          }
+          return null;
+        }).filter(Boolean) as Array<{ id: string; type: 'employee' | 'admin'; name: string; email?: string }>;
         items.push({
           id: `${kind}:${e.id}:${day.toISOString().slice(0, 10)}`,
           originalId: e.id,
@@ -197,6 +225,8 @@ export async function GET(req: Request) {
           location: e.location ?? null,
           status: null,
           colorHint: e.color ?? defaultColors[kind] ?? '#8E8E93',
+          isOwner: e.employeeId === employee.id,
+          taggedUsers,
         });
       }
     }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@repo/database';
+import { prisma, getCalendarEventTags } from '@repo/database';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 
 const EVENT_KINDS = [
@@ -56,9 +56,23 @@ export async function GET(
 
       default: {
         const event = await prisma.calendarEvent.findFirst({
-          where: { id, employeeId: employee.id, deletedAt: null },
+          where: {
+            id,
+            deletedAt: null,
+            OR: [
+              { employeeId: employee.id },
+              { tags: { some: { employeeId: employee.id, participantType: 'employee' } } },
+            ],
+          },
         });
-        data = event as unknown as Record<string, unknown>;
+        if (event) {
+          const tags = await getCalendarEventTags(event.id);
+          data = {
+            ...(event as unknown as Record<string, unknown>),
+            taggedUsers: tags,
+            isOwner: event.employeeId === employee.id,
+          };
+        }
         break;
       }
     }
