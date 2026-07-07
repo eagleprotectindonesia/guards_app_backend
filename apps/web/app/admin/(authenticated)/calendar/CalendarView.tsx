@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useSocket } from '@/components/socket-provider';
 import { MonthGrid } from './components/MonthGrid';
 import { TimeGridView } from './components/TimeGridView';
@@ -9,7 +9,7 @@ import { EventDetailPanel } from './components/EventDetailPanel';
 import { EventForm } from './components/EventForm';
 import { FilterBar } from './components/FilterBar';
 import { ViewToggle } from './components/ViewToggle';
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay, format } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay, addMonths, subMonths, format, parseISO } from 'date-fns';
 import { useSession } from '../context/session-context';
 import type { CalendarItem } from './types';
 
@@ -80,6 +80,7 @@ export function CalendarView() {
     },
     enabled: view === 'month',
     staleTime: 30000,
+    placeholderData: keepPreviousData,
   });
 
   const {
@@ -95,6 +96,7 @@ export function CalendarView() {
       return res.json() as Promise<{ items: CalendarItem[] }>;
     },
     staleTime: 30000,
+    placeholderData: keepPreviousData,
   });
 
   useEffect(() => {
@@ -107,6 +109,32 @@ export function CalendarView() {
       socket.off('calendar_changed', handler);
     };
   }, [socket, queryClient]);
+
+  // Prefetch adjacent months
+  useEffect(() => {
+    const prefetchRange = (from: string, to: string) => {
+      queryClient.prefetchQuery({
+        queryKey: ['admin', 'calendar', 'day-summary', from, to, filters.employeeId],
+        queryFn: async () => {
+          const params = new URLSearchParams({ from, to });
+          if (filters.employeeId) params.set('employeeId', filters.employeeId);
+          const res = await fetch(`/api/admin/calendar/day-summary?${params}`);
+          if (!res.ok) throw new Error('Failed to fetch day summary');
+          return res.json() as Promise<{ days: { date: string; count: number }[] }>;
+        },
+        staleTime: 30000,
+      });
+    };
+
+    if (view === 'month') {
+      const nextFrom = format(addMonths(parseISO(dateRange.from), 1), 'yyyy-MM-dd');
+      const nextTo = format(addMonths(parseISO(dateRange.to), 1), 'yyyy-MM-dd');
+      const prevFrom = format(subMonths(parseISO(dateRange.from), 1), 'yyyy-MM-dd');
+      const prevTo = format(subMonths(parseISO(dateRange.to), 1), 'yyyy-MM-dd');
+      prefetchRange(prevFrom, prevTo);
+      prefetchRange(nextFrom, nextTo);
+    }
+  }, [dateRange.from, dateRange.to, filters.employeeId, queryClient, view]);
 
   const items = itemsData?.items ?? [];
   const daySummaryMap = useMemo(() => {
@@ -125,7 +153,7 @@ export function CalendarView() {
 
   const handleDateClick = useCallback((date: string) => {
     setSelectedDate(date);
-    setCurrentDate(new Date(date + 'T00:00:00'));
+    setCurrentDate(startOfDay(parseISO(date)));
     setView('day');
   }, []);
 

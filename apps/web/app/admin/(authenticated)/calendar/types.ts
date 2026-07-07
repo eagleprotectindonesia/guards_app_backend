@@ -9,6 +9,8 @@ export interface CalendarItem {
   allDay: boolean;
   priority: string | null;
   location: string | null;
+  latitude: number | null;
+  longitude: number | null;
   description?: string | null;
   status: string | null;
   colorHint: string | null;

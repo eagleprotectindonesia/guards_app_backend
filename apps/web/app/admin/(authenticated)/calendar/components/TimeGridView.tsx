@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useEffect, useState } from 'react';
+import { memo, useMemo, useRef, useEffect, useState } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -13,7 +13,12 @@ interface TimeGridViewProps {
   onEventClick: (item: CalendarItem) => void;
 }
 
-export function TimeGridView({ currentDate, viewType, items, onEventClick }: TimeGridViewProps) {
+export const TimeGridView = memo(function TimeGridView({
+  currentDate,
+  viewType,
+  items,
+  onEventClick,
+}: TimeGridViewProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const [initialDateStr] = useState(() => currentDate.toISOString());
 
@@ -58,4 +63,4 @@ export function TimeGridView({ currentDate, viewType, items, onEventClick }: Tim
       />
     </div>
   );
-}
+});

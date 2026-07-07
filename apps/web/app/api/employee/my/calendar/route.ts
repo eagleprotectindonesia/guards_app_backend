@@ -118,6 +118,8 @@ export async function GET(req: Request) {
       allDay: boolean;
       priority: 'urgent' | 'high' | 'normal' | 'low' | null;
       location: string | null;
+      latitude: number | null;
+      longitude: number | null;
       status: string | null;
       colorHint: string | null;
       isOwner: boolean;
@@ -141,6 +143,8 @@ export async function GET(req: Request) {
           allDay: true,
           priority: null,
           location: null,
+          latitude: null,
+          longitude: null,
           status: h.type,
           colorHint: '#FF9500',
           isOwner: false,
@@ -166,6 +170,8 @@ export async function GET(req: Request) {
           allDay: true,
           priority: null,
           location: null,
+          latitude: null,
+          longitude: null,
           status: null,
           colorHint: '#AF52DE',
           isOwner: false,
@@ -191,6 +197,8 @@ export async function GET(req: Request) {
           allDay: true,
           priority: null,
           location: null,
+          latitude: null,
+          longitude: null,
           status: l.status,
           isOwner: true,
           ownerId: employee.id,
@@ -235,6 +243,8 @@ export async function GET(req: Request) {
           allDay: e.allDay,
           priority: (e.priority as 'urgent' | 'high' | 'normal' | 'low') ?? null,
           location: e.location ?? null,
+          latitude: e.latitude ?? null,
+          longitude: e.longitude ?? null,
           status: null,
           colorHint: e.color ?? defaultColors[kind] ?? '#8E8E93',
           isOwner: e.employeeId === employee.id,

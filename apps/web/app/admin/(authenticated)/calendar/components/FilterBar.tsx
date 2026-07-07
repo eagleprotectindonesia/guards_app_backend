@@ -60,8 +60,19 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
       if (priorityRef.current && !priorityRef.current.contains(e.target as Node)) setShowPriorityDropdown(false);
       if (employeeRef.current && !employeeRef.current.contains(e.target as Node)) setShowEmployeeDropdown(false);
     };
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowKindDropdown(false);
+        setShowPriorityDropdown(false);
+        setShowEmployeeDropdown(false);
+      }
+    };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, []);
 
   const handleSearchChange = (value: string) => {
@@ -108,6 +119,8 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
       <div className="relative" ref={kindRef}>
         <button
           onClick={() => setShowKindDropdown(!showKindDropdown)}
+          aria-expanded={showKindDropdown}
+          aria-haspopup="listbox"
           className={`rounded-lg border px-3 py-2 text-sm ${
             filters.kinds?.length
               ? 'border-red-600 bg-red-600/10 text-red-400'
@@ -117,10 +130,16 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
           {filters.kinds?.length ? `Kind (${filters.kinds.length})` : 'Kind'}
         </button>
         {showKindDropdown && (
-          <div className="absolute left-0 top-full z-10 mt-1 w-44 rounded-lg border border-border bg-popover p-2 shadow-lg">
+          <div
+            role="listbox"
+            aria-label="Filter by event kind"
+            className="absolute left-0 top-full z-10 mt-1 w-44 rounded-lg border border-border bg-popover p-2 shadow-lg"
+          >
             {KIND_OPTIONS.map(k => (
               <button
                 key={k.value}
+                role="option"
+                aria-selected={filters.kinds?.includes(k.value) ?? false}
                 onClick={() => toggleKind(k.value)}
                 className={`flex w-full items-center rounded px-2 py-1.5 text-sm ${
                   filters.kinds?.includes(k.value) ? 'text-red-400' : 'text-foreground hover:bg-muted'
@@ -137,6 +156,8 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
       <div className="relative" ref={priorityRef}>
         <button
           onClick={() => setShowPriorityDropdown(!showPriorityDropdown)}
+          aria-expanded={showPriorityDropdown}
+          aria-haspopup="listbox"
           className={`rounded-lg border px-3 py-2 text-sm ${
             filters.priority?.length
               ? 'border-red-600 bg-red-600/10 text-red-400'
@@ -146,10 +167,16 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
           {filters.priority?.length ? `Priority (${filters.priority.length})` : 'Priority'}
         </button>
         {showPriorityDropdown && (
-          <div className="absolute left-0 top-full z-10 mt-1 w-36 rounded-lg border border-border bg-popover p-2 shadow-lg">
+          <div
+            role="listbox"
+            aria-label="Filter by priority"
+            className="absolute left-0 top-full z-10 mt-1 w-36 rounded-lg border border-border bg-popover p-2 shadow-lg"
+          >
             {PRIORITY_OPTIONS.map(p => (
               <button
                 key={p.value}
+                role="option"
+                aria-selected={filters.priority?.includes(p.value) ?? false}
                 onClick={() => togglePriority(p.value)}
                 className={`flex w-full items-center rounded px-2 py-1.5 text-sm ${
                   filters.priority?.includes(p.value) ? 'text-red-400' : 'text-foreground hover:bg-muted'
@@ -166,6 +193,8 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
       <div className="relative" ref={employeeRef}>
         <button
           onClick={() => setShowEmployeeDropdown(!showEmployeeDropdown)}
+          aria-expanded={showEmployeeDropdown}
+          aria-haspopup="listbox"
           className={`rounded-lg border px-3 py-2 text-sm ${
             filters.employeeId
               ? 'border-red-600 bg-red-600/10 text-red-400'
@@ -175,8 +204,14 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
           {filters.employeeId ? 'Employee' : 'All Employees'}
         </button>
         {showEmployeeDropdown && (
-          <div className="absolute left-0 top-full z-10 mt-1 max-h-64 w-64 overflow-y-auto rounded-lg border border-border bg-popover p-2 shadow-lg">
+          <div
+            role="listbox"
+            aria-label="Filter by employee"
+            className="absolute left-0 top-full z-10 mt-1 max-h-64 w-64 overflow-y-auto rounded-lg border border-border bg-popover p-2 shadow-lg"
+          >
             <button
+              role="option"
+              aria-selected={!filters.employeeId}
               onClick={() => {
                 onFiltersChange({ ...filters, employeeId: undefined });
                 setShowEmployeeDropdown(false);
@@ -188,6 +223,8 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
             {(employees ?? []).map(emp => (
               <button
                 key={emp.id}
+                role="option"
+                aria-selected={filters.employeeId === emp.id}
                 onClick={() => {
                   onFiltersChange({ ...filters, employeeId: emp.id });
                   setShowEmployeeDropdown(false);

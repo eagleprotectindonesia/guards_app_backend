@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Loader2 } from 'lucide-react';
 import { ALL_CALENDAR_EVENT_KINDS, KIND_LABELS, KIND_COLORS, REMINDER_PRESETS } from '@repo/shared';
 import { createCalendarEventSchema, updateCalendarEventSchema } from '@repo/validations';
+import AddressAutocompleteInput from '@/components/address-autocomplete-input';
+import AddressMapPreview from '@/components/address-map-preview';
 
 interface EventFormProps {
   eventId?: string;
@@ -19,6 +21,16 @@ const KINDS = ALL_CALENDAR_EVENT_KINDS.map(k => ({
 
 const COLORS = ['#FF3B30', '#FF2D55', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#5AC8FA', '#AF52DE'];
 
+const REMINDER_LABELS: Record<string, string> = {
+  reminderAtEvent: 'At event time',
+  reminder10Min: '10 minutes before',
+  reminder30Min: '30 minutes before',
+  reminder1Hour: '1 hour before',
+  reminder1Day: '1 day before',
+  reminder3Days: '3 days before',
+  reminder1Week: '1 week before',
+};
+
 interface FormData {
   kind: string;
   title: string;
@@ -29,6 +41,8 @@ interface FormData {
   endTime: string;
   allDay: boolean;
   location: string;
+  locationLatitude: number | null;
+  locationLongitude: number | null;
   clientName: string;
   trainerName: string;
   priority: string;
@@ -48,6 +62,8 @@ const EMPTY_FORM: FormData = {
   endTime: '10:00',
   allDay: false,
   location: '',
+  locationLatitude: null,
+  locationLongitude: null,
   clientName: '',
   trainerName: '',
   priority: 'normal',
@@ -112,6 +128,8 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
           endTime: (item.endTime as string) ?? '',
           allDay: (item.allDay as boolean) ?? false,
           location: (item.location as string) ?? '',
+          locationLatitude: (item.latitude as number | null) ?? null,
+          locationLongitude: (item.longitude as number | null) ?? null,
           clientName: (item.clientName as string) ?? '',
           trainerName: (item.trainerName as string) ?? '',
           priority: (item.priority as string) ?? 'normal',
@@ -164,7 +182,11 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
       taggedEmployeeIds: form.taggedEmployeeIds.length > 0 ? form.taggedEmployeeIds : undefined,
       taggedAdminIds: form.taggedAdminIds.length > 0 ? form.taggedAdminIds : undefined,
     };
-    if (showLocation && form.location) body.location = form.location;
+    if (showLocation && form.location) {
+      body.location = form.location;
+      if (form.locationLatitude != null) body.latitude = form.locationLatitude;
+      if (form.locationLongitude != null) body.longitude = form.locationLongitude;
+    }
     if (showClientName && form.clientName) body.clientName = form.clientName;
     if (showTrainerName && form.trainerName) body.trainerName = form.trainerName;
 
@@ -224,12 +246,17 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div
         ref={modalRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="event-form-title"
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-6"
         onClick={e => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-foreground">{eventId ? 'Edit Event' : 'New Event'}</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <h2 id="event-form-title" className="text-lg font-semibold text-foreground">
+            {eventId ? 'Edit Event' : 'New Event'}
+          </h2>
+          <button onClick={onClose} aria-label="Close dialog" className="text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -362,13 +389,7 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
               <option value="">No reminder</option>
               {REMINDER_PRESETS.map(p => (
                 <option key={p.minutes} value={p.minutes}>
-                  {p.labelKey === 'reminderAtEvent' && 'At event time'}
-                  {p.labelKey === 'reminder10Min' && '10 minutes before'}
-                  {p.labelKey === 'reminder30Min' && '30 minutes before'}
-                  {p.labelKey === 'reminder1Hour' && '1 hour before'}
-                  {p.labelKey === 'reminder1Day' && '1 day before'}
-                  {p.labelKey === 'reminder3Days' && '3 days before'}
-                  {p.labelKey === 'reminder1Week' && '1 week before'}
+                  {REMINDER_LABELS[p.labelKey] ?? p.labelKey}
                 </option>
               ))}
               <option value="-1">Custom...</option>
@@ -390,13 +411,25 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
           {showLocation && (
             <div>
               <label className="mb-1 block text-xs text-muted-foreground">Location</label>
-              <input
-                type="text"
+              <AddressAutocompleteInput
                 value={form.location}
-                onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
-                className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-red-500 focus:outline-none"
-                placeholder="Location"
+                onChange={v => setForm(p => ({ ...p, location: v }))}
+                onPlaceSelect={(address, lat, lng) => {
+                  setForm(p => ({ ...p, location: address, locationLatitude: lat, locationLongitude: lng }));
+                }}
+                placeholder="Search address..."
               />
+              {form.locationLatitude != null && form.locationLongitude != null && (
+                <div className="mt-2">
+                  <AddressMapPreview
+                    latitude={form.locationLatitude}
+                    longitude={form.locationLongitude}
+                    onLocationChange={(lat, lng) => {
+                      setForm(p => ({ ...p, locationLatitude: lat, locationLongitude: lng }));
+                    }}
+                  />
+                </div>
+              )}
             </div>
           )}
 

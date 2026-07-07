@@ -11,6 +11,8 @@ export function serializeCalendarEvent(event: Record<string, unknown>) {
     allDay: event.allDay ?? false,
     reminderMinutesBefore: event.reminderMinutesBefore ?? null,
     location: event.location ?? null,
+    latitude: event.latitude ?? null,
+    longitude: event.longitude ?? null,
     clientName: event.clientName ?? null,
     trainerName: event.trainerName ?? null,
     priority: event.priority ?? null,

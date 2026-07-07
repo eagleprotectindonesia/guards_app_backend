@@ -24,6 +24,7 @@ export function CalendarViewSwitcher({
           <Pressable
             key={view}
             onPress={() => onViewChange(view)}
+            accessibilityLabel={t(`calendar.${view}View`, view.charAt(0).toUpperCase() + view.slice(1))}
             className={`flex-1 py-2 rounded-lg ${isActive ? 'bg-[#FF3B30]' : 'bg-[#1A1A1A]'}`}
           >
             <Text className={`text-center font-semibold text-xs ${isActive ? 'text-white' : 'text-[#737373]'}`}>

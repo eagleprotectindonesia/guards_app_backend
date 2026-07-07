@@ -1,4 +1,4 @@
-import { View, ScrollView, StyleSheet, Alert } from 'react-native';
+import { View, ScrollView, StyleSheet, Alert, Linking } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
@@ -31,7 +31,6 @@ import {
   Pencil,
   Trash2,
   Copy,
-  Users,
   Shield,
 } from 'lucide-react-native';
 import { format, parseISO } from 'date-fns';
@@ -39,8 +38,15 @@ import { KIND_COLORS } from '@repo/shared';
 import { useCalendarItem, useDeleteCalendarEvent, useDuplicateCalendarEvent } from '../../../src/hooks/useCalendar';
 
 const USER_EVENT_KINDS = new Set([
-  'meeting', 'client_meeting', 'reminder', 'task', 'deadline',
-  'follow_up', 'training', 'personal_event', 'other',
+  'meeting',
+  'client_meeting',
+  'reminder',
+  'task',
+  'deadline',
+  'follow_up',
+  'training',
+  'personal_event',
+  'other',
 ]);
 
 function StatusBadge({ status }: { status: string | null }) {
@@ -75,7 +81,17 @@ function DetailRow({ icon, label, value }: { icon: React.ReactNode; label: strin
   );
 }
 
-function ActionButton({ icon, label, color, onPress }: { icon: React.ReactNode; label: string; color: string; onPress: () => void }) {
+function ActionButton({
+  icon,
+  label,
+  color,
+  onPress,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  color: string;
+  onPress: () => void;
+}) {
   return (
     <Pressable
       onPress={onPress}
@@ -83,7 +99,9 @@ function ActionButton({ icon, label, color, onPress }: { icon: React.ReactNode; 
       style={{ backgroundColor: `${color}15` }}
     >
       {icon}
-      <Text className="text-sm font-semibold ml-2" style={{ color }}>{label}</Text>
+      <Text className="text-sm font-semibold ml-2" style={{ color }}>
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -92,18 +110,30 @@ function KindHeader({ kind }: { kind: string }) {
   const color = KIND_COLORS[kind] ?? '#FF3B30';
   const getIcon = (): React.ReactNode => {
     switch (kind) {
-      case 'holiday': return <Sun size={24} color={color} />;
-      case 'office_memo': return <FileText size={24} color={color} />;
-      case 'leave': return <Moon size={24} color={color} />;
-      case 'meeting': return <Briefcase size={24} color={color} />;
-      case 'client_meeting': return <UserRound size={24} color={color} />;
-      case 'reminder': return <Bell size={24} color={color} />;
-      case 'task': return <CheckSquare size={24} color={color} />;
-      case 'deadline': return <AlertTriangle size={24} color={color} />;
-      case 'follow_up': return <Repeat size={24} color={color} />;
-      case 'training': return <GraduationCap size={24} color={color} />;
-      case 'personal_event': return <CalendarHeart size={24} color={color} />;
-      default: return <Calendar size={24} color={color} />;
+      case 'holiday':
+        return <Sun size={24} color={color} />;
+      case 'office_memo':
+        return <FileText size={24} color={color} />;
+      case 'leave':
+        return <Moon size={24} color={color} />;
+      case 'meeting':
+        return <Briefcase size={24} color={color} />;
+      case 'client_meeting':
+        return <UserRound size={24} color={color} />;
+      case 'reminder':
+        return <Bell size={24} color={color} />;
+      case 'task':
+        return <CheckSquare size={24} color={color} />;
+      case 'deadline':
+        return <AlertTriangle size={24} color={color} />;
+      case 'follow_up':
+        return <Repeat size={24} color={color} />;
+      case 'training':
+        return <GraduationCap size={24} color={color} />;
+      case 'personal_event':
+        return <CalendarHeart size={24} color={color} />;
+      default:
+        return <Calendar size={24} color={color} />;
     }
   };
   const info = { icon: getIcon(), color };
@@ -122,7 +152,9 @@ function PriorityBadge({ priority }: { priority: string | null }) {
   const color = priority === 'urgent' ? '#FF3B30' : priority === 'high' ? '#FF9500' : '#8E8E93';
   return (
     <Box className="px-2 py-0.5 rounded-full" style={{ backgroundColor: `${color}20` }}>
-      <Text className="text-xs font-bold uppercase" style={{ color }}>{priority}</Text>
+      <Text className="text-xs font-bold uppercase" style={{ color }}>
+        {priority}
+      </Text>
     </Box>
   );
 }
@@ -228,6 +260,19 @@ export default function CalendarItemDetailScreen() {
                     label={t('calendar.location', 'Location')}
                     value={String(item.data?.siteName ?? item.data?.location ?? '') || null}
                   />
+                  {item.data?.latitude != null && item.data?.longitude != null && (
+                    <Pressable
+                      onPress={() =>
+                        Linking.openURL(`https://maps.google.com/?q=${item.data.latitude},${item.data.longitude}`)
+                      }
+                      accessibilityLabel="Open in Maps"
+                    >
+                      <HStack space="xs" className="items-center ml-4 py-1">
+                        <MapPin size={14} color="#FF3B30" />
+                        <Text className="text-[#FF3B30] text-sm font-semibold">Open in Maps</Text>
+                      </HStack>
+                    </Pressable>
+                  )}
 
                   <DetailRow
                     icon={<UserRound size={16} color="#737373" />}
@@ -274,37 +319,41 @@ export default function CalendarItemDetailScreen() {
                   {/* Tagged Users */}
                   {(() => {
                     const rawTags = (item.data as Record<string, unknown>)?.taggedUsers;
-                    const tags = Array.isArray(rawTags) ? (rawTags as Array<{id: string; type: string; name: string; email?: string}>) : [];
+                    const tags = Array.isArray(rawTags)
+                      ? (rawTags as Array<{ id: string; type: string; name: string; email?: string }>)
+                      : [];
                     if (tags.length === 0) return null;
                     return (
                       <VStack space="sm" className="pt-2 border-t border-white/5">
                         <Text className="text-[#737373] text-xs font-semibold uppercase tracking-wide">
                           {t('calendar.taggedUsers', 'Tagged Users')}
                         </Text>
-                        {tags.map((tu) => (
-                        <HStack key={`${tu.type}:${tu.id}`} space="sm" className="items-center py-1">
-                          <Box className="w-7 h-7 rounded-full bg-[#2C2C2E] items-center justify-center">
-                            {tu.type === 'admin' ? (
-                              <Shield size={14} color="#AF52DE" />
-                            ) : (
-                              <UserRound size={14} color="#007AFF" />
-                            )}
-                          </Box>
-                          <VStack className="flex-1">
-                            <Text className="text-white text-sm">{tu.name}</Text>
-                            <Text className="text-[#737373] text-xs">
-                              {tu.type === 'admin' ? t('calendar.adminTag', 'Admin') : t('calendar.employeeTag', 'Employee')}
-                            </Text>
-                          </VStack>
-                        </HStack>
-                      ))}
-                    </VStack>
-                  );
-                })()}
+                        {tags.map(tu => (
+                          <HStack key={`${tu.type}:${tu.id}`} space="sm" className="items-center py-1">
+                            <Box className="w-7 h-7 rounded-full bg-[#2C2C2E] items-center justify-center">
+                              {tu.type === 'admin' ? (
+                                <Shield size={14} color="#AF52DE" />
+                              ) : (
+                                <UserRound size={14} color="#007AFF" />
+                              )}
+                            </Box>
+                            <VStack className="flex-1">
+                              <Text className="text-white text-sm">{tu.name}</Text>
+                              <Text className="text-[#737373] text-xs">
+                                {tu.type === 'admin'
+                                  ? t('calendar.adminTag', 'Admin')
+                                  : t('calendar.employeeTag', 'Employee')}
+                              </Text>
+                            </VStack>
+                          </HStack>
+                        ))}
+                      </VStack>
+                    );
+                  })()}
                 </VStack>
               </View>
 
-              {(isUserEvent && item.data?.isOwner === true) && (
+              {isUserEvent && item.data?.isOwner === true && (
                 <VStack space="sm" className="mt-6">
                   <HStack space="sm">
                     <ActionButton

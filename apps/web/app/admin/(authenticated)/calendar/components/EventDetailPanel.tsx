@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { X, Calendar, Clock, MapPin, User, Tag } from 'lucide-react';
 import { KIND_LABELS } from '@repo/shared';
+import AddressMapPreview from '@/components/address-map-preview';
 import type { CalendarItem } from '../types';
 
 interface EventDetailPanelProps {
@@ -12,7 +13,7 @@ interface EventDetailPanelProps {
   hasDeletePermission: boolean;
 }
 
-export function EventDetailPanel({
+export const EventDetailPanel = memo(function EventDetailPanel({
   event,
   onClose,
   onEdit,
@@ -46,7 +47,7 @@ export function EventDetailPanel({
     <div className="w-96 rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between border-b border-border pb-3">
         <h3 className="font-medium text-foreground">{KIND_LABELS[event.kind] ?? event.kind}</h3>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+        <button onClick={onClose} aria-label="Close details" className="text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4" />
         </button>
       </div>
@@ -73,6 +74,15 @@ export function EventDetailPanel({
             <div className="flex items-center gap-2">
               <MapPin className="h-4 w-4 text-muted-foreground" />
               <span>{event.location}</span>
+            </div>
+          )}
+          {event.latitude != null && event.longitude != null && (
+            <div className="h-36 w-full overflow-hidden rounded-lg border border-border">
+              <AddressMapPreview
+                latitude={event.latitude}
+                longitude={event.longitude}
+                onLocationChange={() => {}}
+              />
             </div>
           )}
 
@@ -132,6 +142,7 @@ export function EventDetailPanel({
           {hasEditPermission && !confirmDelete && (
             <button
               onClick={() => onEdit(event.originalId)}
+              aria-label={`Edit ${event.title}`}
               className="flex-1 rounded-lg bg-muted py-2 text-sm font-medium text-foreground hover:bg-muted/70"
             >
               Edit
@@ -140,6 +151,7 @@ export function EventDetailPanel({
           {hasDeletePermission && !confirmDelete && (
             <button
               onClick={handleDelete}
+              aria-label={`Delete ${event.title}`}
               className="flex-1 rounded-lg bg-red-600/20 py-2 text-sm font-medium text-red-400 hover:bg-red-600/30"
             >
               Delete
@@ -165,4 +177,4 @@ export function EventDetailPanel({
       )}
     </div>
   );
-}
+});
