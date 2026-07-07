@@ -3,6 +3,7 @@ import { FlatList, View } from 'react-native';
 import { VStack } from '@/components/ui/vstack';
 import { Box } from '@/components/ui/box';
 import { Text } from '@/components/ui/text';
+import { useTranslation } from 'react-i18next';
 import { CalendarItem } from '@repo/types';
 import { format, parseISO } from 'date-fns';
 import { CalendarEventCard } from './CalendarEventCard';
@@ -23,6 +24,7 @@ export function CalendarListView({
   refreshing?: boolean;
   onRefresh?: () => void;
 }) {
+  const { t } = useTranslation();
   const grouped = useMemo(() => {
     const map = new Map<string, CalendarItem[]>();
     for (const item of items) {
@@ -48,9 +50,9 @@ export function CalendarListView({
       const yesterday = new Date(today);
       yesterday.setDate(today.getDate() - 1);
 
-      if (dateStr === format(today, 'yyyy-MM-dd')) return 'Today';
-      if (dateStr === format(tomorrow, 'yyyy-MM-dd')) return 'Tomorrow';
-      if (dateStr === format(yesterday, 'yyyy-MM-dd')) return 'Yesterday';
+      if (dateStr === format(today, 'yyyy-MM-dd')) return t('calendar.today', 'Today');
+      if (dateStr === format(tomorrow, 'yyyy-MM-dd')) return t('calendar.tomorrow', 'Tomorrow');
+      if (dateStr === format(yesterday, 'yyyy-MM-dd')) return t('calendar.yesterday', 'Yesterday');
 
       return format(d, 'EEE, MMM d');
     } catch {

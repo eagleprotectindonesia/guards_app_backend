@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { prisma, getCalendarEventTags } from '@repo/database';
+import { prisma, getCalendarEventTags, getTagsForEvents, listEmployeeCalendarEvents } from '@repo/database';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
-import { createCalendarEventSchema, updateCalendarEventSchema } from '@repo/validations';
+import { createCalendarEventSchema, updateCalendarEventSchema, calendarListSchema } from '@repo/validations';
 import { createCalendarEvent, updateCalendarEvent } from '@repo/database';
 import { notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
+import { redis } from '@repo/database/redis';
 import { ZodError } from 'zod';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
 
@@ -39,37 +40,23 @@ export async function GET(req: Request) {
     const fromParam = searchParams.get('from');
     const toParam = searchParams.get('to');
 
-    if (!fromParam || !toParam) {
-      return NextResponse.json({ error: 'from and to query parameters are required' }, { status: 400 });
+    const parsed = calendarListSchema.safeParse({ from: fromParam, to: toParam });
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'from and to query parameters are required (YYYY-MM-DD)' }, { status: 400 });
     }
 
-    const fromDate = startOfDay(parseISO(fromParam));
-    const toDate = endOfDay(parseISO(toParam));
+    const fromDate = startOfDay(parseISO(parsed.data.from));
+    const toDate = endOfDay(parseISO(parsed.data.to));
 
-    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-      return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
-    }
+    const events = await listEmployeeCalendarEvents(employee.id, fromDate, toDate);
 
-    const events = await prisma.calendarEvent.findMany({
-      where: {
-        deletedAt: null,
-        endDate: { gte: fromDate },
-        startDate: { lte: toDate },
-        OR: [
-          { employeeId: employee.id },
-          { tags: { some: { employeeId: employee.id, participantType: 'employee' } } },
-        ],
-      },
-      orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
-    });
-
-    const items = await Promise.all(
-      events.map(async (e) => {
-        const serialized = serializeEvent(e as unknown as Record<string, unknown>);
-        const taggedUsers = await getCalendarEventTags(e.id);
-        return { ...serialized, taggedUsers, isOwner: e.employeeId === employee.id };
-      })
-    );
+    const eventIds = events.map((e) => e.id);
+    const tagsByEvent = await getTagsForEvents(eventIds);
+    const items = events.map((e) => ({
+      ...serializeEvent(e as unknown as Record<string, unknown>),
+      taggedUsers: tagsByEvent[e.id] ?? [],
+      isOwner: e.employeeId === employee.id,
+    }));
 
     return NextResponse.json({ items });
   } catch (error: unknown) {
@@ -97,23 +84,25 @@ export async function POST(req: Request) {
       }
     }
 
-    const event = await createCalendarEvent({
-      employeeId: employee.id,
-      kind: body.kind,
-      title: body.title,
-      description: body.description,
-      startDate: body.startDate,
-      endDate: body.endDate,
-      startTime: body.startTime,
-      endTime: body.endTime,
-      allDay: body.allDay,
-      location: body.location,
-      clientName: body.clientName,
-      trainerName: body.trainerName,
-      priority: body.priority,
-      color: body.color,
-      taggedEmployeeIds,
-      taggedAdminIds,
+    const event = await prisma.$transaction(async (tx) => {
+      return createCalendarEvent({
+        employeeId: employee.id,
+        kind: body.kind,
+        title: body.title,
+        description: body.description,
+        startDate: body.startDate,
+        endDate: body.endDate,
+        startTime: body.startTime,
+        endTime: body.endTime,
+        allDay: body.allDay,
+        location: body.location,
+        clientName: body.clientName,
+        trainerName: body.trainerName,
+        priority: body.priority,
+        color: body.color,
+        taggedEmployeeIds,
+        taggedAdminIds,
+      }, tx);
     });
 
     if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0) {
@@ -126,6 +115,11 @@ export async function POST(req: Request) {
       );
     }
 
+    redis.publish('events:calendar', JSON.stringify({
+      type: 'calendar:event_created',
+      data: { eventId: event.id, kind: body.kind ?? '', employeeId: employee.id },
+    })).catch((err) => console.error('[Calendar] Redis publish error:', err));
+
     const serialized = serializeEvent(event as unknown as Record<string, unknown>);
     const taggedUsers = await getCalendarEventTags(event.id);
 
@@ -136,9 +130,6 @@ export async function POST(req: Request) {
   } catch (error: unknown) {
     if (error instanceof ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
-    }
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }

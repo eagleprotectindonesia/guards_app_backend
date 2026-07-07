@@ -4,6 +4,7 @@ import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { updateCalendarEventSchema } from '@repo/validations';
 import { updateCalendarEvent, deleteCalendarEvent } from '@repo/database';
 import { notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
+import { redis } from '@repo/database/redis';
 import { ZodError } from 'zod';
 
 export async function PUT(
@@ -47,22 +48,24 @@ export async function PUT(
     const newEmployeeIds = taggedEmployeeIds ?? oldEmployeeIds;
     const newAdminIds = taggedAdminIds ?? oldAdminIds;
 
-    const event = await updateCalendarEvent(id, {
-      kind: body.kind,
-      title: body.title,
-      description: body.description,
-      startDate: body.startDate,
-      endDate: body.endDate,
-      startTime: body.startTime,
-      endTime: body.endTime,
-      allDay: body.allDay,
-      location: body.location,
-      clientName: body.clientName,
-      trainerName: body.trainerName,
-      priority: body.priority,
-      color: body.color,
-      taggedEmployeeIds: newEmployeeIds,
-      taggedAdminIds: newAdminIds,
+    const event = await prisma.$transaction(async (tx) => {
+      return updateCalendarEvent(id, {
+        kind: body.kind,
+        title: body.title,
+        description: body.description,
+        startDate: body.startDate,
+        endDate: body.endDate,
+        startTime: body.startTime,
+        endTime: body.endTime,
+        allDay: body.allDay,
+        location: body.location,
+        clientName: body.clientName,
+        trainerName: body.trainerName,
+        priority: body.priority,
+        color: body.color,
+        taggedEmployeeIds: newEmployeeIds,
+        taggedAdminIds: newAdminIds,
+      }, tx);
     });
 
     const newlyTaggedEmployees = newEmployeeIds.filter((uid) => !oldEmployeeIds.includes(uid));
@@ -78,6 +81,11 @@ export async function PUT(
       );
     }
 
+    redis.publish('events:calendar', JSON.stringify({
+      type: 'calendar:event_updated',
+      data: { eventId: id, employeeId: employee.id },
+    })).catch((err) => console.error('[Calendar] Redis publish error:', err));
+
     const taggedUsers = await getCalendarEventTags(id);
 
     return NextResponse.json({
@@ -90,9 +98,6 @@ export async function PUT(
   } catch (error: unknown) {
     if (error instanceof ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 });
-    }
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
@@ -120,11 +125,14 @@ export async function DELETE(
 
     await deleteCalendarEvent(id);
 
+    redis.publish('events:calendar', JSON.stringify({
+      type: 'calendar:event_deleted',
+      data: { eventId: id, employeeId: employee.id },
+    })).catch((err) => console.error('[Calendar] Redis publish error:', err));
+
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+    console.error('Error deleting calendar event:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

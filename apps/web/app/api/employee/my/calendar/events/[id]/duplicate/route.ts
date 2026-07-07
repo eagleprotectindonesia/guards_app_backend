@@ -42,9 +42,7 @@ export async function POST(
 
     return NextResponse.json({ item: event }, { status: 201 });
   } catch (error: unknown) {
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
+    console.error('Error duplicating calendar event:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

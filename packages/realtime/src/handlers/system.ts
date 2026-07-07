@@ -62,6 +62,17 @@ export function registerSystemHandlers(io: UnifiedServer) {
         io.to('admin').emit('hr_live_activity', payload);
       } else if (channel === 'webhooks:panic') {
         io.to('admin').emit('new_dashboard:panic_alerts', payload);
+      } else if (channel === 'events:calendar') {
+        const { type, data } = payload;
+        if (type === 'calendar:event_created') {
+          io.to(`employee:${data.employeeId}`).emit('calendar_event_created', { eventId: data.eventId, kind: data.kind });
+        } else if (type === 'calendar:event_updated') {
+          io.to(`employee:${data.employeeId}`).emit('calendar_event_updated', { eventId: data.eventId });
+        } else if (type === 'calendar:event_deleted') {
+          io.to(`employee:${data.employeeId}`).emit('calendar_event_deleted', { eventId: data.eventId });
+        } else if (type === 'calendar:event_tagged') {
+          io.to(`admin:${data.adminId}`).emit('calendar_event_tagged', { eventId: data.eventId, eventTitle: data.eventTitle, taggedByName: data.taggedByName });
+        }
       }
     } catch (err) {
       console.error('[Socket Redis Sub] Parse Error:', err, 'Message:', message);
@@ -86,9 +97,10 @@ export function registerSystemHandlers(io: UnifiedServer) {
         'dashboard:live-activity',
         'events:tickets',
         'events:hr-activities',
-        'webhooks:panic'
+        'webhooks:panic',
+        'events:calendar'
       );
-      console.log('[Socket Redis Sub] Subscribed to alerts, dashboard, ticket, HR activity, and panic channels');
+      console.log('[Socket Redis Sub] Subscribed to alerts, dashboard, ticket, HR activity, panic, and calendar channels');
     } catch (err) {
       console.error('[Socket Redis Sub] Subscription Failed:', err);
     }

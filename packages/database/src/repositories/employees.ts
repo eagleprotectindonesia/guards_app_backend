@@ -1378,3 +1378,20 @@ export async function getUpcomingBirthdays(now = new Date()): Promise<UpcomingBi
 
   return results.slice(0, 20);
 }
+
+export async function searchEmployeesByName(q: string, excludeId?: string) {
+  return prisma.employee.findMany({
+    where: {
+      deletedAt: null,
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+      OR: [
+        { fullName: { contains: q, mode: 'insensitive' } },
+        { employeeNumber: { contains: q, mode: 'insensitive' } },
+        { nickname: { contains: q, mode: 'insensitive' } },
+      ],
+    },
+    select: { id: true, fullName: true, employeeNumber: true, nickname: true },
+    take: 25,
+    orderBy: { fullName: 'asc' },
+  });
+}

@@ -1197,6 +1197,7 @@ model CalendarEvent {
   @@index([employeeId, startDate])
   @@index([employeeId, endDate])
   @@index([deletedAt])
+  @@index([deletedAt, startDate, endDate])
   @@map("calendar_events")
 }
 
@@ -1211,6 +1212,7 @@ model CalendarEventTag {
   participantType TagParticipantType  @map("participant_type")
   employeeId      String?             @map("employee_id")
   adminId         String?             @map("admin_id")
+  createdAt       DateTime            @default(now()) @map("created_at")
 
   event    CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
   employee Employee?     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -1219,6 +1221,7 @@ model CalendarEventTag {
   @@index([eventId])
   @@index([employeeId])
   @@index([adminId])
+  @@index([participantType, employeeId])
   @@unique([eventId, employeeId])
   @@unique([eventId, adminId])
   @@map("calendar_event_tags")

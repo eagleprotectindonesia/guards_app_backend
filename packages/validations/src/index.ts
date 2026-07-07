@@ -697,8 +697,8 @@ export type PanicWebhookPayloadInput = z.infer<typeof panicWebhookPayloadSchema>
 // Calendar Schemas
 // ============================================================================
 export const calendarListSchema = z.object({
-  from: z.string().date(),
-  to: z.string().date(),
+  from: isoDateKeySchema,
+  to: isoDateKeySchema,
 });
 
 export type CalendarListInput = z.infer<typeof calendarListSchema>;
@@ -760,6 +760,13 @@ export const createCalendarEventSchema = z
         message: 'Time must be empty for all-day events',
       });
     }
+    if (data.startTime && data.endTime && data.startTime >= data.endTime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endTime'],
+        message: 'End time must be after start time',
+      });
+    }
     if (data.taggedEmployeeIds && data.taggedAdminIds) {
       const overlap = data.taggedEmployeeIds.filter((id) => data.taggedAdminIds?.includes(id));
       if (overlap.length > 0) {
@@ -772,32 +779,66 @@ export const createCalendarEventSchema = z
     }
   });
 
-export const updateCalendarEventSchema = z.object({
-  kind: calendarEventKindSchema.optional(),
-  title: z.string().min(1).max(120).optional(),
-  description: z.string().max(2000).optional(),
-  startDate: isoDateKeySchema.optional(),
-  endDate: isoDateKeySchema.optional(),
-  startTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .optional(),
-  endTime: z
-    .string()
-    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
-    .optional(),
-  allDay: z.boolean().optional(),
-  location: z.string().max(200).optional(),
-  clientName: z.string().max(120).optional(),
-  trainerName: z.string().max(120).optional(),
-  priority: z.enum(['urgent', 'high', 'normal', 'low']).optional(),
-  color: z
-    .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/)
-    .optional(),
-  taggedEmployeeIds: taggedEmployeeIdsSchema,
-  taggedAdminIds: taggedAdminIdsSchema,
-});
+export const updateCalendarEventSchema = z
+  .object({
+    kind: calendarEventKindSchema.optional(),
+    title: z.string().min(1).max(120).optional(),
+    description: z.string().max(2000).optional(),
+    startDate: isoDateKeySchema.optional(),
+    endDate: isoDateKeySchema.optional(),
+    startTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+      .optional(),
+    endTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+      .optional(),
+    allDay: z.boolean().optional(),
+    location: z.string().max(200).optional(),
+    clientName: z.string().max(120).optional(),
+    trainerName: z.string().max(120).optional(),
+    priority: z.enum(['urgent', 'high', 'normal', 'low']).optional(),
+    color: z
+      .string()
+      .regex(/^#[0-9A-Fa-f]{6}$/)
+      .optional(),
+    taggedEmployeeIds: taggedEmployeeIdsSchema,
+    taggedAdminIds: taggedAdminIdsSchema,
+  })
+  .superRefine((data, ctx) => {
+    if (data.startDate && data.endDate && data.startDate > data.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'endDate must be on or after startDate',
+      });
+    }
+    if (data.allDay && (data.startTime || data.endTime)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['startTime'],
+        message: 'Time must be empty for all-day events',
+      });
+    }
+    if (data.startTime && data.endTime && data.startTime >= data.endTime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endTime'],
+        message: 'End time must be after start time',
+      });
+    }
+    if (data.taggedEmployeeIds && data.taggedAdminIds) {
+      const overlap = data.taggedEmployeeIds.filter((id) => data.taggedAdminIds?.includes(id));
+      if (overlap.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['taggedEmployeeIds'],
+          message: 'Same user cannot be tagged as both employee and admin',
+        });
+      }
+    }
+  });
 
 export type CalendarEventKindInput = z.infer<typeof calendarEventKindSchema>;
 export type CreateCalendarEventInput = z.infer<typeof createCalendarEventSchema>;

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
+import { calendarListSchema } from '@repo/validations';
+import { KIND_COLORS } from '@repo/shared';
 import { startOfDay, endOfDay, eachDayOfInterval, parseISO } from 'date-fns';
 
 function expandToDays(
@@ -25,16 +27,13 @@ export async function GET(req: Request) {
     const fromParam = searchParams.get('from');
     const toParam = searchParams.get('to');
 
-    if (!fromParam || !toParam) {
-      return NextResponse.json({ error: 'from and to query parameters are required' }, { status: 400 });
+    const parsed = calendarListSchema.safeParse({ from: fromParam, to: toParam });
+    if (!parsed.success) {
+      return NextResponse.json({ error: 'from and to query parameters are required (YYYY-MM-DD)' }, { status: 400 });
     }
 
-    const fromDate = startOfDay(parseISO(fromParam));
-    const toDate = endOfDay(parseISO(toParam));
-
-    if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) {
-      return NextResponse.json({ error: 'Invalid date format' }, { status: 400 });
-    }
+    const fromDate = startOfDay(parseISO(parsed.data.from));
+    const toDate = endOfDay(parseISO(parsed.data.to));
 
     const [holidays, memos, leaves, events] = await Promise.all([
       prisma.holidayCalendarEntry.findMany({
@@ -187,17 +186,7 @@ export async function GET(req: Request) {
       }
     }
 
-    const defaultColors: Record<string, string> = {
-      meeting: '#FF3B30',
-      client_meeting: '#FF2D55',
-      reminder: '#FF9500',
-      task: '#34C759',
-      deadline: '#FF3B30',
-      follow_up: '#FF9500',
-      training: '#007AFF',
-      personal_event: '#007AFF',
-      other: '#AF52DE',
-    };
+    const defaultColors = KIND_COLORS;
 
     for (const e of events) {
       const days = expandToDays(e.startDate, e.endDate, fromDate, toDate);
