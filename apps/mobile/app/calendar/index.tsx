@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, StyleSheet } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
 import { HStack } from '@/components/ui/hstack';
@@ -11,7 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react-native';
 import {
   format,
   addMonths,
@@ -116,6 +116,10 @@ export default function CalendarScreen() {
     [router]
   );
 
+  const handleCreateEvent = useCallback(() => {
+    router.push('/calendar/create');
+  }, [router]);
+
   const dateLabel = useMemo(() => {
     switch (view) {
       case 'month':
@@ -190,7 +194,29 @@ export default function CalendarScreen() {
             )}
           </Box>
         </VStack>
+
+        {/* FAB */}
+        <Pressable
+          onPress={handleCreateEvent}
+          style={[styles.fab, { bottom: insets.bottom + 24 }]}
+          className="w-14 h-14 rounded-full items-center justify-center shadow-lg"
+        >
+          <LinearGradient colors={['#FF3B30', '#D70015']} style={StyleSheet.absoluteFill} className="rounded-full" />
+          <Plus size={24} color="white" />
+        </Pressable>
       </Box>
     </Box>
   );
 }
+
+const styles = StyleSheet.create({
+  fab: {
+    position: 'absolute',
+    right: 24,
+    elevation: 8,
+    shadowColor: '#FF3B30',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+});

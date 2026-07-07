@@ -691,3 +691,86 @@ export const calendarListSchema = z.object({
 });
 
 export type CalendarListInput = z.infer<typeof calendarListSchema>;
+
+export const calendarEventKindSchema = z.enum([
+  'meeting',
+  'client_meeting',
+  'reminder',
+  'task',
+  'deadline',
+  'follow_up',
+  'training',
+  'personal_event',
+  'other',
+]);
+
+export const createCalendarEventSchema = z
+  .object({
+    kind: calendarEventKindSchema.default('personal_event'),
+    title: z.string().min(1, 'Title is required').max(120, 'Title is too long'),
+    description: z.string().max(2000).optional(),
+    startDate: isoDateKeySchema,
+    endDate: isoDateKeySchema,
+    startTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:mm format')
+      .optional(),
+    endTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:mm format')
+      .optional(),
+    allDay: z.boolean().default(false),
+    location: z.string().max(200).optional(),
+    clientName: z.string().max(120).optional(),
+    trainerName: z.string().max(120).optional(),
+    priority: z.enum(['urgent', 'high', 'normal', 'low']).default('normal').optional(),
+    color: z
+      .string()
+      .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a hex color')
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.startDate > data.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'endDate must be on or after startDate',
+      });
+    }
+    if (data.allDay && (data.startTime || data.endTime)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['startTime'],
+        message: 'Time must be empty for all-day events',
+      });
+    }
+  });
+
+export const updateCalendarEventSchema = z.object({
+  kind: calendarEventKindSchema.optional(),
+  title: z.string().min(1).max(120).optional(),
+  description: z.string().max(2000).optional(),
+  startDate: isoDateKeySchema.optional(),
+  endDate: isoDateKeySchema.optional(),
+  startTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .optional(),
+  endTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+    .optional(),
+  allDay: z.boolean().optional(),
+  location: z.string().max(200).optional(),
+  clientName: z.string().max(120).optional(),
+  trainerName: z.string().max(120).optional(),
+  priority: z.enum(['urgent', 'high', 'normal', 'low']).optional(),
+  color: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/)
+    .optional(),
+});
+
+export type CalendarEventKindInput = z.infer<typeof calendarEventKindSchema>;
+export type CreateCalendarEventInput = z.infer<typeof createCalendarEventSchema>;
+export type UpdateCalendarEventInput = z.infer<typeof updateCalendarEventSchema>;

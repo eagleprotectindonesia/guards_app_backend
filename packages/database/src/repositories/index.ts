@@ -43,4 +43,5 @@ export * from './hr-activities';
 export * from './changelogs';
 export * from './shift-photo-report-downloads';
 export * from './executive-overview';
+export * from './calendar-events';
 

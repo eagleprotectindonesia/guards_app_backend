@@ -20,6 +20,7 @@ TurboRepo monorepo (`pnpm@10.32.1`, `turbo@^2.9.14`).
 - **Dev:** `pnpm dev` (web + worker), `pnpm dev:split` (+ realtime), `pnpm dev:https`/`pnpm dev:https:split` for HTTPS. All use `node --env-file=.env` — env must be at root as `.env`.
 - **Postinstall:** runs `prisma:generate` via turbo. Skip with `SKIP_TURBO_POSTINSTALL=1`.
 - **DB push:** `pnpm turbo run db:push` (requires `DATABASE_URL`, handles generate dependency).
+  - ⚠️ **Never run `prisma db push` automatically.** Instead, remind the user to manually push/migrate the database themselves.
 - **Lint:** `rtk pnpm lint` (not `rtk lint` — ESLint v9 root config issue). Runs `turbo run lint type-check`. Turbo respects type-check → lint dependsOn ordering per workspace.
 - **Test:**
   - `pnpm test` — Jest unit tests (triggers full build first via turbo dependsOn).
