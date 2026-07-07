@@ -1,0 +1,215 @@
+'use client';
+
+import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSocket } from '@/components/socket-provider';
+import { MonthGrid } from './components/MonthGrid';
+import { WeekView } from './components/WeekView';
+import { DayView } from './components/DayView';
+import { EventDetailPanel } from './components/EventDetailPanel';
+import { EventForm } from './components/EventForm';
+import { FilterBar } from './components/FilterBar';
+import { ViewToggle } from './components/ViewToggle';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay, format } from 'date-fns';
+import { useSession } from '../context/session-context';
+import type { CalendarItem } from './types';
+
+type ViewMode = 'month' | 'week' | 'day';
+
+interface CalendarFilters {
+  employeeId?: string;
+  kinds?: string[];
+  search?: string;
+  priority?: string[];
+  clientName?: string;
+}
+
+interface DaySummary {
+  date: string;
+  count: number;
+}
+
+export function CalendarView() {
+  const [view, setView] = useState<ViewMode>('month');
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarItem | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editEventId, setEditEventId] = useState<string | null>(null);
+  const [filters, setFilters] = useState<CalendarFilters>({});
+  const queryClient = useQueryClient();
+  const session = useSession();
+  const { socket } = useSocket();
+
+  const dateRange = useMemo(() => {
+    if (view === 'month') {
+      return {
+        from: format(startOfWeek(startOfMonth(currentDate)), 'yyyy-MM-dd'),
+        to: format(endOfWeek(endOfMonth(currentDate)), 'yyyy-MM-dd'),
+      };
+    }
+    if (view === 'week') {
+      return {
+        from: format(startOfWeek(currentDate), 'yyyy-MM-dd'),
+        to: format(endOfWeek(currentDate), 'yyyy-MM-dd'),
+      };
+    }
+    return {
+      from: format(startOfDay(currentDate), 'yyyy-MM-dd'),
+      to: format(endOfDay(currentDate), 'yyyy-MM-dd'),
+    };
+  }, [view, currentDate]);
+
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams({ from: dateRange.from, to: dateRange.to });
+    if (filters.employeeId) params.set('employeeId', filters.employeeId);
+    if (filters.kinds && filters.kinds.length > 0) params.set('kind', filters.kinds.join(','));
+    if (filters.search) params.set('search', filters.search);
+    if (filters.priority && filters.priority.length > 0) params.set('priority', filters.priority.join(','));
+    if (filters.clientName) params.set('clientName', filters.clientName);
+    return params.toString();
+  }, [dateRange, filters]);
+
+  const { data: summaryData } = useQuery({
+    queryKey: ['admin', 'calendar', 'day-summary', dateRange.from, dateRange.to, filters.employeeId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ from: dateRange.from, to: dateRange.to });
+      if (filters.employeeId) params.set('employeeId', filters.employeeId);
+      const res = await fetch(`/api/admin/calendar/day-summary?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch day summary');
+      return res.json() as Promise<{ days: DaySummary[] }>;
+    },
+    enabled: view === 'month',
+    staleTime: 30000,
+  });
+
+  const { data: itemsData, isLoading } = useQuery({
+    queryKey: ['admin', 'calendar', 'items', queryString],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/calendar?${queryString}`);
+      if (!res.ok) throw new Error('Failed to fetch calendar items');
+      return res.json() as Promise<{ items: CalendarItem[] }>;
+    },
+    staleTime: 30000,
+  });
+
+  useEffect(() => {
+    if (!socket) return;
+    const handler = () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'calendar'] });
+    };
+    socket.on('calendar_changed', handler);
+    return () => {
+      socket.off('calendar_changed', handler);
+    };
+  }, [socket, queryClient]);
+
+  const items = itemsData?.items ?? [];
+  const daySummaryMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (summaryData?.days) {
+      for (const d of summaryData.days) {
+        map.set(d.date, d.count);
+      }
+    }
+    return map;
+  }, [summaryData]);
+
+  const handleEventClick = useCallback((item: CalendarItem) => {
+    setSelectedEvent(item);
+  }, []);
+
+  const handleDateClick = useCallback((date: string) => {
+    setSelectedDate(date);
+    setCurrentDate(new Date(date + 'T00:00:00'));
+    setView('day');
+  }, []);
+
+  const handleEditEvent = useCallback((eventId: string) => {
+    setEditEventId(eventId);
+    setSelectedEvent(null);
+  }, []);
+
+  const handleFormSuccess = useCallback(() => {
+    setShowCreateModal(false);
+    setEditEventId(null);
+    queryClient.invalidateQueries({ queryKey: ['admin', 'calendar'] });
+  }, [queryClient]);
+
+  return (
+    <div className="flex h-full gap-4">
+      <div className="flex-1 space-y-4">
+        <div className="flex items-center justify-between">
+          <FilterBar filters={filters} onFiltersChange={setFilters} />
+          <div className="flex items-center gap-2">
+            {session.hasPermission('user-calendar:create') && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+              >
+                + New Event
+              </button>
+            )}
+            <ViewToggle view={view} onViewChange={setView} currentDate={currentDate} onDateChange={setCurrentDate} />
+          </div>
+        </div>
+
+        {view === 'month' && (
+          <MonthGrid
+            currentDate={currentDate}
+            items={items}
+            daySummary={daySummaryMap}
+            onDateClick={handleDateClick}
+            onEventClick={handleEventClick}
+          />
+        )}
+        {view === 'week' && (
+          <WeekView
+            currentDate={currentDate}
+            items={items}
+            onEventClick={handleEventClick}
+          />
+        )}
+        {view === 'day' && (
+          <DayView
+            currentDate={currentDate}
+            items={items}
+            onEventClick={handleEventClick}
+          />
+        )}
+
+        {isLoading && (
+          <div className="flex items-center justify-center py-8 text-muted-foreground">
+            Loading...
+          </div>
+        )}
+      </div>
+
+      {selectedEvent && (
+        <EventDetailPanel
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onEdit={handleEditEvent}
+          onDelete={handleFormSuccess}
+          hasEditPermission={session.hasPermission('user-calendar:edit') && selectedEvent.ownerType === 'admin' && selectedEvent.ownerId === session.userId}
+          hasDeletePermission={session.hasPermission('user-calendar:delete') && selectedEvent.ownerType === 'admin' && selectedEvent.ownerId === session.userId}
+        />
+      )}
+
+      {showCreateModal && (
+        <EventForm
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={handleFormSuccess}
+        />
+      )}
+
+      {editEventId && (
+        <EventForm
+          eventId={editEventId}
+          onClose={() => setEditEventId(null)}
+          onSuccess={handleFormSuccess}
+        />
+      )}
+    </div>
+  );
+}

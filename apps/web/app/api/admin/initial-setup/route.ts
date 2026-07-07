@@ -29,6 +29,10 @@ const INITIAL_PERMISSIONS = [
   { action: 'delete', resource: 'roles', code: 'roles:delete', description: 'Can delete roles' },
   { action: 'view', resource: 'chat', code: 'chat:view', description: 'Can view chat messages' },
   { action: 'create', resource: 'chat', code: 'chat:create', description: 'Can send chat messages' },
+  { action: 'view', resource: 'user-calendar', code: 'user-calendar:view', description: 'Can view user calendar' },
+  { action: 'create', resource: 'user-calendar', code: 'user-calendar:create', description: 'Can create calendar events' },
+  { action: 'edit', resource: 'user-calendar', code: 'user-calendar:edit', description: 'Can edit calendar events' },
+  { action: 'delete', resource: 'user-calendar', code: 'user-calendar:delete', description: 'Can delete calendar events' },
 ];
 
 export async function POST() {

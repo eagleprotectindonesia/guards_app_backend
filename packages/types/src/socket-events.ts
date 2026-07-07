@@ -129,6 +129,7 @@ export interface ServerToClientEvents {
   calendar_event_created: (data: { eventId: string; kind: string }) => void;
   calendar_event_updated: (data: { eventId: string }) => void;
   calendar_event_deleted: (data: { eventId: string }) => void;
+  calendar_changed: (data: { type: string; eventId: string }) => void;
 
   // Ticket events
   ticket_created: (payload: { ticket: any }) => void;
