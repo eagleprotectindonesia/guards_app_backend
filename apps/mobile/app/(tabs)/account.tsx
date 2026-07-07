@@ -7,7 +7,7 @@ import { Text } from '@/components/ui/text';
 import { HStack } from '@/components/ui/hstack';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { LogOut, Key, ChevronRight, Fingerprint, Calendar, Bell, Tag } from 'lucide-react-native';
+import { LogOut, Key, ChevronRight, Fingerprint, Calendar, CalendarDays, Bell, Tag } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../src/contexts/AuthContext';
 import { usePasswordChangeModal } from '../../src/contexts/PasswordChangeModalContext';
@@ -109,10 +109,7 @@ export default function AccountScreen() {
     <Box className="flex-1 bg-black overflow-hidden">
       {/* Background Ambient Glow */}
       <Box className="absolute top-[-50] right-[-50] w-[300] h-[300] opacity-30">
-        <LinearGradient
-          colors={['rgba(255, 59, 48, 0.15)', 'transparent']}
-          style={{ flex: 1, borderRadius: 150 }}
-        />
+        <LinearGradient colors={['rgba(255, 59, 48, 0.15)', 'transparent']} style={{ flex: 1, borderRadius: 150 }} />
       </Box>
 
       <ScrollView
@@ -204,6 +201,21 @@ export default function AccountScreen() {
                       </Box>
                       <Text size="sm" className="font-semibold text-white">
                         {t('leave.title', 'Leave Requests')}
+                      </Text>
+                    </HStack>
+                    <ChevronRight size={18} color="#666666" />
+                  </Box>
+                </TouchableOpacity>
+
+                {/* Calendar */}
+                <TouchableOpacity onPress={() => router.push('/calendar')} activeOpacity={0.7}>
+                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
+                    <HStack space="md" className="items-center">
+                      <Box className="w-10 h-10 rounded-xl bg-[#FF9500]/10 items-center justify-center border border-[#FF9500]/20">
+                        <CalendarDays size={20} color="#FF9500" />
+                      </Box>
+                      <Text size="sm" className="font-semibold text-white">
+                        {t('calendar.title', 'Calendar')}
                       </Text>
                     </HStack>
                     <ChevronRight size={18} color="#666666" />
@@ -329,7 +341,6 @@ export default function AccountScreen() {
               </TouchableOpacity>
             </Box>
           </Box>
-
         </VStack>
       </ScrollView>
 

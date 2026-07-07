@@ -681,3 +681,13 @@ export const panicWebhookPayloadSchema = z.object({
 
 export type PanicAlertInput = z.infer<typeof panicAlertSchema>;
 export type PanicWebhookPayloadInput = z.infer<typeof panicWebhookPayloadSchema>;
+
+// ============================================================================
+// Calendar Schemas
+// ============================================================================
+export const calendarListSchema = z.object({
+  from: z.string().date(),
+  to: z.string().date(),
+});
+
+export type CalendarListInput = z.infer<typeof calendarListSchema>;

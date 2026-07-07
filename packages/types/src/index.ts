@@ -484,5 +484,32 @@ export interface PanicWebhookPayload {
   unresolvedPanics: PanicAlert[];
 }
 
+// ============================================================================
+// Calendar Types
+// ============================================================================
+export type CalendarItemKind = 'holiday' | 'office_memo' | 'leave';
+
+export interface CalendarItem {
+  id: string;
+  originalId: string;
+  kind: CalendarItemKind;
+  title: string;
+  date: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  allDay: boolean;
+  priority: 'urgent' | 'high' | 'normal' | 'low' | null;
+  location: string | null;
+  status: string | null;
+  colorHint: string | null;
+}
+
+export type CalendarDetailKind = CalendarItemKind;
+
+export interface CalendarDetailResponse {
+  kind: CalendarDetailKind;
+  data: Record<string, unknown>;
+}
+
 export * from './socket-events';
 
