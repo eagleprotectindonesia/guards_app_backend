@@ -470,7 +470,7 @@
     "today": "Today",
     "tomorrow": "Tomorrow",
     "yesterday": "Yesterday",
-    "moreEvents": "+{count} more",
+    "moreEvents": "+{{count}} more",
     "sun": "Sun",
     "mon": "Mon",
     "tue": "Tue",
@@ -551,9 +551,9 @@
     "reminder1Day": "1 day before",
     "reminder3Days": "3 days before",
     "reminder1Week": "1 week before",
-    "reminderMinutesBefore": "{minutes} minutes before",
-    "reminderHoursBefore": "{hours} hours before",
-    "reminderDaysBefore": "{days} days before",
+    "reminderMinutesBefore": "{{minutes}} minutes before",
+    "reminderHoursBefore": "{{hours}} hours before",
+    "reminderDaysBefore": "{{days}} days before",
     "reminderCustom": "Custom..."
   }
 }

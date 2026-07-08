@@ -80,7 +80,7 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
 
-  const [kind, setKind] = useState<CalendarEventKind>(initialData?.kind ?? 'personal_event');
+  const [kind, setKind] = useState<CalendarEventKind>(initialData?.kind ?? 'meeting');
   const [title, setTitle] = useState(initialData?.title ?? '');
   const [description, setDescription] = useState(initialData?.description ?? '');
   const [startDate, setStartDate] = useState(initialData?.startDate ?? new Date().toISOString().slice(0, 10));
@@ -102,7 +102,7 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
   useEffect(() => {
     if (initialData !== prevInitialDataRef.current) {
       prevInitialDataRef.current = initialData;
-      setKind(initialData?.kind ?? 'personal_event');
+      setKind(initialData?.kind ?? 'meeting');
       setTitle(initialData?.title ?? '');
       setDescription(initialData?.description ?? '');
       setStartDate(initialData?.startDate ?? new Date().toISOString().slice(0, 10));
@@ -331,10 +331,16 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
                     : reminderMinutesBefore === 0
                       ? t('calendar.reminderAtEvent', 'At event time')
                       : reminderMinutesBefore < 60
-                        ? t('calendar.reminderMinutesBefore', `${reminderMinutesBefore} minutes before`)
+                        ? t('calendar.reminderMinutesBefore', '{{minutes}} minutes before', {
+                            minutes: reminderMinutesBefore,
+                          })
                         : reminderMinutesBefore < 1440
-                          ? t('calendar.reminderHoursBefore', `${Math.round(reminderMinutesBefore / 60)} hours before`)
-                          : t('calendar.reminderDaysBefore', `${Math.round(reminderMinutesBefore / 1440)} days before`)}
+                          ? t('calendar.reminderHoursBefore', '{{hours}} hours before', {
+                              hours: Math.round(reminderMinutesBefore / 60),
+                            })
+                          : t('calendar.reminderDaysBefore', '{{days}} days before', {
+                              days: Math.round(reminderMinutesBefore / 1440),
+                            })}
               </Text>
             </Pressable>
           </VStack>
