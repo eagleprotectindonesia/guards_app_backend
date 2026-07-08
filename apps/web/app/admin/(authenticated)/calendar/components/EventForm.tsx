@@ -27,6 +27,7 @@ interface EventFormProps {
   eventId?: string;
   initialEvent?: EventForEditItem | null;
   defaultDate?: string;
+  defaultStartTime?: string;
   onClose: () => void;
   onSuccess: () => void;
   initialAdmins: Array<{ id: string; name: string; email: string }>;
@@ -80,7 +81,7 @@ function todayStr() {
   return format(new Date(), 'yyyy-MM-dd');
 }
 
-function buildFormState(initialEvent: EventForEditItem | null | undefined, defaultDate?: string) {
+function buildFormState(initialEvent: EventForEditItem | null | undefined, defaultDate?: string, defaultStartTime?: string) {
   if (initialEvent) {
     const startDate = initialEvent.startDate ?? todayStr();
     const endDate = initialEvent.endDate ?? todayStr();
@@ -112,14 +113,14 @@ function buildFormState(initialEvent: EventForEditItem | null | undefined, defau
     };
   }
   return {
-    form: { ...EMPTY_FORM, startDate: defaultDate ?? todayStr(), endDate: defaultDate ?? todayStr() } satisfies FormData,
+    form: { ...EMPTY_FORM, startDate: defaultDate ?? todayStr(), endDate: defaultDate ?? todayStr(), startTime: defaultStartTime ?? '09:00' } satisfies FormData,
     startDateObj: new Date(),
     endDateObj: new Date(),
   };
 }
 
-export function EventForm({ eventId, initialEvent, defaultDate, onClose, onSuccess, initialAdmins }: EventFormProps) {
-  const [{ form, startDateObj, endDateObj }, setFormState] = useState(() => buildFormState(initialEvent, defaultDate));
+export function EventForm({ eventId, initialEvent, defaultDate, defaultStartTime, onClose, onSuccess, initialAdmins }: EventFormProps) {
+  const [{ form, startDateObj, endDateObj }, setFormState] = useState(() => buildFormState(initialEvent, defaultDate, defaultStartTime));
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});

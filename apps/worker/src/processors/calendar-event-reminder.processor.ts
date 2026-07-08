@@ -85,7 +85,7 @@ export class CalendarEventReminderProcessor {
           type: 'calendar_event_reminder',
           title: titleString,
           body: bodyString,
-          payload: { eventId, eventTitle, minutesBefore },
+          payload: { eventId, eventTitle, minutesBefore, targetPath: '/admin/calendar' },
         });
       } catch (err) {
         console.error(`[CalendarEventReminder] Admin notification failed for admin ${event.adminId}:`, err);
@@ -114,7 +114,7 @@ export class CalendarEventReminderProcessor {
             type: 'calendar_event_reminder',
             title: titleString,
             body: `${bodyString} (you are tagged)`,
-            payload: { eventId, eventTitle, minutesBefore },
+          payload: { eventId, eventTitle, minutesBefore, targetPath: '/admin/calendar' },
           });
         } catch (err) {
           console.error(`[CalendarEventReminder] Admin notification failed for tagged admin ${tag.adminId}:`, err);

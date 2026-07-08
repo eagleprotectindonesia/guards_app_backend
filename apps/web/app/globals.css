@@ -271,7 +271,7 @@
   --fc-neutral-bg-color: var(--muted);
   --fc-neutral-text-color: var(--muted-foreground);
   --fc-border-color: var(--border);
-  --fc-today-bg-color: color-mix(in oklch, var(--primary) 12%, transparent);
+  --fc-today-bg-color: transparent;
   --fc-now-indicator-color: var(--primary);
   --fc-event-text-color: #fff;
   --fc-button-text-color: var(--foreground);
@@ -281,6 +281,7 @@
   --fc-button-hover-border-color: var(--border);
   --fc-button-active-bg-color: var(--accent);
   --fc-button-active-border-color: var(--border);
+  --fc-timegrid-event-min-height: 24px;
 }
 
 .fc .fc-col-header-cell-cushion,
@@ -292,4 +293,51 @@
 
 .fc .fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion {
   color: var(--primary);
+}
+
+.fc .fc-col-header-cell {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+  background: var(--card);
+}
+
+.fc .fc-timegrid-axis {
+  border-right: 1px solid var(--border);
+  background: var(--muted);
+}
+
+.fc .fc-timegrid-slot-label-cushion {
+  font-size: 0.7rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+  padding-right: 12px;
+}
+
+.fc .fc-timegrid-now-indicator-line {
+  border-color: var(--primary);
+  border-width: 2px 0 0;
+  filter: drop-shadow(0 0 2px color-mix(in oklch, var(--primary) 40%, transparent));
+}
+
+.fc .fc-timegrid-now-indicator-arrow {
+  border-width: 6px 6px 6px 0;
+  border-top-color: transparent;
+  border-bottom-color: transparent;
+  border-right-color: var(--primary);
+  border-left-color: transparent;
+}
+
+.fc .fc-timegrid-event,
+.fc .fc-daygrid-event {
+  border-radius: 0.375rem;
+  box-shadow: 0 1px 2px oklch(0 0 0 / 8%);
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  cursor: pointer;
+}
+
+.fc .fc-timegrid-event:hover,
+.fc .fc-daygrid-event:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px oklch(0 0 0 / 14%);
 }

@@ -66,7 +66,7 @@ export async function notifyCalendarEventTags(
       type: 'calendar_event_tagged',
       title,
       body,
-      payload: { eventId, eventTitle, taggedByName },
+      payload: { eventId, eventTitle, taggedByName, targetPath: '/admin/calendar' },
     }).catch(err => console.error('[CalendarTag] Failed to persist admin notifications:', err));
 
     results.adminNotified = taggedAdminIds.length;

@@ -51,6 +51,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
   });
   const [selectedEvent, setSelectedEvent] = useState<CalendarItem | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createDefaults, setCreateDefaults] = useState<{ date: string; time?: string } | null>(null);
   const [editEventId, setEditEventId] = useState<string | null>(null);
   const [editInitialData, setEditInitialData] = useState<EventForEditItem | null>(null);
   const [editFetching, setEditFetching] = useState(false);
@@ -143,6 +144,13 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
     setView('day');
   }, []);
 
+  const handleSlotSelect = useCallback((date: string, time: string) => {
+    setCurrentDate(startOfDay(parseISO(date)));
+    setSelectedEvent(null);
+    setCreateDefaults({ date, time });
+    setShowCreateModal(true);
+  }, []);
+
   const handleEditEvent = useCallback(async (eventId: string) => {
     setEditFetching(true);
     setEditEventId(eventId);
@@ -198,6 +206,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             viewType={view === 'week' ? 'timeGridWeek' : 'timeGridDay'}
             items={items}
             onEventClick={handleEventClick}
+            onSlotSelect={session.hasPermission('user-calendar:create') ? handleSlotSelect : undefined}
           />
         )}
 
@@ -235,7 +244,15 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
         />
       )}
 
-      {showCreateModal && <EventForm defaultDate={format(currentDate, 'yyyy-MM-dd')} onClose={() => setShowCreateModal(false)} onSuccess={handleFormSuccess} initialAdmins={admins} />}
+      {showCreateModal && (
+        <EventForm
+          defaultDate={createDefaults?.date ?? format(currentDate, 'yyyy-MM-dd')}
+          defaultStartTime={createDefaults?.time}
+          onClose={() => { setShowCreateModal(false); setCreateDefaults(null); }}
+          onSuccess={handleFormSuccess}
+          initialAdmins={admins}
+        />
+      )}
 
       {editFetching && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
