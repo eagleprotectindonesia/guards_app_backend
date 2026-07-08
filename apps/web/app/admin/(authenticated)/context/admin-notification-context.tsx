@@ -22,7 +22,8 @@ export function AdminNotificationProvider({ children }: { children: React.ReactN
   const { hasPermission } = useSession();
   const canViewLeaveRequests = hasPermission(PERMISSIONS.LEAVE_REQUESTS.VIEW);
   const canViewTickets = hasPermission(PERMISSIONS.TICKETS.VIEW);
-  const canViewAdminNotifications = canViewLeaveRequests || canViewTickets;
+  const canViewCalendar = hasPermission(PERMISSIONS.USER_CALENDAR.VIEW);
+  const canViewAdminNotifications = canViewLeaveRequests || canViewTickets || canViewCalendar;
 
   const [notifications, setNotifications] = useState<AdminNotificationEventItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
