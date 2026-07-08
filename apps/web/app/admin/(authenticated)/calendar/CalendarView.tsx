@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { useSocket } from '@/components/socket-provider';
 import { MonthGrid } from './components/MonthGrid';
@@ -32,8 +33,22 @@ interface CalendarViewProps {
 }
 
 export function CalendarView({ employees, admins }: CalendarViewProps) {
-  const [view, setView] = useState<ViewMode>('month');
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [view, setView] = useState<ViewMode>(() => {
+    const v = searchParams.get('view');
+    return (v === 'month' || v === 'week' || v === 'day') ? v : 'month';
+  });
+  const [currentDate, setCurrentDate] = useState(() => {
+    const d = searchParams.get('date');
+    if (d) {
+      const parsed = parseISO(d);
+      if (!isNaN(parsed.getTime())) return parsed;
+    }
+    return new Date();
+  });
   const [selectedEvent, setSelectedEvent] = useState<CalendarItem | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editEventId, setEditEventId] = useState<string | null>(null);
@@ -100,6 +115,13 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
     };
   }, [socket, queryClient]);
 
+  useEffect(() => {
+    const params = new URLSearchParams();
+    params.set('view', view);
+    params.set('date', format(currentDate, 'yyyy-MM-dd'));
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [view, currentDate, pathname, router]);
+
   const items = itemsData?.items ?? [];
   const daySummaryMap = useMemo(() => {
     const map = new Map<string, number>();
@@ -144,7 +166,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
 
   return (
     <div className="flex h-full gap-4">
-      <div className="flex-1 space-y-4">
+      <div className="flex min-h-0 flex-1 flex-col space-y-4">
         <div className="flex items-center justify-between">
           <FilterBar filters={filters} onFiltersChange={setFilters} initialEmployees={employees} />
           <div className="flex items-center gap-2">
@@ -213,7 +235,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
         />
       )}
 
-      {showCreateModal && <EventForm onClose={() => setShowCreateModal(false)} onSuccess={handleFormSuccess} initialAdmins={admins} />}
+      {showCreateModal && <EventForm defaultDate={format(currentDate, 'yyyy-MM-dd')} onClose={() => setShowCreateModal(false)} onSuccess={handleFormSuccess} initialAdmins={admins} />}
 
       {editFetching && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
