@@ -1,9 +1,30 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@repo/database';
+import { prisma, getTagsForEvents } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { calendarListSchema } from '@repo/validations';
 import { KIND_COLORS } from '@repo/shared';
 import { startOfDay, endOfDay, eachDayOfInterval, parseISO } from 'date-fns';
+
+type CalendarItem = {
+  id: string;
+  originalId: string;
+  kind: string;
+  title: string;
+  date: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  allDay: boolean;
+  priority: string | null;
+  location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  status: string | null;
+  colorHint: string | null;
+  ownerId: string;
+  ownerType: 'employee' | 'admin';
+  ownerName: string;
+  taggedUsers: Array<{ id: string; type: 'employee' | 'admin'; name: string; email?: string }>;
+};
 
 function expandToDays(startDate: Date, endDate: Date, from: Date, to: Date): Date[] {
   const rangeStart = startDate > from ? startDate : from;
@@ -78,20 +99,29 @@ export async function GET(req: Request) {
         }
       : {};
 
+    const adminEventWhere: Record<string, unknown> = {
+      deletedAt: null,
+      adminId,
+      endDate: { gte: fromDate },
+      startDate: { lte: toDate },
+    };
+    if (kinds && kinds.length > 0) {
+      adminEventWhere.kind = { in: kinds };
+    }
+    if (priorities && priorities.length > 0) {
+      adminEventWhere.priority = { in: priorities };
+    }
+    if (clientNameFilter) {
+      adminEventWhere.clientName = { contains: clientNameFilter, mode: 'insensitive' };
+    }
+
     const [holidays, memos, employeeEvents, adminEvents] = await Promise.all([
       prisma.holidayCalendarEntry.findMany({
-        where: {
-          endDate: { gte: fromDate },
-          startDate: { lte: toDate },
-        },
+        where: { endDate: { gte: fromDate }, startDate: { lte: toDate } },
         orderBy: [{ startDate: 'asc' }],
       }),
       prisma.officeMemo.findMany({
-        where: {
-          isActive: true,
-          endDate: { gte: fromDate },
-          startDate: { lte: toDate },
-        },
+        where: { isActive: true, endDate: { gte: fromDate }, startDate: { lte: toDate } },
         orderBy: [{ startDate: 'asc' }],
       }),
       prisma.calendarEvent.findMany({
@@ -99,78 +129,35 @@ export async function GET(req: Request) {
         orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
         include: {
           employee: { select: { id: true, fullName: true, employeeNumber: true } },
-          tags: {
-            include: {
-              employee: { select: { id: true, fullName: true, employeeNumber: true } },
-              admin: { select: { id: true, name: true, email: true } },
-            },
-          },
         },
       }),
       prisma.calendarEvent.findMany({
-        where: {
-          deletedAt: null,
-          adminId,
-          endDate: { gte: fromDate },
-          startDate: { lte: toDate },
-        },
+        where: adminEventWhere as Record<string, unknown>,
         orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
         include: {
           admin: { select: { id: true, name: true } },
-          tags: {
-            include: {
-              employee: { select: { id: true, fullName: true, employeeNumber: true } },
-              admin: { select: { id: true, name: true, email: true } },
-            },
-          },
         },
       }),
     ]);
 
-    type Kind =
-      | 'holiday'
-      | 'office_memo'
-      | 'leave'
-      | 'meeting'
-      | 'client_meeting'
-      | 'reminder'
-      | 'task'
-      | 'deadline'
-      | 'follow_up'
-      | 'training'
-      | 'personal_event'
-      | 'other';
+    const allEventIds = [...employeeEvents.map(e => e.id), ...adminEvents.map(e => e.id)];
+    const tagsByEvent = allEventIds.length > 0 ? await getTagsForEvents(allEventIds) : {};
 
-    const items: Array<{
-      id: string;
-      originalId: string;
-      kind: Kind;
-      title: string;
-      date: string;
-      startsAt: string | null;
-      endsAt: string | null;
-      allDay: boolean;
-      priority: 'urgent' | 'high' | 'normal' | 'low' | null;
-      location: string | null;
-      latitude: number | null;
-      longitude: number | null;
-      status: string | null;
-      colorHint: string | null;
-      ownerId: string;
-      ownerType: 'employee' | 'admin';
-      ownerName: string;
-      taggedUsers: Array<{ id: string; type: 'employee' | 'admin'; name: string; email?: string }>;
-    }> = [];
+    const items: CalendarItem[] = [];
+    const dayCounts: Record<string, number> = {};
+
+    const ymd = (d: Date) => d.toISOString().slice(0, 10);
 
     for (const h of holidays) {
       const days = expandToDays(h.startDate, h.endDate, fromDate, toDate);
       for (const day of days) {
+        const date = ymd(day);
         items.push({
-          id: `holiday:${h.id}:${day.toISOString().slice(0, 10)}`,
+          id: `holiday:${h.id}:${date}`,
           originalId: h.id,
           kind: 'holiday',
           title: h.title,
-          date: day.toISOString().slice(0, 10),
+          date,
           startsAt: null,
           endsAt: null,
           allDay: true,
@@ -185,18 +172,20 @@ export async function GET(req: Request) {
           ownerName: 'System',
           taggedUsers: [],
         });
+        dayCounts[date] = (dayCounts[date] ?? 0) + 1;
       }
     }
 
     for (const m of memos) {
       const days = expandToDays(m.startDate, m.endDate, fromDate, toDate);
       for (const day of days) {
+        const date = ymd(day);
         items.push({
-          id: `office_memo:${m.id}:${day.toISOString().slice(0, 10)}`,
+          id: `office_memo:${m.id}:${date}`,
           originalId: m.id,
           kind: 'office_memo',
           title: m.title,
-          date: day.toISOString().slice(0, 10),
+          date,
           startsAt: null,
           endsAt: null,
           allDay: true,
@@ -211,99 +200,106 @@ export async function GET(req: Request) {
           ownerName: 'System',
           taggedUsers: [],
         });
+        dayCounts[date] = (dayCounts[date] ?? 0) + 1;
       }
     }
 
-    const defaultColors: Record<string, string> = KIND_COLORS;
-
-    type TagRow = {
-      participantType: string;
-      employee: { id: string; fullName: string } | null;
-      admin: { id: string; name: string; email: string } | null;
-    };
-    type TaggedUser = { id: string; type: 'employee' | 'admin'; name: string; email?: string };
-
-    for (const e of employeeEvents) {
-      const days = expandToDays(e.startDate, e.endDate, fromDate, toDate);
-      for (const day of days) {
-        const kind = e.kind as Kind;
-        const taggedUsers = (e.tags ?? [])
-          .map((t: unknown) => {
-            const row = t as TagRow;
-            if (row.participantType === 'employee' && row.employee) {
-              return { id: row.employee.id, type: 'employee' as const, name: row.employee.fullName };
-            }
-            if (row.participantType === 'admin' && row.admin) {
-              return { id: row.admin.id, type: 'admin' as const, name: row.admin.name, email: row.admin.email };
-            }
-            return null;
-          })
-          .filter(Boolean) as TaggedUser[];
-        items.push({
-          id: `${kind}:${e.id}:${day.toISOString().slice(0, 10)}`,
-          originalId: e.id,
-          kind,
-          title: e.title,
-          date: day.toISOString().slice(0, 10),
-          startsAt: e.startTime ? `${day.toISOString().slice(0, 10)}T${e.startTime}:00` : null,
-          endsAt: e.endTime ? `${day.toISOString().slice(0, 10)}T${e.endTime}:00` : null,
-          allDay: e.allDay,
-          priority: (e.priority as 'urgent' | 'high' | 'normal' | 'low') ?? null,
-          location: e.location ?? null,
-          latitude: e.latitude ?? null,
-          longitude: e.longitude ?? null,
-          status: null,
-          colorHint: e.color ?? defaultColors[kind] ?? '#8E8E93',
-          ownerId: e.employee?.id ?? '',
-          ownerType: 'employee',
-          ownerName: e.employee?.fullName ?? 'Unknown',
-          taggedUsers,
-        });
+    function pushEventItems(
+      events: Array<{
+        id: string;
+        startDate: Date;
+        endDate: Date;
+        startTime: string | null;
+        endTime: string | null;
+        allDay: boolean;
+        kind: string;
+        title: string;
+        priority: string | null;
+        location: string | null;
+        latitude: number | null;
+        longitude: number | null;
+        color: string | null;
+        ownerId: string;
+        ownerType: 'employee' | 'admin';
+        ownerName: string;
+      }>
+    ) {
+      for (const e of events) {
+        const days = expandToDays(e.startDate, e.endDate, fromDate, toDate);
+        for (const day of days) {
+          const date = ymd(day);
+          const kind = e.kind;
+          const colorHint = e.color ?? KIND_COLORS[kind] ?? '#8E8E93';
+          items.push({
+            id: `${kind}:${e.id}:${date}`,
+            originalId: e.id,
+            kind,
+            title: e.title,
+            date,
+            startsAt: e.startTime ? `${date}T${e.startTime}:00` : null,
+            endsAt: e.endTime ? `${date}T${e.endTime}:00` : null,
+            allDay: e.allDay,
+            priority: e.priority,
+            location: e.location,
+            latitude: e.latitude,
+            longitude: e.longitude,
+            status: null,
+            colorHint,
+            ownerId: e.ownerId,
+            ownerType: e.ownerType,
+            ownerName: e.ownerName,
+            taggedUsers: tagsByEvent[e.id] ?? [],
+          });
+          dayCounts[date] = (dayCounts[date] ?? 0) + 1;
+        }
       }
     }
 
-    for (const e of adminEvents) {
-      const days = expandToDays(e.startDate, e.endDate, fromDate, toDate);
-      for (const day of days) {
-        const kind = e.kind as Kind;
-        const taggedUsers = (e.tags ?? [])
-          .map((t: unknown) => {
-            const row = t as TagRow;
-            if (row.participantType === 'employee' && row.employee) {
-              return { id: row.employee.id, type: 'employee' as const, name: row.employee.fullName };
-            }
-            if (row.participantType === 'admin' && row.admin) {
-              return { id: row.admin.id, type: 'admin' as const, name: row.admin.name, email: row.admin.email };
-            }
-            return null;
-          })
-          .filter(Boolean) as TaggedUser[];
-        items.push({
-          id: `${kind}:${e.id}:${day.toISOString().slice(0, 10)}`,
-          originalId: e.id,
-          kind,
-          title: e.title,
-          date: day.toISOString().slice(0, 10),
-          startsAt: e.startTime ? `${day.toISOString().slice(0, 10)}T${e.startTime}:00` : null,
-          endsAt: e.endTime ? `${day.toISOString().slice(0, 10)}T${e.endTime}:00` : null,
-          allDay: e.allDay,
-          priority: (e.priority as 'urgent' | 'high' | 'normal' | 'low') ?? null,
-          location: e.location ?? null,
-          latitude: e.latitude ?? null,
-          longitude: e.longitude ?? null,
-          status: null,
-          colorHint: e.color ?? defaultColors[kind] ?? '#8E8E93',
-          ownerId: e.admin?.id ?? '',
-          ownerType: 'admin',
-          ownerName: e.admin?.name ?? 'Unknown',
-          taggedUsers,
-        });
-      }
-    }
+    pushEventItems(
+      employeeEvents.map(e => ({
+        id: e.id,
+        startDate: e.startDate,
+        endDate: e.endDate,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        allDay: e.allDay,
+        kind: e.kind,
+        title: e.title,
+        priority: e.priority,
+        location: e.location,
+        latitude: e.latitude,
+        longitude: e.longitude,
+        color: e.color,
+        ownerId: e.employee?.id ?? '',
+        ownerType: 'employee' as const,
+        ownerName: e.employee?.fullName ?? 'Unknown',
+      }))
+    );
+
+    pushEventItems(
+      adminEvents.map(e => ({
+        id: e.id,
+        startDate: e.startDate,
+        endDate: e.endDate,
+        startTime: e.startTime,
+        endTime: e.endTime,
+        allDay: e.allDay,
+        kind: e.kind,
+        title: e.title,
+        priority: e.priority,
+        location: e.location,
+        latitude: e.latitude,
+        longitude: e.longitude,
+        color: e.color,
+        ownerId: e.admin?.id ?? '',
+        ownerType: 'admin' as const,
+        ownerName: e.admin?.name ?? 'Unknown',
+      }))
+    );
 
     items.sort((a, b) => a.date.localeCompare(b.date));
 
-    return NextResponse.json({ items });
+    return NextResponse.json({ items, dayCounts });
   } catch (error: unknown) {
     console.error('Error fetching admin calendar:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

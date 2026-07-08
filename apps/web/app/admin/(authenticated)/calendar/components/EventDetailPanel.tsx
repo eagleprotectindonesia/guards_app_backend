@@ -1,7 +1,8 @@
-import { useState, memo } from 'react';
+import { useState, memo, useTransition } from 'react';
 import { X, Calendar, Clock, MapPin, User, Tag } from 'lucide-react';
 import { KIND_LABELS } from '@repo/shared';
 import AddressMapPreview from '@/components/address-map-preview';
+import { deleteEvent } from '../actions';
 import type { CalendarItem } from '../types';
 
 interface EventDetailPanelProps {
@@ -22,23 +23,20 @@ export const EventDetailPanel = memo(function EventDetailPanel({
   hasDeletePermission,
 }: EventDetailPanelProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!confirmDelete) {
       setConfirmDelete(true);
       return;
     }
-    try {
-      const res = await fetch(`/api/admin/calendar/events/${event.originalId}`, {
-        method: 'DELETE',
-      });
-      if (res.ok) {
+    startTransition(async () => {
+      const result = await deleteEvent(event.originalId);
+      if (result.success) {
         setConfirmDelete(false);
         onDelete();
       }
-    } catch (err) {
-      console.error('Failed to delete event:', err);
-    }
+    });
   };
 
   const cancelDelete = () => setConfirmDelete(false);
@@ -167,9 +165,10 @@ export const EventDetailPanel = memo(function EventDetailPanel({
               </button>
               <button
                 onClick={handleDelete}
-                className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-700"
+                disabled={isPending}
+                className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
-                Confirm Delete
+                {isPending ? 'Deleting...' : 'Confirm Delete'}
               </button>
             </div>
           )}

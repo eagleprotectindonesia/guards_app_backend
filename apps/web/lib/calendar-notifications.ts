@@ -5,6 +5,11 @@ import { locales } from '@repo/shared';
 
 const en = locales.en;
 
+export async function getAdminName(id: string): Promise<string> {
+  const admin = await prisma.admin.findUnique({ where: { id }, select: { name: true } });
+  return admin?.name ?? 'Admin';
+}
+
 export async function notifyCalendarEventTags(
   eventId: string,
   eventTitle: string,

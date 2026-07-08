@@ -1,35 +1,36 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { X, Loader2 } from 'lucide-react';
-import { ALL_CALENDAR_EVENT_KINDS, KIND_LABELS, KIND_COLORS, REMINDER_PRESETS } from '@repo/shared';
+import { useState, useEffect, useRef, useTransition } from 'react';
+import { X } from 'lucide-react';
+import { format } from 'date-fns';
+import {
+  KINDS_WITH_END_DATE,
+  KINDS_WITH_TIME,
+  KINDS_WITH_LOCATION,
+  KINDS_WITH_PRIORITY,
+  CalendarEventKind,
+} from '@repo/shared';
 import { createCalendarEventSchema, updateCalendarEventSchema } from '@repo/validations';
+import { createEvent, updateEvent } from '../actions';
+import { DatePicker } from '@/components/ui/date-picker';
 import AddressAutocompleteInput from '@/components/address-autocomplete-input';
 import AddressMapPreview from '@/components/address-map-preview';
+import { EventTypeChips } from './EventTypeChips';
+import { EventReminderSection } from './EventReminderSection';
+import { EventTaggingSection } from './EventTaggingSection';
+import { EventFormActions } from './EventFormActions';
+
+import type { EventForEditItem } from '../actions';
 
 interface EventFormProps {
   eventId?: string;
+  initialEvent?: EventForEditItem | null;
   onClose: () => void;
   onSuccess: () => void;
+  initialAdmins: Array<{ id: string; name: string; email: string }>;
 }
 
-const KINDS = ALL_CALENDAR_EVENT_KINDS.map(k => ({
-  value: k,
-  label: KIND_LABELS[k],
-  defaultColor: KIND_COLORS[k],
-}));
-
 const COLORS = ['#FF3B30', '#FF2D55', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#5AC8FA', '#AF52DE'];
-
-const REMINDER_LABELS: Record<string, string> = {
-  reminderAtEvent: 'At event time',
-  reminder10Min: '10 minutes before',
-  reminder30Min: '30 minutes before',
-  reminder1Hour: '1 hour before',
-  reminder1Day: '1 day before',
-  reminder3Days: '3 days before',
-  reminder1Week: '1 week before',
-};
 
 interface FormData {
   kind: string;
@@ -56,8 +57,8 @@ const EMPTY_FORM: FormData = {
   kind: 'meeting',
   title: '',
   description: '',
-  startDate: new Date().toISOString().slice(0, 10),
-  endDate: new Date().toISOString().slice(0, 10),
+  startDate: '',
+  endDate: '',
   startTime: '09:00',
   endTime: '10:00',
   allDay: false,
@@ -73,13 +74,70 @@ const EMPTY_FORM: FormData = {
   reminderMinutesBefore: null,
 };
 
-export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
-  const [form, setForm] = useState<FormData>(EMPTY_FORM);
-  const [loading, setLoading] = useState(false);
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function buildFormState(initialEvent: EventForEditItem | null | undefined) {
+  if (initialEvent) {
+    const startDate = initialEvent.startDate ?? todayStr();
+    const endDate = initialEvent.endDate ?? todayStr();
+    return {
+      form: {
+        kind: initialEvent.kind ?? 'meeting',
+        title: initialEvent.title ?? '',
+        description: initialEvent.description ?? '',
+        startDate,
+        endDate,
+        startTime: initialEvent.startTime ?? '',
+        endTime: initialEvent.endTime ?? '',
+        allDay: initialEvent.allDay ?? false,
+        location: initialEvent.location ?? '',
+        locationLatitude: initialEvent.latitude ?? null,
+        locationLongitude: initialEvent.longitude ?? null,
+        clientName: initialEvent.clientName ?? '',
+        trainerName: initialEvent.trainerName ?? '',
+        priority: initialEvent.priority ?? 'normal',
+        color: initialEvent.color ?? '#FF3B30',
+        taggedEmployeeIds: [],
+        taggedAdminIds: (initialEvent.taggedUsers ?? [])
+          .filter((u: { type: string }) => u.type === 'admin')
+          .map((u: { id: string }) => u.id),
+        reminderMinutesBefore: initialEvent.reminderMinutesBefore ?? null,
+      } satisfies FormData,
+      startDateObj: new Date(startDate + 'T00:00:00'),
+      endDateObj: new Date(endDate + 'T00:00:00'),
+    };
+  }
+  return {
+    form: { ...EMPTY_FORM, startDate: todayStr(), endDate: todayStr() } satisfies FormData,
+    startDateObj: new Date(),
+    endDateObj: new Date(),
+  };
+}
+
+export function EventForm({ eventId, initialEvent, onClose, onSuccess, initialAdmins }: EventFormProps) {
+  const [{ form, startDateObj, endDateObj }, setFormState] = useState(() => buildFormState(initialEvent));
+  const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [initialLoading, setInitialLoading] = useState(!!eventId);
   const modalRef = useRef<HTMLDivElement>(null);
+
+  const setForm = (updater: FormData | ((prev: FormData) => FormData)) => {
+    setFormState(prev => ({
+      ...prev,
+      form: typeof updater === 'function' ? updater(prev.form) : updater,
+    }));
+  };
+
+  const kind = form.kind as CalendarEventKind;
+  const showEndDate = KINDS_WITH_END_DATE.has(kind);
+  const showStartTime = KINDS_WITH_TIME.has(kind);
+  const showEndTime = KINDS_WITH_TIME.has(kind) && showEndDate;
+  const showLocation = KINDS_WITH_LOCATION.has(kind);
+  const showPriority = KINDS_WITH_PRIORITY.has(kind);
+  const showClientName = form.kind === 'client_meeting' || form.kind === 'follow_up';
+  const showTrainerName = form.kind === 'training';
 
   useEffect(() => {
     const el = modalRef.current;
@@ -112,59 +170,17 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
     return () => el.removeEventListener('keydown', handleKey);
   }, [onClose]);
 
-  useEffect(() => {
-    if (!eventId) return;
-    fetch(`/api/admin/calendar/events/${eventId}`)
-      .then(res => res.json())
-      .then(data => {
-        const item = data.item;
-        setForm({
-          kind: (item.kind as string) ?? 'meeting',
-          title: (item.title as string) ?? '',
-          description: (item.description as string) ?? '',
-          startDate: (item.startDate as string) ?? new Date().toISOString().slice(0, 10),
-          endDate: (item.endDate as string) ?? new Date().toISOString().slice(0, 10),
-          startTime: (item.startTime as string) ?? '',
-          endTime: (item.endTime as string) ?? '',
-          allDay: (item.allDay as boolean) ?? false,
-          location: (item.location as string) ?? '',
-          locationLatitude: (item.latitude as number | null) ?? null,
-          locationLongitude: (item.longitude as number | null) ?? null,
-          clientName: (item.clientName as string) ?? '',
-          trainerName: (item.trainerName as string) ?? '',
-          priority: (item.priority as string) ?? 'normal',
-          color: (item.color as string) ?? '#FF3B30',
-          taggedEmployeeIds: [],
-          taggedAdminIds: [],
-          reminderMinutesBefore: (item.reminderMinutesBefore as number | null) ?? null,
-        });
-      })
-      .catch(err => console.error('Failed to load event:', err))
-      .finally(() => setInitialLoading(false));
-  }, [eventId]);
-
   const handleKindChange = (kind: string) => {
-    const k = KINDS.find(k => k.value === kind);
     setForm(prev => ({
       ...prev,
       kind,
-      color: prev.color === EMPTY_FORM.color ? (k?.defaultColor ?? '#8E8E93') : prev.color,
       clientName: kind === 'client_meeting' ? prev.clientName : '',
       trainerName: kind === 'training' ? prev.trainerName : '',
     }));
   };
 
-  const showEndDate = !['reminder', 'task', 'deadline'].includes(form.kind);
-  const showStartTime = !['task', 'deadline'].includes(form.kind);
-  const showEndTime = !['reminder', 'task', 'deadline'].includes(form.kind) && showEndDate;
-  const showLocation = ['meeting', 'client_meeting', 'training', 'personal_event', 'other'].includes(form.kind);
-  const showClientName = form.kind === 'client_meeting' || form.kind === 'follow_up';
-  const showTrainerName = form.kind === 'training';
-  const showPriority = !['reminder'].includes(form.kind);
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError('');
     setFieldErrors({});
 
@@ -189,7 +205,6 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
     }
     if (showClientName && form.clientName) body.clientName = form.clientName;
     if (showTrainerName && form.trainerName) body.trainerName = form.trainerName;
-
     if (form.reminderMinutesBefore !== null) {
       body.reminderMinutesBefore = form.reminderMinutesBefore;
     }
@@ -200,47 +215,24 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
       const errors: Record<string, string> = {};
       for (const issue of parsed.error.issues) {
         const path = issue.path.join('.');
-        if (!errors[path]) {
-          errors[path] = issue.message;
-        }
+        if (!errors[path]) errors[path] = issue.message;
       }
       setFieldErrors(errors);
-      setLoading(false);
       return;
     }
 
-    try {
-      const url = eventId ? `/api/admin/calendar/events/${eventId}` : '/api/admin/calendar/events';
-      const method = eventId ? 'PUT' : 'POST';
+    startTransition(async () => {
+      const result = eventId
+        ? await updateEvent(eventId, body)
+        : await createEvent(body);
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? 'Failed to save event');
+      if (result.success) {
+        onSuccess();
+      } else {
+        setError(typeof result.error === 'string' ? result.error : JSON.stringify(result.error));
       }
-
-      onSuccess();
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
-    }
+    });
   };
-
-  if (initialLoading) {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-        <div className="rounded-lg border border-border bg-card p-6">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
@@ -264,25 +256,7 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
         {error && <div className="mb-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-400">{error}</div>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">Event Type</label>
-            <div className="flex flex-wrap gap-1.5">
-              {KINDS.map(k => (
-                <button
-                  key={k.value}
-                  type="button"
-                  onClick={() => handleKindChange(k.value)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                    form.kind === k.value
-                      ? 'bg-red-600 text-white'
-                      : 'border border-input text-foreground hover:border-ring/50'
-                  }`}
-                >
-                  {k.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <EventTypeChips selected={form.kind} onChange={handleKindChange} />
 
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">Title *</label>
@@ -320,24 +294,24 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1 block text-xs text-muted-foreground">Start Date *</label>
-              <input
-                type="date"
-                required
-                value={form.startDate}
-                onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))}
-                className={`w-full rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none ${fieldErrors.startDate ? 'border-red-500' : 'border-input focus:border-red-500'}`}
+              <DatePicker
+                date={startDateObj}
+                setDate={(d) => {
+                  setFormState(prev => ({ ...prev, startDateObj: d ?? new Date() }));
+                  setForm(p => ({ ...p, startDate: format(d ?? new Date(), 'yyyy-MM-dd') }));
+                }}
               />
               {fieldErrors.startDate && <p className="mt-1 text-xs text-red-400">{fieldErrors.startDate}</p>}
             </div>
             {showEndDate && (
               <div>
                 <label className="mb-1 block text-xs text-muted-foreground">End Date *</label>
-                <input
-                  type="date"
-                  required
-                  value={form.endDate}
-                  onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))}
-                  className={`w-full rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none ${fieldErrors.endDate ? 'border-red-500' : 'border-input focus:border-red-500'}`}
+                <DatePicker
+                  date={endDateObj}
+                  setDate={(d) => {
+                    setFormState(prev => ({ ...prev, endDateObj: d ?? new Date() }));
+                    setForm(p => ({ ...p, endDate: format(d ?? new Date(), 'yyyy-MM-dd') }));
+                  }}
                 />
                 {fieldErrors.endDate && <p className="mt-1 text-xs text-red-400">{fieldErrors.endDate}</p>}
               </div>
@@ -373,40 +347,10 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
             </div>
           )}
 
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">Reminder</label>
-            <select
-              value={form.reminderMinutesBefore === null ? '' : String(form.reminderMinutesBefore)}
-              onChange={e => {
-                const val = e.target.value;
-                setForm(p => ({
-                  ...p,
-                  reminderMinutesBefore: val === '' ? null : val === '-1' ? -1 : Number(val),
-                }));
-              }}
-              className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:border-red-500 focus:outline-none"
-            >
-              <option value="">No reminder</option>
-              {REMINDER_PRESETS.map(p => (
-                <option key={p.minutes} value={p.minutes}>
-                  {REMINDER_LABELS[p.labelKey] ?? p.labelKey}
-                </option>
-              ))}
-              <option value="-1">Custom...</option>
-            </select>
-            {form.reminderMinutesBefore === -1 && (
-              <div className="mt-2">
-                <input
-                  type="number"
-                  min={0}
-                  value={form.reminderMinutesBefore === -1 ? '' : (form.reminderMinutesBefore ?? '')}
-                  onChange={e => setForm(p => ({ ...p, reminderMinutesBefore: Number(e.target.value) || 0 }))}
-                  className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:border-red-500 focus:outline-none"
-                  placeholder="Minutes before event"
-                />
-              </div>
-            )}
-          </div>
+          <EventReminderSection
+            reminderMinutesBefore={form.reminderMinutesBefore}
+            onChange={value => setForm(p => ({ ...p, reminderMinutesBefore: value }))}
+          />
 
           {showLocation && (
             <div>
@@ -492,6 +436,12 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
             </div>
           </div>
 
+          <EventTaggingSection
+            taggedAdminIds={form.taggedAdminIds}
+            onChange={ids => setForm(p => ({ ...p, taggedAdminIds: ids }))}
+            initialAdmins={initialAdmins}
+          />
+
           <div>
             <label className="mb-1 block text-xs text-muted-foreground">Description</label>
             <textarea
@@ -504,22 +454,7 @@ export function EventForm({ eventId, onClose, onSuccess }: EventFormProps) {
             />
           </div>
 
-          <div className="flex gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-lg border border-input py-2 text-sm font-medium text-foreground hover:bg-muted"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex-1 rounded-lg bg-red-600 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-            >
-              {loading ? 'Saving...' : eventId ? 'Save Changes' : 'Create Event'}
-            </button>
-          </div>
+          <EventFormActions loading={isPending} isEdit={!!eventId} onCancel={onClose} />
         </form>
       </div>
     </div>

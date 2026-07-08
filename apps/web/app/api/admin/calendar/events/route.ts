@@ -4,15 +4,10 @@ import { requirePermission } from '@/lib/admin-auth';
 import { createCalendarEventSchema, calendarListSchema } from '@repo/validations';
 import { createCalendarEvent } from '@repo/database';
 import { serializeCalendarEvent } from '@repo/shared';
-import { notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
+import { getAdminName, notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { redis } from '@repo/database/redis';
 import { ZodError } from 'zod';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
-
-async function getAdminName(id: string): Promise<string> {
-  const admin = await prisma.admin.findUnique({ where: { id }, select: { name: true } });
-  return admin?.name ?? 'Admin';
-}
 
 export async function GET(req: Request) {
   const session = await requirePermission('user-calendar:view');
