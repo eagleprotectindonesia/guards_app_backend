@@ -18,7 +18,7 @@ const VALID_TYPES = [
 ] as const;
 
 export async function GET(_req: Request, { params }: { params: Promise<{ type: string; id: string }> }) {
-  const session = await requirePermission('user-calendar:view');
+  const { id: adminId, isSuperAdmin } = await requirePermission('user-calendar:view');
 
   const { type, id } = await params;
 
@@ -53,8 +53,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ type: s
         },
       });
       if (event) {
-        if (event.adminId && event.adminId !== session.id) {
-          return NextResponse.json({ error: 'Not authorized to view this event' }, { status: 403 });
+        if (event.adminId && !isSuperAdmin && event.adminId !== adminId) {
+          const isTagged = (event.tags ?? []).some(
+            (t: { adminId: string | null; participantType: string }) =>
+              t.adminId === adminId && t.participantType === 'admin'
+          );
+          if (!isTagged) {
+            return NextResponse.json({ error: 'Not authorized to view this event' }, { status: 403 });
+          }
         }
         type TagRow = {
           participantType: string;
@@ -79,7 +85,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ type: s
           taggedUsers,
           ownerType: event.employeeId ? 'employee' : 'admin',
           ownerName: event.employee?.fullName ?? event.admin?.name ?? 'Unknown',
-          isOwner: false,
+          isOwner: event.adminId === adminId,
         };
       }
     }

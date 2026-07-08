@@ -79,6 +79,7 @@ export interface ListCalendarEventsParams {
   taggedUserId?: string;
   includeTags?: boolean;
   includeOwner?: boolean;
+  includeAllAdminEvents?: boolean;
   tx?: TxLike;
 }
 
@@ -239,6 +240,7 @@ export async function listCalendarEvents(params: ListCalendarEventsParams) {
     taggedUserId,
     includeTags,
     includeOwner,
+    includeAllAdminEvents,
     tx = prisma,
   } = params;
 
@@ -254,7 +256,9 @@ export async function listCalendarEvents(params: ListCalendarEventsParams) {
     orClauses.push({ employeeId }, { tags: { some: { employeeId, participantType: 'employee' as const } } });
   }
 
-  if (adminId) {
+  if (includeAllAdminEvents) {
+    orClauses.push({ adminId: { not: null } });
+  } else if (adminId) {
     orClauses.push({ adminId }, { tags: { some: { adminId, participantType: 'admin' as const } } });
   }
 
@@ -356,6 +360,7 @@ export interface CalendarDaySummaryParams {
   priority?: string[];
   clientName?: string;
   taggedUserId?: string;
+  includeAllAdminEvents?: boolean;
   tx?: TxLike;
 }
 
@@ -370,6 +375,7 @@ export async function listCalendarDaySummary(params: CalendarDaySummaryParams) {
     priority,
     clientName,
     taggedUserId,
+    includeAllAdminEvents,
     tx = prisma,
   } = params;
 
@@ -385,8 +391,10 @@ export async function listCalendarDaySummary(params: CalendarDaySummaryParams) {
     orClauses.push({ employeeId });
   }
 
-  if (adminId) {
-    orClauses.push({ adminId });
+  if (includeAllAdminEvents) {
+    orClauses.push({ adminId: { not: null } });
+  } else if (adminId) {
+    orClauses.push({ adminId }, { tags: { some: { adminId, participantType: 'admin' as const } } });
   }
 
   if (employeeIds && employeeIds.length > 0) {

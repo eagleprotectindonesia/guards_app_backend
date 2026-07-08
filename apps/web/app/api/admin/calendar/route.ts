@@ -33,7 +33,7 @@ function expandToDays(startDate: Date, endDate: Date, from: Date, to: Date): Dat
 }
 
 export async function GET(req: Request) {
-  const { id: adminId } = await requirePermission('user-calendar:view');
+  const { id: adminId, isSuperAdmin } = await requirePermission('user-calendar:view');
 
   try {
     const { searchParams } = new URL(req.url);
@@ -101,10 +101,17 @@ export async function GET(req: Request) {
 
     const adminEventWhere: Record<string, unknown> = {
       deletedAt: null,
-      adminId,
       endDate: { gte: fromDate },
       startDate: { lte: toDate },
     };
+    if (isSuperAdmin) {
+      adminEventWhere.adminId = { not: null };
+    } else {
+      adminEventWhere.OR = [
+        { adminId },
+        { tags: { some: { adminId, participantType: 'admin' } } },
+      ];
+    }
     if (kinds && kinds.length > 0) {
       adminEventWhere.kind = { in: kinds };
     }
@@ -124,13 +131,15 @@ export async function GET(req: Request) {
         where: { isActive: true, endDate: { gte: fromDate }, startDate: { lte: toDate } },
         orderBy: [{ startDate: 'asc' }],
       }),
-      prisma.calendarEvent.findMany({
-        where: { ...employeeEventWhere, ...employeeTagFilter } as Record<string, unknown>,
-        orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
-        include: {
-          employee: { select: { id: true, fullName: true, employeeNumber: true } },
-        },
-      }),
+      isSuperAdmin
+        ? prisma.calendarEvent.findMany({
+            where: { ...employeeEventWhere, ...employeeTagFilter } as Record<string, unknown>,
+            orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
+            include: {
+              employee: { select: { id: true, fullName: true, employeeNumber: true } },
+            },
+          })
+        : Promise.resolve([]),
       prisma.calendarEvent.findMany({
         where: adminEventWhere as Record<string, unknown>,
         orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
