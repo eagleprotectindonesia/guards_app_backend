@@ -6,17 +6,14 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent,
   getCalendarEventTags,
+  type TaggedUserResult,
 } from '@repo/database';
+import { serializeCalendarEvent } from '@repo/shared';
 import { requirePermission } from '@/lib/admin-auth';
 import { createCalendarEventSchema, updateCalendarEventSchema } from '@repo/validations';
-import { notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
+import { getAdminName, notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { redis } from '@repo/database/redis';
 import { revalidatePath } from 'next/cache';
-
-async function getAdminName(id: string): Promise<string> {
-  const admin = await prisma.admin.findUnique({ where: { id }, select: { name: true } });
-  return admin?.name ?? 'Admin';
-}
 
 export async function createEvent(data: unknown) {
   const session = await requirePermission('user-calendar:create');
@@ -181,6 +178,64 @@ export async function deleteEvent(id: string) {
 
   revalidatePath('/admin/calendar');
   return { success: true };
+}
+
+export interface EventForEditItem {
+  kind: string;
+  title: string;
+  description: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  allDay: boolean;
+  reminderMinutesBefore: number | null;
+  location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  clientName: string | null;
+  trainerName: string | null;
+  priority: string | null;
+  color: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  taggedUsers: TaggedUserResult[];
+  isOwner: boolean;
+  ownerId: string;
+  ownerType: 'admin';
+  ownerName: string;
+}
+
+type EventForEditResult =
+  | { success: true; item: EventForEditItem }
+  | { success: false; error: string };
+
+export async function getEventForEdit(id: string): Promise<EventForEditResult> {
+  const session = await requirePermission('user-calendar:view');
+
+  const event = await prisma.calendarEvent.findFirst({
+    where: { id, adminId: session.id, deletedAt: null },
+  });
+
+  if (!event) {
+    return { success: false, error: 'Calendar event not found' };
+  }
+
+  const [adminName, taggedUsers] = await Promise.all([getAdminName(session.id), getCalendarEventTags(id)]);
+
+  const serialized = serializeCalendarEvent(event as unknown as Record<string, unknown>);
+
+  return {
+    success: true,
+    item: {
+      ...serialized,
+      taggedUsers,
+      isOwner: true,
+      ownerId: session.id,
+      ownerType: 'admin',
+      ownerName: adminName,
+    } as unknown as EventForEditItem,
+  };
 }
 
 export async function duplicateEvent(id: string) {

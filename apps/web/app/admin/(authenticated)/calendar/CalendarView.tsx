@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { Loader2 } from 'lucide-react';
 import { useSocket } from '@/components/socket-provider';
 import { MonthGrid } from './components/MonthGrid';
 import { TimeGridView } from './components/TimeGridView';
@@ -9,8 +10,10 @@ import { EventDetailPanel } from './components/EventDetailPanel';
 import { EventForm } from './components/EventForm';
 import { FilterBar } from './components/FilterBar';
 import { ViewToggle } from './components/ViewToggle';
-import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay, addMonths, subMonths, format, parseISO } from 'date-fns';
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay, format, parseISO } from 'date-fns';
 import { useSession } from '../context/session-context';
+import { getEventForEdit } from './actions';
+import type { EventForEditItem } from './actions';
 import type { CalendarItem } from './types';
 
 type ViewMode = 'month' | 'week' | 'day';
@@ -23,18 +26,19 @@ interface CalendarFilters {
   clientName?: string;
 }
 
-interface DaySummary {
-  date: string;
-  count: number;
+interface CalendarViewProps {
+  employees: Array<{ id: string; fullName: string; employeeNumber: string }>;
+  admins: Array<{ id: string; name: string; email: string }>;
 }
 
-export function CalendarView() {
+export function CalendarView({ employees, admins }: CalendarViewProps) {
   const [view, setView] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<CalendarItem | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editEventId, setEditEventId] = useState<string | null>(null);
+  const [editInitialData, setEditInitialData] = useState<EventForEditItem | null>(null);
+  const [editFetching, setEditFetching] = useState(false);
   const [filters, setFilters] = useState<CalendarFilters>({});
   const queryClient = useQueryClient();
   const session = useSession();
@@ -69,20 +73,6 @@ export function CalendarView() {
     return params.toString();
   }, [dateRange, filters]);
 
-  const { data: summaryData } = useQuery({
-    queryKey: ['admin', 'calendar', 'day-summary', dateRange.from, dateRange.to, filters.employeeId],
-    queryFn: async () => {
-      const params = new URLSearchParams({ from: dateRange.from, to: dateRange.to });
-      if (filters.employeeId) params.set('employeeId', filters.employeeId);
-      const res = await fetch(`/api/admin/calendar/day-summary?${params}`);
-      if (!res.ok) throw new Error('Failed to fetch day summary');
-      return res.json() as Promise<{ days: DaySummary[] }>;
-    },
-    enabled: view === 'month',
-    staleTime: 30000,
-    placeholderData: keepPreviousData,
-  });
-
   const {
     data: itemsData,
     isLoading,
@@ -93,7 +83,7 @@ export function CalendarView() {
     queryFn: async () => {
       const res = await fetch(`/api/admin/calendar?${queryString}`);
       if (!res.ok) throw new Error('Failed to fetch calendar items');
-      return res.json() as Promise<{ items: CalendarItem[] }>;
+      return res.json() as Promise<{ items: CalendarItem[]; dayCounts: Record<string, number> }>;
     },
     staleTime: 30000,
     placeholderData: keepPreviousData,
@@ -101,7 +91,7 @@ export function CalendarView() {
 
   useEffect(() => {
     if (!socket) return;
-    const handler = (_payload: { type: string; eventId: string }) => {
+    const handler = () => {
       queryClient.invalidateQueries({ queryKey: ['admin', 'calendar'] });
     };
     socket.on('calendar_changed', handler);
@@ -110,56 +100,40 @@ export function CalendarView() {
     };
   }, [socket, queryClient]);
 
-  // Prefetch adjacent months
-  useEffect(() => {
-    const prefetchRange = (from: string, to: string) => {
-      queryClient.prefetchQuery({
-        queryKey: ['admin', 'calendar', 'day-summary', from, to, filters.employeeId],
-        queryFn: async () => {
-          const params = new URLSearchParams({ from, to });
-          if (filters.employeeId) params.set('employeeId', filters.employeeId);
-          const res = await fetch(`/api/admin/calendar/day-summary?${params}`);
-          if (!res.ok) throw new Error('Failed to fetch day summary');
-          return res.json() as Promise<{ days: { date: string; count: number }[] }>;
-        },
-        staleTime: 30000,
-      });
-    };
-
-    if (view === 'month') {
-      const nextFrom = format(addMonths(parseISO(dateRange.from), 1), 'yyyy-MM-dd');
-      const nextTo = format(addMonths(parseISO(dateRange.to), 1), 'yyyy-MM-dd');
-      const prevFrom = format(subMonths(parseISO(dateRange.from), 1), 'yyyy-MM-dd');
-      const prevTo = format(subMonths(parseISO(dateRange.to), 1), 'yyyy-MM-dd');
-      prefetchRange(prevFrom, prevTo);
-      prefetchRange(nextFrom, nextTo);
-    }
-  }, [dateRange.from, dateRange.to, filters.employeeId, queryClient, view]);
-
   const items = itemsData?.items ?? [];
   const daySummaryMap = useMemo(() => {
     const map = new Map<string, number>();
-    if (summaryData?.days) {
-      for (const d of summaryData.days) {
-        map.set(d.date, d.count);
+    const counts = itemsData?.dayCounts;
+    if (counts) {
+      for (const [date, count] of Object.entries(counts)) {
+        map.set(date, count);
       }
     }
     return map;
-  }, [summaryData]);
+  }, [itemsData]);
 
   const handleEventClick = useCallback((item: CalendarItem) => {
     setSelectedEvent(item);
   }, []);
 
   const handleDateClick = useCallback((date: string) => {
-    setSelectedDate(date);
     setCurrentDate(startOfDay(parseISO(date)));
     setView('day');
   }, []);
 
-  const handleEditEvent = useCallback((eventId: string) => {
+  const handleEditEvent = useCallback(async (eventId: string) => {
+    setEditFetching(true);
     setEditEventId(eventId);
+    setEditInitialData(null);
     setSelectedEvent(null);
+    const result = await getEventForEdit(eventId);
+    if (!result.success) {
+      setEditFetching(false);
+      setEditEventId(null);
+      return;
+    }
+    setEditInitialData(result.item);
+    setEditFetching(false);
   }, []);
 
   const handleFormSuccess = useCallback(() => {
@@ -172,7 +146,7 @@ export function CalendarView() {
     <div className="flex h-full gap-4">
       <div className="flex-1 space-y-4">
         <div className="flex items-center justify-between">
-          <FilterBar filters={filters} onFiltersChange={setFilters} />
+          <FilterBar filters={filters} onFiltersChange={setFilters} initialEmployees={employees} />
           <div className="flex items-center gap-2">
             {session.hasPermission('user-calendar:create') && (
               <button
@@ -238,10 +212,28 @@ export function CalendarView() {
         />
       )}
 
-      {showCreateModal && <EventForm onClose={() => setShowCreateModal(false)} onSuccess={handleFormSuccess} />}
+      {showCreateModal && <EventForm onClose={() => setShowCreateModal(false)} onSuccess={handleFormSuccess} initialAdmins={admins} />}
 
-      {editEventId && (
-        <EventForm eventId={editEventId} onClose={() => setEditEventId(null)} onSuccess={handleFormSuccess} />
+      {editFetching && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="rounded-lg border border-border bg-card p-6">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        </div>
+      )}
+
+      {editEventId && !editFetching && (
+        <EventForm
+          key={editEventId}
+          eventId={editEventId}
+          initialEvent={editInitialData}
+          onClose={() => {
+            setEditEventId(null);
+            setEditInitialData(null);
+          }}
+          onSuccess={handleFormSuccess}
+          initialAdmins={admins}
+        />
       )}
     </div>
   );

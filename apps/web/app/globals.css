@@ -263,3 +263,33 @@
   padding: 0.75rem;
   color: var(--foreground);
 }
+
+/* FullCalendar theme — map to shadcn tokens for dark mode consistency */
+.fc,
+.fc-theme-standard {
+  --fc-page-bg-color: var(--card);
+  --fc-neutral-bg-color: var(--muted);
+  --fc-neutral-text-color: var(--muted-foreground);
+  --fc-border-color: var(--border);
+  --fc-today-bg-color: color-mix(in oklch, var(--primary) 12%, transparent);
+  --fc-now-indicator-color: var(--primary);
+  --fc-event-text-color: #fff;
+  --fc-button-text-color: var(--foreground);
+  --fc-button-bg-color: var(--secondary);
+  --fc-button-border-color: var(--border);
+  --fc-button-hover-bg-color: var(--accent);
+  --fc-button-hover-border-color: var(--border);
+  --fc-button-active-bg-color: var(--accent);
+  --fc-button-active-border-color: var(--border);
+}
+
+.fc .fc-col-header-cell-cushion,
+.fc .fc-timegrid-axis-cushion,
+.fc .fc-timegrid-slot-label-cushion {
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.fc .fc-col-header-cell.fc-day-today .fc-col-header-cell-cushion {
+  color: var(--primary);
+}

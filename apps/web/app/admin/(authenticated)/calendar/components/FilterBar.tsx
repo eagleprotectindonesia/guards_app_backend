@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
 import { Search, X } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
 import { ALL_CALENDAR_EVENT_KINDS, KIND_LABELS } from '@repo/shared';
 
 const KIND_OPTIONS = ALL_CALENDAR_EVENT_KINDS.map(k => ({
@@ -26,15 +25,10 @@ interface CalendarFilters {
 interface FilterBarProps {
   filters: CalendarFilters;
   onFiltersChange: (filters: CalendarFilters) => void;
+  initialEmployees: Array<{ id: string; fullName: string; employeeNumber: string }>;
 }
 
-interface EmployeeOption {
-  id: string;
-  fullName: string;
-  employeeNumber: string;
-}
-
-export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
+export function FilterBar({ filters, onFiltersChange, initialEmployees }: FilterBarProps) {
   const [searchInput, setSearchInput] = useState(filters.search ?? '');
   const [showKindDropdown, setShowKindDropdown] = useState(false);
   const [showPriorityDropdown, setShowPriorityDropdown] = useState(false);
@@ -43,16 +37,7 @@ export function FilterBar({ filters, onFiltersChange }: FilterBarProps) {
   const kindRef = useRef<HTMLDivElement>(null);
   const priorityRef = useRef<HTMLDivElement>(null);
   const employeeRef = useRef<HTMLDivElement>(null);
-
-  const { data: employees } = useQuery<EmployeeOption[]>({
-    queryKey: ['admin', 'employees', 'active-summary'],
-    queryFn: async () => {
-      const res = await fetch('/api/admin/employees');
-      if (!res.ok) throw new Error('Failed to fetch employees');
-      return res.json() as Promise<EmployeeOption[]>;
-    },
-    staleTime: 60000,
-  });
+  const employees = initialEmployees;
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

@@ -3,19 +3,11 @@ import { prisma, getCalendarEventTags } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { updateCalendarEventSchema } from '@repo/validations';
 import { updateCalendarEvent, deleteCalendarEvent } from '@repo/database';
-import { notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
+import { getAdminName, notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { redis } from '@repo/database/redis';
 import { ZodError } from 'zod';
 
-async function getAdminName(id: string): Promise<string> {
-  const admin = await prisma.admin.findUnique({ where: { id }, select: { name: true } });
-  return admin?.name ?? 'Admin';
-}
-
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requirePermission('user-calendar:view');
   const { id } = await params;
 
@@ -43,16 +35,18 @@ export async function GET(
     employee: { id: string; fullName: string } | null;
     admin: { id: string; name: string; email: string } | null;
   };
-  const taggedUsers = (event.tags ?? []).map((t: unknown) => {
-    const row = t as TagRow;
-    if (row.participantType === 'employee' && row.employee) {
-      return { id: row.employee.id, type: 'employee' as const, name: row.employee.fullName };
-    }
-    if (row.participantType === 'admin' && row.admin) {
-      return { id: row.admin.id, type: 'admin' as const, name: row.admin.name, email: row.admin.email };
-    }
-    return null;
-  }).filter(Boolean);
+  const taggedUsers = (event.tags ?? [])
+    .map((t: unknown) => {
+      const row = t as TagRow;
+      if (row.participantType === 'employee' && row.employee) {
+        return { id: row.employee.id, type: 'employee' as const, name: row.employee.fullName };
+      }
+      if (row.participantType === 'admin' && row.admin) {
+        return { id: row.admin.id, type: 'admin' as const, name: row.admin.name, email: row.admin.email };
+      }
+      return null;
+    })
+    .filter(Boolean);
 
   return NextResponse.json({
     item: {
@@ -66,10 +60,7 @@ export async function GET(
   });
 }
 
-export async function PUT(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requirePermission('user-calendar:edit');
   const { id } = await params;
 
@@ -84,9 +75,7 @@ export async function PUT(
 
     const body = updateCalendarEventSchema.parse(await req.json());
 
-    const taggedEmployeeIds = body.taggedEmployeeIds !== undefined
-      ? (body.taggedEmployeeIds ?? [])
-      : undefined;
+    const taggedEmployeeIds = body.taggedEmployeeIds !== undefined ? (body.taggedEmployeeIds ?? []) : undefined;
     const taggedAdminIds = body.taggedAdminIds;
 
     if ((taggedEmployeeIds && taggedEmployeeIds.length > 0) || (taggedAdminIds && taggedAdminIds.length > 0)) {
@@ -97,34 +86,38 @@ export async function PUT(
     }
 
     const oldTags = await getCalendarEventTags(id);
-    const oldEmployeeIds = oldTags.filter((t) => t.type === 'employee').map((t) => t.id);
-    const oldAdminIds = oldTags.filter((t) => t.type === 'admin').map((t) => t.id);
+    const oldEmployeeIds = oldTags.filter(t => t.type === 'employee').map(t => t.id);
+    const oldAdminIds = oldTags.filter(t => t.type === 'admin').map(t => t.id);
 
     const newEmployeeIds = taggedEmployeeIds ?? oldEmployeeIds;
     const newAdminIds = taggedAdminIds ?? oldAdminIds;
 
-    const event = await prisma.$transaction(async (tx) => {
-      return updateCalendarEvent(id, {
-        kind: body.kind,
-        title: body.title,
-        description: body.description,
-        startDate: body.startDate,
-        endDate: body.endDate,
-        startTime: body.startTime,
-        endTime: body.endTime,
-        allDay: body.allDay,
-        location: body.location,
-        clientName: body.clientName,
-        trainerName: body.trainerName,
-        priority: body.priority,
-        color: body.color,
-        taggedEmployeeIds: newEmployeeIds,
-        taggedAdminIds: newAdminIds,
-      }, tx);
+    const event = await prisma.$transaction(async tx => {
+      return updateCalendarEvent(
+        id,
+        {
+          kind: body.kind,
+          title: body.title,
+          description: body.description,
+          startDate: body.startDate,
+          endDate: body.endDate,
+          startTime: body.startTime,
+          endTime: body.endTime,
+          allDay: body.allDay,
+          location: body.location,
+          clientName: body.clientName,
+          trainerName: body.trainerName,
+          priority: body.priority,
+          color: body.color,
+          taggedEmployeeIds: newEmployeeIds,
+          taggedAdminIds: newAdminIds,
+        },
+        tx
+      );
     });
 
-    const newlyTaggedEmployees = newEmployeeIds.filter((uid) => !oldEmployeeIds.includes(uid));
-    const newlyTaggedAdmins = newAdminIds.filter((uid) => !oldAdminIds.includes(uid));
+    const newlyTaggedEmployees = newEmployeeIds.filter(uid => !oldEmployeeIds.includes(uid));
+    const newlyTaggedAdmins = newAdminIds.filter(uid => !oldAdminIds.includes(uid));
 
     const adminName = await getAdminName(session.id);
 
@@ -138,10 +131,15 @@ export async function PUT(
       );
     }
 
-    redis.publish('events:calendar', JSON.stringify({
-      type: 'calendar:event_updated',
-      data: { eventId: id, adminId: session.id },
-    })).catch((err) => console.error('[Calendar] Redis publish error:', err));
+    redis
+      .publish(
+        'events:calendar',
+        JSON.stringify({
+          type: 'calendar:event_updated',
+          data: { eventId: id, adminId: session.id },
+        })
+      )
+      .catch(err => console.error('[Calendar] Redis publish error:', err));
 
     const taggedUsers = await getCalendarEventTags(id);
 
@@ -163,10 +161,7 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requirePermission('user-calendar:delete');
   const { id } = await params;
 
@@ -181,10 +176,15 @@ export async function DELETE(
 
     await deleteCalendarEvent(id);
 
-    redis.publish('events:calendar', JSON.stringify({
-      type: 'calendar:event_deleted',
-      data: { eventId: id, adminId: session.id },
-    })).catch((err) => console.error('[Calendar] Redis publish error:', err));
+    redis
+      .publish(
+        'events:calendar',
+        JSON.stringify({
+          type: 'calendar:event_deleted',
+          data: { eventId: id, adminId: session.id },
+        })
+      )
+      .catch(err => console.error('[Calendar] Redis publish error:', err));
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

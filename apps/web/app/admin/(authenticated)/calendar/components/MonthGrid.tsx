@@ -13,6 +13,19 @@ interface MonthGridProps {
   onEventClick: (item: CalendarItem) => void;
 }
 
+function DayCellContent({ date, isOutside, count }: { date: Date; isOutside: boolean; count: number | undefined }) {
+  return (
+    <>
+      <span className="fc-daygrid-day-number">{date.getDate()}</span>
+      {count && !isOutside && (
+        <div className="flex justify-center">
+          <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
+        </div>
+      )}
+    </>
+  );
+}
+
 export function MonthGrid({ currentDate, items, daySummary, onDateClick, onEventClick }: MonthGridProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const [initialDateStr] = useState(() => currentDate.toISOString());
@@ -55,18 +68,13 @@ export function MonthGrid({ currentDate, items, daySummary, onDateClick, onEvent
         }}
         dayCellClassNames="border-border hover:bg-muted cursor-pointer"
         dayHeaderClassNames="text-muted-foreground text-xs font-medium py-2 border-border"
-        dayCellDidMount={info => {
-          const dateStr = format(info.date, 'yyyy-MM-dd');
-          const count = daySummary.get(dateStr);
-          if (count && !info.isOutside) {
-            const existing = info.el.querySelector('.calendar-dot-marker');
-            if (existing) existing.remove();
-            const dot = document.createElement('div');
-            dot.className = 'calendar-dot-marker flex justify-center mt-0.5';
-            dot.innerHTML = `<span class="h-1.5 w-1.5 rounded-full bg-red-500"></span>`;
-            info.el.querySelector('.fc-daygrid-day-events')?.prepend(dot);
-          }
-        }}
+        dayCellContent={arg => (
+          <DayCellContent
+            date={arg.date}
+            isOutside={arg.isOutside}
+            count={daySummary.get(format(arg.date, 'yyyy-MM-dd'))}
+          />
+        )}
       />
     </div>
   );
