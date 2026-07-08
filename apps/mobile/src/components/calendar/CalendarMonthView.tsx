@@ -106,7 +106,7 @@ export function CalendarMonthView({
                     </View>
                     {dayItems.length > EVENTS_PER_CELL_SHOWN && (
                       <Text className="text-[#737373] text-[10px] mt-0.5">
-                        {t('calendar.moreEvents', '+{count} more', { count: dayItems.length - EVENTS_PER_CELL_SHOWN })}
+                        {t('calendar.moreEvents', '+{{count}} more', { count: dayItems.length - EVENTS_PER_CELL_SHOWN })}
                       </Text>
                     )}
                   </View>

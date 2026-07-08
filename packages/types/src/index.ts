@@ -538,7 +538,6 @@ export type CalendarEventKind =
   | 'client_meeting'
   | 'reminder'
   | 'task'
-  | 'deadline'
   | 'follow_up'
   | 'training'
   | 'personal_event'

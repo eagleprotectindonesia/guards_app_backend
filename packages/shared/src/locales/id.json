@@ -470,7 +470,7 @@
     "today": "Hari Ini",
     "tomorrow": "Besok",
     "yesterday": "Kemarin",
-    "moreEvents": "+{count} lainnya",
+    "moreEvents": "+{{count}} lainnya",
     "sun": "Min",
     "mon": "Sen",
     "tue": "Sel",
@@ -551,9 +551,9 @@
     "reminder1Day": "1 hari sebelumnya",
     "reminder3Days": "3 hari sebelumnya",
     "reminder1Week": "1 minggu sebelumnya",
-    "reminderMinutesBefore": "{minutes} menit sebelumnya",
-    "reminderHoursBefore": "{hours} jam sebelumnya",
-    "reminderDaysBefore": "{days} hari sebelumnya",
+    "reminderMinutesBefore": "{{minutes}} menit sebelumnya",
+    "reminderHoursBefore": "{{hours}} jam sebelumnya",
+    "reminderDaysBefore": "{{days}} hari sebelumnya",
     "reminderCustom": "Kustom..."
   }
 }
