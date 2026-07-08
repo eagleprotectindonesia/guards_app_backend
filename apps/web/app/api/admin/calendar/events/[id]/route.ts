@@ -8,13 +8,22 @@ import { redis } from '@repo/database/redis';
 import { ZodError } from 'zod';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requirePermission('user-calendar:view');
+  const { id: adminId, isSuperAdmin } = await requirePermission('user-calendar:view');
   const { id } = await params;
+
+  const eventWhere: Record<string, unknown> = {
+    id,
+    deletedAt: null,
+  };
+  if (!isSuperAdmin) {
+    eventWhere.adminId = adminId;
+  }
 
   const [event, adminName] = await Promise.all([
     prisma.calendarEvent.findFirst({
-      where: { id, adminId: session.id, deletedAt: null },
+      where: eventWhere as Record<string, unknown>,
       include: {
+        admin: { select: { id: true, name: true } },
         tags: {
           include: {
             employee: { select: { id: true, fullName: true, employeeNumber: true } },
@@ -23,7 +32,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
         },
       },
     }),
-    getAdminName(session.id),
+    getAdminName(adminId),
   ]);
 
   if (!event) {
@@ -48,14 +57,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     })
     .filter(Boolean);
 
+  const isOwner = event.adminId === adminId;
+
   return NextResponse.json({
     item: {
       ...(event as unknown as Record<string, unknown>),
       taggedUsers,
-      isOwner: true,
-      ownerId: session.id,
+      isOwner,
+      ownerId: event.adminId ?? adminId,
       ownerType: 'admin',
-      ownerName: adminName,
+      ownerName: isOwner ? adminName : (event.admin?.name ?? 'Unknown'),
     },
   });
 }

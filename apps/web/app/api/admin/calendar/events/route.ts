@@ -10,7 +10,7 @@ import { ZodError } from 'zod';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
 
 export async function GET(req: Request) {
-  const session = await requirePermission('user-calendar:view');
+  const { id: adminId, isSuperAdmin } = await requirePermission('user-calendar:view');
 
   try {
     const { searchParams } = new URL(req.url);
@@ -25,17 +25,26 @@ export async function GET(req: Request) {
     const fromDate = startOfDay(parseISO(parsed.data.from));
     const toDate = endOfDay(parseISO(parsed.data.to));
 
+    const adminWhere: Record<string, unknown> = {
+      deletedAt: null,
+      endDate: { gte: fromDate },
+      startDate: { lte: toDate },
+    };
+    if (isSuperAdmin) {
+      adminWhere.adminId = { not: null };
+    } else {
+      adminWhere.OR = [
+        { adminId },
+        { tags: { some: { adminId, participantType: 'admin' } } },
+      ];
+    }
+
     const [events, adminName] = await Promise.all([
       prisma.calendarEvent.findMany({
-        where: {
-          deletedAt: null,
-          adminId: session.id,
-          endDate: { gte: fromDate },
-          startDate: { lte: toDate },
-        },
+        where: adminWhere as Record<string, unknown>,
         orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
       }),
-      getAdminName(session.id),
+      getAdminName(adminId),
     ]);
 
     const eventIds = events.map(e => e.id);
@@ -43,8 +52,8 @@ export async function GET(req: Request) {
     const items = events.map(e => ({
       ...serializeCalendarEvent(e as unknown as Record<string, unknown>),
       taggedUsers: tagsByEvent[e.id] ?? [],
-      isOwner: true,
-      ownerId: session.id,
+      isOwner: e.adminId === adminId,
+      ownerId: e.adminId ?? adminId,
       ownerType: 'admin' as const,
       ownerName: adminName,
     }));

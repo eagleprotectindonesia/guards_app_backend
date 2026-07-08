@@ -185,15 +185,27 @@ All require `requirePermission('user-calendar:<action>')`.
 
 | Method | Path | Permission | Description |
 |---|---|---|---|
-| GET | `/admin/calendar?from=&to=&employeeId=&kind=&priority=&clientName=&taggedUserId=` | `view` | Master aggregation — all holidays, memos, employee events (filtered), and admin's own events. Response includes `ownerId`, `ownerType`, `ownerName`. |
-| GET | `/admin/calendar/day-summary?from=&to=&employeeId=` | `view` | Lightweight `groupBy` count per date for month view dot markers. Returns `{ days: [{date, count}] }`. |
-| GET | `/admin/calendar/events?from=&to=` | `view` | Lists admin's own events. |
+| GET | `/admin/calendar?from=&to=&employeeId=&kind=&priority=&clientName=&taggedUserId=` | `view` | Master aggregation — holidays, memos, employee events (super admin only), and admin events. **Visibility scoped by role** (see matrix below). Response includes `ownerId`, `ownerType`, `ownerName`. |
+| GET | `/admin/calendar/events?from=&to=` | `view` | Lists admin events. **Super admin**: all admin events. **Non-super admin**: own + tagged events. |
 | POST | `/admin/calendar/events` | `create` | Create event (admin-owned). Same flow as employee create. |
-| GET | `/admin/calendar/events/[id]` | `view` | Detail. |
+| GET | `/admin/calendar/events/[id]` | `view` | Detail. **Super admin**: any admin event. **Non-super admin**: strict ownership (`adminId` match), 404 otherwise. |
 | PUT | `/admin/calendar/events/[id]` | `edit` | Update. Ownership check (`adminId` match). Tags diffed + notified. Publishes Redis event. |
 | DELETE | `/admin/calendar/events/[id]` | `delete` | Soft-delete. Ownership check. Publishes Redis event. |
 | POST | `/admin/calendar/events/[id]/duplicate` | `create` | Duplicate admin event. **Does not copy tags**. Publishes Redis event. |
-| GET | `/admin/calendar/items/[type]/[id]` | `view` | Detail for any item type. No ownership guard — admins can read any event. |
+| GET | `/admin/calendar/items/[type]/[id]` | `view` | Detail for any item type. **Super admin**: any event. **Non-super admin**: own events, tagged events, or employee events. 403 for untagged other-admin events. |
+
+#### Visibility Matrix (`GET /admin/calendar`)
+
+| Data | Super Admin | Non-Super Admin |
+|---|---|---|
+| Holidays | All | All |
+| Office memos | All | All |
+| Employee events | All (with optional `employeeId` filter) | **None** (hidden) |
+| Admin events | All (all admins) | Own + tagged only |
+
+#### `isOwner` field behavior
+
+The response `isOwner` field reflects actual ownership (`event.adminId === session.id`). **Super admin** viewing another admin's event receives `isOwner: false` — the UI hides edit/delete buttons for non-owners (super admin mutation is API-only).
 
 **Query filter params** on `GET /admin/calendar`:
 - `employeeId` — filter by one employee
@@ -221,9 +233,9 @@ Item ID format: `{kind}:{originalId}:{YYYY-MM-DD}` (composite for per-day dedupl
 | `updateCalendarEvent(id, input, tx?)` | Partial update. Re-syncs tags (deleteAll + createMany). Resets `reminderSentAt` + recomputes `reminderScheduledAt` on scheduling changes. |
 | `deleteCalendarEvent(id, tx?)` | Soft delete. |
 | `getCalendarEventById(id, tx?)` | Includes `employee { fullName }` and `admin { name }`. |
-| `listCalendarEvents(params)` | Complex filtered query: date range, owner (employee/admin/ids), kinds, search (ILIKE title+description), priority[], clientName, taggedUserId. Optional tag + owner includes. |
+| `listCalendarEvents(params)` | Complex filtered query: date range, owner (employee/admin/ids), kinds, search (ILIKE title+description), priority[], clientName, taggedUserId, includeAllAdminEvents. Optional tag + owner includes. |
 | `listEmployeeCalendarEvents(employeeId, from, to, tx?)` | Own + tagged events for an employee. |
-| `listCalendarDaySummary(params)` | `groupBy startDate` returning `{date, count}[]`. |
+| `listCalendarDaySummary(params)` | `groupBy startDate` returning `{date, count}[]. Supports includeAllAdminEvents flag. |
 | `getCalendarEventTagsRaw(eventId, tx?)` | Raw tag rows with employee/admin includes. |
 | `getCalendarEventReminderCandidates(now)` | Events with `reminderScheduledAt <= now`, `reminderSentAt IS NULL`, `reminderMinutesBefore IS NOT NULL`, `deletedAt IS NULL`. |
 | `claimCalendarEventReminders(eventIds, now)` | `updateMany WHERE id IN (...) AND reminderSentAt IS NULL` — claim-based idempotency. |
@@ -461,6 +473,7 @@ Key groups:
 | Reminder scheduling | Pre-computed UTC timestamp (avoids timezone math on every worker tick) |
 | Reminder delivery | Claim-based idempotency (`updateMany WHERE reminderSentAt IS NULL`) |
 | Admin master view | Lazy by date — day-summary for dots, full items on click |
+| Admin visibility scoping | Super admin sees all; non-super admin sees own + tagged admin events, no employee events |
 | Calendar library (web) | FullCalendar |
 | Calendar library (mobile) | Pure gluestack + date-fns (no native deps) |
 | Soft delete | `deletedAt` pattern (matches Shift, OfficeMemo) |
