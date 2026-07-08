@@ -331,6 +331,7 @@ export async function getShiftPhotoReportById(id: string) {
 
 const SHIFT_PHOTO_REPORT_SORT_FIELDS = {
   reportNumber: (o: 'asc' | 'desc') => ({ reportNumber: o } as const),
+  employeeNumber: (o: 'asc' | 'desc') => ({ employee: { employeeNumber: o } } as const),
   site: (o: 'asc' | 'desc') => ({ shift: { site: { name: o } } } as const),
   employee: (o: 'asc' | 'desc') => ({ employee: { fullName: o } } as const),
   status: (o: 'asc' | 'desc') => ({ status: o } as const),

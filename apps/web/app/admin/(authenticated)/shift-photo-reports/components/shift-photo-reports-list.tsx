@@ -342,8 +342,8 @@ export default function ShiftPhotoReportsList({
                   onSort={handleSort}
                 />
                 <SortableHeader
-                  label="Status"
-                  field="status"
+                  label="Employee No."
+                  field="employeeNumber"
                   currentSortBy={sortBy}
                   currentSortOrder={sortOrder}
                   onSort={handleSort}
@@ -351,6 +351,13 @@ export default function ShiftPhotoReportsList({
                 <SortableHeader
                   label="Guard"
                   field="employee"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Status"
+                  field="status"
                   currentSortBy={sortBy}
                   currentSortOrder={sortOrder}
                   onSort={handleSort}
@@ -412,7 +419,7 @@ export default function ShiftPhotoReportsList({
             <tbody className="divide-y divide-border">
               {reports.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={11} className="py-8 text-center text-muted-foreground">
                     No shift photo reports found.
                   </td>
                 </tr>
@@ -425,13 +432,16 @@ export default function ShiftPhotoReportsList({
                     <td className="py-4 px-6 text-sm font-mono text-foreground">
                       {report.reportNumber ?? '—'}
                     </td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground">
+                      {report.employee?.employeeNumber ?? '—'}
+                    </td>
+                    <td className="py-4 px-6 text-sm font-medium text-foreground">
+                      {report.employee?.fullName ?? '—'}
+                    </td>
                     <td className="py-4 px-6">
                       <span className={`inline-block px-2 py-0.5 rounded text-xs font-semibold ${statusBadge(report.status)}`}>
                         {report.status.charAt(0).toUpperCase() + report.status.slice(1)}
                       </span>
-                    </td>
-                    <td className="py-4 px-6 text-sm font-medium text-foreground">
-                      {report.employee?.fullName ?? '—'}
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
                       <div className="font-medium text-foreground">
