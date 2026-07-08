@@ -13,6 +13,7 @@ import {
 import { createCalendarEventSchema, updateCalendarEventSchema } from '@repo/validations';
 import { createEvent, updateEvent } from '../actions';
 import { DatePicker } from '@/components/ui/date-picker';
+import { TimePicker } from '@/components/ui/time-picker';
 import AddressAutocompleteInput from '@/components/address-autocomplete-input';
 import AddressMapPreview from '@/components/address-map-preview';
 import { EventTypeChips } from './EventTypeChips';
@@ -25,6 +26,7 @@ import type { EventForEditItem } from '../actions';
 interface EventFormProps {
   eventId?: string;
   initialEvent?: EventForEditItem | null;
+  defaultDate?: string;
   onClose: () => void;
   onSuccess: () => void;
   initialAdmins: Array<{ id: string; name: string; email: string }>;
@@ -75,10 +77,10 @@ const EMPTY_FORM: FormData = {
 };
 
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return format(new Date(), 'yyyy-MM-dd');
 }
 
-function buildFormState(initialEvent: EventForEditItem | null | undefined) {
+function buildFormState(initialEvent: EventForEditItem | null | undefined, defaultDate?: string) {
   if (initialEvent) {
     const startDate = initialEvent.startDate ?? todayStr();
     const endDate = initialEvent.endDate ?? todayStr();
@@ -110,14 +112,14 @@ function buildFormState(initialEvent: EventForEditItem | null | undefined) {
     };
   }
   return {
-    form: { ...EMPTY_FORM, startDate: todayStr(), endDate: todayStr() } satisfies FormData,
+    form: { ...EMPTY_FORM, startDate: defaultDate ?? todayStr(), endDate: defaultDate ?? todayStr() } satisfies FormData,
     startDateObj: new Date(),
     endDateObj: new Date(),
   };
 }
 
-export function EventForm({ eventId, initialEvent, onClose, onSuccess, initialAdmins }: EventFormProps) {
-  const [{ form, startDateObj, endDateObj }, setFormState] = useState(() => buildFormState(initialEvent));
+export function EventForm({ eventId, initialEvent, defaultDate, onClose, onSuccess, initialAdmins }: EventFormProps) {
+  const [{ form, startDateObj, endDateObj }, setFormState] = useState(() => buildFormState(initialEvent, defaultDate));
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -323,11 +325,11 @@ export function EventForm({ eventId, initialEvent, onClose, onSuccess, initialAd
               {showStartTime && (
                 <div>
                   <label className="mb-1 block text-xs text-muted-foreground">Start Time</label>
-                  <input
-                    type="time"
+                  <TimePicker
                     value={form.startTime}
-                    onChange={e => setForm(p => ({ ...p, startTime: e.target.value }))}
-                    className={`w-full rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none ${fieldErrors.startTime ? 'border-red-500' : 'border-input focus:border-red-500'}`}
+                    onChange={v => setForm(p => ({ ...p, startTime: v }))}
+                    use24h
+                    className={`w-full ${fieldErrors.startTime ? '[&_[data-slot=trigger]]:border-red-500' : ''}`}
                   />
                   {fieldErrors.startTime && <p className="mt-1 text-xs text-red-400">{fieldErrors.startTime}</p>}
                 </div>
@@ -335,11 +337,11 @@ export function EventForm({ eventId, initialEvent, onClose, onSuccess, initialAd
               {showEndTime && (
                 <div>
                   <label className="mb-1 block text-xs text-muted-foreground">End Time</label>
-                  <input
-                    type="time"
+                  <TimePicker
                     value={form.endTime}
-                    onChange={e => setForm(p => ({ ...p, endTime: e.target.value }))}
-                    className={`w-full rounded-lg border bg-card px-3 py-2 text-sm text-foreground focus:outline-none ${fieldErrors.endTime ? 'border-red-500' : 'border-input focus:border-red-500'}`}
+                    onChange={v => setForm(p => ({ ...p, endTime: v }))}
+                    use24h
+                    className={`w-full ${fieldErrors.endTime ? '[&_[data-slot=trigger]]:border-red-500' : ''}`}
                   />
                   {fieldErrors.endTime && <p className="mt-1 text-xs text-red-400">{fieldErrors.endTime}</p>}
                 </div>

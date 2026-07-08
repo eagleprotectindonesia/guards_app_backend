@@ -3,7 +3,7 @@ import { prisma, getTagsForEvents } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { calendarListSchema } from '@repo/validations';
 import { KIND_COLORS } from '@repo/shared';
-import { startOfDay, endOfDay, eachDayOfInterval, parseISO } from 'date-fns';
+import { startOfDay, endOfDay, eachDayOfInterval, parseISO, format } from 'date-fns';
 
 type CalendarItem = {
   id: string;
@@ -29,6 +29,7 @@ type CalendarItem = {
 function expandToDays(startDate: Date, endDate: Date, from: Date, to: Date): Date[] {
   const rangeStart = startDate > from ? startDate : from;
   const rangeEnd = endDate < to ? endDate : to;
+  if (rangeStart > rangeEnd) return [];
   return eachDayOfInterval({ start: rangeStart, end: rangeEnd });
 }
 
@@ -155,7 +156,7 @@ export async function GET(req: Request) {
     const items: CalendarItem[] = [];
     const dayCounts: Record<string, number> = {};
 
-    const ymd = (d: Date) => d.toISOString().slice(0, 10);
+    const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
     for (const h of holidays) {
       const days = expandToDays(h.startDate, h.endDate, fromDate, toDate);

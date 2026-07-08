@@ -1,11 +1,19 @@
+import { format } from 'date-fns';
+
+function toDateStr(v: unknown): string | null {
+  if (!v) return null;
+  if (v instanceof Date) return format(v, 'yyyy-MM-dd');
+  return String(v).slice(0, 10);
+}
+
 export function serializeCalendarEvent(event: Record<string, unknown>) {
   return {
     id: event.id,
     kind: event.kind,
     title: event.title,
     description: event.description ?? null,
-    startDate: event.startDate ? String(event.startDate).slice(0, 10) : null,
-    endDate: event.endDate ? String(event.endDate).slice(0, 10) : null,
+    startDate: toDateStr(event.startDate),
+    endDate: toDateStr(event.endDate),
     startTime: event.startTime ?? null,
     endTime: event.endTime ?? null,
     allDay: event.allDay ?? false,
@@ -17,7 +25,7 @@ export function serializeCalendarEvent(event: Record<string, unknown>) {
     trainerName: event.trainerName ?? null,
     priority: event.priority ?? null,
     color: event.color ?? null,
-    createdAt: event.createdAt ? String(event.createdAt) : null,
-    updatedAt: event.updatedAt ? String(event.updatedAt) : null,
+    createdAt: event.createdAt instanceof Date ? event.createdAt.toISOString() : (event.createdAt ? String(event.createdAt) : null),
+    updatedAt: event.updatedAt instanceof Date ? event.updatedAt.toISOString() : (event.updatedAt ? String(event.updatedAt) : null),
   };
 }

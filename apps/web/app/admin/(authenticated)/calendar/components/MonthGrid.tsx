@@ -28,7 +28,7 @@ function DayCellContent({ date, isOutside, count }: { date: Date; isOutside: boo
 
 export function MonthGrid({ currentDate, items, daySummary, onDateClick, onEventClick }: MonthGridProps) {
   const calendarRef = useRef<FullCalendar>(null);
-  const [initialDateStr] = useState(() => currentDate.toISOString());
+  const [initialDateStr] = useState(() => format(currentDate, 'yyyy-MM-dd'));
 
   useEffect(() => {
     if (calendarRef.current) {

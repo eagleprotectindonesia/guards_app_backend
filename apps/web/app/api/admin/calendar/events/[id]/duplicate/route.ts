@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma, createCalendarEvent } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { redis } from '@repo/database/redis';
+import { format } from 'date-fns';
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await requirePermission('user-calendar:create');
@@ -21,8 +22,8 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       kind: existing.kind,
       title: existing.title,
       description: existing.description ?? undefined,
-      startDate: existing.startDate.toISOString().slice(0, 10),
-      endDate: existing.endDate.toISOString().slice(0, 10),
+      startDate: format(existing.startDate, 'yyyy-MM-dd'),
+      endDate: format(existing.endDate, 'yyyy-MM-dd'),
       startTime: existing.startTime ?? undefined,
       endTime: existing.endTime ?? undefined,
       allDay: existing.allDay,

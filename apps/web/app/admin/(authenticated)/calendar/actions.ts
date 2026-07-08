@@ -14,6 +14,7 @@ import { createCalendarEventSchema, updateCalendarEventSchema } from '@repo/vali
 import { getAdminName, notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { redis } from '@repo/database/redis';
 import { revalidatePath } from 'next/cache';
+import { format } from 'date-fns';
 
 export async function createEvent(data: unknown) {
   const session = await requirePermission('user-calendar:create');
@@ -254,8 +255,8 @@ export async function duplicateEvent(id: string) {
     kind: existing.kind,
     title: existing.title,
     description: existing.description ?? undefined,
-    startDate: existing.startDate.toISOString().slice(0, 10),
-    endDate: existing.endDate.toISOString().slice(0, 10),
+    startDate: format(existing.startDate, 'yyyy-MM-dd'),
+    endDate: format(existing.endDate, 'yyyy-MM-dd'),
     startTime: existing.startTime ?? undefined,
     endTime: existing.endTime ?? undefined,
     allDay: existing.allDay,
