@@ -1,5 +1,6 @@
 import { AdminNotificationType, LeaveRequestReason, Prisma } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
+import { redis } from '../redis/client';
 import { getAllActiveAdminOwnershipAssignments, getMatchingAdminIdsForEmployeeScope } from './admin-ownership';
 import { isHrApprovalRequiredForLeaveRequest } from './leave-requests';
 
@@ -101,7 +102,7 @@ export async function createAdminNotifications(
   }
 
   const targetTx = tx as TxLike;
-  return Promise.all(
+  const notifications = await Promise.all(
     uniqueAdminIds.map(adminId =>
       targetTx.adminNotification.create({
         data: {
@@ -114,6 +115,17 @@ export async function createAdminNotifications(
       })
     )
   );
+
+  Promise.all(
+    notifications.map(notification =>
+      redis.publish(
+        `admin-notifications:admin:${notification.adminId}`,
+        JSON.stringify({ notification })
+      )
+    )
+  ).catch(err => console.error('[AdminNotifications] Redis publish error:', err));
+
+  return notifications;
 }
 
 export async function createLeaveRequestCreatedAdminNotifications(

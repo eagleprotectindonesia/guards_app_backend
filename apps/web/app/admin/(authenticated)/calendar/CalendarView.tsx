@@ -171,6 +171,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
         )}
         {(view === 'week' || view === 'day') && (
           <TimeGridView
+            key={view}
             currentDate={currentDate}
             viewType={view === 'week' ? 'timeGridWeek' : 'timeGridDay'}
             items={items}
