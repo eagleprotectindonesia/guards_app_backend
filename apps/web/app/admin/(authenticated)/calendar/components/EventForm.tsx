@@ -33,8 +33,6 @@ interface EventFormProps {
   initialAdmins: Array<{ id: string; name: string; email: string }>;
 }
 
-const COLORS = ['#FF3B30', '#FF2D55', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#5AC8FA', '#AF52DE'];
-
 interface FormData {
   kind: string;
   title: string;
@@ -50,7 +48,6 @@ interface FormData {
   clientName: string;
   trainerName: string;
   priority: string;
-  color: string;
   taggedEmployeeIds: string[];
   taggedAdminIds: string[];
   reminderMinutesBefore: number | null;
@@ -71,7 +68,6 @@ const EMPTY_FORM: FormData = {
   clientName: '',
   trainerName: '',
   priority: 'normal',
-  color: '#FF3B30',
   taggedEmployeeIds: [],
   taggedAdminIds: [],
   reminderMinutesBefore: null,
@@ -105,7 +101,6 @@ function buildFormState(
         clientName: initialEvent.clientName ?? '',
         trainerName: initialEvent.trainerName ?? '',
         priority: initialEvent.priority ?? 'normal',
-        color: initialEvent.color ?? '#FF3B30',
         taggedEmployeeIds: [],
         taggedAdminIds: (initialEvent.taggedUsers ?? [])
           .filter((u: { type: string }) => u.type === 'admin')
@@ -221,7 +216,6 @@ export function EventForm({
       endTime: !form.allDay && showEndTime && form.endTime ? form.endTime : undefined,
       allDay: form.allDay,
       priority: form.priority === 'normal' ? undefined : form.priority,
-      color: form.color || undefined,
       taggedEmployeeIds: form.taggedEmployeeIds.length > 0 ? form.taggedEmployeeIds : undefined,
       taggedAdminIds: form.taggedAdminIds.length > 0 ? form.taggedAdminIds : undefined,
     };
@@ -457,23 +451,6 @@ export function EventForm({
               </select>
             </div>
           )}
-
-          <div>
-            <label className="mb-1 block text-xs text-muted-foreground">Color</label>
-            <div className="flex gap-2">
-              {COLORS.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setForm(p => ({ ...p, color: c }))}
-                  className={`h-7 w-7 rounded-full transition-transform ${
-                    form.color === c ? 'scale-125 ring-2 ring-white ring-offset-2 ring-offset-card' : ''
-                  }`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
-          </div>
 
           <EventTaggingSection
             taggedAdminIds={form.taggedAdminIds}

@@ -32,7 +32,6 @@ import {
   KINDS_WITH_TIME,
   KINDS_WITH_LOCATION,
   KINDS_WITH_PRIORITY,
-  KIND_COLORS,
   REMINDER_PRESETS,
 } from '@repo/shared';
 import { UserTagPicker } from './UserTagPicker';
@@ -50,7 +49,7 @@ const KIND_ICONS: Record<string, string> = {
   other: '📌',
 };
 
-const COLOR_PRESETS = ['#FF3B30', '#FF9500', '#FFCC00', '#34C759', '#007AFF', '#AF52DE', '#FF2D55', '#5AC8FA'];
+
 
 interface CalendarEventFormProps {
   mode: 'create' | 'edit';
@@ -67,7 +66,6 @@ interface CalendarEventFormProps {
     clientName?: string;
     trainerName?: string;
     priority?: string;
-    color?: string;
     reminderMinutesBefore?: number | null;
     taggedUsers?: TaggedUserResult[];
   };
@@ -92,7 +90,6 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
   const [clientName, setClientName] = useState(initialData?.clientName ?? '');
   const [trainerName, setTrainerName] = useState(initialData?.trainerName ?? '');
   const [priority, setPriority] = useState(initialData?.priority ?? 'normal');
-  const [color, setColor] = useState(initialData?.color ?? KIND_COLORS[kind]);
   const [selectedTaggedUsers, setSelectedTaggedUsers] = useState<TaggedUserResult[]>(initialData?.taggedUsers ?? []);
   const [reminderMinutesBefore, setReminderMinutesBefore] = useState<number | null>(null);
   const [showReminderSheet, setShowReminderSheet] = useState(false);
@@ -114,7 +111,6 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
       setClientName(initialData?.clientName ?? '');
       setTrainerName(initialData?.trainerName ?? '');
       setPriority(initialData?.priority ?? 'normal');
-      setColor(initialData?.color ?? KIND_COLORS[initialData?.kind ?? 'personal_event']);
       setSelectedTaggedUsers(initialData?.taggedUsers ?? []);
       setReminderMinutesBefore(initialData?.reminderMinutesBefore ?? null);
       setValidationErrors({});
@@ -148,9 +144,6 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
     if (!KINDS_WITH_END_DATE.has(newKind)) {
       setEndDate(startDate);
     }
-    if (!color || color === KIND_COLORS[kind]) {
-      setColor(KIND_COLORS[newKind]);
-    }
   };
 
   const handleSubmit = () => {
@@ -167,7 +160,6 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
       clientName: kind === 'client_meeting' && clientName ? clientName : undefined,
       trainerName: kind === 'training' && trainerName ? trainerName : undefined,
       priority: showPriorityField ? priority : undefined,
-      color: color || undefined,
       taggedEmployeeIds: selectedTaggedUsers.filter(u => u.type === 'employee').map(u => u.id),
       taggedAdminIds: selectedTaggedUsers.filter(u => u.type === 'admin').map(u => u.id),
       reminderMinutesBefore: reminderMinutesBefore ?? null,
@@ -472,30 +464,6 @@ export function CalendarEventForm({ mode, initialData, onSubmit, isSubmitting, s
               {t('calendar.tagUsers', 'Tag Users')}
             </Text>
             <UserTagPicker selectedUsers={selectedTaggedUsers} onChange={setSelectedTaggedUsers} />
-          </VStack>
-        </View>
-
-        {/* Color Picker */}
-        <View style={[styles.glassCard, { marginTop: 12 }]}>
-          <BlurView intensity={20} tint="dark" style={StyleSheet.absoluteFill} />
-          <VStack className="p-6" space="md">
-            <Text className="text-white text-sm font-semibold uppercase tracking-wide">
-              {t('calendar.color', 'Color')}
-            </Text>
-            <HStack space="sm" className="flex-wrap">
-              {COLOR_PRESETS.map(c => (
-                <Pressable
-                  key={c}
-                  onPress={() => setColor(c)}
-                  className="w-9 h-9 rounded-full items-center justify-center"
-                  style={{
-                    backgroundColor: c,
-                    borderWidth: color === c ? 3 : 0,
-                    borderColor: '#fff',
-                  }}
-                />
-              ))}
-            </HStack>
           </VStack>
         </View>
 

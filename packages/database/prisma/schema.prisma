@@ -1191,7 +1191,6 @@ model CalendarEvent {
   clientName  String?           @map("client_name")
   trainerName String?           @map("trainer_name")
   priority              String?           @default("normal")
-  color                 String?
   reminderMinutesBefore Int?              @map("reminder_minutes_before")
   reminderScheduledAt   DateTime?         @map("reminder_scheduled_at") @db.Timestamptz(6)
   reminderSentAt        DateTime?         @map("reminder_sent_at") @db.Timestamptz(6)

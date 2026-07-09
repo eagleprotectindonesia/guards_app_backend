@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { calendarListSchema } from '@repo/validations';
-import { KIND_COLORS } from '@repo/shared';
+import { colorHintForEvent } from '@repo/shared';
 import { startOfDay, endOfDay, eachDayOfInterval, parseISO } from 'date-fns';
 
 function expandToDays(startDate: Date, endDate: Date, from: Date, to: Date): Date[] {
@@ -215,8 +215,6 @@ export async function GET(req: Request) {
       }
     }
 
-    const defaultColors = KIND_COLORS;
-
     for (const e of events) {
       const days = expandToDays(e.startDate, e.endDate, fromDate, toDate);
       for (const day of days) {
@@ -246,7 +244,7 @@ export async function GET(req: Request) {
           latitude: e.latitude ?? null,
           longitude: e.longitude ?? null,
           status: null,
-          colorHint: e.color ?? defaultColors[kind] ?? '#8E8E93',
+          colorHint: colorHintForEvent(kind, e.priority),
           isOwner: e.employeeId === employee.id,
           ownerId: e.employee?.id ?? e.admin?.id ?? '',
           ownerType: e.employee ? 'employee' : 'admin',

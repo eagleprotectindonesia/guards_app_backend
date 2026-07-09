@@ -24,7 +24,6 @@ export function serializeCalendarEvent(event: Record<string, unknown>) {
     clientName: event.clientName ?? null,
     trainerName: event.trainerName ?? null,
     priority: event.priority ?? null,
-    color: event.color ?? null,
     createdAt: event.createdAt instanceof Date ? event.createdAt.toISOString() : (event.createdAt ? String(event.createdAt) : null),
     updatedAt: event.updatedAt instanceof Date ? event.updatedAt.toISOString() : (event.updatedAt ? String(event.updatedAt) : null),
   };

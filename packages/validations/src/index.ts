@@ -748,10 +748,6 @@ export const createCalendarEventSchema = z
     clientName: z.string().max(120).optional(),
     trainerName: z.string().max(120).optional(),
     priority: z.enum(['urgent', 'high', 'normal', 'low']).default('normal').optional(),
-    color: z
-      .string()
-      .regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a hex color')
-      .optional(),
     reminderMinutesBefore: z.number().int().min(0, 'Reminder offset must be non-negative').nullable().optional(),
     taggedEmployeeIds: taggedEmployeeIdsSchema,
     taggedAdminIds: taggedAdminIdsSchema,
@@ -812,10 +808,6 @@ export const updateCalendarEventSchema = z
     clientName: z.string().max(120).optional(),
     trainerName: z.string().max(120).optional(),
     priority: z.enum(['urgent', 'high', 'normal', 'low']).optional(),
-    color: z
-      .string()
-      .regex(/^#[0-9A-Fa-f]{6}$/)
-      .optional(),
     reminderMinutesBefore: z.number().int().min(0, 'Reminder offset must be non-negative').nullable().optional(),
     taggedEmployeeIds: taggedEmployeeIdsSchema,
     taggedAdminIds: taggedAdminIdsSchema,

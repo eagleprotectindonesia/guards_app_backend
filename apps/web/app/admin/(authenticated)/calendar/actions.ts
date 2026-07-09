@@ -53,7 +53,6 @@ export async function createEvent(data: unknown) {
         clientName: body.clientName,
         trainerName: body.trainerName,
         priority: body.priority,
-        color: body.color,
         taggedEmployeeIds,
         taggedAdminIds,
       },
@@ -127,7 +126,6 @@ export async function updateEvent(id: string, data: unknown) {
     clientName: body.clientName,
     trainerName: body.trainerName,
     priority: body.priority,
-    color: body.color,
     taggedEmployeeIds: newEmployeeIds,
     taggedAdminIds: newAdminIds,
   });
@@ -197,7 +195,6 @@ export interface EventForEditItem {
   clientName: string | null;
   trainerName: string | null;
   priority: string | null;
-  color: string | null;
   createdAt: string | null;
   updatedAt: string | null;
   taggedUsers: TaggedUserResult[];
@@ -264,7 +261,6 @@ export async function duplicateEvent(id: string) {
     clientName: existing.clientName ?? undefined,
     trainerName: existing.trainerName ?? undefined,
     priority: existing.priority ?? undefined,
-    color: existing.color ?? undefined,
   });
 
   redis

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma, getTagsForEvents } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { calendarListSchema } from '@repo/validations';
-import { KIND_COLORS } from '@repo/shared';
+import { colorHintForEvent } from '@repo/shared';
 import { startOfDay, endOfDay, eachDayOfInterval, parseISO, format } from 'date-fns';
 
 type CalendarItem = {
@@ -228,7 +228,6 @@ export async function GET(req: Request) {
         location: string | null;
         latitude: number | null;
         longitude: number | null;
-        color: string | null;
         ownerId: string;
         ownerType: 'employee' | 'admin';
         ownerName: string;
@@ -239,7 +238,7 @@ export async function GET(req: Request) {
         for (const day of days) {
           const date = ymd(day);
           const kind = e.kind;
-          const colorHint = e.color ?? KIND_COLORS[kind] ?? '#8E8E93';
+          const colorHint = colorHintForEvent(kind, e.priority);
           items.push({
             id: `${kind}:${e.id}:${date}`,
             originalId: e.id,
@@ -279,7 +278,6 @@ export async function GET(req: Request) {
         location: e.location,
         latitude: e.latitude,
         longitude: e.longitude,
-        color: e.color,
         ownerId: e.employee?.id ?? '',
         ownerType: 'employee' as const,
         ownerName: e.employee?.fullName ?? 'Unknown',
@@ -300,7 +298,6 @@ export async function GET(req: Request) {
         location: e.location,
         latitude: e.latitude,
         longitude: e.longitude,
-        color: e.color,
         ownerId: e.admin?.id ?? '',
         ownerType: 'admin' as const,
         ownerName: e.admin?.name ?? 'Unknown',

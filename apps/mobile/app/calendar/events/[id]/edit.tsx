@@ -77,7 +77,6 @@ export default function EditCalendarEventScreen() {
     clientName: d.clientName ? String(d.clientName) : undefined,
     trainerName: d.trainerName ? String(d.trainerName) : undefined,
     priority: d.priority ? String(d.priority) : 'normal',
-    color: d.color ? String(d.color) : undefined,
   };
 
   const handleSubmit = (formData: Record<string, unknown>) => {

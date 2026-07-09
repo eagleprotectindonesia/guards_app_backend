@@ -31,7 +31,6 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       clientName: existing.clientName ?? undefined,
       trainerName: existing.trainerName ?? undefined,
       priority: existing.priority ?? undefined,
-      color: existing.color ?? undefined,
     });
 
     redis

@@ -81,6 +81,18 @@ export interface ReminderPreset {
   minutes: number;
 }
 
+export const PRIORITY_COLORS: Record<string, string> = {
+  urgent: '#FF3B30',
+  high: '#FF9500',
+  normal: '#007AFF',
+  low: '#8E8E93',
+};
+
+export function colorHintForEvent(kind: string, priority: string | null): string {
+  if (priority && PRIORITY_COLORS[priority]) return PRIORITY_COLORS[priority];
+  return KIND_COLORS[kind] ?? '#8E8E93';
+}
+
 export const REMINDER_PRESETS: ReminderPreset[] = [
   { labelKey: 'reminderAtEvent', minutes: 0 },
   { labelKey: 'reminder10Min', minutes: 10 },

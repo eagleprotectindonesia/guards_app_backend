@@ -99,7 +99,6 @@ export async function POST(req: Request) {
           clientName: body.clientName,
           trainerName: body.trainerName,
           priority: body.priority,
-          color: body.color,
           taggedEmployeeIds,
           taggedAdminIds,
         },

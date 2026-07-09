@@ -28,7 +28,6 @@ export interface CreateCalendarEventInput {
   clientName?: string;
   trainerName?: string;
   priority?: string;
-  color?: string;
   reminderMinutesBefore?: number | null;
   taggedEmployeeIds?: string[];
   taggedAdminIds?: string[];
@@ -60,7 +59,6 @@ export interface UpdateCalendarEventInput {
   clientName?: string;
   trainerName?: string;
   priority?: string;
-  color?: string;
   reminderMinutesBefore?: number | null;
   taggedEmployeeIds?: string[];
   taggedAdminIds?: string[];
@@ -104,7 +102,6 @@ export async function createCalendarEvent(input: CreateCalendarEventInput, tx: T
       clientName: eventData.clientName ?? null,
       trainerName: eventData.trainerName ?? null,
       priority: eventData.priority ?? null,
-      color: eventData.color ?? null,
       reminderMinutesBefore: hasReminder ? eventData.reminderMinutesBefore! : null,
       reminderScheduledAt: hasReminder
         ? computeReminderScheduledAt(eventData.startDate, eventData.startTime ?? null, eventData.reminderMinutesBefore!)
@@ -151,7 +148,6 @@ export async function updateCalendarEvent(id: string, input: UpdateCalendarEvent
   if (eventData.clientName !== undefined) data.clientName = eventData.clientName;
   if (eventData.trainerName !== undefined) data.trainerName = eventData.trainerName;
   if (eventData.priority !== undefined) data.priority = eventData.priority;
-  if (eventData.color !== undefined) data.color = eventData.color;
 
   const schedulingChanged =
     eventData.startDate !== undefined ||
