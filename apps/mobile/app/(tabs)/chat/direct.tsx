@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { BackHandler, FlatList, Platform, StyleSheet, View, ViewToken } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
@@ -17,13 +17,26 @@ import { useAuth } from '../../../src/contexts/AuthContext';
 import { useCustomToast } from '../../../src/hooks/useCustomToast';
 import { reserveChatDraft, uploadToS3 } from '../../../src/api/upload';
 import { isVideoFile } from '../../../src/utils/file';
+import { optimizeImage } from '../../../src/utils/imageOptimization';
 import { useActiveShift } from '../../../src/hooks/useActiveShift';
 import { ChatListItem, ChatListItemData } from '../../../src/components/chat/ChatListItem';
 import { ChatHeader } from '../../../src/components/chat/ChatHeader';
 import { ChatComposer } from '../../../src/components/chat/ChatComposer';
 import { useChatMessages } from '../../../src/hooks/useChatMessages';
+import { SendMessageAck } from '@repo/types';
 
 const MAX_CHAT_VIDEO_SIZE_BYTES = 20 * 1024 * 1024;
+const SEND_TIMEOUT = 20000;
+
+type PendingEntry = {
+  clientId: string;
+  status: 'sending' | 'failed';
+  content: string;
+  attachments: ImagePicker.ImagePickerAsset[];
+  latitude?: number;
+  longitude?: number;
+  createdAt: string;
+};
 
 export default function ChatScreen() {
   const { t } = useTranslation();
@@ -41,9 +54,11 @@ export default function ChatScreen() {
   const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
   const [currentVisibleDate, setCurrentVisibleDate] = useState<string | null>(null);
+  const [pendingEntries, setPendingEntries] = useState<PendingEntry[]>([]);
 
   const flatListRef = useRef<FlatList>(null);
   const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
+  const clientIdCounter = useRef(0);
 
   const employeeId = auth.user?.id;
 
@@ -75,6 +90,17 @@ export default function ChatScreen() {
     socket,
     t,
   });
+
+  const displayData = useMemo<ChatListItemData[]>(() => {
+    const pendingItems: ChatListItemData[] = pendingEntries.map(e => ({
+      type: e.status === 'sending' ? 'pending' as const : 'failed' as const,
+      id: e.clientId,
+      content: e.content,
+      attachmentUris: e.attachments.map(a => a.uri),
+      createdAt: e.createdAt,
+    }));
+    return [...pendingItems, ...messagesWithDates];
+  }, [pendingEntries, messagesWithDates]);
 
   const addAttachments = useCallback(
     (assets: ImagePicker.ImagePickerAsset[]) => {
@@ -186,12 +212,16 @@ export default function ChatScreen() {
       }
       const location = await Location.getCurrentPositionAsync({});
       if (socket) {
-        socket.emit('send_message', {
+        const ack = await socket.timeout(SEND_TIMEOUT).emitWithAck('send_message', {
           content: '',
           attachments: [],
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
-        });
+        }) as SendMessageAck;
+
+        if (!ack.success) {
+          toast.error(t('chat.send_error', 'Send failed'), ack.error);
+        }
       }
     } catch (error) {
       console.error('Error sharing location:', error);
@@ -208,43 +238,64 @@ export default function ChatScreen() {
     setSelectedAttachments(prev => prev.filter((_, i) => i !== index));
   }, []);
 
-  const sendMessage = async () => {
-    if ((!inputText.trim() && selectedAttachments.length === 0) || !socket || isUploading) return;
+  const sendMessage = useCallback(async (retryEntry?: PendingEntry) => {
+    const content = retryEntry?.content ?? inputText.trim();
+    const attachments = retryEntry?.attachments ?? selectedAttachments;
+    const hasContent = content.length > 0 || attachments.length > 0;
+
+    if (!hasContent || !socket) return;
+    if (!retryEntry && isUploading) return;
+
+    const clientId = retryEntry?.clientId ?? `${Date.now()}-${clientIdCounter.current++}`;
+
+    if (!retryEntry) {
+      setPendingEntries(prev => [...prev, {
+        clientId,
+        status: 'sending',
+        content,
+        attachments,
+        latitude: undefined,
+        longitude: undefined,
+        createdAt: new Date().toISOString(),
+      }]);
+    } else {
+      setPendingEntries(prev => prev.map(e => e.clientId === clientId ? { ...e, status: 'sending' } : e));
+    }
 
     setIsUploading(true);
     try {
-      let latitude: number | undefined;
-      let longitude: number | undefined;
-      const hasImages = selectedAttachments.some(a => a.type === 'image');
+      let latitude: number | undefined = retryEntry?.latitude;
+      let longitude: number | undefined = retryEntry?.longitude;
+      const hasImages = attachments.some(a => a.type === 'image');
 
-      if (hasImages && selectedAttachments.length > 0) {
-        if (isOnActiveShift) {
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status !== 'granted') {
-            toast.error(
-              t('chat.location_required', 'Location required'),
-              t('chat.location_required_desc', 'Location permission is needed to send photos during an active shift.')
-            );
-            return;
-          }
-          try {
-            const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-            latitude = loc.coords.latitude;
-            longitude = loc.coords.longitude;
-          } catch {
-            toast.error(
-              t('chat.location_unavailable', 'Location unavailable'),
-              t('chat.location_unavailable_desc', 'Could not get your current location. Please ensure GPS is enabled.')
-            );
-            return;
-          }
+      if (!retryEntry?.latitude && hasImages && attachments.length > 0 && isOnActiveShift) {
+        const permStatus = await Location.requestForegroundPermissionsAsync();
+        if (permStatus.status !== 'granted') {
+          setPendingEntries(prev => prev.map(e => e.clientId === clientId ? { ...e, status: 'failed' } : e));
+          toast.error(
+            t('chat.location_required', 'Location required'),
+            t('chat.location_required_desc', 'Location permission is needed to send photos during an active shift.')
+          );
+          return;
+        }
+        try {
+          const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+          latitude = loc.coords.latitude;
+          longitude = loc.coords.longitude;
+        } catch {
+          setPendingEntries(prev => prev.map(e => e.clientId === clientId ? { ...e, status: 'failed' } : e));
+          toast.error(
+            t('chat.location_unavailable', 'Location unavailable'),
+            t('chat.location_unavailable_desc', 'Could not get your current location. Please ensure GPS is enabled.')
+          );
+          return;
         }
       }
 
       let attachmentKeys: string[] = [];
       let messageId: string | undefined;
 
-      if (selectedAttachments.length > 0) {
+      if (attachments.length > 0) {
         if (!employeeId) {
           throw new Error('Employee ID is required to reserve a chat draft');
         }
@@ -252,11 +303,25 @@ export default function ChatScreen() {
         const draft = await reserveChatDraft(employeeId);
         messageId = draft.messageId;
 
-        const uploadPromises = selectedAttachments.map(async asset => {
-          const fileName = asset.fileName || `file_${Date.now()}.${asset.uri.split('.').pop()}`;
-          const mimeType = asset.mimeType || (asset.type === 'video' ? 'video/mp4' : 'image/jpeg');
+        const uploadPromises = attachments.map(async asset => {
           const fileType = asset.type === 'video' ? 'video' : 'image';
-          const response = await uploadToS3(asset.uri, fileName, mimeType, asset.fileSize || 0, {
+          let uploadUri = asset.uri;
+          let uploadFileName: string;
+          let uploadMimeType: string;
+          let uploadFileSize = asset.fileSize || 0;
+
+          if (asset.type === 'image') {
+            const optimized = await optimizeImage(asset);
+            uploadUri = optimized.uri;
+            uploadFileName = optimized.fileName;
+            uploadMimeType = optimized.mimeType;
+            uploadFileSize = optimized.fileSize;
+          } else {
+            uploadFileName = asset.fileName || `file_${Date.now()}.${asset.uri.split('.').pop()}`;
+            uploadMimeType = asset.mimeType || 'video/mp4';
+          }
+
+          const response = await uploadToS3(uploadUri, uploadFileName, uploadMimeType, uploadFileSize, {
             folder: 'chat',
             conversationId: employeeId,
             messageId,
@@ -268,23 +333,39 @@ export default function ChatScreen() {
         attachmentKeys = await Promise.all(uploadPromises);
       }
 
-      socket.emit('send_message', {
-        content: inputText.trim(),
+      const ack = await socket.timeout(SEND_TIMEOUT).emitWithAck('send_message', {
+        content,
         messageId,
         attachments: attachmentKeys,
         latitude,
         longitude,
-      });
+      }) as SendMessageAck;
 
-      setInputText('');
-      setSelectedAttachments([]);
+      if (ack.success) {
+        setPendingEntries(prev => prev.filter(e => e.clientId !== clientId));
+        if (!retryEntry) {
+          setInputText('');
+          setSelectedAttachments([]);
+        }
+      } else {
+        setPendingEntries(prev => prev.map(e => e.clientId === clientId ? { ...e, status: 'failed' } : e));
+        toast.error(t('chat.send_error'), ack.error || t('chat.send_error_desc'));
+      }
     } catch (error) {
       console.error('Error sending message:', error);
+      setPendingEntries(prev => prev.map(e => e.clientId === clientId ? { ...e, status: 'failed' } : e));
       toast.error(t('chat.send_error'), t('chat.send_error_desc'));
     } finally {
       setIsUploading(false);
     }
-  };
+  }, [socket, selectedAttachments, inputText, isUploading, employeeId, isOnActiveShift, t, toast]);
+
+  const retryMessage = useCallback((clientId: string) => {
+    const entry = pendingEntries.find(e => e.clientId === clientId);
+    if (entry && entry.status === 'failed') {
+      sendMessage(entry);
+    }
+  }, [pendingEntries, sendMessage]);
 
   const openImageViewer = useCallback((attachments: string[], index: number) => {
     const isVideoAtIndex = attachments[index] ? isVideoFile(attachments[index]) : false;
@@ -301,9 +382,9 @@ export default function ChatScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: ChatListItemData }) => (
-      <ChatListItem item={item} getDateLabel={getDateLabel} onOpenImageViewer={openImageViewer} />
+      <ChatListItem item={item} getDateLabel={getDateLabel} onOpenImageViewer={openImageViewer} onRetryMessage={retryMessage} />
     ),
-    [getDateLabel, openImageViewer]
+    [getDateLabel, openImageViewer, retryMessage]
   );
 
   const keyExtractor = useCallback((item: ChatListItemData) => item.id, []);
@@ -356,7 +437,7 @@ export default function ChatScreen() {
         <View style={{ flex: 1 }}>
           <FlatList
             ref={flatListRef}
-            data={messagesWithDates}
+            data={displayData}
             inverted
             keyExtractor={keyExtractor}
             renderItem={renderItem}
@@ -404,7 +485,7 @@ export default function ChatScreen() {
           onShareLocation={shareLocation}
           onRemoveAttachment={removeAttachment}
           onChangeText={setInputText}
-          onSendMessage={sendMessage}
+          onSendMessage={() => sendMessage()}
         />
       </KeyboardAvoidingView>
 

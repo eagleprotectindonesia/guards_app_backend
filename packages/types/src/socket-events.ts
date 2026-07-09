@@ -145,29 +145,38 @@ export interface ServerToClientEvents {
   'new_dashboard:panic_alerts': (payload: { unresolvedPanics: PanicAlert[] }) => void;
 }
 
+export type SendMessageAck = { success: true; message: ChatMessage } | { success: false; error: string };
+export type GroupSendMessageAck = { success: true; message: GroupChatMessage } | { success: false; error: string };
+
 export interface ClientToServerEvents {
   // Chat events
-  send_message: (data: {
-    content: string;
-    messageId?: string;
-    employeeId?: string;
-    guardId?: string;
-    attachments?: string[];
-    latitude?: number;
-    longitude?: number;
-  }) => void;
+  send_message: (
+    data: {
+      content: string;
+      messageId?: string;
+      employeeId?: string;
+      guardId?: string;
+      attachments?: string[];
+      latitude?: number;
+      longitude?: number;
+    },
+    callback?: (ack: SendMessageAck) => void
+  ) => void;
 
   mark_read: (data: { messageIds: string[]; employeeId?: string; guardId?: string }) => void;
 
   typing: (data: { isTyping: boolean; employeeId?: string; guardId?: string }) => void;
-  group_send_message: (data: {
-    groupId: string;
-    messageId?: string;
-    content: string;
-    attachments?: string[];
-    latitude?: number;
-    longitude?: number;
-  }) => void;
+  group_send_message: (
+    data: {
+      groupId: string;
+      messageId?: string;
+      content: string;
+      attachments?: string[];
+      latitude?: number;
+      longitude?: number;
+    },
+    callback?: (ack: GroupSendMessageAck) => void
+  ) => void;
   group_mark_read: (data: { groupId: string; messageIds?: string[] }) => void;
   group_typing: (data: { groupId: string; isTyping: boolean }) => void;
 
