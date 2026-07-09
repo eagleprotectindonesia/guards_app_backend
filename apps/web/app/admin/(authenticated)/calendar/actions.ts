@@ -6,15 +6,16 @@ import {
   updateCalendarEvent,
   deleteCalendarEvent,
   getCalendarEventTags,
+  findParticipantAvailabilityConflicts,
   type TaggedUserResult,
 } from '@repo/database';
 import { serializeCalendarEvent } from '@repo/shared';
 import { requirePermission } from '@/lib/admin-auth';
-import { createCalendarEventSchema, updateCalendarEventSchema } from '@repo/validations';
+import { createCalendarEventSchema, updateCalendarEventSchema, tagAvailabilityCheckSchema } from '@repo/validations';
 import { getAdminName, notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { redis } from '@repo/database/redis';
 import { revalidatePath } from 'next/cache';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 export async function createEvent(data: unknown) {
   const session = await requirePermission('user-calendar:create');
@@ -126,11 +127,11 @@ export async function updateEvent(id: string, data: unknown) {
     location: body.location,
     clientName: body.clientName,
     trainerName: body.trainerName,
-        priority: body.priority,
-        reminderMinutesBefore: body.reminderMinutesBefore,
-        taggedEmployeeIds: newEmployeeIds,
-        taggedAdminIds: newAdminIds,
-      });
+    priority: body.priority,
+    reminderMinutesBefore: body.reminderMinutesBefore,
+    taggedEmployeeIds: newEmployeeIds,
+    taggedAdminIds: newAdminIds,
+  });
 
   const newlyTaggedEmployees = newEmployeeIds.filter(uid => !oldEmployeeIds.includes(uid));
   const newlyTaggedAdmins = newAdminIds.filter(uid => !oldAdminIds.includes(uid));
@@ -206,9 +207,7 @@ export interface EventForEditItem {
   ownerName: string;
 }
 
-type EventForEditResult =
-  | { success: true; item: EventForEditItem }
-  | { success: false; error: string };
+type EventForEditResult = { success: true; item: EventForEditItem } | { success: false; error: string };
 
 export async function getEventForEdit(id: string): Promise<EventForEditResult> {
   const session = await requirePermission('user-calendar:view');
@@ -238,6 +237,32 @@ export async function getEventForEdit(id: string): Promise<EventForEditResult> {
   };
 }
 
+export async function checkTagAvailability(input: unknown) {
+  await requirePermission('user-calendar:create');
+
+  const parsed = tagAvailabilityCheckSchema.safeParse(input);
+  if (!parsed.success) {
+    return { conflicts: {} };
+  }
+
+  const { startDate, endDate, startTime, endTime, allDay, participants, excludeEventId } = parsed.data;
+
+  const fromDate = parseISO(startDate + 'T00:00:00');
+  const toDate = parseISO(endDate + 'T00:00:00');
+
+  const conflicts = await findParticipantAvailabilityConflicts({
+    participants,
+    fromDate,
+    toDate,
+    allDay,
+    startTime: startTime ?? null,
+    endTime: endTime ?? null,
+    excludeEventId,
+  });
+
+  return { conflicts };
+}
+
 export async function duplicateEvent(id: string) {
   const session = await requirePermission('user-calendar:create');
 
@@ -262,9 +287,9 @@ export async function duplicateEvent(id: string) {
     location: existing.location ?? undefined,
     clientName: existing.clientName ?? undefined,
     trainerName: existing.trainerName ?? undefined,
-      priority: existing.priority ?? undefined,
-      reminderMinutesBefore: existing.reminderMinutesBefore ?? undefined,
-    });
+    priority: existing.priority ?? undefined,
+    reminderMinutesBefore: existing.reminderMinutesBefore ?? undefined,
+  });
 
   redis
     .publish(

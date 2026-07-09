@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useTransition } from 'react';
 import { X } from 'lucide-react';
 import { format } from 'date-fns';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   KINDS_WITH_END_DATE,
   KINDS_WITH_TIME,
@@ -16,6 +17,7 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { TimePicker } from '@/components/ui/time-picker';
 import AddressAutocompleteInput from '@/components/address-autocomplete-input';
 import AddressMapPreview from '@/components/address-map-preview';
+import { useSocket } from '@/components/socket-provider';
 import { EventTypeChips } from './EventTypeChips';
 import { EventReminderSection } from './EventReminderSection';
 import { EventTaggingSection } from './EventTaggingSection';
@@ -142,6 +144,8 @@ export function EventForm({
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const modalRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+  const { socket } = useSocket();
 
   const setForm = (updater: FormData | ((prev: FormData) => FormData)) => {
     setFormState(prev => ({
@@ -189,6 +193,17 @@ export function EventForm({
     el.addEventListener('keydown', handleKey);
     return () => el.removeEventListener('keydown', handleKey);
   }, [onClose]);
+
+  useEffect(() => {
+    if (!socket) return;
+    const handler = () => {
+      queryClient.invalidateQueries({ queryKey: ['calendar', 'tag-availability'] });
+    };
+    socket.on('calendar_changed', handler);
+    return () => {
+      socket.off('calendar_changed', handler);
+    };
+  }, [socket, queryClient]);
 
   const handleKindChange = (kind: string) => {
     setForm(prev => ({
@@ -459,6 +474,12 @@ export function EventForm({
             taggedAdminIds={form.taggedAdminIds}
             onChange={ids => setForm(p => ({ ...p, taggedAdminIds: ids }))}
             initialAdmins={initialAdmins}
+            startDate={form.startDate}
+            endDate={showEndDate ? form.endDate : form.startDate}
+            startTime={form.startTime}
+            endTime={form.endTime}
+            allDay={form.allDay}
+            excludeEventId={eventId}
           />
 
           <div>

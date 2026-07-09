@@ -1,4 +1,4 @@
-import { computeReminderScheduledAt } from '@repo/shared';
+import { computeReminderScheduledAt, overlapsEventRange } from '@repo/shared';
 import { db as prisma, Prisma } from '../prisma/client';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
@@ -483,4 +483,173 @@ export async function claimCalendarEventReminders(eventIds: string[], now: Date,
     data: { reminderSentAt: now },
   });
   return result.count;
+}
+
+export type ParticipantRef = { type: 'employee' | 'admin'; id: string };
+export type ParticipantKey = `${'employee' | 'admin'}:${string}`;
+
+function toParticipantKey(p: ParticipantRef): ParticipantKey {
+  return `${p.type}:${p.id}`;
+}
+
+export interface AvailabilityConflict {
+  id: string;
+  title: string;
+  kind: string;
+  startDate: string;
+  endDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  allDay: boolean;
+  ownerType: 'employee' | 'admin';
+  ownerId: string;
+}
+
+export interface FindAvailabilityParams {
+  participants: ParticipantRef[];
+  fromDate: Date;
+  toDate: Date;
+  allDay: boolean;
+  startTime?: string | null;
+  endTime?: string | null;
+  excludeEventId?: string;
+  tx?: TxLike;
+}
+
+export async function findParticipantAvailabilityConflicts(
+  params: FindAvailabilityParams
+): Promise<Record<ParticipantKey, AvailabilityConflict[]>> {
+  const { participants, fromDate, toDate, allDay, startTime, endTime, excludeEventId, tx = prisma } = params;
+
+  if (participants.length === 0) return {};
+
+  const empIds = participants.filter(p => p.type === 'employee').map(p => p.id);
+  const adminIds = participants.filter(p => p.type === 'admin').map(p => p.id);
+
+  const participantMap = new Map<ParticipantKey, ParticipantRef>();
+  for (const p of participants) {
+    participantMap.set(toParticipantKey(p), p);
+  }
+
+  const orClauses: Prisma.CalendarEventWhereInput[] = [];
+
+  if (empIds.length > 0) {
+    orClauses.push(
+      { employeeId: { in: empIds } },
+      { tags: { some: { employeeId: { in: empIds }, participantType: 'employee' } } }
+    );
+  }
+
+  if (adminIds.length > 0) {
+    orClauses.push(
+      { adminId: { in: adminIds } },
+      { tags: { some: { adminId: { in: adminIds }, participantType: 'admin' } } }
+    );
+  }
+
+  const where: Prisma.CalendarEventWhereInput = {
+    deletedAt: null,
+    endDate: { gte: fromDate },
+    startDate: { lte: toDate },
+    OR: orClauses,
+  };
+
+  if (excludeEventId) {
+    where.NOT = { id: excludeEventId };
+  }
+
+  const rows = await tx.calendarEvent.findMany({
+    where,
+    select: {
+      id: true,
+      kind: true,
+      title: true,
+      startDate: true,
+      endDate: true,
+      startTime: true,
+      endTime: true,
+      allDay: true,
+      employeeId: true,
+      adminId: true,
+      tags: {
+        select: {
+          id: true,
+          participantType: true,
+          employeeId: true,
+          adminId: true,
+        },
+      },
+    },
+    orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
+  });
+
+  const result: Record<ParticipantKey, AvailabilityConflict[]> = {};
+  for (const p of participants) {
+    result[toParticipantKey(p)] = [];
+  }
+
+  for (const row of rows) {
+    const relevantParticipants: ParticipantRef[] = [];
+
+    if (row.employeeId && empIds.includes(row.employeeId)) {
+      relevantParticipants.push({ type: 'employee', id: row.employeeId });
+    }
+    if (row.adminId && adminIds.includes(row.adminId)) {
+      relevantParticipants.push({ type: 'admin', id: row.adminId });
+    }
+
+    for (const tag of row.tags) {
+      if (tag.participantType === 'employee' && tag.employeeId && empIds.includes(tag.employeeId)) {
+        relevantParticipants.push({ type: 'employee', id: tag.employeeId });
+      }
+      if (tag.participantType === 'admin' && tag.adminId && adminIds.includes(tag.adminId)) {
+        relevantParticipants.push({ type: 'admin', id: tag.adminId });
+      }
+    }
+
+    const ownerType: 'employee' | 'admin' = row.adminId ? 'admin' : 'employee';
+    const ownerId = (row.adminId ?? row.employeeId) as string;
+
+    const conflict: AvailabilityConflict = {
+      id: row.id,
+      kind: row.kind,
+      title: row.title,
+      startDate: row.startDate.toISOString().slice(0, 10),
+      endDate: row.endDate.toISOString().slice(0, 10),
+      startTime: row.startTime,
+      endTime: row.endTime,
+      allDay: row.allDay,
+      ownerType,
+      ownerId,
+    };
+
+    for (const p of relevantParticipants) {
+      const key = toParticipantKey(p);
+
+      if (result[key].some(c => c.id === conflict.id)) {
+        continue;
+      }
+
+      const eventOverlap = {
+        startDate: conflict.startDate,
+        endDate: conflict.endDate,
+        startTime: conflict.startTime,
+        endTime: conflict.endTime,
+        allDay: conflict.allDay,
+      };
+      const queryOverlap = {
+        startDate: fromDate.toISOString().slice(0, 10),
+        endDate: toDate.toISOString().slice(0, 10),
+        startTime: startTime ?? null,
+        endTime: endTime ?? null,
+        allDay,
+      };
+
+      if (overlapsEventRange(eventOverlap, queryOverlap)) {
+        result[key].push(conflict);
+      }
+    }
+  }
+
+  return result;
 }

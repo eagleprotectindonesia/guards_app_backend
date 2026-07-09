@@ -846,6 +846,32 @@ export const updateCalendarEventSchema = z
     }
   });
 
+export const tagAvailabilityCheckSchema = z.object({
+  startDate: isoDateKeySchema,
+  endDate: isoDateKeySchema,
+  startTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:mm format')
+    .nullable()
+    .optional(),
+  endTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:mm format')
+    .nullable()
+    .optional(),
+  allDay: z.boolean().default(false),
+  participants: z
+    .array(
+      z.object({
+        type: z.enum(['employee', 'admin']),
+        id: z.string().uuid(),
+      })
+    )
+    .min(1, 'At least one participant is required'),
+  excludeEventId: z.string().uuid().optional(),
+});
+
 export type CalendarEventKindInput = z.infer<typeof calendarEventKindSchema>;
 export type CreateCalendarEventInput = z.infer<typeof createCalendarEventSchema>;
 export type UpdateCalendarEventInput = z.infer<typeof updateCalendarEventSchema>;
+export type TagAvailabilityCheckInput = z.infer<typeof tagAvailabilityCheckSchema>;

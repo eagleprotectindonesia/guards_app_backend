@@ -554,6 +554,8 @@
     "reminderMinutesBefore": "{{minutes}} minutes before",
     "reminderHoursBefore": "{{hours}} hours before",
     "reminderDaysBefore": "{{days}} days before",
-    "reminderCustom": "Custom..."
+    "reminderCustom": "Custom...",
+    "availabilityTitle": "Availability conflicts",
+    "availabilityChecking": "Checking availability..."
   }
 }

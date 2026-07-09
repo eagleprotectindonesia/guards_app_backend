@@ -554,6 +554,8 @@
     "reminderMinutesBefore": "{{minutes}} menit sebelumnya",
     "reminderHoursBefore": "{{hours}} jam sebelumnya",
     "reminderDaysBefore": "{{days}} hari sebelumnya",
-    "reminderCustom": "Kustom..."
+    "reminderCustom": "Kustom...",
+    "availabilityTitle": "Konflik ketersediaan",
+    "availabilityChecking": "Memeriksa ketersediaan..."
   }
 }
