@@ -345,6 +345,7 @@ export async function listShiftPhotoReportsPaginated(params: {
   dateFrom?: Date;
   dateTo?: Date;
   employeeId?: string;
+  employeeNumber?: string;
   siteId?: string;
   status?: string;
   page: number;
@@ -352,7 +353,7 @@ export async function listShiftPhotoReportsPaginated(params: {
   sortBy?: string;
   sortOrder?: string;
 }) {
-  const { dateFrom, dateTo, employeeId, siteId, status, page, pageSize } = params;
+  const { dateFrom, dateTo, employeeId, employeeNumber, siteId, status, page, pageSize } = params;
 
   const where: Prisma.ShiftPhotoReportWhereInput = {};
 
@@ -368,6 +369,7 @@ export async function listShiftPhotoReportsPaginated(params: {
     }
   }
   if (employeeId) where.employeeId = employeeId;
+  if (employeeNumber) where.employee = { employeeNumber };
   if (siteId) where.clientId = siteId;
   if (status) where.status = status as ShiftPhotoReportStatus;
 

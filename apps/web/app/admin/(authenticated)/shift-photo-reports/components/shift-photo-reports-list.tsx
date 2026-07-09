@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Serialized } from '@/lib/server-utils';
 import { useSearchParams } from 'next/navigation';
 import { useAdminRouter } from '../../context/admin-router';
@@ -41,11 +41,12 @@ type ReportWithDownload = {
 
 type ShiftPhotoReportsListProps = {
   reports: Serialized<ReportWithDownload>[];
-  employees: { id: string; fullName: string }[];
+  employees: { id: string; fullName: string; employeeNumber: string | null }[];
   sites: { id: string; name: string }[];
   dateFrom?: string;
   dateTo?: string;
   employeeId?: string;
+  employeeNumber?: string;
   siteId?: string;
   status?: string;
   sortBy?: string;
@@ -62,6 +63,7 @@ export default function ShiftPhotoReportsList({
   dateFrom,
   dateTo,
   employeeId,
+  employeeNumber,
   siteId,
   status,
   sortBy = 'createdAt',
@@ -78,7 +80,18 @@ export default function ShiftPhotoReportsList({
   const [filterDateTo, setFilterDateTo] = useState<Date | undefined>(
     dateTo ? parseISO(dateTo) : undefined
   );
-  const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
+  const employeeById = useMemo(() => new Map(employees.map(e => [e.id, e])), [employees]);
+  const employeeByNumber = useMemo(
+    () => new Map(employees.filter(e => e.employeeNumber).map(e => [e.employeeNumber!, e])),
+    [employees]
+  );
+
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(() => {
+    if (employeeId) return employeeId;
+    if (employeeNumber) return employeeByNumber.get(employeeNumber)?.id || '';
+    return '';
+  });
+  const filterEmployeeNumber = (selectedEmployeeId && employeeById.get(selectedEmployeeId)?.employeeNumber) || '';
   const [filterSiteId, setFilterSiteId] = useState(siteId || '');
   const [filterStatus, setFilterStatus] = useState(status || '');
 
@@ -114,7 +127,8 @@ export default function ShiftPhotoReportsList({
     apply({
       dateFrom: filterDateFrom ? format(filterDateFrom, 'yyyy-MM-dd') : null,
       dateTo: filterDateTo ? format(filterDateTo, 'yyyy-MM-dd') : null,
-      employeeId: filterEmployeeId || null,
+      employeeId: selectedEmployeeId || null,
+      employeeNumber: filterEmployeeNumber || null,
       siteId: filterSiteId || null,
       status: filterStatus || null,
     });
@@ -123,7 +137,7 @@ export default function ShiftPhotoReportsList({
   const handleClearFilters = () => {
     setFilterDateFrom(undefined);
     setFilterDateTo(undefined);
-    setFilterEmployeeId('');
+    setSelectedEmployeeId('');
     setFilterSiteId('');
     setFilterStatus('');
     setSelectedIds(new Set());
@@ -131,6 +145,7 @@ export default function ShiftPhotoReportsList({
       dateFrom: null,
       dateTo: null,
       employeeId: null,
+      employeeNumber: null,
       siteId: null,
       status: null,
     });
@@ -295,12 +310,21 @@ export default function ShiftPhotoReportsList({
         />
         <SelectFilter
           label="Guard"
-          value={filterEmployeeId}
+          value={selectedEmployeeId}
           options={employees.map(emp => ({ value: emp.id, label: emp.fullName }))}
-          onChange={setFilterEmployeeId}
+          onChange={setSelectedEmployeeId}
           id="filter-guard"
           instanceId="filter-guard"
           allLabel="All Guards"
+        />
+        <SelectFilter
+          label="Guard ID"
+          value={filterEmployeeNumber}
+          options={employees.filter(emp => emp.employeeNumber).map(emp => ({ value: emp.employeeNumber!, label: `${emp.employeeNumber} — ${emp.fullName}` }))}
+          onChange={empNumber => setSelectedEmployeeId(employeeByNumber.get(empNumber)?.id ?? '')}
+          id="filter-guard-id"
+          instanceId="filter-guard-id"
+          allLabel="All Guard IDs"
         />
         <SelectFilter
           label="Site"
