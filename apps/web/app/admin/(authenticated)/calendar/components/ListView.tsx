@@ -10,6 +10,7 @@ import type { CalendarItem } from '../types';
 interface ListViewProps {
   items: CalendarItem[];
   onEventClick: (item: CalendarItem) => void;
+  onEventContextMenu?: (item: CalendarItem, clientX: number, clientY: number) => void;
 }
 
 interface RowEntry {
@@ -33,7 +34,7 @@ function formatTime(iso: string | null): string | null {
   return iso.slice(11, 16);
 }
 
-export const ListView = memo(function ListView({ items, onEventClick }: ListViewProps) {
+export const ListView = memo(function ListView({ items, onEventClick, onEventContextMenu }: ListViewProps) {
   const dayGroups = useMemo(() => {
     const eventMap = new Map<string, CalendarItem[]>();
     for (const item of items) {
@@ -131,6 +132,10 @@ export const ListView = memo(function ListView({ items, onEventClick }: ListView
                     key={item.id}
                     className="cursor-pointer"
                     onClick={() => onEventClick(item)}
+                    onContextMenu={e => {
+                      e.preventDefault();
+                      onEventContextMenu?.(item, e.clientX, e.clientY);
+                    }}
                     tabIndex={0}
                     onKeyDown={e => {
                       if (e.key === 'Enter' || e.key === ' ') {

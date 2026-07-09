@@ -4,18 +4,20 @@ import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { useSocket } from '@/components/socket-provider';
 import { MonthGrid } from './components/MonthGrid';
 import { TimeGridView } from './components/TimeGridView';
 import { EventDetailPanel } from './components/EventDetailPanel';
 import { EventForm } from './components/EventForm';
 import { DateContextMenu } from './components/DateContextMenu';
+import { EventContextMenu } from './components/EventContextMenu';
 import { FilterBar } from './components/FilterBar';
 import { ViewToggle } from './components/ViewToggle';
 import { ListView } from './components/ListView';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay, format, parseISO } from 'date-fns';
 import { useSession } from '../context/session-context';
-import { getEventForEdit } from './actions';
+import { getEventForEdit, duplicateEvent, deleteEvent } from './actions';
 import type { EventForEditItem } from './actions';
 import type { CalendarItem } from './types';
 
@@ -58,6 +60,9 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
   const [editInitialData, setEditInitialData] = useState<EventForEditItem | null>(null);
   const [editFetching, setEditFetching] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ date: string; time?: string; x: number; y: number } | null>(null);
+  const [eventContextMenu, setEventContextMenu] = useState<{ item: CalendarItem; x: number; y: number } | null>(null);
+  const [duplicateFromEvent, setDuplicateFromEvent] = useState<EventForEditItem | null>(null);
+  const [duplicateFetching, setDuplicateFetching] = useState(false);
   const [filters, setFilters] = useState<CalendarFilters>({});
   const queryClient = useQueryClient();
   const session = useSession();
@@ -177,6 +182,48 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
     setEditFetching(false);
   }, []);
 
+  const handleEventContextMenu = useCallback((item: CalendarItem, clientX: number, clientY: number) => {
+    setEventContextMenu({ item, x: clientX, y: clientY });
+  }, []);
+
+  const handleViewFromContextMenu = useCallback(() => {
+    if (!eventContextMenu) return;
+    setSelectedEvent(eventContextMenu.item);
+    setEventContextMenu(null);
+  }, [eventContextMenu]);
+
+  const handleEditFromContextMenu = useCallback(() => {
+    if (!eventContextMenu) return;
+    const eventId = eventContextMenu.item.originalId;
+    setEventContextMenu(null);
+    handleEditEvent(eventId);
+  }, [eventContextMenu, handleEditEvent]);
+
+  const handleDuplicate = useCallback(async (eventId: string) => {
+    setEventContextMenu(null);
+    setSelectedEvent(null);
+    setDuplicateFetching(true);
+    const result = await getEventForEdit(eventId);
+    setDuplicateFetching(false);
+    if (result.success) {
+      setDuplicateFromEvent(result.item);
+    } else {
+      toast.error('Could not load event for duplication');
+    }
+  }, []);
+
+  const handleDeleteFromContextMenu = useCallback(async () => {
+    if (!eventContextMenu) return;
+    const eventId = eventContextMenu.item.originalId;
+    setEventContextMenu(null);
+    const result = await deleteEvent(eventId);
+    if (result.success) {
+      toast.success('Event deleted');
+      queryClient.invalidateQueries({ queryKey: ['admin', 'calendar'] });
+      setSelectedEvent(prev => (prev?.originalId === eventId ? null : prev));
+    }
+  }, [eventContextMenu, queryClient]);
+
   const handleFormSuccess = useCallback(() => {
     setShowCreateModal(false);
     setEditEventId(null);
@@ -209,6 +256,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             onDateClick={handleDateClick}
             onEventClick={handleEventClick}
             onDateContextMenu={session.hasPermission('user-calendar:create') ? handleDateContextMenu : undefined}
+            onEventContextMenu={handleEventContextMenu}
           />
         )}
         {(view === 'week' || view === 'day') && (
@@ -220,10 +268,11 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             onEventClick={handleEventClick}
             onSlotSelect={session.hasPermission('user-calendar:create') ? handleSlotSelect : undefined}
             onSlotContextMenu={session.hasPermission('user-calendar:create') ? handleSlotContextMenu : undefined}
+            onEventContextMenu={handleEventContextMenu}
           />
         )}
         {view === 'list' && (
-          <ListView items={items} onEventClick={handleEventClick} />
+          <ListView items={items} onEventClick={handleEventClick} onEventContextMenu={handleEventContextMenu} />
         )}
 
         {isError && (
@@ -249,6 +298,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             onClose={() => setSelectedEvent(null)}
             onEdit={handleEditEvent}
             onDelete={handleFormSuccess}
+            onDuplicate={() => handleDuplicate(selectedEvent.originalId)}
             hasEditPermission={
               session.hasPermission('user-calendar:edit') &&
               selectedEvent.ownerType === 'admin' &&
@@ -256,6 +306,11 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             }
             hasDeletePermission={
               session.hasPermission('user-calendar:delete') &&
+              selectedEvent.ownerType === 'admin' &&
+              selectedEvent.ownerId === session.userId
+            }
+            hasDuplicatePermission={
+              session.hasPermission('user-calendar:create') &&
               selectedEvent.ownerType === 'admin' &&
               selectedEvent.ownerId === session.userId
             }
@@ -271,6 +326,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             onClose={() => setSelectedEvent(null)}
             onEdit={handleEditEvent}
             onDelete={handleFormSuccess}
+            onDuplicate={() => handleDuplicate(selectedEvent.originalId)}
             hasEditPermission={
               session.hasPermission('user-calendar:edit') &&
               selectedEvent.ownerType === 'admin' &&
@@ -278,6 +334,11 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             }
             hasDeletePermission={
               session.hasPermission('user-calendar:delete') &&
+              selectedEvent.ownerType === 'admin' &&
+              selectedEvent.ownerId === session.userId
+            }
+            hasDuplicatePermission={
+              session.hasPermission('user-calendar:create') &&
               selectedEvent.ownerType === 'admin' &&
               selectedEvent.ownerId === session.userId
             }
@@ -298,7 +359,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
         />
       )}
 
-      {editFetching && (
+      {(editFetching || duplicateFetching) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="rounded-lg border border-border bg-card p-6">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -327,6 +388,34 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
         />
       )}
 
+      {eventContextMenu && (
+        <EventContextMenu
+          event={eventContextMenu.item}
+          x={eventContextMenu.x}
+          y={eventContextMenu.y}
+          onClose={() => setEventContextMenu(null)}
+          onView={handleViewFromContextMenu}
+          onEdit={handleEditFromContextMenu}
+          onDuplicate={() => handleDuplicate(eventContextMenu.item.originalId)}
+          onDelete={handleDeleteFromContextMenu}
+          hasEditPermission={
+            session.hasPermission('user-calendar:edit') &&
+            eventContextMenu.item.ownerType === 'admin' &&
+            eventContextMenu.item.ownerId === session.userId
+          }
+          hasDeletePermission={
+            session.hasPermission('user-calendar:delete') &&
+            eventContextMenu.item.ownerType === 'admin' &&
+            eventContextMenu.item.ownerId === session.userId
+          }
+          hasDuplicatePermission={
+            session.hasPermission('user-calendar:create') &&
+            eventContextMenu.item.ownerType === 'admin' &&
+            eventContextMenu.item.ownerId === session.userId
+          }
+        />
+      )}
+
       {editEventId && !editFetching && (
         <EventForm
           key={editEventId}
@@ -337,6 +426,19 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             setEditInitialData(null);
           }}
           onSuccess={handleFormSuccess}
+          initialAdmins={admins}
+        />
+      )}
+
+      {duplicateFromEvent && !duplicateFetching && (
+        <EventForm
+          key={`duplicate-${duplicateFromEvent.ownerId}-${duplicateFromEvent.createdAt}`}
+          duplicateFrom={duplicateFromEvent}
+          onClose={() => setDuplicateFromEvent(null)}
+          onSuccess={() => {
+            setDuplicateFromEvent(null);
+            queryClient.invalidateQueries({ queryKey: ['admin', 'calendar'] });
+          }}
           initialAdmins={admins}
         />
       )}

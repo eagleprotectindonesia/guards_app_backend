@@ -14,6 +14,7 @@ interface TimeGridViewProps {
   onEventClick: (item: CalendarItem) => void;
   onSlotSelect?: (date: string, time: string) => void;
   onSlotContextMenu?: (date: string, time: string, event: MouseEvent) => void;
+  onEventContextMenu?: (item: CalendarItem, clientX: number, clientY: number) => void;
 }
 
 export const TimeGridView = memo(function TimeGridView({
@@ -23,6 +24,7 @@ export const TimeGridView = memo(function TimeGridView({
   onEventClick,
   onSlotSelect,
   onSlotContextMenu,
+  onEventContextMenu,
 }: TimeGridViewProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const [initialDateStr] = useState(() => format(currentDate, 'yyyy-MM-dd'));
@@ -48,6 +50,28 @@ export const TimeGridView = memo(function TimeGridView({
   }, [onSlotContextMenu]);
 
   const handleSlotLaneWillUnmount = useCallback((arg: { el: HTMLElement }) => {
+    const handler = (arg.el as HTMLElement & { __ctxHandler?: (e: MouseEvent) => void }).__ctxHandler;
+    if (handler) {
+      arg.el.removeEventListener('contextmenu', handler);
+    }
+  }, []);
+
+  const handleEventDidMount = useCallback(
+    (arg: { el: HTMLElement; event: { extendedProps: { item?: CalendarItem } } }) => {
+      if (!onEventContextMenu) return;
+      const item = arg.event.extendedProps.item;
+      if (!item) return;
+      const handler = (e: MouseEvent) => {
+        e.preventDefault();
+        onEventContextMenu(item, e.clientX, e.clientY);
+      };
+      arg.el.addEventListener('contextmenu', handler);
+      (arg.el as HTMLElement & { __ctxHandler?: (e: MouseEvent) => void }).__ctxHandler = handler;
+    },
+    [onEventContextMenu]
+  );
+
+  const handleEventWillUnmount = useCallback((arg: { el: HTMLElement }) => {
     const handler = (arg.el as HTMLElement & { __ctxHandler?: (e: MouseEvent) => void }).__ctxHandler;
     if (handler) {
       arg.el.removeEventListener('contextmenu', handler);
@@ -119,6 +143,8 @@ export const TimeGridView = memo(function TimeGridView({
         }}
         slotLaneDidMount={handleSlotLaneDidMount}
         slotLaneWillUnmount={handleSlotLaneWillUnmount}
+        eventDidMount={handleEventDidMount}
+        eventWillUnmount={handleEventWillUnmount}
         eventClick={info => {
           const item = info.event.extendedProps.item as CalendarItem;
           if (item) onEventClick(item);

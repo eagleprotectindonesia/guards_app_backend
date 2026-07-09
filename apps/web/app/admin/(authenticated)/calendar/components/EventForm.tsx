@@ -26,6 +26,7 @@ import type { EventForEditItem } from '../actions';
 interface EventFormProps {
   eventId?: string;
   initialEvent?: EventForEditItem | null;
+  duplicateFrom?: EventForEditItem | null;
   defaultDate?: string;
   defaultStartTime?: string;
   onClose: () => void;
@@ -126,14 +127,16 @@ function buildFormState(
 export function EventForm({
   eventId,
   initialEvent,
+  duplicateFrom,
   defaultDate,
   defaultStartTime,
   onClose,
   onSuccess,
   initialAdmins,
 }: EventFormProps) {
+  const prefilledEvent = duplicateFrom ?? initialEvent;
   const [{ form, startDateObj, endDateObj }, setFormState] = useState(() =>
-    buildFormState(initialEvent, defaultDate, defaultStartTime)
+    buildFormState(prefilledEvent, defaultDate, defaultStartTime)
   );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
@@ -265,7 +268,7 @@ export function EventForm({
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 id="event-form-title" className="text-lg font-semibold text-foreground">
-            {eventId ? 'Edit Event' : 'New Event'}
+            {eventId ? 'Edit Event' : duplicateFrom ? 'Duplicate Event' : 'New Event'}
           </h2>
           <button onClick={onClose} aria-label="Close dialog" className="text-muted-foreground hover:text-foreground">
             <X className="h-4 w-4" />

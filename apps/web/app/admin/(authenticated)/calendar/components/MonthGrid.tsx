@@ -12,6 +12,7 @@ interface MonthGridProps {
   onDateClick: (date: string) => void;
   onEventClick: (item: CalendarItem) => void;
   onDateContextMenu?: (date: string, event: MouseEvent) => void;
+  onEventContextMenu?: (item: CalendarItem, clientX: number, clientY: number) => void;
 }
 
 function DayCellContent({ date, isOutside, count }: { date: Date; isOutside: boolean; count: number | undefined }) {
@@ -34,6 +35,7 @@ export function MonthGrid({
   onDateClick,
   onEventClick,
   onDateContextMenu,
+  onEventContextMenu,
 }: MonthGridProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const [initialDateStr] = useState(() => format(currentDate, 'yyyy-MM-dd'));
@@ -78,6 +80,28 @@ export function MonthGrid({
     }
   }, []);
 
+  const handleEventDidMount = useCallback(
+    (arg: { el: HTMLElement; event: { extendedProps: { item?: CalendarItem } } }) => {
+      if (!onEventContextMenu) return;
+      const item = arg.event.extendedProps.item;
+      if (!item) return;
+      const handler = (e: MouseEvent) => {
+        e.preventDefault();
+        onEventContextMenu(item, e.clientX, e.clientY);
+      };
+      arg.el.addEventListener('contextmenu', handler);
+      (arg.el as HTMLElement & { __ctxHandler?: (e: MouseEvent) => void }).__ctxHandler = handler;
+    },
+    [onEventContextMenu]
+  );
+
+  const handleEventWillUnmount = useCallback((arg: { el: HTMLElement }) => {
+    const handler = (arg.el as HTMLElement & { __ctxHandler?: (e: MouseEvent) => void }).__ctxHandler;
+    if (handler) {
+      arg.el.removeEventListener('contextmenu', handler);
+    }
+  }, []);
+
   return (
     <div className="rounded-lg border border-border bg-card">
       <FullCalendar
@@ -96,6 +120,8 @@ export function MonthGrid({
         }}
         dayCellDidMount={handleDayCellDidMount}
         dayCellWillUnmount={handleDayCellWillUnmount}
+        eventDidMount={handleEventDidMount}
+        eventWillUnmount={handleEventWillUnmount}
         dayCellClassNames="border-border hover:bg-muted cursor-pointer"
         dayHeaderClassNames="text-muted-foreground text-xs font-medium py-2 border-border"
         dayCellContent={arg => (

@@ -10,8 +10,10 @@ interface EventDetailPanelProps {
   onClose: () => void;
   onEdit: (eventId: string) => void;
   onDelete: () => void;
+  onDuplicate?: (eventId: string) => void;
   hasEditPermission: boolean;
   hasDeletePermission: boolean;
+  hasDuplicatePermission?: boolean;
 }
 
 export const EventDetailPanel = memo(function EventDetailPanel({
@@ -19,8 +21,10 @@ export const EventDetailPanel = memo(function EventDetailPanel({
   onClose,
   onEdit,
   onDelete,
+  onDuplicate,
   hasEditPermission,
   hasDeletePermission,
+  hasDuplicatePermission,
 }: EventDetailPanelProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -135,7 +139,7 @@ export const EventDetailPanel = memo(function EventDetailPanel({
         )}
       </div>
 
-      {(hasEditPermission || hasDeletePermission) && (
+      {(hasEditPermission || hasDeletePermission || hasDuplicatePermission) && (
         <div className="flex gap-2 border-t border-border pt-3">
           {hasEditPermission && !confirmDelete && (
             <button
@@ -144,6 +148,15 @@ export const EventDetailPanel = memo(function EventDetailPanel({
               className="flex-1 rounded-lg bg-muted py-2 text-sm font-medium text-foreground hover:bg-muted/70"
             >
               Edit
+            </button>
+          )}
+          {hasDuplicatePermission && !confirmDelete && (
+            <button
+              onClick={() => onDuplicate?.(event.originalId)}
+              aria-label={`Duplicate ${event.title}`}
+              className="flex-1 rounded-lg bg-muted py-2 text-sm font-medium text-foreground hover:bg-muted/70"
+            >
+              Duplicate...
             </button>
           )}
           {hasDeletePermission && !confirmDelete && (
