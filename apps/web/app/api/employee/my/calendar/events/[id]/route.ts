@@ -62,6 +62,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           clientName: body.clientName,
           trainerName: body.trainerName,
           priority: body.priority,
+          reminderMinutesBefore: body.reminderMinutesBefore,
           taggedEmployeeIds: newEmployeeIds,
           taggedAdminIds: newAdminIds,
         },

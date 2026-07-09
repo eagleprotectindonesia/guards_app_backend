@@ -52,7 +52,7 @@ export function EventReminderSection({ reminderMinutesBefore, onChange }: EventR
     <div>
       <label className="mb-1 block text-xs text-muted-foreground">Reminder</label>
       <select
-        value={isCustom ? '-1' : (reminderMinutesBefore === null ? '' : String(reminderMinutesBefore))}
+        value={isCustom ? '-1' : (reminderMinutesBefore === null || !REMINDER_PRESETS.some(p => p.minutes === reminderMinutesBefore) ? '' : String(reminderMinutesBefore))}
         onChange={e => handleSelect(e.target.value)}
         className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:border-red-500 focus:outline-none"
       >

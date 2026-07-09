@@ -83,6 +83,7 @@ export async function POST(req: Request) {
           clientName: body.clientName,
           trainerName: body.trainerName,
           priority: body.priority,
+          reminderMinutesBefore: body.reminderMinutesBefore,
           taggedEmployeeIds,
           taggedAdminIds,
         },

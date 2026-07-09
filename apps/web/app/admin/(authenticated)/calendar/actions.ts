@@ -53,6 +53,7 @@ export async function createEvent(data: unknown) {
         clientName: body.clientName,
         trainerName: body.trainerName,
         priority: body.priority,
+        reminderMinutesBefore: body.reminderMinutesBefore,
         taggedEmployeeIds,
         taggedAdminIds,
       },
@@ -125,10 +126,11 @@ export async function updateEvent(id: string, data: unknown) {
     location: body.location,
     clientName: body.clientName,
     trainerName: body.trainerName,
-    priority: body.priority,
-    taggedEmployeeIds: newEmployeeIds,
-    taggedAdminIds: newAdminIds,
-  });
+        priority: body.priority,
+        reminderMinutesBefore: body.reminderMinutesBefore,
+        taggedEmployeeIds: newEmployeeIds,
+        taggedAdminIds: newAdminIds,
+      });
 
   const newlyTaggedEmployees = newEmployeeIds.filter(uid => !oldEmployeeIds.includes(uid));
   const newlyTaggedAdmins = newAdminIds.filter(uid => !oldAdminIds.includes(uid));
@@ -260,8 +262,9 @@ export async function duplicateEvent(id: string) {
     location: existing.location ?? undefined,
     clientName: existing.clientName ?? undefined,
     trainerName: existing.trainerName ?? undefined,
-    priority: existing.priority ?? undefined,
-  });
+      priority: existing.priority ?? undefined,
+      reminderMinutesBefore: existing.reminderMinutesBefore ?? undefined,
+    });
 
   redis
     .publish(

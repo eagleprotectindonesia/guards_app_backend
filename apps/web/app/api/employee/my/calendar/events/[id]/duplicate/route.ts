@@ -37,6 +37,7 @@ export async function POST(
       clientName: existing.clientName ?? undefined,
       trainerName: existing.trainerName ?? undefined,
       priority: existing.priority ?? undefined,
+      reminderMinutesBefore: existing.reminderMinutesBefore ?? undefined,
     });
 
     return NextResponse.json({ item: event }, { status: 201 });
