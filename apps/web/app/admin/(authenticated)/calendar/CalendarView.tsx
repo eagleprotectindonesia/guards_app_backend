@@ -184,8 +184,8 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
   }, [queryClient]);
 
   return (
-    <div className="flex h-full gap-4">
-      <div className="flex min-h-0 flex-1 flex-col space-y-4">
+    <div className="mx-auto grid h-full w-full max-w-[105rem] grid-cols-1 gap-4 min-[1680px]:grid-cols-[minmax(0,80rem)_24rem]">
+      <div className="flex min-h-0 min-w-0 flex-col space-y-4">
         <div className="flex items-center justify-between">
           <FilterBar filters={filters} onFiltersChange={setFilters} initialEmployees={employees} />
           <div className="flex items-center gap-2">
@@ -241,23 +241,48 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
         {isLoading && <div className="flex items-center justify-center py-8 text-muted-foreground">Loading...</div>}
       </div>
 
+      {/* Inline panel (≥ 1680px) */}
       {selectedEvent && (
-        <EventDetailPanel
-          event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
-          onEdit={handleEditEvent}
-          onDelete={handleFormSuccess}
-          hasEditPermission={
-            session.hasPermission('user-calendar:edit') &&
-            selectedEvent.ownerType === 'admin' &&
-            selectedEvent.ownerId === session.userId
-          }
-          hasDeletePermission={
-            session.hasPermission('user-calendar:delete') &&
-            selectedEvent.ownerType === 'admin' &&
-            selectedEvent.ownerId === session.userId
-          }
-        />
+        <div className="hidden min-h-0 min-[1680px]:block">
+          <EventDetailPanel
+            event={selectedEvent}
+            onClose={() => setSelectedEvent(null)}
+            onEdit={handleEditEvent}
+            onDelete={handleFormSuccess}
+            hasEditPermission={
+              session.hasPermission('user-calendar:edit') &&
+              selectedEvent.ownerType === 'admin' &&
+              selectedEvent.ownerId === session.userId
+            }
+            hasDeletePermission={
+              session.hasPermission('user-calendar:delete') &&
+              selectedEvent.ownerType === 'admin' &&
+              selectedEvent.ownerId === session.userId
+            }
+          />
+        </div>
+      )}
+
+      {/* Drawer fallback (< 1680px) */}
+      {selectedEvent && (
+        <div className="fixed inset-y-0 right-0 z-30 flex w-full max-w-sm items-center p-4 min-[1680px]:hidden">
+          <EventDetailPanel
+            event={selectedEvent}
+            onClose={() => setSelectedEvent(null)}
+            onEdit={handleEditEvent}
+            onDelete={handleFormSuccess}
+            hasEditPermission={
+              session.hasPermission('user-calendar:edit') &&
+              selectedEvent.ownerType === 'admin' &&
+              selectedEvent.ownerId === session.userId
+            }
+            hasDeletePermission={
+              session.hasPermission('user-calendar:delete') &&
+              selectedEvent.ownerType === 'admin' &&
+              selectedEvent.ownerId === session.userId
+            }
+          />
+        </div>
       )}
 
       {showCreateModal && (

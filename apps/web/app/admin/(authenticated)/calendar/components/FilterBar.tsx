@@ -118,7 +118,7 @@ export function FilterBar({ filters, onFiltersChange, initialEmployees }: Filter
           <div
             role="listbox"
             aria-label="Filter by event kind"
-            className="absolute left-0 top-full z-10 mt-1 w-44 rounded-lg border border-border bg-popover p-2 shadow-lg"
+            className="absolute left-0 top-full z-50 mt-1 w-44 rounded-lg border border-border bg-popover p-2 shadow-lg"
           >
             {KIND_OPTIONS.map(k => (
               <button
@@ -155,7 +155,7 @@ export function FilterBar({ filters, onFiltersChange, initialEmployees }: Filter
           <div
             role="listbox"
             aria-label="Filter by priority"
-            className="absolute left-0 top-full z-10 mt-1 w-36 rounded-lg border border-border bg-popover p-2 shadow-lg"
+            className="absolute left-0 top-full z-50 mt-1 w-36 rounded-lg border border-border bg-popover p-2 shadow-lg"
           >
             {PRIORITY_OPTIONS.map(p => (
               <button
@@ -175,7 +175,7 @@ export function FilterBar({ filters, onFiltersChange, initialEmployees }: Filter
         )}
       </div>
 
-      <div className="relative" ref={employeeRef}>
+      {/* <div className="relative" ref={employeeRef}>
         <button
           onClick={() => setShowEmployeeDropdown(!showEmployeeDropdown)}
           aria-expanded={showEmployeeDropdown}
@@ -192,7 +192,7 @@ export function FilterBar({ filters, onFiltersChange, initialEmployees }: Filter
           <div
             role="listbox"
             aria-label="Filter by employee"
-            className="absolute left-0 top-full z-10 mt-1 max-h-64 w-64 overflow-y-auto rounded-lg border border-border bg-popover p-2 shadow-lg"
+            className="absolute left-0 top-full z-50 mt-1 max-h-64 w-64 overflow-y-auto rounded-lg border border-border bg-popover p-2 shadow-lg"
           >
             <button
               role="option"
@@ -224,7 +224,7 @@ export function FilterBar({ filters, onFiltersChange, initialEmployees }: Filter
             ))}
           </div>
         )}
-      </div>
+      </div> */}
 
       {hasAnyFilter && (
         <button
