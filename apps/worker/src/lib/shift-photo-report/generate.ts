@@ -5,7 +5,7 @@ import { buildShiftReportDownloadFilename } from '@repo/shared';
 import type { FetchedPhoto } from './fetch-photos';
 import type { ResolvedPoint, TrailPoint } from './aggregate';
 import { geofenceStatusLabel, trailPointTypeLabel } from './aggregate';
-import { fetchStaticMapPng } from './static-map';
+import { getCachedStaticMapPng } from './static-map';
 import { DISCLAIMER_TITLE, EN_SECTION, ID_SECTION, DISCLAIMER_EN_PARAGRAPHS, DISCLAIMER_ID_PARAGRAPHS } from './disclaimer-text';
 
 const TZ = 'Asia/Makassar';
@@ -575,7 +575,7 @@ async function renderPhotoEvidencePage(
 
   // Right: map (real or placeholder)
   if (hasLocation) {
-    const mapPng = await fetchStaticMapPng({
+    const mapPng = await getCachedStaticMapPng({
       lat: photo.latitude!,
       lng: photo.longitude!,
       width: rightW,

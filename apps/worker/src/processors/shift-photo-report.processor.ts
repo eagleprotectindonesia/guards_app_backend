@@ -33,7 +33,7 @@ import {
   computeTrailBoundingBox,
   type GeofenceContext,
 } from '../lib/shift-photo-report/aggregate';
-import { fetchTrailMapPng, type SitePostLike } from '../lib/shift-photo-report/static-map';
+import { getCachedTrailMapPng, type SitePostLike } from '../lib/shift-photo-report/static-map';
 
 export class ShiftPhotoReportProcessor {
   async process(job: Job) {
@@ -201,7 +201,7 @@ export class ShiftPhotoReportProcessor {
           });
           const center = bbox ? bboxCenter(bbox) : null;
           const zoom = bbox ? bboxToZoomLevel(bbox, TRAIL_MAP_WIDTH, TRAIL_MAP_HEIGHT) : null;
-          trailMapBuffer = await timed('maps:trail-png', () => fetchTrailMapPng({
+          trailMapBuffer = await timed('maps:trail-png', () => getCachedTrailMapPng({
             trailPoints,
             sitePosts: sitePostsForMap,
             siteCenter: site.latitude != null && site.longitude != null
@@ -213,7 +213,7 @@ export class ShiftPhotoReportProcessor {
             width: TRAIL_MAP_WIDTH,
             height: TRAIL_MAP_HEIGHT,
             signal: AbortSignal.timeout(15_000),
-          }));
+          }, shiftId));
         }
 
         const metadata = buildReportMetadata({

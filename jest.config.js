@@ -32,6 +32,7 @@ module.exports = {
     "^@/lib/(.*)$": "<rootDir>/apps/web/lib/$1",
     "^@/(.*)$": "<rootDir>/apps/web/$1",
     "^@repo/database$": "<rootDir>/packages/database/src",
+    "^@repo/database/(.*)$": "<rootDir>/packages/database/src/$1",
     "^@repo/auth-server$": "<rootDir>/packages/auth-server/src",
     "^@repo/notifications$": "<rootDir>/packages/notifications/src",
     "^@repo/realtime$": "<rootDir>/packages/realtime/src",

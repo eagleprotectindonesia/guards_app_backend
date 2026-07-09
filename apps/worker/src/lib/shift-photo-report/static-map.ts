@@ -1,10 +1,27 @@
 import sharp from 'sharp';
+import { buildStaticMapCacheKey, buildTrailMapCacheKey, mapCacheGet, mapCacheSet, getTrailTtl } from './map-cache';
 
 const STATIC_MAP_BASE_URL = 'https://maps.googleapis.com/maps/api/staticmap';
 const DEFAULT_TIMEOUT_MS = 5_000;
 /** Google's Maps Static API hard limit on the `size` parameter per axis. */
 const GOOGLE_STATIC_MAP_MAX_DIM = 640;
 let warnedMissingKey = false;
+
+const localCache = new Map<string, Buffer | null>();
+const LOCAL_CACHE_MAX = 500;
+
+/** @internal exported only for testing */
+export function _clearLocalCache(): void {
+  localCache.clear();
+}
+
+function setLocalCache(key: string, value: Buffer | null): void {
+  if (localCache.size >= LOCAL_CACHE_MAX) {
+    const first = localCache.keys().next();
+    if (first.value) localCache.delete(first.value);
+  }
+  localCache.set(key, value);
+}
 
 export type StaticMapLatLng = { latitude: number; longitude: number };
 
@@ -695,4 +712,76 @@ export async function overlayNumberedMarkers(params: {
   } catch {
     return mapBuffer;
   }
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// Cached wrappers (in-memory + Redis, best-effort)
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * Like `fetchStaticMapPng` but with a two-level cache:
+ * 1. In-memory local cache (per-process, dedup within the same report)
+ * 2. Redis (cross-process, dedup across runs and regeneration)
+ *
+ * Cache is best-effort — redis errors are logged and the fetch still proceeds.
+ */
+export async function getCachedStaticMapPng(params: {
+  lat: number;
+  lng: number;
+  width: number;
+  height: number;
+  apiKey?: string | null;
+  zoom?: number;
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}): Promise<Buffer | null> {
+  if (!Number.isFinite(params.lat) || !Number.isFinite(params.lng)) return null;
+  if (params.width <= 0 || params.height <= 0) return null;
+
+  const zoom = params.zoom ?? 17;
+  const key = buildStaticMapCacheKey(params.lat, params.lng, zoom, params.width, params.height);
+
+  const local = localCache.get(key);
+  if (local !== undefined) return local;
+
+  const cached = await mapCacheGet(key);
+  if (cached !== undefined) {
+    setLocalCache(key, cached);
+    return cached;
+  }
+
+  const fresh = await fetchStaticMapPng({ ...params, zoom });
+  setLocalCache(key, fresh);
+  await mapCacheSet(key, fresh);
+  return fresh;
+}
+
+/**
+ * Like `fetchTrailMapPng` but with a two-level cache (in-memory + Redis).
+ * The `shiftId` is used as part of the cache key since the trail is
+ * deterministic for a completed shift.
+ */
+export async function getCachedTrailMapPng(
+  params: FetchTrailMapPngParams,
+  shiftId: string,
+): Promise<Buffer | null> {
+  if (params.width <= 0 || params.height <= 0) return null;
+  if (params.trailPoints.length === 0) return null;
+
+  const zoom = params.zoom ?? null;
+  const key = buildTrailMapCacheKey(shiftId, zoom, params.width, params.height);
+
+  const local = localCache.get(key);
+  if (local !== undefined) return local;
+
+  const cached = await mapCacheGet(key);
+  if (cached !== undefined) {
+    setLocalCache(key, cached);
+    return cached;
+  }
+
+  const fresh = await fetchTrailMapPng(params);
+  setLocalCache(key, fresh);
+  await mapCacheSet(key, fresh, getTrailTtl());
+  return fresh;
 }

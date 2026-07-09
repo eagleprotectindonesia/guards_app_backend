@@ -396,6 +396,25 @@ Pure helpers used by the processor to derive the cover-page location section:
 
 All timestamps in the PDF are converted from UTC to `Asia/Makassar (WITA, UTC+8)` for display. The label `WITA` is appended to formatted date/time strings. This is hard-coded in the PDF generator.
 
+## Map Cache
+
+To minimise Google Static Maps API costs, the per-photo and trail-map fetches use a two-level cache:
+
+| Layer | Scope | Key | TTL |
+|---|---|---|---|
+| **In-memory** (per-process, LRU capped at 500) | Dedup within the same PDF generation and across ticks in the same worker process | Same as Redis key | Process lifetime |
+| **Redis** (cross-process, shared across workers) | Dedup across worker instances, regen runs, and nearby shifts | `shiftphoto:map:static:v2:{lat5}:{lng5}:z{zoom}:{w}x{h}` or `shiftphoto:map:trail:v2:{shiftId}:z{zoom}:{w}x{h}` | 30 days (configurable via `SHIFT_PHOTO_MAP_CACHE_TTL_SECONDS`) |
+
+- Per-photo coordinates are **rounded to 5 decimal places** (~1.1 m at the equator) before keying. Multiple photos from the same spot collapse into one API call.
+- `null` results (e.g. bad coords) are cached with a 1-hour TTL so a transient error doesn't trigger repeated fetches.
+- **TTLs differ by map type**:
+  - Per-photo static maps: **30 days** (bounded key space, converges quickly). Configurable via `SHIFT_PHOTO_MAP_CACHE_TTL_SECONDS`.
+  - Trail maps: **7 days** (per-shiftId, grows linearly with completed shifts). Configurable via `SHIFT_PHOTO_TRAIL_MAP_CACHE_TTL_SECONDS`.
+- Setting `SHIFT_PHOTO_MAP_CACHE_TTL_SECONDS=0` disables the Redis cache (in-memory cache still works).
+- Cache is **best-effort**: Redis errors are logged and the fetch proceeds normally. A cache failure never blocks report generation.
+
+Implementation in `apps/worker/src/lib/shift-photo-report/map-cache.ts`. The cached wrappers `getCachedStaticMapPng` and `getCachedTrailMapPng` are in `static-map.ts`.
+
 ## Key Files Reference
 
 | File | Purpose |
@@ -408,7 +427,8 @@ All timestamps in the PDF are converted from UTC to `Asia/Makassar (WITA, UTC+8)
 | `apps/worker/src/lib/shift-photo-report/generate.ts` | PDF generator (cover page, evidence card photo pages, chrome) |
 | `apps/worker/src/lib/shift-photo-report/aggregate.ts` | Pure helpers (haversine, nearest SitePost, first/last, geofence summary, per-photo geofence + location name, location trail, bbox/zoom math) |
 | `apps/worker/src/lib/shift-photo-report/fetch-photos.ts` | S3 photo downloader (passes through enriched fields: `locationName`, `geofenceStatus`, `chatContent`, `attendanceMatchedName`, `uploadedAt`) |
-| `apps/worker/src/lib/shift-photo-report/static-map.ts` | Google Static Maps PNG fetcher — per-photo (5s timeout) and trail map (boundary + polyline + numbered waypoints); falls back to `null` on error |
+| `apps/worker/src/lib/shift-photo-report/static-map.ts` | Google Static Maps PNG fetcher — per-photo (5s timeout) and trail map (boundary + polyline + numbered waypoints); falls back to `null` on error. Also exports `getCachedStaticMapPng` / `getCachedTrailMapPng` (two-level cache wrappers) |
+| `apps/worker/src/lib/shift-photo-report/map-cache.ts` | Two-level map cache: in-memory LRU + Redis. Key builders, TTL config, best-effort error handling |
 | `apps/worker/src/assets/eagle-protect-logo.png` | Logo (placeholder) |
 | `apps/web/lib/data-access/shift-photo-reports.ts` | `getReportById` wrapper (used by the download REST route) |
 | `apps/web/app/api/admin/shift-photo-reports/[id]/route.ts` | Download REST endpoint |
