@@ -25,7 +25,7 @@ export default async function AdminCalendarPage() {
       <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <h1 className="text-xl font-semibold text-foreground">User Calendar</h1>
       </div>
-      <div className="flex-1 p-6">
+      <div className="mx-auto w-full max-w-7xl flex-1 p-6">
         <CalendarView employees={employees} admins={admins} />
       </div>
     </div>

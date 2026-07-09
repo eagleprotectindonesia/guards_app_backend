@@ -12,13 +12,14 @@ import { EventForm } from './components/EventForm';
 import { DateContextMenu } from './components/DateContextMenu';
 import { FilterBar } from './components/FilterBar';
 import { ViewToggle } from './components/ViewToggle';
+import { ListView } from './components/ListView';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay, format, parseISO } from 'date-fns';
 import { useSession } from '../context/session-context';
 import { getEventForEdit } from './actions';
 import type { EventForEditItem } from './actions';
 import type { CalendarItem } from './types';
 
-type ViewMode = 'month' | 'week' | 'day';
+type ViewMode = 'month' | 'week' | 'day' | 'list';
 
 interface CalendarFilters {
   employeeId?: string;
@@ -40,7 +41,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
 
   const [view, setView] = useState<ViewMode>(() => {
     const v = searchParams.get('view');
-    return v === 'month' || v === 'week' || v === 'day' ? v : 'month';
+    return v === 'month' || v === 'week' || v === 'day' || v === 'list' ? v : 'month';
   });
   const [currentDate, setCurrentDate] = useState(() => {
     const d = searchParams.get('date');
@@ -63,7 +64,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
   const { socket } = useSocket();
 
   const dateRange = useMemo(() => {
-    if (view === 'month') {
+    if (view === 'month' || view === 'list') {
       return {
         from: format(startOfWeek(startOfMonth(currentDate)), 'yyyy-MM-dd'),
         to: format(endOfWeek(endOfMonth(currentDate)), 'yyyy-MM-dd'),
@@ -220,6 +221,9 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             onSlotSelect={session.hasPermission('user-calendar:create') ? handleSlotSelect : undefined}
             onSlotContextMenu={session.hasPermission('user-calendar:create') ? handleSlotContextMenu : undefined}
           />
+        )}
+        {view === 'list' && (
+          <ListView items={items} onEventClick={handleEventClick} />
         )}
 
         {isError && (
