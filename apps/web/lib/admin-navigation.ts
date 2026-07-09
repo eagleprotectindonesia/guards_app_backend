@@ -189,6 +189,11 @@ export function getAdminNavGroups(
         byName.get('Holiday Calendar'),
         byName.get('Leave Requests'),
         byName.get('Leave Balances'),
+      ].filter(Boolean) as NavItem[],
+    },
+    {
+      label: 'Personal Management',
+      items: [
         byName.get('User Calendar'),
       ].filter(Boolean) as NavItem[],
     },
