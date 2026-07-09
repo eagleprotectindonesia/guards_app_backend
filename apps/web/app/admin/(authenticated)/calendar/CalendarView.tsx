@@ -9,6 +9,7 @@ import { MonthGrid } from './components/MonthGrid';
 import { TimeGridView } from './components/TimeGridView';
 import { EventDetailPanel } from './components/EventDetailPanel';
 import { EventForm } from './components/EventForm';
+import { DateContextMenu } from './components/DateContextMenu';
 import { FilterBar } from './components/FilterBar';
 import { ViewToggle } from './components/ViewToggle';
 import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, startOfDay, endOfDay, format, parseISO } from 'date-fns';
@@ -39,7 +40,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
 
   const [view, setView] = useState<ViewMode>(() => {
     const v = searchParams.get('view');
-    return (v === 'month' || v === 'week' || v === 'day') ? v : 'month';
+    return v === 'month' || v === 'week' || v === 'day' ? v : 'month';
   });
   const [currentDate, setCurrentDate] = useState(() => {
     const d = searchParams.get('date');
@@ -55,6 +56,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
   const [editEventId, setEditEventId] = useState<string | null>(null);
   const [editInitialData, setEditInitialData] = useState<EventForEditItem | null>(null);
   const [editFetching, setEditFetching] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ date: string; time?: string; x: number; y: number } | null>(null);
   const [filters, setFilters] = useState<CalendarFilters>({});
   const queryClient = useQueryClient();
   const session = useSession();
@@ -151,6 +153,14 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
     setShowCreateModal(true);
   }, []);
 
+  const handleDateContextMenu = useCallback((date: string, _event: MouseEvent) => {
+    setContextMenu({ date, x: _event.clientX, y: _event.clientY });
+  }, []);
+
+  const handleSlotContextMenu = useCallback((date: string, time: string, _event: MouseEvent) => {
+    setContextMenu({ date, time, x: _event.clientX, y: _event.clientY });
+  }, []);
+
   const handleEditEvent = useCallback(async (eventId: string) => {
     setEditFetching(true);
     setEditEventId(eventId);
@@ -197,6 +207,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             daySummary={daySummaryMap}
             onDateClick={handleDateClick}
             onEventClick={handleEventClick}
+            onDateContextMenu={session.hasPermission('user-calendar:create') ? handleDateContextMenu : undefined}
           />
         )}
         {(view === 'week' || view === 'day') && (
@@ -207,6 +218,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             items={items}
             onEventClick={handleEventClick}
             onSlotSelect={session.hasPermission('user-calendar:create') ? handleSlotSelect : undefined}
+            onSlotContextMenu={session.hasPermission('user-calendar:create') ? handleSlotContextMenu : undefined}
           />
         )}
 
@@ -248,7 +260,10 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
         <EventForm
           defaultDate={createDefaults?.date ?? format(currentDate, 'yyyy-MM-dd')}
           defaultStartTime={createDefaults?.time}
-          onClose={() => { setShowCreateModal(false); setCreateDefaults(null); }}
+          onClose={() => {
+            setShowCreateModal(false);
+            setCreateDefaults(null);
+          }}
           onSuccess={handleFormSuccess}
           initialAdmins={admins}
         />
@@ -260,6 +275,27 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         </div>
+      )}
+
+      {contextMenu && (
+        <DateContextMenu
+          date={contextMenu.date}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onAddNewEvent={() => {
+            setCreateDefaults({ date: contextMenu.date, time: contextMenu.time });
+            setShowCreateModal(true);
+          }}
+          onViewDay={
+            contextMenu.time
+              ? undefined
+              : () => {
+                  handleDateClick(contextMenu.date);
+                  setContextMenu(null);
+                }
+          }
+        />
       )}
 
       {editEventId && !editFetching && (

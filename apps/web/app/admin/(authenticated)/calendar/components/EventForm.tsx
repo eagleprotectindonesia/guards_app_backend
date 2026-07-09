@@ -81,7 +81,11 @@ function todayStr() {
   return format(new Date(), 'yyyy-MM-dd');
 }
 
-function buildFormState(initialEvent: EventForEditItem | null | undefined, defaultDate?: string, defaultStartTime?: string) {
+function buildFormState(
+  initialEvent: EventForEditItem | null | undefined,
+  defaultDate?: string,
+  defaultStartTime?: string
+) {
   if (initialEvent) {
     const startDate = initialEvent.startDate ?? todayStr();
     const endDate = initialEvent.endDate ?? todayStr();
@@ -113,14 +117,29 @@ function buildFormState(initialEvent: EventForEditItem | null | undefined, defau
     };
   }
   return {
-    form: { ...EMPTY_FORM, startDate: defaultDate ?? todayStr(), endDate: defaultDate ?? todayStr(), startTime: defaultStartTime ?? '09:00' } satisfies FormData,
-    startDateObj: new Date(),
-    endDateObj: new Date(),
+    form: {
+      ...EMPTY_FORM,
+      startDate: defaultDate ?? todayStr(),
+      endDate: defaultDate ?? todayStr(),
+      startTime: defaultStartTime ?? '09:00',
+    } satisfies FormData,
+    startDateObj: defaultDate ? new Date(defaultDate + 'T00:00:00') : new Date(),
+    endDateObj: defaultDate ? new Date(defaultDate + 'T00:00:00') : new Date(),
   };
 }
 
-export function EventForm({ eventId, initialEvent, defaultDate, defaultStartTime, onClose, onSuccess, initialAdmins }: EventFormProps) {
-  const [{ form, startDateObj, endDateObj }, setFormState] = useState(() => buildFormState(initialEvent, defaultDate, defaultStartTime));
+export function EventForm({
+  eventId,
+  initialEvent,
+  defaultDate,
+  defaultStartTime,
+  onClose,
+  onSuccess,
+  initialAdmins,
+}: EventFormProps) {
+  const [{ form, startDateObj, endDateObj }, setFormState] = useState(() =>
+    buildFormState(initialEvent, defaultDate, defaultStartTime)
+  );
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -187,6 +206,11 @@ export function EventForm({ eventId, initialEvent, defaultDate, defaultStartTime
     setError('');
     setFieldErrors({});
 
+    if (showEndDate && form.startDate > form.endDate) {
+      setFieldErrors({ endDate: 'End date cannot be earlier than start date' });
+      return;
+    }
+
     const body: Record<string, unknown> = {
       kind: form.kind,
       title: form.title,
@@ -225,9 +249,7 @@ export function EventForm({ eventId, initialEvent, defaultDate, defaultStartTime
     }
 
     startTransition(async () => {
-      const result = eventId
-        ? await updateEvent(eventId, body)
-        : await createEvent(body);
+      const result = eventId ? await updateEvent(eventId, body) : await createEvent(body);
 
       if (result.success) {
         onSuccess();
@@ -299,9 +321,16 @@ export function EventForm({ eventId, initialEvent, defaultDate, defaultStartTime
               <label className="mb-1 block text-xs text-muted-foreground">Start Date *</label>
               <DatePicker
                 date={startDateObj}
-                setDate={(d) => {
+                maxDate={showEndDate ? endDateObj : undefined}
+                setDate={d => {
+                  const dateStr = format(d ?? new Date(), 'yyyy-MM-dd');
                   setFormState(prev => ({ ...prev, startDateObj: d ?? new Date() }));
-                  setForm(p => ({ ...p, startDate: format(d ?? new Date(), 'yyyy-MM-dd') }));
+                  setForm(p => ({ ...p, startDate: dateStr }));
+                  if (showEndDate && dateStr > form.endDate) {
+                    setFieldErrors(p => ({ ...p, endDate: 'End date cannot be earlier than start date' }));
+                  } else {
+                    setFieldErrors(p => ({ ...p, endDate: '' }));
+                  }
                 }}
               />
               {fieldErrors.startDate && <p className="mt-1 text-xs text-red-400">{fieldErrors.startDate}</p>}
@@ -311,9 +340,16 @@ export function EventForm({ eventId, initialEvent, defaultDate, defaultStartTime
                 <label className="mb-1 block text-xs text-muted-foreground">End Date *</label>
                 <DatePicker
                   date={endDateObj}
-                  setDate={(d) => {
+                  minDate={startDateObj}
+                  setDate={d => {
+                    const dateStr = format(d ?? new Date(), 'yyyy-MM-dd');
                     setFormState(prev => ({ ...prev, endDateObj: d ?? new Date() }));
-                    setForm(p => ({ ...p, endDate: format(d ?? new Date(), 'yyyy-MM-dd') }));
+                    setForm(p => ({ ...p, endDate: dateStr }));
+                    if (dateStr < form.startDate) {
+                      setFieldErrors(p => ({ ...p, endDate: 'End date cannot be earlier than start date' }));
+                    } else {
+                      setFieldErrors(p => ({ ...p, endDate: '' }));
+                    }
                   }}
                 />
                 {fieldErrors.endDate && <p className="mt-1 text-xs text-red-400">{fieldErrors.endDate}</p>}
@@ -330,7 +366,7 @@ export function EventForm({ eventId, initialEvent, defaultDate, defaultStartTime
                     value={form.startTime}
                     onChange={v => setForm(p => ({ ...p, startTime: v }))}
                     use24h
-                    className={`w-full ${fieldErrors.startTime ? '[&_[data-slot=trigger]]:border-red-500' : ''}`}
+                    className={`w-full ${fieldErrors.startTime ? '**:data-[slot=trigger]:border-red-500' : ''}`}
                   />
                   {fieldErrors.startTime && <p className="mt-1 text-xs text-red-400">{fieldErrors.startTime}</p>}
                 </div>
@@ -342,7 +378,7 @@ export function EventForm({ eventId, initialEvent, defaultDate, defaultStartTime
                     value={form.endTime}
                     onChange={v => setForm(p => ({ ...p, endTime: v }))}
                     use24h
-                    className={`w-full ${fieldErrors.endTime ? '[&_[data-slot=trigger]]:border-red-500' : ''}`}
+                    className={`w-full ${fieldErrors.endTime ? '**:data-[slot=trigger]:border-red-500' : ''}`}
                   />
                   {fieldErrors.endTime && <p className="mt-1 text-xs text-red-400">{fieldErrors.endTime}</p>}
                 </div>

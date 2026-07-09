@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useMemo, useRef, useEffect, useState } from 'react';
+import { memo, useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -13,6 +13,7 @@ interface TimeGridViewProps {
   items: CalendarItem[];
   onEventClick: (item: CalendarItem) => void;
   onSlotSelect?: (date: string, time: string) => void;
+  onSlotContextMenu?: (date: string, time: string, event: MouseEvent) => void;
 }
 
 export const TimeGridView = memo(function TimeGridView({
@@ -21,9 +22,37 @@ export const TimeGridView = memo(function TimeGridView({
   items,
   onEventClick,
   onSlotSelect,
+  onSlotContextMenu,
 }: TimeGridViewProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const [initialDateStr] = useState(() => format(currentDate, 'yyyy-MM-dd'));
+
+  const handleSlotLaneDidMount = useCallback((arg: { el: HTMLElement; date?: Date; time?: { milliseconds?: number } }) => {
+    if (!onSlotContextMenu) return;
+    const date = arg.date;
+    const time = arg.time;
+    if (!date || !time) return;
+
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const totalMs = time.milliseconds ?? 0;
+    const hh = Math.floor(totalMs / 3600000);
+    const mm = Math.floor((totalMs % 3600000) / 60000);
+    const timeStr = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+
+    const handler = (e: MouseEvent) => {
+      e.preventDefault();
+      onSlotContextMenu(dateStr, timeStr, e);
+    };
+    arg.el.addEventListener('contextmenu', handler);
+    (arg.el as HTMLElement & { __ctxHandler?: (e: MouseEvent) => void }).__ctxHandler = handler;
+  }, [onSlotContextMenu]);
+
+  const handleSlotLaneWillUnmount = useCallback((arg: { el: HTMLElement }) => {
+    const handler = (arg.el as HTMLElement & { __ctxHandler?: (e: MouseEvent) => void }).__ctxHandler;
+    if (handler) {
+      arg.el.removeEventListener('contextmenu', handler);
+    }
+  }, []);
 
   useEffect(() => {
     if (calendarRef.current) {
@@ -88,6 +117,8 @@ export const TimeGridView = memo(function TimeGridView({
           );
           info.view.calendar.unselect();
         }}
+        slotLaneDidMount={handleSlotLaneDidMount}
+        slotLaneWillUnmount={handleSlotLaneWillUnmount}
         eventClick={info => {
           const item = info.event.extendedProps.item as CalendarItem;
           if (item) onEventClick(item);

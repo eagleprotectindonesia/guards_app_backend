@@ -1,4 +1,4 @@
-import { useMemo, useRef, useEffect, useState } from 'react';
+import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -11,6 +11,7 @@ interface MonthGridProps {
   daySummary: Map<string, number>;
   onDateClick: (date: string) => void;
   onEventClick: (item: CalendarItem) => void;
+  onDateContextMenu?: (date: string, event: MouseEvent) => void;
 }
 
 function DayCellContent({ date, isOutside, count }: { date: Date; isOutside: boolean; count: number | undefined }) {
@@ -26,7 +27,14 @@ function DayCellContent({ date, isOutside, count }: { date: Date; isOutside: boo
   );
 }
 
-export function MonthGrid({ currentDate, items, daySummary, onDateClick, onEventClick }: MonthGridProps) {
+export function MonthGrid({
+  currentDate,
+  items,
+  daySummary,
+  onDateClick,
+  onEventClick,
+  onDateContextMenu,
+}: MonthGridProps) {
   const calendarRef = useRef<FullCalendar>(null);
   const [initialDateStr] = useState(() => format(currentDate, 'yyyy-MM-dd'));
 
@@ -50,6 +58,26 @@ export function MonthGrid({ currentDate, items, daySummary, onDateClick, onEvent
     }));
   }, [items]);
 
+  const handleDayCellDidMount = useCallback(
+    (arg: { el: HTMLElement; date: Date }) => {
+      if (!onDateContextMenu) return;
+      const handler = (e: MouseEvent) => {
+        e.preventDefault();
+        onDateContextMenu(format(arg.date, 'yyyy-MM-dd'), e);
+      };
+      arg.el.addEventListener('contextmenu', handler);
+      (arg.el as HTMLElement & { __ctxHandler?: (e: MouseEvent) => void }).__ctxHandler = handler;
+    },
+    [onDateContextMenu]
+  );
+
+  const handleDayCellWillUnmount = useCallback((arg: { el: HTMLElement }) => {
+    const handler = (arg.el as HTMLElement & { __ctxHandler?: (e: MouseEvent) => void }).__ctxHandler;
+    if (handler) {
+      arg.el.removeEventListener('contextmenu', handler);
+    }
+  }, []);
+
   return (
     <div className="rounded-lg border border-border bg-card">
       <FullCalendar
@@ -66,6 +94,8 @@ export function MonthGrid({ currentDate, items, daySummary, onDateClick, onEvent
           const item = info.event.extendedProps.item as CalendarItem;
           if (item) onEventClick(item);
         }}
+        dayCellDidMount={handleDayCellDidMount}
+        dayCellWillUnmount={handleDayCellWillUnmount}
         dayCellClassNames="border-border hover:bg-muted cursor-pointer"
         dayHeaderClassNames="text-muted-foreground text-xs font-medium py-2 border-border"
         dayCellContent={arg => (
