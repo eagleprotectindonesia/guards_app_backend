@@ -123,15 +123,21 @@ export async function GET(req: Request) {
       adminEventWhere.clientName = { contains: clientNameFilter, mode: 'insensitive' };
     }
 
+    const showSystemItems = searchParams.get('showSystemItems') === 'true';
+
     const [holidays, memos, employeeEvents, adminEvents] = await Promise.all([
-      prisma.holidayCalendarEntry.findMany({
-        where: { endDate: { gte: fromDate }, startDate: { lte: toDate } },
-        orderBy: [{ startDate: 'asc' }],
-      }),
-      prisma.officeMemo.findMany({
-        where: { isActive: true, endDate: { gte: fromDate }, startDate: { lte: toDate } },
-        orderBy: [{ startDate: 'asc' }],
-      }),
+      showSystemItems
+        ? prisma.holidayCalendarEntry.findMany({
+            where: { endDate: { gte: fromDate }, startDate: { lte: toDate } },
+            orderBy: [{ startDate: 'asc' }],
+          })
+        : Promise.resolve([]),
+      showSystemItems
+        ? prisma.officeMemo.findMany({
+            where: { isActive: true, endDate: { gte: fromDate }, startDate: { lte: toDate } },
+            orderBy: [{ startDate: 'asc' }],
+          })
+        : Promise.resolve([]),
       isSuperAdmin
         ? prisma.calendarEvent.findMany({
             where: { ...employeeEventWhere, ...employeeTagFilter } as Record<string, unknown>,

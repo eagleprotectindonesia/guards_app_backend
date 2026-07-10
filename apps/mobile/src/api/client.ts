@@ -21,7 +21,7 @@ const getBaseUrl = () => {
 
   if (!__DEV__) {
     // Fallback for production-like builds when the env var is unavailable.
-    return 'https://crm.eagleprotect.id:3001';
+    return 'https://crm.eagleprotect.id';
   }
 
   // For development (Expo Go / Emulator)

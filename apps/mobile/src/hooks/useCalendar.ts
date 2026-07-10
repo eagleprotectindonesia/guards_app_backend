@@ -20,6 +20,8 @@ type CalendarEventItemResponse = {
   item: Record<string, unknown>;
 };
 
+const SHOW_SYSTEM_ITEMS = false;
+
 export function useCalendarEvents(from: string, to: string) {
   const { isAuthenticated } = useAuth();
 
@@ -27,7 +29,7 @@ export function useCalendarEvents(from: string, to: string) {
     queryKey: queryKeys.calendar.list(from, to),
     enabled: isAuthenticated && !!from && !!to,
     queryFn: async () => {
-      const res = await client.get(`/api/employee/my/calendar?from=${from}&to=${to}`);
+      const res = await client.get(`/api/employee/my/calendar?from=${from}&to=${to}&showSystemItems=${SHOW_SYSTEM_ITEMS}`);
       return res.data as CalendarResponse;
     },
     staleTime: 1000 * 60,
