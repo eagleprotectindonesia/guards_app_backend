@@ -26,6 +26,7 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
   const dateFrom = searchParams.dateFrom as string | undefined;
   const dateTo = searchParams.dateTo as string | undefined;
   const employeeId = searchParams.employeeId as string | undefined;
+  const employeeNumber = searchParams.employeeNumber as string | undefined;
   const siteId = searchParams.siteId as string | undefined;
   const status = searchParams.status as string | undefined;
   const sortBy = typeof searchParams.sortBy === 'string' ? searchParams.sortBy : undefined;
@@ -38,6 +39,7 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
     dateFrom: dateFrom ? new Date(dateFrom) : undefined,
     dateTo: dateTo ? new Date(dateTo) : undefined,
     employeeId,
+    employeeNumber,
     siteId,
     status,
     page,
@@ -72,6 +74,7 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
           dateFrom={dateFrom}
           dateTo={dateTo}
           employeeId={employeeId}
+          employeeNumber={employeeNumber}
           siteId={siteId}
           status={status}
           sortBy={sortBy ?? 'createdAt'}

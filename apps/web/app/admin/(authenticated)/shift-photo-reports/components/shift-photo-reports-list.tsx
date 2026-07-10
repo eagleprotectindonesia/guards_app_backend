@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Serialized } from '@/lib/server-utils';
 import { useSearchParams } from 'next/navigation';
 import { useAdminRouter } from '../../context/admin-router';
@@ -41,11 +41,12 @@ type ReportWithDownload = {
 
 type ShiftPhotoReportsListProps = {
   reports: Serialized<ReportWithDownload>[];
-  employees: { id: string; fullName: string }[];
+  employees: { id: string; fullName: string; employeeNumber: string | null }[];
   sites: { id: string; name: string }[];
   dateFrom?: string;
   dateTo?: string;
   employeeId?: string;
+  employeeNumber?: string;
   siteId?: string;
   status?: string;
   sortBy?: string;
@@ -62,6 +63,7 @@ export default function ShiftPhotoReportsList({
   dateFrom,
   dateTo,
   employeeId,
+  employeeNumber,
   siteId,
   status,
   sortBy = 'createdAt',
@@ -78,7 +80,18 @@ export default function ShiftPhotoReportsList({
   const [filterDateTo, setFilterDateTo] = useState<Date | undefined>(
     dateTo ? parseISO(dateTo) : undefined
   );
-  const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
+  const employeeById = useMemo(() => new Map(employees.map(e => [e.id, e])), [employees]);
+  const employeeByNumber = useMemo(
+    () => new Map(employees.filter(e => e.employeeNumber).map(e => [e.employeeNumber!, e])),
+    [employees]
+  );
+
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(() => {
+    if (employeeId) return employeeId;
+    if (employeeNumber) return employeeByNumber.get(employeeNumber)?.id || '';
+    return '';
+  });
+  const filterEmployeeNumber = (selectedEmployeeId && employeeById.get(selectedEmployeeId)?.employeeNumber) || '';
   const [filterSiteId, setFilterSiteId] = useState(siteId || '');
   const [filterStatus, setFilterStatus] = useState(status || '');
 
@@ -114,7 +127,8 @@ export default function ShiftPhotoReportsList({
     apply({
       dateFrom: filterDateFrom ? format(filterDateFrom, 'yyyy-MM-dd') : null,
       dateTo: filterDateTo ? format(filterDateTo, 'yyyy-MM-dd') : null,
-      employeeId: filterEmployeeId || null,
+      employeeId: selectedEmployeeId || null,
+      employeeNumber: filterEmployeeNumber || null,
       siteId: filterSiteId || null,
       status: filterStatus || null,
     });
@@ -123,7 +137,7 @@ export default function ShiftPhotoReportsList({
   const handleClearFilters = () => {
     setFilterDateFrom(undefined);
     setFilterDateTo(undefined);
-    setFilterEmployeeId('');
+    setSelectedEmployeeId('');
     setFilterSiteId('');
     setFilterStatus('');
     setSelectedIds(new Set());
@@ -131,6 +145,7 @@ export default function ShiftPhotoReportsList({
       dateFrom: null,
       dateTo: null,
       employeeId: null,
+      employeeNumber: null,
       siteId: null,
       status: null,
     });
@@ -295,12 +310,21 @@ export default function ShiftPhotoReportsList({
         />
         <SelectFilter
           label="Guard"
-          value={filterEmployeeId}
+          value={selectedEmployeeId}
           options={employees.map(emp => ({ value: emp.id, label: emp.fullName }))}
-          onChange={setFilterEmployeeId}
+          onChange={setSelectedEmployeeId}
           id="filter-guard"
           instanceId="filter-guard"
           allLabel="All Guards"
+        />
+        <SelectFilter
+          label="Guard ID"
+          value={filterEmployeeNumber}
+          options={employees.filter(emp => emp.employeeNumber).map(emp => ({ value: emp.employeeNumber!, label: `${emp.employeeNumber} — ${emp.fullName}` }))}
+          onChange={empNumber => setSelectedEmployeeId(employeeByNumber.get(empNumber)?.id ?? '')}
+          id="filter-guard-id"
+          instanceId="filter-guard-id"
+          allLabel="All Guard IDs"
         />
         <SelectFilter
           label="Site"
@@ -377,15 +401,21 @@ export default function ShiftPhotoReportsList({
                   currentSortOrder={sortOrder}
                   onSort={handleSort}
                 />
-                <SortableHeader
-                  label="Created"
-                  field="generatedAt"
-                  currentSortBy={sortBy}
-                  currentSortOrder={sortOrder}
-                  onSort={handleSort}
-                />
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-center">
-                  Downloads
+                <th
+                  className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider cursor-pointer hover:bg-muted/80 transition-colors select-none"
+                  onClick={() => handleSort('generatedAt')}
+                >
+                  <div className="flex flex-col gap-0.5">
+                    <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                      Created
+                      {sortBy === 'generatedAt' ? (
+                        sortOrder === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                      ) : (
+                        <ArrowUpDown className="w-3 h-3" />
+                      )}
+                    </span>
+                    <span className="text-muted-foreground/60">Downloads</span>
+                  </div>
                 </th>
                 <th
                   className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right cursor-pointer select-none"
@@ -419,7 +449,7 @@ export default function ShiftPhotoReportsList({
             <tbody className="divide-y divide-border">
               {reports.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={10} className="py-8 text-center text-muted-foreground">
                     No shift photo reports found.
                   </td>
                 </tr>
@@ -465,16 +495,14 @@ export default function ShiftPhotoReportsList({
                       {report.photoCount}
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
-                      {report.generatedAt
-                        ? format(new Date(report.generatedAt), 'yyyy/MM/dd HH:mm')
-                        : '—'}
-                    </td>
-                    <td className="py-4 px-6 text-sm text-center text-muted-foreground">
-                      {report.downloadCount > 0 ? (
-                        <span className="font-semibold text-foreground">{report.downloadCount}</span>
-                      ) : (
-                        <span className="text-muted-foreground/50">0</span>
-                      )}
+                      <div>
+                        {report.generatedAt
+                          ? format(new Date(report.generatedAt), 'yyyy/MM/dd HH:mm')
+                          : '—'}
+                      </div>
+                      <div className="text-xs text-muted-foreground/80">
+                        Downloads: {report.downloadCount}
+                      </div>
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex items-center justify-end gap-3">
