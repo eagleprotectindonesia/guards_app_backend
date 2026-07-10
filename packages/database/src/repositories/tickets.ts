@@ -315,7 +315,7 @@ async function resolveDepartmentTargetEmployees(
       deletedAt: null,
       status: true,
       OR: queryDepts.map(dept => ({
-        department: { contains: dept, mode: 'insensitive' },
+        department: { equals: dept, mode: 'insensitive' },
       })),
     },
     select: { id: true },
