@@ -24,6 +24,7 @@ export const RESOURCES = [
   'dashboard-hr',
   'dashboard-client',
   'dashboard-executive',
+  'dashboard-ticket',
   'departments',
   'designations',
   'chat',
@@ -178,6 +179,9 @@ export const PERMISSIONS = {
   },
   EXECUTIVE_DASHBOARD: {
     VIEW: 'dashboard-executive:view',
+  },
+  DASHBOARD_TICKET: {
+    VIEW: 'dashboard-ticket:view',
   },
   SHIFT_PHOTO_REPORTS: {
     VIEW: 'shift-photo-reports:view',

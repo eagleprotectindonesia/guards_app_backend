@@ -20,7 +20,7 @@ export const dynamic = 'force-dynamic';
 type SearchParams = Promise<{ [key: string]: string | string[] | undefined }>;
 
 export default async function TicketDashboardPage({ searchParams }: { searchParams: SearchParams }) {
-  const session = await requirePermission(PERMISSIONS.TICKETS.VIEW);
+  const session = await requirePermission(PERMISSIONS.DASHBOARD_TICKET.VIEW);
   const query = await searchParams;
 
   return (
