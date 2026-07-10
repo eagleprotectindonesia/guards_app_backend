@@ -1,13 +1,9 @@
 import React, { useState } from 'react';
-import { Image, Modal, View } from 'react-native';
 import { format } from 'date-fns';
-import { File } from 'expo-file-system';
 import * as Haptics from 'expo-haptics';
-import * as ImagePicker from 'expo-image-picker';
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
-import { CalendarDays, Camera, CheckCircle2, Clock3, LogOut, MapPin } from 'lucide-react-native';
+import { CalendarDays, CheckCircle2, Clock3, LogOut, MapPin } from 'lucide-react-native';
 import { getEmployeeAttendanceCheckinErrorPayload } from '@repo/shared';
 import { Office } from '@repo/types';
 import { Box } from '@/components/ui/box';
@@ -23,7 +19,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useCustomToast } from '../hooks/useCustomToast';
 import { useOfficeAttendance, useRecordOfficeAttendance } from '../hooks/useOfficeAttendance';
 import { useProfile } from '../hooks/useProfile';
-import { uploadToS3 } from '../api/upload';
+import { useAttendancePhotoUpload } from '../hooks/useAttendancePhotoUpload';
 import { client } from '../api/client';
 import {
   getOfficeHolidayDisplayContent,
@@ -36,28 +32,7 @@ type Props = {
   enabled?: boolean;
 };
 
-const ATTENDANCE_PHOTO_MAX_DIMENSION = 1280;
-const ATTENDANCE_PHOTO_QUALITY = 0.8;
-const ATTENDANCE_PHOTO_CONTENT_TYPE = 'image/webp';
 const TEMP_DISABLE_ATTENDANCE_PHOTO = false;
-
-type AttendancePhotoUpload = {
-  key: string;
-  metadata: {
-    pictureOriginal?: {
-      width?: number;
-      height?: number;
-      fileSize?: number;
-      contentType?: string;
-    };
-    pictureOptimized: {
-      width?: number;
-      height?: number;
-      fileSize: number;
-      contentType: string;
-    };
-  };
-};
 
 export default function OfficeAttendanceCard({ office, enabled = true }: Props) {
   const { t } = useTranslation();
@@ -65,18 +40,18 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
   const { user } = useAuth();
   const toast = useCustomToast();
   const [statusMessage, setStatusMessage] = useState('');
-  const [cameraOpen, setCameraOpen] = useState(false);
-  const [capturedUri, setCapturedUri] = useState<string | null>(null);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [cameraFailed, setCameraFailed] = useState(false);
-  const [cameraResolve, setCameraResolve] = useState<((asset: ImagePicker.ImagePickerAsset | null) => void) | null>(null);
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [cameraRef, setCameraRef] = useState<CameraView | null>(null);
 
   const { data, refetch, isRefetching } = useOfficeAttendance(enabled);
   const { data: profileData } = useProfile();
   const recordMutation = useRecordOfficeAttendance();
-  const [isPhotoProcessing, setIsPhotoProcessing] = useState(false);
+
+  const {
+    captureAndUpload,
+    isProcessing,
+    statusMessage: photoStatusMessage,
+    cameraModal,
+  } = useAttendancePhotoUpload({ folder: 'office-attendance' });
+
   const requirePhotoForClockIn = !TEMP_DISABLE_ATTENDANCE_PHOTO;
 
   const attendances = data?.attendances ?? [];
@@ -121,161 +96,6 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
     }
   };
 
-  const buildResizeAction = (width?: number, height?: number) => {
-    if (!width || !height) return null;
-
-    const longestSide = Math.max(width, height);
-    if (longestSide <= ATTENDANCE_PHOTO_MAX_DIMENSION) return null;
-
-    if (width >= height) {
-      return { resize: { width: ATTENDANCE_PHOTO_MAX_DIMENSION } };
-    }
-
-    return { resize: { height: ATTENDANCE_PHOTO_MAX_DIMENSION } };
-  };
-
-  const captureWithSystemCamera = async (): Promise<ImagePicker.ImagePickerAsset | null> => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-
-    if (permission.status !== 'granted') {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      toast.error(
-        t('attendance.permissionDeniedTitle'),
-        t('officeAttendance.errors.cameraRequired', 'Camera permission is required to clock in.')
-      );
-      return null;
-    }
-
-    setStatusMessage(t('officeAttendance.takingPhoto', 'Taking attendance photo'));
-
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: false,
-      mediaTypes: ['images'],
-      cameraType: ImagePicker.CameraType.front,
-      quality: 1,
-    });
-
-    if (result.canceled || !result.assets[0]?.uri) {
-      setStatusMessage(t('officeAttendance.errors.photoRequired', 'Attendance photo is required to clock in.'));
-      return null;
-    }
-
-    return result.assets[0];
-  };
-
-  const captureWithInAppCamera = async (): Promise<ImagePicker.ImagePickerAsset | null> => {
-    if (!cameraPermission?.granted) {
-      const permission = await requestCameraPermission();
-      if (!permission.granted) {
-        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-        toast.error(
-          t('attendance.permissionDeniedTitle'),
-          t('officeAttendance.errors.cameraRequired', 'Camera permission is required to clock in.')
-        );
-        return null;
-      }
-    }
-
-    setCapturedUri(null);
-    setCameraFailed(false);
-    setCameraOpen(true);
-    return await new Promise(resolve => setCameraResolve(() => resolve));
-  };
-
-  const closeCameraWithResult = (asset: ImagePicker.ImagePickerAsset | null) => {
-    const resolver = cameraResolve;
-    setCameraResolve(null);
-    setCameraOpen(false);
-    setCapturedUri(null);
-    if (resolver) resolver(asset);
-  };
-
-  const handleTakePhotoInApp = async () => {
-    if (!cameraRef || isCapturing) return;
-    setIsCapturing(true);
-    try {
-      const photo = await cameraRef.takePictureAsync({ quality: 1 });
-      if (photo?.uri) setCapturedUri(photo.uri);
-    } catch {
-      setCameraFailed(true);
-      closeCameraWithResult(null);
-    } finally {
-      setIsCapturing(false);
-    }
-  };
-
-  const handleUsePhoto = () => {
-    if (!capturedUri) return closeCameraWithResult(null);
-    closeCameraWithResult({
-      uri: capturedUri,
-      width: 0,
-      height: 0,
-      fileSize: undefined,
-      mimeType: 'image/jpeg',
-      assetId: null,
-      base64: null,
-      exif: null,
-      fileName: undefined,
-      type: 'image',
-      duration: null,
-      pairedVideoAsset: null,
-    });
-  };
-
-  const captureAndUploadAttendancePhoto = async (): Promise<AttendancePhotoUpload | null> => {
-    setStatusMessage(t('officeAttendance.takingPhoto', 'Taking attendance photo'));
-
-    let asset = await captureWithInAppCamera();
-    if (!asset && cameraFailed) asset = await captureWithSystemCamera();
-    if (!asset?.uri) return null;
-
-    const resizeAction = buildResizeAction(asset.width, asset.height);
-    const ImageManipulator = await import('expo-image-manipulator');
-
-    setStatusMessage(t('officeAttendance.optimizingPhoto', 'Optimizing attendance photo'));
-
-    const optimized = await ImageManipulator.manipulateAsync(asset.uri, resizeAction ? [resizeAction] : [], {
-      compress: ATTENDANCE_PHOTO_QUALITY,
-      format: ImageManipulator.SaveFormat.WEBP,
-    });
-    const optimizedFile = new File(optimized.uri);
-
-    if (!optimizedFile.exists || optimizedFile.size == null || optimizedFile.size <= 0) {
-      throw new Error('Optimized attendance photo is empty');
-    }
-
-    setStatusMessage(t('officeAttendance.uploadingPhoto', 'Uploading attendance photo'));
-
-    const upload = await uploadToS3(
-      optimized.uri,
-      `office-attendance-${Date.now()}.webp`,
-      ATTENDANCE_PHOTO_CONTENT_TYPE,
-      optimizedFile.size,
-      {
-        folder: 'office-attendance',
-        fileType: 'image',
-      }
-    );
-
-    return {
-      key: upload.key,
-      metadata: {
-        pictureOriginal: {
-          width: asset.width,
-          height: asset.height,
-          fileSize: asset.fileSize,
-          contentType: asset.mimeType,
-        },
-        pictureOptimized: {
-          width: optimized.width,
-          height: optimized.height,
-          fileSize: upload.size,
-          contentType: upload.contentType,
-        },
-      },
-    };
-  };
-
   const handleRecordAttendance = async (nextStatus: 'present' | 'clocked_out') => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setStatusMessage(nextStatus === 'present' ? t('attendance.gettingLocation') : t('common.processing'));
@@ -289,7 +109,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
     setStatusMessage(nextStatus === 'present' ? t('attendance.recording') : t('common.processing'));
 
     try {
-      let photoUpload: AttendancePhotoUpload | null = null;
+      let photoUpload: Awaited<ReturnType<typeof captureAndUpload>> = null;
       if (nextStatus === 'present') {
         await client.post('/api/employee/my/office-attendance', {
           location: location ?? undefined,
@@ -299,9 +119,8 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
       }
 
       if (nextStatus === 'present' && requirePhotoForClockIn) {
-        setIsPhotoProcessing(true);
-        photoUpload = await captureAndUploadAttendancePhoto();
-        setIsPhotoProcessing(false);
+        setStatusMessage('');
+        photoUpload = await captureAndUpload();
 
         if (!photoUpload) {
           return;
@@ -326,9 +145,8 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
       const errorData = getEmployeeAttendanceCheckinErrorPayload(error);
       if (nextStatus === 'present' && errorData.code === 'photo_required' && !requirePhotoForClockIn) {
         try {
-          setIsPhotoProcessing(true);
-          const photoUpload = await captureAndUploadAttendancePhoto();
-          setIsPhotoProcessing(false);
+          setStatusMessage('');
+          const photoUpload = await captureAndUpload();
 
           if (!photoUpload) {
             return;
@@ -362,8 +180,6 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
           setStatusMessage(retryMessage);
           toast.error(t('officeAttendance.title'), retryMessage);
           return;
-        } finally {
-          setIsPhotoProcessing(false);
         }
       }
 
@@ -376,8 +192,6 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setStatusMessage(message);
       toast.error(t('officeAttendance.title'), message);
-    } finally {
-      setIsPhotoProcessing(false);
     }
   };
 
@@ -413,51 +227,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
 
   return (
     <>
-    <Modal visible={cameraOpen} animationType="slide" transparent={false} onRequestClose={() => closeCameraWithResult(null)}>
-      <View style={{ flex: 1, backgroundColor: '#000' }}>
-        {!capturedUri ? (
-          <>
-            <CameraView style={{ flex: 1 }} facing="front" ref={setCameraRef} onMountError={() => { setCameraFailed(true); closeCameraWithResult(null); }} />
-            <View style={{ position: 'absolute', top: 48, right: 20 }}>
-              <Pressable onPress={() => closeCameraWithResult(null)} className="px-3 py-2 rounded-full bg-black/50">
-                <Text className="text-white">{t('attendance.close', 'Close')}</Text>
-              </Pressable>
-            </View>
-            <View style={{ position: 'absolute', top: 48, left: 20, right: 96 }}>
-              <View style={{ backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12 }}>
-                <Text className="text-white font-bold">{t('attendance.cameraTitle', 'Take Attendance Photo')}</Text>
-                <Text className="text-white/90 text-xs mt-1">{t('attendance.cameraHint', 'Keep your face centered and clearly visible, then tap the capture button.')}</Text>
-              </View>
-            </View>
-            <View style={{ position: 'absolute', bottom: 48, left: 0, right: 0, alignItems: 'center' }}>
-              <Pressable onPress={handleTakePhotoInApp} disabled={isCapturing} style={{ width: 86, height: 86, borderRadius: 43, borderWidth: 6, borderColor: '#fff', backgroundColor: isCapturing ? '#888' : '#fff' }} />
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
-                <Camera size={16} color="#fff" />
-                <Text className="text-white font-semibold ml-2">{isCapturing ? t('attendance.capturing', 'Capturing...') : t('attendance.capturePhoto', 'Capture Photo')}</Text>
-              </View>
-            </View>
-          </>
-        ) : (
-          <>
-            <Image source={{ uri: capturedUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-            <View style={{ position: 'absolute', top: 48, left: 20, right: 20 }}>
-              <View style={{ backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12 }}>
-                <Text className="text-white font-bold">{t('attendance.reviewTitle', 'Review Photo')}</Text>
-                <Text className="text-white/90 text-xs mt-1">{t('attendance.reviewHint', 'Use this photo if your face is clear. Retake if it is blurry or not centered.')}</Text>
-              </View>
-            </View>
-            <View style={{ position: 'absolute', bottom: 36, left: 20, right: 20, flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Pressable onPress={() => setCapturedUri(null)} className="px-4 py-3 rounded-xl bg-black/60">
-                <Text className="text-white font-bold">{t('attendance.retake', 'Retake')}</Text>
-              </Pressable>
-              <Pressable onPress={handleUsePhoto} className="px-4 py-3 rounded-xl bg-blue-600">
-                <Text className="text-white font-bold">{t('attendance.usePhoto', 'Use Photo')}</Text>
-              </Pressable>
-            </View>
-          </>
-        )}
-      </View>
-    </Modal>
+      {cameraModal}
     <Box className="rounded-[28px] overflow-hidden bg-background-900 border border-white/10 mb-6 shadow-xl">
       <Box className="relative overflow-hidden">
         <LinearGradient
@@ -594,7 +364,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
               </HStack>
             </Box>
 
-            <Pressable onPress={handleClockOutPress} disabled={recordMutation.isPending || isPhotoProcessing}>
+            <Pressable onPress={handleClockOutPress} disabled={recordMutation.isPending || isProcessing}>
               {({ pressed }: { pressed: boolean }) => (
                 <LinearGradient
                   colors={['#DC2626', '#991B1B']}
@@ -608,7 +378,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
                   }}
                 >
                   <HStack space="sm" className="justify-center items-center">
-                    {recordMutation.isPending || isPhotoProcessing ? (
+                    {recordMutation.isPending || isProcessing ? (
                       <Spinner className="text-white" />
                     ) : (
                       <LogOut size={18} color="white" />
@@ -654,7 +424,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
           <VStack space="sm">
             <Pressable
               onPress={scheduleDisplay.canClockIn ? () => handleRecordAttendance('present') : undefined}
-              disabled={!scheduleDisplay.canClockIn || recordMutation.isPending || isPhotoProcessing}
+              disabled={!scheduleDisplay.canClockIn || recordMutation.isPending || isProcessing}
             >
               {({ pressed }: { pressed: boolean }) => (
                 <LinearGradient
@@ -669,7 +439,7 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
                   }}
                 >
                   <HStack space="sm" className="justify-center items-center">
-                    {recordMutation.isPending || isPhotoProcessing ? (
+                    {recordMutation.isPending || isProcessing ? (
                       <Spinner className="text-white" />
                     ) : (
                       <Clock3 size={18} color="white" />
@@ -695,9 +465,9 @@ export default function OfficeAttendanceCard({ office, enabled = true }: Props) 
           </VStack>
         )}
 
-        {statusMessage ? (
+        {statusMessage || photoStatusMessage ? (
           <Text size="sm" className="text-info-400 text-center mt-4">
-            {statusMessage}
+            {statusMessage || photoStatusMessage}
           </Text>
         ) : null}
 
