@@ -18,6 +18,11 @@ function AutocompleteInput({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const placesLib = useMapsLibrary('places');
+  const onPlaceSelectRef = useRef(onPlaceSelect);
+
+  useEffect(() => {
+    onPlaceSelectRef.current = onPlaceSelect;
+  }, [onPlaceSelect]);
 
   useEffect(() => {
     if (!placesLib || !inputRef.current) return;
@@ -33,13 +38,13 @@ function AutocompleteInput({
       const lat = place.geometry.location.lat();
       const lng = place.geometry.location.lng();
       const address = place.formatted_address || place.name || '';
-      onPlaceSelect(address, lat, lng);
+      onPlaceSelectRef.current(address, lat, lng);
     });
 
     return () => {
       google.maps.event.removeListener(listener);
     };
-  }, [placesLib, onPlaceSelect]);
+  }, [placesLib]);
 
   return (
     <input
