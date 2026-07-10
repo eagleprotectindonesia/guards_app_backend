@@ -309,7 +309,7 @@ export function resolveLocationName(
 // Movement-trail helpers (used by the "Movement Summary" PDF page).
 // ────────────────────────────────────────────────────────────────────────────
 
-export type TrailPointType = 'attendance' | 'checkin' | 'photo';
+export type TrailPointType = 'attendance' | 'checkin' | 'photo' | 'location_share';
 
 export type TrailPoint = {
   seq: number;
@@ -323,7 +323,10 @@ export type TrailPoint = {
   remarks: string | null;
 };
 
-export type TrailSourcePoint = LocationPoint & { remarks?: string | null };
+export type TrailSourcePoint = LocationPoint & {
+  remarks?: string | null;
+  hasPhotoAttachment?: boolean;
+};
 
 export type TrailSources = {
   attendancePoint: TrailSourcePoint | null;
@@ -507,7 +510,7 @@ export function buildLocationTrail(
   const tagged: Tagged[] = [];
   if (sources.attendancePoint) tagged.push({ ...sources.attendancePoint, type: 'attendance' });
   for (const p of sources.checkinPoints) tagged.push({ ...p, type: 'checkin' });
-  for (const p of sources.chatPoints) tagged.push({ ...p, type: 'photo' });
+  for (const p of sources.chatPoints) tagged.push({ ...p, type: p.hasPhotoAttachment ? 'photo' : 'location_share' });
 
   tagged.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
@@ -532,5 +535,6 @@ export function trailPointTypeLabel(type: TrailPointType): string {
     case 'attendance': return 'Attendance';
     case 'checkin': return 'Check-in';
     case 'photo': return 'Photo evidence';
+    case 'location_share': return 'Location share';
   }
 }

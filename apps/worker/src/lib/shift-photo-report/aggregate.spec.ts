@@ -490,6 +490,7 @@ describe('trailPointTypeLabel', () => {
     expect(trailPointTypeLabel('attendance')).toBe('Attendance');
     expect(trailPointTypeLabel('checkin')).toBe('Check-in');
     expect(trailPointTypeLabel('photo')).toBe('Photo evidence');
+    expect(trailPointTypeLabel('location_share')).toBe('Location share');
   });
 });
 
@@ -537,8 +538,28 @@ describe('buildLocationTrail', () => {
     );
     expect(result.length).toBe(3);
     expect(result.map(r => r.seq)).toEqual([1, 2, 3]);
-    expect(result.map(r => r.type)).toEqual(['attendance', 'checkin', 'photo']);
+    expect(result.map(r => r.type)).toEqual(['attendance', 'checkin', 'location_share']);
     expect(result[2]!.remarks).toBe('all clear');
+  });
+
+  test('tags chat points with hasPhotoAttachment:true as photo type', () => {
+    const result = buildLocationTrail(
+      {
+        attendancePoint: null,
+        checkinPoints: [],
+        chatPoints: [
+          {
+            timestamp: new Date('2026-06-28T16:00:00Z'),
+            latitude: -8.655812,
+            longitude: 115.219442,
+            hasPhotoAttachment: true,
+          },
+        ],
+      },
+      SITE_POSTS,
+      { siteName: 'Lilu Rental' },
+    );
+    expect(result[0]!.type).toBe('photo');
   });
 
   test('resolves the area name from the nearest post for multi-post sites', () => {

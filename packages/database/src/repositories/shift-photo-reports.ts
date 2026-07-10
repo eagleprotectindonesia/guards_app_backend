@@ -471,6 +471,7 @@ export type ShiftLocationPoint = {
   latitude: number;
   longitude: number;
   accuracyMeters: number | null;
+  hasPhotoAttachment?: boolean;
 };
 
 export type ShiftLocationSources = {
@@ -501,7 +502,7 @@ export async function getShiftLocationPoints(params: {
         latitude: { not: null },
         longitude: { not: null },
       },
-      select: { createdAt: true, latitude: true, longitude: true },
+      select: { createdAt: true, latitude: true, longitude: true, attachments: true },
       orderBy: { createdAt: 'asc' },
     }),
     groupChatId
@@ -514,7 +515,7 @@ export async function getShiftLocationPoints(params: {
             latitude: { not: null },
             longitude: { not: null },
           },
-          select: { createdAt: true, latitude: true, longitude: true },
+          select: { createdAt: true, latitude: true, longitude: true, attachments: true },
           orderBy: { createdAt: 'asc' },
         })
       : Promise.resolve([]),
@@ -535,6 +536,7 @@ export async function getShiftLocationPoints(params: {
         latitude: m.latitude,
         longitude: m.longitude,
         accuracyMeters: null,
+        hasPhotoAttachment: m.attachments.length > 0,
       });
     }
   }
@@ -546,6 +548,7 @@ export async function getShiftLocationPoints(params: {
         latitude: m.latitude,
         longitude: m.longitude,
         accuracyMeters: null,
+        hasPhotoAttachment: m.attachments.length > 0,
       });
     }
   }
