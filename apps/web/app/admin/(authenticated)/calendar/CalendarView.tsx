@@ -68,6 +68,11 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
   const session = useSession();
   const { socket } = useSocket();
 
+  const filteredAdmins = useMemo(
+    () => admins.filter(a => a.id !== session.userId),
+    [admins, session.userId]
+  );
+
   const dateRange = useMemo(() => {
     if (view === 'month' || view === 'list') {
       return {
@@ -355,7 +360,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             setCreateDefaults(null);
           }}
           onSuccess={handleFormSuccess}
-          initialAdmins={admins}
+          initialAdmins={filteredAdmins}
         />
       )}
 
@@ -426,7 +431,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             setEditInitialData(null);
           }}
           onSuccess={handleFormSuccess}
-          initialAdmins={admins}
+          initialAdmins={filteredAdmins}
         />
       )}
 
@@ -439,7 +444,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             setDuplicateFromEvent(null);
             queryClient.invalidateQueries({ queryKey: ['admin', 'calendar'] });
           }}
-          initialAdmins={admins}
+          initialAdmins={filteredAdmins}
         />
       )}
     </div>

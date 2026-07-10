@@ -143,7 +143,7 @@ describe('findParticipantAvailabilityConflicts', () => {
       mockEvent({ adminId: 'admin-1' }),
     ]);
 
-    const result = await findParticipantAvailabilityConflicts({
+    await findParticipantAvailabilityConflicts({
       ...baseParams,
       excludeEventId: 'event-1',
     });

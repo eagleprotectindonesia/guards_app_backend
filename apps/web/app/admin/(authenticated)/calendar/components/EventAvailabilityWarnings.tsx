@@ -3,7 +3,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Loader2, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
-import { checkTagAvailability } from '../actions';
 import type { AvailabilityConflict, ParticipantKey } from '@repo/database';
 
 const INITIAL_VISIBLE = 5;
@@ -52,19 +51,33 @@ export function EventAvailabilityWarnings({
     [participants, startDate, endDate, startTime, endTime, allDay, excludeEventId]
   );
 
-  const { data, isFetching } = useQuery({
+  const { data, isFetching, isError } = useQuery({
     queryKey,
     queryFn: async () => {
       if (participants.length === 0) return { conflicts: {} as Record<ParticipantKey, AvailabilityConflict[]> };
-      return checkTagAvailability({
-        startDate,
-        endDate,
-        startTime: startTime || null,
-        endTime: endTime || null,
-        allDay,
-        participants,
-        excludeEventId,
-      });
+      try {
+        const res = await fetch('/api/admin/calendar/tag-availability', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            startDate,
+            endDate,
+            startTime: startTime || null,
+            endTime: endTime || null,
+            allDay,
+            participants,
+            excludeEventId,
+          }),
+        });
+        if (!res.ok) {
+          console.error('[TagAvailability] Request failed:', res.status);
+          return { conflicts: {} as Record<ParticipantKey, AvailabilityConflict[]> };
+        }
+        return res.json() as Promise<{ conflicts: Record<ParticipantKey, AvailabilityConflict[]> }>;
+      } catch (error) {
+        console.error('[TagAvailability] Request error:', error);
+        return { conflicts: {} as Record<ParticipantKey, AvailabilityConflict[]> };
+      }
     },
     enabled: participants.length > 0 && !!startDate,
     staleTime: 30_000,
@@ -111,7 +124,13 @@ export function EventAvailabilityWarnings({
         </div>
       )}
 
-      {!isFetching && count > 0 && (
+      {isError && (
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-2 text-xs text-amber-400">
+          Could not check availability
+        </div>
+      )}
+
+      {!isFetching && !isError && count > 0 && (
         <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm">
           <div className="flex items-center gap-2 text-amber-400">
             <AlertTriangle className="h-4 w-4 shrink-0" />
