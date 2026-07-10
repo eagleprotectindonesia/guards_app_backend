@@ -133,6 +133,15 @@ function extractAttendanceMatchedName(metadata: unknown): string | null {
   return typeof name === 'string' && name.trim().length > 0 ? name.trim() : null;
 }
 
+function extractAttendanceCoordinates(metadata: unknown): { latitude: number; longitude: number } | null {
+  if (!metadata || typeof metadata !== 'object') return null;
+  const meta = metadata as { location?: { lat?: unknown; lng?: unknown } | null };
+  const loc = meta.location;
+  if (!loc || typeof loc.lat !== 'number' || typeof loc.lng !== 'number') return null;
+  if (!Number.isFinite(loc.lat) || !Number.isFinite(loc.lng)) return null;
+  return { latitude: loc.lat, longitude: loc.lng };
+}
+
 export async function getShiftReportPhotos(params: {
   shift: { employeeId: string | null; startsAt: Date; endsAt: Date };
   attendance?: { picture: string | null; recordedAt: Date; metadata?: unknown } | null;
@@ -187,12 +196,13 @@ export async function getShiftReportPhotos(params: {
   // Prepend attendance check-in photo (if present) as the first page
   if (attendance?.picture) {
     seen.add(attendance.picture);
+    const attendanceCoords = extractAttendanceCoordinates(attendance.metadata);
     photos.push({
       messageId: 'attendance',
       s3Key: attendance.picture,
       createdAt: attendance.recordedAt,
-      latitude: null,
-      longitude: null,
+      latitude: attendanceCoords?.latitude ?? null,
+      longitude: attendanceCoords?.longitude ?? null,
       content: null,
       attendanceMatchedName: extractAttendanceMatchedName(attendance.metadata),
     });
