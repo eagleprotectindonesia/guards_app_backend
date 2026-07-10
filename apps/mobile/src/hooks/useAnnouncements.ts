@@ -1,10 +1,13 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { client } from '../api/client';
 import { queryKeys } from '../api/queryKeys';
 import { storage } from '../utils/storage';
 import { useAuth } from '../contexts/AuthContext';
 import { calculateUnreadAnnouncementCount, mergeSeenAnnouncementIds } from './announcements-utils';
+import { getSocket } from '../api/socket';
+import { incrementTelemetryCounter } from '../utils/telemetry';
+import type { ServerToClientEvents } from '@repo/types';
 
 type AnnouncementHolidayType = 'holiday' | 'week_off' | 'emergency' | 'special_working_day';
 type AnnouncementMemoScope = 'all' | 'department';
@@ -56,6 +59,30 @@ function getAnnouncementSeenStorageKey(employeeId: string) {
 export function useAnnouncements() {
   const { isAuthenticated, user } = useAuth();
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    let socketInstance: Awaited<ReturnType<typeof getSocket>> | null = null;
+
+    const handleAnnouncementChanged: ServerToClientEvents['announcement_changed'] = () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.announcements.list });
+      incrementTelemetryCounter('announcements.changed.server_synced');
+    };
+
+    const setupSocket = async () => {
+      const socket = await getSocket();
+      if (socket) {
+        socketInstance = socket;
+        socket.on('announcement_changed', handleAnnouncementChanged);
+      }
+    };
+    setupSocket();
+
+    return () => {
+      if (socketInstance) {
+        socketInstance.off('announcement_changed', handleAnnouncementChanged);
+      }
+    };
+  }, [queryClient]);
 
   const { data, isLoading, refetch, isRefetching } = useQuery<AnnouncementsResponse>({
     queryKey: queryKeys.announcements.list,

@@ -141,6 +141,10 @@ export interface ServerToClientEvents {
   ticket_created: (payload: { ticket: any }) => void;
   ticket_status_updated: (payload: { ticketId: string; status: string; ticket: any }) => void;
   ticket_message_added: (payload: { ticketId: string; message: any }) => void;
+
+  // Announcement events
+  announcement_changed: (payload: Record<string, never>) => void;
+
   hr_live_activity: (payload: unknown) => void;
   'new_dashboard:panic_alerts': (payload: { unresolvedPanics: PanicAlert[] }) => void;
 }

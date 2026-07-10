@@ -10,6 +10,7 @@ export async function registerEmployeeHandlers(io: UnifiedServer, socket: Unifie
 
   // Join employee room
   socket.join(`employee:${auth.id}`);
+  socket.join('employee');
 
   // Listen to Redis Stream for session/shift updates
   const sub = redis.duplicate({
