@@ -242,7 +242,9 @@ In the group chat screen, a quick-action bar provides one-tap buttons:
 ## 8. Group Chat Integration
 
 - One `GroupChat` per Group Shift (optional, created when `autoCreateChatRoom` is checked in the schedule builder).
-- All participating guards + all active admins are added as participants.
+- All participating guards are added as participants. Admin participants are determined by the `ESCORT_GROUP_CHAT_AUTO_INCLUDE_CHAT_ADMINS` system setting (DB-only, not exposed in the settings form):
+  - **OFF (default)**: only the creator admin is added. If the creator does not have `chat:view`, all admins with `chat:view` are added as a fallback so the chat remains observable.
+  - **ON**: all admins with `chat:view` are always added in addition to the creator.
 - Lead guard gets `role: 'lead'`.
 - Chat visibility is deferred: `visibleFromAt = startsAt - 30 min` — the chat appears in the inbox only 30 minutes before the shift starts.
 - Late-added guards also get deferred visibility via the same mechanism.

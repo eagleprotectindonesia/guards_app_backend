@@ -1,12 +1,12 @@
 'use server';
 
-import { prisma, addGroupMembers, createGroupChat, findGroupChatByGroupShiftId, removeGroupMember, unarchiveGroupChat, upsertGroupShift, deleteGroupShiftIfOrphaned, createSiteWithPostsAndChangelog, updateSiteWithChangelog } from '@repo/database';
+import { prisma, addGroupMembers, createGroupChat, findGroupChatByGroupShiftId, getSystemSetting, removeGroupMember, unarchiveGroupChat, upsertGroupShift, deleteGroupShiftIfOrphaned, createSiteWithPostsAndChangelog, updateSiteWithChangelog } from '@repo/database';
 import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { format, isBefore, subMinutes } from 'date-fns';
 import { ShiftStatus, Prisma } from '@prisma/client';
-import { parseShiftTypeTimeOnDate } from '@repo/shared';
-import { getAdminIdFromToken } from '@/lib/admin-auth';
+import { parseShiftTypeTimeOnDate, ESCORT_GROUP_CHAT_AUTO_INCLUDE_CHAT_ADMINS } from '@repo/shared';
+import { getAdminAuthSession, getAdminIdFromToken } from '@/lib/admin-auth';
 import { parse as parseCsv } from 'csv-parse/sync';
 import {
   checkOverlappingShift,
@@ -18,6 +18,7 @@ import {
 } from '@repo/database';
 import { getShiftTypeDurationInMins } from '@repo/database';
 import { ActionState } from '@/types/actions';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export async function createShift(
   prevState: ActionState<CreateShiftInput>,
@@ -864,8 +865,31 @@ export async function bulkCreateShiftsFromFormAction(
 
     const groupIds: string[] = [];
     if (input.autoCreateChatRoom && input.kind === 'escort' && groupShiftIds) {
-      const allAdmins = await prisma.admin.findMany({ where: { deletedAt: null }, select: { id: true } });
-      const adminIds = allAdmins.map(a => a.id);
+      const [session, broadcastSetting] = await Promise.all([
+        getAdminAuthSession(),
+        getSystemSetting(ESCORT_GROUP_CHAT_AUTO_INCLUDE_CHAT_ADMINS),
+      ]);
+      const broadcastEnabled = broadcastSetting?.value === '1';
+      const creatorHasChat =
+        !!session && (session.isSuperAdmin || session.permissions.includes(PERMISSIONS.CHAT.VIEW));
+      const shouldBroadcast = broadcastEnabled || !creatorHasChat;
+
+      let adminIds: string[] = [];
+      if (shouldBroadcast) {
+        const broadcastAdmins = await prisma.admin.findMany({
+          where: {
+            deletedAt: null,
+            roleRef: {
+              is: {
+                permissions: { some: { code: PERMISSIONS.CHAT.VIEW } },
+              },
+            },
+          },
+          select: { id: true },
+        });
+        adminIds = broadcastAdmins.map(a => a.id);
+      }
+
       const startSiteName = startSite.name;
       const endSiteName = endSite?.name ?? 'Destination';
       const clientLabel = input.clientName?.trim() || `${startSiteName} → ${endSiteName}`;
