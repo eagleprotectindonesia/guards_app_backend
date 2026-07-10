@@ -32,7 +32,7 @@ const completedAccentStyles: Record<AccentColor, string> = {
   purple: 'text-purple-600 dark:text-purple-400',
 };
 
-export function GaugeCard({ icon: TitleIcon, title, subtitle, expected, completed, missed, color }: Props) {
+export function GaugeCard({ icon: TitleIcon, title, expected, completed, missed, color }: Props) {
   const ratePct = expected > 0 ? (completed / expected) * 100 : 0;
   const chartData = [{ name: 'rate', value: Math.min(ratePct, 100), fill: gaugeColors[color] }];
 

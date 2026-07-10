@@ -22,7 +22,7 @@ export async function getAllSitesForExport(): Promise<
   Serialized<Site & { lastUpdatedBy?: { name: string } | null; createdBy?: { name: string } | null }>[]
 > {
   const sites = await getAllSites(true);
-  return serialize(sites);
+  return serialize(sites.filter(s => s.kind === 'fixed'));
 }
 
 export async function createSite(
@@ -45,6 +45,7 @@ export async function createSite(
     latitude: Number(firstPost.latitude),
     longitude: Number(firstPost.longitude),
     geofenceRadius: parseFloat(formData.get('geofenceRadius') as string),
+    kind: formData.get('kind') || 'fixed',
     status: formData.get('status') === 'true',
     posts: postsPayload,
   });
@@ -95,6 +96,7 @@ export async function updateSite(
     latitude: Number(firstPost.latitude),
     longitude: Number(firstPost.longitude),
     geofenceRadius: parseFloat(formData.get('geofenceRadius') as string),
+    kind: formData.get('kind') || 'fixed',
     status: formData.get('status') === 'true',
     posts: postsPayload,
   });

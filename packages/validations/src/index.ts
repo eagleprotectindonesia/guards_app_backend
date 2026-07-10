@@ -24,6 +24,8 @@ const sitePostSchema = z.object({
 });
 
 // --- Site ---
+export const SiteKindEnum = z.enum(['fixed', 'escort']);
+
 export const createSiteSchema = z.object({
   name: z.string().min(1),
   clientName: z.string(),
@@ -31,6 +33,7 @@ export const createSiteSchema = z.object({
   latitude: z.number(),
   longitude: z.number(),
   geofenceRadius: optionalNumber,
+  kind: SiteKindEnum.default('fixed'),
   status: z.boolean().optional(),
   note: z.string().optional(),
   posts: z.array(sitePostSchema).min(1),
@@ -161,6 +164,8 @@ export const createOfficeShiftTypeSchema = z.object({
 });
 
 // --- Shift ---
+export const ShiftKindEnum = z.enum(['onsite', 'escort', 'office_control', 'event_temporary']);
+
 export const createShiftSchema = z
   .object({
     siteId: z.uuid(),
@@ -168,6 +173,8 @@ export const createShiftSchema = z
     employeeId: z.string().min(1).optional(),
     // For backward compatibility
     guardId: z.string().min(1).optional(),
+    kind: ShiftKindEnum.default('onsite'),
+    escortEndSiteId: z.string().uuid().optional(),
     date: z.string().min(1), // Expects "YYYY-MM-DD"
     requiredCheckinIntervalMins: z.number().int().min(5).default(60),
     graceMinutes: z.number().int().min(1).default(15),
@@ -176,7 +183,14 @@ export const createShiftSchema = z
   .refine(data => data.employeeId || data.guardId, {
     message: 'Employee ID or Guard ID is required',
     path: ['employeeId'],
-  });
+  })
+  .refine(
+    data => {
+      if (data.kind !== 'escort') return !data.escortEndSiteId;
+      return true;
+    },
+    { message: 'Escort end site must not be set for on-site shifts', path: ['escortEndSiteId'] }
+  );
 
 export const createOfficeShiftSchema = z.object({
   officeShiftTypeId: z.uuid(),
@@ -678,3 +692,186 @@ export const panicWebhookPayloadSchema = z.object({
 
 export type PanicAlertInput = z.infer<typeof panicAlertSchema>;
 export type PanicWebhookPayloadInput = z.infer<typeof panicWebhookPayloadSchema>;
+
+// ============================================================================
+// Calendar Schemas
+// ============================================================================
+export const calendarListSchema = z
+  .object({
+    from: isoDateKeySchema,
+    to: isoDateKeySchema,
+  })
+  .refine(
+    d => {
+      const ms = Date.parse(d.to) - Date.parse(d.from);
+      return ms >= 0 && ms / 86400000 <= 367;
+    },
+    { message: 'Date range must not exceed 367 days' }
+  );
+
+export type CalendarListInput = z.infer<typeof calendarListSchema>;
+
+export const calendarEventKindSchema = z.enum([
+  'meeting',
+  'client_meeting',
+  'reminder',
+  'task',
+  'deadline',
+  'follow_up',
+  'training',
+  'personal_event',
+  'other',
+]);
+
+const taggedEmployeeIdsSchema = z.array(z.string().uuid()).optional();
+const taggedAdminIdsSchema = z.array(z.string().uuid()).optional();
+
+export const createCalendarEventSchema = z
+  .object({
+    kind: calendarEventKindSchema.default('personal_event'),
+    title: z.string().min(1, 'Title is required').max(120, 'Title is too long'),
+    description: z.string().max(2000).optional(),
+    startDate: isoDateKeySchema,
+    endDate: isoDateKeySchema,
+    startTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:mm format')
+      .optional(),
+    endTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:mm format')
+      .optional(),
+    allDay: z.boolean().default(false),
+    location: z.string().max(200).optional(),
+    latitude: z.number().min(-90).max(90).nullable().optional(),
+    longitude: z.number().min(-180).max(180).nullable().optional(),
+    clientName: z.string().max(120).optional(),
+    trainerName: z.string().max(120).optional(),
+    priority: z.enum(['urgent', 'high', 'normal', 'low']).default('normal').optional(),
+    reminderMinutesBefore: z.number().int().min(0, 'Reminder offset must be non-negative').nullable().optional(),
+    taggedEmployeeIds: taggedEmployeeIdsSchema,
+    taggedAdminIds: taggedAdminIdsSchema,
+  })
+  .superRefine((data, ctx) => {
+    if (data.startDate > data.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'endDate must be on or after startDate',
+      });
+    }
+    if (data.allDay && (data.startTime || data.endTime)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['startTime'],
+        message: 'Time must be empty for all-day events',
+      });
+    }
+    if (data.startTime && data.endTime && data.startTime >= data.endTime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endTime'],
+        message: 'End time must be after start time',
+      });
+    }
+    if (data.taggedEmployeeIds && data.taggedAdminIds) {
+      const overlap = data.taggedEmployeeIds.filter(id => data.taggedAdminIds?.includes(id));
+      if (overlap.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['taggedEmployeeIds'],
+          message: 'Same user cannot be tagged as both employee and admin',
+        });
+      }
+    }
+  });
+
+export const updateCalendarEventSchema = z
+  .object({
+    kind: calendarEventKindSchema.optional(),
+    title: z.string().min(1).max(120).optional(),
+    description: z.string().max(2000).optional(),
+    startDate: isoDateKeySchema.optional(),
+    endDate: isoDateKeySchema.optional(),
+    startTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+      .optional(),
+    endTime: z
+      .string()
+      .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)
+      .optional(),
+    allDay: z.boolean().optional(),
+    location: z.string().max(200).optional(),
+    latitude: z.number().min(-90).max(90).nullable().optional(),
+    longitude: z.number().min(-180).max(180).nullable().optional(),
+    clientName: z.string().max(120).optional(),
+    trainerName: z.string().max(120).optional(),
+    priority: z.enum(['urgent', 'high', 'normal', 'low']).optional(),
+    reminderMinutesBefore: z.number().int().min(0, 'Reminder offset must be non-negative').nullable().optional(),
+    taggedEmployeeIds: taggedEmployeeIdsSchema,
+    taggedAdminIds: taggedAdminIdsSchema,
+  })
+  .superRefine((data, ctx) => {
+    if (data.startDate && data.endDate && data.startDate > data.endDate) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'endDate must be on or after startDate',
+      });
+    }
+    if (data.allDay && (data.startTime || data.endTime)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['startTime'],
+        message: 'Time must be empty for all-day events',
+      });
+    }
+    if (data.startTime && data.endTime && data.startTime >= data.endTime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endTime'],
+        message: 'End time must be after start time',
+      });
+    }
+    if (data.taggedEmployeeIds && data.taggedAdminIds) {
+      const overlap = data.taggedEmployeeIds.filter(id => data.taggedAdminIds?.includes(id));
+      if (overlap.length > 0) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['taggedEmployeeIds'],
+          message: 'Same user cannot be tagged as both employee and admin',
+        });
+      }
+    }
+  });
+
+export const tagAvailabilityCheckSchema = z.object({
+  startDate: isoDateKeySchema,
+  endDate: isoDateKeySchema,
+  startTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:mm format')
+    .nullable()
+    .optional(),
+  endTime: z
+    .string()
+    .regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Time must be in HH:mm format')
+    .nullable()
+    .optional(),
+  allDay: z.boolean().default(false),
+  participants: z
+    .array(
+      z.object({
+        type: z.enum(['employee', 'admin']),
+        id: z.string().uuid(),
+      })
+    )
+    .min(1, 'At least one participant is required'),
+  excludeEventId: z.string().uuid().optional(),
+});
+
+export type CalendarEventKindInput = z.infer<typeof calendarEventKindSchema>;
+export type CreateCalendarEventInput = z.infer<typeof createCalendarEventSchema>;
+export type UpdateCalendarEventInput = z.infer<typeof updateCalendarEventSchema>;
+export type TagAvailabilityCheckInput = z.infer<typeof tagAvailabilityCheckSchema>;

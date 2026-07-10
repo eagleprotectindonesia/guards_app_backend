@@ -7,6 +7,7 @@ export type EmployeeAttendanceCheckinErrorCode =
   | 'location_required'
   | 'photo_required'
   | 'too_far_from_site'
+  | 'too_early_to_end'
   | 'checkin_interval_completed'
   | 'checkin_too_early'
   | 'internal_server_error';
@@ -38,6 +39,7 @@ const EMPLOYEE_ATTENDANCE_CHECKIN_ERROR_KEY_MAP: Record<EmployeeAttendanceChecki
   location_required: 'errors.locationRequired',
   photo_required: 'errors.photoRequired',
   too_far_from_site: 'errors.tooFarFromSite',
+  too_early_to_end: 'errors.tooEarlyToEnd',
   checkin_interval_completed: 'errors.checkinIntervalCompleted',
   checkin_too_early: 'errors.checkinTooEarly',
   internal_server_error: 'errors.internalServerError',

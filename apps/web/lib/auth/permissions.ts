@@ -32,6 +32,7 @@ export const RESOURCES = [
   'holiday-calendars',
   'office-memos',
   'tickets',
+  'user-calendar',
   'shift-photo-reports',
 ] as const;
 
@@ -186,6 +187,12 @@ export const PERMISSIONS = {
   SHIFT_PHOTO_REPORTS: {
     VIEW: 'shift-photo-reports:view',
     CREATE: 'shift-photo-reports:create',
+  },
+  USER_CALENDAR: {
+    VIEW: 'user-calendar:view',
+    CREATE: 'user-calendar:create',
+    EDIT: 'user-calendar:edit',
+    DELETE: 'user-calendar:delete',
   },
 } satisfies Record<string, Record<string, PermissionCode>>;
 

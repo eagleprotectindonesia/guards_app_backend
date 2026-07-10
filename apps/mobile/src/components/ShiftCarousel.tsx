@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { ScrollView, Dimensions, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { ScrollView, Dimensions, NativeScrollEvent, NativeSyntheticEvent, Linking, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Box } from '@/components/ui/box';
 import { VStack } from '@/components/ui/vstack';
 import { Text } from '@/components/ui/text';
@@ -8,9 +8,12 @@ import { format } from 'date-fns';
 import { id, enUS } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
-import { CalendarCheck, MapPin, CalendarClock } from 'lucide-react-native';
+import { CalendarCheck, MapPin, CalendarClock, Building2, Star, ArrowLeftRight, ExternalLink } from 'lucide-react-native';
+import { calculateDistance } from '@repo/shared';
+import * as Location from 'expo-location';
 import { useSettings } from '../hooks/useSettings';
 import { parseShiftCarouselDisplayDate } from './shift-carousel-date';
+import { parseEventNote } from '../utils/shift-helpers';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CARD_WIDTH = SCREEN_WIDTH - 48; // Full width minus padding (24 * 2)
@@ -28,6 +31,67 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
   const [activeIndex, setActiveIndex] = useState(0);
   const totalShifts = (activeShift ? 1 : 0) + nextShifts.length;
   const dateLocale = i18n.language === 'id' ? id : enUS;
+  const [isOpeningMap, setIsOpeningMap] = useState(false);
+
+  const renderKindBadge = (shift: ShiftWithRelations) => {
+    const kind = shift.kind;
+
+    if (kind === 'onsite' || !kind) {
+      return (
+        <HStack space="xs" className="items-center">
+          <Box className="w-2 h-2 relative items-center justify-center">
+            <Box className="absolute w-2 h-2 rounded-full bg-success-400 opacity-75" />
+            <Box className="w-2 h-2 rounded-full bg-success-500" />
+          </Box>
+          <Text size="sm" className="text-typography-400 font-medium">
+            {shift.shiftType?.name || 'Main Rotation'}
+          </Text>
+        </HStack>
+      );
+    }
+
+    if (kind === 'office_control') {
+      return (
+        <HStack space="xs" className="items-center">
+          <Box className="bg-brand-500/15 p-1 rounded-lg">
+            <Building2 size={14} color="#D92323" />
+          </Box>
+          <Text size="sm" className="text-brand-500 font-bold uppercase tracking-[1px]">
+            Office Control
+          </Text>
+        </HStack>
+      );
+    }
+
+    if (kind === 'event_temporary') {
+      const { eventName } = parseEventNote(shift.note);
+      return (
+        <HStack space="xs" className="items-center">
+          <Box className="bg-warning-500/15 p-1 rounded-lg">
+            <Star size={14} color="#F59E0B" />
+          </Box>
+          <Text size="sm" className="text-warning-500 font-bold uppercase tracking-[1px]">
+            {eventName || 'Event'}
+          </Text>
+        </HStack>
+      );
+    }
+
+    if (kind === 'escort') {
+      return (
+        <HStack space="xs" className="items-center">
+          <Box className="bg-info-500/15 p-1 rounded-lg">
+            <ArrowLeftRight size={14} color="#3B82F6" />
+          </Box>
+          <Text size="sm" className="text-info-400 font-bold uppercase tracking-[1px]">
+            Escort
+          </Text>
+        </HStack>
+      );
+    }
+
+    return null;
+  };
 
   const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
@@ -39,6 +103,43 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
 
   const renderActiveShiftCard = (shift: ShiftWithRelations) => {
     const displayDate = parseShiftCarouselDisplayDate({ shiftDate: shift.date, startsAt: shift.startsAt });
+    const site = shift.site;
+    const hasLocationData = !!(site?.posts?.length || site?.latitude || site?.longitude || site?.address);
+
+    const handleOpenMaps = async () => {
+      setIsOpeningMap(true);
+      try {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const location = await Location.getCurrentPositionAsync({});
+          const { latitude: userLat, longitude: userLng } = location.coords;
+
+          const posts = site?.posts?.filter(p => p.latitude != null && p.longitude != null) ?? [];
+          if (posts.length > 0) {
+            let nearest = posts[0];
+            let minDist = calculateDistance(userLat, userLng, nearest.latitude, nearest.longitude);
+            for (let i = 1; i < posts.length; i++) {
+              const dist = calculateDistance(userLat, userLng, posts[i].latitude, posts[i].longitude);
+              if (dist < minDist) {
+                minDist = dist;
+                nearest = posts[i];
+              }
+            }
+            await Linking.openURL(`https://maps.google.com/?q=${nearest.latitude},${nearest.longitude}`);
+            return;
+          }
+        }
+      } catch {
+        // fall through to fallbacks
+      }
+
+      if (site?.latitude != null && site?.longitude != null) {
+        await Linking.openURL(`https://maps.google.com/?q=${site.latitude},${site.longitude}`);
+      } else if (site?.address) {
+        await Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(site.address)}`);
+      }
+      setIsOpeningMap(false);
+    };
 
     return (
       <Box
@@ -82,12 +183,28 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
                 <Text size="xs" className="text-typography-500 uppercase tracking-[1.5px] mb-1.5 font-semibold">
                   {t('shift.station')}
                 </Text>
-                <HStack space="xs" className="items-center">
-                  <MapPin size={14} color="#D92323" />
-                  <Text size="md" className="text-typography-200 font-medium">
-                    {shift.site?.name || t('shift.defaultLocation')}
-                  </Text>
-                </HStack>
+                {hasLocationData ? (
+                  <TouchableOpacity onPress={handleOpenMaps} disabled={isOpeningMap} activeOpacity={0.6}>
+                    <HStack space="xs" className="items-center">
+                      <MapPin size={14} color="#D92323" />
+                      <Text size="md" className="text-typography-200 font-medium">
+                        {site?.name || t('shift.defaultLocation')}
+                      </Text>
+                      {isOpeningMap ? (
+                        <ActivityIndicator size={12} color="#D92323" />
+                      ) : (
+                        <ExternalLink size={12} color="#A3A3A3" />
+                      )}
+                    </HStack>
+                  </TouchableOpacity>
+                ) : (
+                  <HStack space="xs" className="items-center">
+                    <MapPin size={14} color="#D92323" />
+                    <Text size="md" className="text-typography-200 font-medium">
+                      {site?.name || t('shift.defaultLocation')}
+                    </Text>
+                  </HStack>
+                )}
               </Box>
               <Box className="flex-1 items-flex-end">
                 <Text size="xs" className="text-typography-500 uppercase tracking-[1.5px] mb-1.5 font-semibold">
@@ -103,15 +220,7 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
             <Box className="h-[1px] w-full bg-white opacity-10" />
 
             <HStack className="justify-between items-center">
-              <HStack space="sm" className="items-center">
-                <Box className="w-2 h-2 relative items-center justify-center">
-                  <Box className="absolute w-2 h-2 rounded-full bg-success-400 opacity-75" />
-                  <Box className="w-2 h-2 rounded-full bg-success-500" />
-                </Box>
-                <Text size="sm" className="text-typography-400 font-medium">
-                  {shift.shiftType?.name || 'Main Rotation'}
-                </Text>
-              </HStack>
+              {renderKindBadge(shift)}
               <Box className="bg-white/5 border border-white/5 px-3 py-1 rounded-md">
                 <Text size="sm" className="text-typography-300 font-bold uppercase">
                   {format(displayDate, 'dd MMM', { locale: dateLocale })}
@@ -186,15 +295,7 @@ export default function ShiftCarousel({ activeShift, nextShifts }: ShiftCarousel
             <Box className="h-[1px] w-full bg-white/5" />
 
             <HStack className="justify-between items-center">
-              <HStack space="sm" className="items-center">
-                <Box className="w-2 h-2 relative items-center justify-center">
-                  <Box className="absolute w-1.5 h-1.5 rounded-full bg-slate-600 opacity-50" />
-                </Box>
-                <Text size="sm" className="text-typography-400 font-medium">
-                  {shift.shiftType?.name || 'Main Rotation'}
-                </Text>
-              </HStack>
-
+              {renderKindBadge(shift)}
               <Text size="sm" className="text-typography-500 font-bold uppercase">
                 {format(displayDate, 'dd MMM yyyy', { locale: dateLocale })}
               </Text>

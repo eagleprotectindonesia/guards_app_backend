@@ -4,8 +4,10 @@ import { redis } from '../redis/client';
 import { parseShiftTypeTimeOnDate } from '@repo/shared';
 import { getShiftTypeDurationInMins } from './shift-types';
 import { deleteEmployeeOnsiteDayOffsByEmployeeAndDates, upsertEmployeeOnsiteDayOff } from './onsite-day-offs';
+import { isBefore } from 'date-fns';
 import { reconcileApprovedOnsiteLeavesForCoverage } from './leave-requests';
 import { isSecurityStandbyTitle } from './employees';
+import { resolveAllOpenAlertsForShift } from './alerts';
 
 export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
   return prisma.shift.findUnique({
@@ -22,6 +24,7 @@ export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
           },
         },
       },
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
     },
@@ -47,6 +50,7 @@ export async function getPaginatedShifts(params: {
         take,
         include: include || {
           site: { select: { name: true } },
+          escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
           shiftType: { select: { name: true, startTime: true, endTime: true } },
           employee: { include: { office: { select: { name: true } } } },
           createdBy: { select: { name: true } },
@@ -149,50 +153,61 @@ async function cancelShiftIfOverlapsApprovedLeave(params: { shiftId: string; emp
   });
 }
 
+export async function createShiftInTransaction(
+  tx: Prisma.TransactionClient,
+  data: Prisma.ShiftCreateInput,
+  adminId: string
+) {
+  const createdShift = await tx.shift.create({
+    data: {
+      ...data,
+      createdBy: { connect: { id: adminId } },
+      lastUpdatedBy: { connect: { id: adminId } },
+    },
+    include: {
+      site: true,
+      escortEndSite: { select: { id: true, name: true } },
+      shiftType: true,
+      employee: { include: { office: { select: { name: true } } } },
+    },
+  });
+
+  const emp = createdShift.employee as any;
+  const endSite = createdShift.escortEndSite as any;
+
+  await tx.changelog.create({
+    data: {
+      action: 'CREATE',
+      entityType: 'Shift',
+      entityId: createdShift.id,
+      actor: 'admin',
+      actorId: adminId,
+      details: {
+        kind: createdShift.kind,
+        siteName: createdShift.site.name,
+        typeName: createdShift.shiftType.name,
+        employeeName: emp ? emp.fullName : 'Unassigned',
+        date: createdShift.date,
+        startsAt: createdShift.startsAt,
+        endsAt: createdShift.endsAt,
+        requiredCheckinIntervalMins: createdShift.requiredCheckinIntervalMins,
+        status: createdShift.status,
+        note: createdShift.note,
+        siteId: createdShift.siteId,
+        shiftTypeId: createdShift.shiftTypeId,
+        employeeId: createdShift.employeeId,
+        escortEndSiteId: createdShift.escortEndSiteId,
+        escortEndSiteName: endSite ? endSite.name : undefined,
+      },
+    },
+  });
+
+  return createdShift;
+}
+
 export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, adminId: string) {
   const result = await prisma.$transaction(
-    async tx => {
-      const createdShift = await tx.shift.create({
-        data: {
-          ...data,
-          createdBy: { connect: { id: adminId } },
-          lastUpdatedBy: { connect: { id: adminId } },
-        },
-        include: {
-          site: true,
-          shiftType: true,
-          employee: { include: { office: { select: { name: true } } } },
-        },
-      });
-
-      const emp = createdShift.employee as any;
-
-      await tx.changelog.create({
-        data: {
-          action: 'CREATE',
-          entityType: 'Shift',
-          entityId: createdShift.id,
-          actor: 'admin',
-          actorId: adminId,
-          details: {
-            siteName: createdShift.site.name,
-            typeName: createdShift.shiftType.name,
-            employeeName: emp ? emp.fullName : 'Unassigned',
-            date: createdShift.date,
-            startsAt: createdShift.startsAt,
-            endsAt: createdShift.endsAt,
-            requiredCheckinIntervalMins: createdShift.requiredCheckinIntervalMins,
-            status: createdShift.status,
-            note: createdShift.note,
-            siteId: createdShift.siteId,
-            shiftTypeId: createdShift.shiftTypeId,
-            employeeId: createdShift.employeeId,
-          },
-        },
-      });
-
-      return createdShift;
-    },
+    async tx => createShiftInTransaction(tx, data, adminId),
     { timeout: 10000 }
   );
 
@@ -225,6 +240,182 @@ export async function createShiftWithChangelog(data: Prisma.ShiftCreateInput, ad
   return result;
 }
 
+export async function bulkCreateShiftsFromForm(
+  input: {
+    siteId: string;
+    shiftTypeId: string;
+    kind: 'onsite' | 'escort' | 'office_control' | 'event_temporary';
+    escortEndSiteId?: string;
+    employeeIds: string[];
+    dates: string[];
+    requiredCheckinIntervalMins: number;
+    graceMinutes: number;
+    note?: string | null;
+    groupShiftIds?: Record<string, string>;
+  },
+  adminId: string
+) {
+  const results: Awaited<ReturnType<typeof createShiftInTransaction>>[] = [];
+
+  if (input.employeeIds.length === 0) throw new Error('At least one employee is required');
+  if (input.dates.length === 0) throw new Error('At least one date is required');
+
+  const shiftType = await prisma.shiftType.findUnique({
+    where: { id: input.shiftTypeId },
+  });
+  if (!shiftType) throw new Error('Shift type not found');
+
+  const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
+  if (durationInMins % input.requiredCheckinIntervalMins !== 0) {
+    throw new Error(`Shift duration (${durationInMins} mins) must be a multiple of check-in interval (${input.requiredCheckinIntervalMins} mins)`);
+  }
+  if (durationInMins < input.requiredCheckinIntervalMins) {
+    throw new Error(`Shift duration (${durationInMins} mins) does not allow at least 1 check-in`);
+  }
+
+  if ((input.kind === 'office_control' || input.kind === 'event_temporary') && input.requiredCheckinIntervalMins !== durationInMins) {
+    throw new Error(
+      `${input.kind === 'office_control' ? 'Office control' : 'Event temporary'} shifts must have check-in interval equal to the full shift duration (${durationInMins} mins).`
+    );
+  }
+
+  // Pre-compute all planned shifts
+  type PlannedShift = { employeeId: string; dateStr: string; startsAt: Date; endsAt: Date };
+  const planned: PlannedShift[] = [];
+  const seenKeys = new Set<string>();
+
+  let minStartsAt: Date | null = null;
+  let maxEndsAt: Date | null = null;
+
+  for (const empId of input.employeeIds) {
+    for (const dateStr of input.dates) {
+      const pairKey = `${empId}::${dateStr}`;
+      if (seenKeys.has(pairKey)) {
+        throw new Error(`Duplicate employee/date pair (${empId}, ${dateStr}) in the input.`);
+      }
+      seenKeys.add(pairKey);
+
+      const startDateTime = parseShiftTypeTimeOnDate(dateStr, shiftType.startTime);
+      let endDateTime = parseShiftTypeTimeOnDate(dateStr, shiftType.endTime);
+
+      if (isBefore(endDateTime, startDateTime)) {
+        endDateTime = new Date(endDateTime.getTime() + 24 * 60 * 60 * 1000);
+      }
+
+      if (!minStartsAt || startDateTime < minStartsAt) minStartsAt = startDateTime;
+      if (!maxEndsAt || endDateTime > maxEndsAt) maxEndsAt = endDateTime;
+
+      planned.push({ employeeId: empId, dateStr, startsAt: startDateTime, endsAt: endDateTime });
+    }
+  }
+
+  // External overlap check: find existing shifts for these employees in the planned time range
+  const uniqueEmployeeIds = [...new Set(planned.map(p => p.employeeId))];
+  if (minStartsAt && maxEndsAt && uniqueEmployeeIds.length > 0) {
+    const existingShifts = await prisma.shift.findMany({
+      where: {
+        deletedAt: null,
+        employeeId: { in: uniqueEmployeeIds },
+        startsAt: { lt: maxEndsAt },
+        endsAt: { gt: minStartsAt },
+      },
+      select: { id: true, employeeId: true, startsAt: true, endsAt: true },
+    });
+
+    for (const plannedShift of planned) {
+      const conflict = existingShifts.find(
+        existing =>
+          existing.employeeId === plannedShift.employeeId &&
+          existing.startsAt.getTime() < plannedShift.endsAt.getTime() &&
+          existing.endsAt.getTime() > plannedShift.startsAt.getTime()
+      );
+      if (conflict) {
+        throw new Error(
+          `Overlap detected: employee ${plannedShift.employeeId} already has shift ${conflict.id} during ` +
+          `${plannedShift.startsAt.toISOString()} – ${plannedShift.endsAt.toISOString()}.`
+        );
+      }
+    }
+  }
+
+  // Internal overlap check: planned shifts must not overlap each other for the same employee
+  const byEmployee = new Map<string, PlannedShift[]>();
+  for (const p of planned) {
+    const list = byEmployee.get(p.employeeId) ?? [];
+    list.push(p);
+    byEmployee.set(p.employeeId, list);
+  }
+  for (const [, list] of byEmployee) {
+    const sorted = [...list].sort((a, b) => a.startsAt.getTime() - b.startsAt.getTime());
+    for (let i = 0; i < sorted.length - 1; i++) {
+      if (sorted[i].endsAt.getTime() > sorted[i + 1].startsAt.getTime()) {
+        throw new Error(
+          `Internal overlap: the planned shifts on ${sorted[i].dateStr} and ${sorted[i + 1].dateStr} for employee ` +
+          `${sorted[i].employeeId} overlap in time.`
+        );
+      }
+    }
+  }
+
+  // Transaction: create all shifts atomically
+  await prisma.$transaction(
+    async tx => {
+      for (const p of planned) {
+        const dateObj = new Date(`${p.dateStr}T00:00:00Z`);
+        const shiftData: Prisma.ShiftCreateInput = {
+          site: { connect: { id: input.siteId } },
+          shiftType: { connect: { id: input.shiftTypeId } },
+          employee: { connect: { id: p.employeeId } },
+          kind: input.kind,
+          escortEndSite: input.escortEndSiteId ? { connect: { id: input.escortEndSiteId } } : undefined,
+          date: dateObj,
+          startsAt: p.startsAt,
+          endsAt: p.endsAt,
+          requiredCheckinIntervalMins: input.requiredCheckinIntervalMins,
+          graceMinutes: input.graceMinutes,
+          note: input.note || undefined,
+          status: 'scheduled' as const,
+          groupShift: input.groupShiftIds?.[p.dateStr]
+            ? { connect: { id: input.groupShiftIds[p.dateStr] } }
+            : undefined,
+        };
+
+        const created = await createShiftInTransaction(tx, shiftData, adminId);
+        results.push(created);
+      }
+    },
+    { timeout: 30000 }
+  );
+
+  for (const result of results) {
+    if (result.employeeId) {
+      try {
+        await cancelShiftIfOverlapsApprovedLeave({ shiftId: result.id, employeeId: result.employeeId, adminId });
+
+        const dateKey = result.date.toISOString().slice(0, 10);
+        await reconcileApprovedOnsiteLeavesForCoverage({
+          employeeId: result.employeeId,
+          startDateKey: dateKey,
+          endDateKey: dateKey,
+          adminId,
+        });
+
+        await redis.xadd(
+          `employee:stream:${result.employeeId}`,
+          'MAXLEN', '~', 100, '*',
+          'type', 'shift_updated', 'shiftId', result.id
+        );
+      } catch (err) {
+        console.error(`[bulkCreateShiftsFromForm] Post-create side effect failed for shift ${result.id}:`, err);
+      }
+    }
+
+    await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_CREATED', id: result.id }));
+  }
+
+  return { created: results.length, ids: results.map(r => r.id) };
+}
+
 export const SHIFT_TRACKED_FIELDS = [
   'employeeName',
   'siteName',
@@ -244,6 +435,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
         where: { id, deletedAt: null },
         include: {
           site: true,
+          escortEndSite: { select: { id: true, name: true } },
           shiftType: true,
           employee: { include: { office: { select: { name: true } } } },
         },
@@ -261,6 +453,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
         },
         include: {
           site: true,
+          escortEndSite: { select: { id: true, name: true } },
           shiftType: true,
           employee: { include: { office: { select: { name: true } } } },
         },
@@ -272,12 +465,17 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
       const updatedEmpName = emp ? emp.fullName : 'Unassigned';
       const beforeEmpName = prevEmp ? prevEmp.fullName : 'Unassigned';
 
+      const endSite = updatedShift.escortEndSite as any;
+      const prevEndSite = beforeShift.escortEndSite as any;
+
       // Calculate changes
       const changes: Record<string, { from: any; to: any }> = {};
       const fieldsToTrack = [
         'siteId',
         'shiftTypeId',
         'employeeId',
+        'kind',
+        'escortEndSiteId',
         'date',
         'startsAt',
         'endsAt',
@@ -309,6 +507,11 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
       if (beforeShift.shiftType.name !== updatedShift.shiftType.name) {
         changes['typeName'] = { from: beforeShift.shiftType.name, to: updatedShift.shiftType.name };
       }
+      const prevEndSiteName = prevEndSite ? prevEndSite.name : null;
+      const endSiteName = endSite ? endSite.name : null;
+      if (prevEndSiteName !== endSiteName) {
+        changes['escortEndSiteName'] = { from: prevEndSiteName, to: endSiteName };
+      }
 
       await tx.changelog.create({
         data: {
@@ -318,6 +521,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
           actor: 'admin',
           actorId: adminId,
           details: {
+            kind: updatedShift.kind,
             siteName: updatedShift.site.name,
             typeName: updatedShift.shiftType.name,
             employeeName: updatedEmpName,
@@ -330,6 +534,8 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
             siteId: updatedShift.siteId,
             shiftTypeId: updatedShift.shiftTypeId,
             employeeId: updatedShift.employeeId,
+            escortEndSiteId: updatedShift.escortEndSiteId,
+            escortEndSiteName: endSite ? endSite.name : undefined,
             changes: Object.keys(changes).length > 0 ? changes : undefined,
           },
         },
@@ -374,7 +580,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
     async tx => {
       const shiftToDelete = await tx.shift.findUnique({
         where: { id, deletedAt: null },
-        include: { site: true, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
+        include: { site: true, escortEndSite: { select: { id: true, name: true } }, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
       });
 
       if (!shiftToDelete) return null;
@@ -388,6 +594,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
       });
 
       const emp = shiftToDelete.employee as any;
+      const endSite = shiftToDelete.escortEndSite as any;
 
       await tx.changelog.create({
         data: {
@@ -397,6 +604,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
           actor: 'admin',
           actorId: adminId,
           details: {
+            kind: shiftToDelete.kind,
             siteName: shiftToDelete.site.name,
             typeName: shiftToDelete.shiftType.name,
             employeeName: emp ? emp.fullName : 'Unassigned',
@@ -409,6 +617,8 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
             siteId: shiftToDelete.siteId,
             shiftTypeId: shiftToDelete.shiftTypeId,
             employeeId: shiftToDelete.employeeId,
+            escortEndSiteId: shiftToDelete.escortEndSiteId,
+            escortEndSiteName: endSite ? endSite.name : undefined,
             deletedAt: new Date(),
           },
         },
@@ -505,6 +715,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
         data: shiftsToCreate.map(s => ({ ...s, createdById: adminId, lastUpdatedById: adminId })),
         include: {
           site: { select: { name: true } },
+          escortEndSite: { select: { id: true, name: true } },
           shiftType: { select: { name: true } },
           employee: { include: { office: { select: { name: true } } } },
         },
@@ -513,6 +724,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
       await tx.changelog.createMany({
         data: results.map(s => {
           const emp = s.employee as any;
+          const endSite = s.escortEndSite as any;
           return {
             action: 'CREATE',
             entityType: 'Shift',
@@ -521,6 +733,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
             actorId: adminId,
             details: {
               method: 'BULK_UPLOAD',
+              kind: s.kind,
               siteName: s.site.name,
               typeName: s.shiftType.name,
               employeeName: emp ? emp.fullName : 'Unassigned',
@@ -533,6 +746,8 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
               siteId: s.siteId,
               shiftTypeId: s.shiftTypeId,
               employeeId: s.employeeId,
+              escortEndSiteId: s.escortEndSiteId,
+              escortEndSiteName: endSite ? endSite.name : undefined,
             },
           };
         }),
@@ -693,6 +908,7 @@ export async function processGuardShiftBulkImport(
       date: true,
       requiredCheckinIntervalMins: true,
       graceMinutes: true,
+      kind: true,
     },
   });
 
@@ -719,6 +935,7 @@ export async function processGuardShiftBulkImport(
     requiredCheckinIntervalMins: number;
     graceMinutes: number;
     note: string | null;
+    kind: 'onsite' | 'office_control';
   }> = [];
   const deleteIds = new Set<string>();
   const offDateKeysByEmployee = new Map<string, Set<string>>();
@@ -784,6 +1001,10 @@ export async function processGuardShiftBulkImport(
       continue;
     }
 
+    const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
+    const kind: 'onsite' | 'office_control' =
+      interval >= 120 && interval === durationInMins ? 'office_control' : 'onsite';
+
     const startsAt = parseShiftTypeTimeOnDate(row.date, shiftType.startTime);
     let endsAt = parseShiftTypeTimeOnDate(row.date, shiftType.endTime);
     if (endsAt.getTime() < startsAt.getTime()) {
@@ -803,7 +1024,6 @@ export async function processGuardShiftBulkImport(
     }
 
     if (existingForKey.length === 0) {
-      const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
       if (durationInMins % interval !== 0) {
         errors.push(
           `Row ${row.rowNumber}: shift duration (${durationInMins} mins) must be a multiple of interval (${interval} mins).`
@@ -826,6 +1046,7 @@ export async function processGuardShiftBulkImport(
         endsAt,
         requiredCheckinIntervalMins: interval,
         graceMinutes: grace,
+        kind,
         status: 'scheduled',
         note: row.note ?? null,
       });
@@ -843,6 +1064,10 @@ export async function processGuardShiftBulkImport(
     }
 
     const existingShift = existingForKey[0];
+    if (existingShift.kind === 'escort' || existingShift.kind === 'event_temporary') {
+      pastDatesSkipped++;
+      continue;
+    }
     updates.push({
       id: existingShift.id,
       employeeId,
@@ -854,6 +1079,7 @@ export async function processGuardShiftBulkImport(
       note: row.note ?? null,
       requiredCheckinIntervalMins: interval,
       graceMinutes: grace,
+      kind,
     });
     const existing = workingDateKeysByEmployee.get(employeeId) ?? new Set<string>();
     existing.add(row.date);
@@ -970,7 +1196,7 @@ export async function processGuardShiftBulkImport(
       if (deleteIds.size > 0) {
         const shiftsToDelete = await tx.shift.findMany({
           where: { id: { in: Array.from(deleteIds) }, deletedAt: null },
-          include: { site: true, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
+          include: { site: true, escortEndSite: { select: { id: true, name: true } }, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
         });
 
         if (shiftsToDelete.length > 0) {
@@ -983,6 +1209,7 @@ export async function processGuardShiftBulkImport(
           await tx.changelog.createMany({
             data: shiftsToDelete.map(shift => {
               const emp = shift.employee as any;
+              const endSite = shift.escortEndSite as any;
               return {
                 action: 'DELETE',
                 entityType: 'Shift',
@@ -990,6 +1217,7 @@ export async function processGuardShiftBulkImport(
                 actor: 'admin',
                 actorId: adminId,
                 details: {
+                  kind: shift.kind,
                   siteName: shift.site.name,
                   typeName: shift.shiftType.name,
                   employeeName: emp ? emp.fullName : 'Unassigned',
@@ -1002,6 +1230,8 @@ export async function processGuardShiftBulkImport(
                   siteId: shift.siteId,
                   shiftTypeId: shift.shiftTypeId,
                   employeeId: shift.employeeId,
+                  escortEndSiteId: shift.escortEndSiteId,
+                  escortEndSiteName: endSite ? endSite.name : undefined,
                   deletedAt: nowDeletedAt,
                 },
               };
@@ -1037,6 +1267,7 @@ export async function processGuardShiftBulkImport(
           where: { id: update.id, deletedAt: null },
           include: {
             site: true,
+            escortEndSite: { select: { id: true, name: true } },
             shiftType: true,
             employee: { include: { office: { select: { name: true } } } },
           },
@@ -1052,21 +1283,44 @@ export async function processGuardShiftBulkImport(
             date: update.date,
             startsAt: update.startsAt,
             endsAt: update.endsAt,
+            kind: update.kind,
             requiredCheckinIntervalMins: update.requiredCheckinIntervalMins,
             graceMinutes: update.graceMinutes,
             note: update.note,
             status: 'scheduled',
+            groupShift: { disconnect: true },
             lastUpdatedBy: { connect: { id: adminId } },
           },
           include: {
             site: true,
+            escortEndSite: { select: { id: true, name: true } },
             shiftType: true,
             employee: { include: { office: { select: { name: true } } } },
           },
         });
 
+        if (beforeShift.groupShiftId && updatedShift.employeeId) {
+          const gc = await tx.groupChat.findUnique({
+            where: { groupShiftId: beforeShift.groupShiftId },
+            include: { participants: { where: { status: 'active' } } },
+          });
+          if (gc) {
+            const participant = gc.participants.find(
+              p => p.employeeId === updatedShift.employeeId
+            );
+            if (participant) {
+              await tx.groupChatParticipant.update({
+                where: { id: participant.id },
+                data: { status: 'removed', removedAt: new Date() },
+              });
+            }
+          }
+        }
+
         const emp = updatedShift.employee as any;
         const prevEmp = beforeShift.employee as any;
+        const endSite = updatedShift.escortEndSite as any;
+        
         const updatedEmpName = emp ? emp.fullName : 'Unassigned';
         const beforeEmpName = prevEmp ? prevEmp.fullName : 'Unassigned';
         const changes: Record<string, { from: any; to: any }> = {};
@@ -1077,10 +1331,12 @@ export async function processGuardShiftBulkImport(
           'date',
           'startsAt',
           'endsAt',
+          'kind',
           'requiredCheckinIntervalMins',
           'graceMinutes',
           'status',
           'note',
+          'groupShiftId',
         ] as const;
 
         for (const field of fieldsToTrack) {
@@ -1113,6 +1369,7 @@ export async function processGuardShiftBulkImport(
             actor: 'admin',
             actorId: adminId,
             details: {
+              kind: updatedShift.kind,
               siteName: updatedShift.site.name,
               typeName: updatedShift.shiftType.name,
               employeeName: updatedEmpName,
@@ -1125,6 +1382,8 @@ export async function processGuardShiftBulkImport(
               siteId: updatedShift.siteId,
               shiftTypeId: updatedShift.shiftTypeId,
               employeeId: updatedShift.employeeId,
+              escortEndSiteId: updatedShift.escortEndSiteId,
+              escortEndSiteName: endSite ? endSite.name : undefined,
               changes: Object.keys(changes).length > 0 ? changes : undefined,
             },
           },
@@ -1146,6 +1405,7 @@ export async function processGuardShiftBulkImport(
           data: createInputs.map(row => ({ ...row, createdById: adminId, lastUpdatedById: adminId })),
           include: {
             site: { select: { name: true } },
+            escortEndSite: { select: { id: true, name: true } },
             shiftType: { select: { name: true } },
             employee: { include: { office: { select: { name: true } } } },
           },
@@ -1154,6 +1414,7 @@ export async function processGuardShiftBulkImport(
         await tx.changelog.createMany({
           data: createdRows.map(shift => {
             const emp = shift.employee as any;
+            const endSite = shift.escortEndSite as any;
             return {
               action: 'CREATE',
               entityType: 'Shift',
@@ -1162,6 +1423,7 @@ export async function processGuardShiftBulkImport(
               actorId: adminId,
               details: {
                 method: 'BULK_UPLOAD',
+                kind: shift.kind,
                 siteName: shift.site.name,
                 typeName: shift.shiftType.name,
                 employeeName: emp ? emp.fullName : 'Unassigned',
@@ -1174,6 +1436,8 @@ export async function processGuardShiftBulkImport(
                 siteId: shift.siteId,
                 shiftTypeId: shift.shiftTypeId,
                 employeeId: shift.employeeId,
+                escortEndSiteId: shift.escortEndSiteId,
+                escortEndSiteName: endSite ? endSite.name : undefined,
               },
             };
           }),
@@ -1342,6 +1606,7 @@ export async function getExportShiftsBatch(params: { where: Prisma.ShiftWhereInp
     orderBy: { id: 'asc' },
     include: {
       site: true,
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       createdBy: { select: { name: true } },
@@ -1380,6 +1645,7 @@ export async function getActiveShifts(now: Date) {
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       site: true,
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       attendance: true,
     },
   });
@@ -1544,6 +1810,7 @@ export async function getUpcomingShifts(now: Date, take = 50) {
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       site: true,
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
     },
     orderBy: {
       startsAt: 'asc',
@@ -1579,10 +1846,19 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
       ],
     },
     include: {
-      site: true,
+      site: {
+        include: {
+          posts: {
+            where: { status: true, deletedAt: null },
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+          },
+        },
+      },
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       attendance: true,
+      groupShift: { select: { id: true, flexibleEndTime: true } },
     },
     orderBy: { startsAt: 'asc' },
   });
@@ -1601,10 +1877,19 @@ export async function getEmployeeActiveAndUpcomingShifts(employeeId: string, now
     },
     take: 4,
     include: {
-      site: true,
+      site: {
+        include: {
+          posts: {
+            where: { status: true, deletedAt: null },
+            orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+          },
+        },
+      },
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       attendance: true,
+      groupShift: { select: { id: true, flexibleEndTime: true } },
     },
   });
 
@@ -1775,6 +2060,7 @@ export async function getActiveShiftsForDashboard(now: Date) {
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       site: true,
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       attendance: true,
       checkins: { orderBy: { at: 'desc' }, take: 1 },
     },
@@ -1982,4 +2268,82 @@ export async function deleteOldShiftsAndRelated(olderThan: Date) {
   }
 
   return { shifts, checkins, alerts, attendances, photoReports, changelogs, s3Keys: Array.from(s3Keys) };
+}
+
+export async function departShift(shiftId: string, employeeId: string) {
+  const shift = await prisma.shift.findUnique({ where: { id: shiftId, deletedAt: null } });
+  if (!shift) throw new Error('Shift not found');
+  if (shift.employeeId !== employeeId) throw new Error('Not assigned to this shift');
+  if (shift.status !== 'in_progress') throw new Error('Shift is not in progress');
+  if (shift.departedAt) throw new Error('Already departed');
+  if (shift.kind !== 'escort') throw new Error('Only escort shifts can depart');
+
+  return prisma.shift.update({
+    where: { id: shiftId },
+    data: { departedAt: new Date() },
+  });
+}
+
+export async function arriveShift(shiftId: string, employeeId: string) {
+  const shift = await prisma.shift.findUnique({ where: { id: shiftId, deletedAt: null } });
+  if (!shift) throw new Error('Shift not found');
+  if (shift.employeeId !== employeeId) throw new Error('Not assigned to this shift');
+  if (shift.status !== 'in_progress') throw new Error('Shift is not in progress');
+  if (!shift.departedAt) throw new Error('Must depart before arriving');
+  if (shift.arrivedAt) throw new Error('Already arrived');
+  if (shift.kind !== 'escort') throw new Error('Only escort shifts can arrive');
+
+  return prisma.shift.update({
+    where: { id: shiftId },
+    data: { arrivedAt: new Date() },
+  });
+}
+
+export async function completeShift(params: {
+  shiftId: string;
+  employeeId: string;
+  now: Date;
+  metadata: Record<string, unknown>;
+}) {
+  const { shiftId, employeeId, now, metadata } = params;
+
+  const shift = await prisma.shift.findUnique({ where: { id: shiftId, deletedAt: null } });
+  if (!shift) throw new Error('Shift not found');
+  if (shift.employeeId !== employeeId) throw new Error('Not assigned to this shift');
+  if (shift.status === 'completed') return { shift, resolvedAlerts: [] as any[] };
+  if (shift.status === 'missed' || shift.status === 'cancelled') throw new Error('Shift is already missed or cancelled');
+
+  return prisma.$transaction(async tx => {
+    try {
+      await tx.checkin.create({
+        data: {
+          shiftId,
+          employeeId,
+          status: 'on_time',
+          source: 'end_duty',
+          metadata: metadata as any,
+          at: now,
+        },
+      });
+    } catch (e: unknown) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        // Unique constraint on [shiftId, at] — another checkin at the same ms, skip
+      } else {
+        throw e;
+      }
+    }
+
+    const updatedShift = await tx.shift.update({
+      where: { id: shiftId },
+      data: {
+        status: 'completed',
+        lastHeartbeatAt: now,
+        checkInStatus: 'on_time',
+      },
+    });
+
+    const resolvedAlerts = await resolveAllOpenAlertsForShift(shiftId, tx);
+
+    return { shift: updatedShift, resolvedAlerts };
+  });
 }

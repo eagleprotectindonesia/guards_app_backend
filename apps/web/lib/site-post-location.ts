@@ -57,13 +57,25 @@ type SiteWithPostsLike = LegacySiteLike & {
 };
 
 type MatchedSiteLocation = {
-  type: 'post' | 'legacy_site';
+  type: 'post' | 'legacy_site' | 'escort_end';
   id: string | null;
   name: string;
   latitude: number;
   longitude: number;
   distanceMeters: number;
 };
+
+export function isEndOfShiftWindow(
+  now: Date,
+  endsAt: Date,
+  intervalMins: number,
+  graceMins: number
+): boolean {
+  const lateWindowMs = (intervalMins + graceMins) * 60000;
+  const lateWindowStart = endsAt.getTime() - lateWindowMs;
+  const nowMs = now.getTime();
+  return nowMs >= lateWindowStart;
+}
 
 type CandidateSiteLocation = Omit<MatchedSiteLocation, 'distanceMeters'>;
 
@@ -72,16 +84,17 @@ export function findNearestAllowedSiteLocation(params: {
   employeeLocation: LatLng;
   maxDistanceMeters: number;
   calculateDistance: (lat1: number, lng1: number, lat2: number, lng2: number) => number;
+  extraCandidates?: CandidateSiteLocation[];
 }): {
   matchedLocation: MatchedSiteLocation | null;
   nearestLocation: MatchedSiteLocation | null;
 } {
-  const { site, employeeLocation, maxDistanceMeters, calculateDistance } = params;
+  const { site, employeeLocation, maxDistanceMeters, calculateDistance, extraCandidates } = params;
 
   const activePosts = (site.posts ?? []).filter(post => post.status !== false && !post.deletedAt);
 
-  const candidates: CandidateSiteLocation[] =
-    activePosts.length > 0
+  const candidates: CandidateSiteLocation[] = [
+    ...(activePosts.length > 0
       ? activePosts.map(post => ({
           type: 'post' as const,
           id: post.id,
@@ -99,7 +112,9 @@ export function findNearestAllowedSiteLocation(params: {
               longitude: site.longitude,
             },
           ]
-        : [];
+        : []),
+    ...(extraCandidates ?? []),
+  ];
 
   if (candidates.length === 0) {
     return { matchedLocation: null, nearestLocation: null };
@@ -209,7 +224,7 @@ export function getNearestActivePunchTarget(
 export type AttendanceMetadata = {
   location?: { lat?: number; lng?: number };
   matchedLocation?: {
-    type?: 'post' | 'legacy_site';
+    type?: 'post' | 'legacy_site' | 'escort_end';
     id?: string | null;
     name?: string;
     distanceMeters?: number;

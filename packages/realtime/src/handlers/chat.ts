@@ -1,7 +1,7 @@
 import { redis } from '@repo/database/redis';
 import { finalizeMessageDraft, saveMessage, markAsReadForEmployee, markAsReadForAdmin } from '../data-access/chat';
 import { UnifiedServer, UnifiedSocket } from '../socket';
-import { ChatMessage } from '@repo/types';
+import { ChatMessage, GroupChatMessage } from '@repo/types';
 import { sendChatPushNotification } from '../fcm';
 import {
   listGroupMembers,
@@ -34,13 +34,15 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
     }
   })();
 
-  socket.on('send_message', async data => {
+  socket.on('send_message', async (data, callback) => {
     try {
       if (auth.type === 'admin' && !hasChatCreate) {
+        callback?.({ success: false, error: 'Forbidden' });
         return socket.emit('error', { message: 'Forbidden' });
       }
       const targetId = data.employeeId || data.guardId;
       if (data.attachments && data.attachments.length > 4) {
+        callback?.({ success: false, error: 'Max 4 attachments' });
         return socket.emit('error', { message: 'Max 4 attachments' });
       }
 
@@ -63,11 +65,15 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
               latitude: data.latitude,
               longitude: data.longitude,
             })) as unknown as ChatMessage;
+        callback?.({ success: true, message: msg });
         io.to('admin').to(`employee:${auth.id}`).emit('new_message', msg);
       } else if (auth.type === 'admin' && targetId) {
         const lockKey = `chat_lock:${targetId}`;
         const lockedBy = await redis.get(lockKey);
-        if (lockedBy && lockedBy !== auth.id) return socket.emit('error', { message: 'Locked by another admin' });
+        if (lockedBy && lockedBy !== auth.id) {
+          callback?.({ success: false, error: 'Locked by another admin' });
+          return socket.emit('error', { message: 'Locked by another admin' });
+        }
 
         await redis.set(lockKey, auth.id, 'EX', 120);
         io.to('admin').emit('conversation_locked', {
@@ -96,6 +102,7 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
               latitude: data.latitude,
               longitude: data.longitude,
             })) as unknown as ChatMessage;
+        callback?.({ success: true, message: msg });
         io.to(`employee:${targetId}`).to('admin').emit('new_message', msg);
 
         const sockets = await io.in(`employee:${targetId}`).fetchSockets();
@@ -110,6 +117,7 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
       }
     } catch (err) {
       console.error('Send Message Error:', err);
+      callback?.({ success: false, error: 'Failed to send' });
       if (
         typeof err === 'object' &&
         err !== null &&
@@ -188,12 +196,14 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
     }
   });
 
-  socket.on('group_send_message', async data => {
+  socket.on('group_send_message', async (data, callback) => {
     try {
       if (auth.type === 'admin' && !hasChatCreate) {
+        callback?.({ success: false, error: 'Forbidden' });
         return socket.emit('error', { message: 'Forbidden' });
       }
       if (data.attachments && data.attachments.length > 4) {
+        callback?.({ success: false, error: 'Max 4 attachments' });
         return socket.emit('error', { message: 'Max 4 attachments' });
       }
 
@@ -256,8 +266,11 @@ export function registerChatHandlers(io: UnifiedServer, socket: UnifiedSocket) {
           messageId: groupMessageMeta.id,
         });
       }
+
+      callback?.({ success: true, message: payload as unknown as GroupChatMessage });
     } catch (err) {
       console.error('Group Send Message Error:', err);
+      callback?.({ success: false, error: 'Failed to send' });
       socket.emit('error', { message: 'Failed to send' });
     }
   });

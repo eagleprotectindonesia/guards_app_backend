@@ -78,7 +78,6 @@ const ICON_SVG: Record<string, string> = {
   pin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
 };
 
-const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 type SitesMapViewProps = {
   sites: MapSite[];
@@ -104,7 +103,6 @@ export function SitesMapView({
   canEditSite,
   selectedTab,
   onNavigate,
-  now,
   className = '',
   onMarkerSelect,
   onMarkerDeselect,

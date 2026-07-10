@@ -28,7 +28,10 @@ import {
   SHIFT_PHOTO_REPORT_QUEUE_NAME,
   SHIFT_PHOTO_REPORT_JOB_NAME,
   SHIFT_PHOTO_REPORT_CLEAN_JOB_NAME,
+  GROUP_CHAT_ARCHIVE_JOB_NAME,
   // SHIFT_ATTENDANCE_CLEAN_JOB_NAME,
+  CALENDAR_EVENT_REMINDER_QUEUE_NAME,
+  CALENDAR_EVENT_REMINDER_JOB_NAME,
 } from '@repo/database';
 
 import { createQueue, createWorker } from './infrastructure/bullmq';
@@ -41,6 +44,7 @@ import { EmployeeSyncProcessor } from './processors/employee-sync.processor';
 import { EmailProcessor } from './processors/email.processor';
 import { ShiftReminderProcessor } from './processors/shift-reminder.processor';
 import { ShiftPhotoReportProcessor } from './processors/shift-photo-report.processor';
+import { CalendarEventReminderProcessor } from './processors/calendar-event-reminder.processor';
 
 // Configuration
 const TICK_INTERVAL_MS = 5 * 1000; // 5 seconds
@@ -49,6 +53,7 @@ const OFFICE_ABSENCE_FINALIZE_INTERVAL_MS = 1 * 60 * 60 * 1000;
 const DAILY_CRON_PATTERN = '0 0 * * *'; // Every day at midnight
 const SHIFT_REMINDER_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 const SHIFT_PHOTO_REPORT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const CALENDAR_EVENT_REMINDER_INTERVAL_MS = 60 * 1000; // 1 minute
 
 async function start() {
   console.log('Starting BullMQ workers...');
@@ -62,6 +67,7 @@ async function start() {
   const emailProcessor = new EmailProcessor();
   const shiftReminderProcessor = new ShiftReminderProcessor();
   const shiftPhotoReportProcessor = new ShiftPhotoReportProcessor();
+  const calendarEventReminderProcessor = new CalendarEventReminderProcessor();
 
   // 2. Initialize Queues and Add Repeatable Jobs
   const schedulingQueue = createQueue(SCHEDULING_QUEUE_NAME);
@@ -72,6 +78,7 @@ async function start() {
   const emailQueue = createQueue(EMAIL_QUEUE_NAME);
   const shiftReminderQueue = createQueue(SHIFT_REMINDER_QUEUE_NAME);
   const shiftPhotoReportQueue = createQueue(SHIFT_PHOTO_REPORT_QUEUE_NAME);
+  const calendarEventReminderQueue = createQueue(CALENDAR_EVENT_REMINDER_QUEUE_NAME);
 
   console.log('Registering repeatable jobs...');
 
@@ -107,6 +114,16 @@ async function start() {
 
   await maintenanceQueue.add(
     SHIFT_PHOTO_REPORT_CLEAN_JOB_NAME,
+    {},
+    {
+      repeat: { pattern: DAILY_CRON_PATTERN },
+      removeOnComplete: true,
+      removeOnFail: true,
+    }
+  );
+
+  await maintenanceQueue.add(
+    GROUP_CHAT_ARCHIVE_JOB_NAME,
     {},
     {
       repeat: { pattern: DAILY_CRON_PATTERN },
@@ -165,6 +182,16 @@ async function start() {
     }
   );
 
+  await calendarEventReminderQueue.add(
+    CALENDAR_EVENT_REMINDER_JOB_NAME,
+    {},
+    {
+      repeat: { every: CALENDAR_EVENT_REMINDER_INTERVAL_MS },
+      removeOnComplete: true,
+      removeOnFail: true,
+    }
+  );
+
   // 3. Initialize Workers
   const workers = [
     createWorker(SCHEDULING_QUEUE_NAME, job => schedulingProcessor.process(job)),
@@ -175,6 +202,7 @@ async function start() {
     createWorker(EMAIL_QUEUE_NAME, job => emailProcessor.process(job)),
     createWorker(SHIFT_REMINDER_QUEUE_NAME, job => shiftReminderProcessor.process(job)),
     createWorker(SHIFT_PHOTO_REPORT_QUEUE_NAME, job => shiftPhotoReportProcessor.process(job)),
+    createWorker(CALENDAR_EVENT_REMINDER_QUEUE_NAME, job => calendarEventReminderProcessor.process(job)),
   ];
 
   console.log('All workers started.');
@@ -198,6 +226,7 @@ async function start() {
     await emailQueue.close();
     await shiftReminderQueue.close();
     await shiftPhotoReportQueue.close();
+    await calendarEventReminderQueue.close();
     await closeRedisConnections();
 
     console.log('Graceful shutdown complete.');

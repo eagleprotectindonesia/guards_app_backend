@@ -1,6 +1,8 @@
 import sharp from 'sharp';
 import {
   fetchStaticMapPng,
+  getCachedStaticMapPng,
+  getCachedTrailMapPng,
   resolveGoogleMapsApiKey,
   buildSiteBoundaryPath,
   buildTrailPath,
@@ -13,7 +15,20 @@ import {
   planMarkerPlacement,
   buildNumberedMarkersSvg,
   overlayNumberedMarkers,
+  _clearLocalCache,
 } from './static-map';
+
+jest.mock('@repo/database/redis', () => ({
+  redis: {
+    getBuffer: jest.fn(),
+    set: jest.fn(),
+  },
+}));
+
+import { redis } from '@repo/database/redis';
+
+const mockRedisGetBuffer = redis.getBuffer as jest.Mock;
+const mockRedisSet = redis.set as jest.Mock;
 
 describe('resolveGoogleMapsApiKey', () => {
   const originalKey = process.env.GOOGLE_MAPS_STATIC_API_KEY;
@@ -737,5 +752,142 @@ describe('overlayNumberedMarkers', () => {
     const meta = await sharp(out).metadata();
     expect(meta.width).toBe(640);
     expect(meta.height).toBe(480);
+  });
+});
+
+describe('getCachedStaticMapPng', () => {
+  const originalFetch = global.fetch;
+  const savedKey = process.env.GOOGLE_MAPS_STATIC_API_KEY;
+  const savedPublic = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  beforeEach(() => {
+    _clearLocalCache();
+    process.env.GOOGLE_MAPS_STATIC_API_KEY = 'test-key';
+    delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    mockRedisGetBuffer.mockReset();
+    mockRedisSet.mockReset();
+  });
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    if (savedKey === undefined) delete process.env.GOOGLE_MAPS_STATIC_API_KEY;
+    else process.env.GOOGLE_MAPS_STATIC_API_KEY = savedKey;
+    if (savedPublic === undefined) delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    else process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = savedPublic;
+  });
+
+  test('returns null for invalid coordinates', async () => {
+    const result = await getCachedStaticMapPng({ lat: NaN, lng: 0, width: 100, height: 100 });
+    expect(result).toBeNull();
+    expect(mockRedisGetBuffer).not.toHaveBeenCalled();
+  });
+
+  test('returns null for non-positive dimensions', async () => {
+    const result = await getCachedStaticMapPng({ lat: 0, lng: 0, width: 0, height: 0 });
+    expect(result).toBeNull();
+    expect(mockRedisGetBuffer).not.toHaveBeenCalled();
+  });
+
+  test('fetches from API on cache miss and stores result', async () => {
+    const fakePng = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    global.fetch = jest.fn(async () =>
+      new Response(fakePng, { status: 200, headers: { 'content-type': 'image/png' } }),
+    ) as unknown as typeof fetch;
+    mockRedisGetBuffer.mockResolvedValue(null); // Redis miss
+
+    const result = await getCachedStaticMapPng({ lat: 1, lng: 2, width: 100, height: 100 });
+
+    expect(result).toEqual(fakePng);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(mockRedisSet).toHaveBeenCalledWith(
+      expect.stringContaining('1.00000:2.00000'),
+      fakePng,
+      'EX',
+      expect.any(Number),
+    );
+  });
+
+  test('returns cached value from Redis on cache hit (no fetch)', async () => {
+    const fakePng = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    global.fetch = jest.fn(); // ensure fetch is a mock for the assertion
+    mockRedisGetBuffer.mockResolvedValue(fakePng); // Redis hit
+
+    const result = await getCachedStaticMapPng({ lat: 1, lng: 2, width: 100, height: 100 });
+
+    expect(result).toEqual(fakePng);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  test('uses in-memory cache after first fetch (no Redis call on repeat)', async () => {
+    const fakePng = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    global.fetch = jest.fn(async () =>
+      new Response(fakePng, { status: 200, headers: { 'content-type': 'image/png' } }),
+    ) as unknown as typeof fetch;
+    mockRedisGetBuffer.mockResolvedValue(null); // Redis miss on first call
+    mockRedisSet.mockResolvedValue(undefined);
+
+    const first = await getCachedStaticMapPng({ lat: 3, lng: 4, width: 100, height: 100 });
+    expect(first).toEqual(fakePng);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    const second = await getCachedStaticMapPng({ lat: 3, lng: 4, width: 100, height: 100 });
+    expect(second).toEqual(fakePng);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    // Second call should hit the in-memory cache, not Redis
+    expect(mockRedisGetBuffer).toHaveBeenCalledTimes(1);
+  });
+
+  test('dedup by rounded coords — same rounded key uses same cached result', async () => {
+    const fakePng = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+    global.fetch = jest.fn(async () =>
+      new Response(fakePng, { status: 200, headers: { 'content-type': 'image/png' } }),
+    ) as unknown as typeof fetch;
+    mockRedisGetBuffer.mockResolvedValue(null);
+    mockRedisSet.mockResolvedValue(undefined);
+
+    await getCachedStaticMapPng({ lat: -8.65581, lng: 115.21944, width: 100, height: 100, zoom: 17 });
+    await getCachedStaticMapPng({ lat: -8.655811, lng: 115.219441, width: 100, height: 100, zoom: 17 });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('getCachedTrailMapPng', () => {
+  const savedKey = process.env.GOOGLE_MAPS_STATIC_API_KEY;
+  const savedPublic = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  beforeEach(() => {
+    _clearLocalCache();
+    process.env.GOOGLE_MAPS_STATIC_API_KEY = 'test-key';
+    delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    mockRedisGetBuffer.mockReset();
+    mockRedisSet.mockReset();
+  });
+
+  afterEach(() => {
+    if (savedKey === undefined) delete process.env.GOOGLE_MAPS_STATIC_API_KEY;
+    else process.env.GOOGLE_MAPS_STATIC_API_KEY = savedKey;
+    if (savedPublic === undefined) delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    else process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = savedPublic;
+  });
+
+  test('returns null for empty trail points', async () => {
+    const result = await getCachedTrailMapPng({
+      trailPoints: [],
+      sitePosts: [],
+      width: 640,
+      height: 480,
+    }, 'shift-1');
+    expect(result).toBeNull();
+  });
+
+  test('returns null for non-positive dimensions', async () => {
+    const result = await getCachedTrailMapPng({
+      trailPoints: [{ seq: 1, latitude: 0, longitude: 0 }],
+      sitePosts: [],
+      width: 0,
+      height: 0,
+    }, 'shift-1');
+    expect(result).toBeNull();
   });
 });

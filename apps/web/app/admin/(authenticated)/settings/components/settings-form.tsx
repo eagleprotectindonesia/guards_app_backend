@@ -9,6 +9,9 @@ import { SystemSetting } from '@prisma/client';
 import type { Serialized } from '@/lib/server-utils';
 import {
   ATTENDANCE_REQUIRE_PHOTO_SETTING,
+  ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS,
+  ESCORT_GROUP_CHAT_AUTO_INCLUDE_CHAT_ADMINS,
+  HIDE_ESCORT_SITES,
   OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING,
   OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING,
   OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING,
@@ -28,7 +31,22 @@ type Props = {
   isSuperAdmin: boolean;
 };
 
-export default function SettingsForm({ settings, defaultOfficeSchedule, showDefaultOfficeSchedule, isSuperAdmin }: Props) {
+const SPECIAL_SETTING_NAMES = [
+  OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING,
+  OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING,
+  OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING,
+  ATTENDANCE_REQUIRE_PHOTO_SETTING,
+  HIDE_ESCORT_SITES,
+  ENABLE_OFFICE_ATTENDANCE_LEAVE_EFFECTS,
+  ESCORT_GROUP_CHAT_AUTO_INCLUDE_CHAT_ADMINS,
+] as const;
+
+export default function SettingsForm({
+  settings,
+  defaultOfficeSchedule,
+  showDefaultOfficeSchedule,
+  isSuperAdmin,
+}: Props) {
   const officeJobTitleMapSetting = settings.find(setting => setting.name === OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING);
   const officeAttendanceDistanceSetting = settings.find(
     setting => setting.name === OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING
@@ -39,11 +57,7 @@ export default function SettingsForm({ settings, defaultOfficeSchedule, showDefa
   const attendanceRequirePhotoSetting = settings.find(setting => setting.name === ATTENDANCE_REQUIRE_PHOTO_SETTING);
   const officeJobTitleMap = parseOfficeJobTitleCategoryMap(officeJobTitleMapSetting?.value);
   const generalSettings = settings.filter(
-    setting =>
-      setting.name !== OFFICE_JOB_TITLE_CATEGORY_MAP_SETTING &&
-      setting.name !== OFFICE_ATTENDANCE_MAX_DISTANCE_METERS_SETTING &&
-      setting.name !== OFFICE_ATTENDANCE_REQUIRE_PHOTO_SETTING &&
-      setting.name !== ATTENDANCE_REQUIRE_PHOTO_SETTING
+    setting => !SPECIAL_SETTING_NAMES.includes(setting.name as (typeof SPECIAL_SETTING_NAMES)[number])
   );
 
   const [state, formAction, isPending] = useActionState<ActionState<UpdateSettingsInput>, FormData>(updateSettings, {

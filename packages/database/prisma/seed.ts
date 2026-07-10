@@ -449,6 +449,16 @@ async function main() {
         value: '10',
         note: 'Minutes to wait after shift ends before generating auto photo report.',
       },
+      {
+        name: 'HIDE_ESCORT_SITES',
+        value: '0',
+        note: 'When enabled, escort sites are hidden from the UI and auto-created via address input (1=ON, 0=OFF).',
+      },
+      {
+        name: 'ESCORT_GROUP_CHAT_AUTO_INCLUDE_CHAT_ADMINS',
+        value: '0',
+        note: 'Auto-include all admins with chat:view permission in escort group chats. When OFF (default), only the creator is added unless the creator lacks chat:view, in which case all chat:view admins are added as a fallback. (1=ON, 0=OFF).',
+      },
     ];
 
     await Promise.all(

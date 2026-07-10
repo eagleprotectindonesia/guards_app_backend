@@ -16,6 +16,7 @@ type GroupListItem = {
     id: string;
     title: string;
     description?: string | null;
+    groupShiftId?: string | null;
     lastMessageAt?: string | null;
     lastMessageSenderName?: string | null;
     lastMessageContent?: string | null;
@@ -201,6 +202,7 @@ export function useAdminGroupChat(options: UseAdminGroupChatOptions = {}) {
         id: item.group.id,
         title: item.group.title,
         subtitle: item.group.description ?? undefined,
+        groupShiftId: item.group.groupShiftId ?? null,
         unreadCount: item.participant.unreadCount,
         isMuted: false,
         isArchived: false,

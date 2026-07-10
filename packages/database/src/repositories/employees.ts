@@ -19,7 +19,7 @@ import {
   serializeOfficeJobTitleCategoryMap,
 } from './employee-office-config';
 import { updateSystemSettingWithChangelog } from './settings';
-import { computeAnnualLeaveEntitledDays, getAnnualLeaveEligibilityDate } from './annual-leave-policy';
+import { computeAnnualLeaveEntitledDays } from './annual-leave-policy';
 
 const LAST_EMPLOYEE_SYNC_KEY = 'employee:sync:last_timestamp';
 const LAST_EMPLOYEE_SYNC_DUPLICATE_WARNING_KEY = 'employee:sync:last_duplicate_warning';
@@ -104,11 +104,6 @@ function parseExternalDateOfJoining(raw: string | null | undefined): Date | null
   const parsed = new Date(raw);
   if (Number.isNaN(parsed.getTime())) return null;
   return parsed;
-}
-
-function isAnnualLeaveEligibleByDateOfJoining(dateOfJoining: Date, referenceDate = new Date()) {
-  const eligibilityDate = getAnnualLeaveEligibilityDate(dateOfJoining);
-  return eligibilityDate.getTime() <= referenceDate.getTime();
 }
 
 function normalizeToDate(value: Date | string | null | undefined): Date | null {
@@ -1382,4 +1377,21 @@ export async function getUpcomingBirthdays(now = new Date()): Promise<UpcomingBi
   results.sort((a, b) => a.daysUntil - b.daysUntil);
 
   return results.slice(0, 20);
+}
+
+export async function searchEmployeesByName(q: string, excludeId?: string) {
+  return prisma.employee.findMany({
+    where: {
+      deletedAt: null,
+      ...(excludeId ? { id: { not: excludeId } } : {}),
+      OR: [
+        { fullName: { contains: q, mode: 'insensitive' } },
+        { employeeNumber: { contains: q, mode: 'insensitive' } },
+        { nickname: { contains: q, mode: 'insensitive' } },
+      ],
+    },
+    select: { id: true, fullName: true, employeeNumber: true, nickname: true },
+    take: 25,
+    orderBy: { fullName: 'asc' },
+  });
 }

@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { getInitialNotification, getMessaging, onMessage, onNotificationOpenedApp } from '@react-native-firebase/messaging';
+import {
+  getInitialNotification,
+  getMessaging,
+  onMessage,
+  onNotificationOpenedApp,
+} from '@react-native-firebase/messaging';
 import notifee from '@notifee/react-native';
 import { Linking, Platform } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,10 +13,7 @@ import { registerFcmToken, requestUserPermission, setupTokenRefreshListener } fr
 import { useCustomToast } from './useCustomToast';
 import { usePathname, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import {
-  clearDisplayedChatNotifications,
-  ensureChatNotificationChannel,
-} from '../utils/chatNotifications';
+import { clearDisplayedChatNotifications, ensureChatNotificationChannel } from '../utils/chatNotifications';
 
 export function usePushNotifications() {
   const { user } = useAuth();
@@ -105,6 +107,16 @@ export function usePushNotifications() {
       }
       if (initialNotification?.data?.type === 'leave_request_status_changed') {
         router.push('/leave-requests');
+        return;
+      }
+      if (
+        initialNotification?.data?.type === 'calendar_event_tagged' ||
+        initialNotification?.data?.type === 'calendar_event_reminder'
+      ) {
+        const eventId = initialNotification.data.eventId;
+        if (eventId) {
+          router.push(`/calendar/events/${eventId}/detail`);
+        }
       }
     });
 
@@ -127,8 +139,21 @@ export function usePushNotifications() {
               : 'Your shift starts in less than 30 minutes.',
           status: 'info',
         });
+      } else if (data.type === 'calendar_event_tagged') {
+        showToast({
+          title: 'Calendar Event',
+          description: `You've been tagged in "${data.eventTitle ?? 'an event'}"`,
+          status: 'info',
+        });
+      } else if (data.type === 'calendar_event_reminder') {
+        showToast({
+          title: 'Event Reminder',
+          description: data.eventTitle ? `"${data.eventTitle}" is starting soon` : 'An event is starting soon',
+          status: 'info',
+        });
       } else {
-        const senderName = typeof data.senderName === 'string' && data.senderName.trim() ? data.senderName : 'Eagle Protect';
+        const senderName =
+          typeof data.senderName === 'string' && data.senderName.trim() ? data.senderName : 'Eagle Protect';
         const messagePreview = typeof data.messagePreview === 'string' ? data.messagePreview.trim() : '';
 
         showToast({
@@ -151,6 +176,16 @@ export function usePushNotifications() {
       }
       if (remoteMessage.data?.type === 'leave_request_status_changed') {
         router.push('/leave-requests');
+        return;
+      }
+      if (
+        remoteMessage.data?.type === 'calendar_event_tagged' ||
+        remoteMessage.data?.type === 'calendar_event_reminder'
+      ) {
+        const eventId = remoteMessage.data.eventId;
+        if (eventId) {
+          router.push(`/calendar/events/${eventId}/detail`);
+        }
       }
     });
 

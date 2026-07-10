@@ -5,11 +5,12 @@ import type { Serialized } from '@/lib/server-utils';
 import { createSite, updateSite } from '../actions';
 import { ActionState } from '@/types/actions';
 import { CreateSiteInput } from '@repo/validations';
-import { startTransition, useActionState, useEffect, useState, useCallback, useRef } from 'react';
+import { startTransition, useActionState, useEffect, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { APIProvider, Map, Marker, useMapsLibrary, MapMouseEvent, useMap } from '@vis.gl/react-google-maps';
 import { Site } from '@prisma/client';
 import { useAdminRouter } from '../../context/admin-router';
+import AddressAutocompleteInput from '@/components/address-autocomplete-input';
 
 type SitePostFormValue = {
   id?: string;
@@ -23,6 +24,7 @@ type SitePostFormValue = {
 type Props = {
   site?: Serialized<Site & { posts?: SitePostFormValue[] }>;
   isMonitoringEnabled?: boolean;
+  hideEscortSites?: boolean;
 };
 
 // MapUpdater component to update map position externally
@@ -116,55 +118,7 @@ function MapComponent({
   );
 }
 
-function PostAddressAutocompleteInput({
-  value,
-  onFocus,
-  onChange,
-  onPlaceSelect,
-}: {
-  value: string;
-  onFocus: () => void;
-  onChange: (value: string) => void;
-  onPlaceSelect: (address: string, lat: number, lng: number) => void;
-}) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const placesLib = useMapsLibrary('places');
-
-  useEffect(() => {
-    if (!placesLib || !inputRef.current) return;
-
-    const autocomplete = new placesLib.Autocomplete(inputRef.current, {
-      fields: ['geometry', 'formatted_address', 'name'],
-      types: ['establishment', 'geocode'],
-    });
-
-    const listener = autocomplete.addListener('place_changed', () => {
-      const place = autocomplete.getPlace();
-      if (!place.geometry?.location) return;
-      const lat = place.geometry.location.lat();
-      const lng = place.geometry.location.lng();
-      const address = place.formatted_address || place.name || '';
-      onPlaceSelect(address, lat, lng);
-    });
-
-    return () => {
-      google.maps.event.removeListener(listener);
-    };
-  }, [placesLib, onPlaceSelect]);
-
-  return (
-    <input
-      ref={inputRef}
-      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
-      value={value}
-      onFocus={onFocus}
-      onChange={e => onChange(e.target.value)}
-      placeholder="Address"
-    />
-  );
-}
-
-export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
+export default function SiteForm({ site, isMonitoringEnabled = true, hideEscortSites = false }: Props) {
   const router = useAdminRouter();
   const [state, formAction, isPending] = useActionState<ActionState<CreateSiteInput>, FormData>(
     site ? updateSite.bind(null, site.id) : createSite,
@@ -177,10 +131,11 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
   const [currentLongitude, setCurrentLongitude] = useState(site?.longitude || defaultPosition.lng);
   const [selectedPostIndex, setSelectedPostIndex] = useState(0);
   const [pendingFocusPostIndex, setPendingFocusPostIndex] = useState<number | null>(null);
+  const [kind, setKind] = useState<'fixed' | 'escort'>(site?.kind || 'fixed');
   const [posts, setPosts] = useState<SitePostFormValue[]>(
     site?.posts && site.posts.length > 0
       ? site.posts.map((p, idx) => ({ ...p, sortOrder: p.sortOrder ?? idx }))
-      : [{ name: 'Main Post', address: '', latitude: null, longitude: null, sortOrder: 0 }]
+      : [{ name: kind === 'escort' ? 'Escort End' : 'Main Post', address: '', latitude: null, longitude: null, sortOrder: 0 }]
   );
 
   const focusPost = useCallback((index: number) => {
@@ -212,12 +167,55 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
     );
   }, [selectedPostIndex]);
 
+  const handleKindChange = (newKind: 'fixed' | 'escort') => {
+    setKind(newKind);
+    if (newKind === 'escort' && posts.length > 1) {
+      setPosts([posts[0]]);
+      setSelectedPostIndex(0);
+    }
+  };
+
   return (
     <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''}>
       <div className="bg-card rounded-xl shadow-sm border border-border p-6 max-w-6xl mx-auto">
         <h1 className="text-2xl font-bold text-foreground mb-6">{site ? 'Edit Site' : 'Create New Site'}</h1>
         <form action={formAction} className="space-y-6">
           <input type="hidden" name="postsPayload" value={JSON.stringify(posts)} />
+
+          {/* Kind Field */}
+          <div>
+            <label className="block font-medium text-foreground mb-2">Site Type</label>
+            <div className="flex items-center gap-6">
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="kind"
+                  value="fixed"
+                  checked={kind === 'fixed'}
+                  onChange={() => handleKindChange('fixed')}
+                  className="text-red-600 focus:ring-red-600"
+                />
+                <span className="ml-2 text-foreground text-sm">Fixed</span>
+              </label>
+              {!hideEscortSites && (
+                <label className="inline-flex items-center cursor-pointer">
+                  <input
+                    type="radio"
+                    name="kind"
+                    value="escort"
+                    checked={kind === 'escort'}
+                    onChange={() => handleKindChange('escort')}
+                    className="text-red-600 focus:ring-red-600"
+                  />
+                  <span className="ml-2 text-foreground text-sm">Escort</span>
+                </label>
+              )}
+            </div>
+            {state.errors?.kind && (
+              <p className="text-red-500 text-xs mt-1">{state.errors.kind[0]}</p>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Name Field */}
             <div>
@@ -305,131 +303,185 @@ export default function SiteForm({ site, isMonitoringEnabled = true }: Props) {
             )}
           </div>
 
-          {/* Posts */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <label className="block font-medium text-foreground">Site Posts</label>
-              <button
-                type="button"
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-secondary/50 hover:bg-secondary text-foreground text-sm font-medium transition-colors"
-                onClick={() =>
-                  setPosts(prev => {
-                    const nextIndex = prev.length;
-                    setSelectedPostIndex(nextIndex);
-                    setPendingFocusPostIndex(nextIndex);
-                    return [
-                      ...prev,
-                      {
-                        name: `Post ${prev.length + 1}`,
-                        address: '',
-                        latitude: null,
-                        longitude: null,
-                        sortOrder: prev.length,
-                      },
-                    ];
-                  })
-                }
-              >
-                <Plus className="w-4 h-4" />
-                Add Post
-              </button>
-            </div>
-            {posts.map((post, idx) => (
-              <div
-                key={post.id || idx}
-                className={`grid grid-cols-1 md:grid-cols-12 gap-3 p-4 border rounded-xl transition-all ${
-                  selectedPostIndex === idx
-                    ? 'border-red-500 bg-red-50/5 dark:bg-red-500/5 shadow-sm shadow-red-500/10'
-                    : 'border-border bg-card'
-                }`}
-              >
-                <div className="md:col-span-2">
-                  <input
-                    ref={
-                      pendingFocusPostIndex === idx
-                        ? element => {
-                            if (!element) return;
-                            element.focus();
-                            setPendingFocusPostIndex(null);
-                          }
-                        : undefined
-                    }
-                    className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
-                    value={post.name || ''}
-                    onFocus={() => focusPost(idx)}
-                    onChange={e =>
-                      setPosts(prev => prev.map((p, i) => (i === idx ? { ...p, name: e.target.value } : p)))
-                    }
-                    placeholder="Post Name"
-                  />
+          {/* Posts (fixed) or Escort End Location (escort) */}
+          {kind === 'fixed' ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="block font-medium text-foreground">Site Posts</label>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-secondary/50 hover:bg-secondary text-foreground text-sm font-medium transition-colors"
+                  onClick={() =>
+                    setPosts(prev => {
+                      const nextIndex = prev.length;
+                      setSelectedPostIndex(nextIndex);
+                      setPendingFocusPostIndex(nextIndex);
+                      return [
+                        ...prev,
+                        {
+                          name: `Post ${prev.length + 1}`,
+                          address: '',
+                          latitude: null,
+                          longitude: null,
+                          sortOrder: prev.length,
+                        },
+                      ];
+                    })
+                  }
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Post
+                </button>
+              </div>
+              {posts.map((post, idx) => (
+                <div
+                  key={post.id || idx}
+                  className={`grid grid-cols-1 md:grid-cols-12 gap-3 p-4 border rounded-xl transition-all ${
+                    selectedPostIndex === idx
+                      ? 'border-red-500 bg-red-50/5 dark:bg-red-500/5 shadow-sm shadow-red-500/10'
+                      : 'border-border bg-card'
+                  }`}
+                >
+                  <div className="md:col-span-2">
+                    <input
+                      ref={
+                        pendingFocusPostIndex === idx
+                          ? element => {
+                              if (!element) return;
+                              element.focus();
+                              setPendingFocusPostIndex(null);
+                            }
+                          : undefined
+                      }
+                      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
+                      value={post.name || ''}
+                      onFocus={() => focusPost(idx)}
+                      onChange={e =>
+                        setPosts(prev => prev.map((p, i) => (i === idx ? { ...p, name: e.target.value } : p)))
+                      }
+                      placeholder="Post Name"
+                    />
+                  </div>
+                  <div className="md:col-span-5">
+                    <AddressAutocompleteInput
+                      value={post.address || ''}
+                      onFocus={() => focusPost(idx)}
+                      onChange={nextValue =>
+                        setPosts(prev => prev.map((p, i) => (i === idx ? { ...p, address: nextValue } : p)))
+                      }
+                      onPlaceSelect={(address, lat, lng) => {
+                        setSelectedPostIndex(idx);
+                        setCurrentAddress(address);
+                        setCurrentLatitude(lat);
+                        setCurrentLongitude(lng);
+                        setPosts(prev =>
+                          prev.map((p, i) => (i === idx ? { ...p, address, latitude: lat, longitude: lng } : p))
+                        );
+                      }}
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <input
+                      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
+                      type="number"
+                      value={post.latitude ?? ''}
+                      onFocus={() => focusPost(idx)}
+                      onChange={e =>
+                        setPosts(prev =>
+                          prev.map((p, i) => (i === idx ? { ...p, latitude: e.target.value === '' ? null : Number(e.target.value) } : p))
+                        )
+                      }
+                      placeholder="Latitude"
+                    />
+                  </div>
+                  <div className="md:col-span-2">
+                    <input
+                      className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
+                      type="number"
+                      value={post.longitude ?? ''}
+                      onFocus={() => focusPost(idx)}
+                      onChange={e =>
+                        setPosts(prev =>
+                          prev.map((p, i) => (i === idx ? { ...p, longitude: e.target.value === '' ? null : Number(e.target.value) } : p))
+                        )
+                      }
+                      placeholder="Longitude"
+                    />
+                  </div>
+                  <div className="md:col-span-1 flex items-center justify-end">
+                    <button
+                      type="button"
+                      className="p-2 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors flex-shrink-0"
+                      title="Remove Post"
+                      onClick={() => {
+                        if (posts.length <= 1) return;
+                        setPosts(prev => prev.filter((_, i) => i !== idx));
+                        setSelectedPostIndex(prevSelected => {
+                          if (idx < prevSelected) return prevSelected - 1;
+                          if (idx === prevSelected) return Math.max(0, prevSelected - 1);
+                          return prevSelected;
+                        });
+                      }}
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
+              ))}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <label className="block font-medium text-foreground">Escort End Location</label>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-3 p-4 border rounded-xl border-red-500 bg-red-50/5 dark:bg-red-500/5">
                 <div className="md:col-span-5">
-                  <PostAddressAutocompleteInput
-                    value={post.address || ''}
-                    onFocus={() => focusPost(idx)}
+                  <AddressAutocompleteInput
+                    value={posts[0]?.address || ''}
+                    onFocus={() => focusPost(0)}
                     onChange={nextValue =>
-                      setPosts(prev => prev.map((p, i) => (i === idx ? { ...p, address: nextValue } : p)))
+                      setPosts(prev => prev.map((p, i) => (i === 0 ? { ...p, address: nextValue } : p)))
                     }
                     onPlaceSelect={(address, lat, lng) => {
-                      setSelectedPostIndex(idx);
+                      setSelectedPostIndex(0);
                       setCurrentAddress(address);
                       setCurrentLatitude(lat);
                       setCurrentLongitude(lng);
                       setPosts(prev =>
-                        prev.map((p, i) => (i === idx ? { ...p, address, latitude: lat, longitude: lng } : p))
+                        prev.map((p, i) => (i === 0 ? { ...p, address, latitude: lat, longitude: lng } : p))
                       );
                     }}
                   />
                 </div>
-                <div className="md:col-span-2">
+                <div className="md:col-span-3">
                   <input
                     className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
                     type="number"
-                    value={post.latitude ?? ''}
-                    onFocus={() => focusPost(idx)}
+                    value={posts[0]?.latitude ?? ''}
                     onChange={e =>
                       setPosts(prev =>
-                        prev.map((p, i) => (i === idx ? { ...p, latitude: e.target.value === '' ? null : Number(e.target.value) } : p))
+                        prev.map((p, i) => (i === 0 ? { ...p, latitude: e.target.value === '' ? null : Number(e.target.value) } : p))
                       )
                     }
                     placeholder="Latitude"
                   />
                 </div>
-                <div className="md:col-span-2">
+                <div className="md:col-span-3">
                   <input
                     className="w-full h-10 px-3 rounded-lg border border-border bg-background text-foreground focus:border-red-500 focus:ring-2 focus:ring-red-500/20 outline-none transition-all text-sm"
                     type="number"
-                    value={post.longitude ?? ''}
-                    onFocus={() => focusPost(idx)}
+                    value={posts[0]?.longitude ?? ''}
                     onChange={e =>
                       setPosts(prev =>
-                        prev.map((p, i) => (i === idx ? { ...p, longitude: e.target.value === '' ? null : Number(e.target.value) } : p))
+                        prev.map((p, i) => (i === 0 ? { ...p, longitude: e.target.value === '' ? null : Number(e.target.value) } : p))
                       )
                     }
                     placeholder="Longitude"
                   />
                 </div>
-                <div className="md:col-span-1 flex items-center justify-end">
-                  <button
-                    type="button"
-                    className="p-2 text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors flex-shrink-0"
-                    title="Remove Post"
-                    onClick={() => {
-                      if (posts.length <= 1) return;
-                      setPosts(prev => prev.filter((_, i) => i !== idx));
-                      setSelectedPostIndex(prevSelected => {
-                        if (idx < prevSelected) return prevSelected - 1;
-                        if (idx === prevSelected) return Math.max(0, prevSelected - 1);
-                        return prevSelected;
-                      });
-                    }}
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
               </div>
-            ))}
-          </div>
+            </div>
+          )}
 
           {/* Map Integration */}
           <div>

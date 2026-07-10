@@ -1,9 +1,21 @@
 import { firebaseAdmin } from './firebase-admin';
 import { getEmployeeFcmTokens, removeStaleFcmTokens } from '@repo/database';
 
+export type CalendarEventTagNotificationReason = 'firebase_unavailable' | 'no_tokens' | 'sent' | 'send_error';
+
+export type CalendarEventTagPushNotificationResult = {
+  attempted: boolean;
+  tokenCount: number;
+  successCount: number;
+  failureCount: number;
+  staleTokenCount: number;
+  reason: CalendarEventTagNotificationReason;
+};
+
 const CHAT_NOTIFICATION_CHANNEL_ID = 'chat_messages_v2';
 const GROUP_CHAT_NOTIFICATION_CHANNEL_ID = 'group_chat_messages_v1';
 const LEAVE_NOTIFICATION_CHANNEL_ID = 'leave_updates_v1';
+const CALENDAR_NOTIFICATION_CHANNEL_ID = 'calendar_events_v1';
 const WEB_APP_URL = process.env.WEB_APP_URL || 'http://localhost:3000';
 
 export type ChatPushNotificationReason = 'firebase_unavailable' | 'no_tokens' | 'sent' | 'send_error';
@@ -39,6 +51,7 @@ export type GroupChatPushNotificationResult = {
 
 const maskToken = (token: string) => (token.length <= 8 ? token : token.slice(-8));
 
+// eslint-disable-next-line no-unused-vars
 type ChatUnreadCountProvider = (params: { employeeId: string; isAdmin: boolean }) => Promise<number>;
 
 let getUnreadCountProvider: ChatUnreadCountProvider | null = null;
@@ -619,3 +632,249 @@ export async function sendTicketCreatedPushNotification(params: {
   }
 }
 
+export async function sendCalendarEventTagPushNotification(params: {
+  employeeId: string;
+  eventTitle: string;
+  eventId: string;
+  taggedByName: string;
+  title?: string;
+  body?: string;
+}): Promise<CalendarEventTagPushNotificationResult> {
+  const { employeeId, eventTitle, eventId, taggedByName } = params;
+
+  if (!firebaseAdmin.apps.length) {
+    console.warn('[FCM] Calendar event tag push skipped: Firebase Admin SDK not initialized', {
+      employeeId,
+      eventId,
+    });
+    return {
+      attempted: false,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      staleTokenCount: 0,
+      reason: 'firebase_unavailable',
+    };
+  }
+
+  try {
+    const tokensResult = await getEmployeeFcmTokens(employeeId);
+    if (tokensResult.length === 0) {
+      console.info('[FCM] Calendar event tag push skipped: no registered tokens', {
+        employeeId,
+        eventId,
+      });
+      return {
+        attempted: false,
+        tokenCount: 0,
+        successCount: 0,
+        failureCount: 0,
+        staleTokenCount: 0,
+        reason: 'no_tokens',
+      };
+    }
+
+    const tokenStrings = tokensResult.map(t => t.token);
+    const title = params.title ?? "You've been tagged in an event";
+    const body = params.body ?? `${taggedByName} tagged you in "${eventTitle}"`;
+    const androidNotification = {
+      title,
+      body,
+      channelId: CALENDAR_NOTIFICATION_CHANNEL_ID,
+      sound: 'default',
+    };
+    const message = {
+      notification: { title, body },
+      android: {
+        priority: 'high' as const,
+        notification: androidNotification,
+      },
+      apns: {
+        headers: { 'apns-priority': '10' },
+        payload: {
+          aps: {
+            alert: { title, body },
+            sound: 'default',
+            'content-available': 1,
+          },
+        },
+      },
+      data: {
+        type: 'calendar_event_tagged',
+        eventId: String(eventId),
+        eventTitle,
+        taggedByName,
+        targetPath: `/calendar/events/${eventId}/detail`,
+      },
+      webpush: {
+        fcmOptions: {
+          link: `${WEB_APP_URL}/employee/calendar?eventId=${eventId}`,
+        },
+      },
+      tokens: tokenStrings,
+    };
+
+    console.info('[FCM] Sending calendar event tag push notification', {
+      employeeId,
+      eventId,
+      tokenCount: tokenStrings.length,
+    });
+
+    const response = await firebaseAdmin.messaging().sendEachForMulticast(message);
+    console.info('[FCM] Calendar event tag push send result', {
+      employeeId,
+      eventId,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+    });
+
+    let staleTokenCount = 0;
+    if (response.failureCount > 0) {
+      const failedTokens: string[] = [];
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          const errorCode = resp.error?.code;
+          if (
+            errorCode === 'messaging/invalid-registration-token' ||
+            errorCode === 'messaging/registration-token-not-registered'
+          ) {
+            failedTokens.push(tokenStrings[idx]);
+          }
+        }
+      });
+
+      if (failedTokens.length > 0) {
+        staleTokenCount = failedTokens.length;
+        await removeStaleFcmTokens(failedTokens);
+        console.warn('[FCM] Removed stale FCM tokens after calendar event tag push', {
+          employeeId,
+          eventId,
+          staleTokenCount,
+        });
+      }
+    }
+
+    return {
+      attempted: true,
+      tokenCount: tokenStrings.length,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+      staleTokenCount,
+      reason: 'sent',
+    };
+  } catch (error) {
+    console.error(`[FCM] Error sending calendar event tag push notification to employee ${employeeId}:`, error);
+    return {
+      attempted: true,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      staleTokenCount: 0,
+      reason: 'send_error',
+    };
+  }
+}
+
+export async function sendCalendarEventReminderPushNotification(params: {
+  employeeId: string;
+  eventTitle: string;
+  eventId: string;
+  minutesBefore: number;
+  title?: string;
+  body?: string;
+}): Promise<CalendarEventTagPushNotificationResult> {
+  const { employeeId, eventTitle, eventId, minutesBefore } = params;
+
+  if (!firebaseAdmin.apps.length) {
+    console.warn('[FCM] Calendar event reminder push skipped: Firebase Admin SDK not initialized', {
+      employeeId,
+      eventId,
+    });
+    return {
+      attempted: false,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      staleTokenCount: 0,
+      reason: 'firebase_unavailable',
+    };
+  }
+
+  try {
+    const tokensResult = await getEmployeeFcmTokens(employeeId);
+    if (tokensResult.length === 0) {
+      return {
+        attempted: false,
+        tokenCount: 0,
+        successCount: 0,
+        failureCount: 0,
+        staleTokenCount: 0,
+        reason: 'no_tokens',
+      };
+    }
+
+    const tokenStrings = tokensResult.map(t => t.token);
+    const title = params.title ?? `Reminder: ${eventTitle}`;
+    const body = params.body ?? `Your event "${eventTitle}" starts in ${minutesBefore} minute(s)`;
+
+    const message = {
+      notification: { title, body },
+      android: {
+        priority: 'high' as const,
+        notification: { title, body, channelId: CALENDAR_NOTIFICATION_CHANNEL_ID, sound: 'default' },
+      },
+      apns: {
+        headers: { 'apns-priority': '10' },
+        payload: { aps: { alert: { title, body }, sound: 'default', 'content-available': 1 } },
+      },
+      data: {
+        type: 'calendar_event_reminder',
+        eventId: String(eventId),
+        eventTitle,
+        targetPath: `/calendar/events/${eventId}/detail`,
+      },
+      tokens: tokenStrings,
+    };
+
+    const response = await firebaseAdmin.messaging().sendEachForMulticast(message);
+
+    let staleTokenCount = 0;
+    if (response.failureCount > 0) {
+      const failedTokens: string[] = [];
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          const errorCode = resp.error?.code;
+          if (
+            errorCode === 'messaging/invalid-registration-token' ||
+            errorCode === 'messaging/registration-token-not-registered'
+          ) {
+            failedTokens.push(tokenStrings[idx]);
+          }
+        }
+      });
+      if (failedTokens.length > 0) {
+        staleTokenCount = failedTokens.length;
+        await removeStaleFcmTokens(failedTokens);
+      }
+    }
+
+    return {
+      attempted: true,
+      tokenCount: tokenStrings.length,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+      staleTokenCount,
+      reason: 'sent',
+    };
+  } catch (error) {
+    console.error(`[FCM] Error sending calendar event reminder push to employee ${employeeId}:`, error);
+    return {
+      attempted: true,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      staleTokenCount: 0,
+      reason: 'send_error',
+    };
+  }
+}

@@ -17,6 +17,7 @@ export const queryKeys = {
     inbox: ['chat', 'inbox'] as const,
     groupList: ['chat', 'groups'] as const,
     groupMessages: (groupId?: string) => ['chat', 'group-messages', groupId] as const,
+    groupMetadata: (groupId: string) => ['chat', 'group-metadata', groupId] as const,
   },
   leaveRequests: {
     list: ['leave-requests'] as const,
@@ -26,5 +27,12 @@ export const queryKeys = {
   },
   tickets: {
     list: ['tickets'] as const,
+  },
+  calendar: {
+    list: (from: string, to: string) => ['calendar', from, to] as const,
+    item: (type: string, id: string) => ['calendar', 'item', type, id] as const,
+  },
+  users: {
+    search: (query: string) => ['users', 'search', query] as const,
   },
 };

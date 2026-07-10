@@ -12,9 +12,10 @@ export default async function EditSitePage({ params }: { params: Promise<{ id: s
   await requirePermission(PERMISSIONS.SITES.EDIT);
   const { id } = await params;
 
-  const [site, monitoringSetting] = await Promise.all([
+  const [site, monitoringSetting, hideEscortSetting] = await Promise.all([
     getSiteByIdWithPosts(id),
-    getSystemSetting('ENABLE_LOCATION_MONITORING')
+    getSystemSetting('ENABLE_LOCATION_MONITORING'),
+    getSystemSetting('HIDE_ESCORT_SITES'),
   ]);
 
   if (!site) {
@@ -23,10 +24,11 @@ export default async function EditSitePage({ params }: { params: Promise<{ id: s
 
   const serializedSite = serialize(site);
   const isMonitoringEnabled = monitoringSetting?.value === '1';
+  const hideEscortSites = hideEscortSetting?.value === '1';
 
   return (
     <div className="max-w-6xl mx-auto py-8">
-      <SiteForm site={serializedSite} isMonitoringEnabled={isMonitoringEnabled} />
+      <SiteForm site={serializedSite} isMonitoringEnabled={isMonitoringEnabled} hideEscortSites={hideEscortSites} />
     </div>
   );
 }

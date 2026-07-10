@@ -175,3 +175,18 @@ export async function deleteAdminWithChangelog(id: string, deleterId: string) {
     { timeout: 5000 }
   );
 }
+
+export async function searchAdminsByName(q: string) {
+  return prisma.admin.findMany({
+    where: {
+      deletedAt: null,
+      OR: [
+        { name: { contains: q, mode: 'insensitive' } },
+        { email: { contains: q, mode: 'insensitive' } },
+      ],
+    },
+    select: { id: true, name: true, email: true },
+    take: 15,
+    orderBy: { name: 'asc' },
+  });
+}

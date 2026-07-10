@@ -24,6 +24,7 @@ type CachedShift = Shift & {
   shiftType: ShiftType;
   employee: EmployeeWithRelations | null;
   site: Site;
+  escortEndSite: { id: string; name: string; address: string | null; latitude: number | null; longitude: number | null } | null;
   attendance: Attendance | null;
   lastAttentionIndexSent?: number;
 };
@@ -42,6 +43,9 @@ type BroadcastedShift = {
   status: string;
   missedCount: number;
   attendance: Attendance | null;
+  kind: string;
+  escortEndSiteId: string | null;
+  escortEndSiteName: string | null;
 };
 
 export class SchedulingProcessor {
@@ -493,6 +497,9 @@ export class SchedulingProcessor {
         status: shift.status,
         missedCount: shift.missedCount,
         attendance: shift.attendance,
+        kind: shift.kind,
+        escortEndSiteId: shift.escortEndSiteId,
+        escortEndSiteName: shift.escortEndSite?.name ?? null,
       });
     }
 

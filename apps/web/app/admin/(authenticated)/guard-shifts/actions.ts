@@ -1,12 +1,12 @@
 'use server';
 
-import { prisma } from '@repo/database';
+import { prisma, addGroupMembers, createGroupChat, findGroupChatByGroupShiftId, getSystemSetting, removeGroupMember, unarchiveGroupChat, upsertGroupShift, deleteGroupShiftIfOrphaned, createSiteWithPostsAndChangelog, updateSiteWithChangelog } from '@repo/database';
 import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
-import { isBefore } from 'date-fns';
-import { ShiftStatus } from '@prisma/client';
-import { parseShiftTypeTimeOnDate } from '@repo/shared';
-import { getAdminIdFromToken } from '@/lib/admin-auth';
+import { format, isBefore, subMinutes } from 'date-fns';
+import { ShiftStatus, Prisma } from '@prisma/client';
+import { parseShiftTypeTimeOnDate, ESCORT_GROUP_CHAT_AUTO_INCLUDE_CHAT_ADMINS } from '@repo/shared';
+import { getAdminAuthSession, getAdminIdFromToken } from '@/lib/admin-auth';
 import { parse as parseCsv } from 'csv-parse/sync';
 import {
   checkOverlappingShift,
@@ -14,19 +14,50 @@ import {
   updateShiftWithChangelog,
   deleteShiftWithChangelog,
   processGuardShiftBulkImport,
+  bulkCreateShiftsFromForm,
 } from '@repo/database';
 import { getShiftTypeDurationInMins } from '@repo/database';
 import { ActionState } from '@/types/actions';
+import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export async function createShift(
   prevState: ActionState<CreateShiftInput>,
   formData: FormData
 ): Promise<ActionState<CreateShiftInput>> {
   const adminId = await getAdminIdFromToken();
+
+  let siteId = (formData.get('siteId') as string) || '';
+  let escortEndSiteId = (formData.get('escortEndSiteId') as string) || undefined;
+  const clientName = formData.get('clientName') as string | undefined;
+  const formKind = (formData.get('kind') as string) || 'onsite';
+
+  // Auto-create start site from address input when toggled
+  if (!siteId && formData.get('startAddress')) {
+    const address = formData.get('startAddress') as string;
+    const lat = Number(formData.get('startLat'));
+    const lng = Number(formData.get('startLng'));
+    if (address && !isNaN(lat) && !isNaN(lng)) {
+      const siteKind = formKind === 'escort' ? 'escort' : 'fixed';
+      siteId = await autoCreateSiteFromAddress(siteKind, clientName, address, lat, lng, adminId, formKind);
+    }
+  }
+
+  // Auto-create escort end site from address input when toggled
+  if (!escortEndSiteId && formData.get('escortEndAddress')) {
+    const address = formData.get('escortEndAddress') as string;
+    const lat = Number(formData.get('escortEndLat'));
+    const lng = Number(formData.get('escortEndLng'));
+    if (address && !isNaN(lat) && !isNaN(lng)) {
+      escortEndSiteId = await autoCreateSiteFromAddress('escort', clientName, address, lat, lng, adminId, formKind);
+    }
+  }
+
   const validatedFields = createShiftSchema.safeParse({
-    siteId: formData.get('siteId'),
+    siteId,
     shiftTypeId: formData.get('shiftTypeId'),
     employeeId: formData.get('employeeId') || null, // Handle empty string as null
+    kind: formData.get('kind') || 'onsite',
+    escortEndSiteId,
     date: formData.get('date'),
     requiredCheckinIntervalMins: Number(formData.get('requiredCheckinIntervalMins')),
     graceMinutes: Number(formData.get('graceMinutes')),
@@ -41,7 +72,7 @@ export async function createShift(
     };
   }
 
-  const { date, shiftTypeId, siteId, employeeId, requiredCheckinIntervalMins, graceMinutes, note } =
+  const { date, shiftTypeId, employeeId, kind, requiredCheckinIntervalMins, graceMinutes, note } =
     validatedFields.data;
 
   try {
@@ -68,6 +99,13 @@ export async function createShift(
     if (durationInMins < requiredCheckinIntervalMins) {
       return {
         message: `Guard shift duration (${durationInMins} mins) must allow for at least 1 check-in slots. Please reduce the check-in interval.`,
+        success: false,
+      };
+    }
+
+    if ((kind === 'office_control' || kind === 'event_temporary') && requiredCheckinIntervalMins !== durationInMins) {
+      return {
+        message: `${kind === 'office_control' ? 'Office control' : 'Event temporary'} shifts must have check-in interval equal to the full shift duration (${durationInMins} mins).`,
         success: false,
       };
     }
@@ -107,21 +145,99 @@ export async function createShift(
       }
     }
 
-    await createShiftWithChangelog(
-      {
-        site: { connect: { id: siteId } },
-        shiftType: { connect: { id: shiftTypeId } },
-        employee: employeeId ? { connect: { id: employeeId } } : undefined,
+    // Validate site kind: start site must be fixed, escort end site must be escort
+    const [startSite, endSite] = await Promise.all([
+      prisma.site.findUnique({ where: { id: siteId }, select: { kind: true } }),
+      escortEndSiteId ? prisma.site.findUnique({ where: { id: escortEndSiteId }, select: { kind: true } }) : null,
+    ]);
+
+    if (!startSite) {
+      return { message: 'Start site not found.', success: false };
+    }
+
+    if (kind !== 'escort' && startSite.kind !== 'fixed') {
+      return { message: 'On-site shifts must use a fixed site as the start location.', success: false };
+    }
+
+    if (kind === 'escort' && startSite.kind !== 'escort') {
+      return { message: 'Escort shifts must use an escort site as the start location.', success: false };
+    }
+
+    if (escortEndSiteId) {
+      if (!endSite) {
+        return { message: 'Escort end site not found.', success: false };
+      }
+      if (endSite.kind !== 'escort') {
+        return { message: 'Escort end site must be an escort site.', success: false };
+      }
+    }
+
+    if (kind === 'escort') {
+      const groupShift = await upsertGroupShift({
+        siteId,
+        endSiteId: escortEndSiteId || null,
+        shiftTypeId,
         date: dateObj,
-        startsAt: startDateTime,
-        endsAt: endDateTime,
-        requiredCheckinIntervalMins,
-        graceMinutes,
-        note,
-        status: 'scheduled',
-      },
-      adminId
-    );
+      });
+
+      await createShiftWithChangelog(
+        {
+          site: { connect: { id: siteId } },
+          shiftType: { connect: { id: shiftTypeId } },
+          employee: employeeId ? { connect: { id: employeeId } } : undefined,
+          kind,
+          escortEndSite: escortEndSiteId ? { connect: { id: escortEndSiteId } } : undefined,
+          date: dateObj,
+          startsAt: startDateTime,
+          endsAt: endDateTime,
+          requiredCheckinIntervalMins,
+          graceMinutes,
+          note,
+          status: 'scheduled',
+          groupShift: { connect: { id: groupShift.id } },
+        },
+        adminId
+      );
+
+      if (employeeId) {
+        const groupChat = await findGroupChatByGroupShiftId(groupShift.id);
+        if (groupChat) {
+          if (groupChat.archivedAt) {
+            await unarchiveGroupChat(groupChat.id);
+          }
+          const existingMember = groupChat.participants.find(
+            p => p.employeeId === employeeId && p.status === 'active'
+          );
+          if (!existingMember) {
+            const visibleFromAt = subMinutes(startDateTime, 30);
+            await addGroupMembers({
+              groupId: groupChat.id,
+              actor: { participantType: 'admin', adminId },
+              employeeIds: [employeeId],
+              visibleFromAt,
+            });
+          }
+        }
+      }
+    } else {
+      await createShiftWithChangelog(
+        {
+          site: { connect: { id: siteId } },
+          shiftType: { connect: { id: shiftTypeId } },
+          employee: employeeId ? { connect: { id: employeeId } } : undefined,
+          kind,
+          escortEndSite: escortEndSiteId ? { connect: { id: escortEndSiteId } } : undefined,
+          date: dateObj,
+          startsAt: startDateTime,
+          endsAt: endDateTime,
+          requiredCheckinIntervalMins,
+          graceMinutes,
+          note,
+          status: 'scheduled',
+        },
+        adminId
+      );
+    }
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -140,10 +256,19 @@ export async function updateShift(
   formData: FormData
 ): Promise<ActionState<UpdateShiftInput>> {
   const adminId = await getAdminIdFromToken();
+
+  // Extract address data for potential site update (event_temporary)
+  const startAddress = formData.get('startAddress') as string | undefined;
+  const startLatRaw = formData.get('startLat') as string;
+  const startLngRaw = formData.get('startLng') as string;
+  const formClientName = formData.get('clientName') as string | undefined;
+
   const validatedFields = createShiftSchema.safeParse({
     siteId: formData.get('siteId'),
     shiftTypeId: formData.get('shiftTypeId'),
     employeeId: formData.get('employeeId') || null,
+    kind: formData.get('kind') || 'onsite',
+    escortEndSiteId: formData.get('escortEndSiteId') || undefined,
     date: formData.get('date'),
     requiredCheckinIntervalMins: Number(formData.get('requiredCheckinIntervalMins')),
     graceMinutes: Number(formData.get('graceMinutes')),
@@ -158,7 +283,7 @@ export async function updateShift(
     };
   }
 
-  const { date, shiftTypeId, siteId, employeeId, requiredCheckinIntervalMins, graceMinutes, note } =
+  const { date, shiftTypeId, siteId, employeeId, kind, escortEndSiteId, requiredCheckinIntervalMins, graceMinutes, note } =
     validatedFields.data;
 
   try {
@@ -181,6 +306,13 @@ export async function updateShift(
     if (durationInMins < requiredCheckinIntervalMins) {
       return {
         message: `Guard shift duration (${durationInMins} mins) must allow for at least 1 check-in slots. Please reduce the check-in interval.`,
+        success: false,
+      };
+    }
+
+    if ((kind === 'office_control' || kind === 'event_temporary') && requiredCheckinIntervalMins !== durationInMins) {
+      return {
+        message: `${kind === 'office_control' ? 'Office control' : 'Event temporary'} shifts must have check-in interval equal to the full shift duration (${durationInMins} mins).`,
         success: false,
       };
     }
@@ -210,12 +342,78 @@ export async function updateShift(
       }
     }
 
+    // Validate site kind
+    const [startSite, endSite] = await Promise.all([
+      prisma.site.findUnique({ where: { id: siteId }, select: { kind: true } }),
+      escortEndSiteId ? prisma.site.findUnique({ where: { id: escortEndSiteId }, select: { kind: true } }) : null,
+    ]);
+
+    if (!startSite) {
+      return { message: 'Start site not found.', success: false };
+    }
+
+    if (kind !== 'escort' && startSite.kind !== 'fixed') {
+      return { message: 'On-site shifts must use a fixed site as the start location.', success: false };
+    }
+
+    if (kind === 'escort' && startSite.kind !== 'escort') {
+      return { message: 'Escort shifts must use an escort site as the start location.', success: false };
+    }
+
+    if (escortEndSiteId) {
+      if (!endSite) {
+        return { message: 'Escort end site not found.', success: false };
+      }
+      if (endSite.kind !== 'escort') {
+        return { message: 'Escort end site must be an escort site.', success: false };
+      }
+    }
+
+    // Capture current shift state for group chat sync on reassignment
+    const existingShift = await prisma.shift.findUnique({
+      where: { id },
+      select: { employeeId: true, groupShiftId: true, kind: true, startsAt: true },
+    });
+    const oldEmployeeId = existingShift?.employeeId ?? null;
+    const oldGroupShiftId = existingShift?.groupShiftId ?? null;
+    const oldKind = existingShift?.kind;
+
+    // Update existing site address when provided (event_temporary edit)
+    if (siteId && startAddress && startLatRaw && startLngRaw) {
+      const lat = Number(startLatRaw);
+      const lng = Number(startLngRaw);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        const baseName = formClientName?.trim()
+          ? `Site: ${formClientName.trim()}`
+          : `Site: ${startAddress.substring(0, 30)}`;
+        let siteName = baseName;
+        let counter = 1;
+        while (await prisma.site.findFirst({ where: { name: siteName, id: { not: siteId } } })) {
+          siteName = `${baseName} (${counter})`;
+          counter++;
+        }
+        await updateSiteWithChangelog(
+          siteId,
+          {
+            address: startAddress,
+            latitude: lat,
+            longitude: lng,
+            name: siteName,
+            clientName: formClientName || '',
+          },
+          adminId
+        );
+      }
+    }
+
     await updateShiftWithChangelog(
       id,
       {
         site: { connect: { id: siteId } },
         shiftType: { connect: { id: shiftTypeId } },
         employee: employeeId ? { connect: { id: employeeId } } : { disconnect: true },
+        kind,
+        escortEndSite: escortEndSiteId ? { connect: { id: escortEndSiteId } } : { disconnect: true },
         date: dateObj,
         startsAt: startDateTime,
         endsAt: endDateTime,
@@ -225,6 +423,41 @@ export async function updateShift(
       },
       adminId
     );
+
+    // Sync group chat membership on employee reassignment for group escort shifts
+    if (oldKind === 'escort' && oldGroupShiftId && (employeeId ?? null) !== oldEmployeeId) {
+      const groupChat = await findGroupChatByGroupShiftId(oldGroupShiftId);
+      if (groupChat) {
+        if (groupChat.archivedAt) {
+          await unarchiveGroupChat(groupChat.id);
+        }
+        if (oldEmployeeId) {
+          const oldPart = groupChat.participants.find(
+            p => p.employeeId === oldEmployeeId && p.status === 'active'
+          );
+          if (oldPart) {
+            await removeGroupMember({
+              groupId: groupChat.id,
+              actor: { participantType: 'admin', adminId },
+              participantId: oldPart.id,
+            });
+          }
+        }
+        if (employeeId) {
+          const newPart = groupChat.participants.find(
+            p => p.employeeId === employeeId && p.status === 'active'
+          );
+          if (!newPart) {
+            await addGroupMembers({
+              groupId: groupChat.id,
+              actor: { participantType: 'admin', adminId },
+              employeeIds: [employeeId],
+              visibleFromAt: subMinutes(startDateTime, 30),
+            });
+          }
+        }
+      }
+    }
   } catch (error) {
     console.error('Database Error:', error);
     return {
@@ -240,8 +473,38 @@ export async function updateShift(
 export async function deleteShift(id: string) {
   try {
     const adminId = await getAdminIdFromToken();
+    const shift = await prisma.shift.findUnique({
+      where: { id, deletedAt: null },
+      select: { kind: true, employeeId: true, groupShiftId: true },
+    });
+
+    const groupShiftId = shift?.groupShiftId;
+
+    // Remove from group chat before mutating the shift
+    if (shift?.kind === 'escort' && shift.employeeId && groupShiftId) {
+      const group = await findGroupChatByGroupShiftId(groupShiftId);
+      if (group) {
+        const participant = group.participants.find(
+          p => p.employeeId === shift.employeeId && p.status === 'active'
+        );
+        if (participant) {
+          await removeGroupMember({
+            groupId: group.id,
+            actor: { participantType: 'admin', adminId },
+            participantId: participant.id,
+          });
+        }
+      }
+    }
+
     await deleteShiftWithChangelog(id, adminId);
+
+    if (groupShiftId) {
+      await deleteGroupShiftIfOrphaned(groupShiftId);
+    }
+
     revalidatePath('/admin/guard-shifts');
+
     return { success: true };
   } catch (error) {
     console.error('Database Error:', error);
@@ -253,10 +516,9 @@ export async function cancelShift(id: string, cancelNote?: string) {
   try {
     const adminId = await getAdminIdFromToken();
 
-    // Validate that the shift exists and is in_progress
     const shift = await prisma.shift.findUnique({
       where: { id, deletedAt: null },
-      select: { status: true, note: true },
+      select: { status: true, note: true, kind: true, employeeId: true, groupShiftId: true },
     });
 
     if (!shift) {
@@ -274,8 +536,26 @@ export async function cancelShift(id: string, cancelNote?: string) {
       updatedNote = updatedNote ? `${formattedCancelNote}\n\n${updatedNote}` : formattedCancelNote;
     }
 
+    // Remove from group chat before mutating the shift
+    if (shift.kind === 'escort' && shift.employeeId && shift.groupShiftId) {
+      const group = await findGroupChatByGroupShiftId(shift.groupShiftId);
+      if (group) {
+        const participant = group.participants.find(
+          p => p.employeeId === shift.employeeId && p.status === 'active'
+        );
+        if (participant) {
+          await removeGroupMember({
+            groupId: group.id,
+            actor: { participantType: 'admin', adminId },
+            participantId: participant.id,
+          });
+        }
+      }
+    }
+
     await updateShiftWithChangelog(id, { status: ShiftStatus.cancelled, note: updatedNote }, adminId);
     revalidatePath('/admin/guard-shifts');
+
     return { success: true };
   } catch (error) {
     console.error('Database Error:', error);
@@ -417,4 +697,238 @@ export async function bulkCreateShifts(
     success: true,
     message: messages.join('; ') || 'No changes made.',
   };
+}
+
+type BulkCreateFromFormInput = {
+  kind: 'onsite' | 'escort' | 'office_control' | 'event_temporary';
+  siteId: string;
+  startAddress?: string;
+  startLat?: number;
+  startLng?: number;
+  escortEndSiteId?: string;
+  escortEndAddress?: string;
+  escortEndLat?: number;
+  escortEndLng?: number;
+  shiftTypeId: string;
+  employeeIds: string[];
+  dates: string[];
+  requiredCheckinIntervalMins: number;
+  graceMinutes: number;
+  note?: string | null;
+  autoCreateChatRoom?: boolean;
+  overwrite?: boolean;
+  clientName?: string;
+  leadGuardId?: string;
+  flexibleEndTime?: boolean;
+};
+
+async function autoCreateSiteFromAddress(
+  kind: 'fixed' | 'escort',
+  clientName: string | undefined,
+  address: string,
+  lat: number,
+  lng: number,
+  adminId: string,
+  shiftKind?: string
+): Promise<string> {
+  const prefix = kind === 'fixed' ? (shiftKind === 'event_temporary' ? 'Event' : 'Site') : 'Escort';
+  const baseName = clientName?.trim() ? `${prefix}: ${clientName.trim()}` : `${prefix}: ${address.substring(0, 30)}`;
+  let name = baseName;
+  let counter = 1;
+  while (await prisma.site.findUnique({ where: { name } })) {
+    name = `${baseName} (${counter})`;
+    counter++;
+  }
+  const site = await createSiteWithPostsAndChangelog(
+    {
+      name,
+      clientName: clientName || '',
+      kind,
+      status: true,
+      address,
+      latitude: lat,
+      longitude: lng,
+      geofenceRadius: 100,
+    } as Prisma.SiteCreateInput,
+    [{ name: kind === 'fixed' ? 'Main Post' : 'Escort End', address, latitude: lat, longitude: lng, sortOrder: 0 }],
+    adminId
+  );
+  return site.id;
+}
+
+export async function bulkCreateShiftsFromFormAction(
+  input: BulkCreateFromFormInput
+): Promise<{ success: boolean; message: string; created?: number; ids?: string[]; groupIds?: string[] }> {
+  const adminId = await getAdminIdFromToken();
+
+  if (input.employeeIds.length === 0) {
+    return { success: false, message: 'At least one employee is required.' };
+  }
+  if (input.dates.length === 0) {
+    return { success: false, message: 'At least one date is required.' };
+  }
+
+  let finalSiteId = input.siteId;
+  let finalEscortEndSiteId = input.escortEndSiteId;
+
+  if ((input.kind === 'escort' || input.kind === 'event_temporary') && input.startAddress && input.startLat != null && input.startLng != null) {
+    const startSiteKind = input.kind === 'escort' ? 'escort' : 'fixed';
+    finalSiteId = await autoCreateSiteFromAddress(startSiteKind, input.clientName, input.startAddress, input.startLat, input.startLng, adminId, input.kind);
+  }
+
+  if ((input.kind === 'escort' || input.kind === 'event_temporary') && !finalEscortEndSiteId && input.escortEndAddress && input.escortEndLat != null && input.escortEndLng != null) {
+    finalEscortEndSiteId = await autoCreateSiteFromAddress('escort', input.clientName, input.escortEndAddress, input.escortEndLat, input.escortEndLng, adminId, input.kind);
+  }
+
+  const [startSite, endSite, shiftType] = await Promise.all([
+    prisma.site.findUnique({ where: { id: finalSiteId }, select: { kind: true, name: true } }),
+    finalEscortEndSiteId ? prisma.site.findUnique({ where: { id: finalEscortEndSiteId }, select: { kind: true, name: true } }) : null,
+    prisma.shiftType.findUnique({ where: { id: input.shiftTypeId }, select: { startTime: true } }),
+  ]);
+
+  if (!startSite) return { success: false, message: 'Start site not found.' };
+  if (input.kind === 'escort' && startSite.kind !== 'escort') {
+    return { success: false, message: 'Escort shifts must use an escort site as the start location.' };
+  }
+  if (input.kind !== 'escort' && startSite.kind !== 'fixed') {
+    return { success: false, message: 'On-site shifts must use a fixed site as the start location.' };
+  }
+
+  if (finalEscortEndSiteId) {
+    if (!endSite) return { success: false, message: 'Escort end site not found.' };
+    if (endSite.kind !== 'escort') return { success: false, message: 'Escort end site must be an escort site.' };
+  }
+
+  try {
+    const uniqueDates = [...new Set(input.dates)].sort();
+    let groupShiftIds: Record<string, string> | undefined;
+
+    if (input.kind === 'escort') {
+      groupShiftIds = {};
+      for (const dateStr of uniqueDates) {
+        const groupShift = await upsertGroupShift({
+          siteId: finalSiteId,
+          endSiteId: finalEscortEndSiteId || null,
+          shiftTypeId: input.shiftTypeId,
+          date: new Date(dateStr + 'T00:00:00Z'),
+          clientName: input.clientName,
+          flexibleEndTime: input.flexibleEndTime,
+        });
+        groupShiftIds[dateStr] = groupShift.id;
+      }
+    }
+
+    if (input.overwrite && input.employeeIds.length > 0 && input.dates.length > 0) {
+      const dateObjs = uniqueDates.map(d => new Date(d + 'T00:00:00'));
+      const existingShifts = await prisma.shift.findMany({
+        where: { employeeId: { in: input.employeeIds }, date: { in: dateObjs }, deletedAt: null },
+        select: { id: true, kind: true, groupShiftId: true, employeeId: true },
+      });
+      const orphanedGroupShiftIds = new Set<string>();
+      for (const shift of existingShifts) {
+        await deleteShiftWithChangelog(shift.id, adminId);
+        if (shift.kind === 'escort' && shift.groupShiftId && shift.employeeId) {
+          const group = await findGroupChatByGroupShiftId(shift.groupShiftId);
+          if (group) {
+            const participant = group.participants.find(
+              p => p.employeeId === shift.employeeId && p.status === 'active'
+            );
+            if (participant) {
+              await removeGroupMember({
+                groupId: group.id,
+                actor: { participantType: 'admin', adminId },
+                participantId: participant.id,
+              });
+            }
+          }
+          orphanedGroupShiftIds.add(shift.groupShiftId);
+        }
+      }
+      for (const gsId of orphanedGroupShiftIds) {
+        await deleteGroupShiftIfOrphaned(gsId);
+      }
+    }
+
+    const result = await bulkCreateShiftsFromForm({
+      siteId: finalSiteId,
+      shiftTypeId: input.shiftTypeId,
+      kind: input.kind,
+      escortEndSiteId: finalEscortEndSiteId || undefined,
+      employeeIds: input.employeeIds,
+      dates: input.dates,
+      requiredCheckinIntervalMins: input.requiredCheckinIntervalMins,
+      graceMinutes: input.graceMinutes,
+      note: input.note,
+      groupShiftIds,
+    }, adminId);
+    revalidatePath('/admin/guard-shifts');
+
+    const groupIds: string[] = [];
+    if (input.autoCreateChatRoom && input.kind === 'escort' && groupShiftIds) {
+      const [session, broadcastSetting] = await Promise.all([
+        getAdminAuthSession(),
+        getSystemSetting(ESCORT_GROUP_CHAT_AUTO_INCLUDE_CHAT_ADMINS),
+      ]);
+      const broadcastEnabled = broadcastSetting?.value === '1';
+      const creatorHasChat =
+        !!session && (session.isSuperAdmin || session.permissions.includes(PERMISSIONS.CHAT.VIEW));
+      const shouldBroadcast = broadcastEnabled || !creatorHasChat;
+
+      let adminIds: string[] = [];
+      if (shouldBroadcast) {
+        const broadcastAdmins = await prisma.admin.findMany({
+          where: {
+            deletedAt: null,
+            roleRef: {
+              is: {
+                permissions: { some: { code: PERMISSIONS.CHAT.VIEW } },
+              },
+            },
+          },
+          select: { id: true },
+        });
+        adminIds = broadcastAdmins.map(a => a.id);
+      }
+
+      const startSiteName = startSite.name;
+      const endSiteName = endSite?.name ?? 'Destination';
+      const clientLabel = input.clientName?.trim() || `${startSiteName} → ${endSiteName}`;
+
+      for (const dateStr of uniqueDates) {
+        const title = `Escort: ${clientLabel} - ${format(new Date(dateStr + 'T00:00:00'), 'dd MMM yyyy')}`;
+        const guardCount = input.employeeIds.length;
+        const description = `Escort duty: ${startSiteName} → ${endSiteName}. ${guardCount} guard(s) assigned.`;
+
+        const startsAt = parseShiftTypeTimeOnDate(dateStr, shiftType!.startTime);
+        const visibleFromAt = subMinutes(startsAt, 30);
+
+        const group = await createGroupChat({
+          title,
+          description,
+          groupShiftId: groupShiftIds[dateStr],
+          creator: { participantType: 'admin', adminId },
+          employeeIds: input.employeeIds,
+          leadEmployeeId: input.leadGuardId,
+          adminIds,
+          adminRole: 'admin',
+          visibleFromAt,
+        });
+        groupIds.push(group.id);
+      }
+    }
+
+    return {
+      success: true,
+      message: `Created ${result.created} schedule(s) successfully.${groupIds.length > 0 ? ` Created ${groupIds.length} group chat(s).` : ''}`,
+      created: result.created,
+      ids: result.ids,
+      groupIds: groupIds.length > 0 ? groupIds : undefined,
+    };
+  } catch (error) {
+    console.error('[bulkCreateShiftsFromFormAction] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to create schedules. Please try again.',
+    };
+  }
 }

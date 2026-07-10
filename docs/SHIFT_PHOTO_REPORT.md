@@ -93,13 +93,17 @@ If any of `siteId` / `shiftId` / `reportId` is missing, the code falls back to `
 
 **Flow per shift**:
 1. Claim the shift (atomic `updateMany`).
-2. Fetch photos from direct chat (`ChatMessage` with `status='sent'`, `employeeId = shift.employeeId`, `createdAt` between shift start/end, `attachments` non-empty). Deduplicate by S3 key.
-3. Download photo buffers from S3.
-4. Create a `ShiftPhotoReport` row with `status = pending`.
-5. Generate the PDF via pdfkit (cover page + per-photo pages with captions).
-6. Upload PDF to S3.
-7. Mark report as `generated`.
-8. On any error: mark as `failed`. Resets the Shift claim to `null` if no report row was created (next tick retries).
+2. If the shift has a `groupShiftId` with a linked `GroupChat`, resolve the group chat ID.
+3. Fetch photos concurrently from:
+   - **Direct chat** (`ChatMessage` with `status='sent'`, `employeeId = shift.employeeId`, `createdAt` between shift start/end, `attachments` non-empty)
+   - **Group chat** (same filters on `GroupChatMessage` scoped to the shift's linked group, if one exists)
+   Deduplicate by S3 key across all sources.
+4. Download photo buffers from S3.
+5. Create a `ShiftPhotoReport` row with `status = pending`.
+6. Generate the PDF via pdfkit (cover page + per-photo pages with captions).
+7. Upload PDF to S3.
+8. Mark report as `generated`.
+9. On any error: mark as `failed`. Resets the Shift claim to `null` if no report row was created (next tick retries).
 
 **What statuses are scanned?**
 
@@ -117,20 +121,20 @@ All exported from `@repo/database` (`packages/database/src/repositories/shift-ph
 |---|---|---|
 | `getOnsiteShiftPhotoReportCandidates(now, graceAfterEndMins?)` | `Shift[]` | Finds `completed` shifts past `endsAt + grace` with no successful report. Includes stale-pending (>30min) and failed. Selects `site` (name, clientName, geofence fields, lat/lng), `shiftType.name`, and `attendance` (picture, recordedAt, metadata) for cover-page assembly. |
 | `claimOnsiteShiftPhotoReport(shiftId, now)` | `boolean` | Atomic `updateMany` — sets `autoPhotoReportStatus = pending`. Returns `true` if claimed (another worker didn't). |
-| `getShiftReportPhotos({ shift, attendance? })` | `ShiftPhoto[]` (see shape below) | Extracts deduped photos from the shift's attendance check-in (if present) and `ChatMessage` messages within the shift's time window. Attendance photo is first. Deduped by S3 key across both sources. Also returns `content` (chat message text) and `attendanceMatchedName` (from `attendance.metadata.matchedLocation.name`) for the per-photo evidence page. |
-| `getShiftLocationPoints({ shiftId, employeeId, startsAt, endsAt })` | `ShiftLocationSources` | Returns `{ attendancePoint, checkinPoints, chatPoints }` sourced from `Attendance.metadata.location` (nested `{lat, lng}`), `Checkin.metadata` (flat `{latitude, longitude}`), and `ChatMessage` (flat columns). The structured shape lets the resolver apply different first/last selection rules per source. |
+| `getShiftReportPhotos({ shift, attendance?, groupChatId? })` | `ShiftPhoto[]` (see shape below) | Extracts deduped photos from the shift's attendance check-in (if present), `ChatMessage` (direct chat) messages within the shift's time window, and optionally `GroupChatMessage` (group chat) when `groupChatId` is provided. Attendance photo is first. Deduped by S3 key across all sources. Also returns `content` (chat message text) and `attendanceMatchedName` (from `attendance.metadata.matchedLocation.name`) for the per-photo evidence page. |
+| `getShiftLocationPoints({ shiftId, employeeId, startsAt, endsAt, groupChatId? })` | `ShiftLocationSources` | Returns `{ attendancePoint, checkinPoints, chatPoints }` sourced from `Attendance.metadata.location` (nested `{lat, lng}`), `Checkin.metadata` (flat `{latitude, longitude}`), `ChatMessage` (flat columns), and optionally `GroupChatMessage` (merged into `chatPoints` when `groupChatId` is provided). The structured shape lets the resolver apply different first/last selection rules per source. |
 | `resetShiftPhotoReportClaim(shiftId)` | `boolean` | Resets `autoPhotoReportStatus` to `null` for crash recovery (when error occurs before report row is created). |
 
 `ShiftPhoto` (return type of `getShiftReportPhotos`):
 
 | Field | Type | Notes |
-|---|---|---|
-| `messageId` | `string` | `"attendance"` for the attendance photo, otherwise the `ChatMessage.id` |
+|---|---|---|---|
+| `messageId` | `string` | `"attendance"` for the attendance photo, otherwise the `ChatMessage.id` or `GroupChatMessage.id` |
 | `s3Key` | `string` | S3 object key (used for dedupe and download) |
-| `createdAt` | `Date` | Source timestamp (attendance `recordedAt` or `ChatMessage.createdAt`) |
+| `createdAt` | `Date` | Source timestamp (attendance `recordedAt`, `ChatMessage.createdAt`, or `GroupChatMessage.createdAt`) |
 | `latitude` | `number \| null` | `null` for the attendance photo |
 | `longitude` | `number \| null` | `null` for the attendance photo |
-| `content` | `string \| null` | Trimmed `ChatMessage.content` (always `null` for the attendance photo). Surfaced as the "Remarks" field on the per-photo page. |
+| `content` | `string \| null` | Trimmed `ChatMessage.content` or `GroupChatMessage.content` (always `null` for the attendance photo). Surfaced as the "Remarks" field on the per-photo page. |
 | `attendanceMatchedName` | `string \| null` | Parsed from `attendance.metadata.matchedLocation.name`. Non-null only for the attendance photo. Used as a fallback for the "Location Name" when the post can't be derived from coordinates. |
 
 ### Lifecycle (worker use)
@@ -247,7 +251,7 @@ Two sources are combined (deduped by S3 key):
 If the shift has an `Attendance` row with a non-null `picture` (the guard's check-in selfie uploaded from the mobile app), that photo is included as the **first page** of the PDF.
 
 ### 2. Direct chat photos
-Only **direct chat** (1:1 admin↔employee) photos are collected. The query filters:
+**Direct chat** (1:1 admin↔employee) photos are always collected. The query filters:
 
 ```sql
 ChatMessage WHERE
@@ -257,11 +261,23 @@ ChatMessage WHERE
   AND attachments IS NOT EMPTY
 ```
 
-Each chat message also carries `latitude` and `longitude` columns. When the mobile app sends an image during an active shift, it captures the guard's current location and attaches it to the message. These coordinates are threaded through the worker → PDF pipeline and rendered as a clickable Google Maps link in the photo caption.
+### 3. Group chat photos
+If the shift belongs to a **Group Shift** (`groupShiftId` is non-null) and that group shift has a linked **Group Chat**, photos sent by the same guard in that group chat are also collected:
 
-Deduplication is by S3 key across both sources. If the same S3 key is also found in a chat attachment, it is rendered only once (at the attendance position).
+```sql
+GroupChatMessage WHERE
+  groupId = <resolved group chat id>
+  AND employeeId = shift.employeeId
+  AND status = 'sent'
+  AND createdAt BETWEEN shift.startsAt AND shift.endsAt
+  AND attachments IS NOT EMPTY
+```
 
-**Group chat is not scanned.**
+Group chat messages that lack a direct `employeeId` (e.g. messages sent by admins) are not included — only messages authored by the shift's assigned guard.
+
+Each chat message (direct or group) also carries `latitude` and `longitude` columns. When the mobile app sends an image during an active shift, it captures the guard's current location and attaches it to the message. These coordinates are threaded through the worker → PDF pipeline and rendered as a clickable Google Maps link in the photo caption.
+
+Deduplication is by S3 key across all sources. If the same S3 key appears in attendance, direct chat, and group chat, it is rendered only once (at the attendance position).
 
 ## PDF Output
 
@@ -380,6 +396,25 @@ Pure helpers used by the processor to derive the cover-page location section:
 
 All timestamps in the PDF are converted from UTC to `Asia/Makassar (WITA, UTC+8)` for display. The label `WITA` is appended to formatted date/time strings. This is hard-coded in the PDF generator.
 
+## Map Cache
+
+To minimise Google Static Maps API costs, the per-photo and trail-map fetches use a two-level cache:
+
+| Layer | Scope | Key | TTL |
+|---|---|---|---|
+| **In-memory** (per-process, LRU capped at 500) | Dedup within the same PDF generation and across ticks in the same worker process | Same as Redis key | Process lifetime |
+| **Redis** (cross-process, shared across workers) | Dedup across worker instances, regen runs, and nearby shifts | `shiftphoto:map:static:v2:{lat5}:{lng5}:z{zoom}:{w}x{h}` or `shiftphoto:map:trail:v2:{shiftId}:z{zoom}:{w}x{h}` | 30 days (configurable via `SHIFT_PHOTO_MAP_CACHE_TTL_SECONDS`) |
+
+- Per-photo coordinates are **rounded to 5 decimal places** (~1.1 m at the equator) before keying. Multiple photos from the same spot collapse into one API call.
+- `null` results (e.g. bad coords) are cached with a 1-hour TTL so a transient error doesn't trigger repeated fetches.
+- **TTLs differ by map type**:
+  - Per-photo static maps: **30 days** (bounded key space, converges quickly). Configurable via `SHIFT_PHOTO_MAP_CACHE_TTL_SECONDS`.
+  - Trail maps: **7 days** (per-shiftId, grows linearly with completed shifts). Configurable via `SHIFT_PHOTO_TRAIL_MAP_CACHE_TTL_SECONDS`.
+- Setting `SHIFT_PHOTO_MAP_CACHE_TTL_SECONDS=0` disables the Redis cache (in-memory cache still works).
+- Cache is **best-effort**: Redis errors are logged and the fetch proceeds normally. A cache failure never blocks report generation.
+
+Implementation in `apps/worker/src/lib/shift-photo-report/map-cache.ts`. The cached wrappers `getCachedStaticMapPng` and `getCachedTrailMapPng` are in `static-map.ts`.
+
 ## Key Files Reference
 
 | File | Purpose |
@@ -392,7 +427,8 @@ All timestamps in the PDF are converted from UTC to `Asia/Makassar (WITA, UTC+8)
 | `apps/worker/src/lib/shift-photo-report/generate.ts` | PDF generator (cover page, evidence card photo pages, chrome) |
 | `apps/worker/src/lib/shift-photo-report/aggregate.ts` | Pure helpers (haversine, nearest SitePost, first/last, geofence summary, per-photo geofence + location name, location trail, bbox/zoom math) |
 | `apps/worker/src/lib/shift-photo-report/fetch-photos.ts` | S3 photo downloader (passes through enriched fields: `locationName`, `geofenceStatus`, `chatContent`, `attendanceMatchedName`, `uploadedAt`) |
-| `apps/worker/src/lib/shift-photo-report/static-map.ts` | Google Static Maps PNG fetcher — per-photo (5s timeout) and trail map (boundary + polyline + numbered waypoints); falls back to `null` on error |
+| `apps/worker/src/lib/shift-photo-report/static-map.ts` | Google Static Maps PNG fetcher — per-photo (5s timeout) and trail map (boundary + polyline + numbered waypoints); falls back to `null` on error. Also exports `getCachedStaticMapPng` / `getCachedTrailMapPng` (two-level cache wrappers) |
+| `apps/worker/src/lib/shift-photo-report/map-cache.ts` | Two-level map cache: in-memory LRU + Redis. Key builders, TTL config, best-effort error handling |
 | `apps/worker/src/assets/eagle-protect-logo.png` | Logo (placeholder) |
 | `apps/web/lib/data-access/shift-photo-reports.ts` | `getReportById` wrapper (used by the download REST route) |
 | `apps/web/app/api/admin/shift-photo-reports/[id]/route.ts` | Download REST endpoint |

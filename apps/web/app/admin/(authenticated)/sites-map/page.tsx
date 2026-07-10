@@ -1,4 +1,4 @@
-import { getAllSites, getActiveSites } from '@repo/database';
+import { getAllSites } from '@repo/database';
 import { redis } from '@repo/database/redis';
 import { serialize } from '@/lib/server-utils';
 import { requirePermission } from '@/lib/admin-auth';

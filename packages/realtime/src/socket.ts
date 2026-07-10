@@ -14,6 +14,16 @@ export type UnifiedServer = SocketIOServer<ClientToServerEvents, ServerToClientE
 
 export type UnifiedSocket = Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
 
+let ioInstance: UnifiedServer | null = null;
+
+export function setIO(io: UnifiedServer) {
+  ioInstance = io;
+}
+
+export function getIO(): UnifiedServer | null {
+  return ioInstance;
+}
+
 /**
  * Initializes the Socket.io server with Redis adapter and unified handlers.
  */

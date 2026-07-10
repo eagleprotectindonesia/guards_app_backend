@@ -25,6 +25,7 @@ import {
   LineChart,
   type LucideIcon,
   Briefcase,
+  CalendarDays,
 } from 'lucide-react';
 import { PermissionCode } from './auth/permissions';
 import { getAdminDashboardHref, type AdminTabSlug } from './admin-tab-routing';
@@ -131,11 +132,13 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
       requiredPermission: 'checkins:view',
     },
     { name: 'Alerts', href: '/admin/alerts', icon: Bell, requiredPermission: 'alerts:view' },
+    { name: 'User Calendar', href: '/admin/calendar', icon: CalendarDays, requiredPermission: 'user-calendar:view' },
   ];
 }
 
 export function getAdminNavGroups(
   officeWorkSchedulesEnabled = true,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _activeTab: AdminTabSlug = 'guard',
   access: { hasPermission: (perm: PermissionCode) => boolean; canAccessOfficeAttendance: boolean } = {
     hasPermission: () => true,
@@ -186,6 +189,12 @@ export function getAdminNavGroups(
         byName.get('Holiday Calendar'),
         byName.get('Leave Requests'),
         byName.get('Leave Balances'),
+      ].filter(Boolean) as NavItem[],
+    },
+    {
+      label: 'Personal Management',
+      items: [
+        byName.get('User Calendar'),
       ].filter(Boolean) as NavItem[],
     },
     {

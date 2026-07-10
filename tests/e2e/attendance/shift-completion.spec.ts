@@ -207,4 +207,200 @@ test.describe('Shift Completion', () => {
     const data = await response.json();
     expect(data.error).toMatch(/completed|ended/i);
   });
+
+  test.describe('Explicit End Duty', () => {
+    test('should reject /complete before endsAt on a non-flexible shift', async ({ request }) => {
+      const prisma = getTestPrisma();
+      const setup = await createCompleteTestSetup();
+  
+      const futureEnd = new Date();
+      futureEnd.setHours(futureEnd.getHours() + 4); // ends in 4 hours
+  
+      const pastStart = new Date(futureEnd);
+      pastStart.setHours(futureEnd.getHours() - 8); // 8-hour shift, still active
+  
+      const shift = await createShift({
+        siteId: site.id,
+        shiftTypeId: setup.shiftType.id,
+        employeeId: employee.id,
+        startsAt: pastStart,
+        endsAt: futureEnd,
+        status: 'in_progress',
+        lastHeartbeatAt: new Date(),
+      });
+  
+      const response = await makeEmployeeRequest(
+        request,
+        employee,
+        'POST',
+        `/api/employee/shifts/${shift.id}/complete`,
+        {
+          data: {
+            location: { lat: site.latitude, lng: site.longitude },
+          },
+        }
+      );
+  
+      expect(response.status()).toBe(400);
+      const data = await response.json();
+      expect(data.code).toBe('too_early_to_end');
+    });
+
+    test('should complete shift via /complete and record forced checkin', async ({ request }) => {
+      const prisma = getTestPrisma();
+      const setup = await createCompleteTestSetup();
+  
+      const now = new Date();
+      const pastStart = new Date(now);
+      pastStart.setHours(now.getHours() - 4); // started 4 hours ago
+  
+      const pastEnd = new Date(now);
+      pastEnd.setHours(now.getHours() - 1); // ended 1 hour ago
+  
+      const shift = await createShift({
+        siteId: site.id,
+        shiftTypeId: setup.shiftType.id,
+        employeeId: employee.id,
+        startsAt: pastStart,
+        endsAt: pastEnd,
+        status: 'in_progress',
+        lastHeartbeatAt: pastStart,
+      });
+
+      const response = await makeEmployeeRequest(
+        request,
+        employee,
+        'POST',
+        `/api/employee/shifts/${shift.id}/complete`,
+        {
+          data: {
+            location: { lat: site.latitude, lng: site.longitude },
+          },
+        }
+      );
+
+      expect(response.status()).toBe(200);
+
+      const updatedShift = await prisma.shift.findUnique({
+        where: { id: shift.id },
+      });
+      expect(updatedShift?.status).toBe('completed');
+      expect(updatedShift?.lastHeartbeatAt).not.toBeNull();
+
+      const checkins = await prisma.checkin.findMany({
+        where: { shiftId: shift.id },
+        orderBy: { at: 'desc' },
+      });
+      expect(checkins.length).toBe(1);
+      expect(checkins[0].source).toBe('end_duty');
+      expect(checkins[0].status).toBe('on_time');
+    });
+
+    test('should auto-resolve open alerts for the shift on /complete', async ({ request }) => {
+      const prisma = getTestPrisma();
+      const setup = await createCompleteTestSetup();
+  
+      const now = new Date();
+      const pastStart = new Date(now);
+      pastStart.setHours(now.getHours() - 4);
+  
+      const pastEnd = new Date(now);
+      pastEnd.setHours(now.getHours() - 1);
+  
+      const shift = await createShift({
+        siteId: site.id,
+        shiftTypeId: setup.shiftType.id,
+        employeeId: employee.id,
+        startsAt: pastStart,
+        endsAt: pastEnd,
+        status: 'in_progress',
+        lastHeartbeatAt: pastStart,
+      });
+
+      // Create an open alert for this shift
+      await prisma.alert.create({
+        data: {
+          shiftId: shift.id,
+          siteId: site.id,
+          reason: 'missed_checkin',
+          severity: 'critical',
+          windowStart: pastStart,
+        },
+      });
+      await prisma.alert.create({
+        data: {
+          shiftId: shift.id,
+          siteId: site.id,
+          reason: 'geofence_breach',
+          severity: 'warning',
+          windowStart: pastStart,
+        },
+      });
+
+      const response = await makeEmployeeRequest(
+        request,
+        employee,
+        'POST',
+        `/api/employee/shifts/${shift.id}/complete`,
+        {
+          data: {
+            location: { lat: site.latitude, lng: site.longitude },
+          },
+        }
+      );
+
+      expect(response.status()).toBe(200);
+
+      const openAlerts = await prisma.alert.findMany({
+        where: { shiftId: shift.id, resolvedAt: null },
+      });
+      expect(openAlerts.length).toBe(0);
+
+      const resolvedAlerts = await prisma.alert.findMany({
+        where: { shiftId: shift.id, resolvedAt: { not: null } },
+      });
+      expect(resolvedAlerts.length).toBe(2);
+      expect(resolvedAlerts.every(a => a.resolutionType === 'auto')).toBe(true);
+    });
+
+    test('should be idempotent on already completed shift', async ({ request }) => {
+      const prisma = getTestPrisma();
+      const setup = await createCompleteTestSetup();
+  
+      const now = new Date();
+      const pastStart = new Date(now);
+      pastStart.setHours(now.getHours() - 4);
+  
+      const pastEnd = new Date(now);
+      pastEnd.setHours(now.getHours() - 1);
+  
+      const shift = await createShift({
+        siteId: site.id,
+        shiftTypeId: setup.shiftType.id,
+        employeeId: employee.id,
+        startsAt: pastStart,
+        endsAt: pastEnd,
+        status: 'completed',
+        lastHeartbeatAt: pastEnd,
+      });
+
+      const response = await makeEmployeeRequest(
+        request,
+        employee,
+        'POST',
+        `/api/employee/shifts/${shift.id}/complete`,
+        {
+          data: {
+            location: { lat: site.latitude, lng: site.longitude },
+          },
+        }
+      );
+
+      expect(response.status()).toBe(200);
+
+      // No extra checkin created
+      const checkins = await prisma.checkin.findMany({ where: { shiftId: shift.id } });
+      expect(checkins.length).toBe(0);
+    });
+  });
 });

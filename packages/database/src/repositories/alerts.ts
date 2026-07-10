@@ -297,3 +297,47 @@ export async function resolveAlertsByShiftAndReason(params: {
 
   return { resolvedAlerts: updatedAlerts, count: updatedAlerts.length };
 }
+
+/**
+ * Resolves all open alerts for a shift regardless of reason.
+ * Used when a shift is explicitly completed (not via last check-in).
+ */
+export async function resolveAllOpenAlertsForShift(shiftId: string, tx?: any) {
+  const client = tx || prisma;
+  const now = new Date();
+
+  const alerts = await client.alert.findMany({
+    where: {
+      shiftId,
+      resolvedAt: null,
+    },
+  });
+
+  if (alerts.length === 0) return [];
+
+  const resolvedAlerts = await Promise.all(
+    alerts.map((alert: { id: string }) =>
+      client.alert.update({
+        where: { id: alert.id },
+        data: {
+          resolvedAt: now,
+          resolutionType: 'auto',
+          resolutionNote: 'Auto-resolved: shift completed',
+        },
+        include: {
+          site: true,
+          resolverAdmin: true,
+          ackAdmin: true,
+          shift: {
+            include: {
+              employee: true,
+              shiftType: true,
+            },
+          },
+        },
+      })
+    )
+  );
+
+  return resolvedAlerts;
+}

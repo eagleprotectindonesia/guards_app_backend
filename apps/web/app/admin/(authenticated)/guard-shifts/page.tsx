@@ -5,7 +5,7 @@ import ShiftList from './components/shift-list';
 import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { getActiveSites } from '@repo/database';
+import { getActiveFixedSites } from '@repo/database';
 import { getActiveEmployeesSummary } from '@repo/database';
 import { getPaginatedShifts } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
@@ -38,6 +38,7 @@ export default async function ShiftsPage({
   const endDate = typeof resolvedSearchParams.endDate === 'string' ? resolvedSearchParams.endDate : undefined;
   const employeeId = typeof resolvedSearchParams.employeeId === 'string' ? resolvedSearchParams.employeeId : undefined;
   const siteId = typeof resolvedSearchParams.siteId === 'string' ? resolvedSearchParams.siteId : undefined;
+  const kind = typeof resolvedSearchParams.kind === 'string' ? resolvedSearchParams.kind as import('@repo/types').ShiftKind : undefined;
   const sortBy =
     typeof resolvedSearchParams.sortBy === 'string' ? resolvedSearchParams.sortBy : 'startsAt';
   const sortOrder =
@@ -55,11 +56,13 @@ export default async function ShiftsPage({
     },
     employeeId: employeeId || undefined,
     siteId: siteId || undefined,
+    kind: kind || undefined,
   };
 
   const sortFieldMap: Record<string, Prisma.ShiftOrderByWithRelationInput> = {
     startsAt: { startsAt: sortOrder },
     status: { status: sortOrder },
+    kind: { kind: sortOrder },
     site: { site: { name: sortOrder } },
     shiftType: { shiftType: { name: sortOrder } },
     employee: { employee: { fullName: sortOrder } },
@@ -74,6 +77,7 @@ export default async function ShiftsPage({
     take: perPage,
     include: {
       site: true,
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
       shiftType: true,
       employee: true,
       attendance: true,
@@ -82,7 +86,7 @@ export default async function ShiftsPage({
     },
   });
 
-  const sites = await getActiveSites();
+  const sites = await getActiveFixedSites();
   const shiftTypes = await prisma.shiftType.findMany({ orderBy: { name: 'asc' } });
   const employees = await getActiveEmployeesSummary('on_site');
 
@@ -91,6 +95,8 @@ export default async function ShiftsPage({
     siteId: shift.siteId,
     shiftTypeId: shift.shiftTypeId,
     employeeId: shift.employeeId,
+    kind: shift.kind,
+    escortEndSiteId: shift.escortEndSiteId,
     date: shift.date.toISOString(),
     startsAt: shift.startsAt.toISOString(),
     endsAt: shift.endsAt.toISOString(),
@@ -110,9 +116,22 @@ export default async function ShiftsPage({
       address: shift.site.address,
       latitude: shift.site.latitude,
       longitude: shift.site.longitude,
+      kind: shift.site.kind,
       status: shift.site.status,
       note: shift.site.note,
     },
+    escortEndSite: shift.escortEndSite
+      ? {
+          id: shift.escortEndSite.id,
+          name: shift.escortEndSite.name,
+          address: shift.escortEndSite.address,
+          latitude: shift.escortEndSite.latitude,
+          longitude: shift.escortEndSite.longitude,
+          kind: 'escort',
+          status: null,
+          note: null,
+        }
+      : null,
     shiftType: {
       id: shift.shiftType.id,
       name: shift.shiftType.name,
@@ -162,6 +181,7 @@ export default async function ShiftsPage({
           endDate={endDate}
           employeeId={employeeId}
           siteId={siteId}
+          kind={kind}
           sortBy={sortBy}
           sortOrder={sortOrder}
           page={page}

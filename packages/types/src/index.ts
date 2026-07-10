@@ -36,6 +36,8 @@ export type EmployeeGender = 'male' | 'female';
 export type OfficeJobTitleCategory = 'staff' | 'management';
 export type OfficeShiftAttendanceMode = 'office_required' | 'non_office';
 export type OfficeAttendancePolicySource = 'employee_default' | 'shift_override' | 'no_office_employee';
+export type ShiftKind = 'onsite' | 'escort' | 'office_control' | 'event_temporary';
+export type SiteKind = 'fixed' | 'escort';
 export type EmailTemplateId = 'admin.leave_request_created';
 
 export interface EmailRecipient {
@@ -138,6 +140,20 @@ export interface EmployeeLeaveRequest {
   updatedAt: string | Date;
 }
 
+export interface SitePost {
+  id: string;
+  siteId: string;
+  name: string;
+  address?: string | null;
+  latitude: number;
+  longitude: number;
+  status?: boolean | null;
+  sortOrder: number;
+  deletedAt?: string | Date | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
 export interface Site {
   id: string;
   name: string;
@@ -145,8 +161,10 @@ export interface Site {
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  kind?: SiteKind | null;
   status?: boolean | null;
   note?: string | null;
+  posts?: SitePost[];
 }
 
 export interface ShiftType {
@@ -254,6 +272,8 @@ export interface Shift {
   siteId: string;
   shiftTypeId: string;
   employeeId?: string | null;
+  kind: ShiftKind;
+  escortEndSiteId?: string | null;
   date: string | Date;
   startsAt: string | Date;
   endsAt: string | Date;
@@ -263,6 +283,9 @@ export interface Shift {
   graceMinutes: number;
   lastHeartbeatAt?: string | Date | null;
   missedCount: number;
+  departedAt?: string | Date | null;
+  arrivedAt?: string | Date | null;
+  groupShiftId?: string | null;
   note?: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -275,9 +298,11 @@ export interface GuardShift extends Shift {
 
 export interface ShiftWithRelations extends Shift {
   site: Site;
+  escortEndSite?: Site | null;
   shiftType: ShiftType;
   employee?: Employee | null;
   attendance?: Attendance | null;
+  groupShift?: GroupShift | null;
 }
 
 export interface Conversation {
@@ -361,6 +386,7 @@ export interface GroupChatConversation {
   groupId: string;
   title: string;
   description?: string | null;
+  groupShiftId?: string | null;
   memberCount: number;
   currentUserRole: GroupChatParticipantRole;
   isArchived: boolean;
@@ -375,15 +401,14 @@ export interface GroupChatConversation {
 
 export type ConversationKind = 'direct' | 'group';
 
-export type ConversationKey =
-  | { kind: 'direct'; employeeId: string }
-  | { kind: 'group'; groupId: string };
+export type ConversationKey = { kind: 'direct'; employeeId: string } | { kind: 'group'; groupId: string };
 
 export interface ChatInboxItem {
   kind: ConversationKind;
   id: string;
   title: string;
   subtitle?: string;
+  groupShiftId?: string | null;
   unreadCount: number;
   isMuted: boolean;
   isArchived: boolean;
@@ -394,8 +419,30 @@ export interface ChatInboxItem {
   } | null;
 }
 
+export interface GroupShift {
+  id: string;
+  siteId: string;
+  endSiteId: string | null;
+  shiftTypeId: string;
+  date: string | Date;
+  kind: ShiftKind;
+  clientName?: string | null;
+  note?: string | null;
+  flexibleEndTime?: boolean;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+}
+
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-export type TicketStatus = 'NEW' | 'ACKNOWLEDGED' | 'WAITING_INFORMATION' | 'IN_PROGRESS' | 'SOLVED' | 'CLOSED' | 'CANNOT_RESOLVE' | 'CANCELLED';
+export type TicketStatus =
+  | 'NEW'
+  | 'ACKNOWLEDGED'
+  | 'WAITING_INFORMATION'
+  | 'IN_PROGRESS'
+  | 'SOLVED'
+  | 'CLOSED'
+  | 'CANNOT_RESOLVE'
+  | 'CANCELLED';
 export type TicketClaimantType = 'ADMIN' | 'EMPLOYEE';
 
 export interface Ticket {
@@ -443,5 +490,129 @@ export interface PanicWebhookPayload {
   unresolvedPanics: PanicAlert[];
 }
 
-export * from './socket-events';
+// ============================================================================
+// Calendar Types
+// ============================================================================
+export type CalendarItemKind =
+  | 'holiday'
+  | 'office_memo'
+  | 'leave'
+  | 'meeting'
+  | 'client_meeting'
+  | 'reminder'
+  | 'task'
+  | 'deadline'
+  | 'follow_up'
+  | 'training'
+  | 'personal_event'
+  | 'other';
 
+export interface CalendarItem {
+  id: string;
+  originalId: string;
+  kind: CalendarItemKind;
+  title: string;
+  date: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  allDay: boolean;
+  priority: 'urgent' | 'high' | 'normal' | 'low' | null;
+  location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  status: string | null;
+  colorHint: string | null;
+}
+
+export type CalendarDetailKind = CalendarItemKind;
+
+export interface CalendarDetailResponse {
+  item: {
+    kind: CalendarDetailKind;
+    data: Record<string, unknown>;
+  };
+}
+
+export type CalendarEventKind =
+  | 'meeting'
+  | 'client_meeting'
+  | 'reminder'
+  | 'task'
+  | 'follow_up'
+  | 'training'
+  | 'personal_event'
+  | 'other';
+
+export interface TaggedUser {
+  id: string;
+  type: 'employee' | 'admin';
+  name: string;
+  email?: string;
+}
+
+export interface CreateCalendarEventInput {
+  kind: CalendarEventKind;
+  title: string;
+  description?: string;
+  startDate: string;
+  endDate: string;
+  startTime?: string;
+  endTime?: string;
+  allDay: boolean;
+  location?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  clientName?: string;
+  trainerName?: string;
+  priority?: 'urgent' | 'high' | 'normal' | 'low';
+  color?: string;
+  taggedEmployeeIds?: string[];
+  taggedAdminIds?: string[];
+}
+
+export interface UpdateCalendarEventInput {
+  kind?: CalendarEventKind;
+  title?: string;
+  description?: string;
+  startDate?: string;
+  endDate?: string;
+  startTime?: string;
+  endTime?: string;
+  allDay?: boolean;
+  location?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  clientName?: string;
+  trainerName?: string;
+  priority?: 'urgent' | 'high' | 'normal' | 'low';
+  color?: string;
+  taggedEmployeeIds?: string[];
+  taggedAdminIds?: string[];
+}
+
+export interface CalendarEventItem {
+  id: string;
+  kind: CalendarEventKind;
+  title: string;
+  description: string | null;
+  startDate: string;
+  endDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  allDay: boolean;
+  location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  clientName: string | null;
+  trainerName: string | null;
+  priority: 'urgent' | 'high' | 'normal' | 'low' | null;
+  color: string | null;
+  taggedUsers: TaggedUser[];
+  createdAt: string;
+  updatedAt: string;
+  ownerId: string;
+  ownerType: 'employee' | 'admin';
+  ownerName: string;
+}
+
+export * from './socket-events';

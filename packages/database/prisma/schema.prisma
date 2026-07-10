@@ -77,6 +77,8 @@ enum AdminNotificationType {
   ticket_assigned_role
   ticket_status_updated
   ticket_message_added
+  calendar_event_tagged
+  calendar_event_reminder
 }
 
 enum HolidayCalendarType {
@@ -94,6 +96,18 @@ enum HolidayCalendarScope {
 enum OfficeMemoScope {
   all
   department
+}
+
+enum CalendarEventKind {
+  meeting
+  client_meeting
+  reminder
+  task
+  deadline
+  follow_up
+  training
+  personal_event
+  other
 }
 
 enum TicketStatus {
@@ -217,6 +231,8 @@ model Admin {
   uploadedTicketAttachments                    TicketAttachment[]                     @relation("TicketUploadedBy")
   ticketHistoryActions                         TicketHistory[]
   reportDownloads                              ShiftPhotoReportDownload[]
+  calendarEventTags                            CalendarEventTag[]
+  calendarEvents                               CalendarEvent[]
 
   @@index([deletedAt])
   @@map("admins")
@@ -360,6 +376,7 @@ enum GroupChatParticipantRole {
   owner
   admin
   member
+  lead
 }
 
 enum GroupChatParticipantStatus {
@@ -382,6 +399,7 @@ model GroupChat {
   id                    String    @id @default(uuid())
   title                 String
   description           String?   @db.Text
+  groupShiftId          String?   @unique @map("group_shift_id")
   createdByAdminId      String?   @map("created_by_admin_id")
   createdByEmployeeId   String?   @map("created_by_employee_id")
   lastMessageAt         DateTime? @map("last_message_at")
@@ -394,10 +412,36 @@ model GroupChat {
   participants GroupChatParticipant[]
   messages     GroupChatMessage[]
   events       GroupChatMembershipEvent[]
+  groupShift   GroupShift?                @relation(fields: [groupShiftId], references: [id])
 
   @@index([lastMessageAt(sort: Desc)])
   @@index([archivedAt])
   @@map("group_chats")
+}
+
+model GroupShift {
+  id              String    @id @default(uuid())
+  siteId          String    @map("site_id")
+  endSiteId       String?   @map("end_site_id")
+  shiftTypeId     String    @map("shift_type_id")
+  date            DateTime  @db.Date
+  kind            ShiftKind @default(escort)
+  clientName      String?   @map("client_name")
+  note            String?   @db.Text
+  flexibleEndTime Boolean   @default(false) @map("flexible_end_time")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  shifts    Shift[]
+  groupChat GroupChat?
+
+  site      Site      @relation(fields: [siteId], references: [id])
+  endSite   Site?     @relation("GroupShiftEndSite", fields: [endSiteId], references: [id])
+  shiftType ShiftType @relation(fields: [shiftTypeId], references: [id])
+
+  @@unique([siteId, endSiteId, date])
+  @@index([siteId, endSiteId, date])
+  @@map("group_shifts")
 }
 
 model GroupChatParticipant {
@@ -529,6 +573,8 @@ model Employee {
   ticketMessages                TicketMessage[]                        @relation("TicketMessageEmployee")
   uploadedTicketAttachments     TicketAttachment[]                     @relation("TicketUploadedByEmployee")
   photoReports                  ShiftPhotoReport[]
+  calendarEvents                CalendarEvent[]
+  calendarEventTags             CalendarEventTag[]
 
   @@index([status])
   @@index([deletedAt])
@@ -570,28 +616,33 @@ model EmployeePasswordHistory {
 }
 
 model Site {
-  id              String     @id @default(uuid())
-  name            String     @unique
-  clientName      String?    @map("client_name")
-  address         String?
-  latitude        Float?
-  longitude       Float?
-  geofenceRadius  Float      @default(100.0) @map("geofence_radius")
-  geofenceStatus  Boolean?   @default(true) @map("geofence_status")
-  status          Boolean?   @default(true)
-  lastUpdatedById String?    @map("last_updated_by_id")
-  createdById     String?    @map("created_by_id")
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  deletedAt       DateTime?  @map("deleted_at")
-  note            String?    @db.Text
-  alerts          Alert[]
-  shifts          Shift[]
-  posts           SitePost[]
-  lastUpdatedBy   Admin?     @relation("SiteLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  createdBy       Admin?     @relation("SiteCreatedBy", fields: [createdById], references: [id])
+  id                 String       @id @default(uuid())
+  name               String       @unique
+  clientName         String?      @map("client_name")
+  address            String?
+  latitude           Float?
+  longitude          Float?
+  geofenceRadius     Float        @default(100.0) @map("geofence_radius")
+  geofenceStatus     Boolean?     @default(true) @map("geofence_status")
+  kind               SiteKind     @default(fixed)
+  status             Boolean?     @default(true)
+  lastUpdatedById    String?      @map("last_updated_by_id")
+  createdById        String?      @map("created_by_id")
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  deletedAt          DateTime?    @map("deleted_at")
+  note               String?      @db.Text
+  alerts             Alert[]
+  shifts             Shift[]
+  escortEndShifts    Shift[]      @relation("ShiftEscortEndSite")
+  groupShifts        GroupShift[] // group shifts starting at this site
+  groupShiftEndSites GroupShift[] @relation("GroupShiftEndSite")
+  posts              SitePost[]
+  lastUpdatedBy      Admin?       @relation("SiteLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  createdBy          Admin?       @relation("SiteCreatedBy", fields: [createdById], references: [id])
 
   @@index([status])
+  @@index([status, kind, deletedAt])
   @@index([deletedAt])
   @@map("sites")
 }
@@ -642,18 +693,19 @@ model Office {
 }
 
 model ShiftType {
-  id              String    @id @default(uuid())
-  name            String    @unique(map: "shift_types_active_name_key", where: { deletedAt: null })
-  startTime       String    @map("start_time")
-  endTime         String    @map("end_time")
-  lastUpdatedById String?   @map("last_updated_by_id")
-  createdById     String?   @map("created_by_id")
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  deletedAt       DateTime? @map("deleted_at")
+  id              String       @id @default(uuid())
+  name            String       @unique(map: "shift_types_active_name_key", where: { deletedAt: null })
+  startTime       String       @map("start_time")
+  endTime         String       @map("end_time")
+  lastUpdatedById String?      @map("last_updated_by_id")
+  createdById     String?      @map("created_by_id")
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  deletedAt       DateTime?    @map("deleted_at")
   shifts          Shift[]
-  lastUpdatedBy   Admin?    @relation("ShiftTypeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  createdBy       Admin?    @relation("ShiftTypeCreatedBy", fields: [createdById], references: [id])
+  groupShifts     GroupShift[]
+  lastUpdatedBy   Admin?       @relation("ShiftTypeLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  createdBy       Admin?       @relation("ShiftTypeCreatedBy", fields: [createdById], references: [id])
 
   @@index([deletedAt])
   @@map("shift_types")
@@ -678,41 +730,47 @@ model OfficeShiftType {
 }
 
 model Shift {
-  id                          String         @id @default(uuid())
-  siteId                      String         @map("site_id")
-  shiftTypeId                 String         @map("shift_type_id")
-  employeeId                  String?        @map("employee_id")
-  date                        DateTime       @db.Date
-  startsAt                    DateTime       @map("starts_at")
-  endsAt                      DateTime       @map("ends_at")
-  status                      ShiftStatus    @default(scheduled)
-  checkInStatus               CheckInStatus? @map("check_in_status")
-  requiredCheckinIntervalMins Int            @default(20) @map("required_checkin_interval_minutes")
-  graceMinutes                Int            @default(2) @map("grace_minutes")
-  lastHeartbeatAt             DateTime?      @map("last_heartbeat_at") @db.Timestamptz(6)
-  lastDeviceHeartbeatAt       DateTime?      @map("last_device_heartbeat_at") @db.Timestamptz(6)
-
-  missedCount           Int                     @default(0) @map("missed_count")
-  createdById           String?                 @map("created_by_id")
-  lastUpdatedById       String?                 @map("last_updated_by_id")
-  createdAt             DateTime                @default(now()) @map("created_at")
-  updatedAt             DateTime                @updatedAt
-  deletedAt             DateTime?               @map("deleted_at")
-  reminderSentAt        DateTime?               @map("reminder_sent_at")
-  endReminderSentAt     DateTime?               @map("end_reminder_sent_at")
-  autoPhotoReportStatus ShiftPhotoReportStatus? @map("auto_photo_report_status")
-  lastAutoPhotoReportId String?                 @map("last_auto_photo_report_id")
-  lastAutoPhotoReportAt DateTime?               @map("last_auto_photo_report_at")
-  note                  String?                 @db.Text
-  alerts                Alert[]
-  checkins              Checkin[]
-  photoReports          ShiftPhotoReport[]
-  employee              Employee?               @relation(fields: [employeeId], references: [id])
-  shiftType             ShiftType               @relation(fields: [shiftTypeId], references: [id])
-  site                  Site                    @relation(fields: [siteId], references: [id])
-  createdBy             Admin?                  @relation("ShiftCreatedBy", fields: [createdById], references: [id])
-  lastUpdatedBy         Admin?                  @relation("ShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
-  attendance            Attendance?
+  id                          String                  @id @default(uuid())
+  siteId                      String                  @map("site_id")
+  shiftTypeId                 String                  @map("shift_type_id")
+  employeeId                  String?                 @map("employee_id")
+  kind                        ShiftKind               @default(onsite)
+  escortEndSiteId             String?                 @map("escort_end_site_id")
+  date                        DateTime                @db.Date
+  startsAt                    DateTime                @map("starts_at")
+  endsAt                      DateTime                @map("ends_at")
+  status                      ShiftStatus             @default(scheduled)
+  checkInStatus               CheckInStatus?          @map("check_in_status")
+  requiredCheckinIntervalMins Int                     @default(20) @map("required_checkin_interval_minutes")
+  graceMinutes                Int                     @default(2) @map("grace_minutes")
+  lastHeartbeatAt             DateTime?               @map("last_heartbeat_at") @db.Timestamptz(6)
+  lastDeviceHeartbeatAt       DateTime?               @map("last_device_heartbeat_at") @db.Timestamptz(6)
+  departedAt                  DateTime?               @map("departed_at") @db.Timestamptz(6)
+  arrivedAt                   DateTime?               @map("arrived_at") @db.Timestamptz(6)
+  missedCount                 Int                     @default(0) @map("missed_count")
+  createdById                 String?                 @map("created_by_id")
+  lastUpdatedById             String?                 @map("last_updated_by_id")
+  createdAt                   DateTime                @default(now()) @map("created_at")
+  updatedAt                   DateTime                @updatedAt
+  deletedAt                   DateTime?               @map("deleted_at")
+  reminderSentAt              DateTime?               @map("reminder_sent_at")
+  endReminderSentAt           DateTime?               @map("end_reminder_sent_at")
+  autoPhotoReportStatus       ShiftPhotoReportStatus? @map("auto_photo_report_status")
+  lastAutoPhotoReportId       String?                 @map("last_auto_photo_report_id")
+  lastAutoPhotoReportAt       DateTime?               @map("last_auto_photo_report_at")
+  note                        String?                 @db.Text
+  groupShiftId                String?                 @map("group_shift_id")
+  alerts                      Alert[]
+  checkins                    Checkin[]
+  photoReports                ShiftPhotoReport[]
+  employee                    Employee?               @relation(fields: [employeeId], references: [id])
+  shiftType                   ShiftType               @relation(fields: [shiftTypeId], references: [id])
+  site                        Site                    @relation(fields: [siteId], references: [id])
+  escortEndSite               Site?                   @relation("ShiftEscortEndSite", fields: [escortEndSiteId], references: [id])
+  groupShift                  GroupShift?             @relation(fields: [groupShiftId], references: [id])
+  createdBy                   Admin?                  @relation("ShiftCreatedBy", fields: [createdById], references: [id])
+  lastUpdatedBy               Admin?                  @relation("ShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
+  attendance                  Attendance?
 
   @@index([siteId])
   @@index([employeeId, startsAt])
@@ -723,7 +781,10 @@ model Shift {
   @@index([status, startsAt, reminderSentAt, deletedAt])
   @@index([status, endsAt, endReminderSentAt, deletedAt])
   @@index([status, endsAt, autoPhotoReportStatus, deletedAt])
+  @@index([siteId, kind, status, startsAt])
+  @@index([escortEndSiteId])
   @@index([deletedAt])
+  @@index([groupShiftId])
   @@map("shifts")
 }
 
@@ -813,6 +874,18 @@ enum AlertResolution {
   auto
 }
 
+enum SiteKind {
+  fixed
+  escort
+}
+
+enum ShiftKind {
+  onsite
+  escort
+  office_control
+  event_temporary
+}
+
 model ShiftPhotoReport {
   id            String                 @id @default(uuid())
   reportNumber  String?                @unique @map("report_number")
@@ -840,10 +913,10 @@ model ShiftPhotoReport {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt
 
-  shift           Shift              @relation(fields: [shiftId], references: [id])
-  employee        Employee           @relation(fields: [employeeId], references: [id])
-  regeneratedFrom ShiftPhotoReport?  @relation("ReportRegeneration", fields: [regeneratedFromId], references: [id])
-  regenerations   ShiftPhotoReport[] @relation("ReportRegeneration")
+  shift           Shift                      @relation(fields: [shiftId], references: [id])
+  employee        Employee                   @relation(fields: [employeeId], references: [id])
+  regeneratedFrom ShiftPhotoReport?          @relation("ReportRegeneration", fields: [regeneratedFromId], references: [id])
+  regenerations   ShiftPhotoReport[]         @relation("ReportRegeneration")
   downloads       ShiftPhotoReportDownload[]
 
   @@index([shiftId, createdAt])
@@ -854,16 +927,16 @@ model ShiftPhotoReport {
 }
 
 model ShiftPhotoReportDownload {
-  id           String                         @id @default(uuid())
-  reportId     String                         @map("report_id")
-  reportNumber String?                        @map("report_number")
-  shiftId      String                         @map("shift_id")
-  adminId      String                         @map("admin_id")
+  id           String                       @id @default(uuid())
+  reportId     String                       @map("report_id")
+  reportNumber String?                      @map("report_number")
+  shiftId      String                       @map("shift_id")
+  adminId      String                       @map("admin_id")
   mode         ShiftPhotoReportDownloadMode
-  userAgent    String?                        @map("user_agent") @db.Text
-  ipAddress    String?                        @map("ip_address")
-  downloadedAt DateTime                       @default(now()) @map("downloaded_at") @db.Timestamptz(6)
-  createdAt    DateTime                       @default(now()) @map("created_at")
+  userAgent    String?                      @map("user_agent") @db.Text
+  ipAddress    String?                      @map("ip_address")
+  downloadedAt DateTime                     @default(now()) @map("downloaded_at") @db.Timestamptz(6)
+  createdAt    DateTime                     @default(now()) @map("created_at")
 
   report ShiftPhotoReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
   admin  Admin            @relation(fields: [adminId], references: [id])
@@ -1098,6 +1171,71 @@ model OfficeMemo {
   @@index([endDate])
   @@index([scope])
   @@map("office_memos")
+}
+
+model CalendarEvent {
+  id          String            @id @default(uuid())
+  employeeId  String?           @map("employee_id")
+  adminId     String?           @map("admin_id")
+  kind        CalendarEventKind @default(personal_event)
+  title       String
+  description String?           @db.Text
+  startDate   DateTime          @map("start_date") @db.Date
+  endDate     DateTime          @map("end_date") @db.Date
+  startTime   String?           @map("start_time")
+  endTime     String?           @map("end_time")
+  allDay      Boolean           @default(false) @map("all_day")
+  location    String?
+  latitude    Float?            @map("latitude")
+  longitude   Float?            @map("longitude")
+  clientName  String?           @map("client_name")
+  trainerName String?           @map("trainer_name")
+  priority              String?           @default("normal")
+  reminderMinutesBefore Int?              @map("reminder_minutes_before")
+  reminderScheduledAt   DateTime?         @map("reminder_scheduled_at") @db.Timestamptz(6)
+  reminderSentAt        DateTime?         @map("reminder_sent_at") @db.Timestamptz(6)
+  deletedAt             DateTime?         @map("deleted_at")
+  createdAt             DateTime          @default(now()) @map("created_at")
+  updatedAt             DateTime          @updatedAt @map("updated_at")
+
+  employee Employee?          @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  admin    Admin?             @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  tags     CalendarEventTag[]
+
+  @@index([employeeId, startDate])
+  @@index([employeeId, endDate])
+  @@index([adminId, startDate])
+  @@index([adminId, endDate])
+  @@index([deletedAt])
+  @@index([deletedAt, startDate, endDate])
+  @@index([reminderScheduledAt, reminderSentAt])
+  @@map("calendar_events")
+}
+
+enum TagParticipantType {
+  employee
+  admin
+}
+
+model CalendarEventTag {
+  id              String             @id @default(uuid())
+  eventId         String             @map("event_id")
+  participantType TagParticipantType @map("participant_type")
+  employeeId      String?            @map("employee_id")
+  adminId         String?            @map("admin_id")
+  createdAt       DateTime           @default(now()) @map("created_at")
+
+  event    CalendarEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  employee Employee?     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  admin    Admin?        @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, employeeId])
+  @@unique([eventId, adminId])
+  @@index([eventId])
+  @@index([employeeId])
+  @@index([adminId])
+  @@index([participantType, employeeId])
+  @@map("calendar_event_tags")
 }
 
 model Ticket {

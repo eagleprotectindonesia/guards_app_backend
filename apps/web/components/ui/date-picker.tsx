@@ -28,6 +28,11 @@ export function DatePicker({
 }: DatePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
 
+  const disabled = [
+    ...(minDate ? [{ before: new Date(minDate) }] : []),
+    ...(maxDate ? [{ after: new Date(maxDate) }] : []),
+  ];
+
   const handleSelect = (selectedDate: Date | undefined) => {
     setDate(selectedDate);
     setIsOpen(false);
@@ -68,7 +73,7 @@ export function DatePicker({
           mode="single"
           selected={date}
           onSelect={handleSelect}
-          disabled={(minDate && { before: new Date(minDate) }) || (maxDate && { after: new Date(maxDate) })}
+          disabled={disabled.length > 0 ? disabled : undefined}
           initialFocus
         />
       </PopoverContent>
