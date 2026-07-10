@@ -7,6 +7,7 @@ import { deleteEmployeeOnsiteDayOffsByEmployeeAndDates, upsertEmployeeOnsiteDayO
 import { isBefore } from 'date-fns';
 import { reconcileApprovedOnsiteLeavesForCoverage } from './leave-requests';
 import { isSecurityStandbyTitle } from './employees';
+import { resolveAllOpenAlertsForShift } from './alerts';
 
 export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
   return prisma.shift.findUnique({
@@ -2298,15 +2299,51 @@ export async function arriveShift(shiftId: string, employeeId: string) {
   });
 }
 
-export async function completeShift(shiftId: string, employeeId: string) {
+export async function completeShift(params: {
+  shiftId: string;
+  employeeId: string;
+  now: Date;
+  metadata: Record<string, unknown>;
+}) {
+  const { shiftId, employeeId, now, metadata } = params;
+
   const shift = await prisma.shift.findUnique({ where: { id: shiftId, deletedAt: null } });
   if (!shift) throw new Error('Shift not found');
   if (shift.employeeId !== employeeId) throw new Error('Not assigned to this shift');
-  if (shift.status === 'completed') return shift;
+  if (shift.status === 'completed') return { shift, resolvedAlerts: [] as any[] };
   if (shift.status === 'missed' || shift.status === 'cancelled') throw new Error('Shift is already missed or cancelled');
 
-  return prisma.shift.update({
-    where: { id: shiftId },
-    data: { status: 'completed' },
+  return prisma.$transaction(async tx => {
+    try {
+      await tx.checkin.create({
+        data: {
+          shiftId,
+          employeeId,
+          status: 'on_time',
+          source: 'end_duty',
+          metadata: metadata as any,
+          at: now,
+        },
+      });
+    } catch (e: unknown) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        // Unique constraint on [shiftId, at] — another checkin at the same ms, skip
+      } else {
+        throw e;
+      }
+    }
+
+    const updatedShift = await tx.shift.update({
+      where: { id: shiftId },
+      data: {
+        status: 'completed',
+        lastHeartbeatAt: now,
+        checkInStatus: 'on_time',
+      },
+    });
+
+    const resolvedAlerts = await resolveAllOpenAlertsForShift(shiftId, tx);
+
+    return { shift: updatedShift, resolvedAlerts };
   });
 }

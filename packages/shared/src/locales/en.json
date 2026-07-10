@@ -32,6 +32,11 @@
     "arrived": "Arrived",
     "arriveLocation": "Arrive",
     "endDuty": "End",
+    "endDutyConfirmTitle": "End duty?",
+    "endDutyConfirmMessage": "Are you sure you want to end this duty? Your location will be recorded.",
+    "endDutyConfirmAction": "End duty",
+    "cannotEndUntil": "Cannot end until {{time}}",
+    "tooEarlyToEnd": "This shift has not ended yet",
     "shiftCompleted": "Shift completed successfully"
   },
   "common": {

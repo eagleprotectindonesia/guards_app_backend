@@ -32,6 +32,11 @@
     "arrived": "Tiba",
     "arriveLocation": "Tiba",
     "endDuty": "Selesai",
+    "endDutyConfirmTitle": "Selesaikan tugas?",
+    "endDutyConfirmMessage": "Apakah Anda yakin ingin menyelesaikan tugas ini? Lokasi Anda akan dicatat.",
+    "endDutyConfirmAction": "Selesaikan",
+    "cannotEndUntil": "Tidak dapat diselesaikan sebelum {{time}}",
+    "tooEarlyToEnd": "Shift ini belum berakhir",
     "shiftCompleted": "Shift berhasil diselesaikan"
   },
   "common": {
