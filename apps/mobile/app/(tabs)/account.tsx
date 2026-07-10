@@ -208,7 +208,7 @@ export default function AccountScreen() {
                 </TouchableOpacity>
 
                 {/* Calendar */}
-                <TouchableOpacity onPress={() => router.push('/calendar')} activeOpacity={0.7}>
+                {/* <TouchableOpacity onPress={() => router.push('/calendar')} activeOpacity={0.7}>
                   <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
                     <HStack space="md" className="items-center">
                       <Box className="w-10 h-10 rounded-xl bg-[#FF9500]/10 items-center justify-center border border-[#FF9500]/20">
@@ -220,7 +220,7 @@ export default function AccountScreen() {
                     </HStack>
                     <ChevronRight size={18} color="#666666" />
                   </Box>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
 
                 {/* Change Password */}
                 <TouchableOpacity onPress={() => openPasswordChangeModal(false)} activeOpacity={0.7}>

@@ -2,7 +2,6 @@ import React from 'react';
 import { useCustomToast } from '../hooks/useCustomToast';
 import { Box } from '@/components/ui/box';
 import { Heading } from '@/components/ui/heading';
-import { HStack } from '@/components/ui/hstack';
 import { VStack } from '@/components/ui/vstack';
 import { Button, ButtonText, ButtonSpinner } from '@/components/ui/button';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -11,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { ShiftWithRelations } from '@repo/types';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
-import { LogOut, MapPin, CheckCircle } from 'lucide-react-native';
+import { CheckCircle } from 'lucide-react-native';
 import { queryKeys } from '../api/queryKeys';
 
 type EscortDutyCardProps = {
@@ -24,44 +23,10 @@ export default function EscortDutyCard({ shift, refetchShift }: EscortDutyCardPr
   const queryClient = useQueryClient();
   const toast = useCustomToast();
 
-  const departed = !!shift.departedAt;
-  const arrived = !!shift.arrivedAt;
   const flexibleEndTime = shift.groupShift?.flexibleEndTime ?? false;
   const now = new Date();
   const endsAt = new Date(shift.endsAt);
   const canEnd = flexibleEndTime || now >= endsAt;
-
-  const departMutation = useMutation({
-    mutationFn: async () => {
-      const res = await client.post(`/api/employee/shifts/${shift.id}/depart`);
-      return res.data;
-    },
-    onSuccess: () => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: queryKeys.shifts.active });
-      refetchShift();
-    },
-    onError: (error: any) => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      toast.error(t('common.error'), error?.response?.data?.error || error.message);
-    },
-  });
-
-  const arriveMutation = useMutation({
-    mutationFn: async () => {
-      const res = await client.post(`/api/employee/shifts/${shift.id}/arrive`);
-      return res.data;
-    },
-    onSuccess: () => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      queryClient.invalidateQueries({ queryKey: queryKeys.shifts.active });
-      refetchShift();
-    },
-    onError: (error: any) => {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      toast.error(t('common.error'), error?.response?.data?.error || error.message);
-    },
-  });
 
   const completeMutation = useMutation({
     mutationFn: async () => {
@@ -97,40 +62,6 @@ export default function EscortDutyCard({ shift, refetchShift }: EscortDutyCardPr
         </Heading>
 
         <VStack space="sm">
-          <HStack space="sm">
-            <Button
-              variant="outline"
-              className="flex-1 bg-white/5 border-white/10"
-              onPress={() => departMutation.mutate()}
-              isDisabled={departed || departMutation.isPending}
-            >
-              {departMutation.isPending ? (
-                <ButtonSpinner />
-              ) : (
-                <LogOut size={16} color={departed ? '#22C55E' : '#94A3B8'} />
-              )}
-              <ButtonText className={departed ? 'text-success-400' : 'text-typography-400'}>
-                {departed ? t('dashboard.left') : t('dashboard.leaveLocation')}
-              </ButtonText>
-            </Button>
-
-            <Button
-              variant="outline"
-              className="flex-1 bg-white/5 border-white/10"
-              onPress={() => arriveMutation.mutate()}
-              isDisabled={!departed || arrived || arriveMutation.isPending}
-            >
-              {arriveMutation.isPending ? (
-                <ButtonSpinner />
-              ) : (
-                <MapPin size={16} color={arrived ? '#22C55E' : '#94A3B8'} />
-              )}
-              <ButtonText className={arrived ? 'text-success-400' : 'text-typography-400'}>
-                {arrived ? t('dashboard.arrived') : t('dashboard.arriveLocation')}
-              </ButtonText>
-            </Button>
-          </HStack>
-
           <Button
             variant="outline"
             className="bg-white/5 border-white/10 self-center"
