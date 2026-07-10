@@ -80,6 +80,7 @@ export async function checkOverlappingShift(params: {
     where: {
       employeeId: targetEmployeeId,
       deletedAt: null,
+      status: { not: 'cancelled' },
       id: excludeShiftId ? { not: excludeShiftId } : undefined,
       startsAt: { lt: endsAt },
       endsAt: { gt: startsAt },
