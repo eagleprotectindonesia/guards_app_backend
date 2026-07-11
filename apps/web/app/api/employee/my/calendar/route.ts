@@ -30,45 +30,56 @@ export async function GET(req: Request) {
     const fromDate = startOfDay(parseISO(parsed.data.from));
     const toDate = endOfDay(parseISO(parsed.data.to));
 
+    const showSystemItems = searchParams.get('showSystemItems') === 'true';
+
+    const holidaysPromise = showSystemItems
+      ? prisma.holidayCalendarEntry.findMany({
+          where: {
+            endDate: { gte: fromDate },
+            startDate: { lte: toDate },
+            OR: [
+              { scope: 'all' },
+              ...(employee.department
+                ? [{ scope: 'department' as const, departmentKeys: { has: employee.department } }]
+                : []),
+            ],
+          },
+          orderBy: [{ startDate: 'asc' }],
+        })
+      : Promise.resolve([] as Awaited<ReturnType<typeof prisma.holidayCalendarEntry.findMany>>);
+
+    const memosPromise = showSystemItems
+      ? prisma.officeMemo.findMany({
+          where: {
+            isActive: true,
+            endDate: { gte: fromDate },
+            startDate: { lte: toDate },
+            OR: [
+              { scope: 'all' },
+              ...(employee.department
+                ? [{ scope: 'department' as const, departmentKeys: { has: employee.department } }]
+                : []),
+            ],
+          },
+          orderBy: [{ startDate: 'asc' }],
+        })
+      : Promise.resolve([] as Awaited<ReturnType<typeof prisma.officeMemo.findMany>>);
+
+    const leavesPromise = showSystemItems
+      ? prisma.employeeLeaveRequest.findMany({
+          where: {
+            employeeId: employee.id,
+            startDate: { lte: toDate },
+            endDate: { gte: fromDate },
+          },
+          orderBy: [{ startDate: 'asc' }],
+        })
+      : Promise.resolve([] as Awaited<ReturnType<typeof prisma.employeeLeaveRequest.findMany>>);
+
     const [holidays, memos, leaves, events] = await Promise.all([
-      prisma.holidayCalendarEntry.findMany({
-        where: {
-          endDate: { gte: fromDate },
-          startDate: { lte: toDate },
-          OR: [
-            { scope: 'all' },
-            ...(employee.department
-              ? [{ scope: 'department' as const, departmentKeys: { has: employee.department } }]
-              : []),
-          ],
-        },
-        orderBy: [{ startDate: 'asc' }],
-      }),
-
-      prisma.officeMemo.findMany({
-        where: {
-          isActive: true,
-          endDate: { gte: fromDate },
-          startDate: { lte: toDate },
-          OR: [
-            { scope: 'all' },
-            ...(employee.department
-              ? [{ scope: 'department' as const, departmentKeys: { has: employee.department } }]
-              : []),
-          ],
-        },
-        orderBy: [{ startDate: 'asc' }],
-      }),
-
-      prisma.employeeLeaveRequest.findMany({
-        where: {
-          employeeId: employee.id,
-          startDate: { lte: toDate },
-          endDate: { gte: fromDate },
-        },
-        orderBy: [{ startDate: 'asc' }],
-      }),
-
+      holidaysPromise,
+      memosPromise,
+      leavesPromise,
       prisma.calendarEvent.findMany({
         where: {
           deletedAt: null,

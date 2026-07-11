@@ -1,8 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { client } from '../api/client';
 import { Ticket } from '@repo/types';
 import { queryKeys } from '../api/queryKeys';
 import { useAuth } from '../contexts/AuthContext';
+import { getSocket } from '../api/socket';
+import { incrementTelemetryCounter } from '../utils/telemetry';
+import type { ServerToClientEvents } from '@repo/types';
 
 type TicketsResponse = {
   items: Ticket[];
@@ -103,12 +107,42 @@ export function useUpdateTicketStatus(id: string) {
 
 export function useUnassignedTicketsCount() {
   const { isAuthenticated } = useAuth();
+  const queryClient = useQueryClient();
+  const unassignedQueryKey = [...queryKeys.tickets.list, 'unassigned-count'];
+
+  useEffect(() => {
+    let socketInstance: Awaited<ReturnType<typeof getSocket>> | null = null;
+
+    const invalidate = () => {
+      queryClient.invalidateQueries({ queryKey: [...queryKeys.tickets.list, 'unassigned-count'] });
+      incrementTelemetryCounter('tickets.unassigned.server_synced');
+    };
+
+    const setupSocket = async () => {
+      const socket = await getSocket();
+      if (socket) {
+        socketInstance = socket;
+        socket.on('ticket_created', invalidate);
+        socket.on('ticket_status_updated', invalidate);
+      }
+    };
+    setupSocket();
+
+    return () => {
+      if (socketInstance) {
+        socketInstance.off('ticket_created', invalidate);
+        socketInstance.off('ticket_status_updated', invalidate);
+      }
+    };
+  }, [queryClient]);
+
   return useQuery<{ count: number }>({
-    queryKey: [...queryKeys.tickets.list, 'unassigned-count'],
+    queryKey: unassignedQueryKey,
     queryFn: async () => {
       const res = await client.get('/api/employee/my/tickets/unassigned-count');
       return res.data as { count: number };
     },
     enabled: isAuthenticated,
+    refetchInterval: 60_000,
   });
 }

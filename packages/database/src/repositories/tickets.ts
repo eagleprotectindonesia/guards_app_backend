@@ -315,7 +315,7 @@ async function resolveDepartmentTargetEmployees(
       deletedAt: null,
       status: true,
       OR: queryDepts.map(dept => ({
-        department: { contains: dept, mode: 'insensitive' },
+        department: { equals: dept, mode: 'insensitive' },
       })),
     },
     select: { id: true },
@@ -466,11 +466,16 @@ export async function createTicket(input: CreateTicketInput, tx: TxLike = prisma
   });
 
   try {
+    const assignedEmployees = await prisma.ticketAssignedEmployee.findMany({
+      where: { ticketId: ticket.id },
+      select: { employeeId: true },
+    });
+    const assignedEmployeeIds = assignedEmployees.map(e => e.employeeId);
     await redis.publish(
       'events:tickets',
       JSON.stringify({
         type: 'ticket:created',
-        data: { ticket }
+        data: { ticket, assignedEmployeeIds }
       })
     );
   } catch (err) {
@@ -765,82 +770,88 @@ export async function getTicketDashboardComparisonStats(
 }
 
 export async function updateTicketStatus(
-  input: {
-    ticketId: string;
-    nextStatus: TicketStatus;
-    actorAdminId: string;
-    actorRoleName?: string | null;
-    actorIsSuperAdmin?: boolean;
-    actorPermissions?: string[];
-    cancellationNote?: string;
-  },
-  tx: TxLike = prisma
-) {
-  const updated = await withTransaction(tx, async trx => {
-    const ticket = await trx.ticket.findUnique({
-      where: { id: input.ticketId },
-      select: { id: true, status: true, submitterAdminId: true },
-    });
-    if (!ticket) throw new Error('Ticket not found');
+    input: {
+      ticketId: string;
+      nextStatus: TicketStatus;
+      actorAdminId: string;
+      actorRoleName?: string | null;
+      actorIsSuperAdmin?: boolean;
+      actorPermissions?: string[];
+      cancellationNote?: string;
+    },
+    tx: TxLike = prisma
+  ) {
+    const updated = await withTransaction(tx, async trx => {
+      const ticket = await trx.ticket.findUnique({
+        where: { id: input.ticketId },
+        select: { id: true, status: true, submitterAdminId: true },
+      });
+      if (!ticket) throw new Error('Ticket not found');
 
-    if (input.nextStatus === 'CANCELLED' && !input.cancellationNote?.trim()) {
-      throw new Error('Cancellation note is required');
+      if (input.nextStatus === 'CANCELLED' && !input.cancellationNote?.trim()) {
+        throw new Error('Cancellation note is required');
+      }
+
+      const canTransition = canTransitionStatus({
+        currentStatus: ticket.status,
+        nextStatus: input.nextStatus,
+        isSubmitter: ticket.submitterAdminId === input.actorAdminId,
+        roleName: input.actorRoleName,
+        isSuperAdmin: input.actorIsSuperAdmin,
+        permissions: input.actorPermissions,
+      });
+      if (!canTransition) throw new Error('Status transition is not allowed');
+
+      const updated = await trx.ticket.update({
+        where: { id: input.ticketId },
+        data: {
+          status: input.nextStatus,
+          ...((ticket.status === 'CLOSED' || ticket.status === 'CANNOT_RESOLVE' || ticket.status === 'CANCELLED') && input.nextStatus === 'ACKNOWLEDGED'
+            ? reopenTimestampPatch()
+            : {}),
+          ...statusTimestampPatch(input.nextStatus),
+          ...(input.nextStatus === 'CANCELLED' ? { cancellationNote: input.cancellationNote } : {}),
+        },
+      });
+
+      await createHistory(trx, {
+        ticketId: input.ticketId,
+        actorAdminId: input.actorAdminId,
+        action: ticket.status === 'CLOSED' || ticket.status === 'CANNOT_RESOLVE' || ticket.status === 'CANCELLED' ? 'REOPENED' : 'STATUS_CHANGED',
+        fromValue: ticket.status,
+        toValue: input.nextStatus,
+        metadata: input.nextStatus === 'CANCELLED' ? { cancellationNote: input.cancellationNote } : undefined,
+      });
+
+      return updated;
+    });
+
+    try {
+      const assignedEmps = await prisma.ticketAssignedEmployee.findMany({
+        where: { ticketId: updated.id },
+        select: { employeeId: true },
+      });
+      const assignedEmployeeIds = assignedEmps.map(e => e.employeeId);
+      await redis.publish(
+        'events:tickets',
+        JSON.stringify({
+          type: 'ticket:status_updated',
+          data: {
+            ticketId: updated.id,
+            status: updated.status,
+            ticket: updated,
+            assignedEmployeeIds
+          }
+        })
+      );
+    } catch (err) {
+      console.error('Failed to publish ticket status updated event to Redis:', err);
     }
 
-    const canTransition = canTransitionStatus({
-      currentStatus: ticket.status,
-      nextStatus: input.nextStatus,
-      isSubmitter: ticket.submitterAdminId === input.actorAdminId,
-      roleName: input.actorRoleName,
-      isSuperAdmin: input.actorIsSuperAdmin,
-      permissions: input.actorPermissions,
-    });
-    if (!canTransition) throw new Error('Status transition is not allowed');
-
-    const updated = await trx.ticket.update({
-      where: { id: input.ticketId },
-      data: {
-        status: input.nextStatus,
-        ...((ticket.status === 'CLOSED' || ticket.status === 'CANNOT_RESOLVE' || ticket.status === 'CANCELLED') && input.nextStatus === 'ACKNOWLEDGED'
-          ? reopenTimestampPatch()
-          : {}),
-        ...statusTimestampPatch(input.nextStatus),
-        ...(input.nextStatus === 'CANCELLED' ? { cancellationNote: input.cancellationNote } : {}),
-      },
-    });
-
-    await createHistory(trx, {
-      ticketId: input.ticketId,
-      actorAdminId: input.actorAdminId,
-      action: ticket.status === 'CLOSED' || ticket.status === 'CANNOT_RESOLVE' || ticket.status === 'CANCELLED' ? 'REOPENED' : 'STATUS_CHANGED',
-      fromValue: ticket.status,
-      toValue: input.nextStatus,
-      metadata: input.nextStatus === 'CANCELLED' ? { cancellationNote: input.cancellationNote } : undefined,
-    });
-
     return updated;
-  });
-
-  try {
-    await redis.publish(
-      'events:tickets',
-      JSON.stringify({
-        type: 'ticket:status_updated',
-        data: {
-          ticketId: updated.id,
-          status: updated.status,
-          ticket: updated
-        }
-      })
-    );
-  } catch (err) {
-    console.error('Failed to publish ticket status updated event to Redis:', err);
   }
 
-  return updated;
-}
-
-export async function updateTicketPriority(
+  export async function updateTicketPriority(
   input: {
     ticketId: string;
     priority: TicketPriority;
@@ -1081,6 +1092,11 @@ export async function claimTicket(input: ClaimTicketInput, tx: TxLike = prisma) 
   if (statusChanged) {
     updated.status = 'ACKNOWLEDGED';
     try {
+      const assignedEmps = await prisma.ticketAssignedEmployee.findMany({
+        where: { ticketId: updated.id },
+        select: { employeeId: true },
+      });
+      const assignedEmployeeIds = assignedEmps.map(e => e.employeeId);
       await redis.publish(
         'events:tickets',
         JSON.stringify({
@@ -1088,7 +1104,8 @@ export async function claimTicket(input: ClaimTicketInput, tx: TxLike = prisma) 
           data: {
             ticketId: updated.id,
             status: 'ACKNOWLEDGED',
-            ticket: updated
+            ticket: updated,
+            assignedEmployeeIds
           }
         })
       );
@@ -1432,6 +1449,11 @@ export async function updateTicketStatusByEmployee(
   });
 
   try {
+    const assignedEmps = await prisma.ticketAssignedEmployee.findMany({
+      where: { ticketId: updated.id },
+      select: { employeeId: true },
+    });
+    const assignedEmployeeIds = assignedEmps.map(e => e.employeeId);
     await redis.publish(
       'events:tickets',
       JSON.stringify({
@@ -1439,7 +1461,8 @@ export async function updateTicketStatusByEmployee(
         data: {
           ticketId: updated.id,
           status: updated.status,
-          ticket: updated
+          ticket: updated,
+          assignedEmployeeIds
         }
       })
     );

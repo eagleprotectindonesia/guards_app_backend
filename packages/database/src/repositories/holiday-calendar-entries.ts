@@ -1,4 +1,5 @@
 import { db as prisma, Prisma } from '../prisma/client';
+import { redis } from '../redis/client';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 
@@ -163,6 +164,12 @@ export async function createHolidayCalendarEntry(input: HolidayCalendarEntryInpu
     },
   });
 
+  try {
+    await redis.publish('events:announcements', JSON.stringify({ type: 'announcement:changed' }));
+  } catch (err) {
+    console.error('Failed to publish announcement changed event to Redis:', err);
+  }
+
   return created;
 }
 
@@ -214,6 +221,12 @@ export async function updateHolidayCalendarEntry(
     },
   });
 
+  try {
+    await redis.publish('events:announcements', JSON.stringify({ type: 'announcement:changed' }));
+  } catch (err) {
+    console.error('Failed to publish announcement changed event to Redis:', err);
+  }
+
   return updated;
 }
 
@@ -238,6 +251,12 @@ export async function deleteHolidayCalendarEntry(id: string, adminId?: string, t
       },
     },
   });
+
+  try {
+    await redis.publish('events:announcements', JSON.stringify({ type: 'announcement:changed' }));
+  } catch (err) {
+    console.error('Failed to publish announcement changed event to Redis:', err);
+  }
 
   return existing;
 }

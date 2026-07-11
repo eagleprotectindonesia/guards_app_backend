@@ -9,6 +9,7 @@ module.exports = {
       },
       tsconfig: {
         esModuleInterop: true,
+        jsx: "react-jsx",
         baseUrl: ".",
         paths: {
           "@/*": ["./apps/web/*"],

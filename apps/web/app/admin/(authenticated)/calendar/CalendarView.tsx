@@ -21,6 +21,8 @@ import { getEventForEdit, duplicateEvent, deleteEvent } from './actions';
 import type { EventForEditItem } from './actions';
 import type { CalendarItem } from './types';
 
+const SHOW_SYSTEM_ITEMS = false;
+
 type ViewMode = 'month' | 'week' | 'day' | 'list';
 
 interface CalendarFilters {
@@ -40,6 +42,8 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+
+  const FIRST_DAY_OF_WEEK = 0;
 
   const [view, setView] = useState<ViewMode>(() => {
     const v = searchParams.get('view');
@@ -68,22 +72,19 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
   const session = useSession();
   const { socket } = useSocket();
 
-  const filteredAdmins = useMemo(
-    () => admins.filter(a => a.id !== session.userId),
-    [admins, session.userId]
-  );
+  const filteredAdmins = useMemo(() => admins.filter(a => a.id !== session.userId), [admins, session.userId]);
 
   const dateRange = useMemo(() => {
     if (view === 'month' || view === 'list') {
       return {
-        from: format(startOfWeek(startOfMonth(currentDate)), 'yyyy-MM-dd'),
-        to: format(endOfWeek(endOfMonth(currentDate)), 'yyyy-MM-dd'),
+        from: format(startOfWeek(startOfMonth(currentDate), { weekStartsOn: FIRST_DAY_OF_WEEK }), 'yyyy-MM-dd'),
+        to: format(endOfWeek(endOfMonth(currentDate), { weekStartsOn: FIRST_DAY_OF_WEEK }), 'yyyy-MM-dd'),
       };
     }
     if (view === 'week') {
       return {
-        from: format(startOfWeek(currentDate), 'yyyy-MM-dd'),
-        to: format(endOfWeek(currentDate), 'yyyy-MM-dd'),
+        from: format(startOfWeek(currentDate, { weekStartsOn: FIRST_DAY_OF_WEEK }), 'yyyy-MM-dd'),
+        to: format(endOfWeek(currentDate, { weekStartsOn: FIRST_DAY_OF_WEEK }), 'yyyy-MM-dd'),
       };
     }
     return {
@@ -99,6 +100,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
     if (filters.search) params.set('search', filters.search);
     if (filters.priority && filters.priority.length > 0) params.set('priority', filters.priority.join(','));
     if (filters.clientName) params.set('clientName', filters.clientName);
+    params.set('showSystemItems', String(SHOW_SYSTEM_ITEMS));
     return params.toString();
   }, [dateRange, filters]);
 
@@ -236,7 +238,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
   }, [queryClient]);
 
   return (
-    <div className="mx-auto grid h-full w-full max-w-[105rem] grid-cols-1 gap-4 min-[1680px]:grid-cols-[minmax(0,80rem)_24rem]">
+    <div className="mx-auto grid  w-full max-w-420 grid-cols-1 gap-4 min-[1680px]:grid-cols-[minmax(0,80rem)_24rem]">
       <div className="flex min-h-0 min-w-0 flex-col space-y-4">
         <div className="flex items-center justify-between">
           <FilterBar filters={filters} onFiltersChange={setFilters} initialEmployees={employees} />
@@ -269,6 +271,8 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             key={view}
             currentDate={currentDate}
             viewType={view === 'week' ? 'timeGridWeek' : 'timeGridDay'}
+            weekStart={dateRange.from}
+            numDays={view === 'week' ? 7 : 1}
             items={items}
             onEventClick={handleEventClick}
             onSlotSelect={session.hasPermission('user-calendar:create') ? handleSlotSelect : undefined}

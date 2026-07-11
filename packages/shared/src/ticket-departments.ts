@@ -1,7 +1,7 @@
 export const TICKET_DEPARTMENT_MAPPINGS: Record<string, string[]> = {
-  HR: ['HR', 'Human Resources'],
-  IT: ['IT', 'IT Department', 'Information Technology'],
-  CS: ['CS', 'Customer Service', 'Customer Support'],
+  IT: ['IT Department', 'IT'],
+  HR: ['HR'],
+  CS: ['Customer Support'],
 };
 
 export function isTicketEnabledDepartment(employeeDept: string | null | undefined): boolean {

@@ -1,4 +1,5 @@
 import { db as prisma, Prisma } from '../prisma/client';
+import { redis } from '../redis/client';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 
@@ -129,6 +130,12 @@ export async function createOfficeMemo(input: OfficeMemoInput, adminId?: string,
     },
   });
 
+  try {
+    await redis.publish('events:announcements', JSON.stringify({ type: 'announcement:changed' }));
+  } catch (err) {
+    console.error('Failed to publish announcement changed event to Redis:', err);
+  }
+
   return created;
 }
 
@@ -170,6 +177,12 @@ export async function updateOfficeMemo(id: string, input: OfficeMemoInput, admin
     },
   });
 
+  try {
+    await redis.publish('events:announcements', JSON.stringify({ type: 'announcement:changed' }));
+  } catch (err) {
+    console.error('Failed to publish announcement changed event to Redis:', err);
+  }
+
   return updated;
 }
 
@@ -195,6 +208,12 @@ export async function deleteOfficeMemo(id: string, adminId?: string, tx: TxLike 
       },
     },
   });
+
+  try {
+    await redis.publish('events:announcements', JSON.stringify({ type: 'announcement:changed' }));
+  } catch (err) {
+    console.error('Failed to publish announcement changed event to Redis:', err);
+  }
 
   return existing;
 }
