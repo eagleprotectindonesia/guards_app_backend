@@ -80,6 +80,11 @@ function todayStr() {
   return format(new Date(), 'yyyy-MM-dd');
 }
 
+function addOneHour(time: string): string {
+  const [hh, mm] = time.split(':').map(Number);
+  return `${String(Math.min(hh + 1, 23)).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
 function buildFormState(
   initialEvent: EventForEditItem | null | undefined,
   defaultDate?: string,
@@ -114,12 +119,15 @@ function buildFormState(
       endDateObj: new Date(endDate + 'T00:00:00'),
     };
   }
+  const startTime = defaultStartTime ?? '09:00';
+  const endTime = addOneHour(startTime);
   return {
     form: {
       ...EMPTY_FORM,
       startDate: defaultDate ?? todayStr(),
       endDate: defaultDate ?? todayStr(),
-      startTime: defaultStartTime ?? '09:00',
+      startTime,
+      endTime,
     } satisfies FormData,
     startDateObj: defaultDate ? new Date(defaultDate + 'T00:00:00') : new Date(),
     endDateObj: defaultDate ? new Date(defaultDate + 'T00:00:00') : new Date(),

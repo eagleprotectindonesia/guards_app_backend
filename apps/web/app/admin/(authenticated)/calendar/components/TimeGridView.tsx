@@ -7,9 +7,16 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { format, addDays, parseISO, isSameDay } from 'date-fns';
 import type { CalendarItem } from '../types';
 
+const SLOT_MIN_HOUR = 6;
+const SLOT_MAX_HOUR = 22;
+const SLOT_DURATION_MIN = 30;
+const NUM_SLOTS = (SLOT_MAX_HOUR - SLOT_MIN_HOUR) * (60 / SLOT_DURATION_MIN);
+
 interface TimeGridViewProps {
   currentDate: Date;
   viewType: 'timeGridWeek' | 'timeGridDay';
+  weekStart: string;
+  numDays: number;
   items: CalendarItem[];
   onEventClick: (item: CalendarItem) => void;
   onSlotSelect?: (date: string, time: string) => void;
@@ -20,6 +27,8 @@ interface TimeGridViewProps {
 export const TimeGridView = memo(function TimeGridView({
   currentDate,
   viewType,
+  weekStart,
+  numDays,
   items,
   onEventClick,
   onSlotSelect,
@@ -27,34 +36,58 @@ export const TimeGridView = memo(function TimeGridView({
   onEventContextMenu,
 }: TimeGridViewProps) {
   const calendarRef = useRef<FullCalendar>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [initialDateStr] = useState(() => format(currentDate, 'yyyy-MM-dd'));
 
-  const handleSlotLaneDidMount = useCallback((arg: { el: HTMLElement; date?: Date; time?: { milliseconds?: number } }) => {
+  useEffect(() => {
     if (!onSlotContextMenu) return;
-    const date = arg.date;
-    const time = arg.time;
-    if (!date || !time) return;
-
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const totalMs = time.milliseconds ?? 0;
-    const hh = Math.floor(totalMs / 3600000);
-    const mm = Math.floor((totalMs % 3600000) / 60000);
-    const timeStr = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+    const container = containerRef.current;
+    if (!container) return;
 
     const handler = (e: MouseEvent) => {
+      if ((e.target as HTMLElement).closest('.fc-event')) return;
+
+      const dayCol = container.querySelector<HTMLElement>('.fc-timegrid-col:not(.fc-timegrid-axis)');
+      if (!dayCol) return;
+
+      const dayColRect = dayCol.getBoundingClientRect();
+      const xInCols = e.clientX - dayColRect.left;
+      if (xInCols < 0) return;
+
+      const firstLane = container.querySelector<HTMLElement>('.fc-timegrid-slot-lane');
+      if (!firstLane) return;
+      const firstLaneRect = firstLane.getBoundingClientRect();
+      const slotHeight = firstLaneRect.height;
+      if (slotHeight <= 0) return;
+
+      const yInTimeArea = e.clientY - firstLaneRect.top;
+      if (yInTimeArea < 0) return;
+
+      const dayColWidth = dayColRect.width;
+      if (dayColWidth <= 0) return;
+
+      const colIndex = Math.floor(xInCols / dayColWidth);
+      if (colIndex < 0 || colIndex >= numDays) return;
+
+      const weekStartDate = parseISO(weekStart);
+      const clickedDate = addDays(weekStartDate, colIndex);
+      const dateStr = format(clickedDate, 'yyyy-MM-dd');
+
+      const slotIndex = Math.floor(yInTimeArea / slotHeight);
+      if (slotIndex < 0 || slotIndex >= NUM_SLOTS) return;
+
+      const totalMinutes = slotIndex * SLOT_DURATION_MIN + SLOT_MIN_HOUR * 60;
+      const hh = Math.floor(totalMinutes / 60);
+      const mm = totalMinutes % 60;
+      const timeStr = `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+
       e.preventDefault();
       onSlotContextMenu(dateStr, timeStr, e);
     };
-    arg.el.addEventListener('contextmenu', handler);
-    (arg.el as HTMLElement & { __ctxHandler?: (e: MouseEvent) => void }).__ctxHandler = handler;
-  }, [onSlotContextMenu]);
 
-  const handleSlotLaneWillUnmount = useCallback((arg: { el: HTMLElement }) => {
-    const handler = (arg.el as HTMLElement & { __ctxHandler?: (e: MouseEvent) => void }).__ctxHandler;
-    if (handler) {
-      arg.el.removeEventListener('contextmenu', handler);
-    }
-  }, []);
+    container.addEventListener('contextmenu', handler);
+    return () => container.removeEventListener('contextmenu', handler);
+  }, [onSlotContextMenu, weekStart, numDays]);
 
   const handleEventDidMount = useCallback(
     (arg: { el: HTMLElement; event: { extendedProps: { item?: CalendarItem } } }) => {
@@ -98,9 +131,7 @@ export const TimeGridView = memo(function TimeGridView({
       const last = group[group.length - 1];
 
       const start = first.allDay ? first.date : (first.startsAt ?? first.date);
-      const end = first.allDay
-        ? format(addDays(parseISO(last.date), 1), 'yyyy-MM-dd')
-        : (last.endsAt ?? undefined);
+      const end = first.allDay ? format(addDays(parseISO(last.date), 1), 'yyyy-MM-dd') : (last.endsAt ?? undefined);
 
       return {
         id: first.originalId,
@@ -117,7 +148,7 @@ export const TimeGridView = memo(function TimeGridView({
   }, [items]);
 
   return (
-    <div className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-card">
+    <div ref={containerRef} className="min-h-0 flex-1 overflow-hidden rounded-lg border border-border bg-card">
       <FullCalendar
         ref={calendarRef}
         plugins={[timeGridPlugin, interactionPlugin]}
@@ -125,24 +156,19 @@ export const TimeGridView = memo(function TimeGridView({
         initialDate={initialDateStr}
         events={events}
         headerToolbar={false}
-        height="100%"
-        slotMinTime="06:00:00"
-        slotMaxTime="22:00:00"
+        slotMinTime={`${String(SLOT_MIN_HOUR).padStart(2, '0')}:00:00`}
+        slotMaxTime={`${String(SLOT_MAX_HOUR).padStart(2, '0')}:00:00`}
         allDaySlot={true}
         nowIndicator={true}
-        slotDuration="00:30:00"
+        slotDuration={`00:${String(SLOT_DURATION_MIN).padStart(2, '0')}:00`}
         slotLabelInterval="01:00"
         selectable={true}
         selectMirror={true}
+        firstDay={0}
         select={info => {
-          onSlotSelect?.(
-            format(info.start, 'yyyy-MM-dd'),
-            format(info.start, 'HH:mm'),
-          );
+          onSlotSelect?.(format(info.start, 'yyyy-MM-dd'), format(info.start, 'HH:mm'));
           info.view.calendar.unselect();
         }}
-        slotLaneDidMount={handleSlotLaneDidMount}
-        slotLaneWillUnmount={handleSlotLaneWillUnmount}
         eventDidMount={handleEventDidMount}
         eventWillUnmount={handleEventWillUnmount}
         eventClick={info => {
@@ -159,9 +185,7 @@ export const TimeGridView = memo(function TimeGridView({
               >
                 {format(d, 'EEE')}
               </span>
-              <span
-                className={`text-base font-semibold tabular-nums ${today ? 'text-primary' : 'text-foreground'}`}
-              >
+              <span className={`text-base font-semibold tabular-nums ${today ? 'text-primary' : 'text-foreground'}`}>
                 {format(d, 'd')}
               </span>
             </div>
@@ -180,9 +204,7 @@ export const TimeGridView = memo(function TimeGridView({
                   </>
                 )}
               </div>
-              <div className="truncate text-xs font-semibold leading-tight">
-                {item.title}
-              </div>
+              <div className="truncate text-xs font-semibold leading-tight">{item.title}</div>
             </div>
           );
         }}
