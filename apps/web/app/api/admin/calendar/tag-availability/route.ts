@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { findParticipantAvailabilityConflicts } from '@repo/database';
-import { requirePermission } from '@/lib/admin-auth';
+import { getAdminAuthSession } from '@/lib/admin-auth';
 import { tagAvailabilityCheckSchema } from '@repo/validations';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
 
 export async function POST(req: Request) {
-  await requirePermission('user-calendar:create');
+  const session = await getAdminAuthSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const body = await req.json();

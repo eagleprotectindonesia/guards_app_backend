@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma, getCalendarEventTags, getTagsForEvents } from '@repo/database';
-import { requirePermission } from '@/lib/admin-auth';
+import { getAdminAuthSession } from '@/lib/admin-auth';
 import { createCalendarEventSchema, calendarListSchema } from '@repo/validations';
 import { createCalendarEvent } from '@repo/database';
 import { serializeCalendarEvent } from '@repo/shared';
@@ -10,7 +10,9 @@ import { ZodError } from 'zod';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
 
 export async function GET(req: Request) {
-  const { id: adminId, isSuperAdmin } = await requirePermission('user-calendar:view');
+  const session = await getAdminAuthSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id: adminId, isSuperAdmin } = session;
 
   try {
     const { searchParams } = new URL(req.url);
@@ -66,7 +68,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await requirePermission('user-calendar:create');
+  const session = await getAdminAuthSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const body = createCalendarEventSchema.parse(await req.json());

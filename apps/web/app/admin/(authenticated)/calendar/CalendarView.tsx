@@ -243,14 +243,12 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
         <div className="flex items-center justify-between">
           <FilterBar filters={filters} onFiltersChange={setFilters} initialEmployees={employees} />
           <div className="flex items-center gap-2">
-            {session.hasPermission('user-calendar:create') && (
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
-              >
-                + New Event
-              </button>
-            )}
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+            >
+              + New Event
+            </button>
             <ViewToggle view={view} onViewChange={setView} currentDate={currentDate} onDateChange={setCurrentDate} />
           </div>
         </div>
@@ -262,7 +260,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             daySummary={daySummaryMap}
             onDateClick={handleDateClick}
             onEventClick={handleEventClick}
-            onDateContextMenu={session.hasPermission('user-calendar:create') ? handleDateContextMenu : undefined}
+            onDateContextMenu={handleDateContextMenu}
             onEventContextMenu={handleEventContextMenu}
           />
         )}
@@ -275,8 +273,8 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             numDays={view === 'week' ? 7 : 1}
             items={items}
             onEventClick={handleEventClick}
-            onSlotSelect={session.hasPermission('user-calendar:create') ? handleSlotSelect : undefined}
-            onSlotContextMenu={session.hasPermission('user-calendar:create') ? handleSlotContextMenu : undefined}
+            onSlotSelect={handleSlotSelect}
+            onSlotContextMenu={handleSlotContextMenu}
             onEventContextMenu={handleEventContextMenu}
           />
         )}
@@ -309,17 +307,14 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             onDelete={handleFormSuccess}
             onDuplicate={() => handleDuplicate(selectedEvent.originalId)}
             hasEditPermission={
-              session.hasPermission('user-calendar:edit') &&
               selectedEvent.ownerType === 'admin' &&
               selectedEvent.ownerId === session.userId
             }
             hasDeletePermission={
-              session.hasPermission('user-calendar:delete') &&
               selectedEvent.ownerType === 'admin' &&
               selectedEvent.ownerId === session.userId
             }
             hasDuplicatePermission={
-              session.hasPermission('user-calendar:create') &&
               selectedEvent.ownerType === 'admin' &&
               selectedEvent.ownerId === session.userId
             }
@@ -337,17 +332,14 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             onDelete={handleFormSuccess}
             onDuplicate={() => handleDuplicate(selectedEvent.originalId)}
             hasEditPermission={
-              session.hasPermission('user-calendar:edit') &&
               selectedEvent.ownerType === 'admin' &&
               selectedEvent.ownerId === session.userId
             }
             hasDeletePermission={
-              session.hasPermission('user-calendar:delete') &&
               selectedEvent.ownerType === 'admin' &&
               selectedEvent.ownerId === session.userId
             }
             hasDuplicatePermission={
-              session.hasPermission('user-calendar:create') &&
               selectedEvent.ownerType === 'admin' &&
               selectedEvent.ownerId === session.userId
             }
@@ -408,17 +400,14 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
           onDuplicate={() => handleDuplicate(eventContextMenu.item.originalId)}
           onDelete={handleDeleteFromContextMenu}
           hasEditPermission={
-            session.hasPermission('user-calendar:edit') &&
             eventContextMenu.item.ownerType === 'admin' &&
             eventContextMenu.item.ownerId === session.userId
           }
           hasDeletePermission={
-            session.hasPermission('user-calendar:delete') &&
             eventContextMenu.item.ownerType === 'admin' &&
             eventContextMenu.item.ownerId === session.userId
           }
           hasDuplicatePermission={
-            session.hasPermission('user-calendar:create') &&
             eventContextMenu.item.ownerType === 'admin' &&
             eventContextMenu.item.ownerId === session.userId
           }

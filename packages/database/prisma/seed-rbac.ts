@@ -22,7 +22,6 @@ async function main() {
     'designations',
     'leave-requests',
     'holiday-calendars',
-    'user-calendar',
   ];
 
   const actions = ['view', 'create', 'edit', 'delete'];
@@ -127,10 +126,6 @@ async function main() {
           'holiday-calendars:view',
           'holiday-calendars:create',
           'holiday-calendars:edit',
-          'user-calendar:view',
-          'user-calendar:create',
-          'user-calendar:edit',
-          'user-calendar:delete',
         ],
       },
     },

@@ -132,7 +132,7 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
       requiredPermission: 'checkins:view',
     },
     { name: 'Alerts', href: '/admin/alerts', icon: Bell, requiredPermission: 'alerts:view' },
-    { name: 'User Calendar', href: '/admin/calendar', icon: CalendarDays, requiredPermission: 'user-calendar:view' },
+    { name: 'User Calendar', href: '/admin/calendar', icon: CalendarDays },
   ];
 }
 
