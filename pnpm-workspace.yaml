@@ -16,3 +16,4 @@ allowBuilds:
   tree-sitter: true
   tree-sitter-json: true
   unrs-resolver: true
+engineStrict: true
