@@ -10,6 +10,7 @@ import { ChatListItemData } from '../components/chat/ChatListItem';
 import { Socket } from 'socket.io-client';
 import { queryKeys } from '../api/queryKeys';
 import { incrementTelemetryCounter } from '../utils/telemetry';
+import { captureException } from '../utils/sentry';
 
 type GroupChatMessagesQueryData = {
   pages: GroupChatMessage[][];
@@ -106,7 +107,8 @@ export function useGroupChatMessages({
         if (toAdd.length === 0) return old;
         return { ...old, pages: [[...toAdd, ...old.pages[0]], ...old.pages.slice(1)] };
       });
-    } catch {
+    } catch (error) {
+      captureException(error, { tags: { feature: 'group_chat_reconcile' } });
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.groupMessages(groupId) });
     }
   }, [groupId, queryClient]);
