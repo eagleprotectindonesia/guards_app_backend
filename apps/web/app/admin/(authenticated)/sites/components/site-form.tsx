@@ -131,11 +131,11 @@ export default function SiteForm({ site, isMonitoringEnabled = true, hideEscortS
   const [currentLongitude, setCurrentLongitude] = useState(site?.longitude || defaultPosition.lng);
   const [selectedPostIndex, setSelectedPostIndex] = useState(0);
   const [pendingFocusPostIndex, setPendingFocusPostIndex] = useState<number | null>(null);
-  const [kind, setKind] = useState<'fixed' | 'escort'>(site?.kind || 'fixed');
+  const [kind, setKind] = useState<'fixed' | 'escort' | 'event'>(site?.kind || 'fixed');
   const [posts, setPosts] = useState<SitePostFormValue[]>(
     site?.posts && site.posts.length > 0
       ? site.posts.map((p, idx) => ({ ...p, sortOrder: p.sortOrder ?? idx }))
-      : [{ name: kind === 'escort' ? 'Escort End' : 'Main Post', address: '', latitude: null, longitude: null, sortOrder: 0 }]
+      : [{ name: kind === 'escort' ? 'Escort End' : kind === 'event' ? 'Event Post' : 'Main Post', address: '', latitude: null, longitude: null, sortOrder: 0 }]
   );
 
   const focusPost = useCallback((index: number) => {
@@ -167,9 +167,9 @@ export default function SiteForm({ site, isMonitoringEnabled = true, hideEscortS
     );
   }, [selectedPostIndex]);
 
-  const handleKindChange = (newKind: 'fixed' | 'escort') => {
+  const handleKindChange = (newKind: 'fixed' | 'escort' | 'event') => {
     setKind(newKind);
-    if (newKind === 'escort' && posts.length > 1) {
+    if ((newKind === 'escort' || newKind === 'event') && posts.length > 1) {
       setPosts([posts[0]]);
       setSelectedPostIndex(0);
     }
@@ -210,6 +210,17 @@ export default function SiteForm({ site, isMonitoringEnabled = true, hideEscortS
                   <span className="ml-2 text-foreground text-sm">Escort</span>
                 </label>
               )}
+              <label className="inline-flex items-center cursor-pointer">
+                <input
+                  type="radio"
+                  name="kind"
+                  value="event"
+                  checked={kind === 'event'}
+                  onChange={() => handleKindChange('event')}
+                  className="text-red-600 focus:ring-red-600"
+                />
+                <span className="ml-2 text-foreground text-sm">Event</span>
+              </label>
             </div>
             {state.errors?.kind && (
               <p className="text-red-500 text-xs mt-1">{state.errors.kind[0]}</p>
@@ -303,7 +314,7 @@ export default function SiteForm({ site, isMonitoringEnabled = true, hideEscortS
             )}
           </div>
 
-          {/* Posts (fixed) or Escort End Location (escort) */}
+          {/* Posts (fixed) or Escort End Location (escort) / Event Location (event) */}
           {kind === 'fixed' ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -432,7 +443,7 @@ export default function SiteForm({ site, isMonitoringEnabled = true, hideEscortS
           ) : (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <label className="block font-medium text-foreground">Escort End Location</label>
+                <label className="block font-medium text-foreground">{kind === 'event' ? 'Event Location' : 'Escort End Location'}</label>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-12 gap-3 p-4 border rounded-xl border-red-500 bg-red-50/5 dark:bg-red-500/5">
                 <div className="md:col-span-5">

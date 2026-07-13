@@ -4,7 +4,7 @@ import { serialize, getPaginationParams } from '@/lib/server-utils';
 import {
   listShiftPhotoReportsPaginated,
   getActiveEmployeesSummary,
-  getActiveSites,
+  getActiveFixedSites,
   getShiftPhotoReportDownloadCountsByReportIds,
 } from '@repo/database';
 import { getCachedPresignedDownloadUrl } from '@repo/storage';
@@ -49,12 +49,13 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
   });
 
   const employees = await getActiveEmployeesSummary('on_site');
-  const sites = (await getActiveSites()).map(s => ({ id: s.id, name: s.name }));
+  const sites = (await getActiveFixedSites()).map(s => ({ id: s.id, name: s.name }));
 
   const reportIds = reports.map(r => r.id);
-  const downloadCounts = reportIds.length > 0
-    ? await getShiftPhotoReportDownloadCountsByReportIds(reportIds)
-    : {} as Record<string, number>;
+  const downloadCounts =
+    reportIds.length > 0
+      ? await getShiftPhotoReportDownloadCountsByReportIds(reportIds)
+      : ({} as Record<string, number>);
 
   const enriched = await Promise.all(
     reports.map(async report => ({

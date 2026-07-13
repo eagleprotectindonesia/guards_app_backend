@@ -51,7 +51,7 @@ export async function getActiveEscortSites() {
 
 export async function getPaginatedSites(params: {
   query?: string;
-  kind?: 'fixed' | 'escort';
+  kind?: 'fixed' | 'escort' | 'event';
   skip: number;
   take: number;
   sortBy?: string;
@@ -62,19 +62,19 @@ export async function getPaginatedSites(params: {
   const validSortFields = ['name', 'clientName', 'status', 'posts', 'kind'];
   const sortField = validSortFields.includes(sortBy) ? sortBy : 'name';
 
-    const where: Prisma.SiteWhereInput = {
-      deletedAt: null,
-      ...(query
-        ? {
-            OR: [
-              { name: { contains: query, mode: 'insensitive' } },
-              { clientName: { contains: query, mode: 'insensitive' } },
-              { address: { contains: query, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-      ...(params.kind ? { kind: params.kind as 'fixed' | 'escort' } : {}),
-    };
+  const where: Prisma.SiteWhereInput = {
+    deletedAt: null,
+    ...(query
+      ? {
+          OR: [
+            { name: { contains: query, mode: 'insensitive' } },
+            { clientName: { contains: query, mode: 'insensitive' } },
+            { address: { contains: query, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+    ...(params.kind ? { kind: params.kind as 'fixed' | 'escort' | 'event' } : { kind: 'fixed' }),
+  };
 
   const orderBy: Prisma.SiteOrderByWithRelationInput =
     sortBy === 'posts' ? { posts: { _count: sortOrder } } : { [sortField]: sortOrder };
@@ -420,10 +420,7 @@ export async function getTotalClientsCount() {
   const uniqueClients = await prisma.site.findMany({
     where: {
       deletedAt: null,
-      NOT: [
-        { clientName: null },
-        { clientName: '' },
-      ],
+      NOT: [{ clientName: null }, { clientName: '' }],
     },
     distinct: ['clientName'],
     select: {
@@ -440,6 +437,7 @@ export async function getSiteAssignmentDashboardMetrics(now: Date = new Date()) 
     prisma.site.count({
       where: {
         deletedAt: null,
+        kind: 'fixed',
       },
     }),
     prisma.shift.findMany({
@@ -472,9 +470,9 @@ export async function getSiteAssignmentDashboardMetrics(now: Date = new Date()) 
 
 export async function getClientSiteDashboardMetrics() {
   const [totalSites, activeSites, inactiveSites, totalPosts, activeGeofences, totalClients] = await Promise.all([
-    prisma.site.count({ where: { deletedAt: null } }),
-    prisma.site.count({ where: { status: true, deletedAt: null } }),
-    prisma.site.count({ where: { status: false, deletedAt: null } }),
+    prisma.site.count({ where: { deletedAt: null, kind: 'fixed' } }),
+    prisma.site.count({ where: { status: true, deletedAt: null, kind: 'fixed' } }),
+    prisma.site.count({ where: { status: false, deletedAt: null, kind: 'fixed' } }),
     prisma.sitePost.count({ where: { status: true, deletedAt: null } }),
     prisma.site.count({ where: { geofenceStatus: true, deletedAt: null } }),
     getTotalClientsCount(),

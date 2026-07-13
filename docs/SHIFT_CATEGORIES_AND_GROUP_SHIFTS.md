@@ -8,9 +8,13 @@ The system supports four kinds of guard shifts: **onsite** (guard stays at a sin
 
 ## 1. Shift Kinds
 
-### `onsite`, `office_control`, `event_temporary`
+### `onsite`, `office_control`
 - Guard is stationed at a single `fixed`-kind site for the shift duration.
 - Only one location (`siteId`) is involved.
+
+### `event_temporary`
+- Guard is stationed at a single `event`-kind site for the shift duration.
+- Only one location (`siteId`) is involved. The site is auto-created with `kind='event'` and **never appears in `/admin/sites`**, CSV exports, or dashboard metrics — these sites are transient (one-off weddings, festivals, etc.).
 - The workflow: record attendance → periodic check-ins → auto-complete (or manual completion).
 - Periodic check-ins at `requiredCheckinIntervalMins` intervals with `graceMinutes` tolerance.
 - For `office_control` and `event_temporary`, `requiredCheckinIntervalMins` is locked to the full shift duration (one check-in for the entire shift).
@@ -31,7 +35,7 @@ The system supports four kinds of guard shifts: **onsite** (guard stays at a sin
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | UUID | Primary key |
-| `siteId` | FK → Site | Start site (must be `kind='fixed'` for onsite/office_control/event_temporary; `kind='escort'` for escort) |
+| `siteId` | FK → Site | Start site (must be `kind='fixed'` for onsite/office_control; `kind='escort'` for escort; `kind='event'` for event_temporary) |
 | `shiftTypeId` | FK → ShiftType | Defines start/end time template |
 | `employeeId` | FK → Employee (nullable) | Assigned guard |
 | `kind` | `onsite \| office_control \| event_temporary \| escort` | Shift category |
@@ -114,16 +118,17 @@ Only one Group Shift per origin/destination/date combination. Multiple guards on
 
 ## 4. Onsite vs Escort — Key Differences
 
-| Aspect | Onsite / Office Control / Event Temporary | Escort |
-|--------|--------|--------|
-| Locations | 1 fixed site | 1 fixed start + 1 escort end |
-| Check-ins | Periodic (`requiredCheckinIntervalMins`) for `onsite`; locked to full shift duration for `office_control` / `event_temporary` | **Replaced** by duty actions |
-| Completion | Auto on last check-in | Explicit **End Duty** action |
-| Group Shift | Not applicable | Required (every escort shift belongs to one) |
-| Group Chat | Not applicable | Optional (auto-created via schedule builder) |
-| Mobile duty buttons | Start Duty only | Start Duty, Leave, Arrive, End, Send Location, Send Photo |
-| Departure/Arrival tracking | Not applicable | `departedAt`, `arrivedAt` timestamps |
-| Individual shift edit | Full editing freedom | Group fields locked (site, date, shift type) — only employee and note can be changed |
+| Aspect | Onsite / Office Control | Event Temporary | Escort |
+|--------|--------|--------|--------|
+| Locations | 1 fixed site | 1 event site | 1 escort start + 1 escort end |
+| Site `kind` | `fixed` | `event` (always hidden) | `escort` (hidden when HIDE_ESCORT_SITES=1) |
+| Check-ins | Periodic (`requiredCheckinIntervalMins`) for `onsite`; locked to full shift duration for `office_control` | Locked to full shift duration (one check-in) | **Replaced** by duty actions |
+| Completion | Auto on last check-in | Auto on last check-in | Explicit **End Duty** action |
+| Group Shift | Not applicable | Not applicable | Required (every escort shift belongs to one) |
+| Group Chat | Not applicable | Not applicable | Optional (auto-created via schedule builder) |
+| Mobile duty buttons | Start Duty only | Start Duty only | Start Duty, Leave, Arrive, End, Send Location, Send Photo |
+| Departure/Arrival tracking | Not applicable | Not applicable | `departedAt`, `arrivedAt` timestamps |
+| Individual shift edit | Full editing freedom | Full editing freedom | Group fields locked (site, date, shift type) — only employee and note can be changed |
 
 ---
 

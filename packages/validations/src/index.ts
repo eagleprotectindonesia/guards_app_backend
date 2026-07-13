@@ -24,7 +24,7 @@ const sitePostSchema = z.object({
 });
 
 // --- Site ---
-export const SiteKindEnum = z.enum(['fixed', 'escort']);
+export const SiteKindEnum = z.enum(['fixed', 'escort', 'event']);
 
 export const createSiteSchema = z.object({
   name: z.string().min(1),

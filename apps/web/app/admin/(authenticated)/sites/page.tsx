@@ -34,7 +34,7 @@ export default async function SitesPage(props: SitesPageProps) {
 
   const hideEscortSetting = await getSystemSetting('HIDE_ESCORT_SITES');
   const hideEscortSites = hideEscortSetting?.value === '1';
-  const effectiveKind: 'fixed' | 'escort' | undefined = hideEscortSites ? 'fixed' : (kind as 'fixed' | 'escort' | undefined);
+  const effectiveKind: 'fixed' | 'escort' | 'event' | undefined = hideEscortSites ? 'fixed' : (kind as 'fixed' | 'escort' | 'event' | undefined);
 
   const { sites, totalCount } = await getPaginatedSites({
     query,
