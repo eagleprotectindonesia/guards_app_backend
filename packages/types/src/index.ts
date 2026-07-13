@@ -617,4 +617,18 @@ export interface CalendarEventItem {
   ownerName: string;
 }
 
+export interface CalendarEventChangelogActor {
+  type: 'admin' | 'employee' | 'system';
+  id: string | null;
+  name: string | null;
+}
+
+export interface CalendarEventChangelogItem {
+  id: string;
+  action: string;
+  createdAt: string;
+  actor: CalendarEventChangelogActor;
+  details: Record<string, unknown> | null;
+}
+
 export * from './socket-events';

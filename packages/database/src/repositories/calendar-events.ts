@@ -12,6 +12,11 @@ export type CalendarEventCreator = { type: 'employee'; id: string } | { type: 'a
 
 export type CalendarEventOwner = { type: 'employee'; id: string } | { type: 'admin'; id: string };
 
+export type CalendarEventChangelogActor =
+  | { type: 'admin'; id: string }
+  | { type: 'employee'; id: string }
+  | { type: 'system' };
+
 export interface CreateCalendarEventInput {
   employeeId?: string;
   adminId?: string;
@@ -653,4 +658,198 @@ export async function findParticipantAvailabilityConflicts(
   }
 
   return result;
+}
+
+export async function createCalendarEventWithChangelog(
+  input: CreateCalendarEventInput,
+  actor: CalendarEventChangelogActor,
+  tx: TxLike = prisma,
+) {
+  const event = await createCalendarEvent(input, tx);
+
+  const actorData =
+    actor.type === 'admin' ? { actor: 'admin' as const, actorId: actor.id }
+      : actor.type === 'employee' ? { actor: 'employee' as const, employeeId: actor.id }
+        : { actor: 'system' as const };
+
+  await (tx as any).changelog.create({
+    data: {
+      action: 'CREATE',
+      entityType: 'CalendarEvent',
+      entityId: event.id,
+      details: {
+        kind: input.kind,
+        title: input.title,
+        startDate: input.startDate,
+        endDate: input.endDate,
+        allDay: input.allDay,
+        priority: input.priority ?? 'normal',
+        taggedEmployeeIds: input.taggedEmployeeIds ?? [],
+        taggedAdminIds: input.taggedAdminIds ?? [],
+      },
+      ...actorData,
+    },
+  });
+
+  return event;
+}
+
+export async function updateCalendarEventWithChangelog(
+  id: string,
+  input: UpdateCalendarEventInput,
+  actor: CalendarEventChangelogActor,
+  tx: TxLike = prisma,
+) {
+  const existing = await tx.calendarEvent.findUnique({ where: { id } });
+  if (!existing) throw new Error(`CalendarEvent not found: ${id}`);
+
+  const existingTags = await tx.calendarEventTag.findMany({
+    where: { eventId: id },
+    select: { employeeId: true, adminId: true, participantType: true },
+  });
+  const existingEmpTags = existingTags.filter(t => t.participantType === 'employee').map(t => t.employeeId!).filter(Boolean);
+  const existingAdmTags = existingTags.filter(t => t.participantType === 'admin').map(t => t.adminId!).filter(Boolean);
+
+  const event = await updateCalendarEvent(id, input, tx);
+
+  const diff: Record<string, { from: unknown; to: unknown }> = {};
+
+  const scalarFields: (keyof UpdateCalendarEventInput)[] = [
+    'kind', 'title', 'description', 'startDate', 'endDate', 'startTime', 'endTime',
+    'allDay', 'location', 'latitude', 'longitude', 'clientName', 'trainerName', 'priority', 'reminderMinutesBefore',
+  ];
+
+  for (const field of scalarFields) {
+    if (input[field] !== undefined) {
+      const existingVal = (existing as any)[field];
+      let inputVal: unknown = input[field];
+
+      if (field === 'startDate' || field === 'endDate') {
+        const existingStr = existingVal instanceof Date
+          ? existingVal.toISOString().slice(0, 10)
+          : String(existingVal);
+        const inputStr = String(inputVal);
+        if (existingStr !== inputStr) {
+          diff[field] = { from: existingStr, to: inputStr };
+        }
+      } else {
+        if (existingVal !== inputVal) {
+          diff[field] = { from: existingVal ?? null, to: inputVal ?? null };
+        }
+      }
+    }
+  }
+
+  const tagDiff: Record<string, string[]> = {};
+  if (input.taggedEmployeeIds !== undefined) {
+    const added = input.taggedEmployeeIds.filter(id => !existingEmpTags.includes(id));
+    const removed = existingEmpTags.filter(id => !input.taggedEmployeeIds!.includes(id));
+    if (added.length > 0) tagDiff.addedEmployees = added;
+    if (removed.length > 0) tagDiff.removedEmployees = removed;
+  }
+  if (input.taggedAdminIds !== undefined) {
+    const added = input.taggedAdminIds.filter(id => !existingAdmTags.includes(id));
+    const removed = existingAdmTags.filter(id => !input.taggedAdminIds!.includes(id));
+    if (added.length > 0) tagDiff.addedAdmins = added;
+    if (removed.length > 0) tagDiff.removedAdmins = removed;
+  }
+
+  if (Object.keys(diff).length === 0 && Object.keys(tagDiff).length === 0) {
+    return event;
+  }
+
+  const actorData =
+    actor.type === 'admin' ? { actor: 'admin' as const, actorId: actor.id }
+      : actor.type === 'employee' ? { actor: 'employee' as const, employeeId: actor.id }
+        : { actor: 'system' as const };
+
+  const details: Record<string, unknown> = {
+    changedFields: Object.keys(diff),
+    diff,
+  };
+  if (Object.keys(tagDiff).length > 0) {
+    details.tagDiff = tagDiff;
+  }
+
+  await (tx as any).changelog.create({
+    data: {
+      action: 'UPDATE',
+      entityType: 'CalendarEvent',
+      entityId: id,
+      details,
+      ...actorData,
+    },
+  });
+
+  return event;
+}
+
+export async function deleteCalendarEventWithChangelog(
+  id: string,
+  actor: CalendarEventChangelogActor,
+  tx: TxLike = prisma,
+) {
+  const event = await tx.calendarEvent.findUnique({
+    where: { id },
+    select: { title: true, kind: true, startDate: true, endDate: true },
+  });
+
+  await deleteCalendarEvent(id, tx);
+
+  const actorData =
+    actor.type === 'admin' ? { actor: 'admin' as const, actorId: actor.id }
+      : actor.type === 'employee' ? { actor: 'employee' as const, employeeId: actor.id }
+        : { actor: 'system' as const };
+
+  await (tx as any).changelog.create({
+    data: {
+      action: 'DELETE',
+      entityType: 'CalendarEvent',
+      entityId: id,
+      details: event
+        ? {
+          title: event.title,
+          kind: event.kind,
+          startDate: event.startDate instanceof Date ? event.startDate.toISOString().slice(0, 10) : event.startDate,
+          endDate: event.endDate instanceof Date ? event.endDate.toISOString().slice(0, 10) : event.endDate,
+        }
+        : undefined,
+      ...actorData,
+    },
+  });
+}
+
+export async function listCalendarEventChangelogs(
+  eventId: string,
+  params?: { limit?: number; cursor?: string },
+  tx: TxLike = prisma,
+) {
+  const limit = params?.limit ?? 50;
+  const where: any = { entityType: 'CalendarEvent', entityId: eventId };
+
+  if (params?.cursor) {
+    const cursorItem = await tx.changelog.findUnique({
+      where: { id: params.cursor },
+      select: { createdAt: true },
+    });
+    if (cursorItem) {
+      where.createdAt = { lt: cursorItem.createdAt };
+    }
+  }
+
+  const items = await (tx as any).changelog.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    take: limit + 1,
+    include: {
+      admin: { select: { id: true, name: true } },
+      employee: { select: { id: true, fullName: true } },
+    },
+  });
+
+  const hasMore = items.length > limit;
+  const rows = hasMore ? items.slice(0, limit) : items;
+  const nextCursor = hasMore && rows.length > 0 ? rows[rows.length - 1].id : null;
+
+  return { items: rows, nextCursor };
 }

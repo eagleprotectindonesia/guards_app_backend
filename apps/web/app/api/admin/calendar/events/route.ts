@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma, getCalendarEventTags, getTagsForEvents } from '@repo/database';
 import { getAdminAuthSession } from '@/lib/admin-auth';
 import { createCalendarEventSchema, calendarListSchema } from '@repo/validations';
-import { createCalendarEvent } from '@repo/database';
+import { createCalendarEventWithChangelog } from '@repo/database';
 import { serializeCalendarEvent } from '@repo/shared';
 import { getAdminName, notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { redis } from '@repo/database/redis';
@@ -87,7 +87,7 @@ export async function POST(req: Request) {
     const adminName = await getAdminName(session.id);
 
     const event = await prisma.$transaction(async tx => {
-      return createCalendarEvent(
+      return createCalendarEventWithChangelog(
         {
           adminId: session.id,
           kind: body.kind,
@@ -105,6 +105,7 @@ export async function POST(req: Request) {
           taggedEmployeeIds,
           taggedAdminIds,
         },
+        { type: 'admin', id: session.id },
         tx
       );
     });

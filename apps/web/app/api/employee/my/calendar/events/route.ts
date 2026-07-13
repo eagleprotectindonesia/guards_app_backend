@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma, getCalendarEventTags, getTagsForEvents, listEmployeeCalendarEvents } from '@repo/database';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { createCalendarEventSchema, calendarListSchema } from '@repo/validations';
-import { createCalendarEvent } from '@repo/database';
+import { createCalendarEventWithChangelog } from '@repo/database';
 import { serializeCalendarEvent } from '@repo/shared';
 import { notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { redis } from '@repo/database/redis';
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     }
 
     const event = await prisma.$transaction(async tx => {
-      return createCalendarEvent(
+      return createCalendarEventWithChangelog(
         {
           employeeId: employee.id,
           kind: body.kind,
@@ -87,6 +87,7 @@ export async function POST(req: Request) {
           taggedEmployeeIds,
           taggedAdminIds,
         },
+        { type: 'employee', id: employee.id },
         tx
       );
     });

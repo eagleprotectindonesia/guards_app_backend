@@ -2,9 +2,9 @@
 
 import {
   prisma,
-  createCalendarEvent,
-  updateCalendarEvent,
-  deleteCalendarEvent,
+  createCalendarEventWithChangelog,
+  updateCalendarEventWithChangelog,
+  deleteCalendarEventWithChangelog,
   getCalendarEventTags,
   findParticipantAvailabilityConflicts,
   type TaggedUserResult,
@@ -40,7 +40,7 @@ export async function createEvent(data: unknown) {
   const adminName = await getAdminName(session.id);
 
   const event = await prisma.$transaction(async tx => {
-    return createCalendarEvent(
+    return createCalendarEventWithChangelog(
       {
         adminId: session.id,
         kind: body.kind,
@@ -59,6 +59,7 @@ export async function createEvent(data: unknown) {
         taggedEmployeeIds,
         taggedAdminIds,
       },
+      { type: 'admin', id: session.id },
       tx
     );
   });
@@ -117,22 +118,29 @@ export async function updateEvent(id: string, data: unknown) {
   const newEmployeeIds = taggedEmployeeIds ?? oldEmployeeIds;
   const newAdminIds = taggedAdminIds ?? oldAdminIds;
 
-  await updateCalendarEvent(id, {
-    kind: body.kind,
-    title: body.title,
-    description: body.description,
-    startDate: body.startDate,
-    endDate: body.endDate,
-    startTime: body.startTime,
-    endTime: body.endTime,
-    allDay: body.allDay,
-    location: body.location,
-    clientName: body.clientName,
-    trainerName: body.trainerName,
-    priority: body.priority,
-    reminderMinutesBefore: body.reminderMinutesBefore,
-    taggedEmployeeIds: newEmployeeIds,
-    taggedAdminIds: newAdminIds,
+  await prisma.$transaction(async tx => {
+    await updateCalendarEventWithChangelog(
+      id,
+      {
+        kind: body.kind,
+        title: body.title,
+        description: body.description,
+        startDate: body.startDate,
+        endDate: body.endDate,
+        startTime: body.startTime,
+        endTime: body.endTime,
+        allDay: body.allDay,
+        location: body.location,
+        clientName: body.clientName,
+        trainerName: body.trainerName,
+        priority: body.priority,
+        reminderMinutesBefore: body.reminderMinutesBefore,
+        taggedEmployeeIds: newEmployeeIds,
+        taggedAdminIds: newAdminIds,
+      },
+      { type: 'admin', id: session.id },
+      tx,
+    );
   });
 
   const newlyTaggedEmployees = newEmployeeIds.filter(uid => !oldEmployeeIds.includes(uid));
@@ -169,7 +177,9 @@ export async function deleteEvent(id: string) {
     return { success: false, error: 'Calendar event not found' };
   }
 
-  await deleteCalendarEvent(id);
+  await prisma.$transaction(async tx => {
+    await deleteCalendarEventWithChangelog(id, { type: 'admin', id: session.id }, tx);
+  });
 
   redis
     .publish(
@@ -277,21 +287,27 @@ export async function duplicateEvent(id: string) {
     return { success: false, error: 'Calendar event not found' };
   }
 
-  const event = await createCalendarEvent({
-    adminId: session.id,
-    kind: existing.kind,
-    title: existing.title,
-    description: existing.description ?? undefined,
-    startDate: format(existing.startDate, 'yyyy-MM-dd'),
-    endDate: format(existing.endDate, 'yyyy-MM-dd'),
-    startTime: existing.startTime ?? undefined,
-    endTime: existing.endTime ?? undefined,
-    allDay: existing.allDay,
-    location: existing.location ?? undefined,
-    clientName: existing.clientName ?? undefined,
-    trainerName: existing.trainerName ?? undefined,
-    priority: existing.priority ?? undefined,
-    reminderMinutesBefore: existing.reminderMinutesBefore ?? undefined,
+  const event = await prisma.$transaction(async tx => {
+    return createCalendarEventWithChangelog(
+      {
+        adminId: session.id,
+        kind: existing.kind,
+        title: existing.title,
+        description: existing.description ?? undefined,
+        startDate: format(existing.startDate, 'yyyy-MM-dd'),
+        endDate: format(existing.endDate, 'yyyy-MM-dd'),
+        startTime: existing.startTime ?? undefined,
+        endTime: existing.endTime ?? undefined,
+        allDay: existing.allDay,
+        location: existing.location ?? undefined,
+        clientName: existing.clientName ?? undefined,
+        trainerName: existing.trainerName ?? undefined,
+        priority: existing.priority ?? undefined,
+        reminderMinutesBefore: existing.reminderMinutesBefore ?? undefined,
+      },
+      { type: 'admin', id: session.id },
+      tx,
+    );
   });
 
   redis

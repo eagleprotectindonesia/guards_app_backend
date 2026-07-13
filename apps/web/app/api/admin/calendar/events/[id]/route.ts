@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma, getCalendarEventTags } from '@repo/database';
 import { getAdminAuthSession } from '@/lib/admin-auth';
 import { updateCalendarEventSchema } from '@repo/validations';
-import { updateCalendarEvent, deleteCalendarEvent } from '@repo/database';
+import { updateCalendarEventWithChangelog, deleteCalendarEventWithChangelog } from '@repo/database';
 import { getAdminName, notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { redis } from '@repo/database/redis';
 import { ZodError } from 'zod';
@@ -107,7 +107,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const newAdminIds = taggedAdminIds ?? oldAdminIds;
 
     const event = await prisma.$transaction(async tx => {
-      return updateCalendarEvent(
+      return updateCalendarEventWithChangelog(
         id,
         {
           kind: body.kind,
@@ -125,6 +125,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           taggedEmployeeIds: newEmployeeIds,
           taggedAdminIds: newAdminIds,
         },
+        { type: 'admin', id: session.id },
         tx
       );
     });
@@ -188,7 +189,9 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json({ error: 'Calendar event not found' }, { status: 404 });
     }
 
-    await deleteCalendarEvent(id);
+    await prisma.$transaction(async tx => {
+      await deleteCalendarEventWithChangelog(id, { type: 'admin', id: session.id }, tx);
+    });
 
     redis
       .publish(

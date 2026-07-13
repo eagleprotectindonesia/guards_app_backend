@@ -310,6 +310,34 @@ Socket.io handler in `packages/realtime/src/handlers/system.ts` listens on `even
 
 ---
 
+## Audit Trail
+
+Calendar event mutations (CREATE, UPDATE, DELETE) are recorded in the existing `Changelog` table via `WithChangelog` repository functions (`calendar-events.ts:658-811`).
+
+**Captured data:**
+- **CREATE**: `action: 'CREATE'`, `details: { kind, title, startDate, endDate, allDay, priority, taggedUserIds }`
+- **UPDATE**: `action: 'UPDATE'`, `details: { changedFields[], diff: { [field]: { from, to } }, tagDiff: { addedEmployees?, removedEmployees?, addedAdmins?, removedAdmins? } }` — empty diffs are skipped.
+- **DELETE**: `action: 'DELETE'`, `details: { title, kind, startDate, endDate }`
+
+**Actor tracking:**
+- Admin mutations: `actor: 'admin'`, `actorId` set to admin ID (Admin relation, existing pattern).
+- Employee mutations: `actor: 'employee'`, `employeeId` set to employee ID (Employee relation, added to schema).
+- Worker reminders are **not** logged (internal flag flip only).
+
+**Query API (admin only):**
+- `GET /api/admin/calendar/events/[id]/changelogs?limit=50&cursor=<id>` — paginated, ordered by `createdAt DESC`.
+- Response: `{ items: CalendarEventChangelogItem[], nextCursor: string | null }`.
+
+**Repository:**
+- `createCalendarEventWithChangelog(input, actor, tx?)` — wraps create + changelog.
+- `updateCalendarEventWithChangelog(id, input, actor, tx?)` — wraps update + diff + changelog.
+- `deleteCalendarEventWithChangelog(id, actor, tx?)` — wraps soft delete + changelog.
+- `listCalendarEventChangelogs(eventId, params?, tx?)` — paginated query with admin/employee includes.
+
+All 8 mutation call sites (admin API routes, employee API routes, admin server actions) are wired to the `WithChangelog` variants. Internal calls (e.g., duplicate) are now wrapped in `$transaction` for atomicity.
+
+---
+
 ## Mobile App (React Native)
 
 ### File Structure
