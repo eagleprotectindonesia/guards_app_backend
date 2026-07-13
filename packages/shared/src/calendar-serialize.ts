@@ -1,8 +1,8 @@
-import { format } from 'date-fns';
+import { BUSINESS_TIMEZONE, formatDateKeyInTimeZone } from './date-key';
 
 function toDateStr(v: unknown): string | null {
   if (!v) return null;
-  if (v instanceof Date) return format(v, 'yyyy-MM-dd');
+  if (v instanceof Date) return formatDateKeyInTimeZone(v, BUSINESS_TIMEZONE);
   return String(v).slice(0, 10);
 }
 

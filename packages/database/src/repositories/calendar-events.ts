@@ -1,5 +1,6 @@
-import { computeReminderScheduledAt, overlapsEventRange } from '@repo/shared';
+import { computeReminderScheduledAt, formatDateKeyInTimeZone, overlapsEventRange } from '@repo/shared';
 import { db as prisma, Prisma } from '../prisma/client';
+import { BUSINESS_TIMEZONE } from './office-work-schedules';
 
 type TxLike = Prisma.TransactionClient | typeof prisma;
 
@@ -432,7 +433,7 @@ export async function listCalendarDaySummary(params: CalendarDaySummaryParams) {
   });
 
   return rows.map(r => ({
-    date: r.startDate.toISOString().slice(0, 10),
+    date: formatDateKeyInTimeZone(r.startDate, BUSINESS_TIMEZONE),
     count: r._count.id,
   }));
 }
@@ -507,8 +508,8 @@ export interface AvailabilityConflict {
 
 export interface FindAvailabilityParams {
   participants: ParticipantRef[];
-  fromDate: Date;
-  toDate: Date;
+  fromDate: string;
+  toDate: string;
   allDay: boolean;
   startTime?: string | null;
   endTime?: string | null;
@@ -614,8 +615,8 @@ export async function findParticipantAvailabilityConflicts(
       id: row.id,
       kind: row.kind,
       title: row.title,
-      startDate: row.startDate.toISOString().slice(0, 10),
-      endDate: row.endDate.toISOString().slice(0, 10),
+      startDate: formatDateKeyInTimeZone(row.startDate, BUSINESS_TIMEZONE),
+      endDate: formatDateKeyInTimeZone(row.endDate, BUSINESS_TIMEZONE),
       startTime: row.startTime,
       endTime: row.endTime,
       allDay: row.allDay,
@@ -638,8 +639,8 @@ export async function findParticipantAvailabilityConflicts(
         allDay: conflict.allDay,
       };
       const queryOverlap = {
-        startDate: fromDate.toISOString().slice(0, 10),
-        endDate: toDate.toISOString().slice(0, 10),
+        startDate: fromDate,
+        endDate: toDate,
         startTime: startTime ?? null,
         endTime: endTime ?? null,
         allDay,

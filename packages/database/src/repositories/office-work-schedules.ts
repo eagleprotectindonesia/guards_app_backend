@@ -1,6 +1,7 @@
 import { db as prisma, Prisma } from '../prisma/client';
 
-export const BUSINESS_TIMEZONE = process.env.BUSINESS_TIMEZONE || 'Asia/Makassar';
+import { BUSINESS_TIMEZONE as SHARED_TZ } from '@repo/shared';
+export const BUSINESS_TIMEZONE = process.env.BUSINESS_TIMEZONE || SHARED_TZ;
 export const DEFAULT_OFFICE_WORK_SCHEDULE_ID_SETTING = 'DEFAULT_OFFICE_WORK_SCHEDULE_ID';
 export const DEFAULT_OFFICE_WORK_SCHEDULE_ID = '6e3be3df-698b-4d5c-aa42-2ddf01fb9d80';
 export const DEFAULT_OFFICE_WORK_SCHEDULE_CODE = 'default-office-work-schedule';

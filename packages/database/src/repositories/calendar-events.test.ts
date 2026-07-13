@@ -35,8 +35,8 @@ beforeEach(() => {
 describe('findParticipantAvailabilityConflicts', () => {
   const baseParams = {
     participants: [{ type: 'admin' as const, id: 'admin-1' }],
-    fromDate: new Date('2026-07-10'),
-    toDate: new Date('2026-07-10'),
+    fromDate: '2026-07-10',
+    toDate: '2026-07-10',
     allDay: false,
     startTime: null,
     endTime: null,
@@ -69,8 +69,8 @@ describe('findParticipantAvailabilityConflicts', () => {
 
     const result = await findParticipantAvailabilityConflicts({
       ...baseParams,
-      fromDate: new Date('2026-07-11'),
-      toDate: new Date('2026-07-11'),
+      fromDate: '2026-07-11',
+      toDate: '2026-07-11',
     });
     expect(result).toEqual({ 'admin:admin-1': [] });
   });
@@ -208,11 +208,46 @@ describe('findParticipantAvailabilityConflicts', () => {
     const result = await findParticipantAvailabilityConflicts({
       ...baseParams,
       participants: [{ type: 'employee', id: 'emp-1' }],
-      fromDate: new Date('2026-07-10'),
-      toDate: new Date('2026-07-10'),
+      fromDate: '2026-07-10',
+      toDate: '2026-07-10',
       allDay: true,
     });
     expect(result['employee:emp-1']).toHaveLength(2);
+  });
+
+  test('formats event dates in BUSINESS_TIMEZONE — backward boundary cross (regression: toISOString UTC shift)', async () => {
+    mockedFindMany.mockResolvedValue([
+      mockEvent({ startDate: new Date('2026-07-09T20:00:00.000Z'), endDate: new Date('2026-07-09T20:00:00.000Z'), adminId: 'admin-1' }),
+    ]);
+
+    const result = await findParticipantAvailabilityConflicts(baseParams);
+    const c = result['admin:admin-1'][0];
+    expect(c.startDate).toBe('2026-07-10');
+    expect(c.endDate).toBe('2026-07-10');
+  });
+
+  test('formats event dates for multi-day events (no boundary shift)', async () => {
+    mockedFindMany.mockResolvedValue([
+      mockEvent({ startDate: new Date('2026-07-08'), endDate: new Date('2026-07-12'), adminId: 'admin-1' }),
+    ]);
+
+    const result = await findParticipantAvailabilityConflicts(baseParams);
+    const c = result['admin:admin-1'][0];
+    expect(c.startDate).toBe('2026-07-08');
+    expect(c.endDate).toBe('2026-07-12');
+  });
+
+  test('excludes event on previous day even when mock Prisma returns it', async () => {
+    mockedFindMany.mockResolvedValue([
+      mockEvent({ startDate: new Date('2026-07-09'), endDate: new Date('2026-07-09'), adminId: 'admin-1' }),
+    ]);
+
+    const result = await findParticipantAvailabilityConflicts({
+      ...baseParams,
+      fromDate: '2026-07-10',
+      toDate: '2026-07-10',
+    });
+    expect(result['admin:admin-1']).toHaveLength(0);
   });
 
   test('no duplicate conflicts when participant is both owner and tagged', async () => {

@@ -15,7 +15,7 @@ import { createCalendarEventSchema, updateCalendarEventSchema, tagAvailabilityCh
 import { getAdminName, notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { redis } from '@repo/database/redis';
 import { revalidatePath } from 'next/cache';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 
 export async function createEvent(data: unknown) {
   const session = await getAdminAuthSession();
@@ -252,13 +252,10 @@ export async function checkTagAvailability(input: unknown) {
 
   const { startDate, endDate, startTime, endTime, allDay, participants, excludeEventId } = parsed.data;
 
-  const fromDate = parseISO(startDate + 'T00:00:00');
-  const toDate = parseISO(endDate + 'T00:00:00');
-
   const conflicts = await findParticipantAvailabilityConflicts({
     participants,
-    fromDate,
-    toDate,
+    fromDate: startDate,
+    toDate: endDate,
     allDay,
     startTime: startTime ?? null,
     endTime: endTime ?? null,
