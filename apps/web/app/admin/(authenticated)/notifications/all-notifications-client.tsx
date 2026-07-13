@@ -25,6 +25,7 @@ import {
   categorizeItem,
   buildNotificationRowFromAdminNotification,
   buildNotificationRowFromAlert,
+  sortByAlertPriority,
   type UnifiedNotificationItem,
 } from '../components/notification-row';
 import { useSocket } from '@/components/socket-provider';
@@ -114,9 +115,7 @@ export default function AllNotificationsClient() {
       const alertItems: UnifiedNotificationItem[] = json.alerts.map((a: AlertWithRelations) =>
         buildNotificationRowFromAlert(a, '/admin/alerts')
       );
-      return [...notificationItems, ...alertItems].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+      return [...notificationItems, ...alertItems].sort(sortByAlertPriority);
     },
     staleTime: 30000,
     placeholderData: keepPreviousData,

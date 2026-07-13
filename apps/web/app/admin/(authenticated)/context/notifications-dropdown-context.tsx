@@ -5,7 +5,7 @@ import { useAdminNotifications } from './admin-notification-context';
 import { useAlerts } from './alert-context';
 import { useSession } from './session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { buildNotificationRowFromAlert, buildNotificationRowFromAdminNotification, type UnifiedNotificationItem } from '../components/notification-row';
+import { buildNotificationRowFromAlert, buildNotificationRowFromAdminNotification, sortByAlertPriority, type UnifiedNotificationItem } from '../components/notification-row';
 import type { AlertWithRelations } from './alert-context';
 
 type NotificationsDropdownContextValue = {
@@ -47,9 +47,7 @@ export function NotificationsDropdownProvider({ children }: { children: React.Re
       buildNotificationRowFromAlert(a, '/admin/alerts')
     );
 
-    const merged = [...notificationItems, ...alertItems].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    const merged = [...notificationItems, ...alertItems].sort(sortByAlertPriority);
 
     return merged;
   }, [notifications, activeAlerts]);

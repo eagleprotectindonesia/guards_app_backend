@@ -214,6 +214,19 @@ export function categorizeItem(item: UnifiedNotificationItem): NotificationCateg
   return 'other';
 }
 
+const TAG_PRIORITY: Record<string, number> = { Critical: 0, Warning: 1, Alert: 2 };
+
+export function sortByAlertPriority(a: UnifiedNotificationItem, b: UnifiedNotificationItem): number {
+  const aIsAlert = a.kind === 'alert' ? 1 : 0;
+  const bIsAlert = b.kind === 'alert' ? 1 : 0;
+  if (aIsAlert !== bIsAlert) return bIsAlert - aIsAlert;
+  if (aIsAlert) {
+    const diff = (TAG_PRIORITY[a.tag] ?? 3) - (TAG_PRIORITY[b.tag] ?? 3);
+    if (diff !== 0) return diff;
+  }
+  return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+}
+
 export function NotificationRow({ item }: NotificationRowProps) {
   const isUnread = item.kind === 'notification' && !item.readAt;
 
