@@ -44,9 +44,13 @@ export class CalendarEventReminderProcessor {
     employeeId: string | null;
     adminId: string | null;
     title: string;
+    startDate: Date;
     reminderMinutesBefore: number | null;
     tags: { id: string; participantType: string; employeeId: string | null; adminId: string | null }[];
   }) {
+    const d = event.startDate;
+    const eventDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const calendarTargetPath = `/admin/calendar?view=day&date=${eventDate}`;
     const eventId = event.id;
     const eventTitle = event.title;
     const minutesBefore = event.reminderMinutesBefore ?? 0;
@@ -85,7 +89,7 @@ export class CalendarEventReminderProcessor {
           type: 'calendar_event_reminder',
           title: titleString,
           body: bodyString,
-          payload: { eventId, eventTitle, minutesBefore, targetPath: '/admin/calendar' },
+          payload: { eventId, eventTitle, minutesBefore, targetPath: calendarTargetPath },
         });
       } catch (err) {
         console.error(`[CalendarEventReminder] Admin notification failed for admin ${event.adminId}:`, err);
@@ -114,7 +118,7 @@ export class CalendarEventReminderProcessor {
             type: 'calendar_event_reminder',
             title: titleString,
             body: `${bodyString} (you are tagged)`,
-          payload: { eventId, eventTitle, minutesBefore, targetPath: '/admin/calendar' },
+          payload: { eventId, eventTitle, minutesBefore, targetPath: calendarTargetPath },
           });
         } catch (err) {
           console.error(`[CalendarEventReminder] Admin notification failed for tagged admin ${tag.adminId}:`, err);

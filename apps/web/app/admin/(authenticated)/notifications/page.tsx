@@ -3,8 +3,10 @@ import { getAdminSession } from '@/lib/admin-auth';
 import { redirect } from 'next/navigation';
 import AllNotificationsClient from './all-notifications-client';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
-  title: 'Notifications',
+  title: 'Notification Center',
 };
 
 export default async function NotificationsPage() {

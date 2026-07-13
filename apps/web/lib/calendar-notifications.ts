@@ -61,12 +61,19 @@ export async function notifyCalendarEventTags(
         .catch(err => console.error('[Calendar] Redis publish error:', err));
     }
 
+    const calendarEvent = await prisma.calendarEvent.findUnique({
+      where: { id: eventId },
+      select: { startDate: true },
+    });
+    const d = calendarEvent?.startDate;
+    const eventDate = d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '';
+
     await createAdminNotifications({
       adminIds: taggedAdminIds,
       type: 'calendar_event_tagged',
       title,
       body,
-      payload: { eventId, eventTitle, taggedByName, targetPath: '/admin/calendar' },
+      payload: { eventId, eventTitle, taggedByName, targetPath: eventDate ? `/admin/calendar?view=day&date=${eventDate}` : '/admin/calendar' },
     }).catch(err => console.error('[CalendarTag] Failed to persist admin notifications:', err));
 
     results.adminNotified = taggedAdminIds.length;

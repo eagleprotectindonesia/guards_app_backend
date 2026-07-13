@@ -14,7 +14,7 @@ import { isDashboardPath } from '@/lib/admin-tab-routing';
 
 export default function NotificationsDropdown() {
   const { hasPermission } = useSession();
-  const { items, unreadCount, activeAlertCount, isInitialized, markAllAsRead } = useNotificationsDropdown();
+  const { dropdownItems: items, unreadCount, activeAlertCount, isInitialized, markAllAsRead } = useNotificationsDropdown();
   const pathname = usePathname();
   const canViewAlerts = hasPermission(PERMISSIONS.ALERTS.VIEW);
   const canViewAll = items.length > 0;

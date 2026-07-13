@@ -1,5 +1,6 @@
 import {
   createOfficeShiftTypeSchema,
+  createShiftSchema,
   createShiftTypeSchema,
   ticketCreateSchema,
   updateDefaultOfficeWorkScheduleSchema,
@@ -137,7 +138,7 @@ describe('ticket validation', () => {
 });
 
 describe('shift schema validation', () => {
-  const { createShiftSchema } = require('./index');
+  // const { createShiftSchema } = require('./index');
 
   const baseInput = {
     siteId: '550e8400-e29b-41d4-a716-446655440000',

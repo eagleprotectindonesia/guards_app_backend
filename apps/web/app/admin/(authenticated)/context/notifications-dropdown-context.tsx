@@ -10,6 +10,7 @@ import type { AlertWithRelations } from './alert-context';
 
 type NotificationsDropdownContextValue = {
   items: UnifiedNotificationItem[];
+  dropdownItems: UnifiedNotificationItem[];
   unreadCount: number;
   activeAlertCount: number;
   isInitialized: boolean;
@@ -18,7 +19,7 @@ type NotificationsDropdownContextValue = {
 
 const NotificationsDropdownContext = createContext<NotificationsDropdownContextValue | undefined>(undefined);
 
-const MERGE_LIMIT = 30;
+const DROPDOWN_SLICE = 30;
 
 export function NotificationsDropdownProvider({ children }: { children: React.ReactNode }) {
   const { hasPermission } = useSession();
@@ -48,8 +49,10 @@ export function NotificationsDropdownProvider({ children }: { children: React.Re
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-    return merged.slice(0, MERGE_LIMIT);
+    return merged;
   }, [notifications, activeAlerts]);
+
+  const dropdownItems = useMemo(() => items.slice(0, DROPDOWN_SLICE), [items]);
 
   const isInitialized = notificationsInitialized && isAlertsInitialized;
 
@@ -57,6 +60,7 @@ export function NotificationsDropdownProvider({ children }: { children: React.Re
     <NotificationsDropdownContext.Provider
       value={{
         items,
+        dropdownItems,
         unreadCount: notificationUnreadCount + activeAlerts.length,
         activeAlertCount: activeAlerts.length,
         isInitialized,

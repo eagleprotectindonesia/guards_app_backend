@@ -204,6 +204,16 @@ export function buildNotificationRowFromAdminNotification(notification: {
   };
 }
 
+export type NotificationCategory = 'critical_alert' | 'calendar' | 'ticket' | 'leave' | 'other';
+
+export function categorizeItem(item: UnifiedNotificationItem): NotificationCategory {
+  if (item.kind === 'alert') return 'critical_alert';
+  if (item.tag === 'Calendar') return 'calendar';
+  if (item.tag === 'Ticket' || item.tag === 'Message') return 'ticket';
+  if (item.tag === 'Leave') return 'leave';
+  return 'other';
+}
+
 export function NotificationRow({ item }: NotificationRowProps) {
   const isUnread = item.kind === 'notification' && !item.readAt;
 

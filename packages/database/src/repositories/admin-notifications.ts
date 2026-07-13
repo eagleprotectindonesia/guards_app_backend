@@ -118,10 +118,7 @@ export async function createAdminNotifications(
 
   Promise.all(
     notifications.map(notification =>
-      redis.publish(
-        `admin-notifications:admin:${notification.adminId}`,
-        JSON.stringify({ notification })
-      )
+      redis.publish(`admin-notifications:admin:${notification.adminId}`, JSON.stringify({ notification }))
     )
   ).catch(err => console.error('[AdminNotifications] Redis publish error:', err));
 
@@ -167,7 +164,9 @@ export async function createLeaveRequestCreatedAdminNotifications(
   }
 
   const dateRangeLabel = `${input.startDate.toISOString().slice(0, 10)} to ${input.endDate.toISOString().slice(0, 10)}`;
-  const employeeLabel = employee.employeeNumber ? `${employee.fullName} (${employee.employeeNumber})` : employee.fullName;
+  const employeeLabel = employee.employeeNumber
+    ? `${employee.fullName} (${employee.employeeNumber})`
+    : employee.fullName;
 
   return createAdminNotifications(
     {
@@ -188,9 +187,12 @@ export async function createLeaveRequestCreatedAdminNotifications(
   );
 }
 
-export async function listRecentAdminNotifications(adminId: string, limit = 20, tx: TxLike = prisma) {
+export async function listRecentAdminNotifications(adminId: string, limit = 20, since?: Date, tx: TxLike = prisma) {
   return (tx as TxLike).adminNotification.findMany({
-    where: { adminId },
+    where: {
+      adminId,
+      ...(since ? { createdAt: { gte: since } } : {}),
+    },
     orderBy: [{ createdAt: 'desc' }],
     take: Math.max(1, Math.min(limit, 100)),
   });

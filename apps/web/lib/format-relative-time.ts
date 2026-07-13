@@ -1,3 +1,5 @@
+import { format, parseISO } from 'date-fns';
+
 export function formatRelativeTime(value: string | Date): string {
   const date = typeof value === 'string' ? new Date(value) : value;
   const now = new Date();
@@ -20,4 +22,9 @@ export function formatRelativeTime(value: string | Date): string {
     month: 'short',
     year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
   });
+}
+
+export function formatDateTime(value: string | Date): string {
+  const date = typeof value === 'string' ? parseISO(value) : value;
+  return format(date, 'dd MMM yyyy, HH:mm');
 }
