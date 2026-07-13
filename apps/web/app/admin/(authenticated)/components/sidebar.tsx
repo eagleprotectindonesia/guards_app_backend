@@ -9,6 +9,7 @@ import { getAdminNavGroups } from '@/lib/admin-navigation';
 import { useSession } from '../context/session-context';
 import { AdminNavLink } from './admin-nav-link';
 import { useAdminNotifications } from '../context/admin-notification-context';
+import { useNotificationsDropdown } from '../context/notifications-dropdown-context';
 import { getAdminDashboardHref, getAdminTabFromPath } from '@/lib/admin-tab-routing';
 import { useAdminDashboardTab } from '../context/admin-dashboard-tab-context';
 
@@ -76,6 +77,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
   const { selectedTab } = useAdminDashboardTab();
   const { hasPermission, canAccessOfficeAttendance } = useSession();
   const { unreadCount } = useAdminNotifications();
+  const { unreadCount: notifUnreadCount } = useNotificationsDropdown();
   const currentUrl = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname;
   const [ticketCounters, setTicketCounters] = useState<{
     all: number;
@@ -207,6 +209,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                     ? currentUrl === item.href
                     : item.href === activeHref;
                   const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
+                  const showNotificationsCounter = item.href === '/admin/notifications' && notifUnreadCount > 0;
                   const ticketCounter = ticketCounterByHref[item.href];
                   const showTicketCounter = typeof ticketCounter === 'number' && ticketCounter > 0;
 
@@ -248,6 +251,11 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                           {unreadCount > 99 ? '99+' : unreadCount}
                         </span>
                       )}
+                      {showNotificationsCounter && !isCollapsed && (
+                        <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                          {notifUnreadCount > 99 ? '99+' : notifUnreadCount}
+                        </span>
+                      )}
                       {showTicketCounter && (
                         <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-semibold text-white">
                           {ticketCounter! > 99 ? '99+' : ticketCounter}
@@ -270,6 +278,7 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                     ? currentUrl === item.href
                     : item.href === activeHref;
                   const showLeaveRequestsCounter = item.href === '/admin/leave-requests' && unreadCount > 0;
+                  const showNotificationsCounter = item.href === '/admin/notifications' && notifUnreadCount > 0;
                   const ticketCounter = ticketCounterByHref[item.href];
                   const showTicketCounter = typeof ticketCounter === 'number' && ticketCounter > 0;
 
@@ -300,6 +309,11 @@ export default function Sidebar({ officeWorkSchedulesEnabled }: Props) {
                       {showLeaveRequestsCounter && (
                         <span className="absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
                           {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
+                      {showNotificationsCounter && (
+                        <span className="absolute -top-1.5 -right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                          {notifUnreadCount > 99 ? '99+' : notifUnreadCount}
                         </span>
                       )}
                       {showTicketCounter && (

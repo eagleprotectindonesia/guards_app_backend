@@ -179,16 +179,11 @@ export const TimeGridView = memo(function TimeGridView({
           const d = arg.date;
           const today = isSameDay(d, new Date());
           return (
-            <div className="flex flex-col items-center gap-0.5 py-1">
-              <span
-                className={`text-[10px] font-semibold uppercase tracking-wider ${today ? 'text-primary' : 'text-muted-foreground'}`}
-              >
-                {format(d, 'EEE')}
-              </span>
-              <span className={`text-base font-semibold tabular-nums ${today ? 'text-primary' : 'text-foreground'}`}>
-                {format(d, 'd')}
-              </span>
-            </div>
+            <span
+              className={`block px-1 py-1 text-xs font-semibold tabular-nums ${today ? 'text-primary' : 'text-foreground'}`}
+            >
+              {format(d, 'EEEE, MMMM d')}
+            </span>
           );
         }}
         eventContent={arg => {

@@ -166,6 +166,8 @@ export async function createTicketAction(input: unknown) {
     clientName: parsed.data.clientName,
     clientContact: parsed.data.clientContact,
     clientLocation: parsed.data.clientLocation,
+    clientLocationLatitude: parsed.data.clientLocationLatitude,
+    clientLocationLongitude: parsed.data.clientLocationLongitude,
     submitterAdminId: session.id,
   });
 

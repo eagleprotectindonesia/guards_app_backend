@@ -462,6 +462,8 @@ export interface Ticket {
   clientName: string;
   clientContact: string;
   clientLocation: string;
+  clientLocationLatitude: number | null;
+  clientLocationLongitude: number | null;
   solvedAt: string | Date | null;
   closedAt: string | Date | null;
   cannotResolveAt: string | Date | null;

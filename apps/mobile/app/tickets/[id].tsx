@@ -34,6 +34,7 @@ import {
   Download,
   Paperclip,
   X,
+  ExternalLink,
 } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -349,6 +350,17 @@ export default function TicketDetailScreen() {
     }
   };
 
+  const handleOpenLocation = () => {
+    if (!ticket?.clientLocation) return;
+    const lat = ticket.clientLocationLatitude;
+    const lng = ticket.clientLocationLongitude;
+    const url =
+      lat != null && lng != null
+        ? `https://maps.google.com/?q=${lat},${lng}`
+        : `https://maps.google.com/?q=${encodeURIComponent(ticket.clientLocation)}`;
+    Linking.openURL(url).catch(err => console.error('Failed to open maps URL', err));
+  };
+
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return '0 B';
     const k = 1024;
@@ -637,13 +649,16 @@ export default function TicketDetailScreen() {
                     </Text>
                   </HStack>
 
-                  <HStack space="md" className="items-center">
-                    <MapPin size={16} color="#A0A0A0" />
-                    <Text size="xs" className="text-[#D1D1D1]">
-                      <Text className="font-bold text-[#A0A0A0]">{t('tickets.location', 'Location')}: </Text>
-                      {ticket.clientLocation}
-                    </Text>
-                  </HStack>
+                  <TouchableOpacity onPress={handleOpenLocation} activeOpacity={0.6}>
+                    <HStack space="md" className="items-center">
+                      <MapPin size={16} color="#A0A0A0" />
+                      <Text size="xs" className="text-[#D1D1D1] flex-1">
+                        <Text className="font-bold text-[#A0A0A0]">{t('tickets.location', 'Location')}: </Text>
+                        {ticket.clientLocation}
+                      </Text>
+                      <ExternalLink size={12} color="#666" />
+                    </HStack>
+                  </TouchableOpacity>
                 </VStack>
               </VStack>
             </VStack>

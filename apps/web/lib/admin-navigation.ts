@@ -26,6 +26,7 @@ import {
   type LucideIcon,
   Briefcase,
   CalendarDays,
+  BellRing,
 } from 'lucide-react';
 import { PermissionCode } from './auth/permissions';
 import { getAdminDashboardHref, type AdminTabSlug } from './admin-tab-routing';
@@ -117,7 +118,12 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
       icon: FileText,
       requiredPermission: 'shift-photo-reports:view',
     },
-    { name: 'Guard Attendance', href: '/admin/attendance', icon: ClipboardCheck, requiredPermission: 'attendance:view' },
+    {
+      name: 'Guard Attendance',
+      href: '/admin/attendance',
+      icon: ClipboardCheck,
+      requiredPermission: 'attendance:view',
+    },
     {
       name: 'Office Attendance',
       href: '/admin/attendance/office',
@@ -132,6 +138,7 @@ export function getAdminNavItems(officeWorkSchedulesEnabled = true): NavItem[] {
       requiredPermission: 'checkins:view',
     },
     { name: 'Alerts', href: '/admin/alerts', icon: Bell, requiredPermission: 'alerts:view' },
+    { name: 'Notifications', href: '/admin/notifications', icon: BellRing },
     { name: 'User Calendar', href: '/admin/calendar', icon: CalendarDays },
   ];
 }
@@ -152,12 +159,42 @@ export function getAdminNavGroups(
     {
       label: 'Dashboard',
       items: [
-        { name: 'Executive Overview', href: '/admin/executive-overview', icon: LineChart, requiredPermission: 'dashboard-executive:view' as PermissionCode },
-        { name: 'Dashboard', href: getAdminDashboardHref('dashboard'), icon: Activity, requiredPermission: 'dashboard:view' as PermissionCode },
-        { name: 'Guard Ops', href: getAdminDashboardHref('guard'), icon: Radio, requiredPermission: 'dashboard-guard:view' as PermissionCode },
-        { name: 'Tickets', href: getAdminDashboardHref('ticket'), icon: Ticket, requiredPermission: 'tickets:view' as PermissionCode },
-        { name: 'Workforce', href: getAdminDashboardHref('workforce'), icon: Users, requiredPermission: 'dashboard-hr:view' as PermissionCode },
-        { name: 'Client', href: getAdminDashboardHref('client'), icon: Building2, requiredPermission: 'dashboard-client:view' as PermissionCode },
+        {
+          name: 'Executive Overview',
+          href: '/admin/executive-overview',
+          icon: LineChart,
+          requiredPermission: 'dashboard-executive:view' as PermissionCode,
+        },
+        {
+          name: 'Dashboard',
+          href: getAdminDashboardHref('dashboard'),
+          icon: Activity,
+          requiredPermission: 'dashboard:view' as PermissionCode,
+        },
+        {
+          name: 'Guard Ops',
+          href: getAdminDashboardHref('guard'),
+          icon: Radio,
+          requiredPermission: 'dashboard-guard:view' as PermissionCode,
+        },
+        {
+          name: 'Tickets',
+          href: getAdminDashboardHref('ticket'),
+          icon: Ticket,
+          requiredPermission: 'tickets:view' as PermissionCode,
+        },
+        {
+          name: 'Workforce',
+          href: getAdminDashboardHref('workforce'),
+          icon: Users,
+          requiredPermission: 'dashboard-hr:view' as PermissionCode,
+        },
+        {
+          name: 'Client',
+          href: getAdminDashboardHref('client'),
+          icon: Building2,
+          requiredPermission: 'dashboard-client:view' as PermissionCode,
+        },
       ],
     },
     {
@@ -193,16 +230,11 @@ export function getAdminNavGroups(
     },
     {
       label: 'Personal Management',
-      items: [
-        byName.get('User Calendar'),
-      ].filter(Boolean) as NavItem[],
+      items: [byName.get('Notifications'), byName.get('User Calendar')].filter(Boolean) as NavItem[],
     },
     {
       label: 'Reporting',
-      items: [
-        byName.get('Shift Photo Reports'),
-        byName.get('Company Announcement'),
-      ].filter(Boolean) as NavItem[],
+      items: [byName.get('Shift Photo Reports'), byName.get('Company Announcement')].filter(Boolean) as NavItem[],
     },
     {
       label: 'Ticket',
@@ -253,6 +285,7 @@ export const ADMIN_LABEL_MAP: Record<string, string> = {
   attendance: 'Guard Attendance',
   'guard-checkins': 'Guard Checkins',
   alerts: 'Alerts',
+  notifications: 'Notifications',
   chat: 'Chat',
   profile: 'Profile',
   // changelogs: 'Changelogs',

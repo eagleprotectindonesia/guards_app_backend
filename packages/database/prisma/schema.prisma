@@ -1175,22 +1175,22 @@ model OfficeMemo {
 }
 
 model CalendarEvent {
-  id          String            @id @default(uuid())
-  employeeId  String?           @map("employee_id")
-  adminId     String?           @map("admin_id")
-  kind        CalendarEventKind @default(personal_event)
-  title       String
-  description String?           @db.Text
-  startDate   DateTime          @map("start_date") @db.Date
-  endDate     DateTime          @map("end_date") @db.Date
-  startTime   String?           @map("start_time")
-  endTime     String?           @map("end_time")
-  allDay      Boolean           @default(false) @map("all_day")
-  location    String?
-  latitude    Float?            @map("latitude")
-  longitude   Float?            @map("longitude")
-  clientName  String?           @map("client_name")
-  trainerName String?           @map("trainer_name")
+  id                    String            @id @default(uuid())
+  employeeId            String?           @map("employee_id")
+  adminId               String?           @map("admin_id")
+  kind                  CalendarEventKind @default(personal_event)
+  title                 String
+  description           String?           @db.Text
+  startDate             DateTime          @map("start_date") @db.Date
+  endDate               DateTime          @map("end_date") @db.Date
+  startTime             String?           @map("start_time")
+  endTime               String?           @map("end_time")
+  allDay                Boolean           @default(false) @map("all_day")
+  location              String?
+  latitude              Float?            @map("latitude")
+  longitude             Float?            @map("longitude")
+  clientName            String?           @map("client_name")
+  trainerName           String?           @map("trainer_name")
   priority              String?           @default("normal")
   reminderMinutesBefore Int?              @map("reminder_minutes_before")
   reminderScheduledAt   DateTime?         @map("reminder_scheduled_at") @db.Timestamptz(6)
@@ -1240,29 +1240,31 @@ model CalendarEventTag {
 }
 
 model Ticket {
-  id                    String              @id @default(uuid())
-  code                  String              @unique
-  title                 String
-  description           String              @db.Text
-  resolutionTargetHours Int                 @map("resolution_target_hours")
-  priority              TicketPriority      @default(MEDIUM)
-  status                TicketStatus        @default(NEW)
-  submitterAdminId      String              @map("submitter_admin_id")
-  claimedByType         TicketClaimantType? @map("claimed_by_type")
-  claimedByAdminId      String?             @map("claimed_by_admin_id")
-  claimedByEmployeeId   String?             @map("claimed_by_employee_id")
-  claimedAt             DateTime?           @map("claimed_at") @db.Timestamptz(6)
-  departmentRoleId      String?             @map("department_role_id")
-  clientName            String              @map("client_name")
-  clientContact         String              @map("client_contact")
-  clientLocation        String              @map("client_location")
-  solvedAt              DateTime?           @map("solved_at") @db.Timestamptz(6)
-  closedAt              DateTime?           @map("closed_at") @db.Timestamptz(6)
-  cannotResolveAt       DateTime?           @map("cannot_resolve_at") @db.Timestamptz(6)
-  cancelledAt           DateTime?           @map("cancelled_at") @db.Timestamptz(6)
-  cancellationNote      String?             @map("cancellation_note") @db.Text
-  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                      String              @id @default(uuid())
+  code                    String              @unique
+  title                   String
+  description             String              @db.Text
+  resolutionTargetHours   Int                 @map("resolution_target_hours")
+  priority                TicketPriority      @default(MEDIUM)
+  status                  TicketStatus        @default(NEW)
+  submitterAdminId        String              @map("submitter_admin_id")
+  claimedByType           TicketClaimantType? @map("claimed_by_type")
+  claimedByAdminId        String?             @map("claimed_by_admin_id")
+  claimedByEmployeeId     String?             @map("claimed_by_employee_id")
+  claimedAt               DateTime?           @map("claimed_at") @db.Timestamptz(6)
+  departmentRoleId        String?             @map("department_role_id")
+  clientName              String              @map("client_name")
+  clientContact           String              @map("client_contact")
+  clientLocation          String              @map("client_location")
+  clientLocationLatitude  Float?              @map("client_location_latitude")
+  clientLocationLongitude Float?              @map("client_location_longitude")
+  solvedAt                DateTime?           @map("solved_at") @db.Timestamptz(6)
+  closedAt                DateTime?           @map("closed_at") @db.Timestamptz(6)
+  cannotResolveAt         DateTime?           @map("cannot_resolve_at") @db.Timestamptz(6)
+  cancelledAt             DateTime?           @map("cancelled_at") @db.Timestamptz(6)
+  cancellationNote        String?             @map("cancellation_note") @db.Text
+  createdAt               DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt               DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   submitterAdmin    Admin                    @relation("TicketSubmitter", fields: [submitterAdminId], references: [id])
   claimedByAdmin    Admin?                   @relation("TicketClaimedByAdmin", fields: [claimedByAdminId], references: [id], onDelete: SetNull)

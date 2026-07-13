@@ -92,6 +92,8 @@ describe('tickets repository', () => {
       clientName: 'Acme',
       clientContact: '+62811',
       clientLocation: 'Jakarta',
+      clientLocationLatitude: -6.2146,
+      clientLocationLongitude: 106.8451,
     });
 
     expect(prisma.ticket.create).toHaveBeenCalledWith(
@@ -134,6 +136,8 @@ describe('tickets repository', () => {
       clientName: 'Acme',
       clientContact: '+62812',
       clientLocation: 'Bandung',
+      clientLocationLatitude: -6.9175,
+      clientLocationLongitude: 107.6191,
     });
 
     expect(prisma.ticketAssignedEmployee.createMany).not.toHaveBeenCalled();
