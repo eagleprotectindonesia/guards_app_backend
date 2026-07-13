@@ -375,6 +375,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
           onAddNewEvent={() => {
+            setContextMenu(null);
             setCreateDefaults({ date: contextMenu.date, time: contextMenu.time });
             setShowCreateModal(true);
           }}
