@@ -37,7 +37,7 @@ export async function createShift(
     const lat = Number(formData.get('startLat'));
     const lng = Number(formData.get('startLng'));
     if (address && !isNaN(lat) && !isNaN(lng)) {
-      const siteKind = formKind === 'escort' ? 'escort' : 'fixed';
+      const siteKind = formKind === 'escort' ? 'escort' : formKind === 'event_temporary' ? 'event' : 'fixed';
       siteId = await autoCreateSiteFromAddress(siteKind, clientName, address, lat, lng, adminId, formKind);
     }
   }
@@ -155,12 +155,16 @@ export async function createShift(
       return { message: 'Start site not found.', success: false };
     }
 
-    if (kind !== 'escort' && startSite.kind !== 'fixed') {
-      return { message: 'On-site shifts must use a fixed site as the start location.', success: false };
+    if (kind === 'event_temporary' && startSite.kind !== 'event') {
+      return { message: 'Event temporary shifts must use an event site as the start location.', success: false };
     }
 
     if (kind === 'escort' && startSite.kind !== 'escort') {
       return { message: 'Escort shifts must use an escort site as the start location.', success: false };
+    }
+
+    if (kind !== 'escort' && kind !== 'event_temporary' && startSite.kind !== 'fixed') {
+      return { message: 'On-site shifts must use a fixed site as the start location.', success: false };
     }
 
     if (escortEndSiteId) {
@@ -352,12 +356,16 @@ export async function updateShift(
       return { message: 'Start site not found.', success: false };
     }
 
-    if (kind !== 'escort' && startSite.kind !== 'fixed') {
-      return { message: 'On-site shifts must use a fixed site as the start location.', success: false };
+    if (kind === 'event_temporary' && startSite.kind !== 'event') {
+      return { message: 'Event temporary shifts must use an event site as the start location.', success: false };
     }
 
     if (kind === 'escort' && startSite.kind !== 'escort') {
       return { message: 'Escort shifts must use an escort site as the start location.', success: false };
+    }
+
+    if (kind !== 'escort' && kind !== 'event_temporary' && startSite.kind !== 'fixed') {
+      return { message: 'On-site shifts must use a fixed site as the start location.', success: false };
     }
 
     if (escortEndSiteId) {
@@ -383,9 +391,10 @@ export async function updateShift(
       const lat = Number(startLatRaw);
       const lng = Number(startLngRaw);
       if (!isNaN(lat) && !isNaN(lng)) {
+        const prefix = kind === 'event_temporary' ? 'Event' : 'Site';
         const baseName = formClientName?.trim()
-          ? `Site: ${formClientName.trim()}`
-          : `Site: ${startAddress.substring(0, 30)}`;
+          ? `${prefix}: ${formClientName.trim()}`
+          : `${prefix}: ${startAddress.substring(0, 30)}`;
         let siteName = baseName;
         let counter = 1;
         while (await prisma.site.findFirst({ where: { name: siteName, id: { not: siteId } } })) {
@@ -723,7 +732,7 @@ type BulkCreateFromFormInput = {
 };
 
 async function autoCreateSiteFromAddress(
-  kind: 'fixed' | 'escort',
+  kind: 'fixed' | 'escort' | 'event',
   clientName: string | undefined,
   address: string,
   lat: number,
@@ -731,7 +740,7 @@ async function autoCreateSiteFromAddress(
   adminId: string,
   shiftKind?: string
 ): Promise<string> {
-  const prefix = kind === 'fixed' ? (shiftKind === 'event_temporary' ? 'Event' : 'Site') : 'Escort';
+  const prefix = kind === 'event' ? 'Event' : kind === 'escort' ? 'Escort' : 'Site';
   const baseName = clientName?.trim() ? `${prefix}: ${clientName.trim()}` : `${prefix}: ${address.substring(0, 30)}`;
   let name = baseName;
   let counter = 1;
@@ -739,6 +748,7 @@ async function autoCreateSiteFromAddress(
     name = `${baseName} (${counter})`;
     counter++;
   }
+  const postName = kind === 'fixed' ? 'Main Post' : kind === 'escort' ? 'Escort End' : 'Event Post';
   const site = await createSiteWithPostsAndChangelog(
     {
       name,
@@ -750,7 +760,7 @@ async function autoCreateSiteFromAddress(
       longitude: lng,
       geofenceRadius: 100,
     } as Prisma.SiteCreateInput,
-    [{ name: kind === 'fixed' ? 'Main Post' : 'Escort End', address, latitude: lat, longitude: lng, sortOrder: 0 }],
+    [{ name: postName, address, latitude: lat, longitude: lng, sortOrder: 0 }],
     adminId
   );
   return site.id;
@@ -772,7 +782,7 @@ export async function bulkCreateShiftsFromFormAction(
   let finalEscortEndSiteId = input.escortEndSiteId;
 
   if ((input.kind === 'escort' || input.kind === 'event_temporary') && input.startAddress && input.startLat != null && input.startLng != null) {
-    const startSiteKind = input.kind === 'escort' ? 'escort' : 'fixed';
+    const startSiteKind = input.kind === 'escort' ? 'escort' : 'event';
     finalSiteId = await autoCreateSiteFromAddress(startSiteKind, input.clientName, input.startAddress, input.startLat, input.startLng, adminId, input.kind);
   }
 
@@ -787,10 +797,16 @@ export async function bulkCreateShiftsFromFormAction(
   ]);
 
   if (!startSite) return { success: false, message: 'Start site not found.' };
+
+  if (input.kind === 'event_temporary' && startSite.kind !== 'event') {
+    return { success: false, message: 'Event temporary shifts must use an event site as the start location.' };
+  }
+
   if (input.kind === 'escort' && startSite.kind !== 'escort') {
     return { success: false, message: 'Escort shifts must use an escort site as the start location.' };
   }
-  if (input.kind !== 'escort' && startSite.kind !== 'fixed') {
+
+  if (input.kind !== 'escort' && input.kind !== 'event_temporary' && startSite.kind !== 'fixed') {
     return { success: false, message: 'On-site shifts must use a fixed site as the start location.' };
   }
 

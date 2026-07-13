@@ -32,6 +32,7 @@ describe('getSiteAssignmentDashboardMetrics', () => {
     expect(prisma.site.count).toHaveBeenCalledWith({
       where: {
         deletedAt: null,
+        kind: 'fixed',
       },
     });
 

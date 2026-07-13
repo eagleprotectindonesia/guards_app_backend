@@ -125,7 +125,7 @@ Records routine check-ins (single or bulk if late).
 ### Data Model
 - `ShiftKind` enum: `onsite` (default), `office_control`, `event_temporary`, `escort`.
 - `Shift.kind` discriminator — `office_control` and `event_temporary` behave identically to `onsite` in the backend but render distinct labels.
-- `SiteKind` enum: `fixed` (default), `escort`.
+- `SiteKind` enum: `fixed` (default), `escort`, `event`.
 - `Site.kind` discriminator — escort sites are registered as `kind='escort'` and used exclusively as end-location references.
 - `Shift.escortEndSiteId` FK to `Site` (kind must be `'escort'`) marks the custom end location.
 

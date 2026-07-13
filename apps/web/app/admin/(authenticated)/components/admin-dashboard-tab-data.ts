@@ -56,7 +56,7 @@ export const DASHBOARD_TABS = [
   {
     id: 'clients',
     tab: 'client' as AdminTabSlug,
-    title: 'CLIENT & SITE MANAGEMENT',
+    title: 'CLIENT & SITE',
     subtitle: 'Clients, Sites & Contracts',
     icon: Building2,
     color: 'text-blue-500',

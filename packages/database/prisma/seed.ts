@@ -452,7 +452,7 @@ async function main() {
       {
         name: 'HIDE_ESCORT_SITES',
         value: '0',
-        note: 'When enabled, escort sites are hidden from the UI and auto-created via address input (1=ON, 0=OFF).',
+        note: 'When enabled, escort sites are hidden from the UI and auto-created via address input (1=ON, 0=OFF). Event sites (kind="event", auto-created for event_temporary shifts) are ALWAYS hidden regardless of this setting.',
       },
       {
         name: 'ESCORT_GROUP_CHAT_AUTO_INCLUDE_CHAT_ADMINS',

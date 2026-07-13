@@ -223,7 +223,7 @@ export default function RoleForm({ role, allPermissions }: Props) {
                       <span className="text-sm font-medium">{p.action}</span>
                       <div
                         className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${
-                          isSelected ? 'bg-primary border-primary text-white' : 'bg-card border-border'
+                          isSelected ? 'bg-primary border-primary text-primary-foreground' : 'bg-card border-border'
                         }`}
                       >
                         {isSelected && <Check className="w-3.5 h-3.5" strokeWidth={3} />}

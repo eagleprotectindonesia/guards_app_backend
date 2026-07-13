@@ -877,6 +877,7 @@ enum AlertResolution {
 enum SiteKind {
   fixed
   escort
+  event
 }
 
 enum ShiftKind {
