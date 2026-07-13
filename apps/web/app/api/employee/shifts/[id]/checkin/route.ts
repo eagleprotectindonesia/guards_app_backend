@@ -16,6 +16,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const employee = await getAuthenticatedEmployee();
   if (!employee) {
+    console.error('[checkin] unauthorized', { shiftId });
     return employeeShiftErrorResponse({ status: 401, code: 'unauthorized', error: 'Unauthorized' });
   }
   const employeeId = employee.id;
@@ -23,21 +24,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     const json = await req.json();
     const body = checkInSchema.parse(json);
+    const logCtx = () => ({ shiftId, employeeId, body });
     const now = new Date();
 
     // 1. Fetch Shift
     const shift = await getShiftById(shiftId);
 
     if (!shift) {
+      console.error('[checkin] shift_not_found', logCtx());
       return employeeShiftErrorResponse({ status: 404, code: 'shift_not_found', error: 'Shift not found' });
     }
 
     // 2. Validate Employee and Time
     if (shift.employeeId !== employeeId) {
+      console.error('[checkin] shift_not_assigned', logCtx());
       return employeeShiftErrorResponse({ status: 403, code: 'shift_not_assigned', error: 'Not assigned to this shift' });
     }
 
     if (now < shift.startsAt) {
+      console.error('[checkin] shift_not_active', logCtx());
       return employeeShiftErrorResponse({ status: 400, code: 'shift_not_active', error: 'Shift is not active' });
     }
 
@@ -60,6 +65,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       const maxDistance = parseInt(maxDistanceStr, 10);
       if (!isNaN(maxDistance) && maxDistance > 0) {
         if (!body.location || typeof body.location.lat !== 'number' || typeof body.location.lng !== 'number') {
+          console.error('[checkin] location_required', logCtx());
           return employeeShiftErrorResponse({
             status: 400,
             code: 'location_required',
@@ -98,6 +104,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
         if (!matchedLocation) {
           const nearestDistance = locationResult.nearestLocation?.distanceMeters;
+          console.error('[checkin] too_far_from_site', { ...logCtx(), currentDistanceMeters: nearestDistance != null ? Math.round(nearestDistance) : null, maxDistanceMeters: maxDistance });
           return employeeShiftErrorResponse({
             status: 400,
             code: 'too_far_from_site',
@@ -138,6 +145,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     );
 
     if (windowResult.status === 'completed') {
+      console.error('[checkin] checkin_interval_completed', logCtx());
       return employeeShiftErrorResponse({
         status: 400,
         code: 'checkin_interval_completed',
@@ -146,6 +154,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }
 
     if (windowResult.status === 'early') {
+      console.error('[checkin] checkin_too_early', logCtx());
       return employeeShiftErrorResponse({ status: 400, code: 'checkin_too_early', error: 'Too early to check in' });
     }
 

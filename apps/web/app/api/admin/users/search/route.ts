@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/admin-auth';
+import { getAdminAuthSession } from '@/lib/admin-auth';
 import { getAllAdmins, searchAdminsByName } from '@repo/database';
 
 export async function GET(req: Request) {
-  await requirePermission('user-calendar:view');
+  const session = await getAdminAuthSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const { searchParams } = new URL(req.url);

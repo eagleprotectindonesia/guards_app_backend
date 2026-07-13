@@ -9,11 +9,8 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '@/components/ui/text';
 import { useCustomToast } from './useCustomToast';
 import { uploadToS3 } from '../api/upload';
-import {
-  ATTENDANCE_PHOTO_QUALITY,
-  ATTENDANCE_PHOTO_CONTENT_TYPE,
-  buildResizeAction,
-} from '../utils/attendance-image';
+import { captureException } from '../utils/sentry';
+import { ATTENDANCE_PHOTO_QUALITY, ATTENDANCE_PHOTO_CONTENT_TYPE, buildResizeAction } from '../utils/attendance-image';
 
 export type AttendancePhotoUpload = {
   key: string;
@@ -111,13 +108,16 @@ export function useAttendancePhotoUpload({ folder }: UseAttendancePhotoUploadOpt
     });
   }, [cameraPermission, requestCameraPermission, t, toast]);
 
-  const closeCameraWithResult = useCallback((result: InAppCaptureResult) => {
-    const resolver = cameraResolve;
-    setCameraResolve(null);
-    setCameraOpen(false);
-    setCapturedUri(null);
-    if (resolver) resolver(result);
-  }, [cameraResolve]);
+  const closeCameraWithResult = useCallback(
+    (result: InAppCaptureResult) => {
+      const resolver = cameraResolve;
+      setCameraResolve(null);
+      setCameraOpen(false);
+      setCapturedUri(null);
+      if (resolver) resolver(result);
+    },
+    [cameraResolve]
+  );
 
   const handleTakePhotoInApp = useCallback(async () => {
     if (!cameraRef || isCapturing) return;
@@ -201,7 +201,8 @@ export function useAttendancePhotoUpload({ folder }: UseAttendancePhotoUploadOpt
         {
           folder,
           fileType: 'image',
-        }
+        },
+        { width: optimized.width, height: optimized.height }
       );
 
       return {
@@ -221,6 +222,9 @@ export function useAttendancePhotoUpload({ folder }: UseAttendancePhotoUploadOpt
           },
         },
       };
+    } catch (error) {
+      captureException(error, { tags: { feature: 'attendance_photo_upload' } });
+      throw error;
     } finally {
       isProcessingRef.current = false;
       setIsProcessing(false);
@@ -228,7 +232,12 @@ export function useAttendancePhotoUpload({ folder }: UseAttendancePhotoUploadOpt
   }, [t, captureWithInAppCamera, captureWithSystemCamera, folder]);
 
   const cameraModal = (
-    <Modal visible={cameraOpen} animationType="slide" transparent={false} onRequestClose={() => closeCameraWithResult({ kind: 'cancelled' })}>
+    <Modal
+      visible={cameraOpen}
+      animationType="slide"
+      transparent={false}
+      onRequestClose={() => closeCameraWithResult({ kind: 'cancelled' })}
+    >
       <View style={{ flex: 1, backgroundColor: '#000' }}>
         {!capturedUri ? (
           <>
@@ -241,15 +250,28 @@ export function useAttendancePhotoUpload({ folder }: UseAttendancePhotoUploadOpt
               ref={setCameraRef}
             />
             <View style={{ position: 'absolute', top: 48, right: 20 }}>
-              <Pressable onPress={() => closeCameraWithResult({ kind: 'cancelled' })} style={{ padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }}>
+              <Pressable
+                onPress={() => closeCameraWithResult({ kind: 'cancelled' })}
+                style={{ padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 }}
+              >
                 <Text className="text-white">{t('attendance.close', 'Close')}</Text>
               </Pressable>
             </View>
             <View style={{ position: 'absolute', top: 48, left: 20, right: 96 }}>
-              <View style={{ backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12 }}>
+              <View
+                style={{
+                  backgroundColor: 'rgba(0,0,0,0.55)',
+                  borderRadius: 12,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                }}
+              >
                 <Text className="text-white font-bold">{t('attendance.cameraTitle', 'Take Attendance Photo')}</Text>
                 <Text className="text-white/90 text-xs mt-1">
-                  {t('attendance.cameraHint', 'Keep your face centered and clearly visible, then tap the capture button.')}
+                  {t(
+                    'attendance.cameraHint',
+                    'Keep your face centered and clearly visible, then tap the capture button.'
+                  )}
                 </Text>
               </View>
             </View>
@@ -269,7 +291,9 @@ export function useAttendancePhotoUpload({ folder }: UseAttendancePhotoUploadOpt
               <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
                 <Camera size={16} color="#FFFFFF" />
                 <Text className="text-white font-semibold ml-2">
-                  {isCapturing ? t('attendance.capturing', 'Capturing...') : t('attendance.capturePhoto', 'Capture Photo')}
+                  {isCapturing
+                    ? t('attendance.capturing', 'Capturing...')
+                    : t('attendance.capturePhoto', 'Capture Photo')}
                 </Text>
               </View>
             </View>
@@ -280,18 +304,48 @@ export function useAttendancePhotoUpload({ folder }: UseAttendancePhotoUploadOpt
               <Image source={{ uri: capturedUri }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
             </View>
             <View style={{ position: 'absolute', top: 48, left: 20, right: 20 }}>
-              <View style={{ backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 12 }}>
+              <View
+                style={{
+                  backgroundColor: 'rgba(0,0,0,0.55)',
+                  borderRadius: 12,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                }}
+              >
                 <Text className="text-white font-bold">{t('attendance.reviewTitle', 'Review Photo')}</Text>
                 <Text className="text-white/90 text-xs mt-1">
-                  {t('attendance.reviewHint', 'Use this photo if your face is clear. Retake if it is blurry or not centered.')}
+                  {t(
+                    'attendance.reviewHint',
+                    'Use this photo if your face is clear. Retake if it is blurry or not centered.'
+                  )}
                 </Text>
               </View>
             </View>
-            <View style={{ position: 'absolute', bottom: 36, left: 20, right: 20, flexDirection: 'row', justifyContent: 'space-between' }}>
-              <Pressable onPress={() => setCapturedUri(null)} style={{ paddingVertical: 12, paddingHorizontal: 18, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 12 }}>
+            <View
+              style={{
+                position: 'absolute',
+                bottom: 36,
+                left: 20,
+                right: 20,
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Pressable
+                onPress={() => setCapturedUri(null)}
+                style={{
+                  paddingVertical: 12,
+                  paddingHorizontal: 18,
+                  backgroundColor: 'rgba(0,0,0,0.6)',
+                  borderRadius: 12,
+                }}
+              >
                 <Text className="text-white font-bold">{t('attendance.retake', 'Retake')}</Text>
               </Pressable>
-              <Pressable onPress={handleUsePhoto} style={{ paddingVertical: 12, paddingHorizontal: 18, backgroundColor: '#2563EB', borderRadius: 12 }}>
+              <Pressable
+                onPress={handleUsePhoto}
+                style={{ paddingVertical: 12, paddingHorizontal: 18, backgroundColor: '#2563EB', borderRadius: 12 }}
+              >
                 <Text className="text-white font-bold">{t('attendance.usePhoto', 'Use Photo')}</Text>
               </Pressable>
             </View>

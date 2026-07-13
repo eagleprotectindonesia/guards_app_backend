@@ -10,7 +10,7 @@ import {
   type TaggedUserResult,
 } from '@repo/database';
 import { serializeCalendarEvent } from '@repo/shared';
-import { requirePermission } from '@/lib/admin-auth';
+import { getAdminAuthSession } from '@/lib/admin-auth';
 import { createCalendarEventSchema, updateCalendarEventSchema, tagAvailabilityCheckSchema } from '@repo/validations';
 import { getAdminName, notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { redis } from '@repo/database/redis';
@@ -18,7 +18,8 @@ import { revalidatePath } from 'next/cache';
 import { format, parseISO } from 'date-fns';
 
 export async function createEvent(data: unknown) {
-  const session = await requirePermission('user-calendar:create');
+  const session = await getAdminAuthSession();
+  if (!session) return { success: false, error: 'Not authenticated' };
 
   const parsed = createCalendarEventSchema.safeParse(data);
   if (!parsed.success) {
@@ -81,7 +82,8 @@ export async function createEvent(data: unknown) {
 }
 
 export async function updateEvent(id: string, data: unknown) {
-  const session = await requirePermission('user-calendar:edit');
+  const session = await getAdminAuthSession();
+  if (!session) return { success: false, error: 'Not authenticated' };
 
   const existing = await prisma.calendarEvent.findFirst({
     where: { id, adminId: session.id, deletedAt: null },
@@ -156,7 +158,8 @@ export async function updateEvent(id: string, data: unknown) {
 }
 
 export async function deleteEvent(id: string) {
-  const session = await requirePermission('user-calendar:delete');
+  const session = await getAdminAuthSession();
+  if (!session) return { success: false, error: 'Not authenticated' };
 
   const existing = await prisma.calendarEvent.findFirst({
     where: { id, adminId: session.id, deletedAt: null },
@@ -210,7 +213,8 @@ export interface EventForEditItem {
 type EventForEditResult = { success: true; item: EventForEditItem } | { success: false; error: string };
 
 export async function getEventForEdit(id: string): Promise<EventForEditResult> {
-  const session = await requirePermission('user-calendar:view');
+  const session = await getAdminAuthSession();
+  if (!session) return { success: false, error: 'Not authenticated' };
 
   const event = await prisma.calendarEvent.findFirst({
     where: { id, adminId: session.id, deletedAt: null },
@@ -238,7 +242,8 @@ export async function getEventForEdit(id: string): Promise<EventForEditResult> {
 }
 
 export async function checkTagAvailability(input: unknown) {
-  await requirePermission('user-calendar:create');
+  const session = await getAdminAuthSession();
+  if (!session) return { conflicts: {} };
 
   const parsed = tagAvailabilityCheckSchema.safeParse(input);
   if (!parsed.success) {
@@ -264,7 +269,8 @@ export async function checkTagAvailability(input: unknown) {
 }
 
 export async function duplicateEvent(id: string) {
-  const session = await requirePermission('user-calendar:create');
+  const session = await getAdminAuthSession();
+  if (!session) return { success: false, error: 'Not authenticated' };
 
   const existing = await prisma.calendarEvent.findFirst({
     where: { id, adminId: session.id, deletedAt: null },

@@ -4,6 +4,7 @@ import { QueryClient } from '@tanstack/react-query';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import { persistQueryClient } from '@tanstack/query-persist-client-core';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { captureException } from '../utils/sentry';
 import { storage, STORAGE_KEYS } from '../utils/storage';
 
 let authTokenCache: string | null = null;
@@ -60,7 +61,10 @@ client.interceptors.request.use(
     }
     return config;
   },
-  error => Promise.reject(error)
+  error => {
+    captureException(error, { tags: { feature: 'axios_request_interceptor' } });
+    return Promise.reject(error);
+  }
 );
 
 // Response Interceptor to capture refreshed tokens
@@ -75,6 +79,7 @@ client.interceptors.response.use(
     return response;
   },
   error => {
+    captureException(error, { tags: { feature: 'axios_response_interceptor' } });
     return Promise.reject(error);
   }
 );

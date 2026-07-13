@@ -7,6 +7,7 @@ import { SystemSettings } from '../hooks/useSettings';
 import { calculateDistance } from '@repo/shared';
 import { sendDebugChat } from './debug';
 import { queryKeys } from '../api/queryKeys';
+import { captureException } from './sentry';
 
 export const GEOFENCE_TASK = 'GEOFENCE_TASK';
 export const LOCATION_MONITOR_TASK = 'LOCATION_MONITOR_TASK';
@@ -90,6 +91,7 @@ export async function checkAndReportLocationServices(
       }
     }
   } catch (error) {
+    captureException(error, { tags: { feature: 'check_location_services', source } });
     console.error(`[${source}] Error checking location services:`, error);
   }
 }
@@ -119,6 +121,7 @@ export async function reportBreach(shiftId: string, reason: 'geofence_breach' | 
     console.log(`[Background] Reported ${reason} for shift ${shiftId}`);
     await sendDebugChat(`Reported ${reason} for shift ${shiftId}`);
   } catch (error) {
+    captureException(error, { tags: { feature: 'report_breach', reason } });
     console.error(`[Background] Failed to report ${reason}:`, error);
     await sendDebugChat(
       `FAILED to report ${reason} for shift ${shiftId}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -149,6 +152,7 @@ export async function resolveBreach(shiftId: string, reason: 'geofence_breach' |
     console.log(`[Background] Resolved ${reason} for shift ${shiftId}`);
     await sendDebugChat(`Resolved ${reason} for shift ${shiftId}`);
   } catch (error) {
+    captureException(error, { tags: { feature: 'resolve_breach', reason } });
     console.error(`[Background] Failed to resolve ${reason}:`, error);
     await sendDebugChat(
       `FAILED to resolve ${reason} for shift ${shiftId}: ${error instanceof Error ? error.message : 'Unknown error'}`
@@ -170,6 +174,7 @@ async function sendHeartbeat(shiftId: string) {
     );
     console.log(`[Background] Heartbeat sent for shift ${shiftId}`);
   } catch (error) {
+    captureException(error, { tags: { feature: 'send_heartbeat' } });
     console.error(`[Background] Failed to send heartbeat:`, error);
   }
 }
@@ -177,6 +182,7 @@ async function sendHeartbeat(shiftId: string) {
 // Handler for Geofencing transitions (OS triggered)
 TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }: any) => {
   if (error) {
+    captureException(error, { tags: { feature: 'geofence_task' } });
     console.error(`[Background] Geofence task error: ${error.message}`);
     await sendDebugChat(`Geofence Task ERROR: ${error.message}`);
     return;
@@ -203,6 +209,7 @@ TaskManager.defineTask(GEOFENCE_TASK, async ({ data, error }: any) => {
 // Handler for periodic location updates (Timer triggered)
 TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
   if (error) {
+    captureException(error, { tags: { feature: 'location_monitor_task' } });
     console.error(`[Background] Location monitor task error: ${error.message}`);
     await sendDebugChat(`Location Monitor Task ERROR: ${error.message}`);
     return;
@@ -280,6 +287,7 @@ TaskManager.defineTask(LOCATION_MONITOR_TASK, async ({ data, error }: any) => {
       }
     }
   } catch (err) {
+    captureException(err, { tags: { feature: 'location_monitor_uncaught' } });
     console.error('[Background] monitor task error:', err);
     await sendDebugChat(
       `LOCATION_MONITOR_TASK UNCAUGHT ERROR: ${err instanceof Error ? err.message : 'Unknown error'}`

@@ -32,16 +32,25 @@ export async function recordCheckin(params: {
   }
 
   return prisma.$transaction(async tx => {
-    const checkin = await tx.checkin.create({
-      data: {
-        shiftId,
-        employeeId: targetEmployeeId,
-        status,
-        source: source || 'api',
-        metadata,
-        at: now,
-      },
-    });
+    let checkin;
+    try {
+      checkin = await tx.checkin.create({
+        data: {
+          shiftId,
+          employeeId: targetEmployeeId,
+          status,
+          source: source || 'api',
+          metadata,
+          at: now,
+        },
+      });
+    } catch (e: unknown) {
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+        checkin = await tx.checkin.findFirstOrThrow({ where: { shiftId, at: now } });
+      } else {
+        throw e;
+      }
+    }
 
     await tx.shift.update({
       where: { id: shiftId },
@@ -90,6 +99,7 @@ export async function recordBulkCheckins(params: {
   return prisma.$transaction(async tx => {
     // Create all checkin records
     await tx.checkin.createMany({
+      skipDuplicates: true,
       data: sortedCheckins.map(c => ({
         shiftId,
         employeeId,

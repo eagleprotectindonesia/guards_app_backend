@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@repo/database';
-import { requirePermission } from '@/lib/admin-auth';
+import { getAdminAuthSession } from '@/lib/admin-auth';
 
 const VALID_TYPES = [
   'holiday',
@@ -18,7 +18,9 @@ const VALID_TYPES = [
 ] as const;
 
 export async function GET(_req: Request, { params }: { params: Promise<{ type: string; id: string }> }) {
-  const { id: adminId, isSuperAdmin } = await requirePermission('user-calendar:view');
+  const session = await getAdminAuthSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id: adminId, isSuperAdmin } = session;
 
   const { type, id } = await params;
 

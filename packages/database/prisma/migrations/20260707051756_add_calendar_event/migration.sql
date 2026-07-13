@@ -95,11 +95,3 @@ ALTER TABLE "calendar_event_tags" ADD CONSTRAINT "calendar_event_tags_employee_i
 -- AddForeignKey
 ALTER TABLE "calendar_event_tags" ADD CONSTRAINT "calendar_event_tags_admin_id_fkey" FOREIGN KEY ("admin_id") REFERENCES "admins"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
--- Seed user-calendar permissions
-INSERT INTO "permissions" ("id", "action", "resource", "code", "description", "created_at", "updated_at")
-VALUES
-  (gen_random_uuid()::text, 'view',   'user-calendar', 'user-calendar:view',   'Can view user calendar', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (gen_random_uuid()::text, 'create', 'user-calendar', 'user-calendar:create', 'Can create calendar events', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (gen_random_uuid()::text, 'edit',   'user-calendar', 'user-calendar:edit',   'Can edit calendar events', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP),
-  (gen_random_uuid()::text, 'delete', 'user-calendar', 'user-calendar:delete', 'Can delete calendar events', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-ON CONFLICT ("code") DO NOTHING;

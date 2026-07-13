@@ -181,18 +181,18 @@ All require `getAuthenticatedEmployee()`.
 
 ### Admin Calendar Endpoints
 
-All require `requirePermission('user-calendar:<action>')`.
+All require admin authentication (handled by `proxy.ts`). CRUD operations are available to all authenticated admins — edit/delete gated by ownership.
 
-| Method | Path | Permission | Description |
-|---|---|---|---|
-| GET | `/admin/calendar?from=&to=&employeeId=&kind=&priority=&clientName=&taggedUserId=` | `view` | Master aggregation — holidays, memos, employee events (super admin only), and admin events. **Visibility scoped by role** (see matrix below). Response includes `ownerId`, `ownerType`, `ownerName`. |
-| GET | `/admin/calendar/events?from=&to=` | `view` | Lists admin events. **Super admin**: all admin events. **Non-super admin**: own + tagged events. |
-| POST | `/admin/calendar/events` | `create` | Create event (admin-owned). Same flow as employee create. |
-| GET | `/admin/calendar/events/[id]` | `view` | Detail. **Super admin**: any admin event. **Non-super admin**: strict ownership (`adminId` match), 404 otherwise. |
-| PUT | `/admin/calendar/events/[id]` | `edit` | Update. Ownership check (`adminId` match). Tags diffed + notified. Publishes Redis event. |
-| DELETE | `/admin/calendar/events/[id]` | `delete` | Soft-delete. Ownership check. Publishes Redis event. |
-| POST | `/admin/calendar/events/[id]/duplicate` | `create` | Duplicate admin event. **Does not copy tags**. Publishes Redis event. |
-| GET | `/admin/calendar/items/[type]/[id]` | `view` | Detail for any item type. **Super admin**: any event. **Non-super admin**: own events, tagged events, or employee events. 403 for untagged other-admin events. |
+| Method | Path | Description |
+|---|---|---|
+| GET | `/admin/calendar?from=&to=&employeeId=&kind=&priority=&clientName=&taggedUserId=` | Master aggregation — holidays, memos, employee events (super admin only), and admin events. **Visibility scoped by role** (see matrix below). Response includes `ownerId`, `ownerType`, `ownerName`. |
+| GET | `/admin/calendar/events?from=&to=` | Lists admin events. **Super admin**: all admin events. **Non-super admin**: own + tagged events. |
+| POST | `/admin/calendar/events` | Create event (admin-owned). Same flow as employee create. |
+| GET | `/admin/calendar/events/[id]` | Detail. **Super admin**: any admin event. **Non-super admin**: strict ownership (`adminId` match), 404 otherwise. |
+| PUT | `/admin/calendar/events/[id]` | Update. Ownership check (`adminId` match). Tags diffed + notified. Publishes Redis event. |
+| DELETE | `/admin/calendar/events/[id]` | Soft-delete. Ownership check. Publishes Redis event. |
+| POST | `/admin/calendar/events/[id]/duplicate` | Duplicate admin event. **Does not copy tags**. Publishes Redis event. |
+| GET | `/admin/calendar/items/[type]/[id]` | Detail for any item type. **Super admin**: any event. **Non-super admin**: own events, tagged events, or employee events. 403 for untagged other-admin events. |
 
 #### Visibility Matrix (`GET /admin/calendar`)
 
@@ -422,16 +422,9 @@ Modal dialog with:
 
 ### Permissions
 
-Resource: `user-calendar`
+No specific calendar permission required — all authenticated admins have full CRUD access. Edit/delete is gated by event ownership (only the owner can modify or remove their events).
 
-| Permission | Code |
-|---|---|
-| View | `user-calendar:view` |
-| Create | `user-calendar:create` |
-| Edit | `user-calendar:edit` |
-| Delete | `user-calendar:delete` |
-
-Seeded in RBAC seed + initial-setup route. Admin sidebar group: "Employee Management".
+Admin sidebar group: "Personal Management".
 
 ### Event Detail Panel (`EventDetailPanel.tsx`)
 

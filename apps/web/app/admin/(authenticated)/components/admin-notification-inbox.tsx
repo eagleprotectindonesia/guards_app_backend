@@ -22,8 +22,7 @@ export default function AdminNotificationInbox() {
   const { notifications, unreadCount, isInitialized, markVisibleAsRead } = useAdminNotifications();
   const canViewLeaveRequests = hasPermission(PERMISSIONS.LEAVE_REQUESTS.VIEW);
   const canViewTickets = hasPermission(PERMISSIONS.TICKETS.VIEW);
-  const canViewCalendar = hasPermission(PERMISSIONS.USER_CALENDAR.VIEW);
-  const canViewNotifications = canViewLeaveRequests || canViewTickets || canViewCalendar;
+  const canViewNotifications = canViewLeaveRequests || canViewTickets || true;
 
   if (!canViewNotifications || !isInitialized) {
     return null;

@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma, createCalendarEvent } from '@repo/database';
-import { requirePermission } from '@/lib/admin-auth';
+import { getAdminAuthSession } from '@/lib/admin-auth';
 import { redis } from '@repo/database/redis';
 import { format } from 'date-fns';
 
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requirePermission('user-calendar:create');
+  const session = await getAdminAuthSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
 
   try {

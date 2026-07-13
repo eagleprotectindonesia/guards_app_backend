@@ -1,12 +1,9 @@
 import { prisma } from '@repo/database';
-import { requirePermission } from '@/lib/admin-auth';
 import { CalendarView } from './CalendarView';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminCalendarPage() {
-  await requirePermission('user-calendar:view');
-
   const [employees, admins] = await Promise.all([
     prisma.employee
       .findMany({

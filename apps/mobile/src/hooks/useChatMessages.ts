@@ -10,6 +10,7 @@ import { ChatListItemData } from '../components/chat/ChatListItem';
 import { Socket } from 'socket.io-client';
 import { queryKeys } from '../api/queryKeys';
 import { incrementTelemetryCounter } from '../utils/telemetry';
+import { captureException } from '../utils/sentry';
 
 type ChatMessagesQueryData = {
   pages: ChatMessage[][];
@@ -132,7 +133,8 @@ export function useChatMessages({
           pages: [[...toAdd, ...old.pages[0]], ...old.pages.slice(1)],
         };
       });
-    } catch {
+    } catch (error) {
+      captureException(error, { tags: { feature: 'chat_reconcile' } });
       // If reconciliation fails, fall back to a full refetch.
       queryClient.invalidateQueries({ queryKey: queryKeys.chat.messages(employeeId) });
     }

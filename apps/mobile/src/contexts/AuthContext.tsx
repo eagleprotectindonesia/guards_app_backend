@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { queryKeys } from '../api/queryKeys';
 import { clearDebugChatCache } from '../utils/debug';
 import { deregisterFcmToken } from '../lib/fcm';
+import { setSentryUser } from '../utils/sentry';
 
 type AuthValidationState = 'unknown' | 'validated' | 'failed';
 
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await storage.removeItem(STORAGE_KEYS.USER_TOKEN);
     setCachedAuthToken(null);
     clearDebugChatCache();
+    setSentryUser(null);
     queryClient.removeQueries({ queryKey: queryKeys.profile });
 
     setState({
@@ -124,6 +126,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: true,
         authValidationState: 'validated',
       });
+
+      setSentryUser({ id: user.id, employeeId: user.personnelId });
 
       // Don't seed profile cache from auth/login payload: it may be partial and
       // can overwrite the richer shape returned by /api/employee/my/profile.

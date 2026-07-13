@@ -1,6 +1,8 @@
 import '../global.css';
 import '../src/i18n';
 import '../src/utils/backgroundTasks';
+import '../src/utils/sentry-init';
+import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { GluestackUIProvider } from '@/components/ui/gluestack-ui-provider';
 import { Stack } from 'expo-router';
 import { Providers } from '../src/components/Providers';
@@ -50,12 +52,14 @@ function AppContent() {
 
 export default function RootLayout() {
   return (
-    <GluestackUIProvider>
-      <Providers>
-        <AuthProvider>
-          <AppContent />
-        </AuthProvider>
-      </Providers>
-    </GluestackUIProvider>
+    <ErrorBoundary>
+      <GluestackUIProvider>
+        <Providers>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </Providers>
+      </GluestackUIProvider>
+    </ErrorBoundary>
   );
 }

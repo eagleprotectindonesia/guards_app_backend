@@ -9,6 +9,8 @@ type ErrorResponseOptions = {
 };
 
 export function employeeShiftErrorResponse({ status, code, error, details }: ErrorResponseOptions) {
+  console.error(`[employeeShiftErrorResponse] ${status} ${code}: ${error}`, details ?? '');
+
   return NextResponse.json(
     {
       code,

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma, getCalendarEventTags } from '@repo/database';
-import { requirePermission } from '@/lib/admin-auth';
+import { getAdminAuthSession } from '@/lib/admin-auth';
 import { updateCalendarEventSchema } from '@repo/validations';
 import { updateCalendarEvent, deleteCalendarEvent } from '@repo/database';
 import { getAdminName, notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
@@ -8,7 +8,9 @@ import { redis } from '@repo/database/redis';
 import { ZodError } from 'zod';
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { id: adminId, isSuperAdmin } = await requirePermission('user-calendar:view');
+  const session = await getAdminAuthSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id: adminId, isSuperAdmin } = session;
   const { id } = await params;
 
   const eventWhere: Record<string, unknown> = {
@@ -72,7 +74,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requirePermission('user-calendar:edit');
+  const session = await getAdminAuthSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
 
   try {
@@ -172,7 +175,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await requirePermission('user-calendar:delete');
+  const session = await getAdminAuthSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { id } = await params;
 
   try {

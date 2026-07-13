@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma, getTagsForEvents } from '@repo/database';
-import { requirePermission } from '@/lib/admin-auth';
+import { getAdminAuthSession } from '@/lib/admin-auth';
 import { calendarListSchema } from '@repo/validations';
 import { colorHintForEvent } from '@repo/shared';
 import { startOfDay, endOfDay, eachDayOfInterval, parseISO, format } from 'date-fns';
@@ -34,7 +34,9 @@ function expandToDays(startDate: Date, endDate: Date, from: Date, to: Date): Dat
 }
 
 export async function GET(req: Request) {
-  const { id: adminId, isSuperAdmin } = await requirePermission('user-calendar:view');
+  const session = await getAdminAuthSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { id: adminId, isSuperAdmin } = session;
 
   try {
     const { searchParams } = new URL(req.url);
