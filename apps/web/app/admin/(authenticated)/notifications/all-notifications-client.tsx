@@ -84,7 +84,7 @@ function isItemUnread(item: UnifiedNotificationItem): boolean {
 }
 
 export default function AllNotificationsClient() {
-  const { items, unreadCount, isInitialized, markAllAsRead } = useNotificationsDropdown();
+  const { items, unreadCount, isInitialized, markAllAsRead, markReadById } = useNotificationsDropdown();
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -135,7 +135,7 @@ export default function AllNotificationsClient() {
 
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {
-      all: items.length,
+      all: 0,
       unread: 0,
       critical_alert: 0,
       calendar: 0,
@@ -143,9 +143,16 @@ export default function AllNotificationsClient() {
       leave: 0,
     };
     for (const item of items) {
-      if (isItemUnread(item)) counts.unread++;
+      const isUnread = isItemUnread(item);
       const cat = categorizeItem(item);
-      if (cat !== 'other') counts[cat]++;
+      if (cat === 'critical_alert') {
+        counts.critical_alert++;
+        counts.all++;
+      } else if (isUnread) {
+        counts.unread++;
+        counts.all++;
+        if (cat !== 'other') counts[cat]++;
+      }
     }
     return counts;
   }, [items]);
@@ -230,7 +237,20 @@ export default function AllNotificationsClient() {
   };
 
   const handleSelectItem = (itemId: string) => {
-    updateParam('item', itemId === selectedId ? null : itemId);
+    const next = itemId === selectedId ? null : itemId;
+    updateParam('item', next);
+    if (next) {
+      const item = filteredItems.find(i => `${i.kind}-${i.id}` === itemId);
+      if (item && item.kind === 'notification' && !item.readAt) {
+        markReadById(item.id);
+        queryClient.setQueryData<UnifiedNotificationItem[]>(['admin', 'notifications', 'items', dateRange], old => {
+          if (!old) return old;
+          return old.map(i =>
+            i.kind === 'notification' && i.id === item.id ? { ...i, readAt: new Date().toISOString() } : i
+          );
+        });
+      }
+    }
   };
 
   const handleResetFilters = () => {
@@ -519,14 +539,31 @@ export default function AllNotificationsClient() {
                           )}
                         </div>
                         <div className="hidden sm:flex items-center">
-                          <a
-                            href={item.targetPath}
-                            onClick={e => e.stopPropagation()}
+                          <button
+                            type="button"
+                            onClick={e => {
+                              e.stopPropagation();
+                              if (item.kind === 'notification' && !item.readAt) {
+                                markReadById(item.id);
+                                queryClient.setQueryData<UnifiedNotificationItem[]>(
+                                  ['admin', 'notifications', 'items', dateRange],
+                                  old => {
+                                    if (!old) return old;
+                                    return old.map(i =>
+                                      i.kind === 'notification' && i.id === item.id
+                                        ? { ...i, readAt: new Date().toISOString() }
+                                        : i
+                                    );
+                                  }
+                                );
+                              }
+                              router.push(item.targetPath);
+                            }}
                             className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                           >
                             {getActionLabel(item)}
                             <ExternalLink className="w-3 h-3" />
-                          </a>
+                          </button>
                         </div>
                       </button>
                     );

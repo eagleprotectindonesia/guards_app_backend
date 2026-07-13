@@ -15,6 +15,7 @@ type NotificationsDropdownContextValue = {
   activeAlertCount: number;
   isInitialized: boolean;
   markAllAsRead: () => void;
+  markReadById: (id: string) => void;
 };
 
 const NotificationsDropdownContext = createContext<NotificationsDropdownContextValue | undefined>(undefined);
@@ -28,6 +29,7 @@ export function NotificationsDropdownProvider({ children }: { children: React.Re
     unreadCount: notificationUnreadCount,
     isInitialized: notificationsInitialized,
     markAllRead,
+    markReadById,
   } = useAdminNotifications();
   const { alerts, isAlertsInitialized } = useAlerts();
 
@@ -65,6 +67,7 @@ export function NotificationsDropdownProvider({ children }: { children: React.Re
         activeAlertCount: activeAlerts.length,
         isInitialized,
         markAllAsRead: markAllRead,
+        markReadById,
       }}
     >
       {children}
