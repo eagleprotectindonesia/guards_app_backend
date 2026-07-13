@@ -11,6 +11,7 @@ type AdminNotificationContextType = {
   unreadCount: number;
   isInitialized: boolean;
   markVisibleAsRead: () => void;
+  markAllRead: () => void;
 };
 
 const AdminNotificationContext = createContext<AdminNotificationContextType | undefined>(undefined);
@@ -82,6 +83,8 @@ export function AdminNotificationProvider({ children }: { children: React.ReactN
     socket.emit('mark_admin_notifications_read', { notificationIds: unreadIds });
   };
 
+  const markAllRead = markVisibleAsRead;
+
   return (
     <AdminNotificationContext.Provider
       value={{
@@ -89,6 +92,7 @@ export function AdminNotificationProvider({ children }: { children: React.ReactN
         unreadCount,
         isInitialized,
         markVisibleAsRead,
+        markAllRead,
       }}
     >
       {children}
