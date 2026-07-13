@@ -36,6 +36,8 @@ export type CreateTicketInput = {
   clientName: string;
   clientContact: string;
   clientLocation: string;
+  clientLocationLatitude?: number | null;
+  clientLocationLongitude?: number | null;
 };
 
 export type TicketListParams = {
@@ -419,6 +421,8 @@ export async function createTicket(input: CreateTicketInput, tx: TxLike = prisma
         clientName: input.clientName,
         clientContact: input.clientContact,
         clientLocation: input.clientLocation,
+        clientLocationLatitude: input.clientLocationLatitude ?? null,
+        clientLocationLongitude: input.clientLocationLongitude ?? null,
       },
     });
 

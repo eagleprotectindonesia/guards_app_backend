@@ -292,6 +292,8 @@ export const ticketCreateSchema = z.object({
       }
     ),
   clientLocation: z.string().trim().min(1, 'Client location is required'),
+  clientLocationLatitude: z.number().min(-90).max(90).nullable().optional(),
+  clientLocationLongitude: z.number().min(-180).max(180).nullable().optional(),
   resolutionTargetHours: z
     .number()
     .int('Resolution target must be a whole number of hours')

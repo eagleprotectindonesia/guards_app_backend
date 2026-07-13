@@ -71,6 +71,8 @@ describe('ticket actions', () => {
       clientName: 'Acme',
       clientContact: '+62811234567',
       clientLocation: 'Makassar',
+      clientLocationLatitude: -5.1477,
+      clientLocationLongitude: 119.4327,
       resolutionTargetHours: 4,
       priority: 'HIGH',
     });
@@ -104,6 +106,8 @@ describe('ticket actions', () => {
       clientName: 'Acme',
       clientContact: '+62811234567',
       clientLocation: 'Makassar',
+      clientLocationLatitude: -5.1477,
+      clientLocationLongitude: 119.4327,
       resolutionTargetHours: 4,
       priority: 'HIGH',
     });
@@ -126,10 +130,12 @@ describe('ticket actions', () => {
         description: 'Office internet down',
         department: 'IT',
         clientName: 'Acme',
-        clientContact: '+62811234567',
-        clientLocation: 'Makassar',
-        resolutionTargetHours: 4,
-        priority: 'HIGH',
+      clientContact: '+62811234567',
+      clientLocation: 'Makassar',
+      clientLocationLatitude: -5.1477,
+      clientLocationLongitude: 119.4327,
+      resolutionTargetHours: 4,
+      priority: 'HIGH',
       })
     ).rejects.toThrow("Department role for 'IT' is not configured");
 
@@ -148,10 +154,12 @@ describe('ticket actions', () => {
         description: 'Office internet down',
         department: 'IT',
         clientName: 'Acme',
-        clientContact: '+62811234567',
-        clientLocation: 'Makassar',
-        resolutionTargetHours: 4,
-        priority: 'HIGH',
+      clientContact: '+62811234567',
+      clientLocation: 'Makassar',
+      clientLocationLatitude: -5.1477,
+      clientLocationLongitude: 119.4327,
+      resolutionTargetHours: 4,
+      priority: 'HIGH',
       })
     ).rejects.toThrow("Multiple roles are configured for 'IT'");
 

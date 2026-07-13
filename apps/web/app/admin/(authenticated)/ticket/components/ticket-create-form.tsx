@@ -262,6 +262,8 @@ export function TicketCreateForm({ adminName }: Props) {
             clientName,
             clientContact,
             clientLocation,
+            clientLocationLatitude,
+            clientLocationLongitude,
             resolutionTargetHours,
             priority,
           });

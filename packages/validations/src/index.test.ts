@@ -111,11 +111,49 @@ describe('ticket validation', () => {
       clientName: 'Acme',
       clientContact: '+628111234567',
       clientLocation: 'Jakarta',
+      clientLocationLatitude: -6.2146,
+      clientLocationLongitude: 106.8451,
       resolutionTargetHours: 4,
       priority: 'MEDIUM',
     });
 
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.clientLocationLatitude).toBe(-6.2146);
+      expect(result.data.clientLocationLongitude).toBe(106.8451);
+    }
+  });
+
+  test('accepts ticket without lat/lng', () => {
+    const result = ticketCreateSchema.safeParse({
+      title: 'Printer jam',
+      description: 'Printer jammed on floor 3',
+      department: 'IT',
+      clientName: 'Acme',
+      clientContact: '+628111234567',
+      clientLocation: 'Jakarta',
+      resolutionTargetHours: 4,
+      priority: 'MEDIUM',
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  test('rejects latitude out of range', () => {
+    const result = ticketCreateSchema.safeParse({
+      title: 'VPN down',
+      description: 'VPN is not connecting.',
+      department: 'IT',
+      clientName: 'Acme',
+      clientContact: '+628111234567',
+      clientLocation: 'Jakarta',
+      clientLocationLatitude: 100,
+      clientLocationLongitude: 106.8451,
+      resolutionTargetHours: 4,
+      priority: 'MEDIUM',
+    });
+
+    expect(result.success).toBe(false);
   });
 
   test('rejects empty editor markup as missing description', () => {
