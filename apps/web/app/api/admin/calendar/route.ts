@@ -24,6 +24,7 @@ type CalendarItem = {
   ownerType: 'employee' | 'admin';
   ownerName: string;
   taggedUsers: Array<{ id: string; type: 'employee' | 'admin'; name: string; email?: string }>;
+  taggedDepartmentNames: string[];
 };
 
 function expandToDays(startDate: Date, endDate: Date, from: Date, to: Date): Date[] {
@@ -110,10 +111,7 @@ export async function GET(req: Request) {
     if (isSuperAdmin) {
       adminEventWhere.adminId = { not: null };
     } else {
-      adminEventWhere.OR = [
-        { adminId },
-        { tags: { some: { adminId, participantType: 'admin' } } },
-      ];
+      adminEventWhere.OR = [{ adminId }, { tags: { some: { adminId, participantType: 'admin' } } }];
     }
     if (kinds && kinds.length > 0) {
       adminEventWhere.kind = { in: kinds };
@@ -189,6 +187,7 @@ export async function GET(req: Request) {
           ownerType: 'admin',
           ownerName: 'System',
           taggedUsers: [],
+          taggedDepartmentNames: [],
         });
         dayCounts[date] = (dayCounts[date] ?? 0) + 1;
       }
@@ -217,6 +216,7 @@ export async function GET(req: Request) {
           ownerType: 'admin',
           ownerName: 'System',
           taggedUsers: [],
+          taggedDepartmentNames: [],
         });
         dayCounts[date] = (dayCounts[date] ?? 0) + 1;
       }
@@ -239,6 +239,7 @@ export async function GET(req: Request) {
         ownerId: string;
         ownerType: 'employee' | 'admin';
         ownerName: string;
+        taggedDepartmentNames: string[];
       }>
     ) {
       for (const e of events) {
@@ -266,6 +267,7 @@ export async function GET(req: Request) {
             ownerType: e.ownerType,
             ownerName: e.ownerName,
             taggedUsers: tagsByEvent[e.id] ?? [],
+            taggedDepartmentNames: e.taggedDepartmentNames ?? [],
           });
           dayCounts[date] = (dayCounts[date] ?? 0) + 1;
         }
@@ -289,6 +291,7 @@ export async function GET(req: Request) {
         ownerId: e.employee?.id ?? '',
         ownerType: 'employee' as const,
         ownerName: e.employee?.fullName ?? 'Unknown',
+        taggedDepartmentNames: e.taggedDepartmentNames ?? [],
       }))
     );
 
@@ -309,6 +312,7 @@ export async function GET(req: Request) {
         ownerId: e.admin?.id ?? '',
         ownerType: 'admin' as const,
         ownerName: e.admin?.name ?? 'Unknown',
+        taggedDepartmentNames: e.taggedDepartmentNames ?? [],
       }))
     );
 

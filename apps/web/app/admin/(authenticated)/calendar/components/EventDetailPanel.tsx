@@ -80,11 +80,7 @@ export const EventDetailPanel = memo(function EventDetailPanel({
           )}
           {event.latitude != null && event.longitude != null && (
             <div className="h-36 w-full overflow-hidden rounded-lg border border-border">
-              <AddressMapPreview
-                latitude={event.latitude}
-                longitude={event.longitude}
-                onLocationChange={() => {}}
-              />
+              <AddressMapPreview latitude={event.latitude} longitude={event.longitude} onLocationChange={() => {}} />
             </div>
           )}
 
@@ -132,6 +128,22 @@ export const EventDetailPanel = memo(function EventDetailPanel({
                   }`}
                 >
                   {u.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {event.taggedDepartmentNames && event.taggedDepartmentNames.length > 0 && (
+          <div>
+            <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+              <Tag className="h-3 w-3" />
+              <span>Tagged departments</span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {event.taggedDepartmentNames.map(name => (
+                <span key={name} className="rounded bg-purple-500/10 px-2 py-0.5 text-xs text-purple-400">
+                  {name}
                 </span>
               ))}
             </div>

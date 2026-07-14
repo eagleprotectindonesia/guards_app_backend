@@ -18,4 +18,5 @@ export interface CalendarItem {
   ownerType: 'employee' | 'admin';
   ownerName: string;
   taggedUsers: Array<{ id: string; type: 'employee' | 'admin'; name: string; email?: string }>;
+  taggedDepartmentNames: string[];
 }
