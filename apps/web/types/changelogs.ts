@@ -13,6 +13,9 @@ export type ChangelogWithAdminDto = {
   admin: {
     name: string;
   } | null;
+  employee?: {
+    fullName: string;
+  } | null;
 };
 
 export type SerializedChangelogWithAdminDto = Omit<ChangelogWithAdminDto, 'createdAt'> & {
