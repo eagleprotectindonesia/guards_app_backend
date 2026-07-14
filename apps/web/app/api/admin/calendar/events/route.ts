@@ -54,7 +54,6 @@ export async function GET(req: Request) {
     const items = events.map(e => ({
       ...serializeCalendarEvent(e as unknown as Record<string, unknown>),
       taggedUsers: tagsByEvent[e.id] ?? [],
-      taggedDepartments: ((e as Record<string, unknown>).taggedDepartmentNames as string[] ?? []).map(name => ({ name })),
       isOwner: e.adminId === adminId,
       ownerId: e.adminId ?? adminId,
       ownerType: 'admin' as const,

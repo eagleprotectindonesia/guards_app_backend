@@ -1217,6 +1217,9 @@ model CalendarEvent {
   @@index([deletedAt])
   @@index([deletedAt, startDate, endDate])
   @@index([reminderScheduledAt, reminderSentAt])
+  // GIN indexes on taggedDepartmentNames back the { has / hasSome } lookups.
+  @@index([taggedDepartmentNames(ops: ArrayOps)], type: Gin, map: "calendar_events_tagged_department_names_gin")
+  @@index([taggedDepartmentNames(ops: ArrayOps)], type: Gin, map: "calendar_events_dept_names_active_gin", where: raw("\"deleted_at\" IS NULL"))
   @@map("calendar_events")
 }
 
