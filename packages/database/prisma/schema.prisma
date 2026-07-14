@@ -585,6 +585,7 @@ model Employee {
   @@index([deletedAt])
   @@index([employeeNumber])
   @@index([officeId])
+  @@index([department])
   @@map("employees")
 }
 
@@ -1197,6 +1198,7 @@ model CalendarEvent {
   clientName            String?           @map("client_name")
   trainerName           String?           @map("trainer_name")
   priority              String?           @default("normal")
+  taggedDepartmentNames String[]          @default([]) @map("tagged_department_names")
   reminderMinutesBefore Int?              @map("reminder_minutes_before")
   reminderScheduledAt   DateTime?         @map("reminder_scheduled_at") @db.Timestamptz(6)
   reminderSentAt        DateTime?         @map("reminder_sent_at") @db.Timestamptz(6)

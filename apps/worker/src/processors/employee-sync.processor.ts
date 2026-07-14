@@ -23,7 +23,7 @@ export class EmployeeSyncProcessor {
               'x-revalidate-token': revalidateSecret,
             },
             body: JSON.stringify({
-              paths: ['/admin/employees', '/admin/offices', '/admin/shifts'],
+              paths: ['/admin/employees', '/admin/offices', '/admin/shifts', '/admin/calendar'],
             }),
           });
 

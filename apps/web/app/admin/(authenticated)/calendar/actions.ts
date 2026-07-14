@@ -29,9 +29,10 @@ export async function createEvent(data: unknown) {
   const body = parsed.data;
   const taggedEmployeeIds = body.taggedEmployeeIds ?? [];
   const taggedAdminIds = body.taggedAdminIds ?? [];
+  const taggedDepartmentNames = body.taggedDepartmentNames ?? [];
 
-  if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0) {
-    const validationErrors = await validateTaggedUsers(taggedEmployeeIds, taggedAdminIds);
+  if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0 || taggedDepartmentNames.length > 0) {
+    const validationErrors = await validateTaggedUsers(taggedEmployeeIds, taggedAdminIds, taggedDepartmentNames);
     if (validationErrors.length > 0) {
       return { success: false, error: validationErrors.join('; ') };
     }
@@ -58,14 +59,15 @@ export async function createEvent(data: unknown) {
         reminderMinutesBefore: body.reminderMinutesBefore,
         taggedEmployeeIds,
         taggedAdminIds,
+        taggedDepartmentNames,
       },
       { type: 'admin', id: session.id },
       tx
     );
   });
 
-  if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0) {
-    await notifyCalendarEventTags(event.id, body.title, taggedEmployeeIds, taggedAdminIds, adminName);
+  if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0 || taggedDepartmentNames.length > 0) {
+    await notifyCalendarEventTags(event.id, body.title, taggedEmployeeIds, taggedAdminIds, adminName, taggedDepartmentNames);
   }
 
   redis
@@ -103,9 +105,18 @@ export async function updateEvent(id: string, data: unknown) {
 
   const taggedEmployeeIds = body.taggedEmployeeIds !== undefined ? (body.taggedEmployeeIds ?? []) : undefined;
   const taggedAdminIds = body.taggedAdminIds;
+  const taggedDepartmentNames = body.taggedDepartmentNames;
 
-  if ((taggedEmployeeIds && taggedEmployeeIds.length > 0) || (taggedAdminIds && taggedAdminIds.length > 0)) {
-    const validationErrors = await validateTaggedUsers(taggedEmployeeIds ?? [], taggedAdminIds ?? []);
+  if (
+    (taggedEmployeeIds && taggedEmployeeIds.length > 0) ||
+    (taggedAdminIds && taggedAdminIds.length > 0) ||
+    (taggedDepartmentNames && taggedDepartmentNames.length > 0)
+  ) {
+    const validationErrors = await validateTaggedUsers(
+      taggedEmployeeIds ?? [],
+      taggedAdminIds ?? [],
+      taggedDepartmentNames
+    );
     if (validationErrors.length > 0) {
       return { success: false, error: validationErrors.join('; ') };
     }
@@ -114,9 +125,11 @@ export async function updateEvent(id: string, data: unknown) {
   const oldTags = await getCalendarEventTags(id);
   const oldEmployeeIds = oldTags.filter(t => t.type === 'employee').map(t => t.id);
   const oldAdminIds = oldTags.filter(t => t.type === 'admin').map(t => t.id);
+  const oldDepartmentNames = (existing.taggedDepartmentNames as string[]) ?? [];
 
   const newEmployeeIds = taggedEmployeeIds ?? oldEmployeeIds;
   const newAdminIds = taggedAdminIds ?? oldAdminIds;
+  const newDepartmentNames = taggedDepartmentNames ?? oldDepartmentNames;
 
   await prisma.$transaction(async tx => {
     await updateCalendarEventWithChangelog(
@@ -137,6 +150,7 @@ export async function updateEvent(id: string, data: unknown) {
         reminderMinutesBefore: body.reminderMinutesBefore,
         taggedEmployeeIds: newEmployeeIds,
         taggedAdminIds: newAdminIds,
+        taggedDepartmentNames: newDepartmentNames,
       },
       { type: 'admin', id: session.id },
       tx,
@@ -145,10 +159,11 @@ export async function updateEvent(id: string, data: unknown) {
 
   const newlyTaggedEmployees = newEmployeeIds.filter(uid => !oldEmployeeIds.includes(uid));
   const newlyTaggedAdmins = newAdminIds.filter(uid => !oldAdminIds.includes(uid));
+  const newlyTaggedDepartments = newDepartmentNames.filter(name => !oldDepartmentNames.includes(name));
 
-  if (newlyTaggedEmployees.length > 0 || newlyTaggedAdmins.length > 0) {
+  if (newlyTaggedEmployees.length > 0 || newlyTaggedAdmins.length > 0 || newlyTaggedDepartments.length > 0) {
     const adminName = await getAdminName(session.id);
-    await notifyCalendarEventTags(id, body.title ?? existing.title, newlyTaggedEmployees, newlyTaggedAdmins, adminName);
+    await notifyCalendarEventTags(id, body.title ?? existing.title, newlyTaggedEmployees, newlyTaggedAdmins, adminName, newlyTaggedDepartments);
   }
 
   redis
@@ -214,6 +229,7 @@ export interface EventForEditItem {
   createdAt: string | null;
   updatedAt: string | null;
   taggedUsers: TaggedUserResult[];
+  taggedDepartmentNames: string[];
   isOwner: boolean;
   ownerId: string;
   ownerType: 'admin';

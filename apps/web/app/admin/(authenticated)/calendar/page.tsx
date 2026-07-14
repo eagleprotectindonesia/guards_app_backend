@@ -1,10 +1,10 @@
-import { prisma } from '@repo/database';
+import { prisma, getDistinctDepartments } from '@repo/database';
 import { CalendarView } from './CalendarView';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AdminCalendarPage() {
-  const [employees, admins] = await Promise.all([
+  const [employees, admins, departments] = await Promise.all([
     prisma.employee
       .findMany({
         where: { deletedAt: null },
@@ -17,6 +17,7 @@ export default async function AdminCalendarPage() {
       select: { id: true, name: true, email: true },
       orderBy: { name: 'asc' },
     }),
+    getDistinctDepartments(),
   ]);
 
   return (
@@ -25,7 +26,7 @@ export default async function AdminCalendarPage() {
         <h1 className="text-xl font-semibold text-foreground">User Calendar</h1>
       </div>
       <div className="flex-1 p-6">
-        <CalendarView employees={employees} admins={admins} />
+        <CalendarView employees={employees} admins={admins} departments={departments} />
       </div>
     </div>
   );

@@ -31,9 +31,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         ? (body.taggedEmployeeIds ?? []).filter(uid => uid !== employee.id)
         : undefined;
     const taggedAdminIds = body.taggedAdminIds;
+    const taggedDepartmentNames = body.taggedDepartmentNames;
 
-    if ((taggedEmployeeIds && taggedEmployeeIds.length > 0) || (taggedAdminIds && taggedAdminIds.length > 0)) {
-      const validationErrors = await validateTaggedUsers(taggedEmployeeIds ?? [], taggedAdminIds ?? []);
+    if (
+      (taggedEmployeeIds && taggedEmployeeIds.length > 0) ||
+      (taggedAdminIds && taggedAdminIds.length > 0) ||
+      (taggedDepartmentNames && taggedDepartmentNames.length > 0)
+    ) {
+      const validationErrors = await validateTaggedUsers(
+        taggedEmployeeIds ?? [],
+        taggedAdminIds ?? [],
+        taggedDepartmentNames
+      );
       if (validationErrors.length > 0) {
         return NextResponse.json({ error: validationErrors.join('; ') }, { status: 400 });
       }
@@ -42,9 +51,11 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const oldTags = await getCalendarEventTags(id);
     const oldEmployeeIds = oldTags.filter(t => t.type === 'employee').map(t => t.id);
     const oldAdminIds = oldTags.filter(t => t.type === 'admin').map(t => t.id);
+    const oldDepartmentNames = (existing.taggedDepartmentNames as string[]) ?? [];
 
     const newEmployeeIds = taggedEmployeeIds ?? oldEmployeeIds;
     const newAdminIds = taggedAdminIds ?? oldAdminIds;
+    const newDepartmentNames = taggedDepartmentNames ?? oldDepartmentNames;
 
     const event = await prisma.$transaction(async tx => {
       return updateCalendarEventWithChangelog(
@@ -65,6 +76,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           reminderMinutesBefore: body.reminderMinutesBefore,
           taggedEmployeeIds: newEmployeeIds,
           taggedAdminIds: newAdminIds,
+          taggedDepartmentNames: newDepartmentNames,
         },
         { type: 'employee', id: employee.id },
         tx
@@ -73,14 +85,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
     const newlyTaggedEmployees = newEmployeeIds.filter(uid => !oldEmployeeIds.includes(uid));
     const newlyTaggedAdmins = newAdminIds.filter(uid => !oldAdminIds.includes(uid));
+    const newlyTaggedDepartments = newDepartmentNames.filter(name => !oldDepartmentNames.includes(name));
 
-    if (newlyTaggedEmployees.length > 0 || newlyTaggedAdmins.length > 0) {
+    if (newlyTaggedEmployees.length > 0 || newlyTaggedAdmins.length > 0 || newlyTaggedDepartments.length > 0) {
       await notifyCalendarEventTags(
         id,
         body.title ?? existing.title,
         newlyTaggedEmployees,
         newlyTaggedAdmins,
-        employee.fullName
+        employee.fullName,
+        newlyTaggedDepartments
       );
     }
 

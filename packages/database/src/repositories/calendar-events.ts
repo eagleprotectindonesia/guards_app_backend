@@ -37,6 +37,7 @@ export interface CreateCalendarEventInput {
   reminderMinutesBefore?: number | null;
   taggedEmployeeIds?: string[];
   taggedAdminIds?: string[];
+  taggedDepartmentNames?: string[];
 }
 
 export interface CalendarReminderCandidate {
@@ -68,6 +69,7 @@ export interface UpdateCalendarEventInput {
   reminderMinutesBefore?: number | null;
   taggedEmployeeIds?: string[];
   taggedAdminIds?: string[];
+  taggedDepartmentNames?: string[];
 }
 
 export interface ListCalendarEventsParams {
@@ -81,6 +83,7 @@ export interface ListCalendarEventsParams {
   priority?: string[];
   clientName?: string;
   taggedUserId?: string;
+  taggedDepartmentName?: string;
   includeTags?: boolean;
   includeOwner?: boolean;
   includeAllAdminEvents?: boolean;
@@ -88,7 +91,7 @@ export interface ListCalendarEventsParams {
 }
 
 export async function createCalendarEvent(input: CreateCalendarEventInput, tx: TxLike = prisma) {
-  const { taggedEmployeeIds, taggedAdminIds, ...eventData } = input;
+  const { taggedEmployeeIds, taggedAdminIds, taggedDepartmentNames, ...eventData } = input;
   const hasReminder = eventData.reminderMinutesBefore !== null && eventData.reminderMinutesBefore !== undefined;
   const event = await tx.calendarEvent.create({
     data: {
@@ -107,6 +110,7 @@ export async function createCalendarEvent(input: CreateCalendarEventInput, tx: T
       longitude: eventData.longitude ?? null,
       clientName: eventData.clientName ?? null,
       trainerName: eventData.trainerName ?? null,
+      taggedDepartmentNames: taggedDepartmentNames ?? [],
       priority: eventData.priority ?? null,
       reminderMinutesBefore: hasReminder ? eventData.reminderMinutesBefore! : null,
       reminderScheduledAt: hasReminder
@@ -132,7 +136,7 @@ export async function createCalendarEvent(input: CreateCalendarEventInput, tx: T
 }
 
 export async function updateCalendarEvent(id: string, input: UpdateCalendarEventInput, tx: TxLike = prisma) {
-  const { taggedEmployeeIds, taggedAdminIds, ...eventData } = input;
+  const { taggedEmployeeIds, taggedAdminIds, taggedDepartmentNames, ...eventData } = input;
   const data: Record<string, unknown> = {};
   if (eventData.kind !== undefined) data.kind = eventData.kind;
   if (eventData.title !== undefined) data.title = eventData.title;
@@ -154,6 +158,7 @@ export async function updateCalendarEvent(id: string, input: UpdateCalendarEvent
   if (eventData.clientName !== undefined) data.clientName = eventData.clientName;
   if (eventData.trainerName !== undefined) data.trainerName = eventData.trainerName;
   if (eventData.priority !== undefined) data.priority = eventData.priority;
+  if (taggedDepartmentNames !== undefined) data.taggedDepartmentNames = taggedDepartmentNames;
 
   const schedulingChanged =
     eventData.startDate !== undefined ||
@@ -240,6 +245,7 @@ export async function listCalendarEvents(params: ListCalendarEventsParams) {
     priority,
     clientName,
     taggedUserId,
+    taggedDepartmentName,
     includeTags,
     includeOwner,
     includeAllAdminEvents,
@@ -307,6 +313,10 @@ export async function listCalendarEvents(params: ListCalendarEventsParams) {
     };
   }
 
+  if (taggedDepartmentName) {
+    where.taggedDepartmentNames = { has: taggedDepartmentName };
+  }
+
   return tx.calendarEvent.findMany({
     where,
     orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
@@ -335,6 +345,7 @@ export async function listEmployeeCalendarEvents(
   employeeId: string,
   fromDate: Date,
   toDate: Date,
+  departmentName?: string,
   tx: TxLike = prisma
 ) {
   return tx.calendarEvent.findMany({
@@ -342,12 +353,44 @@ export async function listEmployeeCalendarEvents(
       deletedAt: null,
       endDate: { gte: fromDate },
       startDate: { lte: toDate },
-      OR: [{ employeeId }, { tags: { some: { employeeId, participantType: 'employee' } } }],
+      OR: [
+        { employeeId },
+        { tags: { some: { employeeId, participantType: 'employee' } } },
+        ...(departmentName ? [{ taggedDepartmentNames: { has: departmentName } }] : []),
+      ],
     },
     orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
     include: {
       employee: { select: { id: true, fullName: true } },
       admin: { select: { id: true, name: true } },
+    },
+  });
+}
+
+export async function listCalendarEventsForDepartmentMembers(
+  departmentNames: string[],
+  fromDate: Date,
+  toDate: Date,
+  tx: TxLike = prisma
+) {
+  if (departmentNames.length === 0) return [];
+  return tx.calendarEvent.findMany({
+    where: {
+      deletedAt: null,
+      endDate: { gte: fromDate },
+      startDate: { lte: toDate },
+      taggedDepartmentNames: { hasSome: departmentNames },
+    },
+    orderBy: [{ startDate: 'asc' }, { startTime: 'asc' }],
+    include: {
+      employee: { select: { id: true, fullName: true } },
+      admin: { select: { id: true, name: true } },
+      tags: {
+        include: {
+          employee: { select: { id: true, fullName: true, employeeNumber: true } },
+          admin: { select: { id: true, name: true, email: true } },
+        },
+      },
     },
   });
 }
@@ -362,6 +405,7 @@ export interface CalendarDaySummaryParams {
   priority?: string[];
   clientName?: string;
   taggedUserId?: string;
+  taggedDepartmentName?: string;
   includeAllAdminEvents?: boolean;
   tx?: TxLike;
 }
@@ -377,6 +421,7 @@ export async function listCalendarDaySummary(params: CalendarDaySummaryParams) {
     priority,
     clientName,
     taggedUserId,
+    taggedDepartmentName,
     includeAllAdminEvents,
     tx = prisma,
   } = params;
@@ -428,6 +473,10 @@ export async function listCalendarDaySummary(params: CalendarDaySummaryParams) {
         ],
       },
     };
+  }
+
+  if (taggedDepartmentName) {
+    where.taggedDepartmentNames = { has: taggedDepartmentName };
   }
 
   const rows = await tx.calendarEvent.groupBy({
@@ -686,6 +735,7 @@ export async function createCalendarEventWithChangelog(
         priority: input.priority ?? 'normal',
         taggedEmployeeIds: input.taggedEmployeeIds ?? [],
         taggedAdminIds: input.taggedAdminIds ?? [],
+        taggedDepartmentNames: input.taggedDepartmentNames ?? [],
       },
       ...actorData,
     },
@@ -709,6 +759,7 @@ export async function updateCalendarEventWithChangelog(
   });
   const existingEmpTags = existingTags.filter(t => t.participantType === 'employee').map(t => t.employeeId!).filter(Boolean);
   const existingAdmTags = existingTags.filter(t => t.participantType === 'admin').map(t => t.adminId!).filter(Boolean);
+  const existingDeptNames = existing.taggedDepartmentNames as string[] ?? [];
 
   const event = await updateCalendarEvent(id, input, tx);
 
@@ -752,6 +803,13 @@ export async function updateCalendarEventWithChangelog(
     const removed = existingAdmTags.filter(id => !input.taggedAdminIds!.includes(id));
     if (added.length > 0) tagDiff.addedAdmins = added;
     if (removed.length > 0) tagDiff.removedAdmins = removed;
+  }
+
+  if (input.taggedDepartmentNames !== undefined) {
+    const added = input.taggedDepartmentNames.filter(name => !existingDeptNames.includes(name));
+    const removed = existingDeptNames.filter(name => !input.taggedDepartmentNames!.includes(name));
+    if (added.length > 0) tagDiff.addedDepartmentNames = added;
+    if (removed.length > 0) tagDiff.removedDepartmentNames = removed;
   }
 
   if (Object.keys(diff).length === 0 && Object.keys(tagDiff).length === 0) {

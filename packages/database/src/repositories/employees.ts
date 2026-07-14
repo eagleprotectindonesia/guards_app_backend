@@ -26,7 +26,7 @@ const LAST_EMPLOYEE_SYNC_DUPLICATE_WARNING_KEY = 'employee:sync:last_duplicate_w
 const EMPLOYEE_PASSWORD_HISTORY_LIMIT = 3;
 const EMPLOYEE_DEPARTMENTS_CACHE_KEY = 'employee:departments:distinct';
 const EMPLOYEE_ACTIVE_SUMMARY_CACHE_KEY_PREFIX = 'employee:active-summary';
-const EMPLOYEE_METADATA_CACHE_TTL_SECONDS = 60;
+const EMPLOYEE_METADATA_CACHE_TTL_SECONDS = 300;
 type ChangelogSyncActor = { type: 'admin' | 'system' | 'unknown'; id?: string };
 
 function normalizeSyncStringValue(value?: string | null): string {
@@ -1068,9 +1068,7 @@ export async function syncEmployeesFromExternal(
 
         const parsedExternalDateOfBirth = parseExternalDateOfBirth(ext.date_of_birth);
         if (!parsedExternalDateOfBirth && ext.date_of_birth) {
-          console.warn(
-            `[SyncEmployees] Invalid date_of_birth for employee id=${ext.id} value="${ext.date_of_birth}".`
-          );
+          console.warn(`[SyncEmployees] Invalid date_of_birth for employee id=${ext.id} value="${ext.date_of_birth}".`);
         }
 
         const newEmployee = await tx.employee.create({
@@ -1163,9 +1161,7 @@ export async function syncEmployeesFromExternal(
 
       const parsedExternalDateOfBirth = parseExternalDateOfBirth(ext.date_of_birth);
       if (!parsedExternalDateOfBirth && ext.date_of_birth) {
-        console.warn(
-          `[SyncEmployees] Invalid date_of_birth for employee id=${ext.id} value="${ext.date_of_birth}".`
-        );
+        console.warn(`[SyncEmployees] Invalid date_of_birth for employee id=${ext.id} value="${ext.date_of_birth}".`);
       }
 
       const existingDateOfBirth = normalizeToDate(existing.dateOfBirth);

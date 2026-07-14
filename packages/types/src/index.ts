@@ -552,6 +552,10 @@ export interface TaggedUser {
   email?: string;
 }
 
+export interface TaggedDepartment {
+  name: string;
+}
+
 export interface CreateCalendarEventInput {
   kind: CalendarEventKind;
   title: string;
@@ -570,6 +574,7 @@ export interface CreateCalendarEventInput {
   color?: string;
   taggedEmployeeIds?: string[];
   taggedAdminIds?: string[];
+  taggedDepartmentNames?: string[];
 }
 
 export interface UpdateCalendarEventInput {
@@ -590,6 +595,7 @@ export interface UpdateCalendarEventInput {
   color?: string;
   taggedEmployeeIds?: string[];
   taggedAdminIds?: string[];
+  taggedDepartmentNames?: string[];
 }
 
 export interface CalendarEventItem {
@@ -610,6 +616,7 @@ export interface CalendarEventItem {
   priority: 'urgent' | 'high' | 'normal' | 'low' | null;
   color: string | null;
   taggedUsers: TaggedUser[];
+  taggedDepartments: TaggedDepartment[];
   createdAt: string;
   updatedAt: string;
   ownerId: string;

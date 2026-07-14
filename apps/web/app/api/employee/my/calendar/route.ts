@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@repo/database';
+import { prisma, listCalendarEventsForDepartmentMembers } from '@repo/database';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { calendarListSchema } from '@repo/validations';
 import { colorHintForEvent } from '@repo/shared';
@@ -76,7 +76,7 @@ export async function GET(req: Request) {
         })
       : Promise.resolve([] as Awaited<ReturnType<typeof prisma.employeeLeaveRequest.findMany>>);
 
-    const [holidays, memos, leaves, events] = await Promise.all([
+    const [holidays, memos, leaves, events, departmentEvents] = await Promise.all([
       holidaysPromise,
       memosPromise,
       leavesPromise,
@@ -102,7 +102,17 @@ export async function GET(req: Request) {
           },
         },
       }),
+      employee.department
+        ? listCalendarEventsForDepartmentMembers([employee.department], fromDate, toDate)
+        : Promise.resolve([]),
     ]);
+
+    // Merge department-tagged events, deduping by ID with user's own events
+    const ownEventIds = new Set(events.map(e => e.id));
+    const mergedEvents = [
+      ...events,
+      ...departmentEvents.filter(de => !ownEventIds.has(de.id)),
+    ];
 
     type Kind =
       | 'holiday'
@@ -226,7 +236,7 @@ export async function GET(req: Request) {
       }
     }
 
-    for (const e of events) {
+    for (const e of mergedEvents) {
       const days = expandToDays(e.startDate, e.endDate, fromDate, toDate);
       for (const day of days) {
         const kind = e.kind as Kind;

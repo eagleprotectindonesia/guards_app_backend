@@ -54,6 +54,7 @@ export async function GET(req: Request) {
     const items = events.map(e => ({
       ...serializeCalendarEvent(e as unknown as Record<string, unknown>),
       taggedUsers: tagsByEvent[e.id] ?? [],
+      taggedDepartments: ((e as Record<string, unknown>).taggedDepartmentNames as string[] ?? []).map(name => ({ name })),
       isOwner: e.adminId === adminId,
       ownerId: e.adminId ?? adminId,
       ownerType: 'admin' as const,
@@ -76,9 +77,10 @@ export async function POST(req: Request) {
 
     const taggedEmployeeIds = body.taggedEmployeeIds ?? [];
     const taggedAdminIds = body.taggedAdminIds ?? [];
+    const taggedDepartmentNames = body.taggedDepartmentNames ?? [];
 
-    if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0) {
-      const validationErrors = await validateTaggedUsers(taggedEmployeeIds, taggedAdminIds);
+    if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0 || taggedDepartmentNames.length > 0) {
+      const validationErrors = await validateTaggedUsers(taggedEmployeeIds, taggedAdminIds, taggedDepartmentNames);
       if (validationErrors.length > 0) {
         return NextResponse.json({ error: validationErrors.join('; ') }, { status: 400 });
       }
@@ -104,14 +106,15 @@ export async function POST(req: Request) {
           priority: body.priority,
           taggedEmployeeIds,
           taggedAdminIds,
+          taggedDepartmentNames,
         },
         { type: 'admin', id: session.id },
         tx
       );
     });
 
-    if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0) {
-      await notifyCalendarEventTags(event.id, body.title, taggedEmployeeIds, taggedAdminIds, adminName);
+    if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0 || taggedDepartmentNames.length > 0) {
+      await notifyCalendarEventTags(event.id, body.title, taggedEmployeeIds, taggedAdminIds, adminName, taggedDepartmentNames);
     }
 
     redis

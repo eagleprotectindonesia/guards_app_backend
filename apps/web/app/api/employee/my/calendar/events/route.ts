@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     const fromDate = startOfDay(parseISO(parsed.data.from));
     const toDate = endOfDay(parseISO(parsed.data.to));
 
-    const events = await listEmployeeCalendarEvents(employee.id, fromDate, toDate);
+    const events = await listEmployeeCalendarEvents(employee.id, fromDate, toDate, employee.department ?? undefined);
 
     const eventIds = events.map(e => e.id);
     const tagsByEvent = await getTagsForEvents(eventIds);
@@ -59,9 +59,10 @@ export async function POST(req: Request) {
 
     const taggedEmployeeIds = (body.taggedEmployeeIds ?? []).filter(id => id !== employee.id);
     const taggedAdminIds = body.taggedAdminIds ?? [];
+    const taggedDepartmentNames = body.taggedDepartmentNames ?? [];
 
-    if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0) {
-      const validationErrors = await validateTaggedUsers(taggedEmployeeIds, taggedAdminIds);
+    if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0 || taggedDepartmentNames.length > 0) {
+      const validationErrors = await validateTaggedUsers(taggedEmployeeIds, taggedAdminIds, taggedDepartmentNames);
       if (validationErrors.length > 0) {
         return NextResponse.json({ error: validationErrors.join('; ') }, { status: 400 });
       }
@@ -86,14 +87,15 @@ export async function POST(req: Request) {
           reminderMinutesBefore: body.reminderMinutesBefore,
           taggedEmployeeIds,
           taggedAdminIds,
+          taggedDepartmentNames,
         },
         { type: 'employee', id: employee.id },
         tx
       );
     });
 
-    if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0) {
-      await notifyCalendarEventTags(event.id, body.title, taggedEmployeeIds, taggedAdminIds, employee.fullName);
+    if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0 || taggedDepartmentNames.length > 0) {
+      await notifyCalendarEventTags(event.id, body.title, taggedEmployeeIds, taggedAdminIds, employee.fullName, taggedDepartmentNames);
     }
 
     redis

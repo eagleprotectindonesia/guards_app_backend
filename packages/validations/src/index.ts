@@ -727,6 +727,7 @@ export const calendarEventKindSchema = z.enum([
 
 const taggedEmployeeIdsSchema = z.array(z.string().uuid()).optional();
 const taggedAdminIdsSchema = z.array(z.string().uuid()).optional();
+const taggedDepartmentNamesSchema = z.array(z.string().min(1).max(120)).max(50).optional();
 
 export const createCalendarEventSchema = z
   .object({
@@ -753,6 +754,7 @@ export const createCalendarEventSchema = z
     reminderMinutesBefore: z.number().int().min(0, 'Reminder offset must be non-negative').nullable().optional(),
     taggedEmployeeIds: taggedEmployeeIdsSchema,
     taggedAdminIds: taggedAdminIdsSchema,
+    taggedDepartmentNames: taggedDepartmentNamesSchema,
   })
   .superRefine((data, ctx) => {
     if (data.startDate > data.endDate) {
@@ -813,6 +815,7 @@ export const updateCalendarEventSchema = z
     reminderMinutesBefore: z.number().int().min(0, 'Reminder offset must be non-negative').nullable().optional(),
     taggedEmployeeIds: taggedEmployeeIdsSchema,
     taggedAdminIds: taggedAdminIdsSchema,
+    taggedDepartmentNames: taggedDepartmentNamesSchema,
   })
   .superRefine((data, ctx) => {
     if (data.startDate && data.endDate && data.startDate > data.endDate) {
