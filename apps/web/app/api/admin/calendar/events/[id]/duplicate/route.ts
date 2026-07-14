@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma, createCalendarEvent } from '@repo/database';
+import { prisma, createCalendarEventWithChangelog } from '@repo/database';
 import { getAdminAuthSession } from '@/lib/admin-auth';
 import { redis } from '@repo/database/redis';
 import { format } from 'date-fns';
@@ -18,20 +18,26 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ error: 'Calendar event not found' }, { status: 404 });
     }
 
-    const event = await createCalendarEvent({
-      adminId: session.id,
-      kind: existing.kind,
-      title: existing.title,
-      description: existing.description ?? undefined,
-      startDate: format(existing.startDate, 'yyyy-MM-dd'),
-      endDate: format(existing.endDate, 'yyyy-MM-dd'),
-      startTime: existing.startTime ?? undefined,
-      endTime: existing.endTime ?? undefined,
-      allDay: existing.allDay,
-      location: existing.location ?? undefined,
-      clientName: existing.clientName ?? undefined,
-      trainerName: existing.trainerName ?? undefined,
-      priority: existing.priority ?? undefined,
+    const event = await prisma.$transaction(async tx => {
+      return createCalendarEventWithChangelog(
+        {
+          adminId: session.id,
+          kind: existing.kind,
+          title: existing.title,
+          description: existing.description ?? undefined,
+          startDate: format(existing.startDate, 'yyyy-MM-dd'),
+          endDate: format(existing.endDate, 'yyyy-MM-dd'),
+          startTime: existing.startTime ?? undefined,
+          endTime: existing.endTime ?? undefined,
+          allDay: existing.allDay,
+          location: existing.location ?? undefined,
+          clientName: existing.clientName ?? undefined,
+          trainerName: existing.trainerName ?? undefined,
+          priority: existing.priority ?? undefined,
+        },
+        { type: 'admin', id: session.id },
+        tx,
+      );
     });
 
     redis

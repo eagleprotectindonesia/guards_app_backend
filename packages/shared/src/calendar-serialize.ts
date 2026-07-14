@@ -1,8 +1,8 @@
-import { format } from 'date-fns';
+import { BUSINESS_TIMEZONE, formatDateKeyInTimeZone } from './date-key';
 
 function toDateStr(v: unknown): string | null {
   if (!v) return null;
-  if (v instanceof Date) return format(v, 'yyyy-MM-dd');
+  if (v instanceof Date) return formatDateKeyInTimeZone(v, BUSINESS_TIMEZONE);
   return String(v).slice(0, 10);
 }
 
@@ -24,6 +24,7 @@ export function serializeCalendarEvent(event: Record<string, unknown>) {
     clientName: event.clientName ?? null,
     trainerName: event.trainerName ?? null,
     priority: event.priority ?? null,
+    taggedDepartmentNames: Array.isArray(event.taggedDepartmentNames) ? event.taggedDepartmentNames : [],
     createdAt: event.createdAt instanceof Date ? event.createdAt.toISOString() : (event.createdAt ? String(event.createdAt) : null),
     updatedAt: event.updatedAt instanceof Date ? event.updatedAt.toISOString() : (event.updatedAt ? String(event.updatedAt) : null),
   };

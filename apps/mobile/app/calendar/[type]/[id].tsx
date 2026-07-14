@@ -320,7 +320,7 @@ export default function CalendarItemDetailScreen() {
                   {(() => {
                     const rawTags = (item.data as Record<string, unknown>)?.taggedUsers;
                     const tags = Array.isArray(rawTags)
-                      ? (rawTags as Array<{ id: string; type: string; name: string; email?: string }>)
+                      ? (rawTags as { id: string; type: string; name: string; email?: string }[])
                       : [];
                     if (tags.length === 0) return null;
                     return (

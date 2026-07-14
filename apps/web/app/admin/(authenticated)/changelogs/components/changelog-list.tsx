@@ -253,6 +253,8 @@ export default function ChangelogList({
                         </span>
                       ) : log.actor === 'admin' ? (
                         log.admin?.name || 'Administrator'
+                      ) : log.actor === 'employee' ? (
+                        log.employee?.fullName ?? 'Employee'
                       ) : (
                         <span className="text-muted-foreground/50 italic">Unknown</span>
                       )}
@@ -274,9 +276,11 @@ export default function ChangelogList({
                     {!hideEntityType && <td className="py-4 px-6 text-sm text-muted-foreground">{log.entityType}</td>}
                     {showEntityName && (
                       <td className="py-4 px-6 text-sm text-muted-foreground">
-                        {log.details && typeof log.details === 'object' && 'name' in log.details
-                          ? String((log.details as Record<string, unknown>).name)
-                          : '-'}
+                        {(() => {
+                          if (!log.details || typeof log.details !== 'object') return '-';
+                          const d = log.details as Record<string, unknown>;
+                          return String(d.name ?? d.title ?? '-');
+                        })()}
                       </td>
                     )}
                     <td className="py-4 px-6 text-right">

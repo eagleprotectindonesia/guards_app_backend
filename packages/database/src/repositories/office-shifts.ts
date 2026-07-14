@@ -1,3 +1,4 @@
+import { formatDateKeyInTimeZone } from '@repo/shared';
 import { Prisma, ShiftStatus } from '@prisma/client';
 import { db as prisma } from '../prisma/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange, OFFICE_PAID_BREAK_MINUTES } from './office-work-schedules';
@@ -41,26 +42,6 @@ function getMinutesSinceMidnight(date: Date, timeZone: string) {
   return hour * 60 + minute;
 }
 
-function getDateKeyInTimeZone(date: Date, timeZone: string) {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-
-  const parts = formatter.formatToParts(date);
-  const year = parts.find(part => part.type === 'year')?.value;
-  const month = parts.find(part => part.type === 'month')?.value;
-  const day = parts.find(part => part.type === 'day')?.value;
-
-  if (!year || !month || !day) {
-    throw new Error(`Unable to resolve date key for timezone ${timeZone}`);
-  }
-
-  return `${year}-${month}-${day}`;
-}
-
 export async function findRelevantOfficeShiftForEmployee(
   employeeId: string,
   at = new Date(),
@@ -89,7 +70,7 @@ export async function findRelevantOfficeShiftForEmployee(
   });
   const allowedDateKeys = options?.allowedDateKeys;
   const relevantShifts = allowedDateKeys
-    ? shifts.filter(shift => allowedDateKeys.has(getDateKeyInTimeZone(shift.date, BUSINESS_TIMEZONE)))
+    ? shifts.filter(shift => allowedDateKeys.has(formatDateKeyInTimeZone(shift.date, BUSINESS_TIMEZONE)))
     : shifts;
 
   const activeShift =

@@ -1,15 +1,25 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@repo/database';
+import { prisma, listCalendarEventsForDepartmentMembers } from '@repo/database';
 import { getAuthenticatedEmployee } from '@/lib/employee-auth';
 import { calendarListSchema } from '@repo/validations';
-import { colorHintForEvent } from '@repo/shared';
-import { startOfDay, endOfDay, eachDayOfInterval, parseISO } from 'date-fns';
-
+import { colorHintForEvent, formatDateKeyInTimeZone, BUSINESS_TIMEZONE } from '@repo/shared';
 function expandToDays(startDate: Date, endDate: Date, from: Date, to: Date): Date[] {
   const rangeStart = startDate > from ? startDate : from;
   const rangeEnd = endDate < to ? endDate : to;
-  return eachDayOfInterval({ start: rangeStart, end: rangeEnd });
+  if (rangeStart > rangeEnd) return [];
+  const days: Date[] = [];
+  const current = new Date(rangeStart);
+  current.setUTCHours(0, 0, 0, 0);
+  const end = new Date(rangeEnd);
+  end.setUTCHours(0, 0, 0, 0);
+  while (current <= end) {
+    days.push(new Date(current));
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+  return days;
 }
+
+const ymd = (d: Date) => formatDateKeyInTimeZone(d, BUSINESS_TIMEZONE);
 
 export async function GET(req: Request) {
   const employee = await getAuthenticatedEmployee();
@@ -27,8 +37,10 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'from and to query parameters are required (YYYY-MM-DD)' }, { status: 400 });
     }
 
-    const fromDate = startOfDay(parseISO(parsed.data.from));
-    const toDate = endOfDay(parseISO(parsed.data.to));
+    // Use UTC-midnight dates to match Prisma @db.Date normalization
+    // Prisma returns DATE values as midnight UTC, so queries must use UTC bounds
+    const fromDate = new Date(parsed.data.from + 'T00:00:00Z');
+    const toDate = new Date(parsed.data.to + 'T23:59:59.999Z');
 
     const showSystemItems = searchParams.get('showSystemItems') === 'true';
 
@@ -48,23 +60,6 @@ export async function GET(req: Request) {
         })
       : Promise.resolve([] as Awaited<ReturnType<typeof prisma.holidayCalendarEntry.findMany>>);
 
-    const memosPromise = showSystemItems
-      ? prisma.officeMemo.findMany({
-          where: {
-            isActive: true,
-            endDate: { gte: fromDate },
-            startDate: { lte: toDate },
-            OR: [
-              { scope: 'all' },
-              ...(employee.department
-                ? [{ scope: 'department' as const, departmentKeys: { has: employee.department } }]
-                : []),
-            ],
-          },
-          orderBy: [{ startDate: 'asc' }],
-        })
-      : Promise.resolve([] as Awaited<ReturnType<typeof prisma.officeMemo.findMany>>);
-
     const leavesPromise = showSystemItems
       ? prisma.employeeLeaveRequest.findMany({
           where: {
@@ -76,9 +71,8 @@ export async function GET(req: Request) {
         })
       : Promise.resolve([] as Awaited<ReturnType<typeof prisma.employeeLeaveRequest.findMany>>);
 
-    const [holidays, memos, leaves, events] = await Promise.all([
+    const [holidays, leaves, events, departmentEvents] = await Promise.all([
       holidaysPromise,
-      memosPromise,
       leavesPromise,
       prisma.calendarEvent.findMany({
         where: {
@@ -102,11 +96,20 @@ export async function GET(req: Request) {
           },
         },
       }),
+      employee.department
+        ? listCalendarEventsForDepartmentMembers([employee.department], fromDate, toDate)
+        : Promise.resolve([]),
     ]);
+
+    // Merge department-tagged events, deduping by ID with user's own events
+    const ownEventIds = new Set(events.map(e => e.id));
+    const mergedEvents = [
+      ...events,
+      ...departmentEvents.filter(de => !ownEventIds.has(de.id)),
+    ];
 
     type Kind =
       | 'holiday'
-      | 'office_memo'
       | 'leave'
       | 'meeting'
       | 'client_meeting'
@@ -144,11 +147,11 @@ export async function GET(req: Request) {
       const days = expandToDays(h.startDate, h.endDate, fromDate, toDate);
       for (const day of days) {
         items.push({
-          id: `holiday:${h.id}:${day.toISOString().slice(0, 10)}`,
+          id: `holiday:${h.id}:${ymd(day)}`,
           originalId: h.id,
           kind: 'holiday',
           title: h.title,
-          date: day.toISOString().slice(0, 10),
+          date: ymd(day),
           startsAt: null,
           endsAt: null,
           allDay: true,
@@ -167,42 +170,15 @@ export async function GET(req: Request) {
       }
     }
 
-    for (const m of memos) {
-      const days = expandToDays(m.startDate, m.endDate, fromDate, toDate);
-      for (const day of days) {
-        items.push({
-          id: `office_memo:${m.id}:${day.toISOString().slice(0, 10)}`,
-          originalId: m.id,
-          kind: 'office_memo',
-          title: m.title,
-          date: day.toISOString().slice(0, 10),
-          startsAt: null,
-          endsAt: null,
-          allDay: true,
-          priority: null,
-          location: null,
-          latitude: null,
-          longitude: null,
-          status: null,
-          colorHint: '#AF52DE',
-          isOwner: false,
-          ownerId: '',
-          ownerType: 'admin',
-          ownerName: 'System',
-          taggedUsers: [],
-        });
-      }
-    }
-
     for (const l of leaves) {
       const days = expandToDays(l.startDate, l.endDate, fromDate, toDate);
       for (const day of days) {
         items.push({
-          id: `leave:${l.id}:${day.toISOString().slice(0, 10)}`,
+          id: `leave:${l.id}:${ymd(day)}`,
           originalId: l.id,
           kind: 'leave',
           title: l.reason,
-          date: day.toISOString().slice(0, 10),
+          date: ymd(day),
           startsAt: null,
           endsAt: null,
           allDay: true,
@@ -226,7 +202,7 @@ export async function GET(req: Request) {
       }
     }
 
-    for (const e of events) {
+    for (const e of mergedEvents) {
       const days = expandToDays(e.startDate, e.endDate, fromDate, toDate);
       for (const day of days) {
         const kind = e.kind as Kind;
@@ -241,16 +217,17 @@ export async function GET(req: Request) {
             return null;
           })
           .filter(Boolean) as Array<{ id: string; type: 'employee' | 'admin'; name: string; email?: string }>;
-        items.push({
-          id: `${kind}:${e.id}:${day.toISOString().slice(0, 10)}`,
+        const itemDate = ymd(day);
+        const item = {
+          id: `${kind}:${e.id}:${itemDate}`,
           originalId: e.id,
           kind,
           title: e.title,
-          date: day.toISOString().slice(0, 10),
-          startsAt: e.startTime ? `${day.toISOString().slice(0, 10)}T${e.startTime}:00` : null,
-          endsAt: e.endTime ? `${day.toISOString().slice(0, 10)}T${e.endTime}:00` : null,
+          date: itemDate,
+          startsAt: e.startTime ? `${itemDate}T${e.startTime}:00` : null,
+          endsAt: e.endTime ? `${itemDate}T${e.endTime}:00` : null,
           allDay: e.allDay,
-          priority: (e.priority as 'urgent' | 'high' | 'normal' | 'low') ?? null,
+          priority: e.priority as 'urgent' | 'high' | 'normal' | 'low' | null,
           location: e.location ?? null,
           latitude: e.latitude ?? null,
           longitude: e.longitude ?? null,
@@ -258,10 +235,11 @@ export async function GET(req: Request) {
           colorHint: colorHintForEvent(kind, e.priority),
           isOwner: e.employeeId === employee.id,
           ownerId: e.employee?.id ?? e.admin?.id ?? '',
-          ownerType: e.employee ? 'employee' : 'admin',
+          ownerType: (e.employee ? 'employee' : 'admin') as 'employee' | 'admin',
           ownerName: e.employee?.fullName ?? e.admin?.name ?? 'Unknown',
           taggedUsers,
-        });
+        };
+        items.push(item);
       }
     }
 

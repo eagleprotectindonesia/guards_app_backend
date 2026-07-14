@@ -192,51 +192,6 @@ export default function AccountScreen() {
 
             <Box className="bg-[#121212] border border-white/5 rounded-3xl p-2">
               <VStack space="xs">
-                {/* Leave Requests */}
-                <TouchableOpacity onPress={() => router.push('/leave-requests')} activeOpacity={0.7}>
-                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
-                    <HStack space="md" className="items-center">
-                      <Box className="w-10 h-10 rounded-xl bg-[#34C759]/10 items-center justify-center border border-[#34C759]/20">
-                        <Calendar size={20} color="#34C759" />
-                      </Box>
-                      <Text size="sm" className="font-semibold text-white">
-                        {t('leave.title', 'Leave Requests')}
-                      </Text>
-                    </HStack>
-                    <ChevronRight size={18} color="#666666" />
-                  </Box>
-                </TouchableOpacity>
-
-                {/* Calendar */}
-                {/* <TouchableOpacity onPress={() => router.push('/calendar')} activeOpacity={0.7}>
-                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
-                    <HStack space="md" className="items-center">
-                      <Box className="w-10 h-10 rounded-xl bg-[#FF9500]/10 items-center justify-center border border-[#FF9500]/20">
-                        <CalendarDays size={20} color="#FF9500" />
-                      </Box>
-                      <Text size="sm" className="font-semibold text-white">
-                        {t('calendar.title', 'Calendar')}
-                      </Text>
-                    </HStack>
-                    <ChevronRight size={18} color="#666666" />
-                  </Box>
-                </TouchableOpacity> */}
-
-                {/* Change Password */}
-                <TouchableOpacity onPress={() => openPasswordChangeModal(false)} activeOpacity={0.7}>
-                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
-                    <HStack space="md" className="items-center">
-                      <Box className="w-10 h-10 rounded-xl bg-[#007AFF]/10 items-center justify-center border border-[#007AFF]/20">
-                        <Key size={20} color="#007AFF" />
-                      </Box>
-                      <Text size="sm" className="font-semibold text-white">
-                        {t('dashboard.changePassword')}
-                      </Text>
-                    </HStack>
-                    <ChevronRight size={18} color="#666666" />
-                  </Box>
-                </TouchableOpacity>
-
                 {/* Announcements */}
                 <TouchableOpacity onPress={() => router.push('/announcements')} activeOpacity={0.7}>
                   <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
@@ -254,6 +209,51 @@ export default function AccountScreen() {
                           </Text>
                         ) : null}
                       </VStack>
+                    </HStack>
+                    <ChevronRight size={18} color="#666666" />
+                  </Box>
+                </TouchableOpacity>
+
+                {/* Leave Requests */}
+                <TouchableOpacity onPress={() => router.push('/leave-requests')} activeOpacity={0.7}>
+                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
+                    <HStack space="md" className="items-center">
+                      <Box className="w-10 h-10 rounded-xl bg-[#34C759]/10 items-center justify-center border border-[#34C759]/20">
+                        <Calendar size={20} color="#34C759" />
+                      </Box>
+                      <Text size="sm" className="font-semibold text-white">
+                        {t('leave.title', 'Leave Requests')}
+                      </Text>
+                    </HStack>
+                    <ChevronRight size={18} color="#666666" />
+                  </Box>
+                </TouchableOpacity>
+
+                {/* Calendar */}
+                <TouchableOpacity onPress={() => router.push('/calendar')} activeOpacity={0.7}>
+                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
+                    <HStack space="md" className="items-center">
+                      <Box className="w-10 h-10 rounded-xl bg-[#FF9500]/10 items-center justify-center border border-[#FF9500]/20">
+                        <CalendarDays size={20} color="#FF9500" />
+                      </Box>
+                      <Text size="sm" className="font-semibold text-white">
+                        {t('calendar.title', 'Calendar')}
+                      </Text>
+                    </HStack>
+                    <ChevronRight size={18} color="#666666" />
+                  </Box>
+                </TouchableOpacity>
+
+                {/* Change Password */}
+                <TouchableOpacity onPress={() => openPasswordChangeModal(false)} activeOpacity={0.7}>
+                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
+                    <HStack space="md" className="items-center">
+                      <Box className="w-10 h-10 rounded-xl bg-[#007AFF]/10 items-center justify-center border border-[#007AFF]/20">
+                        <Key size={20} color="#007AFF" />
+                      </Box>
+                      <Text size="sm" className="font-semibold text-white">
+                        {t('dashboard.changePassword')}
+                      </Text>
                     </HStack>
                     <ChevronRight size={18} color="#666666" />
                   </Box>

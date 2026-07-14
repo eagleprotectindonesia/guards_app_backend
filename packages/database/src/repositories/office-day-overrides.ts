@@ -1,3 +1,4 @@
+import { formatDateKeyInTimeZone } from '@repo/shared';
 import { db as prisma, Prisma } from '../prisma/client';
 import { BUSINESS_TIMEZONE, getBusinessDayRange } from './office-work-schedules';
 import { reconcileApprovedOfficeLeavesForCoverage } from './office-leave-reconciliation';
@@ -18,32 +19,12 @@ type OfficeDayOverrideRow = {
   updatedAt: Date;
 };
 
-function getDateKeyInTimeZone(date: Date, timeZone: string) {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-
-  const parts = formatter.formatToParts(date);
-  const year = parts.find(part => part.type === 'year')?.value;
-  const month = parts.find(part => part.type === 'month')?.value;
-  const day = parts.find(part => part.type === 'day')?.value;
-
-  if (!year || !month || !day) {
-    throw new Error(`Unable to resolve date key for timezone ${timeZone}`);
-  }
-
-  return `${year}-${month}-${day}`;
-}
-
 function dateKeyToDate(dateKey: string) {
   return new Date(`${dateKey}T00:00:00Z`);
 }
 
 function shiftDateToDateKey(date: Date) {
-  return getDateKeyInTimeZone(date, BUSINESS_TIMEZONE);
+  return formatDateKeyInTimeZone(date, BUSINESS_TIMEZONE);
 }
 
 export function getOfficeDayOverrideAnchorDates(at = new Date()) {

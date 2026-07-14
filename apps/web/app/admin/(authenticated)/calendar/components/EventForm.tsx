@@ -34,6 +34,7 @@ interface EventFormProps {
   onClose: () => void;
   onSuccess: () => void;
   initialAdmins: Array<{ id: string; name: string; email: string }>;
+  initialDepartments?: string[];
 }
 
 interface FormData {
@@ -53,6 +54,7 @@ interface FormData {
   priority: string;
   taggedEmployeeIds: string[];
   taggedAdminIds: string[];
+  taggedDepartmentNames: string[];
   reminderMinutesBefore: number | null;
 }
 
@@ -73,6 +75,7 @@ const EMPTY_FORM: FormData = {
   priority: 'normal',
   taggedEmployeeIds: [],
   taggedAdminIds: [],
+  taggedDepartmentNames: [],
   reminderMinutesBefore: null,
 };
 
@@ -113,6 +116,7 @@ function buildFormState(
         taggedAdminIds: (initialEvent.taggedUsers ?? [])
           .filter((u: { type: string }) => u.type === 'admin')
           .map((u: { id: string }) => u.id),
+        taggedDepartmentNames: initialEvent.taggedDepartmentNames ?? [],
         reminderMinutesBefore: initialEvent.reminderMinutesBefore ?? null,
       } satisfies FormData,
       startDateObj: new Date(startDate + 'T00:00:00'),
@@ -143,6 +147,7 @@ export function EventForm({
   onClose,
   onSuccess,
   initialAdmins,
+  initialDepartments = [],
 }: EventFormProps) {
   const prefilledEvent = duplicateFrom ?? initialEvent;
   const [{ form, startDateObj, endDateObj }, setFormState] = useState(() =>
@@ -244,6 +249,7 @@ export function EventForm({
       priority: form.priority === 'normal' ? undefined : form.priority,
       taggedEmployeeIds: form.taggedEmployeeIds.length > 0 ? form.taggedEmployeeIds : undefined,
       taggedAdminIds: form.taggedAdminIds.length > 0 ? form.taggedAdminIds : undefined,
+      taggedDepartmentNames: form.taggedDepartmentNames.length > 0 ? form.taggedDepartmentNames : undefined,
     };
     if (showLocation && form.location) {
       body.location = form.location;
@@ -480,8 +486,11 @@ export function EventForm({
 
           <EventTaggingSection
             taggedAdminIds={form.taggedAdminIds}
-            onChange={ids => setForm(p => ({ ...p, taggedAdminIds: ids }))}
+            onAdminsChange={ids => setForm(p => ({ ...p, taggedAdminIds: ids }))}
+            taggedDepartmentNames={form.taggedDepartmentNames}
+            onDepartmentsChange={names => setForm(p => ({ ...p, taggedDepartmentNames: names }))}
             initialAdmins={initialAdmins}
+            initialDepartments={initialDepartments ?? []}
             startDate={form.startDate}
             endDate={showEndDate ? form.endDate : form.startDate}
             startTime={form.startTime}

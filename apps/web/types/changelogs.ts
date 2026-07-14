@@ -6,11 +6,15 @@ export type ChangelogWithAdminDto = {
   entityType: string;
   entityId: string;
   details: Prisma.JsonValue;
-  actor: 'admin' | 'system' | 'unknown';
+  actor: 'admin' | 'employee' | 'system' | 'unknown';
   actorId: string | null;
+  employeeId: string | null;
   createdAt: Date;
   admin: {
     name: string;
+  } | null;
+  employee?: {
+    fullName: string;
   } | null;
 };
 

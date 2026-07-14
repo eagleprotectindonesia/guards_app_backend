@@ -1,4 +1,4 @@
-import { prisma, getAllOffices } from '@repo/database';
+import { prisma } from '@repo/database';
 import { getPaginationParams } from '@/lib/server-utils';
 import ChangelogList from '../../changelogs/components/changelog-list';
 import { Suspense } from 'react';
@@ -7,11 +7,11 @@ import type { Metadata } from 'next';
 import { parseISO, isValid, startOfDay, endOfDay } from 'date-fns';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
-import { SerializedChangelogWithAdminDto, EntitySummary } from '@/types/changelogs';
+import { SerializedChangelogWithAdminDto } from '@/types/changelogs';
 import { AdminListSkeleton } from '../../components/loading/admin-list-skeleton';
 
 export const metadata: Metadata = {
-  title: 'Office Audit Logs',
+  title: 'Calendar Audit Logs',
 };
 
 export const dynamic = 'force-dynamic';
@@ -20,13 +20,12 @@ type PageProps = {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 };
 
-export default async function OfficeAuditPage(props: PageProps) {
-  await requirePermission([PERMISSIONS.OFFICES.VIEW, PERMISSIONS.CHANGELOGS.VIEW]);
+export default async function CalendarAuditPage(props: PageProps) {
+  await requirePermission(PERMISSIONS.CHANGELOGS.VIEW);
 
   const searchParams = await props.searchParams;
   const { page, perPage, skip } = getPaginationParams(searchParams);
   const action = searchParams.action as string | undefined;
-  const entityId = searchParams.entityId as string | undefined;
   const startDateParam = searchParams.startDate as string | undefined;
   const endDateParam = searchParams.endDate as string | undefined;
 
@@ -40,15 +39,11 @@ export default async function OfficeAuditPage(props: PageProps) {
   const sortField = validSortFields.includes(sortBy) ? (sortBy as 'createdAt' | 'action' | 'entityId') : 'createdAt';
 
   const where: Prisma.ChangelogWhereInput = {
-    entityType: 'Office',
+    entityType: 'CalendarEvent',
   };
 
   if (action) {
     where.action = action;
-  }
-
-  if (entityId) {
-    where.entityId = entityId;
   }
 
   if (startDateParam || endDateParam) {
@@ -67,7 +62,7 @@ export default async function OfficeAuditPage(props: PageProps) {
     }
   }
 
-  const [changelogs, totalCount, offices] = await Promise.all([
+  const [changelogs, totalCount] = await prisma.$transaction([
     prisma.changelog.findMany({
       where,
       orderBy: { [sortField]: sortOrder },
@@ -79,10 +74,14 @@ export default async function OfficeAuditPage(props: PageProps) {
             name: true,
           },
         },
+        employee: {
+          select: {
+            fullName: true,
+          },
+        },
       },
     }),
     prisma.changelog.count({ where }),
-    getAllOffices(true), // include deleted offices in filters
   ]);
 
   const serializedChangelogs: SerializedChangelogWithAdminDto[] = changelogs.map(log => ({
@@ -96,11 +95,7 @@ export default async function OfficeAuditPage(props: PageProps) {
     employeeId: log.employeeId,
     createdAt: log.createdAt.toISOString(),
     admin: log.admin ? { name: log.admin.name } : null,
-  }));
-
-  const serializedOffices: EntitySummary[] = offices.map(office => ({
-    id: office.id,
-    name: office.name,
+    employee: log.employee ? { fullName: log.employee.fullName } : null,
   }));
 
   return (
@@ -114,14 +109,9 @@ export default async function OfficeAuditPage(props: PageProps) {
           sortBy={sortField}
           sortOrder={sortOrder}
           hideEntityType={true}
-          fixedEntityType="Office"
+          fixedEntityType="Calendar Event"
           showEntityName={true}
-          entityFilterConfig={{
-            urlKey: 'entityId',
-            label: 'Office',
-            allLabel: 'All offices',
-            options: serializedOffices.map(o => ({ value: o.id, label: o.name || '' })),
-          }}
+          exportEntityType="CalendarEvent"
         />
       </Suspense>
     </div>

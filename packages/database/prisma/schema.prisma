@@ -277,6 +277,7 @@ model AdminOwnershipAssignment {
 
 enum ChangelogActor {
   admin
+  employee
   system
   unknown
 }
@@ -289,13 +290,16 @@ model Changelog {
   details    Json? // Store changed fields or snapshot
   actor      ChangelogActor @default(admin)
   actorId    String?        @map("actor_id")
+  employeeId String?        @map("employee_id")
   createdAt  DateTime       @default(now()) @map("created_at")
 
-  admin Admin? @relation(fields: [actorId], references: [id])
+  admin    Admin?    @relation(fields: [actorId], references: [id])
+  employee Employee? @relation(fields: [employeeId], references: [id])
 
-  @@index([entityType, entityId])
+  @@index([entityType, entityId, createdAt])
   @@index([entityType, createdAt])
   @@index([createdAt])
+  @@index([employeeId])
   @@map("changelogs")
 }
 
@@ -575,11 +579,13 @@ model Employee {
   photoReports                  ShiftPhotoReport[]
   calendarEvents                CalendarEvent[]
   calendarEventTags             CalendarEventTag[]
+  changelogs                    Changelog[]
 
   @@index([status])
   @@index([deletedAt])
   @@index([employeeNumber])
   @@index([officeId])
+  @@index([department])
   @@map("employees")
 }
 
@@ -1192,6 +1198,7 @@ model CalendarEvent {
   clientName            String?           @map("client_name")
   trainerName           String?           @map("trainer_name")
   priority              String?           @default("normal")
+  taggedDepartmentNames String[]          @default([]) @map("tagged_department_names")
   reminderMinutesBefore Int?              @map("reminder_minutes_before")
   reminderScheduledAt   DateTime?         @map("reminder_scheduled_at") @db.Timestamptz(6)
   reminderSentAt        DateTime?         @map("reminder_sent_at") @db.Timestamptz(6)
@@ -1210,6 +1217,9 @@ model CalendarEvent {
   @@index([deletedAt])
   @@index([deletedAt, startDate, endDate])
   @@index([reminderScheduledAt, reminderSentAt])
+  // GIN indexes on taggedDepartmentNames back the { has / hasSome } lookups.
+  @@index([taggedDepartmentNames(ops: ArrayOps)], type: Gin, map: "calendar_events_tagged_department_names_gin")
+  @@index([taggedDepartmentNames(ops: ArrayOps)], type: Gin, map: "calendar_events_dept_names_active_gin", where: raw("\"deleted_at\" IS NULL"))
   @@map("calendar_events")
 }
 

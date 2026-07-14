@@ -2,9 +2,9 @@
 
 import {
   prisma,
-  createCalendarEvent,
-  updateCalendarEvent,
-  deleteCalendarEvent,
+  createCalendarEventWithChangelog,
+  updateCalendarEventWithChangelog,
+  deleteCalendarEventWithChangelog,
   getCalendarEventTags,
   findParticipantAvailabilityConflicts,
   type TaggedUserResult,
@@ -15,7 +15,7 @@ import { createCalendarEventSchema, updateCalendarEventSchema, tagAvailabilityCh
 import { getAdminName, notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { redis } from '@repo/database/redis';
 import { revalidatePath } from 'next/cache';
-import { format, parseISO } from 'date-fns';
+import { format } from 'date-fns';
 
 export async function createEvent(data: unknown) {
   const session = await getAdminAuthSession();
@@ -29,9 +29,10 @@ export async function createEvent(data: unknown) {
   const body = parsed.data;
   const taggedEmployeeIds = body.taggedEmployeeIds ?? [];
   const taggedAdminIds = body.taggedAdminIds ?? [];
+  const taggedDepartmentNames = body.taggedDepartmentNames ?? [];
 
-  if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0) {
-    const validationErrors = await validateTaggedUsers(taggedEmployeeIds, taggedAdminIds);
+  if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0 || taggedDepartmentNames.length > 0) {
+    const validationErrors = await validateTaggedUsers(taggedEmployeeIds, taggedAdminIds, taggedDepartmentNames);
     if (validationErrors.length > 0) {
       return { success: false, error: validationErrors.join('; ') };
     }
@@ -40,7 +41,7 @@ export async function createEvent(data: unknown) {
   const adminName = await getAdminName(session.id);
 
   const event = await prisma.$transaction(async tx => {
-    return createCalendarEvent(
+    return createCalendarEventWithChangelog(
       {
         adminId: session.id,
         kind: body.kind,
@@ -58,13 +59,15 @@ export async function createEvent(data: unknown) {
         reminderMinutesBefore: body.reminderMinutesBefore,
         taggedEmployeeIds,
         taggedAdminIds,
+        taggedDepartmentNames,
       },
+      { type: 'admin', id: session.id },
       tx
     );
   });
 
-  if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0) {
-    await notifyCalendarEventTags(event.id, body.title, taggedEmployeeIds, taggedAdminIds, adminName);
+  if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0 || taggedDepartmentNames.length > 0) {
+    await notifyCalendarEventTags(event.id, body.title, taggedEmployeeIds, taggedAdminIds, adminName, taggedDepartmentNames);
   }
 
   redis
@@ -102,9 +105,18 @@ export async function updateEvent(id: string, data: unknown) {
 
   const taggedEmployeeIds = body.taggedEmployeeIds !== undefined ? (body.taggedEmployeeIds ?? []) : undefined;
   const taggedAdminIds = body.taggedAdminIds;
+  const taggedDepartmentNames = body.taggedDepartmentNames;
 
-  if ((taggedEmployeeIds && taggedEmployeeIds.length > 0) || (taggedAdminIds && taggedAdminIds.length > 0)) {
-    const validationErrors = await validateTaggedUsers(taggedEmployeeIds ?? [], taggedAdminIds ?? []);
+  if (
+    (taggedEmployeeIds && taggedEmployeeIds.length > 0) ||
+    (taggedAdminIds && taggedAdminIds.length > 0) ||
+    (taggedDepartmentNames && taggedDepartmentNames.length > 0)
+  ) {
+    const validationErrors = await validateTaggedUsers(
+      taggedEmployeeIds ?? [],
+      taggedAdminIds ?? [],
+      taggedDepartmentNames
+    );
     if (validationErrors.length > 0) {
       return { success: false, error: validationErrors.join('; ') };
     }
@@ -113,34 +125,45 @@ export async function updateEvent(id: string, data: unknown) {
   const oldTags = await getCalendarEventTags(id);
   const oldEmployeeIds = oldTags.filter(t => t.type === 'employee').map(t => t.id);
   const oldAdminIds = oldTags.filter(t => t.type === 'admin').map(t => t.id);
+  const oldDepartmentNames = (existing.taggedDepartmentNames as string[]) ?? [];
 
   const newEmployeeIds = taggedEmployeeIds ?? oldEmployeeIds;
   const newAdminIds = taggedAdminIds ?? oldAdminIds;
+  const newDepartmentNames = taggedDepartmentNames ?? oldDepartmentNames;
 
-  await updateCalendarEvent(id, {
-    kind: body.kind,
-    title: body.title,
-    description: body.description,
-    startDate: body.startDate,
-    endDate: body.endDate,
-    startTime: body.startTime,
-    endTime: body.endTime,
-    allDay: body.allDay,
-    location: body.location,
-    clientName: body.clientName,
-    trainerName: body.trainerName,
-    priority: body.priority,
-    reminderMinutesBefore: body.reminderMinutesBefore,
-    taggedEmployeeIds: newEmployeeIds,
-    taggedAdminIds: newAdminIds,
+  await prisma.$transaction(async tx => {
+    await updateCalendarEventWithChangelog(
+      id,
+      {
+        kind: body.kind,
+        title: body.title,
+        description: body.description,
+        startDate: body.startDate,
+        endDate: body.endDate,
+        startTime: body.startTime,
+        endTime: body.endTime,
+        allDay: body.allDay,
+        location: body.location,
+        clientName: body.clientName,
+        trainerName: body.trainerName,
+        priority: body.priority,
+        reminderMinutesBefore: body.reminderMinutesBefore,
+        taggedEmployeeIds: newEmployeeIds,
+        taggedAdminIds: newAdminIds,
+        taggedDepartmentNames: newDepartmentNames,
+      },
+      { type: 'admin', id: session.id },
+      tx,
+    );
   });
 
   const newlyTaggedEmployees = newEmployeeIds.filter(uid => !oldEmployeeIds.includes(uid));
   const newlyTaggedAdmins = newAdminIds.filter(uid => !oldAdminIds.includes(uid));
+  const newlyTaggedDepartments = newDepartmentNames.filter(name => !oldDepartmentNames.includes(name));
 
-  if (newlyTaggedEmployees.length > 0 || newlyTaggedAdmins.length > 0) {
+  if (newlyTaggedEmployees.length > 0 || newlyTaggedAdmins.length > 0 || newlyTaggedDepartments.length > 0) {
     const adminName = await getAdminName(session.id);
-    await notifyCalendarEventTags(id, body.title ?? existing.title, newlyTaggedEmployees, newlyTaggedAdmins, adminName);
+    await notifyCalendarEventTags(id, body.title ?? existing.title, newlyTaggedEmployees, newlyTaggedAdmins, adminName, newlyTaggedDepartments);
   }
 
   redis
@@ -169,7 +192,9 @@ export async function deleteEvent(id: string) {
     return { success: false, error: 'Calendar event not found' };
   }
 
-  await deleteCalendarEvent(id);
+  await prisma.$transaction(async tx => {
+    await deleteCalendarEventWithChangelog(id, { type: 'admin', id: session.id }, tx);
+  });
 
   redis
     .publish(
@@ -204,6 +229,7 @@ export interface EventForEditItem {
   createdAt: string | null;
   updatedAt: string | null;
   taggedUsers: TaggedUserResult[];
+  taggedDepartmentNames: string[];
   isOwner: boolean;
   ownerId: string;
   ownerType: 'admin';
@@ -252,13 +278,10 @@ export async function checkTagAvailability(input: unknown) {
 
   const { startDate, endDate, startTime, endTime, allDay, participants, excludeEventId } = parsed.data;
 
-  const fromDate = parseISO(startDate + 'T00:00:00');
-  const toDate = parseISO(endDate + 'T00:00:00');
-
   const conflicts = await findParticipantAvailabilityConflicts({
     participants,
-    fromDate,
-    toDate,
+    fromDate: startDate,
+    toDate: endDate,
     allDay,
     startTime: startTime ?? null,
     endTime: endTime ?? null,
@@ -280,21 +303,27 @@ export async function duplicateEvent(id: string) {
     return { success: false, error: 'Calendar event not found' };
   }
 
-  const event = await createCalendarEvent({
-    adminId: session.id,
-    kind: existing.kind,
-    title: existing.title,
-    description: existing.description ?? undefined,
-    startDate: format(existing.startDate, 'yyyy-MM-dd'),
-    endDate: format(existing.endDate, 'yyyy-MM-dd'),
-    startTime: existing.startTime ?? undefined,
-    endTime: existing.endTime ?? undefined,
-    allDay: existing.allDay,
-    location: existing.location ?? undefined,
-    clientName: existing.clientName ?? undefined,
-    trainerName: existing.trainerName ?? undefined,
-    priority: existing.priority ?? undefined,
-    reminderMinutesBefore: existing.reminderMinutesBefore ?? undefined,
+  const event = await prisma.$transaction(async tx => {
+    return createCalendarEventWithChangelog(
+      {
+        adminId: session.id,
+        kind: existing.kind,
+        title: existing.title,
+        description: existing.description ?? undefined,
+        startDate: format(existing.startDate, 'yyyy-MM-dd'),
+        endDate: format(existing.endDate, 'yyyy-MM-dd'),
+        startTime: existing.startTime ?? undefined,
+        endTime: existing.endTime ?? undefined,
+        allDay: existing.allDay,
+        location: existing.location ?? undefined,
+        clientName: existing.clientName ?? undefined,
+        trainerName: existing.trainerName ?? undefined,
+        priority: existing.priority ?? undefined,
+        reminderMinutesBefore: existing.reminderMinutesBefore ?? undefined,
+      },
+      { type: 'admin', id: session.id },
+      tx,
+    );
   });
 
   redis

@@ -93,6 +93,7 @@ export default async function OfficeShiftTypeAuditPage(props: PageProps) {
     details: log.details,
     actor: log.actor,
     actorId: log.actorId,
+    employeeId: log.employeeId,
     createdAt: log.createdAt.toISOString(),
     admin: log.admin ? { name: log.admin.name } : null,
   }));

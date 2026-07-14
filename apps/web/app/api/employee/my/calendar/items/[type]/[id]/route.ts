@@ -70,6 +70,9 @@ export async function GET(
             OR: [
               { employeeId: employee.id },
               { tags: { some: { employeeId: employee.id, participantType: 'employee' } } },
+              ...(employee.department
+                ? [{ taggedDepartmentNames: { has: employee.department } }]
+                : []),
             ],
           },
         });

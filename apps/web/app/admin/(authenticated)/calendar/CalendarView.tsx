@@ -36,9 +36,10 @@ interface CalendarFilters {
 interface CalendarViewProps {
   employees: Array<{ id: string; fullName: string; employeeNumber: string }>;
   admins: Array<{ id: string; name: string; email: string }>;
+  departments: string[];
 }
 
-export function CalendarView({ employees, admins }: CalendarViewProps) {
+export function CalendarView({ employees, admins, departments }: CalendarViewProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -357,6 +358,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
           }}
           onSuccess={handleFormSuccess}
           initialAdmins={filteredAdmins}
+          initialDepartments={departments}
         />
       )}
 
@@ -426,6 +428,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
           }}
           onSuccess={handleFormSuccess}
           initialAdmins={filteredAdmins}
+          initialDepartments={departments}
         />
       )}
 
@@ -439,6 +442,7 @@ export function CalendarView({ employees, admins }: CalendarViewProps) {
             queryClient.invalidateQueries({ queryKey: ['admin', 'calendar'] });
           }}
           initialAdmins={filteredAdmins}
+          initialDepartments={departments}
         />
       )}
     </div>

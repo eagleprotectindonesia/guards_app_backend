@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma, getCalendarEventTags, getTagsForEvents } from '@repo/database';
 import { getAdminAuthSession } from '@/lib/admin-auth';
 import { createCalendarEventSchema, calendarListSchema } from '@repo/validations';
-import { createCalendarEvent } from '@repo/database';
+import { createCalendarEventWithChangelog } from '@repo/database';
 import { serializeCalendarEvent } from '@repo/shared';
 import { getAdminName, notifyCalendarEventTags, validateTaggedUsers } from '@/lib/calendar-notifications';
 import { redis } from '@repo/database/redis';
@@ -76,9 +76,10 @@ export async function POST(req: Request) {
 
     const taggedEmployeeIds = body.taggedEmployeeIds ?? [];
     const taggedAdminIds = body.taggedAdminIds ?? [];
+    const taggedDepartmentNames = body.taggedDepartmentNames ?? [];
 
-    if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0) {
-      const validationErrors = await validateTaggedUsers(taggedEmployeeIds, taggedAdminIds);
+    if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0 || taggedDepartmentNames.length > 0) {
+      const validationErrors = await validateTaggedUsers(taggedEmployeeIds, taggedAdminIds, taggedDepartmentNames);
       if (validationErrors.length > 0) {
         return NextResponse.json({ error: validationErrors.join('; ') }, { status: 400 });
       }
@@ -87,7 +88,7 @@ export async function POST(req: Request) {
     const adminName = await getAdminName(session.id);
 
     const event = await prisma.$transaction(async tx => {
-      return createCalendarEvent(
+      return createCalendarEventWithChangelog(
         {
           adminId: session.id,
           kind: body.kind,
@@ -104,13 +105,15 @@ export async function POST(req: Request) {
           priority: body.priority,
           taggedEmployeeIds,
           taggedAdminIds,
+          taggedDepartmentNames,
         },
+        { type: 'admin', id: session.id },
         tx
       );
     });
 
-    if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0) {
-      await notifyCalendarEventTags(event.id, body.title, taggedEmployeeIds, taggedAdminIds, adminName);
+    if (taggedEmployeeIds.length > 0 || taggedAdminIds.length > 0 || taggedDepartmentNames.length > 0) {
+      await notifyCalendarEventTags(event.id, body.title, taggedEmployeeIds, taggedAdminIds, adminName, taggedDepartmentNames);
     }
 
     redis
