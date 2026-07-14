@@ -62,34 +62,32 @@ export function CalendarWeekView({
 
   return (
     <VStack className="flex-1">
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-2 py-2">
-        <HStack space="sm">
-          {daysInWeek.map((day, idx) => {
-            const today = isToday(day);
-            const selected = isSameDay(day, selectedDay);
-            return (
-              <Pressable
-                key={idx}
-                onPress={() => onSelectDate(day)}
-                className={`items-center py-2 px-3 rounded-xl ${
-                  selected ? 'bg-[#FF3B30]' : today ? 'bg-[#1A1A1A]' : ''
+      <HStack className="px-2 py-2">
+        {daysInWeek.map(day => {
+          const today = isToday(day);
+          const selected = isSameDay(day, selectedDay);
+          return (
+            <Pressable
+              key={format(day, 'yyyy-MM-dd')}
+              onPress={() => onSelectDate(day)}
+              className={`flex-1 items-center py-2 rounded-xl ${
+                selected ? 'bg-[#FF3B30]' : today ? 'bg-[#1A1A1A]' : ''
+              }`}
+            >
+              <Text className="text-[#737373] text-xs font-semibold">
+                {format(day, 'EEE')}
+              </Text>
+              <Text
+                className={`text-lg font-bold mt-1 ${
+                  selected ? 'text-white' : 'text-white'
                 }`}
               >
-                <Text className="text-[#737373] text-xs font-semibold">
-                  {format(day, 'EEE')}
-                </Text>
-                <Text
-                  className={`text-lg font-bold mt-1 ${
-                    selected ? 'text-white' : 'text-white'
-                  }`}
-                >
-                  {format(day, 'd')}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </HStack>
-      </ScrollView>
+                {format(day, 'd')}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </HStack>
 
       <ScrollView className="flex-1 px-2">
         {allDayItems.length > 0 && (

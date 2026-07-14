@@ -109,6 +109,10 @@ export default function CalendarScreen() {
     setView('day');
   }, []);
 
+  const handleWeekSelectDate = useCallback((date: Date) => {
+    setCurrentDate(date);
+  }, []);
+
   const handleSelectItem = useCallback(
     (item: CalendarItem) => {
       router.push(`/calendar/${item.kind}/${item.originalId}`);
@@ -145,8 +149,8 @@ export default function CalendarScreen() {
       <Box style={{ paddingTop: insets.top + 16 }} className="flex-1">
         <VStack className="flex-1" space="sm">
           <HStack className="px-4 items-center justify-between">
-            <Pressable onPress={() => router.back()}>
-              <Text className="text-[#FF3B30] text-sm font-semibold">{t('calendar.backToCalendar', 'Back')}</Text>
+            <Pressable onPress={() => router.back()} className="p-2">
+              <ChevronLeft size={24} color="#FF3B30" />
             </Pressable>
             <Text className="text-white text-lg font-bold">{t('calendar.title', 'Calendar')}</Text>
             <Box style={{ width: 50 }} />
@@ -184,7 +188,7 @@ export default function CalendarScreen() {
               <CalendarWeekView
                 currentDate={currentDate}
                 items={items}
-                onSelectDate={handleSelectDate}
+                onSelectDate={handleWeekSelectDate}
                 onSelectItem={handleSelectItem}
               />
             ) : view === 'day' ? (
@@ -196,14 +200,14 @@ export default function CalendarScreen() {
         </VStack>
 
         {/* FAB */}
-        <Pressable
+        {/* <Pressable
           onPress={handleCreateEvent}
           style={[styles.fab, { bottom: insets.bottom + 24 }]}
           className="w-14 h-14 rounded-full items-center justify-center shadow-lg"
         >
           <LinearGradient colors={['#FF3B30', '#D70015']} style={StyleSheet.absoluteFill} className="rounded-full" />
           <Plus size={24} color="white" />
-        </Pressable>
+        </Pressable> */}
       </Box>
     </Box>
   );

@@ -192,6 +192,28 @@ export default function AccountScreen() {
 
             <Box className="bg-[#121212] border border-white/5 rounded-3xl p-2">
               <VStack space="xs">
+                {/* Announcements */}
+                <TouchableOpacity onPress={() => router.push('/announcements')} activeOpacity={0.7}>
+                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
+                    <HStack space="md" className="items-center">
+                      <Box className="w-10 h-10 rounded-xl bg-[#F97316]/10 items-center justify-center border border-[#F97316]/20">
+                        <Bell size={20} color="#F97316" />
+                      </Box>
+                      <VStack>
+                        <Text size="sm" className="font-semibold text-white">
+                          {t('announcements.title', 'Announcements')}
+                        </Text>
+                        {unreadAnnouncementCount > 0 ? (
+                          <Text className="text-[#F97316] font-bold uppercase tracking-[1.2px]" size="2xs">
+                            {t('announcements.newCount', '{{count}} new', { count: unreadAnnouncementCount })}
+                          </Text>
+                        ) : null}
+                      </VStack>
+                    </HStack>
+                    <ChevronRight size={18} color="#666666" />
+                  </Box>
+                </TouchableOpacity>
+
                 {/* Leave Requests */}
                 <TouchableOpacity onPress={() => router.push('/leave-requests')} activeOpacity={0.7}>
                   <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
@@ -232,28 +254,6 @@ export default function AccountScreen() {
                       <Text size="sm" className="font-semibold text-white">
                         {t('dashboard.changePassword')}
                       </Text>
-                    </HStack>
-                    <ChevronRight size={18} color="#666666" />
-                  </Box>
-                </TouchableOpacity>
-
-                {/* Announcements */}
-                <TouchableOpacity onPress={() => router.push('/announcements')} activeOpacity={0.7}>
-                  <Box className="flex-row items-center justify-between p-4 rounded-2xl bg-[#1A1A1A] border border-white/5">
-                    <HStack space="md" className="items-center">
-                      <Box className="w-10 h-10 rounded-xl bg-[#F97316]/10 items-center justify-center border border-[#F97316]/20">
-                        <Bell size={20} color="#F97316" />
-                      </Box>
-                      <VStack>
-                        <Text size="sm" className="font-semibold text-white">
-                          {t('announcements.title', 'Announcements')}
-                        </Text>
-                        {unreadAnnouncementCount > 0 ? (
-                          <Text className="text-[#F97316] font-bold uppercase tracking-[1.2px]" size="2xs">
-                            {t('announcements.newCount', '{{count}} new', { count: unreadAnnouncementCount })}
-                          </Text>
-                        ) : null}
-                      </VStack>
                     </HStack>
                     <ChevronRight size={18} color="#666666" />
                   </Box>
