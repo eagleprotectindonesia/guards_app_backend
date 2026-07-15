@@ -9,12 +9,9 @@ import { PERMISSIONS } from '@/lib/auth/permissions';
 import PaginationNav from '../../components/pagination-nav';
 import { format, parseISO } from 'date-fns';
 import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
-import { Download, History, ArrowUpDown, ArrowUp, ArrowDown, Loader2 } from 'lucide-react';
+import { Download, History, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import SortableHeader from '@/components/sortable-header';
-import toast from 'react-hot-toast';
 import Link from 'next/link';
-import { buildShiftReportDownloadFilename } from '@repo/shared';
-import { buildShiftReportsZip } from '@/lib/shift-photo-reports/bulk-zip';
 
 type ReportWithDownload = {
   id: string;
@@ -36,6 +33,7 @@ type ReportWithDownload = {
     site: { id: string; name: string; clientName: string | null } | null;
   } | null;
   downloadUrl: string | null;
+  downloadFileName: string | null;
   downloadCount: number;
 };
 
@@ -100,8 +98,6 @@ export default function ShiftPhotoReportsList({
   const { apply } = useFilterUrlSync('/admin/shift-photo-reports');
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [downloadingIds, setDownloadingIds] = useState<Set<string>>(new Set());
-  const [isBulkDownloading, setIsBulkDownloading] = useState(false);
 
   const downloadableReports = reports.filter(r => r.downloadUrl);
   const isAllSelected = downloadableReports.length > 0 && downloadableReports.every(r => selectedIds.has(r.id));
@@ -184,16 +180,6 @@ export default function ShiftPhotoReportsList({
     }
   };
 
-  const buildFilename = (report: ReportWithDownload): string => {
-    return buildShiftReportDownloadFilename({
-      siteName: report.shift?.site?.name,
-      shiftStartsAt: new Date(report.shiftStartsAt),
-      shiftEndsAt: new Date(report.shiftEndsAt),
-      reportNumber: report.reportNumber,
-      fallbackId: report.id,
-    });
-  };
-
   const logDownload = (reportId: string, mode: 'single' | 'bulk') => {
     fetch(`/api/admin/shift-photo-reports/${reportId}/download-log`, {
       method: 'POST',
@@ -202,55 +188,35 @@ export default function ShiftPhotoReportsList({
     }).catch(() => {});
   };
 
-  const handleSingleDownload = async (report: ReportWithDownload) => {
-    if (!report.downloadUrl || downloadingIds.has(report.id)) return;
-    setDownloadingIds(prev => new Set(prev).add(report.id));
+  const handleSingleDownload = (report: ReportWithDownload) => {
+    if (!report.downloadUrl) return;
     logDownload(report.id, 'single');
-    try {
-      const response = await fetch(report.downloadUrl);
-      if (!response.ok) throw new Error(`Failed to fetch`);
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = buildFilename(report);
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error('Failed to download report');
-    } finally {
-      setDownloadingIds(prev => {
-        const next = new Set(prev);
-        next.delete(report.id);
-        return next;
-      });
-    }
+    const a = document.createElement('a');
+    a.href = report.downloadUrl;
+    a.rel = 'noopener';
+    if (report.downloadFileName) a.download = report.downloadFileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
-  const handleBulkDownload = async () => {
-    if (selectedIds.size === 0 || isBulkDownloading) return;
-    setIsBulkDownloading(true);
-    try {
-      const selected = reports.filter(r => selectedIds.has(r.id) && r.downloadUrl);
-      selected.forEach(r => logDownload(r.id, 'bulk'));
-      const blob = await buildShiftReportsZip(selected);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `shift-photo-reports-${new Date().toISOString().slice(0, 10)}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success(`Downloaded ${selected.length} report(s)`);
-      setSelectedIds(new Set());
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Bulk download failed');
-    } finally {
-      setIsBulkDownloading(false);
-    }
+  const handleBulkDownload = () => {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    reports
+      .filter(r => selectedIds.has(r.id) && r.downloadUrl)
+      .forEach(r => logDownload(r.id, 'bulk'));
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '/api/admin/shift-photo-reports/bulk-download';
+    const input = document.createElement('input');
+    input.type = 'hidden';
+    input.name = 'reportIds';
+    input.value = ids.join(',');
+    form.appendChild(input);
+    document.body.appendChild(form);
+    form.submit();
+    document.body.removeChild(form);
   };
 
   return (
@@ -285,11 +251,10 @@ export default function ShiftPhotoReportsList({
               </button>
               <button
                 onClick={handleBulkDownload}
-                disabled={isBulkDownloading}
-                className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30 disabled:opacity-50"
+                className="inline-flex items-center justify-center h-10 px-4 py-2 bg-red-600 text-white text-sm font-semibold rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 transition-colors shadow-sm shadow-red-500/30"
               >
                 <Download className="w-4 h-4 mr-2" />
-                {isBulkDownloading ? 'Zipping\u2026' : `Download Selected (${selectedIds.size})`}
+                Download Selected ({selectedIds.size})
               </button>
             </>
           )}
@@ -510,15 +475,10 @@ export default function ShiftPhotoReportsList({
                           report.downloadUrl ? (
                             <button
                               onClick={() => handleSingleDownload(report)}
-                              disabled={downloadingIds.has(report.id)}
-                              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                              title={downloadingIds.has(report.id) ? 'Downloading\u2026' : 'Download PDF'}
+                              className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                              title="Download PDF"
                             >
-                              {downloadingIds.has(report.id) ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Download className="w-4 h-4" />
-                              )}
+                              <Download className="w-4 h-4" />
                             </button>
                           ) : (
                             <span className="p-2 text-muted-foreground/40" title="No PDF available">
@@ -531,9 +491,8 @@ export default function ShiftPhotoReportsList({
                             type="checkbox"
                             checked={selectedIds.has(report.id)}
                             onChange={e => handleCheckboxChange(report.id, e.target.checked)}
-                            disabled={downloadingIds.has(report.id)}
                             aria-label={`Select report ${report.reportNumber ?? report.id}`}
-                            className="h-4 w-4 rounded border-border text-red-600 focus:ring-red-500 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                            className="h-4 w-4 rounded border-border text-red-600 focus:ring-red-500 cursor-pointer"
                           />
                         ) : (
                           <input
