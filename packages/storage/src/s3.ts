@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, type GetObjectCommandInput, DeleteObjectCommand } from '@aws-sdk/client-s3';
 export { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import crypto from 'crypto';
@@ -121,29 +121,67 @@ export async function getPresignedUploadUrl(
   return { uploadUrl, publicUrl, key };
 }
 
+export type PresignedDownloadOverrides = {
+  fileName?: string;
+  contentType?: string;
+  cacheControl?: string;
+};
+
+function buildContentDisposition(fileName: string): string {
+  const asciiFallback = fileName
+    .replace(/[^\x20-\x7E]/g, '_')
+    .replace(/"/g, '')
+    .replace(/[\r\n]/g, '');
+  return `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+}
+
 /**
  * Generates a presigned URL for downloading/viewing a file from S3.
  * Max expiration is 7 days (604800 seconds).
+ * Optionally pass response-header overrides that S3 will inject into the response.
  */
-export async function getPresignedDownloadUrl(key: string, expiresIn: number = 604800) {
+export async function getPresignedDownloadUrl(
+  key: string,
+  expiresIn: number = 604800,
+  responseOverrides?: PresignedDownloadOverrides,
+) {
   if (!BUCKET_NAME) {
     throw new Error('AWS_S3_BUCKET_NAME is not configured');
   }
 
-  const command = new GetObjectCommand({
+  const commandInput: GetObjectCommandInput = {
     Bucket: BUCKET_NAME,
     Key: key,
-  });
+  };
+  if (responseOverrides?.fileName) {
+    commandInput.ResponseContentDisposition = buildContentDisposition(responseOverrides.fileName);
+  }
+  if (responseOverrides?.contentType) {
+    commandInput.ResponseContentType = responseOverrides.contentType;
+  }
+  if (responseOverrides?.cacheControl) {
+    commandInput.ResponseCacheControl = responseOverrides.cacheControl;
+  }
 
+  const command = new GetObjectCommand(commandInput);
   return getSignedUrl(s3Client, command, { expiresIn });
 }
 
 /**
  * Gets a presigned URL for downloading, with Redis caching.
  * Defaults to 7 days expiration.
+ * Cache key includes a suffix for response overrides so different overrides
+ * don't collide.
  */
-export async function getCachedPresignedDownloadUrl(key: string, expiresIn: number = 604800) {
-  const cacheKey = `s3:presigned:${key}`;
+export async function getCachedPresignedDownloadUrl(
+  key: string,
+  expiresIn: number = 604800,
+  responseOverrides?: PresignedDownloadOverrides,
+) {
+  const overrideSuffix = responseOverrides
+    ? `:${responseOverrides.fileName ?? ''}|${responseOverrides.contentType ?? ''}`
+    : '';
+  const cacheKey = `s3:presigned:${key}${overrideSuffix}`;
 
   try {
     const cached = await redis.get(cacheKey);
@@ -152,7 +190,7 @@ export async function getCachedPresignedDownloadUrl(key: string, expiresIn: numb
     console.warn('Redis error fetching cached S3 URL:', error);
   }
 
-  const url = await getPresignedDownloadUrl(key, expiresIn);
+  const url = await getPresignedDownloadUrl(key, expiresIn, responseOverrides);
 
   try {
     // Cache for 1 hour less than expiry to ensure it doesn't expire while in cache
@@ -163,6 +201,26 @@ export async function getCachedPresignedDownloadUrl(key: string, expiresIn: numb
   }
 
   return url;
+}
+
+/**
+ * Downloads an S3 object to a buffer (server-side, uses GetObjectCommand directly).
+ * Returns the raw bytes + ContentType + ContentLength from S3.
+ */
+export async function getS3ObjectBuffer(
+  key: string,
+  abortSignal?: AbortSignal,
+): Promise<{ buffer: Uint8Array; contentType?: string; contentLength?: number }> {
+  if (!BUCKET_NAME) throw new Error('AWS_S3_BUCKET_NAME is not configured');
+  const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key });
+  const response = await s3Client.send(command, { abortSignal });
+  if (!response.Body) throw new Error(`S3 object not found: ${key}`);
+  const buffer = await response.Body.transformToByteArray();
+  return {
+    buffer,
+    contentType: response.ContentType,
+    contentLength: typeof response.ContentLength === 'number' ? response.ContentLength : undefined,
+  };
 }
 
 export async function deleteS3Object(key: string, abortSignal?: AbortSignal) {

@@ -8,6 +8,7 @@ import {
   getShiftPhotoReportDownloadCountsByReportIds,
 } from '@repo/database';
 import { getCachedPresignedDownloadUrl } from '@repo/storage';
+import { buildShiftReportDownloadFilename } from '@repo/shared';
 import ShiftPhotoReportsList from './components/shift-photo-reports-list';
 import { Suspense } from 'react';
 import { AdminListSkeleton } from '../components/loading/admin-list-skeleton';
@@ -58,11 +59,29 @@ export default async function ShiftPhotoReportsPage(props: PageProps) {
       : ({} as Record<string, number>);
 
   const enriched = await Promise.all(
-    reports.map(async report => ({
-      ...report,
-      downloadUrl: report.pdfS3Key ? await getCachedPresignedDownloadUrl(report.pdfS3Key) : null,
-      downloadCount: downloadCounts[report.id] ?? 0,
-    }))
+    reports.map(async report => {
+      let downloadUrl: string | null = null;
+      let downloadFileName: string | null = null;
+      if (report.pdfS3Key) {
+        downloadFileName = buildShiftReportDownloadFilename({
+          siteName: report.shift?.site?.name,
+          shiftStartsAt: new Date(report.shiftStartsAt),
+          shiftEndsAt: new Date(report.shiftEndsAt),
+          reportNumber: report.reportNumber,
+          fallbackId: report.id,
+        });
+        downloadUrl = await getCachedPresignedDownloadUrl(report.pdfS3Key, 604800, {
+          fileName: downloadFileName,
+          contentType: 'application/pdf',
+        });
+      }
+      return {
+        ...report,
+        downloadUrl,
+        downloadFileName,
+        downloadCount: downloadCounts[report.id] ?? 0,
+      };
+    })
   );
 
   return (

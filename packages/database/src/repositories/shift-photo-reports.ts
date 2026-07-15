@@ -385,6 +385,28 @@ export async function getShiftPhotoReportById(id: string) {
   });
 }
 
+export async function getShiftPhotoReportsByIds(ids: string[]) {
+  if (ids.length === 0) return [];
+  return prisma.shiftPhotoReport.findMany({
+    where: { id: { in: ids } },
+    select: {
+      id: true,
+      reportNumber: true,
+      status: true,
+      pdfS3Key: true,
+      shiftStartsAt: true,
+      shiftEndsAt: true,
+      employee: { select: { fullName: true, employeeNumber: true } },
+      shift: {
+        select: {
+          siteId: true,
+          site: { select: { id: true, name: true, clientName: true } },
+        },
+      },
+    },
+  });
+}
+
 const SHIFT_PHOTO_REPORT_SORT_FIELDS = {
   reportNumber: (o: 'asc' | 'desc') => ({ reportNumber: o } as const),
   employeeNumber: (o: 'asc' | 'desc') => ({ employee: { employeeNumber: o } } as const),
