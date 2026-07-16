@@ -13,6 +13,8 @@ interface ChatMessageBubbleProps {
   mode?: 'direct' | 'group';
   currentAdminId?: string | null;
   className?: string;
+  attachmentOffset?: number;
+  onOpenViewer?: (globalIndex: number) => void;
 }
 
 function getSenderColorClass(senderKey: string) {
@@ -33,12 +35,21 @@ function getSenderColorClass(senderKey: string) {
   return palette[hash % palette.length];
 }
 
-export function ChatMessageBubble({ message, isAdmin, mode = 'direct', currentAdminId, className }: ChatMessageBubbleProps) {
+export function ChatMessageBubble({
+  message,
+  isAdmin,
+  mode = 'direct',
+  currentAdminId,
+  className,
+  attachmentOffset = 0,
+  onOpenViewer,
+}: ChatMessageBubbleProps) {
   const isMe = isAdmin && currentAdminId === message.adminId;
   const senderType = message.sender ?? (message.adminId ? 'admin' : 'employee');
   const senderEmployeeNumber = (message as ChatMessage & { senderEmployeeNumber?: string | null }).senderEmployeeNumber;
   const senderRoleLabel = senderType === 'admin' ? 'Admin' : senderEmployeeNumber || 'Employee';
-  const senderDisplayName = message.admin?.name || (message as ChatMessage & { senderName?: string }).senderName || 'Unknown';
+  const senderDisplayName =
+    message.admin?.name || (message as ChatMessage & { senderName?: string }).senderName || 'Unknown';
   const senderKey =
     message.adminId ||
     (message as ChatMessage & { employeeId?: string | null; senderParticipantId?: string }).employeeId ||
@@ -69,12 +80,7 @@ export function ChatMessageBubble({ message, isAdmin, mode = 'direct', currentAd
           {isMe ? 'You' : message.admin?.name}
         </span>
       )}
-      <div
-        className={cn(
-          'p-3 px-4 rounded-2xl text-sm shadow-sm',
-          bubbleClass
-        )}
-      >
+      <div className={cn('p-3 px-4 rounded-2xl text-sm shadow-sm', bubbleClass)}>
         {message.attachments && message.attachments.length > 0 && (
           <div className={cn('grid gap-2 mb-3', message.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
             {message.attachments.map((url, i) => {
@@ -94,7 +100,7 @@ export function ChatMessageBubble({ message, isAdmin, mode = 'direct', currentAd
                   src={url}
                   alt={`Attachment ${i + 1}`}
                   className="w-full max-h-[300px] object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => window.open(url, '_blank')}
+                  onClick={() => onOpenViewer?.(attachmentOffset + i)}
                 />
               );
             })}
