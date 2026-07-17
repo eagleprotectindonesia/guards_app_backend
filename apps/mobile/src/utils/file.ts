@@ -21,3 +21,9 @@ export function isImageFile(url: string): boolean {
     return false;
   }
 }
+
+export function isPdfFile(url: string): boolean {
+  const lower = url.toLowerCase();
+  const path = lower.split('?')[0];
+  return path.endsWith('.pdf');
+}

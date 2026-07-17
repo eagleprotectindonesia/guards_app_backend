@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { cn } from '@repo/shared';
-import { isVideoFile } from '@/lib/file';
+import { isVideoFile, isPdfFile } from '@/lib/file';
 
 interface AttachmentViewerProps {
   attachments: string[];
@@ -49,7 +49,8 @@ export function AttachmentViewer({ attachments, index = 0, open, onOpenChange }:
     };
   }, [open, onOpenChange, scrollPrev, scrollNext]);
 
-  const hasMultiple = attachments.length > 1;
+  const mediaAttachments = attachments.filter(url => !isPdfFile(url));
+  const hasMultiple = mediaAttachments.length > 1;
 
   return (
     <div
@@ -114,7 +115,7 @@ export function AttachmentViewer({ attachments, index = 0, open, onOpenChange }:
 
       {hasMultiple && (
         <div className="absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 gap-1.5">
-          {attachments.map((_, i) => (
+          {mediaAttachments.map((_, i) => (
             <span
               key={i}
               className={cn('h-1.5 w-1.5 rounded-full transition-colors', i === selected ? 'bg-white' : 'bg-white/40')}

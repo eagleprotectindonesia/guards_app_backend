@@ -21,20 +21,24 @@ export function useAdminChatAttachments() {
     async (files: File[]) => {
       if (files.length === 0) return;
 
-      const imageFiles = files.filter(file => file.type.startsWith('image/'));
-      if (imageFiles.length !== files.length) {
-        toast.error('Only image files are allowed in this chat');
+      const allowedFiles = files.filter(
+        file => file.type.startsWith('image/') || file.type.startsWith('video/') || file.type === 'application/pdf'
+      );
+      if (allowedFiles.length !== files.length) {
+        toast.error('Only image, video, or PDF files are allowed in this chat');
       }
 
-      if (imageFiles.length === 0) return;
+      if (allowedFiles.length === 0) return;
 
       setIsOptimizing(true);
       try {
+        const imageFiles = allowedFiles.filter(file => file.type.startsWith('image/'));
         const processedFiles = await Promise.all(imageFiles.map(file => optimizeImage(file)));
-        const currentFiles = [...selectedFiles, ...processedFiles].slice(0, 4);
+        const pdfFiles = allowedFiles.filter(file => file.type === 'application/pdf');
+        const currentFiles = [...selectedFiles, ...processedFiles, ...pdfFiles].slice(0, 4);
         setSelectedFiles(currentFiles);
 
-        const newPreviews = processedFiles.map(file => URL.createObjectURL(file));
+        const newPreviews = [...processedFiles, ...pdfFiles].map(file => URL.createObjectURL(file));
         setPreviews(prev => {
           const combined = [...prev, ...newPreviews];
           const overflow = combined.slice(4);

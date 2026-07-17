@@ -16,7 +16,7 @@ import { useSocket } from '../../../src/hooks/useSocket';
 import { useAuth } from '../../../src/contexts/AuthContext';
 import { useCustomToast } from '../../../src/hooks/useCustomToast';
 import { reserveChatDraft, uploadToS3 } from '../../../src/api/upload';
-import { isVideoFile } from '../../../src/utils/file';
+import { isVideoFile, isPdfFile } from '../../../src/utils/file';
 import { optimizeImage } from '../../../src/utils/imageOptimization';
 import { useActiveShift } from '../../../src/hooks/useActiveShift';
 import { ChatListItem, ChatListItemData } from '../../../src/components/chat/ChatListItem';
@@ -129,7 +129,7 @@ export default function ChatScreen() {
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images', 'videos'],
+        mediaTypes: ['images', 'videos', 'pdf' as any],
         allowsMultipleSelection: true,
         selectionLimit: 4 - selectedAttachments.length,
         quality: 0.7,
@@ -304,7 +304,8 @@ export default function ChatScreen() {
         messageId = draft.messageId;
 
         const uploadPromises = attachments.map(async asset => {
-          const fileType = asset.type === 'video' ? 'video' : 'image';
+          const fileType =
+            asset.mimeType === 'application/pdf' ? 'pdf' : asset.type === 'video' ? 'video' : 'image';
           let uploadUri = asset.uri;
           let uploadFileName: string;
           let uploadMimeType: string;
@@ -368,9 +369,8 @@ export default function ChatScreen() {
   }, [pendingEntries, sendMessage]);
 
   const openImageViewer = useCallback((attachments: string[], index: number) => {
-    const isVideoAtIndex = attachments[index] ? isVideoFile(attachments[index]) : false;
-    if (isVideoAtIndex) return;
-    const images = attachments.filter(url => !isVideoFile(url)).map(url => ({ uri: url }));
+    if (attachments[index] && (isVideoFile(attachments[index]) || isPdfFile(attachments[index]))) return;
+    const images = attachments.filter(url => !isVideoFile(url) && !isPdfFile(url)).map(url => ({ uri: url }));
     if (images.length === 0) return;
 
     const filteredIndex = images.findIndex(img => img.uri === attachments[index]);

@@ -2,9 +2,9 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { MapPin } from 'lucide-react';
+import { MapPin, FileText } from 'lucide-react';
 import { cn } from '@repo/shared';
-import { isVideoFile } from '@/lib/file';
+import { isVideoFile, isPdfFile, getAttachmentDisplayName } from '@/lib/file';
 import { ChatMessage } from '@/types/chat';
 
 interface ChatMessageBubbleProps {
@@ -84,6 +84,20 @@ export function ChatMessageBubble({
         {message.attachments && message.attachments.length > 0 && (
           <div className={cn('grid gap-2 mb-3', message.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
             {message.attachments.map((url, i) => {
+              if (isPdfFile(url)) {
+                return (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 bg-black/5 border border-border rounded-lg p-3 hover:border-blue-500/40 transition-colors"
+                  >
+                    <FileText size={20} className="text-red-500 shrink-0" />
+                    <span className="text-sm text-foreground truncate">{getAttachmentDisplayName(url, i)}</span>
+                  </a>
+                );
+              }
               if (isVideoFile(url)) {
                 return (
                   <video

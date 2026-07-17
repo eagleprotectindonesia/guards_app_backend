@@ -147,7 +147,7 @@ export function DirectChatPane(props: DirectChatPaneProps) {
               type="file"
               ref={fileInputRef}
               onChange={e => onFileChange(Array.from(e.target.files || []))}
-              accept="image/*"
+              accept="image/*,video/*,application/pdf"
               multiple
               className="hidden"
             />
