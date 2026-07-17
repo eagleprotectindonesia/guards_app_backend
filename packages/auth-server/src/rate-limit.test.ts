@@ -3,6 +3,7 @@ const mockSet = jest.fn();
 const mockDel = jest.fn();
 const mockTtl = jest.fn();
 const mockMulti = jest.fn();
+const mockRlIncrWithLock = jest.fn();
 
 jest.mock('@repo/database/redis', () => ({
   redis: {
@@ -11,6 +12,7 @@ jest.mock('@repo/database/redis', () => ({
     del: mockDel,
     ttl: mockTtl,
     multi: mockMulti,
+    rlIncrWithLock: mockRlIncrWithLock,
   },
 }));
 
@@ -23,11 +25,9 @@ import {
   clear2faAttempts,
   checkBiometricThrottle,
   recordBiometricFailure,
-  clientIp,
   RateLimitBackendError,
 } from './rate-limit';
 
-// Helper to simulate ioredis multi() chaining
 function mockMultiChain(results: [Error | null, unknown][]) {
   const exec = jest.fn().mockResolvedValue(results);
   const mock = { incr: jest.fn().mockReturnThis(), expire: jest.fn().mockReturnThis(), exec };
@@ -37,28 +37,60 @@ function mockMultiChain(results: [Error | null, unknown][]) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  delete process.env.RATE_LIMIT_TRUSTED_PROXIES;
 });
 
 // --- clientIp -----------------------------------------------------------------
 
 describe('clientIp', () => {
-  it('extracts IP from x-forwarded-for', () => {
+  type ClientIpFn = Function;
+
+function loadClientIp(): ClientIpFn {
+    let result!: ClientIpFn;
+    jest.isolateModules(() => {
+      result = require('./rate-limit').clientIp;
+    });
+    return result;
+  }
+
+  it('defaults to trust=1 and walks x-forwarded-for from the right', () => {
+    const ip = loadClientIp();
     const req = new Request('http://localhost', {
       headers: { 'x-forwarded-for': '203.0.113.5, 10.0.0.1' },
     });
-    expect(clientIp(req)).toBe('203.0.113.5');
+    expect(ip(req)).toBe('10.0.0.1');
   });
 
-  it('falls back to x-real-ip', () => {
+  it('honors RATE_LIMIT_TRUSTED_PROXIES=2', () => {
+    process.env.RATE_LIMIT_TRUSTED_PROXIES = '2';
+    const ip = loadClientIp();
+    const req = new Request('http://localhost', {
+      headers: { 'x-forwarded-for': '203.0.113.5, 10.0.0.1, 172.16.0.1' },
+    });
+    expect(ip(req)).toBe('10.0.0.1');
+  });
+
+  it('falls back to x-real-ip when x-forwarded-for missing', () => {
+    const ip = loadClientIp();
     const req = new Request('http://localhost', {
       headers: { 'x-real-ip': '198.51.100.2' },
     });
-    expect(clientIp(req)).toBe('198.51.100.2');
+    expect(ip(req)).toBe('198.51.100.2');
   });
 
-  it('returns "unknown" when no header present', () => {
+  it('returns "unknown" when no forwarded headers present', () => {
+    const ip = loadClientIp();
     const req = new Request('http://localhost');
-    expect(clientIp(req)).toBe('unknown');
+    expect(ip(req)).toBe('unknown');
+  });
+
+  it('treats explicit empty string same as default (trust=1)', () => {
+    process.env.RATE_LIMIT_TRUSTED_PROXIES = '';
+    const ip = loadClientIp();
+    const req = new Request('http://localhost', {
+      headers: { 'x-forwarded-for': '203.0.113.5, 10.0.0.1' },
+    });
+    expect(ip(req)).toBe('10.0.0.1');
   });
 });
 
@@ -80,6 +112,15 @@ describe('checkLoginThrottle', () => {
     const result = await checkLoginThrottle({ accountKey: 'admin@test.com', ip: '1.2.3.4' });
     expect(result.allowed).toBe(false);
     expect(result.retryAfter).toBe(800);
+  });
+
+  it('allows at exactly MAX-1 (boundary)', async () => {
+    mockGet.mockImplementation((key: string) => {
+      if (key.startsWith('login:fail:')) return '4';
+      return null;
+    });
+    const result = await checkLoginThrottle({ accountKey: 'admin@test.com', ip: '1.2.3.4' });
+    expect(result.allowed).toBe(true);
   });
 
   it('blocks when IP exceeds max attempts', async () => {
@@ -115,10 +156,10 @@ describe('clearLoginFailures', () => {
   });
 });
 
-// --- 2FA attempt counter ------------------------------------------------------
+// --- 2FA attempt counter (atomic) ---------------------------------------------
 
 describe('check2faAttempts', () => {
-  it('allows if under limit and not locked', async () => {
+  it('allows when not locked', async () => {
     mockGet.mockResolvedValue(null);
     const result = await check2faAttempts('admin-1');
     expect(result.allowed).toBe(true);
@@ -134,29 +175,29 @@ describe('check2faAttempts', () => {
     expect(result.allowed).toBe(false);
     expect(result.retryAfter).toBe(120);
   });
-
-  it('blocks when fail count reaches max and sets lock', async () => {
-    mockGet.mockImplementation((key: string) => {
-      if (key.includes('2fa:fail:')) return '5';
-      return null;
-    });
-    mockSet.mockResolvedValue('OK');
-
-    const result = await check2faAttempts('admin-1');
-    expect(result.allowed).toBe(false);
-    expect(mockSet).toHaveBeenCalledWith('2fa:locked:admin-1', '1', 'EX', 300);
-  });
 });
 
 describe('record2faFailure', () => {
-  it('increments counter and sets lock at threshold', async () => {
-    const multi = mockMultiChain([[null, 5]]);
-    mockSet.mockResolvedValue('OK');
+  it('invokes atomic rlIncrWithLock with counter/lock keys and TTLs', async () => {
+    mockRlIncrWithLock.mockResolvedValue([3, null]);
 
     await record2faFailure('admin-1');
 
-    expect(multi.incr).toHaveBeenCalledWith('2fa:fail:admin-1');
-    expect(mockSet).toHaveBeenCalledWith('2fa:locked:admin-1', '1', 'EX', 300);
+    expect(mockRlIncrWithLock).toHaveBeenCalledWith(
+      '2fa:fail:admin-1',
+      '2fa:locked:admin-1',
+      '300',
+      '5',
+      '300',
+    );
+  });
+
+  it('only claims the lock on the threshold-crossing call (NX semantics)', async () => {
+    mockRlIncrWithLock.mockResolvedValueOnce([5, '1']);
+    await record2faFailure('admin-1');
+    mockRlIncrWithLock.mockResolvedValueOnce([6, null]);
+    await record2faFailure('admin-1');
+    expect(mockRlIncrWithLock).toHaveBeenCalledTimes(2);
   });
 });
 
@@ -203,14 +244,9 @@ describe('RateLimitBackendError', () => {
     await expect(checkLoginThrottle({ accountKey: 'x', ip: '1' })).rejects.toThrow(RateLimitBackendError);
   });
 
-  it('thrown when Redis set fails', async () => {
-    mockGet.mockImplementation((key: string) => {
-      if (key.includes('2fa:locked:')) return null;
-      if (key.includes('2fa:fail:')) return '5';
-      return null;
-    });
-    mockSet.mockRejectedValue(new Error('connection refused'));
-    await expect(check2faAttempts('admin-1')).rejects.toThrow(RateLimitBackendError);
+  it('thrown when rlIncrWithLock fails', async () => {
+    mockRlIncrWithLock.mockRejectedValue(new Error('connection refused'));
+    await expect(record2faFailure('admin-1')).rejects.toThrow(RateLimitBackendError);
   });
 
   it('thrown when Redis multi exec fails', async () => {

@@ -23,10 +23,31 @@ export interface ThrottleResult {
   retryAfter?: number; // seconds remaining in the window
 }
 
+const TRUSTED_PROXY_HOPS = (() => {
+  const raw = process.env.RATE_LIMIT_TRUSTED_PROXIES;
+  if (raw === undefined || raw === '') return 1;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 1;
+})();
+
+/**
+ * Extracts the client IP. Only trusts x-forwarded-for when RATE_LIMIT_TRUSTED_PROXIES
+ * is set to the number of trusted reverse-proxy hops in front of the app (e.g. ALB +
+ * nginx). The header is then walked from the right, skipping N hops, so a client cannot
+ * spoof the IP by prepending their own value to the header.
+ */
 function clientIp(req: Request): string {
-  const fwd = req.headers.get('x-forwarded-for');
-  if (fwd) return fwd.split(',')[0].trim();
-  return req.headers.get('x-real-ip') ?? 'unknown';
+  if (TRUSTED_PROXY_HOPS > 0) {
+    const fwd = req.headers.get('x-forwarded-for');
+    if (fwd) {
+      const hops = fwd.split(',').map(s => s.trim()).filter(Boolean);
+      const idx = hops.length - TRUSTED_PROXY_HOPS;
+      if (idx >= 0 && hops[idx]) return hops[idx];
+    }
+    const real = req.headers.get('x-real-ip');
+    if (real) return real.trim();
+  }
+  return 'unknown';
 }
 
 async function incrWindow(key: string, ttl: number): Promise<number> {
@@ -36,6 +57,42 @@ async function incrWindow(key: string, ttl: number): Promise<number> {
     multi.expire(key, ttl, 'NX');
     const results = await multi.exec();
     return (results?.[0]?.[1] as number) ?? 0;
+  } catch (err) {
+    throw new RateLimitBackendError(err);
+  }
+}
+
+/**
+ * Atomically increments `counterKey` (setting TTL on first write) and, if the
+ * post-increment value >= `threshold`, sets `lockKey` with NX EX. Returns
+ * [count, locked] where locked is 1 if THIS call claimed the lock.
+ */
+async function incrWithLock(
+  counterKey: string,
+  counterTtl: number,
+  threshold: number,
+  lockKey: string,
+  lockTtl: number,
+): Promise<{ count: number; locked: boolean }> {
+  try {
+    const client = redis as unknown as Record<string, unknown>;
+    /* eslint-disable no-unused-vars */
+    const command = client.rlIncrWithLock as (
+      counterKey: string,
+      lockKey: string,
+      counterTtl: string,
+      threshold: string,
+      lockTtl: string,
+    ) => Promise<[number, string | null]>;
+    /* eslint-enable no-unused-vars */
+    const result = await command(
+      counterKey,
+      lockKey,
+      String(counterTtl),
+      String(threshold),
+      String(lockTtl),
+    );
+    return { count: result[0], locked: result[1] === '1' };
   } catch (err) {
     throw new RateLimitBackendError(err);
   }
@@ -53,14 +110,6 @@ async function ttlOf(key: string): Promise<number> {
 async function getWithFail(key: string): Promise<string | null> {
   try {
     return await redis.get(key);
-  } catch (err) {
-    throw new RateLimitBackendError(err);
-  }
-}
-
-async function setExWithFail(key: string, ttl: number, value?: string): Promise<void> {
-  try {
-    await redis.set(key, value ?? '1', 'EX', ttl);
   } catch (err) {
     throw new RateLimitBackendError(err);
   }
@@ -113,23 +162,21 @@ export async function clearLoginFailures(opts: { accountKey: string; ip: string 
 // --- 2FA (TOTP) attempt counter ----------------------------------------------
 
 export async function check2faAttempts(adminId: string): Promise<ThrottleResult> {
-  if (await getWithFail(`2fa:locked:${adminId}`)) {
-    return { allowed: false, retryAfter: await ttlOf(`2fa:locked:${adminId}`) };
-  }
-  const hits = await getWithFail(`2fa:fail:${adminId}`);
-  const count = hits ? parseInt(hits, 10) : 0;
-  if (count >= MAX_2FA_ATTEMPTS) {
-    await setExWithFail(`2fa:locked:${adminId}`, TOTP_WINDOW_SECONDS);
-    return { allowed: false, retryAfter: TOTP_WINDOW_SECONDS };
+  const lockKey = `2fa:locked:${adminId}`;
+  if (await getWithFail(lockKey)) {
+    return { allowed: false, retryAfter: await ttlOf(lockKey) };
   }
   return { allowed: true };
 }
 
 export async function record2faFailure(adminId: string): Promise<void> {
-  const count = await incrWindow(`2fa:fail:${adminId}`, TOTP_WINDOW_SECONDS);
-  if (count >= MAX_2FA_ATTEMPTS) {
-    await setExWithFail(`2fa:locked:${adminId}`, TOTP_WINDOW_SECONDS);
-  }
+  await incrWithLock(
+    `2fa:fail:${adminId}`,
+    TOTP_WINDOW_SECONDS,
+    MAX_2FA_ATTEMPTS,
+    `2fa:locked:${adminId}`,
+    TOTP_WINDOW_SECONDS,
+  );
 }
 
 export async function clear2faAttempts(adminId: string): Promise<void> {

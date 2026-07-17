@@ -43,10 +43,11 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { employeeNumber, password } = employeeLoginSchema.parse(body);
 
+    const normalizedEmployeeNumber = employeeNumber.toUpperCase();
     const ip = clientIp(req);
 
     // Enforce per-account + per-IP rate limit
-    const throttle = await checkLoginThrottle({ accountKey: employeeNumber, ip });
+    const throttle = await checkLoginThrottle({ accountKey: normalizedEmployeeNumber, ip });
     if (!throttle.allowed) {
       return NextResponse.json(
         { message: 'Terlalu banyak percobaan. Silakan coba lagi nanti.' },
@@ -55,32 +56,32 @@ export async function POST(req: Request) {
     }
 
     const employee = await prisma.employee.findFirst({
-      where: { employeeNumber, deletedAt: null },
+      where: { employeeNumber: normalizedEmployeeNumber, deletedAt: null },
     });
 
     if (!employee) {
-      await recordLoginFailure({ accountKey: employeeNumber, ip });
+      await recordLoginFailure({ accountKey: normalizedEmployeeNumber, ip });
       return NextResponse.json({ message: 'Karyawan tidak valid' }, { status: 401 });
     }
 
     if (employee.status === false) {
-      await recordLoginFailure({ accountKey: employeeNumber, ip });
+      await recordLoginFailure({ accountKey: normalizedEmployeeNumber, ip });
       return NextResponse.json({ message: 'Akun tidak aktif. Silakan hubungi administrator.' }, { status: 403 });
     }
 
     if (!employee.hashedPassword) {
-      await recordLoginFailure({ accountKey: employeeNumber, ip });
+      await recordLoginFailure({ accountKey: normalizedEmployeeNumber, ip });
       return NextResponse.json({ message: 'Karyawan tidak valid' }, { status: 401 });
     }
 
     const passwordMatch = await verifyPassword(password, employee.hashedPassword);
 
     if (!passwordMatch) {
-      await recordLoginFailure({ accountKey: employeeNumber, ip });
+      await recordLoginFailure({ accountKey: normalizedEmployeeNumber, ip });
       return NextResponse.json({ message: 'Kredensial tidak valid' }, { status: 401 });
     }
 
-    await clearLoginFailures({ accountKey: employeeNumber, ip });
+    await clearLoginFailures({ accountKey: normalizedEmployeeNumber, ip });
 
     // Detect client type
     const headersList = await headers();
