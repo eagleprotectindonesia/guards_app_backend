@@ -5,6 +5,7 @@ import { getAdminById } from '@repo/database';
 import { redis } from '@repo/database/redis';
 import { verify2FAToken } from '@/lib/auth/2fa';
 import { AUTH_COOKIES, AUTH_COOKIE_SECURE, getJwtSecret } from '@/lib/auth/constants';
+import { check2faAttempts, record2faFailure, clear2faAttempts, RateLimitBackendError } from '@repo/auth-server';
 
 export async function POST(req: Request) {
   try {
@@ -40,6 +41,15 @@ export async function POST(req: Request) {
       });
     }
 
+    // 1b. Enforce TOTP attempt cap for this pending session
+    const throttle = await check2faAttempts(adminId);
+    if (!throttle.allowed) {
+      return new NextResponse(JSON.stringify({ error: 'Too many verification attempts. Please login again.' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', 'Retry-After': String(throttle.retryAfter ?? 300) },
+      });
+    }
+
     // 2. Fetch admin to get the secret
     const admin = await getAdminById(adminId);
 
@@ -54,6 +64,7 @@ export async function POST(req: Request) {
     const isValid = await verify2FAToken(code, admin.twoFactorSecret);
 
     if (!isValid) {
+      await record2faFailure(adminId);
       return new NextResponse(JSON.stringify({ error: 'Invalid verification code' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
@@ -61,6 +72,7 @@ export async function POST(req: Request) {
     }
 
     // 4. Verification successful - Issue the final admin_token
+    await clear2faAttempts(adminId);
     const cacheKey = `admin:token_version:${admin.id}`;
     await redis.set(cacheKey, admin.tokenVersion.toString(), 'EX', 3600);
 
@@ -89,6 +101,12 @@ export async function POST(req: Request) {
     return response;
   } catch (error) {
     console.error('2FA Verification error:', error);
+    if (error instanceof RateLimitBackendError) {
+      return new NextResponse(JSON.stringify({ error: 'Service unavailable. Please try again.' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     return new NextResponse(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

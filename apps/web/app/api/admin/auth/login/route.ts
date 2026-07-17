@@ -4,6 +4,7 @@ import { findAdminByEmail } from '@repo/database';
 import { AUTH_COOKIES, AUTH_COOKIE_SECURE, getJwtSecret } from '@/lib/auth/constants';
 import { verifyPassword } from '@repo/database';
 import { redis } from '@repo/database/redis';
+import { checkLoginThrottle, recordLoginFailure, clearLoginFailures, clientIp, RateLimitBackendError } from '@repo/auth-server';
 
 export async function POST(req: Request) {
   try {
@@ -18,10 +19,25 @@ export async function POST(req: Request) {
       });
     }
 
+    const ip = clientIp(req);
+    const accountKey = email.toLowerCase();
+
+    const throttle = await checkLoginThrottle({ accountKey, ip });
+    if (!throttle.allowed) {
+      return new NextResponse(JSON.stringify({ error: 'Too many attempts. Please try again later.' }), {
+        status: 429,
+        headers: {
+          'Content-Type': 'application/json',
+          'Retry-After': String(throttle.retryAfter ?? 900),
+        },
+      });
+    }
+
     // Find admin by email
     const admin = await findAdminByEmail(email);
 
     if (!admin || !admin.hashedPassword) {
+      await recordLoginFailure({ accountKey, ip });
       return new NextResponse(JSON.stringify({ error: 'Invalid credentials' }), {
         status: 401,
         headers: {
@@ -34,6 +50,7 @@ export async function POST(req: Request) {
     const passwordMatch = await verifyPassword(password, admin.hashedPassword);
 
     if (!passwordMatch) {
+      await recordLoginFailure({ accountKey, ip });
       return new NextResponse(JSON.stringify({ error: 'Invalid credentials' }), {
         status: 401,
         headers: {
@@ -41,6 +58,8 @@ export async function POST(req: Request) {
         },
       });
     }
+
+    await clearLoginFailures({ accountKey, ip });
 
     // Check if 2FA is enabled
     if (admin.twoFactorEnabled) {
@@ -99,6 +118,12 @@ export async function POST(req: Request) {
     return response;
   } catch (error) {
     console.error('Login error:', error);
+    if (error instanceof RateLimitBackendError) {
+      return new NextResponse(JSON.stringify({ error: 'Service unavailable. Please try again.' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     return new NextResponse(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: {
