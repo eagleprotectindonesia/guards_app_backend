@@ -10,8 +10,9 @@ import { isSecurityStandbyTitle } from './employees';
 import { resolveAllOpenAlertsForShift } from './alerts';
 
 /**
- * Returns non-deleted shifts for an employee whose `date` falls within ±1 day of
- * `referenceDate`. Used to surface swap candidates for the admin swap-shift modal.
+ * Returns non-deleted, non-past shifts for an employee. Used to surface swap
+ * candidates for the admin swap-shift modal. Past shifts are excluded so admins
+ * can only swap into a shift that is today or in the future.
  */
 export async function getShiftsByEmployeeWithinWindow(
   employeeId: string,
@@ -20,17 +21,15 @@ export async function getShiftsByEmployeeWithinWindow(
 ) {
   // `date` is a @db.Date column (date-only), returned by Prisma as UTC-midnight Dates.
   // Keep everything in UTC to match the rest of the codebase and avoid timezone drift.
-  const refKey = referenceDate.toISOString().slice(0, 10);
-  const refUtcMidnight = new Date(`${refKey}T00:00:00Z`);
-  const DAY_MS = 24 * 60 * 60 * 1000;
-  const from = new Date(refUtcMidnight.getTime() - DAY_MS);
-  const to = new Date(refUtcMidnight.getTime() + DAY_MS);
+  // Exclude anything strictly before today (UTC midnight) — only today and future shifts are swappable.
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayUtcMidnight = new Date(`${todayKey}T00:00:00Z`);
 
   return prisma.shift.findMany({
     where: {
       employeeId,
       deletedAt: null,
-      date: { gte: from, lte: to },
+      date: { gte: todayUtcMidnight },
     },
     include: include || {
       site: { select: { name: true } },
@@ -896,18 +895,6 @@ export async function swapShifts(
 
       if (a.employeeId === b.employeeId) {
         throw new Error('Both shifts are already assigned to the same employee');
-      }
-
-      // Swaps are only allowed for shifts within 1 day of each other (±1 day window).
-      // `date` is @db.Date (date-only), returned as UTC-midnight Dates; compare by UTC day key.
-      const DAY_MS = 24 * 60 * 60 * 1000;
-      const aKey = a.date.toISOString().slice(0, 10);
-      const bKey = b.date.toISOString().slice(0, 10);
-      const aUtc = new Date(`${aKey}T00:00:00Z`).getTime();
-      const bUtc = new Date(`${bKey}T00:00:00Z`).getTime();
-      const dateDiffDays = Math.abs(Math.round((aUtc - bUtc) / DAY_MS));
-      if (dateDiffDays > 1) {
-        throw new Error('Swaps are only allowed for shifts within 1 day of each other');
       }
 
       // Lock affected employees
@@ -2138,6 +2125,8 @@ export async function getExportShiftsBatch(params: { where: Prisma.ShiftWhereInp
       shiftType: true,
       employee: { include: { office: { select: { name: true } } } },
       createdBy: { select: { name: true } },
+      swapsWithShift: { select: { id: true, employee: { select: { fullName: true, employeeNumber: true } } } },
+      replacedByAdmin: { select: { name: true } },
     },
     ...(cursor && { skip: 1, cursor: { id: cursor } }),
   });

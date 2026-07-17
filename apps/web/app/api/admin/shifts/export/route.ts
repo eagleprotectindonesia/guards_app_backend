@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Prisma, Shift, Site, ShiftType } from '@prisma/client';
 import { EmployeeWithRelations } from '@repo/database';
 import { startOfDay, endOfDay, format } from 'date-fns';
-import {
-  getExportShiftsBatch,
-  getEmployeeOnsiteDayOffsForDateRange,
-} from '@repo/database';
+import { getExportShiftsBatch, getEmployeeOnsiteDayOffsForDateRange } from '@repo/database';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -61,6 +58,9 @@ export async function GET(request: NextRequest) {
         'Created By',
         'Created At',
         'Deleted At',
+        'Swap/Replacement',
+        'Swap/Replaced With',
+        'Replacement Reason',
       ];
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
@@ -86,6 +86,11 @@ export async function GET(request: NextRequest) {
               shiftType: ShiftType;
               employee: EmployeeWithRelations | null;
               createdBy: { name: string } | null;
+              swapsWithShift: {
+                id: string;
+                employee: { fullName: string | null; employeeNumber: string | null };
+              } | null;
+              replacedByAdmin: { name: string } | null;
             };
 
             const siteName = s.site.name;
@@ -99,6 +104,10 @@ export async function GET(request: NextRequest) {
             const createdBy = s.createdBy?.name || 'System';
             const createdAt = format(new Date(s.createdAt), 'yyyy/MM/dd HH:mm');
             const deletedAt = s.deletedAt ? format(new Date(s.deletedAt), 'yyyy/MM/dd HH:mm') : '';
+
+            const swapReplacement = s.swapsWithShiftId ? 'Swapped' : s.replacedByAdminId ? 'Replaced' : '';
+            const swapWithEmployee = s.swapsWithShift?.employee?.fullName || '';
+            const replacementReason = s.replacementReason || '';
 
             // Escape quotes in CSV fields: " -> ""
             const escape = (str: string) => `"${String(str).replace(/"/g, '""')}"`;
@@ -119,6 +128,9 @@ export async function GET(request: NextRequest) {
                 escape(createdBy),
                 escape(createdAt),
                 escape(deletedAt),
+                escape(swapReplacement),
+                escape(swapWithEmployee),
+                escape(replacementReason),
               ].join(',') + '\n';
           }
 
@@ -151,7 +163,7 @@ async function exportShiftsWithDayOffs(
   shiftsWhere: Prisma.ShiftWhereInput,
   startDateStr: string | null,
   endDateStr: string | null,
-  employeeId: string | null,
+  employeeId: string | null
 ) {
   const BATCH_SIZE = 1000;
 
@@ -170,6 +182,9 @@ async function exportShiftsWithDayOffs(
     'Created By',
     'Created At',
     'Deleted At',
+    'Swap/Replacement',
+    'Swap With Shift ID',
+    'Replacement Reason',
   ];
 
   const escape = (str: string) => `"${String(str).replace(/"/g, '""')}"`;
@@ -209,6 +224,9 @@ async function exportShiftsWithDayOffs(
           escape(s.createdBy?.name || 'System'),
           escape(format(new Date(s.createdAt), 'yyyy/MM/dd HH:mm')),
           s.deletedAt ? escape(format(new Date(s.deletedAt), 'yyyy/MM/dd HH:mm')) : '',
+          '',
+          '',
+          '',
         ],
       });
     }
@@ -225,7 +243,7 @@ async function exportShiftsWithDayOffs(
     const dayOffs = await getEmployeeOnsiteDayOffsForDateRange(
       dayOffStartDate,
       dayOffEndDate ?? undefined,
-      employeeId || undefined,
+      employeeId || undefined
     );
 
     if (dayOffs.length > 0) {
@@ -238,6 +256,9 @@ async function exportShiftsWithDayOffs(
             '',
             escape('Day Off'),
             escape(format(dayOff.date, 'yyyy/MM/dd')),
+            '',
+            '',
+            '',
             '',
             '',
             '',
