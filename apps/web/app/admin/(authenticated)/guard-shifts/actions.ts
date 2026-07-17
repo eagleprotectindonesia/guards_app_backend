@@ -19,6 +19,7 @@ import {
   swapShifts,
   getShiftsByEmployeeWithinWindow,
 } from '@repo/database';
+import { sendShiftReassignmentPushNotification } from '@repo/notifications';
 import { getShiftTypeDurationInMins } from '@repo/database';
 import { ActionState } from '@/types/actions';
 import type { SerializedShiftWithRelationsDto } from '@/types/shifts';
@@ -972,7 +973,13 @@ export async function replaceShift(input: {
       };
     }
 
-    await replaceShiftGuard(
+    const originalShift = await prisma.shift.findUnique({
+      where: { id: parsed.data.shiftId, deletedAt: null },
+      select: { employeeId: true },
+    });
+    const originalEmployeeId = originalShift?.employeeId ?? null;
+
+    const result = await replaceShiftGuard(
       {
         shiftId: parsed.data.shiftId,
         replacementEmployeeId: parsed.data.replacementEmployeeId,
@@ -981,6 +988,31 @@ export async function replaceShift(input: {
         evidenceS3Key: parsed.data.evidenceS3Key ?? null,
       },
       adminId
+    );
+
+    // Notify both the original guard (now removed) and the new replacement guard.
+    const notifyTargets: { employeeId: string; wasOriginalAssignee: boolean }[] = [];
+    if (originalEmployeeId) {
+      notifyTargets.push({ employeeId: originalEmployeeId, wasOriginalAssignee: true });
+    }
+    if (result.employeeId) {
+      notifyTargets.push({ employeeId: result.employeeId, wasOriginalAssignee: false });
+    }
+    await Promise.all(
+      notifyTargets.map(t =>
+        sendShiftReassignmentPushNotification({
+          employeeId: t.employeeId,
+          shiftId: result.id,
+          siteName: result.site.name,
+          shiftTypeName: result.shiftType.name,
+          date: result.date,
+          startsAt: result.startsAt,
+          endsAt: result.endsAt,
+          reason: parsed.data.reason,
+          kind: 'replace',
+          wasOriginalAssignee: t.wasOriginalAssignee,
+        }).catch(() => {})
+      )
     );
 
     revalidatePath('/admin/guard-shifts');
@@ -1012,7 +1044,7 @@ export async function swapShiftsAction(input: {
       };
     }
 
-    await swapShifts(
+    const result = await swapShifts(
       {
         shiftAId: parsed.data.shiftAId,
         shiftBId: parsed.data.shiftBId,
@@ -1020,6 +1052,27 @@ export async function swapShiftsAction(input: {
         notes: parsed.data.notes ?? null,
       },
       adminId
+    );
+
+    // Notify both guards involved in the swap.
+    const notified = new Set<string>();
+    await Promise.all(
+      [result.shiftA, result.shiftB].map(shift => {
+        if (!shift.employeeId || notified.has(shift.employeeId)) return Promise.resolve();
+        notified.add(shift.employeeId);
+        return sendShiftReassignmentPushNotification({
+          employeeId: shift.employeeId,
+          shiftId: shift.id,
+          siteName: shift.site.name,
+          shiftTypeName: shift.shiftType.name,
+          date: shift.date,
+          startsAt: shift.startsAt,
+          endsAt: shift.endsAt,
+          reason: parsed.data.reason ?? 'Personal Reason',
+          kind: 'swap',
+          wasOriginalAssignee: false,
+        }).catch(() => {});
+      })
     );
 
     revalidatePath('/admin/guard-shifts');
