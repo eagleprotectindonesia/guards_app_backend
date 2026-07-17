@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import type { Serialized } from '@/lib/server-utils';
 import { deleteShift, cancelShift, replaceShift, swapShiftsAction } from '../actions';
 import BulkCreateModal from './bulk-create-modal';
@@ -78,16 +78,6 @@ export default function ShiftList({
   const canDelete = hasPermission(PERMISSIONS.SHIFTS.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
   const { apply } = useFilterUrlSync('/admin/guard-shifts');
-
-  const shiftsByEmployee = useMemo(() => {
-    const map: Record<string, Serialized<ShiftWithRelationsDto>[]> = {};
-    for (const shift of shifts) {
-      if (!shift.employeeId) continue;
-      if (!map[shift.employeeId]) map[shift.employeeId] = [];
-      map[shift.employeeId].push(shift);
-    }
-    return map;
-  }, [shifts]);
 
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(
     startDate ? parseISO(startDate) : undefined
@@ -522,7 +512,6 @@ export default function ShiftList({
         onClose={() => setSwapTarget(null)}
         shiftA={swapTarget}
         employees={employees}
-        shiftsByEmployee={shiftsByEmployee}
         isPending={isSwapPending}
         onSubmit={handleSwapSubmit}
       />

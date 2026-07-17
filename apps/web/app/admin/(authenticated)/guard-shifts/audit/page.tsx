@@ -43,7 +43,11 @@ export default async function ShiftAuditPage(props: PageProps) {
   };
 
   if (action) {
-    where.action = action;
+    if (action === 'SWAP' || action === 'REPLACEMENT') {
+      where.AND = [{ action: 'UPDATE' }, { details: { path: ['method'], equals: action } }];
+    } else {
+      where.action = action;
+    }
   }
 
   if (entityId) {

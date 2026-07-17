@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Modal from '../../components/modal';
 import Select from '../../components/select';
 import { Button } from '@/components/ui/button';
@@ -8,13 +8,13 @@ import { format } from 'date-fns';
 import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { Serialized } from '@/lib/server-utils';
 import type { EmployeeSummary } from '@repo/database';
+import { getSwapCandidateShiftsAction } from '../actions';
 
 type SwapShiftModalProps = {
   isOpen: boolean;
   onClose: () => void;
   shiftA: Serialized<ShiftWithRelationsDto> | null;
   employees: EmployeeSummary[];
-  shiftsByEmployee: Record<string, Serialized<ShiftWithRelationsDto>[]>;
   isPending: boolean;
   onSubmit: (input: {
     shiftAId: string;
@@ -47,14 +47,16 @@ function formatShiftLabel(shift: Serialized<ShiftWithRelationsDto>): string {
   return `${format(start, 'yyyy/MM/dd')} ${period} ${time}`;
 }
 
-function sameYmd(a: string | Date, b: string | Date): boolean {
-  const da = new Date(a);
-  const db = new Date(b);
-  return (
-    da.getFullYear() === db.getFullYear() &&
-    da.getMonth() === db.getMonth() &&
-    da.getDate() === db.getDate()
-  );
+function dayDiffDays(a: string | Date, b: string | Date): number {
+  const aKey = new Date(a).toISOString().slice(0, 10);
+  const bKey = new Date(b).toISOString().slice(0, 10);
+  const aUtc = new Date(`${aKey}T00:00:00Z`).getTime();
+  const bUtc = new Date(`${bKey}T00:00:00Z`).getTime();
+  return Math.round((aUtc - bUtc) / (24 * 60 * 60 * 1000));
+}
+
+function withinOneDay(a: string | Date, b: string | Date): boolean {
+  return Math.abs(dayDiffDays(a, b)) <= 1;
 }
 
 export default function SwapShiftModal({
@@ -62,7 +64,6 @@ export default function SwapShiftModal({
   isPending,
   shiftA,
   employees,
-  shiftsByEmployee,
   onClose,
   onSubmit,
 }: SwapShiftModalProps) {
@@ -71,10 +72,43 @@ export default function SwapShiftModal({
   const [reason, setReason] = useState<string>('Personal Reason');
   const [notes, setNotes] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [candidateShifts, setCandidateShifts] = useState<Serialized<ShiftWithRelationsDto>[]>([]);
+  const [isLoadingCandidates, setIsLoadingCandidates] = useState(false);
 
   const handleClose = () => {
     onClose();
   };
+
+  // Fetch Guard B's shifts within the ±1 day window on demand. The page only loads
+  // shifts for its own date filter, so adjacent-day candidates aren't in shiftsByEmployee.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const ready = isOpen && !!shiftA && !!userGuardBId;
+      if (!ready) {
+        setCandidateShifts([]);
+        setIsLoadingCandidates(false);
+        return;
+      }
+      setIsLoadingCandidates(true);
+      try {
+        const res = await getSwapCandidateShiftsAction({
+          employeeId: userGuardBId!,
+          referenceDate: shiftA!.date,
+        });
+        if (!cancelled) {
+          setCandidateShifts(res.success && res.shifts ? res.shifts : []);
+        }
+      } catch {
+        if (!cancelled) setCandidateShifts([]);
+      } finally {
+        if (!cancelled) setIsLoadingCandidates(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, shiftA, userGuardBId]);
 
   const guardBOptions = useMemo(() => {
     if (!shiftA) return [];
@@ -85,17 +119,17 @@ export default function SwapShiftModal({
 
   const guardBShiftOptions = useMemo(() => {
     if (!shiftA || !userGuardBId) return [];
-    const candidates = (shiftsByEmployee[userGuardBId] ?? []).filter(
+    const candidates = candidateShifts.filter(
       s =>
         s.id !== shiftA.id &&
         (s.status === 'scheduled' || s.status === 'in_progress') &&
-        sameYmd(s.date, shiftA.date)
+        withinOneDay(s.date, shiftA.date)
     );
     return candidates.map(s => ({
       value: s.id,
       label: `${formatShiftLabel(s)} — ${s.shiftType.name}`,
     }));
-  }, [shiftsByEmployee, userGuardBId, shiftA]);
+  }, [candidateShifts, userGuardBId, shiftA]);
 
   // Auto-pick the only matching shift when the user has not manually chosen one.
   // This is a pure derivation — no setState — so it's safe during render.
@@ -126,11 +160,7 @@ export default function SwapShiftModal({
   if (!shiftA) return null;
 
   const shiftADateTime = formatShiftLabel(shiftA);
-  const shiftBShift = shiftBId
-    ? (shiftsByEmployee[guardBId ?? ''] ?? []).find(s => s.id === shiftBId) ?? null
-    : null;
-
-  const noMatchingShiftSelected = !!guardBId && guardBShiftOptions.length === 0;
+  const noMatchingShiftSelected = !!guardBId && !isLoadingCandidates && guardBShiftOptions.length === 0;
   const canSave =
     !!guardBId && !!shiftBId && guardBShiftOptions.length > 0 && !isPending;
 
@@ -177,7 +207,11 @@ export default function SwapShiftModal({
           </label>
           {guardBShiftOptions.length === 0 ? (
             <div className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-muted text-muted-foreground">
-              {guardBId ? 'No matching shift on this date' : '—'}
+              {!guardBId
+                ? '—'
+                : isLoadingCandidates
+                  ? 'Loading shifts…'
+                  : 'No matching shift within ±1 day'}
             </div>
           ) : (
             <Select
@@ -190,7 +224,8 @@ export default function SwapShiftModal({
           )}
           {noMatchingShiftSelected && (
             <p className="text-xs text-red-500 mt-1">
-              Selected guard has no shift on {format(new Date(shiftA.date), 'yyyy/MM/dd')}.
+              Selected guard has no shift within ±1 day of{' '}
+              {format(new Date(shiftA.date), 'yyyy/MM/dd')}.
             </p>
           )}
         </div>

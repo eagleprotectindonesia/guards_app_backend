@@ -18,6 +18,8 @@ const ACTION_OPTIONS = [
   { value: 'UPDATE', label: 'Update' },
   { value: 'DELETE', label: 'Delete' },
   { value: 'BULK_CREATE', label: 'Bulk Create' },
+  { value: 'SWAP', label: 'Swap' },
+  { value: 'REPLACEMENT', label: 'Replacement' },
 ];
 
 type EntityFilterConfig = {
@@ -26,6 +28,111 @@ type EntityFilterConfig = {
   allLabel: string;
   options: { value: string; label: string }[];
 };
+
+function getDisplayAction(log: SerializedChangelogWithAdminDto): string {
+  const method = log.details && typeof log.details === 'object'
+    ? (log.details as Record<string, unknown>).method
+    : undefined;
+  if (typeof method === 'string' && method) {
+    return method;
+  }
+  return log.action;
+}
+
+function formatShiftValue(key: string, value: unknown): string {
+  if (value === null || value === undefined) return 'None';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?/.test(value)) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) return value.length > 10 ? format(date, 'PPP p') : format(date, 'PPP');
+  }
+  return String(value);
+}
+
+function summarizeLog(entityType: string, details: Prisma.JsonValue | undefined): string {
+  if (!details || typeof details !== 'object') return '';
+  const obj = details as Record<string, unknown>;
+  const changes = obj.changes as Record<string, { from: unknown; to: unknown }> | undefined;
+
+  const changeText = (changes?: Record<string, { from: unknown; to: unknown }>) =>
+    changes && typeof changes === 'object'
+      ? Object.entries(changes)
+          .map(([key, value]) => {
+            const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, c => c.toUpperCase()).replace(/Id$/, '').trim();
+            const fmt = (v: unknown) => (v === null || v === undefined ? 'None' : String(v));
+            return `${label}: ${fmt(value.from)} → ${fmt(value.to)}`;
+          })
+          .join(', ')
+      : '';
+
+  switch (entityType) {
+    case 'Shift': {
+      const parts = [
+        obj.employeeName,
+        obj.siteName,
+        obj.typeName,
+        obj.date ? formatShiftValue('date', obj.date) : undefined,
+        obj.status,
+      ].filter(v => v !== undefined && v !== null && v !== '');
+      const time =
+        obj.startsAt && obj.endsAt
+          ? `${formatShiftValue('startsAt', obj.startsAt)} – ${formatShiftValue('endsAt', obj.endsAt)}`
+          : undefined;
+      return [parts.join(' · '), time].filter(Boolean).join('  ·  ');
+    }
+    case 'OfficeShift': {
+      const parts = [
+        obj.employeeName,
+        obj.officeShiftTypeName,
+        obj.date ? formatShiftValue('date', obj.date) : undefined,
+        obj.status,
+      ].filter(v => v !== undefined && v !== null && v !== '');
+      const time =
+        obj.startsAt && obj.endsAt
+          ? `${formatShiftValue('startsAt', obj.startsAt)} – ${formatShiftValue('endsAt', obj.endsAt)}`
+          : undefined;
+      return [parts.join(' · '), time].filter(Boolean).join('  ·  ');
+    }
+    case 'Employee': {
+      const name = obj.fullName ?? obj.employeeName ?? obj.name;
+      const sub = [obj.employeeNumber, obj.jobTitle, obj.role].filter(v => v !== undefined && v !== null && v !== '');
+      return [name, sub.length ? `(${sub.join(', ')})` : null].filter(Boolean).join(' ');
+    }
+    case 'Site': {
+      const parts = [obj.name, obj.clientName].filter(v => v !== undefined && v !== null && v !== '');
+      const sub = [obj.address, obj.status].filter(v => v !== undefined && v !== null && v !== '');
+      return [parts.join(' · '), sub.length ? sub.join(', ') : null].filter(Boolean).join('  ·  ');
+    }
+    case 'Office': {
+      const sub = [obj.address, obj.note].filter(v => v !== undefined && v !== null && v !== '');
+      return [obj.name ?? obj.title, sub.length ? sub.join(', ') : null].filter(Boolean).join('  ·  ');
+    }
+    case 'ShiftType':
+    case 'OfficeShiftType': {
+      const time =
+        obj.startTime && obj.endTime
+          ? `${String(obj.startTime)} – ${String(obj.endTime)}`
+          : undefined;
+      return [obj.name, time].filter(Boolean).join('  ·  ');
+    }
+    case 'OfficeWorkSchedule': {
+      if (obj.employeeName || obj.changeCategory === 'officeWorkScheduleAssignment') {
+        const parts = [
+          obj.employeeName,
+          obj.nextScheduleName ? `→ ${obj.nextScheduleName}` : undefined,
+          obj.operationType,
+        ].filter(v => v !== undefined && v !== null && v !== '');
+        const eff =
+          obj.effectiveFrom && obj.effectiveUntil
+            ? `${formatShiftValue('effectiveFrom', obj.effectiveFrom)} → ${formatShiftValue('effectiveUntil', obj.effectiveUntil)}`
+            : undefined;
+        return [parts.join(' · '), eff].filter(Boolean).join('  ·  ');
+      }
+      return obj.name ? String(obj.name) : '';
+    }
+    default:
+      return changeText(changes);
+  }
+}
 
 type ChangelogListProps = {
   changelogs: SerializedChangelogWithAdminDto[];
@@ -209,7 +316,6 @@ export default function ChangelogList({
                   onSort={handleSort}
                   className="pl-6"
                 />
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Actor Type</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Actor</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Action</th>
                 {!hideEntityType && (
@@ -224,6 +330,7 @@ export default function ChangelogList({
                 {showEntityName && (
                   <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Name</th>
                 )}
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Summary</th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider text-right">
                   Details
                 </th>
@@ -245,7 +352,6 @@ export default function ChangelogList({
                     <td className="py-4 px-6 text-sm text-muted-foreground whitespace-nowrap">
                       {new Date(log.createdAt).toLocaleString()}
                     </td>
-                    <td className="py-4 px-6 text-sm text-muted-foreground capitalize">{log.actor}</td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       {log.actor === 'system' ? (
                         <span className="text-muted-foreground/70 italic bg-muted/50 px-2 py-0.5 rounded text-xs">
@@ -260,18 +366,27 @@ export default function ChangelogList({
                       )}
                     </td>
                     <td className="py-4 px-6 text-sm">
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                        ${
-                          log.action === 'CREATE' || log.action === 'BULK_CREATE'
-                            ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
-                            : log.action === 'DELETE'
-                              ? 'bg-red-100 dark:bg-red-950/30 text-red-800 dark:text-red-400'
-                              : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
-                        }`}
-                      >
-                        {log.action}
-                      </span>
+                      {(() => {
+                        const action = getDisplayAction(log);
+                        return (
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                            ${
+                              action === 'CREATE' || action === 'BULK_CREATE'
+                                ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400'
+                                : action === 'DELETE'
+                                  ? 'bg-red-100 dark:bg-red-950/30 text-red-800 dark:text-red-400'
+                                  : action === 'SWAP'
+                                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400'
+                                    : action === 'REPLACEMENT'
+                                      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400'
+                                      : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400'
+                            }`}
+                          >
+                            {action}
+                          </span>
+                        );
+                      })()}
                     </td>
                     {!hideEntityType && <td className="py-4 px-6 text-sm text-muted-foreground">{log.entityType}</td>}
                     {showEntityName && (
@@ -283,6 +398,9 @@ export default function ChangelogList({
                         })()}
                       </td>
                     )}
+                    <td className="py-4 px-6 text-sm text-muted-foreground max-w-[280px] truncate" title={summarizeLog(log.entityType, log.details)}>
+                      {summarizeLog(log.entityType, log.details) || '-'}
+                    </td>
                     <td className="py-4 px-6 text-right">
                       <button
                         onClick={() => setSelectedLog({ entityType: log.entityType, details: log.details })}

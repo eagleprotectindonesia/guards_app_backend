@@ -9,6 +9,39 @@ import { reconcileApprovedOnsiteLeavesForCoverage } from './leave-requests';
 import { isSecurityStandbyTitle } from './employees';
 import { resolveAllOpenAlertsForShift } from './alerts';
 
+/**
+ * Returns non-deleted shifts for an employee whose `date` falls within ±1 day of
+ * `referenceDate`. Used to surface swap candidates for the admin swap-shift modal.
+ */
+export async function getShiftsByEmployeeWithinWindow(
+  employeeId: string,
+  referenceDate: Date,
+  include?: Prisma.ShiftInclude
+) {
+  // `date` is a @db.Date column (date-only), returned by Prisma as UTC-midnight Dates.
+  // Keep everything in UTC to match the rest of the codebase and avoid timezone drift.
+  const refKey = referenceDate.toISOString().slice(0, 10);
+  const refUtcMidnight = new Date(`${refKey}T00:00:00Z`);
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const from = new Date(refUtcMidnight.getTime() - DAY_MS);
+  const to = new Date(refUtcMidnight.getTime() + DAY_MS);
+
+  return prisma.shift.findMany({
+    where: {
+      employeeId,
+      deletedAt: null,
+      date: { gte: from, lte: to },
+    },
+    include: include || {
+      site: { select: { name: true } },
+      escortEndSite: { select: { id: true, name: true, address: true, latitude: true, longitude: true } },
+      shiftType: true,
+      employee: { include: { office: { select: { name: true } } } },
+    },
+    orderBy: { startsAt: 'asc' },
+  });
+}
+
 export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
   return prisma.shift.findUnique({
     where: { id, deletedAt: null },
@@ -92,7 +125,11 @@ export async function checkOverlappingShift(params: {
   });
 }
 
-async function cancelShiftIfOverlapsApprovedLeave(params: { shiftId: string; employeeId?: string | null; adminId: string }) {
+async function cancelShiftIfOverlapsApprovedLeave(params: {
+  shiftId: string;
+  employeeId?: string | null;
+  adminId: string;
+}) {
   const { shiftId, employeeId, adminId } = params;
   if (!employeeId) return;
 
@@ -197,7 +234,7 @@ export async function createShiftInTransaction(
         note: createdShift.note,
         siteId: createdShift.siteId,
         shiftTypeId: createdShift.shiftTypeId,
-        employeeId: createdShift.employeeId,
+        employeeNumber: emp?.employeeNumber ?? null,
         escortEndSiteId: createdShift.escortEndSiteId,
         escortEndSiteName: endSite ? endSite.name : undefined,
         method: changelogMethod,
@@ -276,13 +313,18 @@ export async function bulkCreateShiftsFromForm(
 
   const durationInMins = getShiftTypeDurationInMins(shiftType.startTime, shiftType.endTime);
   if (durationInMins % input.requiredCheckinIntervalMins !== 0) {
-    throw new Error(`Shift duration (${durationInMins} mins) must be a multiple of check-in interval (${input.requiredCheckinIntervalMins} mins)`);
+    throw new Error(
+      `Shift duration (${durationInMins} mins) must be a multiple of check-in interval (${input.requiredCheckinIntervalMins} mins)`
+    );
   }
   if (durationInMins < input.requiredCheckinIntervalMins) {
     throw new Error(`Shift duration (${durationInMins} mins) does not allow at least 1 check-in`);
   }
 
-  if ((input.kind === 'office_control' || input.kind === 'event_temporary') && input.requiredCheckinIntervalMins !== durationInMins) {
+  if (
+    (input.kind === 'office_control' || input.kind === 'event_temporary') &&
+    input.requiredCheckinIntervalMins !== durationInMins
+  ) {
     throw new Error(
       `${input.kind === 'office_control' ? 'Office control' : 'Event temporary'} shifts must have check-in interval equal to the full shift duration (${durationInMins} mins).`
     );
@@ -341,7 +383,7 @@ export async function bulkCreateShiftsFromForm(
       if (conflict) {
         throw new Error(
           `Overlap detected: employee ${plannedShift.employeeId} already has shift ${conflict.id} during ` +
-          `${plannedShift.startsAt.toISOString()} – ${plannedShift.endsAt.toISOString()}.`
+            `${plannedShift.startsAt.toISOString()} – ${plannedShift.endsAt.toISOString()}.`
         );
       }
     }
@@ -360,7 +402,7 @@ export async function bulkCreateShiftsFromForm(
       if (sorted[i].endsAt.getTime() > sorted[i + 1].startsAt.getTime()) {
         throw new Error(
           `Internal overlap: the planned shifts on ${sorted[i].dateStr} and ${sorted[i + 1].dateStr} for employee ` +
-          `${sorted[i].employeeId} overlap in time.`
+            `${sorted[i].employeeId} overlap in time.`
         );
       }
     }
@@ -411,8 +453,14 @@ export async function bulkCreateShiftsFromForm(
 
         await redis.xadd(
           `employee:stream:${result.employeeId}`,
-          'MAXLEN', '~', 100, '*',
-          'type', 'shift_updated', 'shiftId', result.id
+          'MAXLEN',
+          '~',
+          100,
+          '*',
+          'type',
+          'shift_updated',
+          'shiftId',
+          result.id
         );
       } catch (err) {
         console.error(`[bulkCreateShiftsFromForm] Post-create side effect failed for shift ${result.id}:`, err);
@@ -542,7 +590,7 @@ export async function updateShiftWithChangelog(id: string, data: Prisma.ShiftUpd
             note: updatedShift.note,
             siteId: updatedShift.siteId,
             shiftTypeId: updatedShift.shiftTypeId,
-            employeeId: updatedShift.employeeId,
+            employeeNumber: emp?.employeeNumber ?? null,
             escortEndSiteId: updatedShift.escortEndSiteId,
             escortEndSiteName: endSite ? endSite.name : undefined,
             changes: Object.keys(changes).length > 0 ? changes : undefined,
@@ -731,8 +779,9 @@ export async function replaceShiftGuard(
             note: updatedShift.note,
             siteId: updatedShift.siteId,
             shiftTypeId: updatedShift.shiftTypeId,
-            employeeId: updatedShift.employeeId,
+            employeeNumber: updatedShift.employee?.employeeNumber ?? null,
             previousEmployeeId: originalShift.employeeId,
+            previousEmployeeNumber: originalShift.employee?.employeeNumber ?? null,
             previousEmployeeName: beforeEmpName,
             replacementReason: reason.trim(),
             replacementNotes: notes ?? null,
@@ -753,15 +802,19 @@ export async function replaceShiftGuard(
   );
 
   // Post-commit: notify the affected employees and reconcile leaves
-  const employeesTouched = Array.from(
-    new Set([result.employeeId].filter(Boolean) as string[])
-  );
+  const employeesTouched = Array.from(new Set([result.employeeId].filter(Boolean) as string[]));
 
   for (const employeeId of employeesTouched) {
     await redis.xadd(
       `employee:stream:${employeeId}`,
-      'MAXLEN', '~', 100, '*',
-      'type', 'shift_updated', 'shiftId', result.id
+      'MAXLEN',
+      '~',
+      100,
+      '*',
+      'type',
+      'shift_updated',
+      'shiftId',
+      result.id
     );
 
     const dateKey = result.date.toISOString().slice(0, 10);
@@ -773,10 +826,7 @@ export async function replaceShiftGuard(
     });
   }
 
-  await redis.publish(
-    'events:shifts',
-    JSON.stringify({ type: 'SHIFT_REPLACED', id: result.id })
-  );
+  await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_REPLACED', id: result.id }));
 
   return result;
 }
@@ -848,6 +898,18 @@ export async function swapShifts(
         throw new Error('Both shifts are already assigned to the same employee');
       }
 
+      // Swaps are only allowed for shifts within 1 day of each other (±1 day window).
+      // `date` is @db.Date (date-only), returned as UTC-midnight Dates; compare by UTC day key.
+      const DAY_MS = 24 * 60 * 60 * 1000;
+      const aKey = a.date.toISOString().slice(0, 10);
+      const bKey = b.date.toISOString().slice(0, 10);
+      const aUtc = new Date(`${aKey}T00:00:00Z`).getTime();
+      const bUtc = new Date(`${bKey}T00:00:00Z`).getTime();
+      const dateDiffDays = Math.abs(Math.round((aUtc - bUtc) / DAY_MS));
+      if (dateDiffDays > 1) {
+        throw new Error('Swaps are only allowed for shifts within 1 day of each other');
+      }
+
       // Lock affected employees
       const employeeIdsToLock = Array.from(new Set([a.employeeId, b.employeeId])).sort();
       await tx.$queryRaw(
@@ -890,10 +952,8 @@ export async function swapShifts(
       const timestamp = new Date().toISOString();
       const swapLine = `[Swap on ${timestamp}]: ${reason.trim()}`;
 
-      const updatedANote = [swapLine, notes?.trim()].filter(Boolean).join('\n') +
-        (a.note ? `\n\n${a.note}` : '');
-      const updatedBNote = [swapLine, notes?.trim()].filter(Boolean).join('\n') +
-        (b.note ? `\n\n${b.note}` : '');
+      const updatedANote = [swapLine, notes?.trim()].filter(Boolean).join('\n') + (a.note ? `\n\n${a.note}` : '');
+      const updatedBNote = [swapLine, notes?.trim()].filter(Boolean).join('\n') + (b.note ? `\n\n${b.note}` : '');
 
       // Detach from group chats if either shift belongs to one — in-place swap across
       // different group chats is not supported, and even within the same group it can
@@ -956,7 +1016,7 @@ export async function swapShifts(
               note: updatedA.note,
               siteId: updatedA.siteId,
               shiftTypeId: updatedA.shiftTypeId,
-              employeeId: updatedA.employeeId,
+              employeeNumber: (updatedA.employee as any)?.employeeNumber ?? null,
               method: 'SWAP',
               swapPairShiftId: updatedB.id,
               swapsWithShiftId: updatedB.id,
@@ -986,7 +1046,7 @@ export async function swapShifts(
               note: updatedB.note,
               siteId: updatedB.siteId,
               shiftTypeId: updatedB.shiftTypeId,
-              employeeId: updatedB.employeeId,
+              employeeNumber: (updatedB.employee as any)?.employeeNumber ?? null,
               method: 'SWAP',
               swapPairShiftId: updatedA.id,
               swapsWithShiftId: updatedA.id,
@@ -1011,11 +1071,7 @@ export async function swapShifts(
     new Set([result.shiftA.employeeId, result.shiftB.employeeId].filter(Boolean) as string[])
   );
   for (const employeeId of employeesTouched) {
-    await redis.xadd(
-      `employee:stream:${employeeId}`,
-      'MAXLEN', '~', 100, '*',
-      'type', 'shift_updated'
-    );
+    await redis.xadd(`employee:stream:${employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shift_updated');
     // Reconcile leaves for both dates
     for (const shift of [result.shiftA, result.shiftB]) {
       if (shift.employeeId === employeeId) {
@@ -1043,7 +1099,12 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
     async tx => {
       const shiftToDelete = await tx.shift.findUnique({
         where: { id, deletedAt: null },
-        include: { site: true, escortEndSite: { select: { id: true, name: true } }, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
+        include: {
+          site: true,
+          escortEndSite: { select: { id: true, name: true } },
+          shiftType: true,
+          employee: { include: { office: { select: { name: true } } } },
+        },
       });
 
       if (!shiftToDelete) return null;
@@ -1079,7 +1140,7 @@ export async function deleteShiftWithChangelog(id: string, adminId: string) {
             note: shiftToDelete.note,
             siteId: shiftToDelete.siteId,
             shiftTypeId: shiftToDelete.shiftTypeId,
-            employeeId: shiftToDelete.employeeId,
+            employeeNumber: emp?.employeeNumber ?? null,
             escortEndSiteId: shiftToDelete.escortEndSiteId,
             escortEndSiteName: endSite ? endSite.name : undefined,
             deletedAt: new Date(),
@@ -1208,7 +1269,7 @@ export async function bulkCreateShiftsWithChangelog(shiftsToCreate: Prisma.Shift
               note: s.note,
               siteId: s.siteId,
               shiftTypeId: s.shiftTypeId,
-              employeeId: s.employeeId,
+              employeeNumber: emp?.employeeNumber ?? null,
               escortEndSiteId: s.escortEndSiteId,
               escortEndSiteName: endSite ? endSite.name : undefined,
             },
@@ -1342,9 +1403,7 @@ export async function processGuardShiftBulkImport(
   ]);
 
   const siteByName = new Map(
-    sites
-      .map(site => [site.name.toLowerCase(), site.id] as const)
-      .filter(([name]) => uniqueSites.includes(name))
+    sites.map(site => [site.name.toLowerCase(), site.id] as const).filter(([name]) => uniqueSites.includes(name))
   );
   const shiftTypeByName = new Map(
     shiftTypes
@@ -1659,7 +1718,12 @@ export async function processGuardShiftBulkImport(
       if (deleteIds.size > 0) {
         const shiftsToDelete = await tx.shift.findMany({
           where: { id: { in: Array.from(deleteIds) }, deletedAt: null },
-          include: { site: true, escortEndSite: { select: { id: true, name: true } }, shiftType: true, employee: { include: { office: { select: { name: true } } } } },
+          include: {
+            site: true,
+            escortEndSite: { select: { id: true, name: true } },
+            shiftType: true,
+            employee: { include: { office: { select: { name: true } } } },
+          },
         });
 
         if (shiftsToDelete.length > 0) {
@@ -1692,7 +1756,7 @@ export async function processGuardShiftBulkImport(
                   note: shift.note,
                   siteId: shift.siteId,
                   shiftTypeId: shift.shiftTypeId,
-                  employeeId: shift.employeeId,
+                  employeeNumber: emp?.employeeNumber ?? null,
                   escortEndSiteId: shift.escortEndSiteId,
                   escortEndSiteName: endSite ? endSite.name : undefined,
                   deletedAt: nowDeletedAt,
@@ -1768,9 +1832,7 @@ export async function processGuardShiftBulkImport(
             include: { participants: { where: { status: 'active' } } },
           });
           if (gc) {
-            const participant = gc.participants.find(
-              p => p.employeeId === updatedShift.employeeId
-            );
+            const participant = gc.participants.find(p => p.employeeId === updatedShift.employeeId);
             if (participant) {
               await tx.groupChatParticipant.update({
                 where: { id: participant.id },
@@ -1783,7 +1845,7 @@ export async function processGuardShiftBulkImport(
         const emp = updatedShift.employee as any;
         const prevEmp = beforeShift.employee as any;
         const endSite = updatedShift.escortEndSite as any;
-        
+
         const updatedEmpName = emp ? emp.fullName : 'Unassigned';
         const beforeEmpName = prevEmp ? prevEmp.fullName : 'Unassigned';
         const changes: Record<string, { from: any; to: any }> = {};
@@ -1844,7 +1906,7 @@ export async function processGuardShiftBulkImport(
               note: updatedShift.note,
               siteId: updatedShift.siteId,
               shiftTypeId: updatedShift.shiftTypeId,
-              employeeId: updatedShift.employeeId,
+              employeeNumber: emp?.employeeNumber ?? null,
               escortEndSiteId: updatedShift.escortEndSiteId,
               escortEndSiteName: endSite ? endSite.name : undefined,
               changes: Object.keys(changes).length > 0 ? changes : undefined,
@@ -1898,7 +1960,7 @@ export async function processGuardShiftBulkImport(
                 note: shift.note,
                 siteId: shift.siteId,
                 shiftTypeId: shift.shiftTypeId,
-                employeeId: shift.employeeId,
+                employeeNumber: emp?.employeeNumber ?? null,
                 escortEndSiteId: shift.escortEndSiteId,
                 escortEndSiteName: endSite ? endSite.name : undefined,
               },
@@ -1968,7 +2030,10 @@ export async function processGuardShiftBulkImport(
         await redis.publish('events:shifts', JSON.stringify({ type: 'SHIFT_CREATED', id: target.shiftId }));
       }
     } catch (notificationError) {
-      console.warn('[processGuardShiftBulkImport] committed DB changes, but failed to publish notifications.', notificationError);
+      console.warn(
+        '[processGuardShiftBulkImport] committed DB changes, but failed to publish notifications.',
+        notificationError
+      );
     }
   } else {
     const nowDeletedAt = new Date();
@@ -2184,11 +2249,7 @@ export async function markOverdueScheduledShiftsAsMissed(now: Date, batchSize = 
  * Transitions 'in_progress' shifts that have ended at least `thresholdMins` ago to 'completed' status.
  * Also auto-resolves any open alerts for these shifts.
  */
-export async function autoCompleteOverdueInProgressShifts(
-  now: Date,
-  thresholdMins = 60,
-  batchSize = 200
-) {
+export async function autoCompleteOverdueInProgressShifts(now: Date, thresholdMins = 60, batchSize = 200) {
   const thresholdMs = thresholdMins * 60000;
   const cutoff = new Date(now.getTime() - thresholdMs);
 
@@ -2774,7 +2835,8 @@ export async function completeShift(params: {
   if (!shift) throw new Error('Shift not found');
   if (shift.employeeId !== employeeId) throw new Error('Not assigned to this shift');
   if (shift.status === 'completed') return { shift, resolvedAlerts: [] as any[] };
-  if (shift.status === 'missed' || shift.status === 'cancelled') throw new Error('Shift is already missed or cancelled');
+  if (shift.status === 'missed' || shift.status === 'cancelled')
+    throw new Error('Shift is already missed or cancelled');
 
   return prisma.$transaction(async tx => {
     try {

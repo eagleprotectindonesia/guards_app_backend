@@ -17,9 +17,11 @@ import {
   bulkCreateShiftsFromForm,
   replaceShiftGuard,
   swapShifts,
+  getShiftsByEmployeeWithinWindow,
 } from '@repo/database';
 import { getShiftTypeDurationInMins } from '@repo/database';
 import { ActionState } from '@/types/actions';
+import type { SerializedShiftWithRelationsDto } from '@/types/shifts';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export async function createShift(
@@ -1027,6 +1029,91 @@ export async function swapShiftsAction(input: {
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Failed to swap shifts.',
+    };
+  }
+}
+
+export async function getSwapCandidateShiftsAction(params: {
+  employeeId: string;
+  referenceDate: string;
+}): Promise<{ success: boolean; shifts?: SerializedShiftWithRelationsDto[]; message?: string }> {
+  try {
+    const { employeeId, referenceDate } = params;
+    if (!employeeId || !referenceDate) {
+      return { success: false, message: 'employeeId and referenceDate are required.' };
+    }
+    const refDate = new Date(referenceDate);
+    if (Number.isNaN(refDate.getTime())) {
+      return { success: false, message: 'Invalid referenceDate.' };
+    }
+
+    const rows = await getShiftsByEmployeeWithinWindow(employeeId, refDate);
+    const shifts = rows.map(row => ({
+      id: row.id,
+      siteId: row.siteId,
+      shiftTypeId: row.shiftTypeId,
+      employeeId: row.employeeId,
+      kind: row.kind,
+      escortEndSiteId: row.escortEndSiteId,
+      date: row.date.toISOString(),
+      startsAt: row.startsAt.toISOString(),
+      endsAt: row.endsAt.toISOString(),
+      status: row.status,
+      checkInStatus: row.checkInStatus,
+      requiredCheckinIntervalMins: row.requiredCheckinIntervalMins,
+      graceMinutes: row.graceMinutes,
+      lastHeartbeatAt: row.lastHeartbeatAt ? row.lastHeartbeatAt.toISOString() : null,
+      missedCount: row.missedCount,
+      note: row.note,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      site: {
+        id: row.site.id,
+        name: row.site.name,
+        clientName: row.site.clientName ?? null,
+        address: row.site.address ?? null,
+        latitude: row.site.latitude ?? null,
+        longitude: row.site.longitude ?? null,
+        kind: row.site.kind ?? null,
+        status: row.site.status ?? null,
+        note: row.site.note ?? null,
+      },
+      escortEndSite: row.escortEndSite
+        ? {
+            id: row.escortEndSite.id,
+            name: row.escortEndSite.name,
+            address: row.escortEndSite.address ?? null,
+            latitude: row.escortEndSite.latitude ?? null,
+            longitude: row.escortEndSite.longitude ?? null,
+            kind: 'escort' as const,
+            status: null,
+            note: null,
+          }
+        : null,
+      shiftType: {
+        id: row.shiftType.id,
+        name: row.shiftType.name,
+        startTime: row.shiftType.startTime,
+        endTime: row.shiftType.endTime,
+      },
+      employee: row.employee
+        ? {
+            id: row.employee.id,
+            fullName: row.employee.fullName,
+            employeeNumber: row.employee.employeeNumber,
+          }
+        : null,
+      attendance: null,
+      createdBy: null,
+      lastUpdatedBy: null,
+    }));
+
+    return { success: true, shifts };
+  } catch (error) {
+    console.error('[getSwapCandidateShiftsAction] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to load candidate shifts.',
     };
   }
 }
