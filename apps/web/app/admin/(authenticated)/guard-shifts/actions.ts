@@ -1,7 +1,7 @@
 'use server';
 
 import { prisma, addGroupMembers, createGroupChat, findGroupChatByGroupShiftId, getSystemSetting, removeGroupMember, unarchiveGroupChat, upsertGroupShift, deleteGroupShiftIfOrphaned, createSiteWithPostsAndChangelog, updateSiteWithChangelog } from '@repo/database';
-import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
+import { createShiftSchema, CreateShiftInput, UpdateShiftInput, replaceShiftSchema, swapShiftsSchema } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { format, isBefore, subMinutes } from 'date-fns';
 import { ShiftStatus, Prisma } from '@prisma/client';
@@ -15,6 +15,8 @@ import {
   deleteShiftWithChangelog,
   processGuardShiftBulkImport,
   bulkCreateShiftsFromForm,
+  replaceShiftGuard,
+  swapShifts,
 } from '@repo/database';
 import { getShiftTypeDurationInMins } from '@repo/database';
 import { ActionState } from '@/types/actions';
@@ -945,6 +947,86 @@ export async function bulkCreateShiftsFromFormAction(
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Failed to create schedules. Please try again.',
+    };
+  }
+}
+
+export async function replaceShift(input: {
+  shiftId: string;
+  replacementEmployeeId: string;
+  reason: string;
+  notes?: string | null;
+  evidenceS3Key?: string | null;
+}): Promise<{ success: boolean; message?: string }> {
+  try {
+    const adminId = await getAdminIdFromToken();
+
+    const parsed = replaceShiftSchema.safeParse(input);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return {
+        success: false,
+        message: firstError?.message ?? 'Invalid input.',
+      };
+    }
+
+    await replaceShiftGuard(
+      {
+        shiftId: parsed.data.shiftId,
+        replacementEmployeeId: parsed.data.replacementEmployeeId,
+        reason: parsed.data.reason,
+        notes: parsed.data.notes ?? null,
+        evidenceS3Key: parsed.data.evidenceS3Key ?? null,
+      },
+      adminId
+    );
+
+    revalidatePath('/admin/guard-shifts');
+    return { success: true };
+  } catch (error) {
+    console.error('[replaceShift] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to replace guard.',
+    };
+  }
+}
+
+export async function swapShiftsAction(input: {
+  shiftAId: string;
+  shiftBId: string;
+  reason?: string | null;
+  notes?: string | null;
+}): Promise<{ success: boolean; message?: string }> {
+  try {
+    const adminId = await getAdminIdFromToken();
+
+    const parsed = swapShiftsSchema.safeParse(input);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return {
+        success: false,
+        message: firstError?.message ?? 'Invalid input.',
+      };
+    }
+
+    await swapShifts(
+      {
+        shiftAId: parsed.data.shiftAId,
+        shiftBId: parsed.data.shiftBId,
+        reason: parsed.data.reason ?? 'Personal Reason',
+        notes: parsed.data.notes ?? null,
+      },
+      adminId
+    );
+
+    revalidatePath('/admin/guard-shifts');
+    return { success: true };
+  } catch (error) {
+    console.error('[swapShiftsAction] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to swap shifts.',
     };
   }
 }

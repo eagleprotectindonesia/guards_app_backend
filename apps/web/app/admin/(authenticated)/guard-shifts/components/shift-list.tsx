@@ -1,18 +1,20 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useMemo, useState, useTransition } from 'react';
 import type { Serialized } from '@/lib/server-utils';
-import { deleteShift, cancelShift } from '../actions';
+import { deleteShift, cancelShift, replaceShift, swapShiftsAction } from '../actions';
 import BulkCreateModal from './bulk-create-modal';
 import ShiftExport from './shift-export';
 import ShiftActionModal from './shift-action-modal';
-import { EditButton, DeleteButton } from '../../components/action-buttons';
+import ReplaceGuardModal from './replace-guard-modal';
+import SwapShiftModal from './swap-shift-modal';
+import { EditButton } from '../../components/action-buttons';
 import PaginationNav from '../../components/pagination-nav';
 import toast from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { Upload, History } from 'lucide-react';
+import { MoreHorizontal, Upload, History, UserCog, ArrowLeftRight, Trash2 } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { ShiftWithRelationsDto } from '@/types/shifts';
@@ -20,6 +22,12 @@ import type { EmployeeSummary } from '@repo/database';
 import { useAdminRouter } from '../../context/admin-router';
 import SortableHeader from '@/components/sortable-header';
 import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 type ShiftListProps = {
   shifts: Serialized<ShiftWithRelationsDto>[];
@@ -59,6 +67,10 @@ export default function ShiftList({
 
   const [isBulkCreateOpen, setIsBulkCreateOpen] = useState(false);
   const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
+  const [replaceTarget, setReplaceTarget] = useState<Serialized<ShiftWithRelationsDto> | null>(null);
+  const [swapTarget, setSwapTarget] = useState<Serialized<ShiftWithRelationsDto> | null>(null);
+  const [isReplacePending, startReplaceTransition] = useTransition();
+  const [isSwapPending, startSwapTransition] = useTransition();
   const [isPending, startTransition] = useTransition();
 
   const canCreate = hasPermission(PERMISSIONS.SHIFTS.CREATE);
@@ -66,6 +78,16 @@ export default function ShiftList({
   const canDelete = hasPermission(PERMISSIONS.SHIFTS.DELETE);
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
   const { apply } = useFilterUrlSync('/admin/guard-shifts');
+
+  const shiftsByEmployee = useMemo(() => {
+    const map: Record<string, Serialized<ShiftWithRelationsDto>[]> = {};
+    for (const shift of shifts) {
+      if (!shift.employeeId) continue;
+      if (!map[shift.employeeId]) map[shift.employeeId] = [];
+      map[shift.employeeId].push(shift);
+    }
+    return map;
+  }, [shifts]);
 
   const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(
     startDate ? parseISO(startDate) : undefined
@@ -119,6 +141,59 @@ export default function ShiftList({
       } else {
         toast.error(result.message || 'Failed to cancel guard shift.');
       }
+    });
+  };
+
+  const handleReplaceSubmit = (input: {
+    shiftId: string;
+    replacementEmployeeId: string;
+    reason: string;
+    notes?: string;
+    evidenceS3Key?: string;
+  }) => {
+    return new Promise<void>((resolve, reject) => {
+      startReplaceTransition(async () => {
+        try {
+          const result = await replaceShift(input);
+          if (result.success) {
+            toast.success('Guard replaced successfully');
+            setReplaceTarget(null);
+            resolve();
+          } else {
+            toast.error(result.message || 'Failed to replace guard.');
+            reject(new Error(result.message || 'Failed'));
+          }
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Failed to replace guard.');
+          reject(err);
+        }
+      });
+    });
+  };
+
+  const handleSwapSubmit = (input: {
+    shiftAId: string;
+    shiftBId: string;
+    reason: string;
+    notes?: string;
+  }) => {
+    return new Promise<void>((resolve, reject) => {
+      startSwapTransition(async () => {
+        try {
+          const result = await swapShiftsAction(input);
+          if (result.success) {
+            toast.success('Shifts swapped successfully');
+            setSwapTarget(null);
+            resolve();
+          } else {
+            toast.error(result.message || 'Failed to swap shifts.');
+            reject(new Error(result.message || 'Failed'));
+          }
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Failed to swap shifts.');
+          reject(err);
+        }
+      });
     });
   };
 
@@ -368,21 +443,43 @@ export default function ShiftList({
                             disabled={!canEdit}
                             title={!canEdit ? 'Permission Denied' : 'Edit'}
                           />
-                          <DeleteButton
-                            onClick={() => handleDeleteClick(shift.id)}
-                            disabled={
-                              isPending ||
-                              !canDelete ||
-                              (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled')
-                            }
-                            title={
-                              !canDelete
-                                ? 'Permission Denied'
-                                : !isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled'
-                                  ? 'Only in-progress or scheduled shifts can be cancelled'
-                                  : 'Actions'
-                            }
-                          />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+                                title="Actions"
+                              >
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-card border-border text-foreground min-w-[140px]">
+                              <DropdownMenuItem
+                                className="cursor-pointer gap-2"
+                                disabled={!canEdit || isReplacePending || !shift.employeeId || ['cancelled','completed','missed'].includes(shift.status)}
+                                onClick={() => setReplaceTarget(shift)}
+                              >
+                                <UserCog className="w-4 h-4 text-orange-500" />
+                                <span>Replace Guard</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer gap-2"
+                                disabled={!canEdit || isSwapPending || !shift.employeeId || ['cancelled','completed','missed'].includes(shift.status)}
+                                onClick={() => setSwapTarget(shift)}
+                              >
+                                <ArrowLeftRight className="w-4 h-4 text-blue-500" />
+                                <span>Swap Shift</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer gap-2 text-red-600 focus:text-red-600"
+                                disabled={isPending || !canDelete || (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled')}
+                                onClick={() => handleDeleteClick(shift.id)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                                <span>Delete</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </td>
                     </tr>
@@ -407,6 +504,27 @@ export default function ShiftList({
         isPending={isPending}
         isSuperAdmin={isSuperAdmin}
         status={shifts.find(s => s.id === selectedShiftId)?.status}
+      />
+
+      <ReplaceGuardModal
+        key={replaceTarget?.id ?? 'closed'}
+        isOpen={!!replaceTarget}
+        onClose={() => setReplaceTarget(null)}
+        shift={replaceTarget}
+        employees={employees}
+        isPending={isReplacePending}
+        onSubmit={handleReplaceSubmit}
+      />
+
+      <SwapShiftModal
+        key={swapTarget?.id ?? 'closed'}
+        isOpen={!!swapTarget}
+        onClose={() => setSwapTarget(null)}
+        shiftA={swapTarget}
+        employees={employees}
+        shiftsByEmployee={shiftsByEmployee}
+        isPending={isSwapPending}
+        onSubmit={handleSwapSubmit}
       />
     </div>
   );

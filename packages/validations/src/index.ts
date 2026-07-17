@@ -199,6 +199,28 @@ export const createOfficeShiftSchema = z.object({
   note: z.string().optional(),
 });
 
+export const replaceShiftSchema = z.object({
+  shiftId: z.uuid(),
+  replacementEmployeeId: z.uuid(),
+  reason: z.enum(['Sick', 'Personal Reason', 'Family Emergency', 'Other']),
+  notes: z.string().max(2000).optional().nullable(),
+  evidenceS3Key: z.string().max(500).optional().nullable(),
+});
+export type ReplaceShiftInput = z.infer<typeof replaceShiftSchema>;
+
+export const swapShiftsSchema = z
+  .object({
+    shiftAId: z.uuid(),
+    shiftBId: z.uuid(),
+    reason: z.enum(['Sick', 'Personal Reason', 'Family Emergency', 'Other']).optional().nullable(),
+    notes: z.string().max(2000).optional().nullable(),
+  })
+  .refine(data => data.shiftAId !== data.shiftBId, {
+    message: 'Cannot swap a shift with itself',
+    path: ['shiftBId'],
+  });
+export type SwapShiftsInput = z.infer<typeof swapShiftsSchema>;
+
 // --- Checkin ---
 export const checkInSchema = z.object({
   location: z
