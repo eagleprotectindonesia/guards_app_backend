@@ -5,6 +5,7 @@ import {
   getAttendanceExportBatch,
   getEmployeeOnsiteDayOffChangelogsForDates,
   getLatestGuardShiftEditChangelogs,
+  getLatestReplacementChangelogs,
   listLeaveRequestsOverlappingOfficeAttendance,
 } from '@repo/database';
 import type { LeaveRequestReason, LeaveRequestStatus } from '@repo/types';
@@ -170,6 +171,9 @@ export async function GET(request: NextRequest) {
         'Manual Edit Flag',
         'Edited By',
         'Edit Reason',
+        'Replacement Status',
+        'Previous Scheduled Guard',
+        'Replacement Reason',
       ];
       controller.enqueue(encoder.encode(headers.join(',') + '\n'));
 
@@ -210,6 +214,26 @@ export async function GET(request: NextRequest) {
             employeeIds: batchEmployeeIds,
             dateKeys: Array.from(new Set(batchDateKeys)),
           });
+          const replacementChangelogs = await getLatestReplacementChangelogs(batchShiftIds);
+          const replacementByShiftId = new Map<
+            string,
+            { previousEmployeeName: string; replacementReason: string; replacementNotes: string | null }
+          >();
+          for (const changelog of replacementChangelogs) {
+            if (replacementByShiftId.has(changelog.entityId)) {
+              continue;
+            }
+            const details = changelog.details as {
+              previousEmployeeName?: string;
+              replacementReason?: string;
+              replacementNotes?: string | null;
+            } | null;
+            replacementByShiftId.set(changelog.entityId, {
+              previousEmployeeName: details?.previousEmployeeName ?? '',
+              replacementReason: details?.replacementReason ?? '',
+              replacementNotes: details?.replacementNotes ?? null,
+            });
+          }
           const batchRowKeys = new Set(
             batch
               .map(att => {
@@ -287,13 +311,19 @@ export async function GET(request: NextRequest) {
             const clockInTime = format(new Date(att.recordedAt), 'HH:mm');
             const lastCheckinAt =
               att.shift.status === 'completed' && att.shift.checkins.length > 0
-                ? att.shift.checkins.reduce((latest, current) => (current.at > latest ? current.at : latest), att.shift.checkins[0].at)
+                ? att.shift.checkins.reduce(
+                    (latest, current) => (current.at > latest ? current.at : latest),
+                    att.shift.checkins[0].at
+                  )
                 : null;
             const clockOutDate = lastCheckinAt ? format(new Date(lastCheckinAt), 'yyyy-MM-dd') : '';
             const clockOutTime = lastCheckinAt ? format(new Date(lastCheckinAt), 'HH:mm') : '';
             const lastCheckin =
               att.shift.status === 'completed' && att.shift.checkins.length > 0
-                ? att.shift.checkins.reduce((latest, current) => (current.at > latest.at ? current : latest), att.shift.checkins[0])
+                ? att.shift.checkins.reduce(
+                    (latest, current) => (current.at > latest.at ? current : latest),
+                    att.shift.checkins[0]
+                  )
                 : null;
             const clockInResult = resolvePunchDistance({
               site: att.shift.site,
@@ -313,10 +343,15 @@ export async function GET(request: NextRequest) {
             const workMinutes =
               lastCheckinAt && att.shift.status === 'completed'
                 ? Math.min(
-                    Math.max(0, Math.floor((new Date(lastCheckinAt).getTime() - new Date(att.recordedAt).getTime()) / (1000 * 60))),
                     Math.max(
                       0,
-                      Math.floor((new Date(att.shift.endsAt).getTime() - new Date(att.shift.startsAt).getTime()) / (1000 * 60))
+                      Math.floor((new Date(lastCheckinAt).getTime() - new Date(att.recordedAt).getTime()) / (1000 * 60))
+                    ),
+                    Math.max(
+                      0,
+                      Math.floor(
+                        (new Date(att.shift.endsAt).getTime() - new Date(att.shift.startsAt).getTime()) / (1000 * 60)
+                      )
                     )
                   )
                 : null;
@@ -349,6 +384,11 @@ export async function GET(request: NextRequest) {
             const shiftEditChangelog = latestGuardShiftEditChangelogByShiftId.get(att.shiftId ?? att.shift.id);
             const editedBy = dayoffTransition?.admin?.name || shiftEditChangelog?.admin?.name || '';
             const editReason = dayoffTransition ? 'Dayoff changes' : shiftEditChangelog ? 'Shift changes' : '';
+            const rowShiftId = att.shiftId ?? att.shift.id;
+            const replacement = replacementByShiftId.get(rowShiftId);
+            const isReplacement = Boolean(replacement);
+            const previousGuardName = replacement?.previousEmployeeName ?? '';
+            const replacementReason = replacement?.replacementReason ?? '';
 
             chunk +=
               [
@@ -383,6 +423,9 @@ export async function GET(request: NextRequest) {
                 '',
                 escapeCsv(editedBy),
                 escapeCsv(editReason),
+                isReplacement ? 'true' : 'false',
+                escapeCsv(previousGuardName),
+                escapeCsv(replacementReason),
               ].join(',') + '\n';
           }
 

@@ -106,7 +106,9 @@ export async function GET(request: NextRequest) {
             const deletedAt = s.deletedAt ? format(new Date(s.deletedAt), 'yyyy/MM/dd HH:mm') : '';
 
             const swapReplacement = s.swapsWithShiftId ? 'Swapped' : s.replacedByAdminId ? 'Replaced' : '';
-            const swapWithEmployee = s.swapsWithShift?.employee?.fullName || '';
+            const swapWithEmployee =
+              s.swapsWithShift?.employee?.fullName ||
+              (s.replacedByAdminId ? s.employee?.fullName || '' : '');
             const replacementReason = s.replacementReason || '';
 
             // Escape quotes in CSV fields: " -> ""
@@ -183,7 +185,7 @@ async function exportShiftsWithDayOffs(
     'Created At',
     'Deleted At',
     'Swap/Replacement',
-    'Swap With Shift ID',
+    'Swap/Replaced With',
     'Replacement Reason',
   ];
 
@@ -205,7 +207,18 @@ async function exportShiftsWithDayOffs(
         shiftType: ShiftType;
         employee: EmployeeWithRelations | null;
         createdBy: { name: string } | null;
+        swapsWithShift: {
+          id: string;
+          employee: { fullName: string | null; employeeNumber: string | null };
+        } | null;
+        replacedByAdmin: { name: string } | null;
       };
+
+      const swapReplacement = s.swapsWithShiftId ? 'Swapped' : s.replacedByAdminId ? 'Replaced' : '';
+      const swapWithEmployee =
+        s.swapsWithShift?.employee?.fullName ||
+        (s.replacedByAdminId ? s.employee?.fullName || '' : '');
+      const replacementReason = s.replacementReason || '';
 
       rows.push({
         date: s.date,
@@ -224,9 +237,9 @@ async function exportShiftsWithDayOffs(
           escape(s.createdBy?.name || 'System'),
           escape(format(new Date(s.createdAt), 'yyyy/MM/dd HH:mm')),
           s.deletedAt ? escape(format(new Date(s.deletedAt), 'yyyy/MM/dd HH:mm')) : '',
-          '',
-          '',
-          '',
+          escape(swapReplacement),
+          escape(swapWithEmployee),
+          escape(replacementReason),
         ],
       });
     }
