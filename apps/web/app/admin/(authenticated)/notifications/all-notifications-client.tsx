@@ -16,7 +16,6 @@ import {
   ArrowLeft,
   ExternalLink,
   Circle,
-  Trash2,
 } from 'lucide-react';
 import { useNotificationsDropdown } from '../context/notifications-dropdown-context';
 import type { AlertWithRelations } from '../context/alert-context';
@@ -269,10 +268,6 @@ export default function AllNotificationsClient() {
               Mark all as read
             </Button>
           )}
-          <Button variant="outline" size="sm" disabled className="opacity-50 cursor-not-allowed">
-            <Trash2 className="w-4 h-4 mr-1.5" />
-            Delete Selected
-          </Button>
         </div>
       </div>
 

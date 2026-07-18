@@ -7,7 +7,7 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { getActiveFixedSites } from '@repo/database';
 import { getActiveEmployeesSummary } from '@repo/database';
-import { getPaginatedShifts } from '@repo/database';
+import { getPaginatedShifts, getLatestSwapReplacementChangelogByShiftIds } from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import type { SerializedShiftWithRelationsDto } from '@/types/shifts';
@@ -38,9 +38,11 @@ export default async function ShiftsPage({
   const endDate = typeof resolvedSearchParams.endDate === 'string' ? resolvedSearchParams.endDate : undefined;
   const employeeId = typeof resolvedSearchParams.employeeId === 'string' ? resolvedSearchParams.employeeId : undefined;
   const siteId = typeof resolvedSearchParams.siteId === 'string' ? resolvedSearchParams.siteId : undefined;
-  const kind = typeof resolvedSearchParams.kind === 'string' ? resolvedSearchParams.kind as import('@repo/types').ShiftKind : undefined;
-  const sortBy =
-    typeof resolvedSearchParams.sortBy === 'string' ? resolvedSearchParams.sortBy : 'startsAt';
+  const kind =
+    typeof resolvedSearchParams.kind === 'string'
+      ? (resolvedSearchParams.kind as import('@repo/types').ShiftKind)
+      : undefined;
+  const sortBy = typeof resolvedSearchParams.sortBy === 'string' ? resolvedSearchParams.sortBy : 'startsAt';
   const sortOrder =
     typeof resolvedSearchParams.sortOrder === 'string' && ['asc', 'desc'].includes(resolvedSearchParams.sortOrder)
       ? (resolvedSearchParams.sortOrder as 'asc' | 'desc')
@@ -83,8 +85,12 @@ export default async function ShiftsPage({
       attendance: true,
       createdBy: { select: { name: true } },
       lastUpdatedBy: { select: { name: true } },
+      swapsWithShift: { select: { id: true, employee: { select: { fullName: true, employeeNumber: true } } } },
+      replacedByAdmin: { select: { name: true } },
     },
   });
+
+  const latestSwapReplacement = await getLatestSwapReplacementChangelogByShiftIds(shifts.map(s => s.id));
 
   const sites = await getActiveFixedSites();
   const shiftTypes = await prisma.shiftType.findMany({ orderBy: { name: 'asc' } });
@@ -107,6 +113,8 @@ export default async function ShiftsPage({
     lastHeartbeatAt: shift.lastHeartbeatAt ? shift.lastHeartbeatAt.toISOString() : null,
     missedCount: shift.missedCount,
     note: shift.note,
+    swapsWithShiftId: shift.swapsWithShiftId ?? null,
+    replacedByAdminId: shift.replacedByAdminId ?? null,
     createdAt: shift.createdAt.toISOString(),
     updatedAt: shift.updatedAt.toISOString(),
     site: {
@@ -158,6 +166,36 @@ export default async function ShiftsPage({
       : null,
     createdBy: shift.createdBy,
     lastUpdatedBy: shift.lastUpdatedBy,
+    swapsWithShift: shift.swapsWithShift
+      ? {
+          id: shift.swapsWithShift.id,
+          employee: (
+            shift.swapsWithShift as unknown as {
+              employee: { id: string; fullName: string; employeeNumber: string | null } | null;
+            }
+          ).employee
+            ? {
+                id: (
+                  shift.swapsWithShift as unknown as {
+                    employee: { id: string; fullName: string; employeeNumber: string | null };
+                  }
+                ).employee!.id,
+                fullName: (
+                  shift.swapsWithShift as unknown as {
+                    employee: { id: string; fullName: string; employeeNumber: string | null };
+                  }
+                ).employee!.fullName,
+                employeeNumber: (
+                  shift.swapsWithShift as unknown as {
+                    employee: { id: string; fullName: string; employeeNumber: string | null };
+                  }
+                ).employee!.employeeNumber,
+              }
+            : null,
+        }
+      : null,
+    replacedByAdmin: shift.replacedByAdmin ? { name: shift.replacedByAdmin.name } : null,
+    latestSwapReplacement: latestSwapReplacement.get(shift.id) ?? null,
   }));
 
   const siteOptions = sites.map(site => ({ id: site.id, name: site.name }));

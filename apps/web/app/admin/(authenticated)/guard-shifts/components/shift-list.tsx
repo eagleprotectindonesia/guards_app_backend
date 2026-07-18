@@ -79,12 +79,8 @@ export default function ShiftList({
   const canViewAudit = hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
   const { apply } = useFilterUrlSync('/admin/guard-shifts');
 
-  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(
-    startDate ? parseISO(startDate) : undefined
-  );
-  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(
-    endDate ? parseISO(endDate) : undefined
-  );
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(startDate ? parseISO(startDate) : undefined);
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(endDate ? parseISO(endDate) : undefined);
   const [filterSiteId, setFilterSiteId] = useState(siteId || '');
   const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
   const [filterKind, setFilterKind] = useState(kind || '');
@@ -161,12 +157,7 @@ export default function ShiftList({
     });
   };
 
-  const handleSwapSubmit = (input: {
-    shiftAId: string;
-    shiftBId: string;
-    reason: string;
-    notes?: string;
-  }) => {
+  const handleSwapSubmit = (input: { shiftAId: string; shiftBId: string; reason: string; notes?: string }) => {
     return new Promise<void>((resolve, reject) => {
       startSwapTransition(async () => {
         try {
@@ -247,7 +238,7 @@ export default function ShiftList({
             }}
           />
           {canCreate && (
-          <button
+            <button
               onClick={() => setIsBulkCreateOpen(true)}
               className="inline-flex items-center justify-center h-10 px-4 py-2 bg-card border border-border text-foreground text-sm font-semibold rounded-lg hover:bg-muted transition-colors shadow-sm"
             >
@@ -328,14 +319,55 @@ export default function ShiftList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
-                <SortableHeader label="Site" field="site" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
-                <SortableHeader label="Shift Type" field="shiftType" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
-                <SortableHeader label="Kind" field="kind" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
-                <SortableHeader label="Employee" field="employee" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
-                <SortableHeader label="Date / Time" field="startsAt" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
-                <SortableHeader label="Status" field="status" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">
+                  #
+                </th>
+                <SortableHeader
+                  label="Site"
+                  field="site"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Shift Type"
+                  field="shiftType"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Kind"
+                  field="kind"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Employee"
+                  field="employee"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Date / Time"
+                  field="startsAt"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <SortableHeader
+                  label="Status"
+                  field="status"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Swap / Replacement
+                </th>
+
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
                   <div className="flex flex-col gap-0.5">
                     <span className="text-blue-600 dark:text-blue-400">Created By</span>
@@ -350,7 +382,7 @@ export default function ShiftList({
             <tbody className="divide-y divide-border">
               {shifts.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
                     No shifts found. Schedule one to get started.
                   </td>
                 </tr>
@@ -358,19 +390,28 @@ export default function ShiftList({
                 shifts.map(shift => {
                   return (
                     <tr key={shift.id} className="hover:bg-muted/30 transition-colors group">
-                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">{shifts.indexOf(shift) + 1 + (page - 1) * perPage}</td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground text-center">
+                        {shifts.indexOf(shift) + 1 + (page - 1) * perPage}
+                      </td>
                       <td className="py-4 px-6 text-sm font-medium text-foreground">{shift.site.name}</td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">{shift.shiftType.name}</td>
                       <td className="py-4 px-6 text-sm">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          shift.kind === 'onsite' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' :
-                          shift.kind === 'escort' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300' :
-                          shift.kind === 'office_control' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' :
-                          'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300'
-                        }`}>
-                          {shift.kind === 'office_control' ? 'OFFICE CONTROL' :
-                           shift.kind === 'event_temporary' ? 'EVENT' :
-                           shift.kind.toUpperCase()}
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            shift.kind === 'onsite'
+                              ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                              : shift.kind === 'escort'
+                                ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
+                                : shift.kind === 'office_control'
+                                  ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300'
+                                  : 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300'
+                          }`}
+                        >
+                          {shift.kind === 'office_control'
+                            ? 'OFFICE CONTROL'
+                            : shift.kind === 'event_temporary'
+                              ? 'EVENT'
+                              : shift.kind.toUpperCase()}
                         </span>
                       </td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">
@@ -398,9 +439,21 @@ export default function ShiftList({
                         </span>
                       </td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">
-                        <div className="max-w-[200px] whitespace-normal wrap-break-words text-xs">
-                          {shift.note || '-'}
-                        </div>
+                        {shift.latestSwapReplacement?.method === 'REPLACEMENT' ? (
+                          <span className="inline-flex items-center gap-1">
+                            <UserCog className="w-3.5 h-3.5 text-orange-500" />
+                            <span>
+                              Replaced — prev: {shift.latestSwapReplacement.previousEmployeeName || 'Unknown'}
+                            </span>
+                          </span>
+                        ) : shift.latestSwapReplacement?.method === 'SWAP' ? (
+                          <span className="inline-flex items-center gap-1">
+                            <ArrowLeftRight className="w-3.5 h-3.5 text-blue-500" />
+                            <span>Swapped with {shift.swapsWithShift?.employee?.fullName || 'Unknown'}</span>
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/40">-</span>
+                        )}
                       </td>
                       <td className="py-4 px-6 text-sm text-muted-foreground text-center">
                         <div className="flex flex-col items-center gap-1">
@@ -443,10 +496,18 @@ export default function ShiftList({
                                 <MoreHorizontal className="w-4 h-4" />
                               </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-card border-border text-foreground min-w-[140px]">
+                            <DropdownMenuContent
+                              align="end"
+                              className="bg-card border-border text-foreground min-w-[140px]"
+                            >
                               <DropdownMenuItem
                                 className="cursor-pointer gap-2"
-                                disabled={!canEdit || isReplacePending || !shift.employeeId || ['cancelled','completed','missed'].includes(shift.status)}
+                                disabled={
+                                  !canEdit ||
+                                  isReplacePending ||
+                                  !shift.employeeId ||
+                                  ['cancelled', 'completed', 'missed'].includes(shift.status)
+                                }
                                 onClick={() => setReplaceTarget(shift)}
                               >
                                 <UserCog className="w-4 h-4 text-orange-500" />
@@ -454,7 +515,12 @@ export default function ShiftList({
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="cursor-pointer gap-2"
-                                disabled={!canEdit || isSwapPending || !shift.employeeId || ['cancelled','completed','missed'].includes(shift.status)}
+                                disabled={
+                                  !canEdit ||
+                                  isSwapPending ||
+                                  !shift.employeeId ||
+                                  ['cancelled', 'completed', 'missed'].includes(shift.status)
+                                }
                                 onClick={() => setSwapTarget(shift)}
                               >
                                 <ArrowLeftRight className="w-4 h-4 text-blue-500" />
@@ -462,7 +528,11 @@ export default function ShiftList({
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="cursor-pointer gap-2 text-red-600 focus:text-red-600"
-                                disabled={isPending || !canDelete || (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled')}
+                                disabled={
+                                  isPending ||
+                                  !canDelete ||
+                                  (!isSuperAdmin && shift.status !== 'in_progress' && shift.status !== 'scheduled')
+                                }
                                 onClick={() => handleDeleteClick(shift.id)}
                               >
                                 <Trash2 className="w-4 h-4" />

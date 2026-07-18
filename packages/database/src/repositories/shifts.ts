@@ -98,6 +98,52 @@ export async function getPaginatedShifts(params: {
   return { shifts, totalCount };
 }
 
+export type LatestSwapReplacement = {
+  method: 'SWAP' | 'REPLACEMENT';
+  /** For REPLACEMENT: the guard who was replaced. For SWAP: the guard swapped out. */
+  previousEmployeeName: string | null;
+  /** For SWAP: the partner shift's current employee after the swap. */
+  swapPartnerName?: string | null;
+  replacementReason?: string | null;
+};
+
+export async function getLatestSwapReplacementChangelogByShiftIds(shiftIds: string[]) {
+  if (shiftIds.length === 0) return new Map<string, LatestSwapReplacement>();
+
+  const changelogs = await prisma.changelog.findMany({
+    where: {
+      entityType: 'Shift',
+      action: 'UPDATE',
+      entityId: { in: shiftIds },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const map = new Map<string, LatestSwapReplacement>();
+  for (const cl of changelogs) {
+    if (map.has(cl.entityId)) continue; // keep the most recent per shift
+    const d = cl.details as unknown as {
+      method?: 'SWAP' | 'REPLACEMENT';
+      previousEmployeeName?: string | null;
+      replacementReason?: string | null;
+    } | null;
+    if (d?.method !== 'SWAP' && d?.method !== 'REPLACEMENT') continue;
+    if (d.method === 'REPLACEMENT') {
+      map.set(cl.entityId, {
+        method: 'REPLACEMENT',
+        previousEmployeeName: d.previousEmployeeName ?? null,
+        replacementReason: d.replacementReason ?? null,
+      });
+    } else {
+      map.set(cl.entityId, {
+        method: 'SWAP',
+        previousEmployeeName: null,
+      });
+    }
+  }
+  return map;
+}
+
 export async function checkOverlappingShift(params: {
   employeeId?: string;
   guardId?: string;
