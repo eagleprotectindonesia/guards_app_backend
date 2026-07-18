@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ShieldOff,
   UserPlus,
+  UsersRound,
 } from 'lucide-react';
 import { cn } from '@repo/shared';
 import { AdminNavLink } from './admin-nav-link';
@@ -128,11 +129,17 @@ type NotificationType =
   | 'ticket_status_updated'
   | 'ticket_message_added'
   | 'calendar_event_tagged'
-  | 'calendar_event_reminder';
+  | 'calendar_event_reminder'
+  | 'shift_reassignment_notify';
 
 const notificationTypeConfig: Record<
   NotificationType,
-  { tag: NotificationTag; icon: typeof AlertTriangle; iconColor: string; iconBg: string }
+  {
+    tag: NotificationTag;
+    icon: typeof AlertTriangle;
+    iconColor: string;
+    iconBg: string;
+  }
 > = {
   leave_request_created: {
     tag: 'Leave',
@@ -169,6 +176,12 @@ const notificationTypeConfig: Record<
     icon: CalendarClock,
     iconColor: 'text-purple-600',
     iconBg: 'bg-purple-100 dark:bg-purple-900/30',
+  },
+  shift_reassignment_notify: {
+    tag: 'Reassignment',
+    icon: UsersRound,
+    iconColor: 'text-orange-600',
+    iconBg: 'bg-orange-100 dark:bg-orange-900/30',
   },
 };
 
@@ -210,7 +223,7 @@ export function categorizeItem(item: UnifiedNotificationItem): NotificationCateg
   if (item.kind === 'alert') return 'critical_alert';
   if (item.tag === 'Calendar') return 'calendar';
   if (item.tag === 'Ticket' || item.tag === 'Message') return 'ticket';
-  if (item.tag === 'Leave') return 'leave';
+  if (item.tag === 'Leave' || item.tag === 'Reassignment') return 'leave';
   return 'other';
 }
 

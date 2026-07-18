@@ -13,7 +13,8 @@ export type AdminNotificationEventItem = {
     | 'ticket_status_updated'
     | 'ticket_message_added'
     | 'calendar_event_tagged'
-    | 'calendar_event_reminder';
+    | 'calendar_event_reminder'
+    | 'shift_reassignment_notify';
   title: string;
   body: string;
   payload: any;

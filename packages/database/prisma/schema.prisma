@@ -79,6 +79,7 @@ enum AdminNotificationType {
   ticket_message_added
   calendar_event_tagged
   calendar_event_reminder
+  shift_reassignment_notify
 }
 
 enum HolidayCalendarType {

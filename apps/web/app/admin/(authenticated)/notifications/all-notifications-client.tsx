@@ -64,14 +64,6 @@ function getPriorityColor(tag: string): string {
   return 'text-muted-foreground bg-muted border-border';
 }
 
-function getModuleLabel(item: UnifiedNotificationItem): string {
-  if (item.kind === 'alert') return 'Alerts';
-  if (item.tag === 'Calendar') return 'Calendar';
-  if (item.tag === 'Ticket' || item.tag === 'Message') return 'Tickets & Messages';
-  if (item.tag === 'Leave') return 'Leave & HR';
-  return 'Other';
-}
-
 function getActionLabel(item: UnifiedNotificationItem): string {
   if (item.kind === 'alert') return 'View Alert';
   if (item.tag === 'Calendar') return 'View Event';
@@ -99,7 +91,6 @@ export default function AllNotificationsClient() {
   const [dateRange, setDateRange] = useState('30d');
   const [typeFilter, setTypeFilter] = useState('all');
   const [priorityFilter, setPriorityFilter] = useState('all');
-  const [moduleFilter, setModuleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -180,7 +171,7 @@ export default function AllNotificationsClient() {
         }
         if (typeFilter === 'calendar') return item.tag === 'Calendar';
         if (typeFilter === 'ticket') return item.tag === 'Ticket' || item.tag === 'Message';
-        if (typeFilter === 'leave') return item.tag === 'Leave';
+        if (typeFilter === 'leave') return item.tag === 'Leave' || item.tag === 'Reassignment';
         return true;
       });
     }
@@ -193,15 +184,6 @@ export default function AllNotificationsClient() {
       });
     }
 
-    if (moduleFilter !== 'all') {
-      result = result.filter(
-        item =>
-          getModuleLabel(item)
-            .toLowerCase()
-            .replace(/[^a-z]/g, '') === moduleFilter
-      );
-    }
-
     if (statusFilter === 'unread') {
       result = result.filter(isItemUnread);
     } else if (statusFilter === 'read') {
@@ -209,7 +191,7 @@ export default function AllNotificationsClient() {
     }
 
     return result;
-  }, [fetchedData, activeTab, searchQuery, typeFilter, priorityFilter, moduleFilter, statusFilter]);
+  }, [fetchedData, activeTab, searchQuery, typeFilter, priorityFilter, statusFilter]);
 
   const selectedItem = useMemo(
     () => filteredItems.find(item => `${item.kind}-${item.id}` === selectedId) ?? null,
@@ -256,7 +238,6 @@ export default function AllNotificationsClient() {
     setDateRange('30d');
     setTypeFilter('all');
     setPriorityFilter('all');
-    setModuleFilter('all');
     setStatusFilter('all');
     setSearchQuery('');
   };
@@ -265,7 +246,6 @@ export default function AllNotificationsClient() {
     dateRange !== '30d' ||
     typeFilter !== 'all' ||
     priorityFilter !== 'all' ||
-    moduleFilter !== 'all' ||
     statusFilter !== 'all' ||
     searchQuery !== '';
 
@@ -390,29 +370,6 @@ export default function AllNotificationsClient() {
             </SelectItem>
             <SelectItem value="normal" className="text-xs">
               Normal
-            </SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={moduleFilter} onValueChange={setModuleFilter}>
-          <SelectTrigger className="h-8 w-[140px] text-xs">
-            <SelectValue placeholder="All Modules" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all" className="text-xs">
-              All Modules
-            </SelectItem>
-            <SelectItem value="alerts" className="text-xs">
-              Alerts
-            </SelectItem>
-            <SelectItem value="calendar" className="text-xs">
-              Calendar
-            </SelectItem>
-            <SelectItem value="tickets" className="text-xs">
-              Tickets & Messages
-            </SelectItem>
-            <SelectItem value="leave" className="text-xs">
-              Leave & HR
             </SelectItem>
           </SelectContent>
         </Select>
@@ -610,7 +567,7 @@ export default function AllNotificationsClient() {
               <div className="space-y-2.5 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Module</span>
-                  <span className="font-medium">{getModuleLabel(selectedItem)}</span>
+                  <span className="font-medium">{selectedItem.tag}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Date & Time</span>

@@ -1,6 +1,14 @@
 import { cn } from '@repo/shared';
 
-export type NotificationTag = 'Alert' | 'Critical' | 'Warning' | 'Calendar' | 'Message' | 'Ticket' | 'Leave';
+export type NotificationTag =
+  | 'Alert'
+  | 'Critical'
+  | 'Warning'
+  | 'Calendar'
+  | 'Message'
+  | 'Ticket'
+  | 'Leave'
+  | 'Reassignment';
 
 const tagStyles: Record<NotificationTag, string> = {
   Alert: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
@@ -10,6 +18,7 @@ const tagStyles: Record<NotificationTag, string> = {
   Message: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
   Ticket: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
   Leave: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  Reassignment: 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300',
 };
 
 export function NotificationTypePill({ tag }: { tag: NotificationTag }) {
