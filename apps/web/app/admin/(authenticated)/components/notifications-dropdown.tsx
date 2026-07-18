@@ -1,23 +1,43 @@
 'use client';
 
-import { Bell, ChevronRight } from 'lucide-react';
+import { useMemo } from 'react';
+import { AlertTriangle, Bell, Calendar, ChevronRight, ClipboardList, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useNotificationsDropdown } from '../context/notifications-dropdown-context';
 import { useSession } from '../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { AdminNavLink } from './admin-nav-link';
-import { NotificationRow } from './notification-row';
+import { categorizeItem, type UnifiedNotificationItem } from './notification-row';
 import { usePathname } from 'next/navigation';
 import { cn } from '@repo/shared';
 import { isDashboardPath } from '@/lib/admin-tab-routing';
 
+const GROUPS: { key: ReturnType<typeof categorizeItem>; label: string; icon: typeof Bell; tab: string }[] = [
+  { key: 'critical_alert', label: 'Critical Alerts', icon: AlertTriangle, tab: 'critical_alert' },
+  { key: 'calendar', label: 'Calendar', icon: Calendar, tab: 'calendar' },
+  { key: 'ticket', label: 'Tickets & Messages', icon: Ticket, tab: 'ticket' },
+  { key: 'leave', label: 'Leave & HR', icon: ClipboardList, tab: 'leave' },
+  { key: 'other', label: 'Other', icon: Bell, tab: 'all' },
+];
+
+const isUnread = (item: UnifiedNotificationItem) => (item.kind === 'alert' ? true : !item.readAt);
+
 export default function NotificationsDropdown() {
   const { hasPermission } = useSession();
-  const { dropdownItems: items, unreadCount, activeAlertCount, isInitialized, markAllAsRead } = useNotificationsDropdown();
+  const { items, unreadCount, activeAlertCount, isInitialized, markAllAsRead } = useNotificationsDropdown();
   const pathname = usePathname();
   const canViewAlerts = hasPermission(PERMISSIONS.ALERTS.VIEW);
-  const canViewAll = items.length > 0;
+
+  const groupCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of items) {
+      if (!isUnread(item)) continue;
+      const cat = categorizeItem(item);
+      counts[cat] = (counts[cat] ?? 0) + 1;
+    }
+    return counts;
+  }, [items]);
 
   if (!isInitialized) return null;
 
@@ -27,7 +47,7 @@ export default function NotificationsDropdown() {
   const showAlarmWarning = !isOnDashboard && !isOnAlertsPage && hasRedAlert;
 
   return (
-    <Popover onOpenChange={open => (open ? markAllAsRead() : undefined)}>
+    <Popover>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
@@ -61,13 +81,37 @@ export default function NotificationsDropdown() {
             </button>
           )}
         </div>
-        {!canViewAll ? (
+        {unreadCount === 0 ? (
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">No notifications yet.</div>
         ) : (
-          <div className="max-h-96 overflow-y-auto">
-            {items.map(item => (
-              <NotificationRow key={`${item.kind}-${item.id}`} item={item} />
-            ))}
+          <div className="max-h-96 overflow-y-auto divide-y divide-border">
+            {GROUPS.filter(group => (groupCounts[group.key] ?? 0) > 0).map(group => {
+              const count = groupCounts[group.key] ?? 0;
+              const isCritical = group.key === 'critical_alert';
+              return (
+                <AdminNavLink
+                  key={group.key}
+                  href={`/admin/notifications${group.tab === 'all' ? '' : `?tab=${group.tab}`}`}
+                  className={cn(
+                    'flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted/50 transition-colors',
+                    isCritical && 'text-red-600 dark:text-red-400'
+                  )}
+                >
+                  <group.icon className="w-4 h-4 shrink-0" />
+                  <span className={cn('flex-1 font-medium', isCritical ? 'font-semibold' : '')}>{group.label}</span>
+                  <span
+                    className={cn(
+                      'inline-flex items-center justify-center h-5 min-w-5 rounded-full px-1.5 text-xs font-semibold',
+                      isCritical
+                        ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
+                        : 'bg-muted text-muted-foreground'
+                    )}
+                  >
+                    {count > 99 ? '99+' : count}
+                  </span>
+                </AdminNavLink>
+              );
+            })}
           </div>
         )}
         <div className="border-t">

@@ -58,6 +58,7 @@ certificates
 conductor
 
 *apk
+*.p8
 
 # AI coding assistant
 .codex
@@ -65,3 +66,4 @@ conductor
 .antigravitycli
 .opencode*
 opencode.json
+*commandcode*

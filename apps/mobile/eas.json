@@ -7,6 +7,7 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "node": "24.11.0",
       "env": {
         "npm_config_engine_strict": "false",
         "APP_VARIANT": "development"
@@ -18,6 +19,7 @@
       "android": {
         "buildType": "apk"
       },
+      "node": "24.11.0",
       "env": {
         "npm_config_engine_strict": "false",
         "EXPO_PUBLIC_API_URL": "https://crm.eagleprotect.id",
@@ -30,6 +32,7 @@
       "android": {
         "buildType": "apk"
       },
+      "node": "24.11.0",
       "env": {
         "npm_config_engine_strict": "false",
         "APP_VARIANT": "staging"
@@ -38,6 +41,7 @@
     "production": {
       "channel": "production",
       "autoIncrement": true,
+      "node": "24.11.0",
       "env": {
         "npm_config_engine_strict": "false",
         "SHARP_IGNORE_GLOBAL_LIBVIPS": "1",
@@ -47,6 +51,10 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "ascAppId": "6760577634"
+      }
+    }
   }
 }
