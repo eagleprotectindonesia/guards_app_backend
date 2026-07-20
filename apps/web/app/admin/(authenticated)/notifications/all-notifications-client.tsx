@@ -5,7 +5,6 @@ import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-quer
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { cn } from '@repo/shared';
 import {
-  AlertTriangle,
   Bell,
   Calendar,
   ClipboardList,
@@ -16,6 +15,7 @@ import {
   ArrowLeft,
   ExternalLink,
   Circle,
+  ShieldOff,
 } from 'lucide-react';
 import { useNotificationsDropdown } from '../context/notifications-dropdown-context';
 import type { AlertWithRelations } from '../context/alert-context';
@@ -32,12 +32,13 @@ import { formatDateTime } from '@/lib/format-relative-time';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type TabId = 'all' | 'unread' | 'critical_alert' | 'calendar' | 'ticket' | 'leave';
+type TabId = 'all' | 'unread' | 'attendance' | 'checkin' | 'calendar' | 'ticket' | 'leave';
 
 const TABS: { id: TabId; label: string; icon: typeof Bell }[] = [
   { id: 'all', label: 'All', icon: Bell },
   { id: 'unread', label: 'Unread', icon: Eye },
-  { id: 'critical_alert', label: 'Critical Alert', icon: AlertTriangle },
+  { id: 'attendance', label: 'Attendance', icon: ClipboardList },
+  { id: 'checkin', label: 'Check-in', icon: ShieldOff },
   { id: 'calendar', label: 'Calendar', icon: Calendar },
   { id: 'ticket', label: 'Ticket', icon: Ticket },
   { id: 'leave', label: 'Leave & HR', icon: ClipboardList },
@@ -126,7 +127,8 @@ export default function AllNotificationsClient() {
     const counts: Record<string, number> = {
       all: 0,
       unread: 0,
-      critical_alert: 0,
+      attendance_alert: 0,
+      checkin_alert: 0,
       calendar: 0,
       ticket: 0,
       leave: 0,
@@ -134,8 +136,8 @@ export default function AllNotificationsClient() {
     for (const item of items) {
       const isUnread = isItemUnread(item);
       const cat = categorizeItem(item);
-      if (cat === 'critical_alert') {
-        counts.critical_alert++;
+      if (cat === 'attendance_alert' || cat === 'checkin_alert') {
+        counts[cat]++;
         counts.all++;
       } else if (isUnread) {
         counts.unread++;

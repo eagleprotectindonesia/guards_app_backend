@@ -23,6 +23,7 @@ export type UnifiedNotificationItem =
       kind: 'alert';
       id: string;
       createdAt: string;
+      reason: string;
       title: string;
       body: string;
       tag: NotificationTag;
@@ -112,6 +113,7 @@ export function buildNotificationRowFromAlert(
     kind: 'alert',
     id: alert.id,
     createdAt: typeof alert.createdAt === 'string' ? alert.createdAt : alert.createdAt.toISOString(),
+    reason: alert.reason,
     title,
     body,
     tag,
@@ -217,10 +219,12 @@ export function buildNotificationRowFromAdminNotification(notification: {
   };
 }
 
-export type NotificationCategory = 'critical_alert' | 'calendar' | 'ticket' | 'leave' | 'other';
+export type NotificationCategory = 'attendance_alert' | 'checkin_alert' | 'calendar' | 'ticket' | 'leave' | 'other';
 
 export function categorizeItem(item: UnifiedNotificationItem): NotificationCategory {
-  if (item.kind === 'alert') return 'critical_alert';
+  if (item.kind === 'alert') {
+    return item.reason === 'missed_attendance' ? 'attendance_alert' : 'checkin_alert';
+  }
   if (item.tag === 'Calendar') return 'calendar';
   if (item.tag === 'Ticket' || item.tag === 'Message') return 'ticket';
   if (item.tag === 'Leave' || item.tag === 'Reassignment') return 'leave';
