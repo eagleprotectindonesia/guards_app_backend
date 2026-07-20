@@ -4,7 +4,12 @@ import OfficeShiftsTabs from './components/office-shifts-tabs';
 import { parseISO, startOfDay, endOfDay, format } from 'date-fns';
 import { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { getActiveEmployeesSummary, getDistinctDepartments, getPaginatedOfficeShifts } from '@repo/database';
+import {
+  getActiveEmployeesSummary,
+  getDistinctDepartments,
+  getPaginatedOfficeShifts,
+  getLatestSwapReplacementChangelogByOfficeShiftIds,
+} from '@repo/database';
 import { requirePermission } from '@/lib/admin-auth';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import type { SerializedOfficeShiftWithRelationsDto } from '@/types/office-shifts';
@@ -65,6 +70,7 @@ export default async function OfficeShiftsPage({
     getDistinctDepartments(),
   ]);
 
+  const latestSwapReplacement = await getLatestSwapReplacementChangelogByOfficeShiftIds(officeShifts.map(s => s.id));
   const officeShiftDtos: SerializedOfficeShiftWithRelationsDto[] = officeShifts.map(officeShift => ({
     id: officeShift.id,
     officeShiftTypeId: officeShift.officeShiftTypeId,
@@ -99,6 +105,7 @@ export default async function OfficeShiftsPage({
     })),
     createdBy: officeShift.createdBy,
     lastUpdatedBy: officeShift.lastUpdatedBy,
+    latestSwapReplacement: latestSwapReplacement.get(officeShift.id) ?? null,
   }));
 
   const employeeOptionsTyped: EmployeeSummary[] = employeeOptions;

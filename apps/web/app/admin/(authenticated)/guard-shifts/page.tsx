@@ -207,7 +207,7 @@ export default async function ShiftsPage({
   }));
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="max-w-min mx-auto">
       <GuardShiftsTabs />
       <Suspense fallback={<AdminListSkeleton rows={8} />}>
         <ShiftList

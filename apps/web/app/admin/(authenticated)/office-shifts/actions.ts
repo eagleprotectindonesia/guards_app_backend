@@ -18,10 +18,24 @@ import {
   updateOfficeShiftWithChangelog,
   getOfficeEmployeesByCodes,
   deleteOfficeShiftsByEmployeeAndDates,
+  replaceOfficeShiftGuard,
+  swapOfficeShifts,
+  getOfficeShiftsByEmployeeWithinWindow,
+  bulkSwapReplaceOfficeShifts,
+  createShiftReassignmentHrNotification,
 } from '@repo/database';
+import { sendShiftReassignmentPushNotification, sendBulkShiftSwapAggregatePushNotification } from '@repo/notifications';
 import { ActionState } from '@/types/actions';
-import { createOfficeShiftSchema, CreateOfficeShiftInput, UpdateOfficeShiftInput } from '@repo/validations';
+import {
+  createOfficeShiftSchema,
+  CreateOfficeShiftInput,
+  UpdateOfficeShiftInput,
+  replaceOfficeShiftSchema,
+  swapOfficeShiftsSchema,
+  bulkSwapReplaceOfficeShiftsSchema,
+} from '@repo/validations';
 import { PERMISSIONS } from '@/lib/auth/permissions';
+import type { SerializedOfficeShiftWithRelationsDto } from '@/types/office-shifts';
 
 const BULK_OFFICE_SHIFT_HEADERS = ['employee_code', 'shift_type_name', 'date', 'note'] as const;
 
@@ -422,11 +436,11 @@ export async function parseAndValidateOfficeShiftsCSV(formData: FormData): Promi
     const workbook = XLSX.read(arrayBuffer, { type: 'buffer' });
     const lowerCaseSheetNames = workbook.SheetNames.map(name => name.toLowerCase());
     const targetSheetIndex = lowerCaseSheetNames.indexOf('final_output');
-    
+
     if (targetSheetIndex === -1) {
       return { success: false, message: 'Could not find a sheet named "final_output" in the provided Excel document.' };
     }
-    
+
     const targetSheetName = workbook.SheetNames[targetSheetIndex];
     text = XLSX.utils.sheet_to_csv(workbook.Sheets[targetSheetName]);
   } else {
@@ -757,11 +771,11 @@ export async function bulkCreateOfficeShifts(
     const workbook = XLSX.read(arrayBuffer, { type: 'buffer' });
     const lowerCaseSheetNames = workbook.SheetNames.map(name => name.toLowerCase());
     const targetSheetIndex = lowerCaseSheetNames.indexOf('final_output');
-    
+
     if (targetSheetIndex === -1) {
       return { success: false, message: 'Could not find a sheet named "final_output" in the provided Excel document.' };
     }
-    
+
     const targetSheetName = workbook.SheetNames[targetSheetIndex];
     text = XLSX.utils.sheet_to_csv(workbook.Sheets[targetSheetName]);
   } else {
@@ -843,7 +857,11 @@ export async function bulkCreateOfficeShifts(
   }
 
   const uniqueEmployeeIds = Array.from(
-    new Set(parsedRows.map(row => employeeMap.get(row.employeeCode.toLowerCase())?.id).filter((id): id is string => Boolean(id)))
+    new Set(
+      parsedRows
+        .map(row => employeeMap.get(row.employeeCode.toLowerCase())?.id)
+        .filter((id): id is string => Boolean(id))
+    )
   );
   const existingShiftsByEmployee = new Map<string, Array<{ id: string; startsAt: Date; endsAt: Date }>>();
 
@@ -1104,6 +1122,324 @@ export async function bulkCreateOfficeShifts(
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Database Error: Failed to process office shifts.',
+    };
+  }
+}
+
+export async function replaceOfficeShift(input: {
+  officeShiftId: string;
+  replacementEmployeeId: string;
+  reason: string;
+  notes?: string | null;
+  evidenceS3Key?: string | null;
+}): Promise<{ success: boolean; message?: string }> {
+  try {
+    const session = await getAdminAuthSession();
+    if (!session) return { success: false, message: 'Unauthorized' };
+    if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.EDIT)) {
+      return { success: false, message: 'Permission denied' };
+    }
+    const adminId = session.id;
+
+    const parsed = replaceOfficeShiftSchema.safeParse(input);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return {
+        success: false,
+        message: firstError?.message ?? 'Invalid input.',
+      };
+    }
+
+    const originalShift = await prisma.officeShift.findUnique({
+      where: { id: parsed.data.officeShiftId, deletedAt: null },
+      select: { employeeId: true, employee: { select: { fullName: true } } },
+    });
+    const originalEmployeeId = originalShift?.employeeId ?? null;
+    const originalEmployeeName = originalShift?.employee?.fullName ?? null;
+
+    const result = await replaceOfficeShiftGuard(
+      {
+        officeShiftId: parsed.data.officeShiftId,
+        replacementEmployeeId: parsed.data.replacementEmployeeId,
+        reason: parsed.data.reason,
+        notes: parsed.data.notes ?? null,
+        evidenceS3Key: parsed.data.evidenceS3Key ?? null,
+      },
+      adminId
+    );
+
+    // Notify both the original employee (now removed) and the new replacement employee.
+    const notifyTargets: { employeeId: string; wasOriginalAssignee: boolean }[] = [];
+    if (originalEmployeeId) {
+      notifyTargets.push({ employeeId: originalEmployeeId, wasOriginalAssignee: true });
+    }
+    if (result.employeeId) {
+      notifyTargets.push({ employeeId: result.employeeId, wasOriginalAssignee: false });
+    }
+    await Promise.all(
+      notifyTargets.map(t =>
+        sendShiftReassignmentPushNotification({
+          employeeId: t.employeeId,
+          shiftId: result.id,
+          siteName: '',
+          shiftTypeName: result.officeShiftType.name,
+          date: result.date,
+          startsAt: result.startsAt,
+          endsAt: result.endsAt,
+          reason: parsed.data.reason,
+          kind: 'replace',
+          wasOriginalAssignee: t.wasOriginalAssignee,
+        }).catch(() => {})
+      )
+    );
+
+    await createShiftReassignmentHrNotification({
+      type: 'replace',
+      shiftIds: [result.id],
+      employeeNames: [originalEmployeeName, result.employee?.fullName ?? 'Replacement'].filter((n): n is string => !!n),
+      adminId,
+      reason: parsed.data.reason,
+    }).catch(() => {});
+
+    revalidateOfficeShiftPaths();
+    return { success: true };
+  } catch (error) {
+    console.error('[replaceOfficeShift] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to replace office shift employee.',
+    };
+  }
+}
+
+export async function swapOfficeShiftsAction(input: {
+  officeShiftAId: string;
+  officeShiftBId: string;
+  reason?: string | null;
+  notes?: string | null;
+}): Promise<{ success: boolean; message?: string }> {
+  try {
+    const session = await getAdminAuthSession();
+    if (!session) return { success: false, message: 'Unauthorized' };
+    if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.EDIT)) {
+      return { success: false, message: 'Permission denied' };
+    }
+    const adminId = session.id;
+
+    const parsed = swapOfficeShiftsSchema.safeParse(input);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return {
+        success: false,
+        message: firstError?.message ?? 'Invalid input.',
+      };
+    }
+
+    const result = await swapOfficeShifts(
+      {
+        officeShiftAId: parsed.data.officeShiftAId,
+        officeShiftBId: parsed.data.officeShiftBId,
+        reason: parsed.data.reason ?? 'Personal Reason',
+        notes: parsed.data.notes ?? null,
+      },
+      adminId
+    );
+
+    // Notify both employees involved in the swap (each once).
+    const notified = new Set<string>();
+    await Promise.all(
+      [result.shiftA, result.shiftB].map(shift => {
+        if (!shift.employeeId || notified.has(shift.employeeId)) return Promise.resolve();
+        notified.add(shift.employeeId);
+        return sendShiftReassignmentPushNotification({
+          employeeId: shift.employeeId,
+          shiftId: shift.id,
+          siteName: '',
+          shiftTypeName: shift.officeShiftType.name,
+          date: shift.date,
+          startsAt: shift.startsAt,
+          endsAt: shift.endsAt,
+          reason: parsed.data.reason ?? 'Personal Reason',
+          kind: 'swap',
+          wasOriginalAssignee: false,
+        }).catch(() => {});
+      })
+    );
+
+    await createShiftReassignmentHrNotification({
+      type: 'swap',
+      shiftIds: [result.shiftA.id, result.shiftB.id],
+      employeeNames: [
+        result.shiftA.employee?.fullName ?? 'Employee A',
+        result.shiftB.employee?.fullName ?? 'Employee B',
+      ],
+      adminId,
+      reason: parsed.data.reason ?? null,
+    }).catch(() => {});
+
+    revalidateOfficeShiftPaths();
+    return { success: true };
+  } catch (error) {
+    console.error('[swapOfficeShiftsAction] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to swap office shifts.',
+    };
+  }
+}
+
+export async function bulkSwapReplaceOfficeShiftsAction(input: {
+  employeeAId: string;
+  employeeBId: string;
+  fromDate: string;
+  toDate: string;
+  reason?: string | null;
+  notes?: string | null;
+}): Promise<{ success: boolean; message?: string }> {
+  try {
+    const session = await getAdminAuthSession();
+    if (!session) return { success: false, message: 'Unauthorized' };
+    if (!adminHasPermission(session, PERMISSIONS.OFFICE_SHIFTS.EDIT)) {
+      return { success: false, message: 'Permission denied' };
+    }
+    const adminId = session.id;
+
+    const parsed = bulkSwapReplaceOfficeShiftsSchema.safeParse(input);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return {
+        success: false,
+        message: firstError?.message ?? 'Invalid input.',
+      };
+    }
+
+    const [empA, empB] = await Promise.all([
+      prisma.employee.findUnique({
+        where: { id: parsed.data.employeeAId, deletedAt: null },
+        select: { fullName: true },
+      }),
+      prisma.employee.findUnique({
+        where: { id: parsed.data.employeeBId, deletedAt: null },
+        select: { fullName: true },
+      }),
+    ]);
+
+    const result = await bulkSwapReplaceOfficeShifts(
+      {
+        employeeAId: parsed.data.employeeAId,
+        employeeBId: parsed.data.employeeBId,
+        fromDate: parsed.data.fromDate,
+        toDate: parsed.data.toDate,
+        reason: parsed.data.reason ?? null,
+        notes: parsed.data.notes ?? null,
+      },
+      adminId
+    );
+
+    // One aggregate push per affected employee (grouped by post-update employeeId).
+    const shiftsByEmployee = new Map<string, typeof result.affectedShifts>();
+    for (const s of result.affectedShifts) {
+      if (!s.employeeId) continue;
+      const arr = shiftsByEmployee.get(s.employeeId) ?? [];
+      arr.push(s);
+      shiftsByEmployee.set(s.employeeId, arr);
+    }
+
+    await Promise.all(
+      Array.from(shiftsByEmployee.entries()).map(([employeeId, shifts]) =>
+        sendBulkShiftSwapAggregatePushNotification({
+          employeeId,
+          shifts: shifts.map(s => ({ ...s, siteName: '' })),
+          rangeFrom: result.rangeFrom,
+          rangeTo: result.rangeTo,
+          partnerFullName:
+            employeeId === parsed.data.employeeAId
+              ? (empB?.fullName ?? 'Employee B')
+              : (empA?.fullName ?? 'Employee A'),
+          reason: parsed.data.reason ?? 'Bulk swap',
+        }).catch(() => {})
+      )
+    );
+
+    await createShiftReassignmentHrNotification({
+      type: 'swap',
+      shiftIds: result.affectedShifts.map(s => s.id),
+      employeeNames: [empA?.fullName ?? 'Employee A', empB?.fullName ?? 'Employee B'],
+      adminId,
+      reason: parsed.data.reason ?? null,
+    }).catch(() => {});
+
+    revalidateOfficeShiftPaths();
+    return {
+      success: true,
+      message: `Swapped ${result.swappedCount}, replaced ${result.replacedCount} office shift(s).`,
+    };
+  } catch (error) {
+    console.error('[bulkSwapReplaceOfficeShiftsAction] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to bulk swap/replace office shifts.',
+    };
+  }
+}
+
+export async function getOfficeShiftSwapCandidateAction(params: {
+  employeeId: string;
+  referenceDate: string;
+}): Promise<{ success: boolean; shifts?: SerializedOfficeShiftWithRelationsDto[]; message?: string }> {
+  try {
+    const { employeeId, referenceDate } = params;
+    if (!employeeId || !referenceDate) {
+      return { success: false, message: 'employeeId and referenceDate are required.' };
+    }
+    const refDate = new Date(referenceDate);
+    if (Number.isNaN(refDate.getTime())) {
+      return { success: false, message: 'Invalid referenceDate.' };
+    }
+
+    const rows = await getOfficeShiftsByEmployeeWithinWindow(employeeId, refDate);
+    const shifts: SerializedOfficeShiftWithRelationsDto[] = rows.map(row => ({
+      id: row.id,
+      officeShiftTypeId: row.officeShiftTypeId,
+      employeeId: row.employeeId,
+      date: row.date.toISOString(),
+      startsAt: row.startsAt.toISOString(),
+      endsAt: row.endsAt.toISOString(),
+      status: row.status,
+      note: row.note,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      officeShiftType: {
+        id: row.officeShiftType.id,
+        name: row.officeShiftType.name,
+        startTime: row.officeShiftType.startTime,
+        endTime: row.officeShiftType.endTime,
+      },
+      employee: {
+        id: row.employee.id,
+        fullName: row.employee.fullName,
+        employeeNumber: row.employee.employeeNumber,
+      },
+      officeAttendances: (row.officeAttendances ?? []).map(att => ({
+        id: att.id,
+        officeId: att.officeId,
+        officeShiftId: att.officeShiftId,
+        employeeId: att.employeeId,
+        recordedAt: att.recordedAt.toISOString(),
+        picture: att.picture,
+        status: att.status,
+        metadata: att.metadata,
+      })),
+      createdBy: null,
+      lastUpdatedBy: null,
+    }));
+
+    return { success: true, shifts };
+  } catch (error) {
+    console.error('[getOfficeShiftSwapCandidateAction] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to load swap candidates.',
     };
   }
 }

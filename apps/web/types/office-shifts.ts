@@ -8,6 +8,14 @@ export type OfficeShiftWithRelationsDto = OfficeShift & {
   officeAttendances: OfficeAttendance[];
   createdBy?: { name: string } | null;
   lastUpdatedBy?: { name: string } | null;
+  latestSwapReplacement?: LatestOfficeShiftSwapReplacement | null;
 };
 
 export type SerializedOfficeShiftWithRelationsDto = Serialized<OfficeShiftWithRelationsDto>;
+
+export type LatestOfficeShiftSwapReplacement = {
+  method: 'SWAP' | 'REPLACEMENT';
+  previousEmployeeName: string | null;
+  swapPartnerName?: string | null;
+  replacementReason?: string | null;
+};

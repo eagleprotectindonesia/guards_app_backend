@@ -421,6 +421,9 @@ export default function ShiftList({
                   onSort={handleSort}
                 />
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Note
+                </th>
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
                   Swap / Replacement
                 </th>
 
@@ -438,7 +441,7 @@ export default function ShiftList({
             <tbody className="divide-y divide-border">
               {shifts.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={10} className="py-8 text-center text-muted-foreground">
                     No shifts found. Schedule one to get started.
                   </td>
                 </tr>
@@ -493,6 +496,15 @@ export default function ShiftList({
                         >
                           {shift.status.replace('_', ' ').toUpperCase()}
                         </span>
+                      </td>
+                      <td className="py-4 px-6 text-sm text-muted-foreground">
+                        {shift.note ? (
+                          <div className="line-clamp-3 max-w-[200px]" title={shift.note}>
+                            {shift.note}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground/40">-</span>
+                        )}
                       </td>
                       <td className="py-4 px-6 text-sm text-muted-foreground">
                         {shift.latestSwapReplacement?.method === 'REPLACEMENT' ? (

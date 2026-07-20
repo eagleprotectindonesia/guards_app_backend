@@ -2,14 +2,21 @@
 
 import { useState, useTransition } from 'react';
 import type { Serialized } from '@/lib/server-utils';
-import { bulkDeleteOfficeShifts, cancelOfficeShift, deleteOfficeShift } from '../actions';
+import {
+  bulkDeleteOfficeShifts,
+  bulkSwapReplaceOfficeShiftsAction,
+  cancelOfficeShift,
+  deleteOfficeShift,
+  replaceOfficeShift,
+  swapOfficeShiftsAction,
+} from '../actions';
 import PaginationNav from '../../components/pagination-nav';
 import OfficeBulkCreateModal from './office-bulk-create-modal';
 import { EditButton, DeleteButton } from '../../components/action-buttons';
 import toast from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
 import { useSearchParams } from 'next/navigation';
-import { Upload, History } from 'lucide-react';
+import { Upload, History, Replace, Repeat } from 'lucide-react';
 import { useSession } from '../../context/session-context';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 import { OfficeShiftWithRelationsDto } from '@/types/office-shifts';
@@ -19,6 +26,8 @@ import OfficeShiftExport from './office-shift-export';
 import { useAdminRouter } from '../../context/admin-router';
 import { AdminNavLink } from '../../components/admin-nav-link';
 import { DateRangeFilter, SelectFilter, FilterBar, useFilterUrlSync } from '../../components/filters';
+import ReplaceOfficeGuardModal from './replace-office-guard-modal';
+import SwapOfficeShiftModal from './swap-office-shift-modal';
 
 type Props = {
   officeShifts: Serialized<OfficeShiftWithRelationsDto>[];
@@ -58,6 +67,12 @@ export default function OfficeShiftList({
   const [selectedOfficeShiftIds, setSelectedOfficeShiftIds] = useState<Set<string>>(new Set());
   const [isBulkDeleteConfirmOpen, setIsBulkDeleteConfirmOpen] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [replaceTarget, setReplaceTarget] = useState<Serialized<OfficeShiftWithRelationsDto> | null>(null);
+  const [swapTarget, setSwapTarget] = useState<Serialized<OfficeShiftWithRelationsDto> | null>(null);
+  const [isReplacePending, startReplaceTransition] = useTransition();
+  const [isSwapPending, startSwapTransition] = useTransition();
+  const [isBulkSwapPending, startBulkSwapTransition] = useTransition();
+  const [isBulkReplacePending, startBulkReplaceTransition] = useTransition();
 
   const canCreate = hasPermission(PERMISSIONS.OFFICE_SHIFTS.CREATE);
   const canEdit = hasPermission(PERMISSIONS.OFFICE_SHIFTS.EDIT);
@@ -65,12 +80,8 @@ export default function OfficeShiftList({
   const canViewAudit = hasPermission(PERMISSIONS.OFFICE_SHIFTS.VIEW) && hasPermission(PERMISSIONS.CHANGELOGS.VIEW);
   const { apply } = useFilterUrlSync('/admin/office-shifts');
 
-  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(
-    startDate ? parseISO(startDate) : undefined
-  );
-  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(
-    endDate ? parseISO(endDate) : undefined
-  );
+  const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(startDate ? parseISO(startDate) : undefined);
+  const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(endDate ? parseISO(endDate) : undefined);
   const [filterEmployeeId, setFilterEmployeeId] = useState(employeeId || '');
   const [filterDepartment, setFilterDepartment] = useState(department || '');
 
@@ -131,6 +142,64 @@ export default function OfficeShiftList({
     params.set('page', '1');
     router.push(`/admin/office-shifts?${params.toString()}`);
   };
+
+  const handleReplaceSubmit = async (input: {
+    officeShiftId: string;
+    replacementEmployeeId: string;
+    reason: string;
+    notes?: string;
+    evidenceS3Key?: string;
+  }) => {
+    if (!canEdit) return;
+    startReplaceTransition(async () => {
+      const result = await replaceOfficeShift(input);
+      if (result.success) {
+        toast.success('Office shift employee replaced successfully!');
+        setReplaceTarget(null);
+      } else {
+        toast.error(result.message || 'Failed to replace office shift employee.');
+      }
+    });
+  };
+
+  const handleSwapSubmit = async (input: {
+    officeShiftAId: string;
+    officeShiftBId: string;
+    reason: string;
+    notes?: string;
+  }) => {
+    if (!canEdit) return;
+    startSwapTransition(async () => {
+      const result = await swapOfficeShiftsAction(input);
+      if (result.success) {
+        toast.success('Office shifts swapped successfully!');
+        setSwapTarget(null);
+      } else {
+        toast.error(result.message || 'Failed to swap office shifts.');
+      }
+    });
+  };
+
+  const handleBulkSwapSubmit = async (input: {
+    employeeAId: string;
+    employeeBId: string;
+    fromDate: string;
+    toDate: string;
+    reason: string;
+    notes?: string;
+  }) => {
+    if (!canEdit) return;
+    startBulkSwapTransition(async () => {
+      const result = await bulkSwapReplaceOfficeShiftsAction(input);
+      if (result.success) {
+        toast.success(result.message || 'Office shifts swapped/replaced successfully!');
+      } else {
+        toast.error(result.message || 'Failed to bulk swap/replace office shifts.');
+      }
+    });
+  };
+
+  const handleBulkReplaceSubmit = handleBulkSwapSubmit;
 
   const handleConfirmAction = () => {
     const officeShift = officeShifts.find(item => item.id === selectedOfficeShiftId);
@@ -196,10 +265,7 @@ export default function OfficeShiftList({
               Delete Selected ({selectedOfficeShiftIds.size})
             </button>
           )}
-          <OfficeShiftExport
-            endpoint="/api/admin/office-shifts/export"
-            title="Export Office Shifts"
-          />
+          <OfficeShiftExport endpoint="/api/admin/office-shifts/export" title="Export Office Shifts" />
           {canCreate && (
             <button
               onClick={() => setIsBulkCreateOpen(true)}
@@ -268,8 +334,16 @@ export default function OfficeShiftList({
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-muted/50 border-b border-border">
-                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">#</th>
-                <SortableHeader label="Shift Type" field="shiftType" currentSortBy={sortBy} currentSortOrder={sortOrder} onSort={handleSort} />
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider w-12 text-center">
+                  #
+                </th>
+                <SortableHeader
+                  label="Shift Type"
+                  field="shiftType"
+                  currentSortBy={sortBy}
+                  currentSortOrder={sortOrder}
+                  onSort={handleSort}
+                />
                 <SortableHeader
                   label="Employee"
                   field="employee"
@@ -284,6 +358,9 @@ export default function OfficeShiftList({
                   currentSortOrder={sortOrder}
                   onSort={handleSort}
                 />
+                <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                  Swap / Replacement
+                </th>
                 <th className="py-3 px-6 text-xs font-bold text-muted-foreground uppercase tracking-wider">Note</th>
                 <th className="py-3 px-6 text-[10px] font-bold text-muted-foreground uppercase tracking-wider text-center">
                   <div className="flex flex-col gap-0.5">
@@ -312,14 +389,16 @@ export default function OfficeShiftList({
             <tbody className="divide-y divide-border">
               {officeShifts.length === 0 ? (
                 <tr>
-                  <td colSpan={canDelete ? 8 : 7} className="py-8 text-center text-muted-foreground">
+                  <td colSpan={canDelete ? 9 : 8} className="py-8 text-center text-muted-foreground">
                     No office shifts found. Schedule one to get started.
                   </td>
                 </tr>
               ) : (
                 officeShifts.map(officeShift => (
                   <tr key={officeShift.id} className="hover:bg-muted/30 transition-colors group">
-                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">{officeShifts.indexOf(officeShift) + 1 + (page - 1) * perPage}</td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground text-center">
+                      {officeShifts.indexOf(officeShift) + 1 + (page - 1) * perPage}
+                    </td>
                     <td className="py-4 px-6 text-sm font-medium text-foreground">
                       {officeShift.officeShiftType.name}
                     </td>
@@ -334,7 +413,26 @@ export default function OfficeShiftList({
                       </div>
                     </td>
                     <td className="py-4 px-6 text-sm text-muted-foreground">
-                      <div className="max-w-[200px] whitespace-normal wrap-break-words text-xs">
+                      {officeShift.latestSwapReplacement?.method === 'REPLACEMENT' ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Replace className="w-3.5 h-3.5 text-amber-500" />
+                          <span>
+                            Replaced — prev: {officeShift.latestSwapReplacement.previousEmployeeName || 'Unknown'}
+                          </span>
+                        </span>
+                      ) : officeShift.latestSwapReplacement?.method === 'SWAP' ? (
+                        <span className="inline-flex items-center gap-1">
+                          <Repeat className="w-3.5 h-3.5 text-violet-500" />
+                          <span>
+                            Swapped — prev: {officeShift.latestSwapReplacement.previousEmployeeName || 'Unknown'}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground/40">-</span>
+                      )}
+                    </td>
+                    <td className="py-4 px-6 text-sm text-muted-foreground">
+                      <div className="max-w-[200px] whitespace-normal wrap-break-words text-xs line-clamp-3" title={officeShift.note || undefined}>
                         {officeShift.note || '-'}
                       </div>
                     </td>
@@ -363,31 +461,53 @@ export default function OfficeShiftList({
                       </div>
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <div className="flex items-center justify-end gap-2 opacity-100">
-                        <EditButton
-                          href={`/admin/office-shifts/${officeShift.id}/edit`}
-                          disabled={!canEdit}
-                          title={!canEdit ? 'Permission Denied' : 'Edit'}
-                        />
-                        <DeleteButton
-                          onClick={() => handleDeleteClick(officeShift.id)}
-                          disabled={
-                            isPending ||
-                            !canDelete ||
-                            (!isSuperAdmin &&
-                              officeShift.status !== 'in_progress' &&
-                              officeShift.status !== 'scheduled')
-                          }
-                          title={
-                            !canDelete
-                              ? 'Permission Denied'
-                              : !isSuperAdmin &&
-                                  officeShift.status !== 'in_progress' &&
-                                  officeShift.status !== 'scheduled'
-                                ? 'Only in-progress or scheduled shifts can be cancelled'
-                                : 'Actions'
-                          }
-                        />
+                      <div className="flex flex-col items-end justify-end gap-2">
+                        <div className="flex items-center justify-end gap-2">
+                          <EditButton
+                            href={`/admin/office-shifts/${officeShift.id}/edit`}
+                            disabled={!canEdit}
+                            title={!canEdit ? 'Permission Denied' : 'Edit'}
+                          />
+                          <DeleteButton
+                            onClick={() => handleDeleteClick(officeShift.id)}
+                            disabled={
+                              isPending ||
+                              !canDelete ||
+                              (!isSuperAdmin &&
+                                officeShift.status !== 'in_progress' &&
+                                officeShift.status !== 'scheduled')
+                            }
+                            title={
+                              !canDelete
+                                ? 'Permission Denied'
+                                : !isSuperAdmin &&
+                                    officeShift.status !== 'in_progress' &&
+                                    officeShift.status !== 'scheduled'
+                                  ? 'Only in-progress or scheduled shifts can be cancelled'
+                                  : 'Actions'
+                            }
+                          />
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setReplaceTarget(officeShift)}
+                            disabled={!canEdit || isReplacePending || isSwapPending}
+                            title={!canEdit ? 'Permission Denied' : 'Replace employee'}
+                            className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                          >
+                            <Replace className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSwapTarget(officeShift)}
+                            disabled={!canEdit || isReplacePending || isSwapPending}
+                            title={!canEdit ? 'Permission Denied' : 'Swap shift'}
+                            className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-50"
+                          >
+                            <Repeat className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </td>
                     {canDelete && (
@@ -412,6 +532,28 @@ export default function OfficeShiftList({
 
       {/* Dialogs */}
       <OfficeBulkCreateModal isOpen={isBulkCreateOpen} onClose={() => setIsBulkCreateOpen(false)} />
+
+      <ReplaceOfficeGuardModal
+        isOpen={!!replaceTarget}
+        officeShift={replaceTarget}
+        employees={employees}
+        isPending={isReplacePending}
+        isBulkPending={isBulkReplacePending}
+        onClose={() => setReplaceTarget(null)}
+        onSubmit={handleReplaceSubmit}
+        onBulkSubmit={handleBulkReplaceSubmit}
+      />
+
+      <SwapOfficeShiftModal
+        isOpen={!!swapTarget}
+        officeShiftA={swapTarget}
+        employees={employees}
+        isPending={isSwapPending}
+        isBulkPending={isBulkSwapPending}
+        onClose={() => setSwapTarget(null)}
+        onSubmit={handleSwapSubmit}
+        onBulkSubmit={handleBulkSwapSubmit}
+      />
 
       {selectedOfficeShiftId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
