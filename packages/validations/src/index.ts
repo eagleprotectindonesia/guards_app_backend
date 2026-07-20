@@ -247,6 +247,32 @@ export const bulkSwapShiftsSchema = z
   );
 export type BulkSwapShiftsInput = z.infer<typeof bulkSwapShiftsSchema>;
 
+export const bulkReplaceShiftsSchema = z
+  .object({
+    sourceEmployeeId: z.uuid(),
+    targetEmployeeId: z.uuid(),
+    fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+    toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+    reason: z.enum(['Sick', 'Personal Reason', 'Family Emergency', 'Other']),
+    notes: z.string().max(2000).optional().nullable(),
+  })
+  .refine(data => data.sourceEmployeeId !== data.targetEmployeeId, {
+    message: 'Source and target employees must be different',
+    path: ['targetEmployeeId'],
+  })
+  .refine(data => new Date(data.fromDate) <= new Date(data.toDate), {
+    message: 'fromDate must be <= toDate',
+    path: ['toDate'],
+  })
+  .refine(
+    data => {
+      const days = (new Date(data.toDate).getTime() - new Date(data.fromDate).getTime()) / 86_400_000;
+      return days <= 31;
+    },
+    { message: 'Date range cannot exceed 31 days', path: ['toDate'] }
+  );
+export type BulkReplaceShiftsInput = z.infer<typeof bulkReplaceShiftsSchema>;
+
 // --- Checkin ---
 export const checkInSchema = z.object({
   location: z

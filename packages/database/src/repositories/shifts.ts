@@ -1675,6 +1675,228 @@ export async function bulkSwapReplaceBetweenEmployees(
   };
 }
 
+export async function bulkReplaceEmployeeShifts(
+  params: {
+    sourceEmployeeId: string;
+    targetEmployeeId: string;
+    fromDate: string;
+    toDate: string;
+    reason: string;
+    notes?: string | null;
+  },
+  adminId: string
+): Promise<BulkSwapReplaceResult> {
+  const { sourceEmployeeId, targetEmployeeId, fromDate, toDate, reason, notes } = params;
+
+  if (sourceEmployeeId === targetEmployeeId) throw new Error('Source and target employees must be different');
+  if (!fromDate || !toDate) throw new Error('fromDate and toDate are required');
+  if (new Date(fromDate) > new Date(toDate)) throw new Error('fromDate must be <= toDate');
+
+  // Pre-tx employee pre-check
+  const [sourceEmp, targetEmp] = await Promise.all([
+    prisma.employee.findUnique({
+      where: { id: sourceEmployeeId },
+      select: { id: true, fullName: true, deletedAt: true, role: true, status: true },
+    }),
+    prisma.employee.findUnique({
+      where: { id: targetEmployeeId },
+      select: { id: true, fullName: true, deletedAt: true, role: true, status: true },
+    }),
+  ]);
+  for (const [tag, e] of [
+    ['Source guard', sourceEmp],
+    ['Target guard', targetEmp],
+  ] as const) {
+    if (!e || e.deletedAt) throw new Error(`${tag} not found`);
+    if (e.role !== 'on_site') throw new Error(`${tag} must be an on-site guard`);
+    if (!e.status) throw new Error(`${tag} is inactive`);
+  }
+
+  const rangeFrom = new Date(`${fromDate}T00:00:00Z`);
+  const rangeTo = new Date(`${toDate}T23:59:59Z`);
+
+  const timestamp = new Date().toISOString();
+  const replaceLine = `[Replaced on ${timestamp}]: ${reason?.trim()}`;
+  const replacementReasonText = reason?.trim() || 'Bulk replace';
+
+  const result = await prisma.$transaction(
+    async tx => {
+      // 1. Read source employee's eligible shifts inside the transaction
+      const sourceShifts = await tx.shift.findMany({
+        where: {
+          employeeId: sourceEmployeeId,
+          deletedAt: null,
+          status: { in: ['scheduled', 'in_progress'] },
+          date: { gte: rangeFrom, lte: rangeTo },
+        },
+        include: {
+          site: { select: { name: true, id: true } },
+          shiftType: true,
+          employee: { include: { office: { select: { name: true } } } },
+        },
+        orderBy: { startsAt: 'asc' },
+      });
+
+      if (sourceShifts.length === 0) {
+        throw new Error('No eligible shifts found for the source employee in the given date range');
+      }
+
+      const allShiftIds = sourceShifts.map(s => s.id).sort();
+
+      // 2. Lock shifts then employees (deterministic order)
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM shifts WHERE id IN (${Prisma.join(allShiftIds)}) ORDER BY id FOR UPDATE`
+      );
+      const employeeIdsToLock = [sourceEmployeeId, targetEmployeeId].sort();
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM employees WHERE id IN (${Prisma.join(employeeIdsToLock)}) ORDER BY id FOR UPDATE`
+      );
+
+      // 3. Overlap check: target must not have conflicting shifts with any source shift
+      for (const shift of sourceShifts) {
+        const overlap = await tx.shift.findFirst({
+          where: {
+            employeeId: targetEmployeeId,
+            deletedAt: null,
+            status: { not: 'cancelled' },
+            startsAt: { lt: shift.endsAt },
+            endsAt: { gt: shift.startsAt },
+            id: { notIn: allShiftIds },
+          },
+          select: { id: true },
+        });
+        if (overlap) {
+          throw new Error(
+            `Target employee has a conflicting shift on ${shift.date.toISOString().slice(0, 10)} (${shift.site.name} ${shift.shiftType.name})`
+          );
+        }
+      }
+
+      const updateInclude = {
+        site: { select: { name: true } },
+        shiftType: true,
+        employee: { include: { office: { select: { name: true } } } },
+      } satisfies Prisma.ShiftInclude;
+
+      const changelogEntries: Prisma.ChangelogCreateManyInput[] = [];
+      const affectedShifts: BulkSwapAffectedShift[] = [];
+
+      // 4. Process each shift — full replace to target employee
+      for (const shift of sourceShifts) {
+        const noteParts = [replaceLine, notes?.trim()].filter(Boolean);
+        const updatedNote = noteParts.join('\n') + (shift.note ? `\n\n${shift.note}` : '');
+
+        const updatedShift = await tx.shift.update({
+          where: { id: shift.id, deletedAt: null },
+          data: {
+            employee: { connect: { id: targetEmployeeId } },
+            replacedByAdmin: { connect: { id: adminId } },
+            replacedAt: new Date(),
+            replacementReason: replacementReasonText,
+            note: updatedNote,
+            lastUpdatedBy: { connect: { id: adminId } },
+          },
+          include: updateInclude,
+        });
+
+        changelogEntries.push({
+          action: 'UPDATE',
+          entityType: 'Shift',
+          entityId: updatedShift.id,
+          actor: 'admin',
+          actorId: adminId,
+          details: {
+            method: 'REPLACEMENT',
+            kind: updatedShift.kind,
+            siteName: updatedShift.site.name,
+            typeName: updatedShift.shiftType.name,
+            employeeName: (updatedShift.employee as any)?.fullName ?? 'Unassigned',
+            date: updatedShift.date,
+            startsAt: updatedShift.startsAt,
+            endsAt: updatedShift.endsAt,
+            status: updatedShift.status,
+            note: updatedShift.note,
+            siteId: updatedShift.siteId,
+            shiftTypeId: updatedShift.shiftTypeId,
+            employeeNumber: (updatedShift.employee as any)?.employeeNumber ?? null,
+            previousEmployeeId: shift.employeeId,
+            previousEmployeeName: (shift.employee as any)?.fullName ?? 'Unassigned',
+            replacementReason: replacementReasonText,
+            replacementNotes: notes ?? null,
+            evidenceS3Key: null,
+            replacedAt: new Date(),
+            changes: {
+              employeeId: { from: shift.employeeId, to: updatedShift.employeeId },
+              note: { from: shift.note, to: updatedShift.note },
+            },
+          },
+        });
+
+        affectedShifts.push({
+          id: updatedShift.id,
+          employeeId: updatedShift.employeeId,
+          siteName: updatedShift.site.name,
+          shiftTypeName: updatedShift.shiftType.name,
+          date: updatedShift.date,
+          startsAt: updatedShift.startsAt,
+          endsAt: updatedShift.endsAt,
+          method: 'REPLACEMENT',
+        });
+      }
+
+      // Write all changelog entries in one batch
+      if (changelogEntries.length > 0) {
+        await tx.changelog.createMany({ data: changelogEntries });
+      }
+
+      return { affectedShifts };
+    },
+    { timeout: 30000 }
+  );
+
+  // Post-commit: notify employees and reconcile leaves
+  const employeesTouched = Array.from(new Set([sourceEmployeeId, targetEmployeeId].filter(Boolean)));
+
+  for (const employeeId of employeesTouched) {
+    await redis.xadd(`employee:stream:${employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shift_updated');
+  }
+
+  // Reconcile leaves over the affected dates per employee
+  const datesByEmployee = new Map<string, Set<string>>();
+  for (const s of result.affectedShifts) {
+    if (!s.employeeId) continue;
+    const key = s.date.toISOString().slice(0, 10);
+    const set = datesByEmployee.get(s.employeeId) ?? new Set<string>();
+    set.add(key);
+    datesByEmployee.set(s.employeeId, set);
+  }
+
+  for (const employeeId of employeesTouched) {
+    const dates = datesByEmployee.get(employeeId);
+    if (!dates || dates.size === 0) continue;
+    const sorted = Array.from(dates).sort();
+    await reconcileApprovedOnsiteLeavesForCoverage({
+      employeeId,
+      startDateKey: sorted[0],
+      endDateKey: sorted[sorted.length - 1],
+      adminId,
+    });
+  }
+
+  await redis.publish(
+    'events:shifts',
+    JSON.stringify({ type: 'SHIFT_REPLACED', ids: result.affectedShifts.map(s => s.id) })
+  );
+
+  return {
+    swappedCount: 0,
+    replacedCount: result.affectedShifts.length,
+    affectedShifts: result.affectedShifts,
+    rangeFrom,
+    rangeTo,
+  };
+}
+
 export async function deleteShiftWithChangelog(id: string, adminId: string) {
   const result = await prisma.$transaction(
     async tx => {
