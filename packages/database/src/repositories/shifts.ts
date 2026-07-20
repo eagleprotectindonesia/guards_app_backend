@@ -41,6 +41,38 @@ export async function getShiftsByEmployeeWithinWindow(
   });
 }
 
+/**
+ * Returns non-deleted, eligible (scheduled/in_progress) shifts for an employee
+ * within a specific date range [fromDate, toDate] (inclusive, UTC date keys).
+ * Used by the bulk A↔B swap operation.
+ */
+export async function getShiftsByEmployeeAndDateRange(
+  employeeId: string,
+  fromDate: string,
+  toDate: string,
+  include?: Prisma.ShiftInclude
+) {
+  const from = new Date(`${fromDate}T00:00:00Z`);
+  const to = new Date(`${toDate}T23:59:59Z`);
+
+  return prisma.shift.findMany({
+    where: {
+      employeeId,
+      deletedAt: null,
+      status: { in: ['scheduled', 'in_progress'] },
+      date: { gte: from, lte: to },
+    },
+    include: include || {
+      site: { select: { name: true, id: true } },
+      escortEndSite: { select: { id: true, name: true } },
+      shiftType: true,
+      employee: { include: { office: { select: { name: true } } } },
+      groupShift: { select: { id: true } },
+    },
+    orderBy: { startsAt: 'asc' },
+  });
+}
+
 export async function getShiftById(id: string, include?: Prisma.ShiftInclude) {
   return prisma.shift.findUnique({
     where: { id, deletedAt: null },
@@ -1125,6 +1157,522 @@ export async function swapShifts(
   );
 
   return result;
+}
+
+/**
+ * Bulk A↔B swap/replace between two employees within a date range.
+ *
+ * Every eligible shift of employee A in [fromDate, toDate] is reassigned to B,
+ * and vice versa. Shifts whose startsAt/endsAt match between the two employees
+ * are treated as swaps (group chat detached, swapsWithShift linked, SWAP changelog).
+ * Unmatched extras are treated as lightweight replacements (employeeId only,
+ * no replacement metadata, REPLACEMENT changelog).
+ *
+ * All-or-nothing single transaction with deterministic row locks.
+ */
+export type BulkSwapAffectedShift = {
+  id: string;
+  employeeId: string | null;
+  siteName: string;
+  shiftTypeName: string;
+  date: Date;
+  startsAt: Date;
+  endsAt: Date;
+  method: 'SWAP' | 'REPLACEMENT';
+};
+
+export type BulkSwapReplaceResult = {
+  swappedCount: number;
+  replacedCount: number;
+  affectedShifts: BulkSwapAffectedShift[];
+  rangeFrom: Date;
+  rangeTo: Date;
+};
+
+export async function bulkSwapReplaceBetweenEmployees(
+  params: {
+    employeeAId: string;
+    employeeBId: string;
+    fromDate: string;
+    toDate: string;
+    reason?: string | null;
+    notes?: string | null;
+  },
+  adminId: string
+): Promise<BulkSwapReplaceResult> {
+  const { employeeAId, employeeBId, fromDate, toDate, reason, notes } = params;
+
+  if (employeeAId === employeeBId) throw new Error('Cannot swap an employee with themselves');
+  if (!fromDate || !toDate) throw new Error('fromDate and toDate are required');
+  if (new Date(fromDate) > new Date(toDate)) throw new Error('fromDate must be <= toDate');
+
+  // Pre-tx employee pre-check — guards exist, are not soft-deleted, are on-site and active.
+  const [empA, empB] = await Promise.all([
+    prisma.employee.findUnique({
+      where: { id: employeeAId },
+      select: { id: true, fullName: true, deletedAt: true, role: true, status: true },
+    }),
+    prisma.employee.findUnique({
+      where: { id: employeeBId },
+      select: { id: true, fullName: true, deletedAt: true, role: true, status: true },
+    }),
+  ]);
+  for (const [tag, e] of [
+    ['Guard A', empA],
+    ['Guard B', empB],
+  ] as const) {
+    if (!e || e.deletedAt) throw new Error(`${tag} not found`);
+    if (e.role !== 'on_site') throw new Error(`${tag} must be an on-site guard`);
+    if (!e.status) throw new Error(`${tag} is inactive`);
+  }
+
+  const rangeFrom = new Date(`${fromDate}T00:00:00Z`);
+  const rangeTo = new Date(`${toDate}T23:59:59Z`);
+
+  const timestamp = new Date().toISOString();
+  const swapLine = `[Swap on ${timestamp}]: ${reason?.trim() ?? 'Bulk swap'}`;
+  const replacementReasonText = reason?.trim() || 'Bulk swap';
+
+  // Execute all reads, locks, validations, updates, and changelog writes inside one transaction.
+  const result = await prisma.$transaction(
+    async tx => {
+      // 1. Read eligible shifts for both employees inside the transaction
+      //    so the row locks below serialize against concurrent mutations.
+      const [aShifts, bShifts] = await Promise.all([
+        tx.shift.findMany({
+          where: {
+            employeeId: employeeAId,
+            deletedAt: null,
+            status: { in: ['scheduled', 'in_progress'] },
+            date: { gte: rangeFrom, lte: rangeTo },
+          },
+          include: {
+            site: { select: { name: true, id: true } },
+            escortEndSite: { select: { id: true, name: true } },
+            shiftType: true,
+            employee: { include: { office: { select: { name: true } } } },
+            groupShift: { select: { id: true } },
+          },
+          orderBy: { startsAt: 'asc' },
+        }),
+        tx.shift.findMany({
+          where: {
+            employeeId: employeeBId,
+            deletedAt: null,
+            status: { in: ['scheduled', 'in_progress'] },
+            date: { gte: rangeFrom, lte: rangeTo },
+          },
+          include: {
+            site: { select: { name: true, id: true } },
+            escortEndSite: { select: { id: true, name: true } },
+            shiftType: true,
+            employee: { include: { office: { select: { name: true } } } },
+            groupShift: { select: { id: true } },
+          },
+          orderBy: { startsAt: 'asc' },
+        }),
+      ]);
+
+      if (aShifts.length === 0 && bShifts.length === 0) {
+        throw new Error('No eligible shifts found for either employee in the given date range');
+      }
+
+      // 2. Pair by startsAt/endsAt match
+      const bShiftsByInterval = new Map<string, (typeof bShifts)[0]>();
+      for (const bs of bShifts) {
+        const key = `${bs.startsAt.toISOString()}|${bs.endsAt.toISOString()}`;
+        bShiftsByInterval.set(key, bs);
+      }
+
+      const matchedPairs: { aShift: (typeof aShifts)[0]; bShift: (typeof bShifts)[0] }[] = [];
+      const unmatchedA: (typeof aShifts)[0][] = [];
+      const bMatchedKeys = new Set<string>();
+
+      for (const aShift of aShifts) {
+        const key = `${aShift.startsAt.toISOString()}|${aShift.endsAt.toISOString()}`;
+        const bShift = bShiftsByInterval.get(key);
+        if (bShift) {
+          matchedPairs.push({ aShift, bShift });
+          bMatchedKeys.add(key);
+        } else {
+          unmatchedA.push(aShift);
+        }
+      }
+
+      const unmatchedB = bShifts.filter(bs => {
+        const key = `${bs.startsAt.toISOString()}|${bs.endsAt.toISOString()}`;
+        return !bMatchedKeys.has(key);
+      });
+
+      const allShiftIds = Array.from(
+        new Set([...aShifts.map(s => s.id), ...bShifts.map(s => s.id)])
+      ).sort();
+
+      // 3. Lock all shift rows in deterministic order, then both employee rows
+      if (allShiftIds.length > 0) {
+        await tx.$queryRaw(
+          Prisma.sql`SELECT id FROM shifts WHERE id IN (${Prisma.join(allShiftIds)}) ORDER BY id FOR UPDATE`
+        );
+      }
+
+      const employeeIdsToLock = [employeeAId, employeeBId].sort();
+      await tx.$queryRaw(
+        Prisma.sql`SELECT id FROM employees WHERE id IN (${Prisma.join(employeeIdsToLock)}) ORDER BY id FOR UPDATE`
+      );
+
+      // 4. Overlap check A: B's incoming shifts (bShifts) must not overlap A's non-batch shifts
+      if (bShifts.length > 0) {
+        for (const bs of bShifts) {
+          const overlapA = await tx.shift.findFirst({
+            where: {
+              employeeId: employeeAId,
+              deletedAt: null,
+              status: { not: 'cancelled' },
+              startsAt: { lt: bs.endsAt },
+              endsAt: { gt: bs.startsAt },
+              id: { notIn: allShiftIds },
+            },
+            select: { id: true },
+          });
+          if (overlapA) {
+            throw new Error(`Swap would create an overlap for employee ${employeeAId}`);
+          }
+        }
+      }
+
+      // Overlap check B: A's incoming shifts (aShifts) must not overlap B's non-batch shifts
+      if (aShifts.length > 0) {
+        for (const as of aShifts) {
+          const overlapB = await tx.shift.findFirst({
+            where: {
+              employeeId: employeeBId,
+              deletedAt: null,
+              status: { not: 'cancelled' },
+              startsAt: { lt: as.endsAt },
+              endsAt: { gt: as.startsAt },
+              id: { notIn: allShiftIds },
+            },
+            select: { id: true },
+          });
+          if (overlapB) {
+            throw new Error(`Swap would create an overlap for employee ${employeeBId}`);
+          }
+        }
+      }
+
+      const changelogEntries: Prisma.ChangelogCreateManyInput[] = [];
+      const affectedShifts: BulkSwapAffectedShift[] = [];
+      let swappedCount = 0;
+      let replacedCount = 0;
+
+      const updateInclude = {
+        site: { select: { name: true } },
+        escortEndSite: { select: { id: true, name: true } },
+        shiftType: true,
+        employee: { include: { office: { select: { name: true } } } },
+      } satisfies Prisma.ShiftInclude;
+
+      // 5a. Process matched pairs — full swap semantics
+      for (const { aShift, bShift } of matchedPairs) {
+        const aGroup = aShift.groupShiftId;
+        const bGroup = bShift.groupShiftId;
+
+        const aNoteParts = [swapLine, notes?.trim()].filter(Boolean);
+        const aUpdatedNote = aNoteParts.join('\n') + (aShift.note ? `\n\n${aShift.note}` : '');
+        const bNoteParts = [swapLine, notes?.trim()].filter(Boolean);
+        const bUpdatedNote = bNoteParts.join('\n') + (bShift.note ? `\n\n${bShift.note}` : '');
+
+        const updatedA = await tx.shift.update({
+          where: { id: aShift.id, deletedAt: null },
+          data: {
+            employee: { connect: { id: employeeBId } },
+            groupShift: aGroup ? { disconnect: true } : undefined,
+            swapsWithShift: { connect: { id: bShift.id } },
+            note: aUpdatedNote,
+            lastUpdatedBy: { connect: { id: adminId } },
+          },
+          include: updateInclude,
+        });
+
+        const updatedB = await tx.shift.update({
+          where: { id: bShift.id, deletedAt: null },
+          data: {
+            employee: { connect: { id: employeeAId } },
+            groupShift: bGroup ? { disconnect: true } : undefined,
+            swapsWithShift: { connect: { id: aShift.id } },
+            note: bUpdatedNote,
+            lastUpdatedBy: { connect: { id: adminId } },
+          },
+          include: updateInclude,
+        });
+
+        changelogEntries.push(
+          {
+            action: 'UPDATE',
+            entityType: 'Shift',
+            entityId: updatedA.id,
+            actor: 'admin',
+            actorId: adminId,
+            details: {
+              method: 'SWAP',
+              kind: updatedA.kind,
+              siteName: updatedA.site.name,
+              typeName: updatedA.shiftType.name,
+              employeeName: (updatedA.employee as any)?.fullName ?? 'Unassigned',
+              date: updatedA.date,
+              startsAt: updatedA.startsAt,
+              endsAt: updatedA.endsAt,
+              status: updatedA.status,
+              note: updatedA.note,
+              siteId: updatedA.siteId,
+              shiftTypeId: updatedA.shiftTypeId,
+              employeeNumber: (updatedA.employee as any)?.employeeNumber ?? null,
+              swapPairShiftId: updatedB.id,
+              swapsWithShiftId: updatedB.id,
+              swapReason: reason ?? 'Bulk swap',
+              groupDetached: aGroup ?? undefined,
+              changes: {
+                employeeId: { from: aShift.employeeId, to: updatedA.employeeId },
+                note: { from: aShift.note, to: updatedA.note },
+              },
+            },
+          },
+          {
+            action: 'UPDATE',
+            entityType: 'Shift',
+            entityId: updatedB.id,
+            actor: 'admin',
+            actorId: adminId,
+            details: {
+              method: 'SWAP',
+              kind: updatedB.kind,
+              siteName: updatedB.site.name,
+              typeName: updatedB.shiftType.name,
+              employeeName: (updatedB.employee as any)?.fullName ?? 'Unassigned',
+              date: updatedB.date,
+              startsAt: updatedB.startsAt,
+              endsAt: updatedB.endsAt,
+              status: updatedB.status,
+              note: updatedB.note,
+              siteId: updatedB.siteId,
+              shiftTypeId: updatedB.shiftTypeId,
+              employeeNumber: (updatedB.employee as any)?.employeeNumber ?? null,
+              swapPairShiftId: updatedA.id,
+              swapsWithShiftId: updatedA.id,
+              swapReason: reason ?? 'Bulk swap',
+              groupDetached: bGroup ?? undefined,
+              changes: {
+                employeeId: { from: bShift.employeeId, to: updatedB.employeeId },
+                note: { from: bShift.note, to: updatedB.note },
+              },
+            },
+          }
+        );
+
+        affectedShifts.push(
+          {
+            id: updatedA.id,
+            employeeId: updatedA.employeeId,
+            siteName: updatedA.site.name,
+            shiftTypeName: updatedA.shiftType.name,
+            date: updatedA.date,
+            startsAt: updatedA.startsAt,
+            endsAt: updatedA.endsAt,
+            method: 'SWAP',
+          },
+          {
+            id: updatedB.id,
+            employeeId: updatedB.employeeId,
+            siteName: updatedB.site.name,
+            shiftTypeName: updatedB.shiftType.name,
+            date: updatedB.date,
+            startsAt: updatedB.startsAt,
+            endsAt: updatedB.endsAt,
+            method: 'SWAP',
+          }
+        );
+        swappedCount++;
+      }
+
+      // 5b. Process unmatched A shifts — full replace to B (parity with replaceShiftGuard)
+      for (const aShift of unmatchedA) {
+        const noteParts = [swapLine, notes?.trim()].filter(Boolean);
+        const updatedNote = noteParts.join('\n') + (aShift.note ? `\n\n${aShift.note}` : '');
+
+        const updatedShift = await tx.shift.update({
+          where: { id: aShift.id, deletedAt: null },
+          data: {
+            employee: { connect: { id: employeeBId } },
+            replacedByAdmin: { connect: { id: adminId } },
+            replacedAt: new Date(),
+            replacementReason: replacementReasonText,
+            note: updatedNote,
+            lastUpdatedBy: { connect: { id: adminId } },
+          },
+          include: updateInclude,
+        });
+
+        changelogEntries.push({
+          action: 'UPDATE',
+          entityType: 'Shift',
+          entityId: updatedShift.id,
+          actor: 'admin',
+          actorId: adminId,
+          details: {
+            method: 'REPLACEMENT',
+            kind: updatedShift.kind,
+            siteName: updatedShift.site.name,
+            typeName: updatedShift.shiftType.name,
+            employeeName: (updatedShift.employee as any)?.fullName ?? 'Unassigned',
+            date: updatedShift.date,
+            startsAt: updatedShift.startsAt,
+            endsAt: updatedShift.endsAt,
+            status: updatedShift.status,
+            note: updatedShift.note,
+            siteId: updatedShift.siteId,
+            shiftTypeId: updatedShift.shiftTypeId,
+            employeeNumber: (updatedShift.employee as any)?.employeeNumber ?? null,
+            previousEmployeeId: aShift.employeeId,
+            previousEmployeeName: (aShift.employee as any)?.fullName ?? 'Unassigned',
+            replacementReason: replacementReasonText,
+            replacementNotes: notes ?? null,
+            evidenceS3Key: null,
+            replacedAt: new Date(),
+            changes: {
+              employeeId: { from: aShift.employeeId, to: updatedShift.employeeId },
+              note: { from: aShift.note, to: updatedShift.note },
+            },
+          },
+        });
+
+        affectedShifts.push({
+          id: updatedShift.id,
+          employeeId: updatedShift.employeeId,
+          siteName: updatedShift.site.name,
+          shiftTypeName: updatedShift.shiftType.name,
+          date: updatedShift.date,
+          startsAt: updatedShift.startsAt,
+          endsAt: updatedShift.endsAt,
+          method: 'REPLACEMENT',
+        });
+        replacedCount++;
+      }
+
+      // 5c. Process unmatched B shifts — full replace to A
+      for (const bShift of unmatchedB) {
+        const noteParts = [swapLine, notes?.trim()].filter(Boolean);
+        const updatedNote = noteParts.join('\n') + (bShift.note ? `\n\n${bShift.note}` : '');
+
+        const updatedShift = await tx.shift.update({
+          where: { id: bShift.id, deletedAt: null },
+          data: {
+            employee: { connect: { id: employeeAId } },
+            replacedByAdmin: { connect: { id: adminId } },
+            replacedAt: new Date(),
+            replacementReason: replacementReasonText,
+            note: updatedNote,
+            lastUpdatedBy: { connect: { id: adminId } },
+          },
+          include: updateInclude,
+        });
+
+        changelogEntries.push({
+          action: 'UPDATE',
+          entityType: 'Shift',
+          entityId: updatedShift.id,
+          actor: 'admin',
+          actorId: adminId,
+          details: {
+            method: 'REPLACEMENT',
+            kind: updatedShift.kind,
+            siteName: updatedShift.site.name,
+            typeName: updatedShift.shiftType.name,
+            employeeName: (updatedShift.employee as any)?.fullName ?? 'Unassigned',
+            date: updatedShift.date,
+            startsAt: updatedShift.startsAt,
+            endsAt: updatedShift.endsAt,
+            status: updatedShift.status,
+            note: updatedShift.note,
+            siteId: updatedShift.siteId,
+            shiftTypeId: updatedShift.shiftTypeId,
+            employeeNumber: (updatedShift.employee as any)?.employeeNumber ?? null,
+            previousEmployeeId: bShift.employeeId,
+            previousEmployeeName: (bShift.employee as any)?.fullName ?? 'Unassigned',
+            replacementReason: replacementReasonText,
+            replacementNotes: notes ?? null,
+            evidenceS3Key: null,
+            replacedAt: new Date(),
+            changes: {
+              employeeId: { from: bShift.employeeId, to: updatedShift.employeeId },
+              note: { from: bShift.note, to: updatedShift.note },
+            },
+          },
+        });
+
+        affectedShifts.push({
+          id: updatedShift.id,
+          employeeId: updatedShift.employeeId,
+          siteName: updatedShift.site.name,
+          shiftTypeName: updatedShift.shiftType.name,
+          date: updatedShift.date,
+          startsAt: updatedShift.startsAt,
+          endsAt: updatedShift.endsAt,
+          method: 'REPLACEMENT',
+        });
+        replacedCount++;
+      }
+
+      // Write all changelog entries in one batch
+      if (changelogEntries.length > 0) {
+        await tx.changelog.createMany({ data: changelogEntries });
+      }
+
+      return { swappedCount, replacedCount, affectedShifts };
+    },
+    { timeout: 30000 }
+  );
+
+  // Post-commit: notify employees and reconcile leaves
+  const employeesTouched = Array.from(new Set([employeeAId, employeeBId].filter(Boolean)));
+
+  for (const employeeId of employeesTouched) {
+    await redis.xadd(`employee:stream:${employeeId}`, 'MAXLEN', '~', 100, '*', 'type', 'shift_updated');
+  }
+
+  // Reconcile leaves over the union of affected dates per employee (single window each).
+  const datesByEmployee = new Map<string, Set<string>>();
+  for (const s of result.affectedShifts) {
+    if (!s.employeeId) continue;
+    const key = s.date.toISOString().slice(0, 10);
+    const set = datesByEmployee.get(s.employeeId) ?? new Set<string>();
+    set.add(key);
+    datesByEmployee.set(s.employeeId, set);
+  }
+
+  for (const employeeId of employeesTouched) {
+    const dates = datesByEmployee.get(employeeId);
+    if (!dates || dates.size === 0) continue;
+    const sorted = Array.from(dates).sort();
+    await reconcileApprovedOnsiteLeavesForCoverage({
+      employeeId,
+      startDateKey: sorted[0],
+      endDateKey: sorted[sorted.length - 1],
+      adminId,
+    });
+  }
+
+  await redis.publish(
+    'events:shifts',
+    JSON.stringify({ type: 'SHIFT_SWAPPED', ids: result.affectedShifts.map(s => s.id) })
+  );
+
+  return {
+    swappedCount: result.swappedCount,
+    replacedCount: result.replacedCount,
+    affectedShifts: result.affectedShifts,
+    rangeFrom,
+    rangeTo,
+  };
 }
 
 export async function deleteShiftWithChangelog(id: string, adminId: string) {

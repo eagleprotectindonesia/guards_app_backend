@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import type { Serialized } from '@/lib/server-utils';
-import { deleteShift, cancelShift, replaceShift, swapShiftsAction } from '../actions';
+import { deleteShift, cancelShift, replaceShift, swapShiftsAction, bulkSwapShiftsAction } from '../actions';
 import BulkCreateModal from './bulk-create-modal';
 import ShiftExport from './shift-export';
 import ShiftActionModal from './shift-action-modal';
@@ -72,6 +72,7 @@ export default function ShiftList({
   const [isReplacePending, startReplaceTransition] = useTransition();
   const [isSwapPending, startSwapTransition] = useTransition();
   const [isPending, startTransition] = useTransition();
+  const [isBulkSwapPending, startBulkSwapTransition] = useTransition();
 
   const canCreate = hasPermission(PERMISSIONS.SHIFTS.CREATE);
   const canEdit = hasPermission(PERMISSIONS.SHIFTS.EDIT);
@@ -172,6 +173,33 @@ export default function ShiftList({
           }
         } catch (err) {
           toast.error(err instanceof Error ? err.message : 'Failed to swap shifts.');
+          reject(err);
+        }
+      });
+    });
+  };
+
+  const handleBulkSwapSubmit = (input: {
+    employeeAId: string;
+    employeeBId: string;
+    fromDate: string;
+    toDate: string;
+    reason: string;
+    notes?: string;
+  }) => {
+    return new Promise<void>((resolve, reject) => {
+      startBulkSwapTransition(async () => {
+        try {
+          const result = await bulkSwapShiftsAction(input);
+          if (result.success) {
+            toast.success('Bulk swap completed successfully');
+            resolve();
+          } else {
+            toast.error(result.message || 'Failed to bulk swap.');
+            reject(new Error(result.message || 'Failed'));
+          }
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : 'Failed to bulk swap.');
           reject(err);
         }
       });
@@ -567,7 +595,7 @@ export default function ShiftList({
       />
 
       <ReplaceGuardModal
-        key={replaceTarget?.id ?? 'closed'}
+        key={`replace-${replaceTarget?.id ?? 'closed'}`}
         isOpen={!!replaceTarget}
         onClose={() => setReplaceTarget(null)}
         shift={replaceTarget}
@@ -583,7 +611,9 @@ export default function ShiftList({
         shiftA={swapTarget}
         employees={employees}
         isPending={isSwapPending}
+        isBulkSwapPending={isBulkSwapPending}
         onSubmit={handleSwapSubmit}
+        onBulkSubmit={handleBulkSwapSubmit}
       />
     </div>
   );

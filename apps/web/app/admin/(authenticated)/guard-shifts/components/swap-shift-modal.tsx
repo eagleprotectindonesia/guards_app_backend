@@ -4,11 +4,22 @@ import { useMemo, useState, useEffect } from 'react';
 import Modal from '../../components/modal';
 import Select from '../../components/select';
 import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { format } from 'date-fns';
 import type { ShiftWithRelationsDto } from '@/types/shifts';
 import { Serialized } from '@/lib/server-utils';
 import type { EmployeeSummary } from '@repo/database';
 import { getSwapCandidateShiftsAction } from '../actions';
+
+type SwapInput = { shiftAId: string; shiftBId: string; reason: string; notes?: string };
+type BulkSwapInput = {
+  employeeAId: string;
+  employeeBId: string;
+  fromDate: string;
+  toDate: string;
+  reason: string;
+  notes?: string;
+};
 
 type SwapShiftModalProps = {
   isOpen: boolean;
@@ -16,7 +27,9 @@ type SwapShiftModalProps = {
   shiftA: Serialized<ShiftWithRelationsDto> | null;
   employees: EmployeeSummary[];
   isPending: boolean;
-  onSubmit: (input: { shiftAId: string; shiftBId: string; reason: string; notes?: string }) => Promise<void>;
+  isBulkSwapPending?: boolean;
+  onSubmit?: (input: SwapInput) => Promise<void>;
+  onBulkSubmit?: (input: BulkSwapInput) => Promise<void>;
 };
 
 const SWAP_REASONS = [
@@ -48,29 +61,51 @@ function isNotPast(date: string | Date): boolean {
   return dateKey >= todayKey;
 }
 
+function todayDate(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function dateToStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export default function SwapShiftModal({
   isOpen,
   isPending,
+  isBulkSwapPending,
   shiftA,
   employees,
   onClose,
   onSubmit,
+  onBulkSubmit,
 }: SwapShiftModalProps) {
+  // Single-swap state
   const [userGuardBId, setUserGuardBId] = useState<string | null>(null);
   const [userShiftBId, setUserShiftBId] = useState<string | null | undefined>(undefined);
+  const [candidateShifts, setCandidateShifts] = useState<Serialized<ShiftWithRelationsDto>[]>([]);
+  const [isLoadingCandidates, setIsLoadingCandidates] = useState(false);
+
+  // Bulk-swap state
+  const [guardAId, setGuardAId] = useState<string | null>(null);
+  const [guardBId, setGuardBId] = useState<string | null>(null);
+  const [fromDate, setFromDate] = useState<Date>(todayDate);
+  const [toDate, setToDate] = useState<Date>(todayDate);
+
+  // Shared state
+  const [bulkMode, setBulkMode] = useState(false);
   const [reason, setReason] = useState<string>('Personal Reason');
   const [notes, setNotes] = useState('');
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [candidateShifts, setCandidateShifts] = useState<Serialized<ShiftWithRelationsDto>[]>([]);
-  const [isLoadingCandidates, setIsLoadingCandidates] = useState(false);
 
   const handleClose = () => {
     onClose();
   };
 
-  // Fetch Guard B's non-past shifts on demand. The page only loads shifts for its own
-  // date filter, so candidates outside that range aren't available locally.
+  // Fetch Guard B's non-past shifts on demand (single-swap mode only).
   useEffect(() => {
+    if (bulkMode) return;
     let cancelled = false;
     void (async () => {
       const ready = isOpen && !!shiftA && !!userGuardBId;
@@ -97,15 +132,17 @@ export default function SwapShiftModal({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, shiftA, userGuardBId]);
+  }, [isOpen, bulkMode, shiftA, userGuardBId]);
 
+  // --- Single-swap derived values ---
   const guardBOptions = useMemo(() => {
+    if (bulkMode) return [];
     if (!shiftA) return [];
     return employees.filter(emp => emp.id !== shiftA.employeeId).map(emp => ({ value: emp.id, label: emp.fullName }));
-  }, [employees, shiftA]);
+  }, [employees, shiftA, bulkMode]);
 
   const guardBShiftOptions = useMemo(() => {
-    if (!shiftA || !userGuardBId) return [];
+    if (bulkMode || !shiftA || !userGuardBId) return [];
     const candidates = candidateShifts.filter(
       s => s.id !== shiftA.id && (s.status === 'scheduled' || s.status === 'in_progress') && isNotPast(s.date)
     );
@@ -113,94 +150,222 @@ export default function SwapShiftModal({
       value: s.id,
       label: `${formatShiftLabel(s)} — ${s.shiftType.name}`,
     }));
-  }, [candidateShifts, userGuardBId, shiftA]);
+  }, [candidateShifts, userGuardBId, shiftA, bulkMode]);
 
-  // Auto-pick the only matching shift when the user has not manually chosen one.
-  // This is a pure derivation — no setState — so it's safe during render.
-  const guardBId = userGuardBId;
+  const singleGuardBId = userGuardBId;
   const shiftBId =
     userShiftBId !== undefined ? userShiftBId : guardBShiftOptions.length === 1 ? guardBShiftOptions[0].value : null;
 
+  // --- Bulk-swap derived values ---
+  const bulkGuardBOptions = useMemo(() => {
+    if (!bulkMode) return [];
+    return employees.filter(emp => emp.id !== guardAId).map(emp => ({ value: emp.id, label: emp.fullName }));
+  }, [employees, guardAId, bulkMode]);
+
+  const canSaveBulk =
+    bulkMode && !!guardAId && !!guardBId && !!fromDate && !!toDate && fromDate <= toDate && !isBulkSwapPending;
+  const canSaveSingle = !bulkMode && !!singleGuardBId && !!shiftBId && guardBShiftOptions.length > 0 && !isPending;
+
   const handleSave = async () => {
-    if (!shiftA || !guardBId || !shiftBId) return;
     setSubmitError(null);
     try {
-      await onSubmit({
-        shiftAId: shiftA.id,
-        shiftBId,
-        reason,
-        notes: notes.trim() || undefined,
-      });
+      if (bulkMode) {
+        if (!guardAId || !guardBId || !fromDate || !toDate) return;
+        await onBulkSubmit?.({
+          employeeAId: guardAId,
+          employeeBId: guardBId,
+          fromDate: dateToStr(fromDate),
+          toDate: dateToStr(toDate),
+          reason,
+          notes: notes.trim() || undefined,
+        });
+      } else {
+        if (!shiftA || !singleGuardBId || !shiftBId) return;
+        if (!onSubmit) throw new Error('Submit handler not provided');
+        await onSubmit({
+          shiftAId: shiftA.id,
+          shiftBId,
+          reason,
+          notes: notes.trim() || undefined,
+        });
+      }
       handleClose();
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Failed to save');
     }
   };
 
-  if (!shiftA) return null;
+  if (!bulkMode && !shiftA) return null;
 
-  const shiftADateTime = formatShiftLabel(shiftA);
-  const noMatchingShiftSelected = !!guardBId && !isLoadingCandidates && guardBShiftOptions.length === 0;
-  const canSave = !!guardBId && !!shiftBId && guardBShiftOptions.length > 0 && !isPending;
+  const saving = bulkMode ? !!isBulkSwapPending : isPending;
+  const title = bulkMode ? 'Bulk Swap' : 'Swap Shift';
+  const noMatchingShiftSelected = !!singleGuardBId && !isLoadingCandidates && guardBShiftOptions.length === 0;
 
   return (
-    <Modal isOpen={isOpen} onClose={handleClose} title="C. Swap Shift" maxWidthClassName="max-w-md">
+    <Modal isOpen={isOpen} onClose={handleClose} title={title} maxWidthClassName="max-w-md">
       <div className="p-6 space-y-4">
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-            Guard A (Original)
-          </label>
-          <div className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-muted text-foreground">
-            {shiftA.employee?.fullName ?? 'Unassigned'}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-            Shift A (Read Only)
-          </label>
-          <div className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-muted text-foreground">
-            {shiftADateTime}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-            Guard B (Will Swap With) <span className="text-red-500">*</span>
-          </label>
-          <Select
-            options={guardBOptions}
-            value={guardBOptions.find(o => o.value === guardBId) ?? null}
-            onChange={opt => {
-              setUserGuardBId(opt?.value ?? null);
-              setUserShiftBId(undefined);
+        {/* Mode toggle */}
+        <div className="flex items-center gap-2 pb-3 border-b border-border">
+          <input
+            type="checkbox"
+            id="bulk-mode-chk"
+            checked={bulkMode}
+            onChange={e => {
+              const on = e.target.checked;
+              setBulkMode(on);
+              if (on) {
+                setGuardAId(shiftA?.employeeId ?? null);
+                setGuardBId(null);
+                setFromDate(todayDate());
+                setToDate(todayDate());
+              } else {
+                setUserGuardBId(null);
+                setUserShiftBId(undefined);
+                setCandidateShifts([]);
+              }
             }}
-            placeholder="Select guard to swap with…"
-            isDisabled={isPending}
+            disabled={bulkMode ? !!isBulkSwapPending : isPending}
+            className="rounded border-border"
           />
+          <label htmlFor="bulk-mode-chk" className="text-sm font-medium text-foreground cursor-pointer select-none">
+            Bulk mode — swap all shifts between two guards within a date range
+          </label>
         </div>
 
-        <div>
-          <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-            Guard B Shift {guardBShiftOptions.length > 1 ? '*' : ''}
-          </label>
-          {guardBShiftOptions.length === 0 ? (
-            <div className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-muted text-muted-foreground">
-              {!guardBId ? '—' : isLoadingCandidates ? 'Loading shifts…' : 'No eligible (future) shift found'}
+        {bulkMode ? (
+          <>
+            {/* Bulk mode: Guard A + Guard B + Date Range */}
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                Guard A <span className="text-red-500">*</span>
+              </label>
+              <Select
+                options={employees.map(emp => ({ value: emp.id, label: emp.fullName }))}
+                value={
+                  employees.find(emp => emp.id === guardAId)
+                    ? { value: guardAId!, label: employees.find(emp => emp.id === guardAId)!.fullName }
+                    : null
+                }
+                onChange={opt => {
+                  setGuardAId(opt?.value ?? null);
+                  setGuardBId(null); // reset B when A changes
+                }}
+                placeholder="Select guard A…"
+                isDisabled={isBulkSwapPending}
+              />
             </div>
-          ) : (
-            <Select
-              options={guardBShiftOptions}
-              value={guardBShiftOptions.find(o => o.value === shiftBId) ?? null}
-              onChange={opt => setUserShiftBId(opt?.value ?? null)}
-              placeholder="Select guard B's shift…"
-              isDisabled={isPending || guardBShiftOptions.length === 1}
-            />
-          )}
-          {noMatchingShiftSelected && (
-            <p className="text-xs text-red-500 mt-1">Selected guard has no eligible (non-past) shift available.</p>
-          )}
-        </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                Guard B <span className="text-red-500">*</span>
+              </label>
+              <Select
+                options={bulkGuardBOptions}
+                value={bulkGuardBOptions.find(o => o.value === guardBId) ?? null}
+                onChange={opt => setGuardBId(opt?.value ?? null)}
+                placeholder="Select guard B…"
+                isDisabled={isBulkSwapPending}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                Date Range <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 min-w-0">
+                  <DatePicker
+                    date={fromDate}
+                    setDate={d => {
+                      if (d) {
+                        setFromDate(d);
+                        if (toDate < d) setToDate(d);
+                      }
+                    }}
+                    minDate={todayDate()}
+                    placeholder="From"
+                  />
+                </div>
+                <span className="text-muted-foreground text-sm shrink-0">—</span>
+                <div className="flex-1 min-w-0">
+                  <DatePicker
+                    date={toDate}
+                    setDate={d => d && setToDate(d)}
+                    minDate={fromDate}
+                    maxDate={(() => {
+                      const max = new Date(fromDate);
+                      max.setDate(max.getDate() + 31);
+                      return max;
+                    })()}
+                    placeholder="To"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Transfers all shifts of Guard A ↔ Guard B within this range (max 31 days).
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Single-swap mode: existing UI */}
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                Guard A (Original)
+              </label>
+              <div className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-muted text-foreground">
+                {shiftA!.employee?.fullName ?? 'Unassigned'}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                Shift A (Read Only)
+              </label>
+              <div className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-muted text-foreground">
+                {formatShiftLabel(shiftA!)}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                Guard B (Will Swap With) <span className="text-red-500">*</span>
+              </label>
+              <Select
+                options={guardBOptions}
+                value={guardBOptions.find(o => o.value === singleGuardBId) ?? null}
+                onChange={opt => {
+                  setUserGuardBId(opt?.value ?? null);
+                  setUserShiftBId(undefined);
+                }}
+                placeholder="Select guard to swap with…"
+                isDisabled={isPending}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                Guard B Shift {guardBShiftOptions.length > 1 ? '*' : ''}
+              </label>
+              {guardBShiftOptions.length === 0 ? (
+                <div className="w-full px-3 py-2 text-sm border border-border rounded-lg bg-muted text-muted-foreground">
+                  {!singleGuardBId ? '—' : isLoadingCandidates ? 'Loading shifts…' : 'No eligible (future) shift found'}
+                </div>
+              ) : (
+                <Select
+                  options={guardBShiftOptions}
+                  value={guardBShiftOptions.find(o => o.value === shiftBId) ?? null}
+                  onChange={opt => setUserShiftBId(opt?.value ?? null)}
+                  placeholder="Select guard B's shift…"
+                  isDisabled={isPending || guardBShiftOptions.length === 1}
+                />
+              )}
+              {noMatchingShiftSelected && (
+                <p className="text-xs text-red-500 mt-1">Selected guard has no eligible (non-past) shift available.</p>
+              )}
+            </div>
+          </>
+        )}
 
         <div>
           <label className="block text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
@@ -210,7 +375,7 @@ export default function SwapShiftModal({
             options={SWAP_REASONS}
             value={SWAP_REASONS.find(r => r.value === reason) ?? null}
             onChange={opt => setReason(opt?.value ?? 'Personal Reason')}
-            isDisabled={isPending}
+            isDisabled={saving}
           />
         </div>
 
@@ -221,10 +386,12 @@ export default function SwapShiftModal({
           <textarea
             rows={3}
             className="w-full px-3 py-2 text-sm text-foreground bg-card border border-border rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none transition-all resize-none placeholder:text-muted-foreground/50"
-            placeholder="Both guards requested to swap shifts."
+            placeholder={
+              bulkMode ? 'Reason for bulk swap between both guards.' : 'Both guards requested to swap shifts.'
+            }
             value={notes}
             onChange={e => setNotes(e.target.value)}
-            disabled={isPending}
+            disabled={saving}
           />
         </div>
 
@@ -238,17 +405,17 @@ export default function SwapShiftModal({
           <button
             type="button"
             onClick={handleClose}
-            disabled={isPending}
+            disabled={saving}
             className="px-4 py-2 text-sm font-medium border border-border rounded-lg hover:bg-muted transition-colors text-foreground disabled:opacity-50"
           >
             Cancel
           </button>
           <Button
             onClick={handleSave}
-            disabled={!canSave}
+            disabled={bulkMode ? !canSaveBulk : !canSaveSingle}
             className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600 text-white"
           >
-            {isPending ? 'Saving...' : 'Save Swap'}
+            {saving ? 'Saving...' : bulkMode ? 'Execute Bulk Swap' : 'Save Swap'}
           </Button>
         </div>
       </div>

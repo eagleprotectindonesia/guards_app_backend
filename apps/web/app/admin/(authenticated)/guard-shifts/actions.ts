@@ -19,6 +19,7 @@ import {
   UpdateShiftInput,
   replaceShiftSchema,
   swapShiftsSchema,
+  bulkSwapShiftsSchema,
 } from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { format, isBefore, subMinutes } from 'date-fns';
@@ -35,10 +36,14 @@ import {
   bulkCreateShiftsFromForm,
   replaceShiftGuard,
   swapShifts,
+  bulkSwapReplaceBetweenEmployees,
   getShiftsByEmployeeWithinWindow,
   createShiftReassignmentHrNotification,
 } from '@repo/database';
-import { sendShiftReassignmentPushNotification } from '@repo/notifications';
+import {
+  sendShiftReassignmentPushNotification,
+  sendBulkShiftSwapAggregatePushNotification,
+} from '@repo/notifications';
 import { getShiftTypeDurationInMins } from '@repo/database';
 import { ActionState } from '@/types/actions';
 import type { SerializedShiftWithRelationsDto } from '@/types/shifts';
@@ -1232,6 +1237,94 @@ export async function getSwapCandidateShiftsAction(params: {
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Failed to load candidate shifts.',
+    };
+  }
+}
+
+export async function bulkSwapShiftsAction(input: {
+  employeeAId: string;
+  employeeBId: string;
+  fromDate: string;
+  toDate: string;
+  reason?: string | null;
+  notes?: string | null;
+}): Promise<{ success: boolean; message?: string }> {
+  try {
+    const adminId = await getAdminIdFromToken();
+
+    const parsed = bulkSwapShiftsSchema.safeParse(input);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return {
+        success: false,
+        message: firstError?.message ?? 'Invalid input.',
+      };
+    }
+
+    // Resolve names for notification
+    const [empA, empB] = await Promise.all([
+      prisma.employee.findUnique({
+        where: { id: parsed.data.employeeAId, deletedAt: null },
+        select: { fullName: true },
+      }),
+      prisma.employee.findUnique({
+        where: { id: parsed.data.employeeBId, deletedAt: null },
+        select: { fullName: true },
+      }),
+    ]);
+
+    const result = await bulkSwapReplaceBetweenEmployees(
+      {
+        employeeAId: parsed.data.employeeAId,
+        employeeBId: parsed.data.employeeBId,
+        fromDate: parsed.data.fromDate,
+        toDate: parsed.data.toDate,
+        reason: parsed.data.reason ?? null,
+        notes: parsed.data.notes ?? null,
+      },
+      adminId
+    );
+
+    // Group affected shifts by post-update employeeId; one aggregate push per guard.
+    const shiftsByEmployee = new Map<string, typeof result.affectedShifts>();
+    for (const s of result.affectedShifts) {
+      if (!s.employeeId) continue;
+      const arr = shiftsByEmployee.get(s.employeeId) ?? [];
+      arr.push(s);
+      shiftsByEmployee.set(s.employeeId, arr);
+    }
+
+    await Promise.all(
+      Array.from(shiftsByEmployee.entries()).map(([employeeId, shifts]) =>
+        sendBulkShiftSwapAggregatePushNotification({
+          employeeId,
+          shifts,
+          rangeFrom: result.rangeFrom,
+          rangeTo: result.rangeTo,
+          partnerFullName:
+            employeeId === parsed.data.employeeAId
+              ? (empB?.fullName ?? 'Guard B')
+              : (empA?.fullName ?? 'Guard A'),
+          reason: parsed.data.reason ?? 'Bulk swap',
+        }).catch(() => {})
+      )
+    );
+
+    await createShiftReassignmentHrNotification({
+      type: 'swap',
+      shiftIds: result.affectedShifts.map(s => s.id),
+      employeeNames: [empA?.fullName ?? 'Guard A', empB?.fullName ?? 'Guard B'],
+      adminId,
+      reason: parsed.data.reason ?? null,
+    }).catch(() => {});
+
+    revalidatePath('/admin/guard-shifts');
+    return { success: true };
+  } catch (error) {
+    console.error('[bulkSwapShiftsAction] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to bulk swap shifts.',
     };
   }
 }
