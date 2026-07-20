@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Send, Loader2, X, Paperclip, Camera, Video, Check, CheckCheck, MapPin } from 'lucide-react';
+import { Send, Loader2, X, Paperclip, Camera, Video, Check, CheckCheck, MapPin, FileText } from 'lucide-react';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { useSocket } from '@/components/socket-provider';
@@ -12,7 +12,7 @@ import { useEmployeeApi } from '../hooks/use-employee-api';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogTitle, DialogHeader } from '@/components/ui/dialog';
 import { cn } from '@repo/shared';
-import { isVideoFile } from '@/lib/file';
+import { isVideoFile, isPdfFile, getAttachmentDisplayName } from '@/lib/file';
 import { uploadToS3 } from '@/lib/upload';
 import { toast } from 'react-hot-toast';
 import { optimizeImage } from '@/lib/image-utils';
@@ -192,7 +192,9 @@ export default function ChatPage() {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
-    const validFiles = files.filter(file => file.type.startsWith('image/') || file.type.startsWith('video/'));
+    const validFiles = files.filter(
+      file => file.type.startsWith('image/') || file.type.startsWith('video/') || file.type === 'application/pdf'
+    );
     if (validFiles.length !== files.length) {
       toast.error(t('chat.error_invalid_files'));
     }
@@ -245,7 +247,7 @@ export default function ChatPage() {
             folder: 'chat',
             conversationId: employeeId,
             messageId,
-            fileType: file.type.startsWith('video/') ? 'video' : 'image',
+            fileType: file.type === 'application/pdf' ? 'pdf' : file.type.startsWith('video/') ? 'video' : 'image',
           })
         );
         const results = await Promise.all(uploadPromises);
@@ -383,7 +385,11 @@ export default function ChatPage() {
           <div className="flex gap-3 p-3 bg-[#1e1e1e]/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/5 overflow-x-auto">
             {previews.map((url, i) => (
               <div key={i} className="relative h-20 w-20 shrink-0">
-                {selectedFiles[i]?.type.startsWith('video/') ? (
+                {selectedFiles[i]?.type === 'application/pdf' ? (
+                  <div className="flex h-full w-full items-center justify-center rounded-xl border border-white/10 bg-black/40">
+                    <FileText className="h-8 w-8 text-red-400" />
+                  </div>
+                ) : selectedFiles[i]?.type.startsWith('video/') ? (
                   <div className="h-full w-full bg-black/40 rounded-xl border border-white/5 flex items-center justify-center">
                     <Video className="h-8 w-8 text-neutral-500" />
                   </div>
@@ -421,7 +427,7 @@ export default function ChatPage() {
             type="file"
             ref={cameraInputRef}
             onChange={handleFileChange}
-            accept="image/*"
+            accept="image/*,application/pdf"
             capture="environment"
             className="hidden"
           />
@@ -556,6 +562,22 @@ function ChatMessageItem({
                     controls
                     className="w-full aspect-video object-cover rounded-xl border border-white/10"
                   />
+                );
+              }
+              if (isPdfFile(url)) {
+                return (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 w-full bg-black/30 border border-white/10 rounded-xl p-3 hover:opacity-90 transition-opacity"
+                  >
+                    <FileText className="h-5 w-5 text-red-400 shrink-0" />
+                    <span className="text-sm text-white truncate">
+                      {isMe ? 'PDF file — tap to view' : 'PDF file — tap to download'}
+                    </span>
+                  </a>
                 );
               }
               return (

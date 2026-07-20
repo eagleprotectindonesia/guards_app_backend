@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useMemo, useState } from 'react';
 import { ChatMessage } from '@/types/chat';
 import { MessageSquare, Loader2 } from 'lucide-react';
 import { format, isToday, isYesterday, isSameDay } from 'date-fns';
 import { ChatMessageBubble } from './message-bubble';
+import { AttachmentViewer } from './attachment-viewer';
 import { LoadingBlock } from '../loading/loading-block';
 
 interface ChatMessageListProps {
@@ -36,6 +37,9 @@ export function ChatMessageList({
   const hasInitialScrolled = useRef(false);
   const lastScrollHeight = useRef(0);
   const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+
+  const allAttachments = useMemo(() => messages.flatMap(m => m.attachments ?? []), [messages]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'smooth') => {
     if (messagesEndRef.current) {
@@ -159,6 +163,7 @@ export function ChatMessageList({
 
         {(() => {
           const groups: { date: Date; label: string; items: ChatMessage[] }[] = [];
+          let runningOffset = 0;
 
           messages.forEach(msg => {
             const msgDate = new Date(msg.createdAt);
@@ -182,15 +187,21 @@ export function ChatMessageList({
                   {group.label}
                 </span>
               </div>
-              {group.items.map(current => (
-                <ChatMessageBubble
-                  key={current.id}
-                  message={current}
-                  isAdmin={mode === 'group' ? current.adminId === currentAdminId : current.sender === 'admin'}
-                  mode={mode}
-                  currentAdminId={currentAdminId}
-                />
-              ))}
+              {group.items.map(current => {
+                const offset = runningOffset;
+                runningOffset += current.attachments?.length ?? 0;
+                return (
+                  <ChatMessageBubble
+                    key={current.id}
+                    message={current}
+                    isAdmin={mode === 'group' ? current.adminId === currentAdminId : current.sender === 'admin'}
+                    mode={mode}
+                    currentAdminId={currentAdminId}
+                    attachmentOffset={offset}
+                    onOpenViewer={setViewerIndex}
+                  />
+                );
+              })}
             </div>
           ));
         })()}
@@ -204,6 +215,15 @@ export function ChatMessageList({
         {/* Scroll to bottom anchor */}
         <div ref={messagesEndRef} className="h-1" />
       </div>
+
+      <AttachmentViewer
+        attachments={allAttachments}
+        index={viewerIndex ?? 0}
+        open={viewerIndex !== null}
+        onOpenChange={open => {
+          if (!open) setViewerIndex(null);
+        }}
+      />
     </div>
   );
 }

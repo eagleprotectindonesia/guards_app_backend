@@ -2,9 +2,9 @@
 
 import React from 'react';
 import { format } from 'date-fns';
-import { MapPin } from 'lucide-react';
+import { MapPin, FileText } from 'lucide-react';
 import { cn } from '@repo/shared';
-import { isVideoFile } from '@/lib/file';
+import { isVideoFile, isPdfFile, getAttachmentDisplayName } from '@/lib/file';
 import { ChatMessage } from '@/types/chat';
 
 interface ChatMessageBubbleProps {
@@ -13,6 +13,8 @@ interface ChatMessageBubbleProps {
   mode?: 'direct' | 'group';
   currentAdminId?: string | null;
   className?: string;
+  attachmentOffset?: number;
+  onOpenViewer?: (globalIndex: number) => void;
 }
 
 function getSenderColorClass(senderKey: string) {
@@ -33,12 +35,21 @@ function getSenderColorClass(senderKey: string) {
   return palette[hash % palette.length];
 }
 
-export function ChatMessageBubble({ message, isAdmin, mode = 'direct', currentAdminId, className }: ChatMessageBubbleProps) {
+export function ChatMessageBubble({
+  message,
+  isAdmin,
+  mode = 'direct',
+  currentAdminId,
+  className,
+  attachmentOffset = 0,
+  onOpenViewer,
+}: ChatMessageBubbleProps) {
   const isMe = isAdmin && currentAdminId === message.adminId;
   const senderType = message.sender ?? (message.adminId ? 'admin' : 'employee');
   const senderEmployeeNumber = (message as ChatMessage & { senderEmployeeNumber?: string | null }).senderEmployeeNumber;
   const senderRoleLabel = senderType === 'admin' ? 'Admin' : senderEmployeeNumber || 'Employee';
-  const senderDisplayName = message.admin?.name || (message as ChatMessage & { senderName?: string }).senderName || 'Unknown';
+  const senderDisplayName =
+    message.admin?.name || (message as ChatMessage & { senderName?: string }).senderName || 'Unknown';
   const senderKey =
     message.adminId ||
     (message as ChatMessage & { employeeId?: string | null; senderParticipantId?: string }).employeeId ||
@@ -69,15 +80,24 @@ export function ChatMessageBubble({ message, isAdmin, mode = 'direct', currentAd
           {isMe ? 'You' : message.admin?.name}
         </span>
       )}
-      <div
-        className={cn(
-          'p-3 px-4 rounded-2xl text-sm shadow-sm',
-          bubbleClass
-        )}
-      >
+      <div className={cn('p-3 px-4 rounded-2xl text-sm shadow-sm', bubbleClass)}>
         {message.attachments && message.attachments.length > 0 && (
           <div className={cn('grid gap-2 mb-3', message.attachments.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
             {message.attachments.map((url, i) => {
+              if (isPdfFile(url)) {
+                return (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 bg-black/5 border border-border rounded-lg p-3 hover:border-blue-500/40 transition-colors"
+                  >
+                    <FileText size={20} className="text-red-500 shrink-0" />
+                    <span className="text-sm text-foreground truncate">{getAttachmentDisplayName(url, i)}</span>
+                  </a>
+                );
+              }
               if (isVideoFile(url)) {
                 return (
                   <video
@@ -94,7 +114,7 @@ export function ChatMessageBubble({ message, isAdmin, mode = 'direct', currentAd
                   src={url}
                   alt={`Attachment ${i + 1}`}
                   className="w-full max-h-[300px] object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                  onClick={() => window.open(url, '_blank')}
+                  onClick={() => onOpenViewer?.(attachmentOffset + i)}
                 />
               );
             })}

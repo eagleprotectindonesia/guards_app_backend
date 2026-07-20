@@ -14,7 +14,7 @@ import { useSocket } from '../../../../src/hooks/useSocket';
 import { useAuth } from '../../../../src/contexts/AuthContext';
 import { useCustomToast } from '../../../../src/hooks/useCustomToast';
 import { reserveGroupChatDraft, uploadToS3 } from '../../../../src/api/upload';
-import { isVideoFile } from '../../../../src/utils/file';
+import { isVideoFile, isPdfFile } from '../../../../src/utils/file';
 import { optimizeImage } from '../../../../src/utils/imageOptimization';
 import { ChatListItem, ChatListItemData } from '../../../../src/components/chat/ChatListItem';
 import { ChatHeader } from '../../../../src/components/chat/ChatHeader';
@@ -121,7 +121,7 @@ export default function GroupChatScreen() {
     if (selectedAttachments.length >= 4) return toast.warning(t('chat.limit_reached'), t('chat.limit_reached_desc'));
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images', 'videos'],
+        mediaTypes: ['images', 'videos', 'pdf' as any],
         allowsMultipleSelection: true,
         selectionLimit: 4 - selectedAttachments.length,
         quality: 0.7,
@@ -208,7 +208,8 @@ export default function GroupChatScreen() {
 
         attachmentKeys = await Promise.all(
           attachments.map(async asset => {
-            const fileType = asset.type === 'video' ? 'video' : 'image';
+            const fileType =
+              asset.mimeType === 'application/pdf' ? 'pdf' : asset.type === 'video' ? 'video' : 'image';
             let uploadUri = asset.uri;
             let uploadFileName: string;
             let uploadMimeType: string;
@@ -290,8 +291,8 @@ export default function GroupChatScreen() {
   }, [groupId, queryClient, router, t]);
 
   const openImageViewer = useCallback((attachments: string[], index: number) => {
-    if (attachments[index] && isVideoFile(attachments[index])) return;
-    const images = attachments.filter(url => !isVideoFile(url)).map(url => ({ uri: url }));
+    if (attachments[index] && (isVideoFile(attachments[index]) || isPdfFile(attachments[index]))) return;
+    const images = attachments.filter(url => !isVideoFile(url) && !isPdfFile(url)).map(url => ({ uri: url }));
     if (images.length === 0) return;
     const filteredIndex = images.findIndex(img => img.uri === attachments[index]);
     setViewerImages(images);

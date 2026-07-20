@@ -250,7 +250,7 @@ export function useAdminChat(options: UseAdminChatOptions = {}) {
             folder: 'chat',
             conversationId: activeEmployeeId,
             messageId,
-            fileType: file.type.startsWith('video/') ? 'video' : 'image',
+            fileType: file.type === 'application/pdf' ? 'pdf' : file.type.startsWith('video/') ? 'video' : 'image',
           })
         );
         const results = await Promise.all(uploadPromises);

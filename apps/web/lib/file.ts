@@ -21,3 +21,20 @@ export function isImageFile(url: string): boolean {
     return imageExtensions.some(ext => lower.endsWith(ext));
   }
 }
+
+export function isPdfFile(url: string): boolean {
+  const lower = url.toLowerCase().split('?')[0];
+  return lower.endsWith('.pdf');
+}
+
+export function getAttachmentDisplayName(url: string, index: number): string {
+  try {
+    const pathname = new URL(url, 'http://localhost').pathname;
+    const segment = pathname.split('/').pop() || '';
+    const decoded = decodeURIComponent(segment);
+    if (decoded && /[a-z]/i.test(decoded.replace(/\.[^.]+$/, ''))) return decoded;
+  } catch {
+    /* fall through */
+  }
+  return `Attachment ${index + 1}`;
+}

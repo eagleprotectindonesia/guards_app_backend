@@ -240,10 +240,11 @@ export function useAdminGroupChat(options: UseAdminGroupChatOptions = {}) {
   const handleFileChange = useCallback(
     async (files: File[]) => {
       const imageFiles = files.filter(f => f.type.startsWith('image/'));
+      const pdfFiles = files.filter(f => f.type === 'application/pdf');
       const processed = await Promise.all(imageFiles.map(f => optimizeImage(f)));
-      const next = [...selectedFiles, ...processed].slice(0, 4);
+      const next = [...selectedFiles, ...processed, ...pdfFiles].slice(0, 4);
       setSelectedFiles(next);
-      const urls = processed.map(file => URL.createObjectURL(file));
+      const urls = [...processed, ...pdfFiles].map(file => URL.createObjectURL(file));
       setPreviews(prev => [...prev, ...urls].slice(0, 4));
     },
     [selectedFiles]
@@ -270,7 +271,12 @@ export function useAdminGroupChat(options: UseAdminGroupChatOptions = {}) {
         messageId = draft.messageId;
         const uploads = await Promise.all(
           selectedFiles.map(file =>
-            uploadToS3(file, { folder: 'group-chat', conversationId: activeGroupId, messageId, fileType: 'image' })
+            uploadToS3(file, {
+              folder: 'group-chat',
+              conversationId: activeGroupId,
+              messageId,
+              fileType: file.type === 'application/pdf' ? 'pdf' : 'image',
+            })
           )
         );
         attachments = uploads.map(x => x.key);

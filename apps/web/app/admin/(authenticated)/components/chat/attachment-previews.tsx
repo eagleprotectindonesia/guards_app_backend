@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, FileText } from 'lucide-react';
 import { cn } from '@repo/shared';
+import { isPdfFile } from '@/lib/file';
 
 interface ChatAttachmentPreviewsProps {
   previews: string[];
@@ -23,11 +24,17 @@ export function ChatAttachmentPreviews({
     <div className={cn('px-6 py-3 bg-card border-t border-border flex gap-3 overflow-x-auto shrink-0', className)}>
       {previews.map((url, i) => (
         <div key={i} className={cn('relative h-20 w-20 shrink-0 shadow-sm', itemClassName)}>
-          <img
-            src={url}
-            alt="Preview"
-            className="h-full w-full object-cover rounded-lg border border-border"
-          />
+          {isPdfFile(url) ? (
+            <div className="flex h-full w-full items-center justify-center rounded-lg border border-border bg-black/5">
+              <FileText size={28} className="text-red-500" />
+            </div>
+          ) : (
+            <img
+              src={url}
+              alt="Preview"
+              className="h-full w-full object-cover rounded-lg border border-border"
+            />
+          )}
           <button
             onClick={() => onRemove(i)}
             type="button"
