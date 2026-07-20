@@ -243,6 +243,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 authValidationState: 'validated',
               });
               queryClient.setQueryData(queryKeys.profile, { employee: user });
+              setSentryUser({ id: user.id, employeeId: user.personnelId });
               return;
             } catch (error: unknown) {
               const status = (error as { response?: { status?: number } })?.response?.status;
