@@ -11,6 +11,7 @@ import {
   RefreshCw,
   ShieldOff,
   UserPlus,
+  UsersRound,
 } from 'lucide-react';
 import { cn } from '@repo/shared';
 import { AdminNavLink } from './admin-nav-link';
@@ -22,6 +23,7 @@ export type UnifiedNotificationItem =
       kind: 'alert';
       id: string;
       createdAt: string;
+      reason: string;
       title: string;
       body: string;
       tag: NotificationTag;
@@ -111,6 +113,7 @@ export function buildNotificationRowFromAlert(
     kind: 'alert',
     id: alert.id,
     createdAt: typeof alert.createdAt === 'string' ? alert.createdAt : alert.createdAt.toISOString(),
+    reason: alert.reason,
     title,
     body,
     tag,
@@ -128,11 +131,17 @@ type NotificationType =
   | 'ticket_status_updated'
   | 'ticket_message_added'
   | 'calendar_event_tagged'
-  | 'calendar_event_reminder';
+  | 'calendar_event_reminder'
+  | 'shift_reassignment_notify';
 
 const notificationTypeConfig: Record<
   NotificationType,
-  { tag: NotificationTag; icon: typeof AlertTriangle; iconColor: string; iconBg: string }
+  {
+    tag: NotificationTag;
+    icon: typeof AlertTriangle;
+    iconColor: string;
+    iconBg: string;
+  }
 > = {
   leave_request_created: {
     tag: 'Leave',
@@ -170,6 +179,12 @@ const notificationTypeConfig: Record<
     iconColor: 'text-purple-600',
     iconBg: 'bg-purple-100 dark:bg-purple-900/30',
   },
+  shift_reassignment_notify: {
+    tag: 'Reassignment',
+    icon: UsersRound,
+    iconColor: 'text-orange-600',
+    iconBg: 'bg-orange-100 dark:bg-orange-900/30',
+  },
 };
 
 export function buildNotificationRowFromAdminNotification(notification: {
@@ -204,13 +219,15 @@ export function buildNotificationRowFromAdminNotification(notification: {
   };
 }
 
-export type NotificationCategory = 'critical_alert' | 'calendar' | 'ticket' | 'leave' | 'other';
+export type NotificationCategory = 'attendance_alert' | 'checkin_alert' | 'calendar' | 'ticket' | 'leave' | 'other';
 
 export function categorizeItem(item: UnifiedNotificationItem): NotificationCategory {
-  if (item.kind === 'alert') return 'critical_alert';
+  if (item.kind === 'alert') {
+    return item.reason === 'missed_attendance' ? 'attendance_alert' : 'checkin_alert';
+  }
   if (item.tag === 'Calendar') return 'calendar';
   if (item.tag === 'Ticket' || item.tag === 'Message') return 'ticket';
-  if (item.tag === 'Leave') return 'leave';
+  if (item.tag === 'Leave' || item.tag === 'Reassignment') return 'leave';
   return 'other';
 }
 

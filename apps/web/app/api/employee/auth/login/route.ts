@@ -4,6 +4,7 @@ import { prisma } from '@repo/database';
 import { z } from 'zod';
 import { DEFAULT_PASSWORD, verifyPassword } from '@repo/database';
 import { createEmployeeSession } from '@/lib/auth/session-helper';
+import { checkLoginThrottle, recordLoginFailure, clearLoginFailures, clientIp, RateLimitBackendError } from '@repo/auth-server';
 
 type EmployeeClientType = 'mobile' | 'pwa';
 
@@ -42,27 +43,45 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { employeeNumber, password } = employeeLoginSchema.parse(body);
 
+    const normalizedEmployeeNumber = employeeNumber.toUpperCase();
+    const ip = clientIp(req);
+
+    // Enforce per-account + per-IP rate limit
+    const throttle = await checkLoginThrottle({ accountKey: normalizedEmployeeNumber, ip });
+    if (!throttle.allowed) {
+      return NextResponse.json(
+        { message: 'Terlalu banyak percobaan. Silakan coba lagi nanti.' },
+        { status: 429, headers: { 'Retry-After': String(throttle.retryAfter ?? 900) } }
+      );
+    }
+
     const employee = await prisma.employee.findFirst({
-      where: { employeeNumber, deletedAt: null },
+      where: { employeeNumber: normalizedEmployeeNumber, deletedAt: null },
     });
 
     if (!employee) {
+      await recordLoginFailure({ accountKey: normalizedEmployeeNumber, ip });
       return NextResponse.json({ message: 'Karyawan tidak valid' }, { status: 401 });
     }
 
     if (employee.status === false) {
+      await recordLoginFailure({ accountKey: normalizedEmployeeNumber, ip });
       return NextResponse.json({ message: 'Akun tidak aktif. Silakan hubungi administrator.' }, { status: 403 });
     }
 
     if (!employee.hashedPassword) {
-      return NextResponse.json({ message: 'Karyawan tidak valid', data: employee }, { status: 401 });
+      await recordLoginFailure({ accountKey: normalizedEmployeeNumber, ip });
+      return NextResponse.json({ message: 'Karyawan tidak valid' }, { status: 401 });
     }
 
     const passwordMatch = await verifyPassword(password, employee.hashedPassword);
 
     if (!passwordMatch) {
+      await recordLoginFailure({ accountKey: normalizedEmployeeNumber, ip });
       return NextResponse.json({ message: 'Kredensial tidak valid' }, { status: 401 });
     }
+
+    await clearLoginFailures({ accountKey: normalizedEmployeeNumber, ip });
 
     // Detect client type
     const headersList = await headers();
@@ -99,6 +118,9 @@ export async function POST(req: Request) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json({ message: 'Kesalahan validasi', errors: error.issues }, { status: 400 });
+    }
+    if (error instanceof RateLimitBackendError) {
+      return NextResponse.json({ message: 'Layanan tidak tersedia. Silakan coba lagi.' }, { status: 503 });
     }
     console.error('Employee login error:', error);
     return NextResponse.json({ message: 'Kesalahan server internal' }, { status: 500 });

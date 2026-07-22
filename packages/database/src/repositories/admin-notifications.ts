@@ -58,7 +58,7 @@ export async function resolveAdminRecipientsForLeaveRequestCreated(employeeId: s
   return fallbackAdmins.map(admin => admin.id);
 }
 
-async function getHrAnnualApproverAdminIds(tx: TxLike = prisma) {
+export async function getHrAdminIds(tx: TxLike = prisma) {
   const targetTx = tx as TxLike;
   const admins = await targetTx.admin.findMany({
     where: {
@@ -125,6 +125,42 @@ export async function createAdminNotifications(
   return notifications;
 }
 
+export async function createShiftReassignmentHrNotification(
+  input: {
+    type: 'replace' | 'swap';
+    shiftIds: string[];
+    employeeNames: string[];
+    adminId: string;
+    reason?: string | null;
+  },
+  tx: TxLike = prisma
+) {
+  const hrAdminIds = await getHrAdminIds(tx);
+  console.log('ini hr admin', hrAdminIds);
+
+  if (hrAdminIds.length === 0) return [];
+
+  const label = input.type === 'replace' ? 'Guard replaced' : 'Shifts swapped';
+  const names = input.employeeNames.filter(Boolean).join(' & ');
+  const body = `${names} — ${label.toLowerCase()} by admin.${input.reason ? ` Reason: ${input.reason}` : ''}`;
+
+  return createAdminNotifications(
+    {
+      adminIds: hrAdminIds,
+      type: 'shift_reassignment_notify',
+      title: label,
+      body,
+      payload: {
+        shiftIds: input.shiftIds,
+        reassignmentType: input.type,
+        actorAdminId: input.adminId,
+        targetPath: '/admin/guard-shifts',
+      },
+    },
+    tx
+  );
+}
+
 export async function createLeaveRequestCreatedAdminNotifications(
   input: {
     leaveRequestId: string;
@@ -153,7 +189,7 @@ export async function createLeaveRequestCreatedAdminNotifications(
         endDate: input.endDate,
       });
 
-      return requiresHrApproval ? getHrAnnualApproverAdminIds(targetTx) : [];
+      return requiresHrApproval ? getHrAdminIds(targetTx) : [];
     })(),
   ]);
 

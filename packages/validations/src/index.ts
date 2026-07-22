@@ -199,6 +199,128 @@ export const createOfficeShiftSchema = z.object({
   note: z.string().optional(),
 });
 
+export const replaceShiftSchema = z.object({
+  shiftId: z.uuid(),
+  replacementEmployeeId: z.uuid(),
+  reason: z.enum(['Sick', 'Personal Reason', 'Family Emergency', 'Other']),
+  notes: z.string().max(2000).optional().nullable(),
+  evidenceS3Key: z.string().max(500).optional().nullable(),
+});
+export type ReplaceShiftInput = z.infer<typeof replaceShiftSchema>;
+
+export const swapShiftsSchema = z
+  .object({
+    shiftAId: z.uuid(),
+    shiftBId: z.uuid(),
+    reason: z.enum(['Sick', 'Personal Reason', 'Family Emergency', 'Other']).optional().nullable(),
+    notes: z.string().max(2000).optional().nullable(),
+  })
+  .refine(data => data.shiftAId !== data.shiftBId, {
+    message: 'Cannot swap a shift with itself',
+    path: ['shiftBId'],
+  });
+export type SwapShiftsInput = z.infer<typeof swapShiftsSchema>;
+
+export const replaceOfficeShiftSchema = z.object({
+  officeShiftId: z.uuid(),
+  replacementEmployeeId: z.uuid(),
+  reason: z.enum(['Sick', 'Personal Reason', 'Family Emergency', 'Other']),
+  notes: z.string().max(2000).optional().nullable(),
+  evidenceS3Key: z.string().max(500).optional().nullable(),
+});
+export type ReplaceOfficeShiftInput = z.infer<typeof replaceOfficeShiftSchema>;
+
+export const swapOfficeShiftsSchema = z
+  .object({
+    officeShiftAId: z.uuid(),
+    officeShiftBId: z.uuid(),
+    reason: z.enum(['Sick', 'Personal Reason', 'Family Emergency', 'Other']).optional().nullable(),
+    notes: z.string().max(2000).optional().nullable(),
+  })
+  .refine(data => data.officeShiftAId !== data.officeShiftBId, {
+    message: 'Cannot swap an office shift with itself',
+    path: ['officeShiftBId'],
+  });
+export type SwapOfficeShiftsInput = z.infer<typeof swapOfficeShiftsSchema>;
+
+export const bulkSwapReplaceOfficeShiftsSchema = z
+  .object({
+    employeeAId: z.uuid(),
+    employeeBId: z.uuid(),
+    fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    reason: z.enum(['Sick', 'Personal Reason', 'Family Emergency', 'Other']).optional().nullable(),
+    notes: z.string().max(2000).optional().nullable(),
+  })
+  .refine(data => data.employeeAId !== data.employeeBId, {
+    message: 'Cannot swap an employee with themselves',
+    path: ['employeeBId'],
+  })
+  .refine(data => new Date(data.fromDate) <= new Date(data.toDate), {
+    message: 'fromDate must be <= toDate',
+    path: ['toDate'],
+  })
+  .refine(
+    data => {
+      const days = (new Date(data.toDate).getTime() - new Date(data.fromDate).getTime()) / 86_400_000;
+      return days <= 31;
+    },
+    { message: 'Date range cannot exceed 31 days', path: ['toDate'] }
+  );
+export type BulkSwapReplaceOfficeShiftsInput = z.infer<typeof bulkSwapReplaceOfficeShiftsSchema>;
+
+export const bulkSwapShiftsSchema = z
+  .object({
+    employeeAId: z.uuid(),
+    employeeBId: z.uuid(),
+    fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+    toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+    reason: z.enum(['Sick', 'Personal Reason', 'Family Emergency', 'Other']).optional().nullable(),
+    notes: z.string().max(2000).optional().nullable(),
+  })
+  .refine(data => data.employeeAId !== data.employeeBId, {
+    message: 'Cannot swap an employee with themselves',
+    path: ['employeeBId'],
+  })
+  .refine(data => new Date(data.fromDate) <= new Date(data.toDate), {
+    message: 'fromDate must be <= toDate',
+    path: ['toDate'],
+  })
+  .refine(
+    data => {
+      const days = (new Date(data.toDate).getTime() - new Date(data.fromDate).getTime()) / 86_400_000;
+      return days <= 31;
+    },
+    { message: 'Date range cannot exceed 31 days', path: ['toDate'] }
+  );
+export type BulkSwapShiftsInput = z.infer<typeof bulkSwapShiftsSchema>;
+
+export const bulkReplaceShiftsSchema = z
+  .object({
+    sourceEmployeeId: z.uuid(),
+    targetEmployeeId: z.uuid(),
+    fromDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+    toDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
+    reason: z.enum(['Sick', 'Personal Reason', 'Family Emergency', 'Other']),
+    notes: z.string().max(2000).optional().nullable(),
+  })
+  .refine(data => data.sourceEmployeeId !== data.targetEmployeeId, {
+    message: 'Source and target employees must be different',
+    path: ['targetEmployeeId'],
+  })
+  .refine(data => new Date(data.fromDate) <= new Date(data.toDate), {
+    message: 'fromDate must be <= toDate',
+    path: ['toDate'],
+  })
+  .refine(
+    data => {
+      const days = (new Date(data.toDate).getTime() - new Date(data.fromDate).getTime()) / 86_400_000;
+      return days <= 31;
+    },
+    { message: 'Date range cannot exceed 31 days', path: ['toDate'] }
+  );
+export type BulkReplaceShiftsInput = z.infer<typeof bulkReplaceShiftsSchema>;
+
 // --- Checkin ---
 export const checkInSchema = z.object({
   location: z

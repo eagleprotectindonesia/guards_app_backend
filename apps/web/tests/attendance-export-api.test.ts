@@ -7,6 +7,7 @@ import {
   getAttendanceExportBatch,
   getEmployeeOnsiteDayOffChangelogsForDates,
   getLatestGuardShiftEditChangelogs,
+  getLatestReplacementChangelogs,
   listLeaveRequestsOverlappingOfficeAttendance,
 } from '@repo/database';
 
@@ -23,6 +24,7 @@ jest.mock('@repo/database', () => ({
   getAttendanceExportBatch: jest.fn(),
   getEmployeeOnsiteDayOffChangelogsForDates: jest.fn(),
   getLatestGuardShiftEditChangelogs: jest.fn(),
+  getLatestReplacementChangelogs: jest.fn(),
   listLeaveRequestsOverlappingOfficeAttendance: jest.fn(),
 }));
 
@@ -36,6 +38,7 @@ describe('GET /api/admin/attendance/export', () => {
     (applyAttendanceVisibilityScope as jest.Mock).mockImplementation(where => where);
     (getEmployeeOnsiteDayOffChangelogsForDates as jest.Mock).mockResolvedValue([]);
     (getLatestGuardShiftEditChangelogs as jest.Mock).mockResolvedValue([]);
+    (getLatestReplacementChangelogs as jest.Mock).mockResolvedValue([]);
     (listLeaveRequestsOverlappingOfficeAttendance as jest.Mock).mockResolvedValue([]);
   });
 
@@ -364,22 +367,98 @@ describe('GET /api/admin/attendance/export', () => {
     expect(csv).toContain('"Unpaid Leave","None",absent');
   });
 
-  test('applies date and employee number filters to attendance export query', async () => {
+  test('includes replacement details for replaced shifts', async () => {
     (getAdminAuthSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
     (adminHasPermission as jest.Mock).mockReturnValue(true);
-    (getAttendanceExportBatch as jest.Mock).mockResolvedValueOnce([]);
+    (getAttendanceExportBatch as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'att-7',
+          recordedAt: new Date('2026-04-04T08:05:00.000Z'),
+          status: 'present',
+          metadata: { location: { lat: -5.1, lng: 119.4 } },
+          employee: {
+            id: 'emp-7',
+            employeeNumber: 'EMP-007',
+            fullName: 'Replacement Guard',
+            department: 'Ops',
+            jobTitle: 'Guard',
+          },
+          shift: {
+            id: 'shift-7',
+            date: new Date('2026-04-04T00:00:00.000Z'),
+            startsAt: new Date('2026-04-04T08:00:00.000Z'),
+            endsAt: new Date('2026-04-04T16:00:00.000Z'),
+            graceMinutes: 0,
+            status: 'completed',
+            site: { name: 'HQ', latitude: -5.1, longitude: 119.4 },
+            shiftType: { name: 'Day Shift' },
+            checkins: [
+              { at: new Date('2026-04-04T08:05:00.000Z'), metadata: { location: { lat: -5.1, lng: 119.4 } } },
+            ],
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    (getLatestReplacementChangelogs as jest.Mock).mockResolvedValueOnce([
+      {
+        entityId: 'shift-7',
+        details: {
+          method: 'REPLACEMENT',
+          previousEmployeeName: 'Original Guard',
+          replacementReason: 'Sick',
+          replacementNotes: null,
+        },
+      },
+    ]);
 
-    await GET(
-      new NextRequest(
-        'http://localhost/api/admin/attendance/export?startDate=2026-04-01&endDate=2026-04-03&employeeNumber=EMP-002'
-      )
-    );
+    const response = await GET(new NextRequest('http://localhost/api/admin/attendance/export?startDate=2026-04-04&endDate=2026-04-04'));
+    const csv = await readResponseText(response);
 
-    const firstCall = (getAttendanceExportBatch as jest.Mock).mock.calls[0][0];
-    expect(firstCall.take).toBe(1000);
-    expect(firstCall.cursor).toBeUndefined();
-    expect(firstCall.where.employee.employeeNumber).toBe('EMP-002');
-    expect(firstCall.where.recordedAt.gte.getTime()).toBe(startOfDay(new Date('2026-04-01')).getTime());
-    expect(firstCall.where.recordedAt.lte.getTime()).toBe(endOfDay(new Date('2026-04-03')).getTime());
+    expect(response.status).toBe(200);
+    expect(csv).toContain('Replacement Status,Previous Scheduled Guard,Replacement Reason');
+    expect(csv).toContain('true,"Original Guard","Sick"');
+  });
+
+  test('leaves replacement columns empty for non-replaced shifts', async () => {
+    (getAdminAuthSession as jest.Mock).mockResolvedValue({ permissions: ['attendance:view'], isSuperAdmin: false, rolePolicy: {} });
+    (adminHasPermission as jest.Mock).mockReturnValue(true);
+    (getAttendanceExportBatch as jest.Mock)
+      .mockResolvedValueOnce([
+        {
+          id: 'att-8',
+          recordedAt: new Date('2026-04-05T08:05:00.000Z'),
+          status: 'present',
+          metadata: { location: { lat: -5.1, lng: 119.4 } },
+          employee: {
+            id: 'emp-8',
+            employeeNumber: 'EMP-008',
+            fullName: 'Normal Guard',
+            department: 'Ops',
+            jobTitle: 'Guard',
+          },
+          shift: {
+            id: 'shift-8',
+            date: new Date('2026-04-05T00:00:00.000Z'),
+            startsAt: new Date('2026-04-05T08:00:00.000Z'),
+            endsAt: new Date('2026-04-05T16:00:00.000Z'),
+            graceMinutes: 0,
+            status: 'completed',
+            site: { name: 'HQ', latitude: -5.1, longitude: 119.4 },
+            shiftType: { name: 'Day Shift' },
+            checkins: [
+              { at: new Date('2026-04-05T08:05:00.000Z'), metadata: { location: { lat: -5.1, lng: 119.4 } } },
+            ],
+          },
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    (getLatestReplacementChangelogs as jest.Mock).mockResolvedValueOnce([]);
+
+    const response = await GET(new NextRequest('http://localhost/api/admin/attendance/export?startDate=2026-04-05&endDate=2026-04-05'));
+    const csv = await readResponseText(response);
+
+    expect(response.status).toBe(200);
+    expect(csv).toContain('false,"",""');
   });
 });

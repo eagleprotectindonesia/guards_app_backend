@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { AlertTriangle, Bell, Calendar, ChevronRight, ClipboardList, Ticket } from 'lucide-react';
+import { Bell, Calendar, ChevronRight, ClipboardList, ShieldOff, Ticket } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useNotificationsDropdown } from '../context/notifications-dropdown-context';
@@ -14,7 +14,8 @@ import { cn } from '@repo/shared';
 import { isDashboardPath } from '@/lib/admin-tab-routing';
 
 const GROUPS: { key: ReturnType<typeof categorizeItem>; label: string; icon: typeof Bell; tab: string }[] = [
-  { key: 'critical_alert', label: 'Critical Alerts', icon: AlertTriangle, tab: 'critical_alert' },
+  { key: 'attendance_alert', label: 'Attendance Alerts', icon: ClipboardList, tab: 'attendance' },
+  { key: 'checkin_alert', label: 'Check-in Alerts', icon: ShieldOff, tab: 'checkin' },
   { key: 'calendar', label: 'Calendar', icon: Calendar, tab: 'calendar' },
   { key: 'ticket', label: 'Tickets & Messages', icon: Ticket, tab: 'ticket' },
   { key: 'leave', label: 'Leave & HR', icon: ClipboardList, tab: 'leave' },
@@ -87,7 +88,7 @@ export default function NotificationsDropdown() {
           <div className="max-h-96 overflow-y-auto divide-y divide-border">
             {GROUPS.filter(group => (groupCounts[group.key] ?? 0) > 0).map(group => {
               const count = groupCounts[group.key] ?? 0;
-              const isCritical = group.key === 'critical_alert';
+              const isCritical = group.key === 'attendance_alert' || group.key === 'checkin_alert';
               return (
                 <AdminNavLink
                   key={group.key}

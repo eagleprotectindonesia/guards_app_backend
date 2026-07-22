@@ -1,7 +1,27 @@
 'use server';
 
-import { prisma, addGroupMembers, createGroupChat, findGroupChatByGroupShiftId, getSystemSetting, removeGroupMember, unarchiveGroupChat, upsertGroupShift, deleteGroupShiftIfOrphaned, createSiteWithPostsAndChangelog, updateSiteWithChangelog } from '@repo/database';
-import { createShiftSchema, CreateShiftInput, UpdateShiftInput } from '@repo/validations';
+import {
+  prisma,
+  addGroupMembers,
+  createGroupChat,
+  findGroupChatByGroupShiftId,
+  getSystemSetting,
+  removeGroupMember,
+  unarchiveGroupChat,
+  upsertGroupShift,
+  deleteGroupShiftIfOrphaned,
+  createSiteWithPostsAndChangelog,
+  updateSiteWithChangelog,
+} from '@repo/database';
+import {
+  createShiftSchema,
+  CreateShiftInput,
+  UpdateShiftInput,
+  replaceShiftSchema,
+  swapShiftsSchema,
+  bulkSwapShiftsSchema,
+  bulkReplaceShiftsSchema,
+} from '@repo/validations';
 import { revalidatePath } from 'next/cache';
 import { format, isBefore, subMinutes } from 'date-fns';
 import { ShiftStatus, Prisma } from '@prisma/client';
@@ -15,9 +35,21 @@ import {
   deleteShiftWithChangelog,
   processGuardShiftBulkImport,
   bulkCreateShiftsFromForm,
+  replaceShiftGuard,
+  swapShifts,
+  bulkSwapReplaceBetweenEmployees,
+  bulkReplaceEmployeeShifts,
+  getShiftsByEmployeeWithinWindow,
+  createShiftReassignmentHrNotification,
 } from '@repo/database';
+import {
+  sendShiftReassignmentPushNotification,
+  sendBulkShiftSwapAggregatePushNotification,
+  sendBulkReplacePushNotification,
+} from '@repo/notifications';
 import { getShiftTypeDurationInMins } from '@repo/database';
 import { ActionState } from '@/types/actions';
+import type { SerializedShiftWithRelationsDto } from '@/types/shifts';
 import { PERMISSIONS } from '@/lib/auth/permissions';
 
 export async function createShift(
@@ -72,8 +104,7 @@ export async function createShift(
     };
   }
 
-  const { date, shiftTypeId, employeeId, kind, requiredCheckinIntervalMins, graceMinutes, note } =
-    validatedFields.data;
+  const { date, shiftTypeId, employeeId, kind, requiredCheckinIntervalMins, graceMinutes, note } = validatedFields.data;
 
   try {
     // Fetch ShiftType to calculate startsAt and endsAt
@@ -209,9 +240,7 @@ export async function createShift(
           if (groupChat.archivedAt) {
             await unarchiveGroupChat(groupChat.id);
           }
-          const existingMember = groupChat.participants.find(
-            p => p.employeeId === employeeId && p.status === 'active'
-          );
+          const existingMember = groupChat.participants.find(p => p.employeeId === employeeId && p.status === 'active');
           if (!existingMember) {
             const visibleFromAt = subMinutes(startDateTime, 30);
             await addGroupMembers({
@@ -287,8 +316,17 @@ export async function updateShift(
     };
   }
 
-  const { date, shiftTypeId, siteId, employeeId, kind, escortEndSiteId, requiredCheckinIntervalMins, graceMinutes, note } =
-    validatedFields.data;
+  const {
+    date,
+    shiftTypeId,
+    siteId,
+    employeeId,
+    kind,
+    escortEndSiteId,
+    requiredCheckinIntervalMins,
+    graceMinutes,
+    note,
+  } = validatedFields.data;
 
   try {
     const shiftType = await prisma.shiftType.findUnique({
@@ -441,9 +479,7 @@ export async function updateShift(
           await unarchiveGroupChat(groupChat.id);
         }
         if (oldEmployeeId) {
-          const oldPart = groupChat.participants.find(
-            p => p.employeeId === oldEmployeeId && p.status === 'active'
-          );
+          const oldPart = groupChat.participants.find(p => p.employeeId === oldEmployeeId && p.status === 'active');
           if (oldPart) {
             await removeGroupMember({
               groupId: groupChat.id,
@@ -453,9 +489,7 @@ export async function updateShift(
           }
         }
         if (employeeId) {
-          const newPart = groupChat.participants.find(
-            p => p.employeeId === employeeId && p.status === 'active'
-          );
+          const newPart = groupChat.participants.find(p => p.employeeId === employeeId && p.status === 'active');
           if (!newPart) {
             await addGroupMembers({
               groupId: groupChat.id,
@@ -493,9 +527,7 @@ export async function deleteShift(id: string) {
     if (shift?.kind === 'escort' && shift.employeeId && groupShiftId) {
       const group = await findGroupChatByGroupShiftId(groupShiftId);
       if (group) {
-        const participant = group.participants.find(
-          p => p.employeeId === shift.employeeId && p.status === 'active'
-        );
+        const participant = group.participants.find(p => p.employeeId === shift.employeeId && p.status === 'active');
         if (participant) {
           await removeGroupMember({
             groupId: group.id,
@@ -549,9 +581,7 @@ export async function cancelShift(id: string, cancelNote?: string) {
     if (shift.kind === 'escort' && shift.employeeId && shift.groupShiftId) {
       const group = await findGroupChatByGroupShiftId(shift.groupShiftId);
       if (group) {
-        const participant = group.participants.find(
-          p => p.employeeId === shift.employeeId && p.status === 'active'
-        );
+        const participant = group.participants.find(p => p.employeeId === shift.employeeId && p.status === 'active');
         if (participant) {
           await removeGroupMember({
             groupId: group.id,
@@ -781,18 +811,47 @@ export async function bulkCreateShiftsFromFormAction(
   let finalSiteId = input.siteId;
   let finalEscortEndSiteId = input.escortEndSiteId;
 
-  if ((input.kind === 'escort' || input.kind === 'event_temporary') && input.startAddress && input.startLat != null && input.startLng != null) {
+  if (
+    (input.kind === 'escort' || input.kind === 'event_temporary') &&
+    input.startAddress &&
+    input.startLat != null &&
+    input.startLng != null
+  ) {
     const startSiteKind = input.kind === 'escort' ? 'escort' : 'event';
-    finalSiteId = await autoCreateSiteFromAddress(startSiteKind, input.clientName, input.startAddress, input.startLat, input.startLng, adminId, input.kind);
+    finalSiteId = await autoCreateSiteFromAddress(
+      startSiteKind,
+      input.clientName,
+      input.startAddress,
+      input.startLat,
+      input.startLng,
+      adminId,
+      input.kind
+    );
   }
 
-  if ((input.kind === 'escort' || input.kind === 'event_temporary') && !finalEscortEndSiteId && input.escortEndAddress && input.escortEndLat != null && input.escortEndLng != null) {
-    finalEscortEndSiteId = await autoCreateSiteFromAddress('escort', input.clientName, input.escortEndAddress, input.escortEndLat, input.escortEndLng, adminId, input.kind);
+  if (
+    (input.kind === 'escort' || input.kind === 'event_temporary') &&
+    !finalEscortEndSiteId &&
+    input.escortEndAddress &&
+    input.escortEndLat != null &&
+    input.escortEndLng != null
+  ) {
+    finalEscortEndSiteId = await autoCreateSiteFromAddress(
+      'escort',
+      input.clientName,
+      input.escortEndAddress,
+      input.escortEndLat,
+      input.escortEndLng,
+      adminId,
+      input.kind
+    );
   }
 
   const [startSite, endSite, shiftType] = await Promise.all([
     prisma.site.findUnique({ where: { id: finalSiteId }, select: { kind: true, name: true } }),
-    finalEscortEndSiteId ? prisma.site.findUnique({ where: { id: finalEscortEndSiteId }, select: { kind: true, name: true } }) : null,
+    finalEscortEndSiteId
+      ? prisma.site.findUnique({ where: { id: finalEscortEndSiteId }, select: { kind: true, name: true } })
+      : null,
     prisma.shiftType.findUnique({ where: { id: input.shiftTypeId }, select: { startTime: true } }),
   ]);
 
@@ -865,18 +924,21 @@ export async function bulkCreateShiftsFromFormAction(
       }
     }
 
-    const result = await bulkCreateShiftsFromForm({
-      siteId: finalSiteId,
-      shiftTypeId: input.shiftTypeId,
-      kind: input.kind,
-      escortEndSiteId: finalEscortEndSiteId || undefined,
-      employeeIds: input.employeeIds,
-      dates: input.dates,
-      requiredCheckinIntervalMins: input.requiredCheckinIntervalMins,
-      graceMinutes: input.graceMinutes,
-      note: input.note,
-      groupShiftIds,
-    }, adminId);
+    const result = await bulkCreateShiftsFromForm(
+      {
+        siteId: finalSiteId,
+        shiftTypeId: input.shiftTypeId,
+        kind: input.kind,
+        escortEndSiteId: finalEscortEndSiteId || undefined,
+        employeeIds: input.employeeIds,
+        dates: input.dates,
+        requiredCheckinIntervalMins: input.requiredCheckinIntervalMins,
+        graceMinutes: input.graceMinutes,
+        note: input.note,
+        groupShiftIds,
+      },
+      adminId
+    );
     revalidatePath('/admin/guard-shifts');
 
     const groupIds: string[] = [];
@@ -886,8 +948,7 @@ export async function bulkCreateShiftsFromFormAction(
         getSystemSetting(ESCORT_GROUP_CHAT_AUTO_INCLUDE_CHAT_ADMINS),
       ]);
       const broadcastEnabled = broadcastSetting?.value === '1';
-      const creatorHasChat =
-        !!session && (session.isSuperAdmin || session.permissions.includes(PERMISSIONS.CHAT.VIEW));
+      const creatorHasChat = !!session && (session.isSuperAdmin || session.permissions.includes(PERMISSIONS.CHAT.VIEW));
       const shouldBroadcast = broadcastEnabled || !creatorHasChat;
 
       let adminIds: string[] = [];
@@ -945,6 +1006,417 @@ export async function bulkCreateShiftsFromFormAction(
     return {
       success: false,
       message: error instanceof Error ? error.message : 'Failed to create schedules. Please try again.',
+    };
+  }
+}
+
+export async function replaceShift(input: {
+  shiftId: string;
+  replacementEmployeeId: string;
+  reason: string;
+  notes?: string | null;
+  evidenceS3Key?: string | null;
+}): Promise<{ success: boolean; message?: string }> {
+  try {
+    const adminId = await getAdminIdFromToken();
+
+    const parsed = replaceShiftSchema.safeParse(input);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return {
+        success: false,
+        message: firstError?.message ?? 'Invalid input.',
+      };
+    }
+
+    const originalShift = await prisma.shift.findUnique({
+      where: { id: parsed.data.shiftId, deletedAt: null },
+      select: { employeeId: true, employee: { select: { fullName: true } } },
+    });
+    const originalEmployeeId = originalShift?.employeeId ?? null;
+    const originalEmployeeName = originalShift?.employee?.fullName ?? null;
+
+    const result = await replaceShiftGuard(
+      {
+        shiftId: parsed.data.shiftId,
+        replacementEmployeeId: parsed.data.replacementEmployeeId,
+        reason: parsed.data.reason,
+        notes: parsed.data.notes ?? null,
+        evidenceS3Key: parsed.data.evidenceS3Key ?? null,
+      },
+      adminId
+    );
+
+    // Notify both the original guard (now removed) and the new replacement guard.
+    const notifyTargets: { employeeId: string; wasOriginalAssignee: boolean }[] = [];
+    if (originalEmployeeId) {
+      notifyTargets.push({ employeeId: originalEmployeeId, wasOriginalAssignee: true });
+    }
+    if (result.employeeId) {
+      notifyTargets.push({ employeeId: result.employeeId, wasOriginalAssignee: false });
+    }
+    await Promise.all(
+      notifyTargets.map(t =>
+        sendShiftReassignmentPushNotification({
+          employeeId: t.employeeId,
+          shiftId: result.id,
+          siteName: result.site.name,
+          shiftTypeName: result.shiftType.name,
+          date: result.date,
+          startsAt: result.startsAt,
+          endsAt: result.endsAt,
+          reason: parsed.data.reason,
+          kind: 'replace',
+          wasOriginalAssignee: t.wasOriginalAssignee,
+        }).catch(() => {})
+      )
+    );
+
+    await createShiftReassignmentHrNotification({
+      type: 'replace',
+      shiftIds: [result.id],
+      employeeNames: [originalEmployeeName, result.employee?.fullName ?? 'Replacement'].filter((n): n is string => !!n),
+      adminId,
+      reason: parsed.data.reason,
+    }).catch(() => {});
+
+    revalidatePath('/admin/guard-shifts');
+    return { success: true };
+  } catch (error) {
+    console.error('[replaceShift] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to replace guard.',
+    };
+  }
+}
+
+export async function swapShiftsAction(input: {
+  shiftAId: string;
+  shiftBId: string;
+  reason?: string | null;
+  notes?: string | null;
+}): Promise<{ success: boolean; message?: string }> {
+  try {
+    const adminId = await getAdminIdFromToken();
+
+    const parsed = swapShiftsSchema.safeParse(input);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return {
+        success: false,
+        message: firstError?.message ?? 'Invalid input.',
+      };
+    }
+
+    const result = await swapShifts(
+      {
+        shiftAId: parsed.data.shiftAId,
+        shiftBId: parsed.data.shiftBId,
+        reason: parsed.data.reason ?? 'Personal Reason',
+        notes: parsed.data.notes ?? null,
+      },
+      adminId
+    );
+
+    // Notify both guards involved in the swap.
+    const notified = new Set<string>();
+    await Promise.all(
+      [result.shiftA, result.shiftB].map(shift => {
+        if (!shift.employeeId || notified.has(shift.employeeId)) return Promise.resolve();
+        notified.add(shift.employeeId);
+        return sendShiftReassignmentPushNotification({
+          employeeId: shift.employeeId,
+          shiftId: shift.id,
+          siteName: shift.site.name,
+          shiftTypeName: shift.shiftType.name,
+          date: shift.date,
+          startsAt: shift.startsAt,
+          endsAt: shift.endsAt,
+          reason: parsed.data.reason ?? 'Personal Reason',
+          kind: 'swap',
+          wasOriginalAssignee: false,
+        }).catch(() => {});
+      })
+    );
+
+    await createShiftReassignmentHrNotification({
+      type: 'swap',
+      shiftIds: [result.shiftA.id, result.shiftB.id],
+      employeeNames: [result.shiftA.employee?.fullName ?? 'Guard A', result.shiftB.employee?.fullName ?? 'Guard B'],
+      adminId,
+      reason: parsed.data.reason ?? null,
+    }).catch(() => {});
+
+    revalidatePath('/admin/guard-shifts');
+    return { success: true };
+  } catch (error) {
+    console.error('[swapShiftsAction] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to swap shifts.',
+    };
+  }
+}
+
+export async function getSwapCandidateShiftsAction(params: {
+  employeeId: string;
+  referenceDate: string;
+}): Promise<{ success: boolean; shifts?: SerializedShiftWithRelationsDto[]; message?: string }> {
+  try {
+    const { employeeId, referenceDate } = params;
+    if (!employeeId || !referenceDate) {
+      return { success: false, message: 'employeeId and referenceDate are required.' };
+    }
+    const refDate = new Date(referenceDate);
+    if (Number.isNaN(refDate.getTime())) {
+      return { success: false, message: 'Invalid referenceDate.' };
+    }
+
+    const rows = await getShiftsByEmployeeWithinWindow(employeeId, refDate);
+    const shifts = rows.map(row => ({
+      id: row.id,
+      siteId: row.siteId,
+      shiftTypeId: row.shiftTypeId,
+      employeeId: row.employeeId,
+      kind: row.kind,
+      escortEndSiteId: row.escortEndSiteId,
+      date: row.date.toISOString(),
+      startsAt: row.startsAt.toISOString(),
+      endsAt: row.endsAt.toISOString(),
+      status: row.status,
+      checkInStatus: row.checkInStatus,
+      requiredCheckinIntervalMins: row.requiredCheckinIntervalMins,
+      graceMinutes: row.graceMinutes,
+      lastHeartbeatAt: row.lastHeartbeatAt ? row.lastHeartbeatAt.toISOString() : null,
+      missedCount: row.missedCount,
+      note: row.note,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      site: {
+        id: row.site.id,
+        name: row.site.name,
+        clientName: row.site.clientName ?? null,
+        address: row.site.address ?? null,
+        latitude: row.site.latitude ?? null,
+        longitude: row.site.longitude ?? null,
+        kind: row.site.kind ?? null,
+        status: row.site.status ?? null,
+        note: row.site.note ?? null,
+      },
+      escortEndSite: row.escortEndSite
+        ? {
+            id: row.escortEndSite.id,
+            name: row.escortEndSite.name,
+            address: row.escortEndSite.address ?? null,
+            latitude: row.escortEndSite.latitude ?? null,
+            longitude: row.escortEndSite.longitude ?? null,
+            kind: 'escort' as const,
+            status: null,
+            note: null,
+          }
+        : null,
+      shiftType: {
+        id: row.shiftType.id,
+        name: row.shiftType.name,
+        startTime: row.shiftType.startTime,
+        endTime: row.shiftType.endTime,
+      },
+      employee: row.employee
+        ? {
+            id: row.employee.id,
+            fullName: row.employee.fullName,
+            employeeNumber: row.employee.employeeNumber,
+          }
+        : null,
+      attendance: null,
+      createdBy: null,
+      lastUpdatedBy: null,
+    }));
+
+    return { success: true, shifts };
+  } catch (error) {
+    console.error('[getSwapCandidateShiftsAction] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to load candidate shifts.',
+    };
+  }
+}
+
+export async function bulkSwapShiftsAction(input: {
+  employeeAId: string;
+  employeeBId: string;
+  fromDate: string;
+  toDate: string;
+  reason?: string | null;
+  notes?: string | null;
+}): Promise<{ success: boolean; message?: string }> {
+  try {
+    const adminId = await getAdminIdFromToken();
+
+    const parsed = bulkSwapShiftsSchema.safeParse(input);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return {
+        success: false,
+        message: firstError?.message ?? 'Invalid input.',
+      };
+    }
+
+    // Resolve names for notification
+    const [empA, empB] = await Promise.all([
+      prisma.employee.findUnique({
+        where: { id: parsed.data.employeeAId, deletedAt: null },
+        select: { fullName: true },
+      }),
+      prisma.employee.findUnique({
+        where: { id: parsed.data.employeeBId, deletedAt: null },
+        select: { fullName: true },
+      }),
+    ]);
+
+    const result = await bulkSwapReplaceBetweenEmployees(
+      {
+        employeeAId: parsed.data.employeeAId,
+        employeeBId: parsed.data.employeeBId,
+        fromDate: parsed.data.fromDate,
+        toDate: parsed.data.toDate,
+        reason: parsed.data.reason ?? null,
+        notes: parsed.data.notes ?? null,
+      },
+      adminId
+    );
+
+    // Group affected shifts by post-update employeeId; one aggregate push per guard.
+    const shiftsByEmployee = new Map<string, typeof result.affectedShifts>();
+    for (const s of result.affectedShifts) {
+      if (!s.employeeId) continue;
+      const arr = shiftsByEmployee.get(s.employeeId) ?? [];
+      arr.push(s);
+      shiftsByEmployee.set(s.employeeId, arr);
+    }
+
+    await Promise.all(
+      Array.from(shiftsByEmployee.entries()).map(([employeeId, shifts]) =>
+        sendBulkShiftSwapAggregatePushNotification({
+          employeeId,
+          shifts,
+          rangeFrom: result.rangeFrom,
+          rangeTo: result.rangeTo,
+          partnerFullName:
+            employeeId === parsed.data.employeeAId
+              ? (empB?.fullName ?? 'Guard B')
+              : (empA?.fullName ?? 'Guard A'),
+          reason: parsed.data.reason ?? 'Bulk swap',
+        }).catch(() => {})
+      )
+    );
+
+    await createShiftReassignmentHrNotification({
+      type: 'swap',
+      shiftIds: result.affectedShifts.map(s => s.id),
+      employeeNames: [empA?.fullName ?? 'Guard A', empB?.fullName ?? 'Guard B'],
+      adminId,
+      reason: parsed.data.reason ?? null,
+    }).catch(() => {});
+
+    revalidatePath('/admin/guard-shifts');
+    return { success: true };
+  } catch (error) {
+    console.error('[bulkSwapShiftsAction] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to bulk swap shifts.',
+    };
+  }
+}
+
+export async function bulkReplaceShiftsAction(input: {
+  sourceEmployeeId: string;
+  targetEmployeeId: string;
+  fromDate: string;
+  toDate: string;
+  reason: string;
+  notes?: string | null;
+}): Promise<{ success: boolean; message?: string }> {
+  try {
+    const adminId = await getAdminIdFromToken();
+
+    const parsed = bulkReplaceShiftsSchema.safeParse(input);
+    if (!parsed.success) {
+      const firstError = parsed.error.issues[0];
+      return {
+        success: false,
+        message: firstError?.message ?? 'Invalid input.',
+      };
+    }
+
+    // Resolve names for notification
+    const [sourceEmp, targetEmp] = await Promise.all([
+      prisma.employee.findUnique({
+        where: { id: parsed.data.sourceEmployeeId, deletedAt: null },
+        select: { fullName: true },
+      }),
+      prisma.employee.findUnique({
+        where: { id: parsed.data.targetEmployeeId, deletedAt: null },
+        select: { fullName: true },
+      }),
+    ]);
+
+    const result = await bulkReplaceEmployeeShifts(
+      {
+        sourceEmployeeId: parsed.data.sourceEmployeeId,
+        targetEmployeeId: parsed.data.targetEmployeeId,
+        fromDate: parsed.data.fromDate,
+        toDate: parsed.data.toDate,
+        reason: parsed.data.reason,
+        notes: parsed.data.notes ?? null,
+      },
+      adminId
+    );
+
+    // Group affected shifts by post-update employeeId; one aggregate push per guard.
+    const shiftsByEmployee = new Map<string, typeof result.affectedShifts>();
+    for (const s of result.affectedShifts) {
+      if (!s.employeeId) continue;
+      const arr = shiftsByEmployee.get(s.employeeId) ?? [];
+      arr.push(s);
+      shiftsByEmployee.set(s.employeeId, arr);
+    }
+
+    await Promise.all(
+      Array.from(shiftsByEmployee.entries()).map(([employeeId, shifts]) =>
+        sendBulkReplacePushNotification({
+          employeeId,
+          shifts,
+          rangeFrom: result.rangeFrom,
+          rangeTo: result.rangeTo,
+          partnerFullName:
+            employeeId === parsed.data.sourceEmployeeId
+              ? (targetEmp?.fullName ?? 'Target guard')
+              : (sourceEmp?.fullName ?? 'Source guard'),
+          reason: parsed.data.reason,
+          isSource: employeeId === parsed.data.sourceEmployeeId,
+        }).catch(() => {})
+      )
+    );
+
+    await createShiftReassignmentHrNotification({
+      type: 'replace',
+      shiftIds: result.affectedShifts.map(s => s.id),
+      employeeNames: [sourceEmp?.fullName ?? 'Source guard', targetEmp?.fullName ?? 'Target guard'],
+      adminId,
+      reason: parsed.data.reason,
+    }).catch(() => {});
+
+    revalidatePath('/admin/guard-shifts');
+    return { success: true };
+  } catch (error) {
+    console.error('[bulkReplaceShiftsAction] Error:', error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Failed to bulk replace shifts.',
     };
   }
 }

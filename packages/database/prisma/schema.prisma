@@ -79,6 +79,7 @@ enum AdminNotificationType {
   ticket_message_added
   calendar_event_tagged
   calendar_event_reminder
+  shift_reassignment_notify
 }
 
 enum HolidayCalendarType {
@@ -195,6 +196,7 @@ model Admin {
   updatedOffices                               Office[]                               @relation("OfficeLastUpdatedBy")
   updatedShiftTypes                            ShiftType[]                            @relation("ShiftTypeLastUpdatedBy")
   updatedShifts                                Shift[]                                @relation("ShiftLastUpdatedBy")
+  replacedShifts                               Shift[]                                @relation("ShiftReplacedByAdmin")
   createdSites                                 Site[]                                 @relation("SiteCreatedBy")
   createdOffices                               Office[]                               @relation("OfficeCreatedBy")
   createdShiftTypes                            ShiftType[]                            @relation("ShiftTypeCreatedBy")
@@ -766,6 +768,11 @@ model Shift {
   lastAutoPhotoReportAt       DateTime?               @map("last_auto_photo_report_at")
   note                        String?                 @db.Text
   groupShiftId                String?                 @map("group_shift_id")
+  replacedByAdminId           String?                 @map("replaced_by_admin_id")
+  replacedAt                  DateTime?               @map("replaced_at")
+  replacementReason           String?                 @map("replacement_reason")
+  evidenceS3Key               String?                 @map("evidence_s3_key")
+  swapsWithShiftId            String?                 @map("swaps_with_shift_id")
   alerts                      Alert[]
   checkins                    Checkin[]
   photoReports                ShiftPhotoReport[]
@@ -777,6 +784,9 @@ model Shift {
   createdBy                   Admin?                  @relation("ShiftCreatedBy", fields: [createdById], references: [id])
   lastUpdatedBy               Admin?                  @relation("ShiftLastUpdatedBy", fields: [lastUpdatedById], references: [id])
   attendance                  Attendance?
+  replacedByAdmin             Admin?                  @relation("ShiftReplacedByAdmin", fields: [replacedByAdminId], references: [id], onDelete: SetNull)
+  swapsWithShift              Shift?                  @relation("ShiftSwap", fields: [swapsWithShiftId], references: [id], onDelete: SetNull)
+  swappedWithShifts           Shift[]                 @relation("ShiftSwap")
 
   @@index([siteId])
   @@index([employeeId, startsAt])
@@ -791,6 +801,8 @@ model Shift {
   @@index([escortEndSiteId])
   @@index([deletedAt])
   @@index([groupShiftId])
+  @@index([replacedByAdminId])
+  @@index([swapsWithShiftId])
   @@map("shifts")
 }
 

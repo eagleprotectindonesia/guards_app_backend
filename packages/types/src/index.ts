@@ -286,6 +286,10 @@ export interface Shift {
   departedAt?: string | Date | null;
   arrivedAt?: string | Date | null;
   groupShiftId?: string | null;
+  swapsWithShiftId?: string | null;
+  replacedByAdminId?: string | null;
+  replacementReason?: string | null;
+  replacedAt?: string | Date | null;
   note?: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;

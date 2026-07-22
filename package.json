@@ -34,7 +34,7 @@
     "prettier": "^3.3.3",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
-    "turbo": "^2.10.2",
+    "turbo": "^2.10.5",
     "typescript": "^5"
   }
 }

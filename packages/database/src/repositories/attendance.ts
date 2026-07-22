@@ -170,6 +170,36 @@ export async function getLatestGuardShiftEditChangelogs(shiftIds: string[]) {
   });
 }
 
+export async function getLatestReplacementChangelogs(shiftIds: string[]) {
+  if (shiftIds.length === 0) {
+    return [];
+  }
+
+  const rows = await prisma.changelog.findMany({
+    where: {
+      entityType: 'Shift',
+      action: 'UPDATE',
+      entityId: {
+        in: shiftIds,
+      },
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    include: {
+      admin: {
+        select: {
+          name: true,
+        },
+      },
+    },
+  });
+
+  // Keep only REPLACEMENT entries (method lives in the JSON details payload).
+  return rows.filter(cl => {
+    const details = cl.details as { method?: string } | null;
+    return details?.method === 'REPLACEMENT';
+  });
+}
+
 export async function getEmployeeOnsiteDayOffChangelogsForDates(params: { employeeIds: string[]; dateKeys: string[] }) {
   const { employeeIds, dateKeys } = params;
   if (employeeIds.length === 0 || dateKeys.length === 0) {

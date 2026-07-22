@@ -31,15 +31,17 @@ function getDurationInMins(startTime: string, endTime: string) {
 }
 
 type Props = {
-  shift?: Serialized<Shift>;
+  shift?: Serialized<Shift> & {
+    employee?: { id: string; fullName: string; employeeNumber: string | null } | null;
+  };
   fixedSites: Serialized<Site>[];
   escortEndSites: Serialized<Site>[];
   shiftTypes: Serialized<ShiftType>[];
-  employees: EmployeeSummary[];
+  employees?: EmployeeSummary[];
   hideEscortSites?: boolean;
 };
 
-export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftTypes, employees, hideEscortSites = false }: Props) {
+export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftTypes, employees = [], hideEscortSites = false }: Props) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState<ActionState<CreateShiftInput>, FormData>(
     shift ? updateShift.bind(null, shift.id) : createShift,
@@ -425,34 +427,56 @@ export default function ShiftForm({ shift, fixedSites, escortEndSites, shiftType
           <label htmlFor="employeeId" className="block font-medium text-foreground mb-1">
             Employee
           </label>
-          <Select
-            id="employee-select"
-            instanceId="employee-select"
-            options={employeeOptions}
-            value={employeeOptions.find(opt => opt.value === selectedemployeeId) || null}
-            onChange={option => setSelectedemployeeId(option?.value || '')}
-            placeholder="Unassigned"
-            isClearable={!isReadOnly}
-            isDisabled={isReadOnly}
-            filterOption={(option, inputValue) => {
-              const search = inputValue.toLowerCase();
-              return (
-                option.data.label.toLowerCase().includes(search) ||
-                option.data.employeeNumber.toLowerCase().includes(search)
-              );
-            }}
-            formatOptionLabel={(option, { context }) =>
-              context === 'value' ? (
-                <span>{option.label}</span>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <span>{option.label}</span>
-                  {option.employeeNumber && <span className="text-muted-foreground">({option.employeeNumber})</span>}
-                </div>
-              )
-            }
-          />
-          <input type="hidden" name="employeeId" value={selectedemployeeId} />
+          {shift ? (
+            <div className="space-y-1">
+              <div className="h-10 px-3 rounded-lg border border-border bg-muted/40 text-foreground flex items-center">
+                {shift.employee?.fullName ? (
+                  <span>
+                    {shift.employee.fullName}
+                    {shift.employee.employeeNumber && (
+                      <span className="text-muted-foreground"> ({shift.employee.employeeNumber})</span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground/60 italic">Unassigned</span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Need to change the guard? Use the <span className="font-medium text-foreground">Replace Guard</span> action in the shifts list.
+              </p>
+              <input type="hidden" name="employeeId" value={shift.employeeId || ''} />
+            </div>
+          ) : (
+            <>
+              <Select
+                id="employee-select"
+                instanceId="employee-select"
+                options={employeeOptions}
+                value={employeeOptions.find(opt => opt.value === selectedemployeeId) || null}
+                onChange={option => setSelectedemployeeId(option?.value || '')}
+                placeholder="Select an employee"
+                isClearable={false}
+                filterOption={(option, inputValue) => {
+                  const search = inputValue.toLowerCase();
+                  return (
+                    option.data.label.toLowerCase().includes(search) ||
+                    option.data.employeeNumber.toLowerCase().includes(search)
+                  );
+                }}
+                formatOptionLabel={(option, { context }) =>
+                  context === 'value' ? (
+                    <span>{option.label}</span>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span>{option.label}</span>
+                      {option.employeeNumber && <span className="text-muted-foreground">({option.employeeNumber})</span>}
+                    </div>
+                  )
+                }
+              />
+              <input type="hidden" name="employeeId" value={selectedemployeeId} />
+            </>
+          )}
         </div>
 
         {/* Date Field */}

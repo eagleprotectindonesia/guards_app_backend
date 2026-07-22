@@ -501,6 +501,495 @@ export type TicketPushNotificationResult = {
 };
 
 const TICKET_NOTIFICATION_CHANNEL_ID = 'ticket_updates_v1';
+const SHIFT_NOTIFICATION_CHANNEL_ID = 'shift_updates_v1';
+
+export type ShiftReassignmentPushNotificationReason =
+  | 'firebase_unavailable'
+  | 'no_tokens'
+  | 'sent'
+  | 'send_error';
+
+export type ShiftReassignmentPushNotificationResult = {
+  attempted: boolean;
+  tokenCount: number;
+  successCount: number;
+  failureCount: number;
+  staleTokenCount: number;
+  reason: ShiftReassignmentPushNotificationReason;
+};
+
+export async function sendShiftReassignmentPushNotification(params: {
+  employeeId: string;
+  shiftId: string;
+  siteName: string;
+  shiftTypeName: string;
+  date: Date;
+  startsAt: Date;
+  endsAt: Date;
+  reason: string;
+  kind: 'swap' | 'replace';
+  wasOriginalAssignee: boolean;
+}): Promise<ShiftReassignmentPushNotificationResult> {
+  const { employeeId, shiftId, siteName, shiftTypeName, date, reason, kind, wasOriginalAssignee } =
+    params;
+
+  const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '/'); // YYYY/MM/DD
+  let title: string;
+  let body: string;
+  if (kind === 'swap') {
+    title = 'Shift ditukar';
+    body = `Shift ${siteName} (${shiftTypeName}) pada ${dateStr} telah ditukar. Alasan: ${reason}`;
+  } else if (wasOriginalAssignee) {
+    title = 'Shift Anda diganti';
+    body = `Shift ${siteName} (${shiftTypeName}) pada ${dateStr} telah diganti. Alasan: ${reason}`;
+  } else {
+    title = 'Shift baru ditugaskan';
+    body = `Anda ditugaskan shift ${siteName} (${shiftTypeName}) pada ${dateStr}. Alasan: ${reason}`;
+  }
+
+  if (!firebaseAdmin.apps.length) {
+    console.warn('[FCM] Shift reassignment push skipped: Firebase Admin SDK not initialized', {
+      employeeId,
+      shiftId,
+      kind,
+    });
+    return {
+      attempted: false,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      staleTokenCount: 0,
+      reason: 'firebase_unavailable',
+    };
+  }
+
+  try {
+    const tokensResult = await getEmployeeFcmTokens(employeeId);
+    if (tokensResult.length === 0) {
+      console.info('[FCM] Shift reassignment push skipped: no registered tokens', {
+        employeeId,
+        shiftId,
+        kind,
+      });
+      return {
+        attempted: false,
+        tokenCount: 0,
+        successCount: 0,
+        failureCount: 0,
+        staleTokenCount: 0,
+        reason: 'no_tokens',
+      };
+    }
+
+    const tokenStrings = tokensResult.map(t => t.token);
+    const androidNotification = {
+      title,
+      body,
+      channelId: SHIFT_NOTIFICATION_CHANNEL_ID,
+      sound: 'default',
+    };
+    const message = {
+      notification: { title, body },
+      android: {
+        priority: 'high' as const,
+        notification: androidNotification,
+      },
+      apns: {
+        headers: { 'apns-priority': '10' },
+        payload: {
+          aps: {
+            alert: { title, body },
+            sound: 'default',
+            'content-available': 1,
+          },
+        },
+      },
+      data: {
+        type: 'shift_reassigned',
+        shiftId: String(shiftId),
+        siteName,
+        shiftTypeName,
+        date: date.toISOString().slice(0, 10),
+        kind,
+        wasOriginalAssignee: String(wasOriginalAssignee),
+        targetPath: '/shifts',
+      },
+      webpush: {
+        fcmOptions: {
+          link: `${WEB_APP_URL}/employee/shifts`,
+        },
+      },
+      tokens: tokenStrings,
+    };
+
+    console.info('[FCM] Sending shift reassignment push notification', {
+      employeeId,
+      shiftId,
+      kind,
+      tokenCount: tokenStrings.length,
+    });
+
+    const response = await firebaseAdmin.messaging().sendEachForMulticast(message);
+    console.info('[FCM] Shift reassignment push send result', {
+      employeeId,
+      shiftId,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+    });
+
+    let staleTokenCount = 0;
+    if (response.failureCount > 0) {
+      const failedTokens: string[] = [];
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          const errorCode = resp.error?.code;
+          if (
+            errorCode === 'messaging/invalid-registration-token' ||
+            errorCode === 'messaging/registration-token-not-registered'
+          ) {
+            failedTokens.push(tokenStrings[idx]);
+          }
+        }
+      });
+      if (failedTokens.length > 0) {
+        staleTokenCount = failedTokens.length;
+        await removeStaleFcmTokens(failedTokens);
+        console.warn('[FCM] Removed stale FCM tokens after shift reassignment push', {
+          employeeId,
+          shiftId,
+          staleTokenCount,
+        });
+      }
+    }
+
+    return {
+      attempted: true,
+      tokenCount: tokenStrings.length,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+      staleTokenCount,
+      reason: 'sent',
+    };
+  } catch (error) {
+    console.error(`[FCM] Error sending shift reassignment push to employee ${employeeId}:`, error);
+    return {
+      attempted: true,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      staleTokenCount: 0,
+      reason: 'send_error',
+    };
+  }
+}
+
+export type BulkShiftSwapAggregatePushInput = {
+  employeeId: string;
+  shifts: Array<{
+    id: string;
+    siteName: string;
+    shiftTypeName: string;
+    date: Date;
+    startsAt: Date;
+    endsAt: Date;
+    method: 'SWAP' | 'REPLACEMENT';
+  }>;
+  rangeFrom: Date;
+  rangeTo: Date;
+  partnerFullName: string;
+  reason: string;
+};
+
+export async function sendBulkShiftSwapAggregatePushNotification(
+  params: BulkShiftSwapAggregatePushInput
+): Promise<ShiftReassignmentPushNotificationResult> {
+  const { employeeId, shifts, rangeFrom, rangeTo, partnerFullName, reason } = params;
+
+  const fmt = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '/');
+  const count = shifts.length;
+  const uniqueSites = Array.from(new Set(shifts.map(s => s.siteName)));
+  const siteSummary =
+    uniqueSites.length <= 3
+      ? uniqueSites.join(', ')
+      : `${uniqueSites.slice(0, 3).join(', ')} +${uniqueSites.length - 3} lainnya`;
+
+  const title = 'Jadwal shift Anda berubah';
+  const body = `${count} shift di ${siteSummary} pada ${fmt(rangeFrom)}–${fmt(rangeTo)} ditukar dengan ${partnerFullName}. Alasan: ${reason}`;
+  const dataShiftIds = JSON.stringify(shifts.map(s => s.id));
+
+  if (!firebaseAdmin.apps.length) {
+    console.warn('[FCM] Bulk shift swap push skipped: Firebase Admin SDK not initialized', { employeeId });
+    return {
+      attempted: false,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      staleTokenCount: 0,
+      reason: 'firebase_unavailable',
+    };
+  }
+
+  try {
+    const tokensResult = await getEmployeeFcmTokens(employeeId);
+    if (tokensResult.length === 0) {
+      console.info('[FCM] Bulk shift swap push skipped: no registered tokens', { employeeId });
+      return {
+        attempted: false,
+        tokenCount: 0,
+        successCount: 0,
+        failureCount: 0,
+        staleTokenCount: 0,
+        reason: 'no_tokens',
+      };
+    }
+
+    const tokenStrings = tokensResult.map(t => t.token);
+    const message = {
+      notification: { title, body },
+      android: {
+        priority: 'high' as const,
+        notification: {
+          title,
+          body,
+          channelId: SHIFT_NOTIFICATION_CHANNEL_ID,
+          sound: 'default',
+        },
+      },
+      apns: {
+        headers: { 'apns-priority': '10' },
+        payload: {
+          aps: {
+            alert: { title, body },
+            sound: 'default',
+            'content-available': 1,
+          },
+        },
+      },
+      data: {
+        type: 'bulk_shift_swap',
+        shiftIds: dataShiftIds,
+        from: fmt(rangeFrom),
+        to: fmt(rangeTo),
+        siteName: siteSummary,
+        kind: 'swap',
+        targetPath: '/shifts',
+      },
+      webpush: {
+        fcmOptions: {
+          link: `${WEB_APP_URL}/employee/shifts`,
+        },
+      },
+      tokens: tokenStrings,
+    };
+
+    console.info('[FCM] Sending bulk shift swap push', {
+      employeeId,
+      shiftCount: count,
+      tokenCount: tokenStrings.length,
+    });
+
+    const response = await firebaseAdmin.messaging().sendEachForMulticast(message);
+    console.info('[FCM] Bulk shift swap push result', {
+      employeeId,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+    });
+
+    let staleTokenCount = 0;
+    if (response.failureCount > 0) {
+      const failedTokens: string[] = [];
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          const errorCode = resp.error?.code;
+          if (
+            errorCode === 'messaging/invalid-registration-token' ||
+            errorCode === 'messaging/registration-token-not-registered'
+          ) {
+            failedTokens.push(tokenStrings[idx]);
+          }
+        }
+      });
+      if (failedTokens.length > 0) {
+        staleTokenCount = failedTokens.length;
+        await removeStaleFcmTokens(failedTokens);
+      }
+    }
+
+    return {
+      attempted: true,
+      tokenCount: tokenStrings.length,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+      staleTokenCount,
+      reason: 'sent',
+    };
+  } catch (error) {
+    console.error(`[FCM] Error sending bulk shift swap push to employee ${employeeId}:`, error);
+    return {
+      attempted: true,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      staleTokenCount: 0,
+      reason: 'send_error',
+    };
+  }
+}
+
+export async function sendBulkReplacePushNotification(
+  params: {
+    employeeId: string;
+    shifts: Array<{
+      id: string;
+      siteName: string;
+      shiftTypeName: string;
+      date: Date;
+      startsAt: Date;
+      endsAt: Date;
+      method: 'SWAP' | 'REPLACEMENT';
+    }>;
+    rangeFrom: Date;
+    rangeTo: Date;
+    partnerFullName: string;
+    reason: string;
+    isSource: boolean;
+  }
+): Promise<ShiftReassignmentPushNotificationResult> {
+  const { employeeId, shifts, rangeFrom, rangeTo, partnerFullName, reason, isSource } = params;
+
+  const fmt = (d: Date) => d.toISOString().slice(0, 10).replace(/-/g, '/');
+  const count = shifts.length;
+  const uniqueSites = Array.from(new Set(shifts.map(s => s.siteName)));
+  const siteSummary =
+    uniqueSites.length <= 3
+      ? uniqueSites.join(', ')
+      : `${uniqueSites.slice(0, 3).join(', ')} +${uniqueSites.length - 3} lainnya`;
+
+  const title = isSource ? 'Shift Anda dialihkan' : 'Shift baru ditugaskan';
+  const body = isSource
+    ? `${count} shift di ${siteSummary} pada ${fmt(rangeFrom)}–${fmt(rangeTo)} telah dialihkan ke ${partnerFullName}. Alasan: ${reason}`
+    : `Anda ditugaskan ${count} shift di ${siteSummary} pada ${fmt(rangeFrom)}–${fmt(rangeTo)} dari ${partnerFullName}. Alasan: ${reason}`;
+  const dataShiftIds = JSON.stringify(shifts.map(s => s.id));
+
+  if (!firebaseAdmin.apps.length) {
+    console.warn('[FCM] Bulk replace push skipped: Firebase Admin SDK not initialized', { employeeId });
+    return {
+      attempted: false,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      staleTokenCount: 0,
+      reason: 'firebase_unavailable',
+    };
+  }
+
+  try {
+    const tokensResult = await getEmployeeFcmTokens(employeeId);
+    if (tokensResult.length === 0) {
+      console.info('[FCM] Bulk replace push skipped: no registered tokens', { employeeId });
+      return {
+        attempted: false,
+        tokenCount: 0,
+        successCount: 0,
+        failureCount: 0,
+        staleTokenCount: 0,
+        reason: 'no_tokens',
+      };
+    }
+
+    const tokenStrings = tokensResult.map(t => t.token);
+    const message = {
+      notification: { title, body },
+      android: {
+        priority: 'high' as const,
+        notification: {
+          title,
+          body,
+          channelId: SHIFT_NOTIFICATION_CHANNEL_ID,
+          sound: 'default',
+        },
+      },
+      apns: {
+        headers: { 'apns-priority': '10' },
+        payload: {
+          aps: {
+            alert: { title, body },
+            sound: 'default',
+            'content-available': 1,
+          },
+        },
+      },
+      data: {
+        type: 'bulk_shift_replace',
+        shiftIds: dataShiftIds,
+        from: fmt(rangeFrom),
+        to: fmt(rangeTo),
+        siteName: siteSummary,
+        kind: isSource ? 'unassigned' : 'assigned',
+        targetPath: '/shifts',
+      },
+      webpush: {
+        fcmOptions: {
+          link: `${WEB_APP_URL}/employee/shifts`,
+        },
+      },
+      tokens: tokenStrings,
+    };
+
+    console.info('[FCM] Sending bulk replace push', {
+      employeeId,
+      shiftCount: count,
+      tokenCount: tokenStrings.length,
+      isSource,
+    });
+
+    const response = await firebaseAdmin.messaging().sendEachForMulticast(message);
+    console.info('[FCM] Bulk replace push result', {
+      employeeId,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+    });
+
+    let staleTokenCount = 0;
+    if (response.failureCount > 0) {
+      const failedTokens: string[] = [];
+      response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          const errorCode = resp.error?.code;
+          if (
+            errorCode === 'messaging/invalid-registration-token' ||
+            errorCode === 'messaging/registration-token-not-registered'
+          ) {
+            failedTokens.push(tokenStrings[idx]);
+          }
+        }
+      });
+      if (failedTokens.length > 0) {
+        staleTokenCount = failedTokens.length;
+        await removeStaleFcmTokens(failedTokens);
+      }
+    }
+
+    return {
+      attempted: true,
+      tokenCount: tokenStrings.length,
+      successCount: response.successCount,
+      failureCount: response.failureCount,
+      staleTokenCount,
+      reason: 'sent',
+    };
+  } catch (error) {
+    console.error(`[FCM] Error sending bulk replace push to employee ${employeeId}:`, error);
+    return {
+      attempted: true,
+      tokenCount: 0,
+      successCount: 0,
+      failureCount: 0,
+      staleTokenCount: 0,
+      reason: 'send_error',
+    };
+  }
+}
 
 export async function sendTicketCreatedPushNotification(params: {
   employeeId: string;

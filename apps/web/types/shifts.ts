@@ -9,6 +9,13 @@ export type ShiftWithRelationsDto = Shift & {
   attendance: Attendance | null;
   createdBy?: { name: string } | null;
   lastUpdatedBy?: { name: string } | null;
+  swapsWithShift?: { id: string; employee: EmployeeSummary | null } | null;
+  replacedByAdmin?: { name: string } | null;
+  latestSwapReplacement?: {
+    method: 'SWAP' | 'REPLACEMENT';
+    previousEmployeeName: string | null;
+    replacementReason?: string | null;
+  } | null;
 };
 
 export type SerializedShiftWithRelationsDto = Serialized<ShiftWithRelationsDto>;

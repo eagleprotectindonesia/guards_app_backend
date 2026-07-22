@@ -18,6 +18,7 @@ import { useCustomToast } from '../../../src/hooks/useCustomToast';
 import { reserveChatDraft, uploadToS3 } from '../../../src/api/upload';
 import { isVideoFile, isPdfFile } from '../../../src/utils/file';
 import { optimizeImage } from '../../../src/utils/imageOptimization';
+import { captureException } from '../../../src/utils/sentry';
 import { useActiveShift } from '../../../src/hooks/useActiveShift';
 import { ChatListItem, ChatListItemData } from '../../../src/components/chat/ChatListItem';
 import { ChatHeader } from '../../../src/components/chat/ChatHeader';
@@ -282,7 +283,8 @@ export default function ChatScreen() {
           const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
           latitude = loc.coords.latitude;
           longitude = loc.coords.longitude;
-        } catch {
+        } catch (locError) {
+          captureException(locError, { tags: { context: 'chat_send_location' } });
           setPendingEntries(prev => prev.map(e => e.clientId === clientId ? { ...e, status: 'failed' } : e));
           toast.error(
             t('chat.location_unavailable', 'Location unavailable'),
@@ -350,10 +352,12 @@ export default function ChatScreen() {
         }
       } else {
         setPendingEntries(prev => prev.map(e => e.clientId === clientId ? { ...e, status: 'failed' } : e));
+        captureException(new Error(ack.error || 'Send rejected'), { tags: { context: 'chat_send_rejected' } });
         toast.error(t('chat.send_error'), ack.error || t('chat.send_error_desc'));
       }
     } catch (error) {
       console.error('Error sending message:', error);
+      captureException(error, { tags: { context: 'chat_send' } });
       setPendingEntries(prev => prev.map(e => e.clientId === clientId ? { ...e, status: 'failed' } : e));
       toast.error(t('chat.send_error'), t('chat.send_error_desc'));
     } finally {
