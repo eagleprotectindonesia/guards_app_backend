@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Find the token in DB
+    // Multi-use: find the token and check validity without consuming it
     const storedToken = await prisma.refreshToken.findUnique({
       where: { token: hashedToken },
       include: { employee: true },
@@ -44,23 +44,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Invalid token' }, { status: 401 });
     }
 
-    // Check expiry
-    if (storedToken.expiresAt < new Date()) {
-      await recordBiometricFailure({ tokenHash: hashedToken, ip });
-      return NextResponse.json({ message: 'Token expired' }, { status: 401 });
-    }
-
-    // Check revocation
     if (storedToken.revokedAt) {
       await recordBiometricFailure({ tokenHash: hashedToken, ip });
       return NextResponse.json({ message: 'Token revoked' }, { status: 401 });
     }
 
-    // Consume the token (single-use) before issuing a session to prevent replay
-    await prisma.refreshToken.update({
-      where: { token: hashedToken },
-      data: { revokedAt: new Date() },
-    });
+    if (storedToken.expiresAt < new Date()) {
+      await recordBiometricFailure({ tokenHash: hashedToken, ip });
+      return NextResponse.json({ message: 'Token expired' }, { status: 401 });
+    }
 
     const employee = storedToken.employee;
 

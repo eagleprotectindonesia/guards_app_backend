@@ -81,7 +81,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Kredensial tidak valid' }, { status: 401 });
     }
 
-    await clearLoginFailures({ accountKey: normalizedEmployeeNumber, ip });
+    await clearLoginFailures({ accountKey: normalizedEmployeeNumber });
 
     // Detect client type
     const headersList = await headers();

@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       });
     }
 
-    await clearLoginFailures({ accountKey, ip });
+    await clearLoginFailures({ accountKey });
 
     // Check if 2FA is enabled
     if (admin.twoFactorEnabled) {

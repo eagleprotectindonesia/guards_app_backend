@@ -153,10 +153,8 @@ export async function recordLoginFailure(opts: { accountKey: string; ip: string 
   ]);
 }
 
-export async function clearLoginFailures(opts: { accountKey: string; ip: string }): Promise<void> {
-  await Promise.all([
-    delWithFail(`login:fail:${opts.accountKey}`, `login:ip:${opts.ip}`),
-  ]);
+export async function clearLoginFailures(opts: { accountKey: string }): Promise<void> {
+  await delWithFail(`login:fail:${opts.accountKey}`);
 }
 
 // --- 2FA (TOTP) attempt counter ----------------------------------------------

@@ -150,9 +150,10 @@ describe('recordLoginFailure', () => {
 });
 
 describe('clearLoginFailures', () => {
-  it('deletes both counters', async () => {
-    await clearLoginFailures({ accountKey: 'emp001', ip: '1.2.3.4' });
-    expect(mockDel).toHaveBeenCalledWith('login:fail:emp001', 'login:ip:1.2.3.4');
+  it('only deletes the account counter, not the shared IP counter', async () => {
+    await clearLoginFailures({ accountKey: 'emp001' });
+    expect(mockDel).toHaveBeenCalledTimes(1);
+    expect(mockDel).toHaveBeenCalledWith('login:fail:emp001');
   });
 });
 
